@@ -1,0 +1,30 @@
+{
+  "name": "remotion-ssr-project",
+  "version": "1.0.0",
+  "description": "Remotion Server-Side Rendering Project",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "render": "node render.js",
+    "test": "node test-api.js"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.278",
+    "@remotion/renderer": "4.0.278",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "4.0.278"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^4.9.0"
+  }
+}
