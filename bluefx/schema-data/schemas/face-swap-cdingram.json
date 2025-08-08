@@ -1,0 +1,242 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Replicate face-swap Model",
+    "version": "1.0.0",
+    "description": "Image to image face swapping using cdingram/face-swap model. Swaps faces between two input images with high-quality results."
+  },
+  "servers": [
+    {
+      "url": "https://api.replicate.com/v1"
+    }
+  ],
+  "paths": {
+    "/predictions": {
+      "post": {
+        "operationId": "create_prediction",
+        "summary": "Create a new prediction for face-swap",
+        "description": "Perform face swapping between two input images",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["version", "input"],
+                "properties": {
+                  "version": {
+                    "type": "string",
+                    "description": "Model version ID",
+                    "default": "d1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111"
+                  },
+                  "input": {
+                    "type": "object",
+                    "required": ["input_image", "swap_image"],
+                    "properties": {
+                      "input_image": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Target image where face will be swapped (URL or base64 data URI)"
+                      },
+                      "swap_image": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Image containing the face to be swapped in (URL or base64 data URI)"
+                      }
+                    }
+                  },
+                  "webhook": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Optional webhook URL to receive prediction results"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prediction created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input parameters"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API token"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}": {
+      "get": {
+        "operationId": "get_prediction",
+        "summary": "Get prediction status and results",
+        "description": "Retrieve the current status and output of a face swap prediction",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction to retrieve"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prediction not found"
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}/cancel": {
+      "post": {
+        "operationId": "cancel_prediction",
+        "summary": "Cancel a running prediction",
+        "description": "Cancel a face swap prediction that is currently running",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction to cancel"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prediction not found"
+          },
+          "409": {
+            "description": "Prediction cannot be cancelled"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Prediction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the prediction"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["starting", "processing", "succeeded", "failed", "canceled"],
+            "description": "Current status of the prediction"
+          },
+          "version": {
+            "type": "string",
+            "description": "Model version used for this prediction"
+          },
+          "input": {
+            "type": "object",
+            "description": "Input parameters used for the prediction"
+          },
+          "output": {
+            "type": "string",
+            "format": "uri",
+            "description": "Generated face-swapped image URL (when prediction succeeds)"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if prediction failed"
+          },
+          "logs": {
+            "type": "string",
+            "description": "Execution logs"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction was created"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction started processing"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction completed"
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "predict_time": {
+                "type": "number",
+                "description": "Time taken for prediction in seconds"
+              }
+            }
+          },
+          "urls": {
+            "type": "object",
+            "properties": {
+              "get": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to retrieve this prediction"
+              },
+              "cancel": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to cancel this prediction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "API token in format 'Token YOUR_API_TOKEN'"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}

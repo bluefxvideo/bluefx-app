@@ -1,0 +1,51 @@
+# Non-deployment folders
+legacy/
+migration/
+static/
+analysis-reports/
+docs/
+playbook-guides/
+playbooks/
+legacy-export-*/
+
+# Development files
+.git/
+.gitignore
+README.md
+*.md
+!bluefx/README.md
+
+# Node modules (will be installed in container)
+node_modules/
+*/node_modules/
+
+# Build artifacts
+.next/
+dist/
+build/
+out/
+
+# Environment files
+.env*
+!.env.example
+
+# Cache
+.cache/
+.turbo/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files
+*.csv
+*.json
+!bluefx/package*.json
+!remotion/package*.json

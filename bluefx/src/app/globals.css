@@ -1,0 +1,352 @@
+@import "tailwindcss";
+
+/* Your existing visual design preserved in shadcn/ui format */
+:root {
+  /* Light mode (fallback) - shadcn/ui format */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 210 100% 50%; /* Blue for light mode */
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 50%;
+  --accent: 240 4.8% 96%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 10% 3.9%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* BlueFX deep blue-gray theme for 60+ demographic */
+  --background: 220 24% 10%;        /* #1a1d29 - Main backgrounds */
+  --foreground: 210 20% 92%;       /* Clean white-blue text */
+  --card: 220 22% 15%;             /* #252a3a - Secondary backgrounds (cards, panels) */
+  --card-content: 220 18% 18%;      /* #2d3348 - Interactive elements */
+  --card-foreground: 210 20% 92%;  
+  --popover: 220 22% 15%;
+  --popover-foreground: 210 20% 92%;
+  --primary: 214 100% 65%;         /* #4A9EFF - Single consistent blue for all interactive elements */
+  --primary-foreground: 0 0% 98%;
+  --brand: 214 100% 65%;           /* Same as primary for consistency */
+  --brand-foreground: 210 100% 70%; /* Slightly lighter for glow effects */
+  --secondary: 220 18% 18%;        /* #2d3348 - Interactive/hover elements */
+  --secondary-foreground: 210 20% 92%;
+  --muted: 220 22% 15%;            /* #252a3a - Muted backgrounds */
+  --muted-foreground: 220 12% 65%; /* Muted blue-gray text */
+  --accent: 220 18% 18%;           /* #2d3348 - Accent elements */
+  --accent-foreground: 210 20% 92%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 220 15% 25%;           /* #3a4056 - Borders and dividers */
+  --input: 220 18% 18%;            /* #2d3348 - Form inputs */
+  --ring: 210 60% 70%;             /* Focus ring blue */
+}
+
+/* Map to Tailwind v4 format (shadcn/ui way) */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-content: hsl(var(--card-content));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-brand: hsl(var(--brand));
+  --color-brand-foreground: hsl(var(--brand-foreground));
+  --radius: var(--radius);
+  
+  /* Animation utilities */
+  --animate-appear: appear 0.5s ease-out forwards;
+  --animate-appear-zoom: appear-zoom 0.8s ease-out forwards;
+}
+
+/* Connect Tailwind classes to our variables */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  /* Remove all default focus outlines - we use border-based focus */
+  *:focus-visible {
+    outline: none;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-weight: 450; /* Your accessibility enhancement */
+    letter-spacing: 0.01em; /* Your readability improvement */
+  }
+}
+
+/* Scrollbar hover effect for sidebars */
+@property --scrollbar-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+/* Stable scrollbar space - no layout shift */
+.scrollbar-hover {
+  scrollbar-gutter: stable; /* Always reserve space */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: transparent transparent; /* Invisible but space reserved */
+  -ms-overflow-style: scrollbar; /* IE and Edge */
+}
+
+/* Hide scrollbar completely */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.scrollbar-hover::-webkit-scrollbar {
+  width: 8px; /* Always reserve space */
+  height: 8px;
+  background: transparent;
+}
+
+.scrollbar-hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-hover::-webkit-scrollbar-thumb {
+  background: transparent; /* Invisible by default */
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.scrollbar-hover:hover {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent; /* Firefox */
+}
+
+.scrollbar-hover:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3); /* Visible on hover */
+}
+
+.scrollbar-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Enhanced tab scrolling for professional appearance */
+.tab-scroll-container {
+  /* Smooth momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Stable scrollbar gutter */
+  scrollbar-gutter: stable;
+  /* Snap to tabs for better UX */
+  scroll-snap-type: x mandatory;
+}
+
+.tab-scroll-item {
+  scroll-snap-align: center;
+  scroll-snap-stop: normal;
+}
+
+/* Focus ring protection for tab navigation */
+.tab-container {
+  /* Ensures focus rings aren't clipped */
+  padding: 2px;
+  margin: -2px;
+}
+
+/* Enhanced focus visibility for 50-60+ demographic - now handled by component-level border styles */
+
+/* Improved text contrast for aging eyes */
+@media (prefers-contrast: high) {
+  .tab-text {
+    font-weight: 600;
+    text-shadow: 0 0 1px currentColor;
+  }
+}
+
+/* Scale-in animation for dashboard button */
+@keyframes scaleIn {
+  0% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Hero animations */
+@keyframes appear {
+  0% { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes appear-zoom {
+  0% { 
+    opacity: 0; 
+    transform: scale(0.98); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+/* Stable scrollbar gutter to prevent layout shift - removed global application */
+
+/* Force stable scrollbar for all scrollable containers */
+.scrollbar-stable {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+/* Hide scrollbar but keep functionality - overlay style */
+.scrollbar-overlay::-webkit-scrollbar {
+  width: 8px;
+  position: absolute;
+  right: 0;
+}
+
+.scrollbar-overlay::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-overlay::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+
+.scrollbar-overlay::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Enhanced accessibility styles */
+.dark button {
+  font-weight: 500;
+}
+
+/* Thumbnail carousel custom styles */
+.thumbnail-carousel .aspect-video {
+  aspect-ratio: 16 / 9;
+}
+
+/* Hide scrollbar for carousel - keeping it simple */
+
+/* Line clamp utilities for thumbnail cards */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* No-layout-shift overlay scrollbar */
+.scrollbar-overlay-hover {
+  /* Always hide scrollbar by default */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-overlay-hover::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Show overlay scrollbar on hover - no layout shift */
+.scrollbar-overlay-hover:hover {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+.scrollbar-overlay-hover:hover::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  /* Force overlay positioning */
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.scrollbar-overlay-hover:hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-overlay-hover:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+  /* Thin overlay thumb */
+  margin: 0;
+}
+
+.scrollbar-overlay-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* BlueFX Custom Button Gradients - Matching Acme blue theme */
+.btn-gradient-blue {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  border: 1px solid hsl(210 100% 45%);
+}
+
+.btn-gradient-blue:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+}
+
+.dark [class*="card"], .dark [class*="panel"] {
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+
+
+
+/* Better text hierarchy */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600; /* Bolder headings for better hierarchy */
+  letter-spacing: -0.01em; /* Tighter spacing for headings */
+}
+
+/* Enhanced focus states for accessibility */
+/* Global focus rings removed - using component-level border-based focus states */
+
+
+/* Remove conflicting overrides - let @layer base handle it */
+
+/* Platform cards and interactive elements */
+.dark [class*="platform"] [class*="card"],
+.dark [class*="selected"] [class*="platform"] {
+  background-color: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
+}

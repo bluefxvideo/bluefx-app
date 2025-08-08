@@ -1,0 +1,283 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Meta MusicGen",
+    "version": "1.0.0",
+    "description": "Generate music from text description using Meta's MusicGen model"
+  },
+  "servers": [
+    {
+      "url": "https://api.replicate.com/v1",
+      "description": "Replicate API Server"
+    }
+  ],
+  "paths": {
+    "/predictions": {
+      "post": {
+        "operationId": "create_prediction",
+        "summary": "Create a MusicGen prediction",
+        "description": "Generate music from text description using Meta's MusicGen model",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string",
+                    "description": "The version ID of the MusicGen model",
+                    "default": "facebook/musicgen-stereo-melody:6ad9d07e53bf7e1f5ce9f58b11ad5d5fadc0e2e4b48fa35f47f55ff9b9db6de0"
+                  },
+                  "input": {
+                    "$ref": "#/components/schemas/MusicGenInput"
+                  },
+                  "webhook": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "HTTPS URL to receive a POST request with prediction results when prediction completes"
+                  }
+                },
+                "required": ["version", "input"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prediction created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}": {
+      "get": {
+        "operationId": "get_prediction",
+        "summary": "Get prediction status",
+        "description": "Get the current status and results of a MusicGen prediction",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}/cancel": {
+      "post": {
+        "operationId": "cancel_prediction",
+        "summary": "Cancel a prediction",
+        "description": "Cancel a running MusicGen prediction",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction to cancel"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MusicGenInput": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "A description of the music you want to generate.",
+            "example": "A cheerful country song with acoustic guitar"
+          },
+          "duration": {
+            "type": "integer",
+            "default": 8,
+            "minimum": 1,
+            "maximum": 300,
+            "description": "Duration of the generated audio in seconds."
+          },
+          "input_audio": {
+            "type": "string",
+            "format": "uri",
+            "description": "An audio file that will influence the generated music. Leave blank for unconditional generation."
+          },
+          "model_version": {
+            "type": "string",
+            "enum": ["stereo-melody-large", "stereo-large", "melody-large", "large"],
+            "default": "stereo-melody-large",
+            "description": "Model to use for generation"
+          },
+          "continuation": {
+            "type": "boolean",
+            "default": false,
+            "description": "If True, generated music will continue from input_audio. If False, generated music will be influenced by input_audio."
+          },
+          "output_format": {
+            "type": "string",
+            "enum": ["wav", "mp3"],
+            "default": "wav",
+            "description": "Output format for the generated audio"
+          },
+          "normalization_strategy": {
+            "type": "string",
+            "enum": ["loudness", "clip", "peak", "rms"],
+            "default": "loudness",
+            "description": "Strategy for normalizing audio"
+          },
+          "top_k": {
+            "type": "integer",
+            "default": 250,
+            "minimum": 0,
+            "description": "Reduces sampling to the k most likely tokens"
+          },
+          "top_p": {
+            "type": "number",
+            "default": 0.0,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Reduces sampling to tokens with cumulative probability of p. When set to 0, top_k sampling is used."
+          },
+          "temperature": {
+            "type": "number",
+            "default": 1.0,
+            "minimum": 0.0,
+            "maximum": 2.0,
+            "description": "Controls randomness: lower values for more focused, higher values for more random outputs"
+          },
+          "classifier_free_guidance": {
+            "type": "number",
+            "default": 3.0,
+            "minimum": 1.0,
+            "maximum": 10.0,
+            "description": "Higher values follow the prompt more closely"
+          }
+        },
+        "required": ["prompt"]
+      },
+      "Prediction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the prediction"
+          },
+          "version": {
+            "type": "string",
+            "description": "The version of the model used"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["starting", "processing", "succeeded", "failed", "canceled"],
+            "description": "Current status of the prediction"
+          },
+          "input": {
+            "$ref": "#/components/schemas/MusicGenInput"
+          },
+          "output": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to the generated audio file"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message if prediction failed"
+          },
+          "logs": {
+            "type": "string",
+            "description": "Logs from the prediction process"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction was created"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the prediction started processing"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the prediction completed"
+          },
+          "webhook": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Webhook URL for completion notification"
+          },
+          "webhook_events_filter": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of webhook events to filter"
+          }
+        },
+        "required": ["id", "version", "status", "input", "created_at"]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Replicate API token"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

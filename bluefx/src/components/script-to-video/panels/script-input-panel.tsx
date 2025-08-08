@@ -1,0 +1,253 @@
+'use client';
+
+import { useState } from 'react';
+import { Loader2, Film, Zap, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { ScriptToVideoRequest } from '@/actions/tools/script-to-video-orchestrator';
+
+interface ScriptInputPanelProps {
+  onGenerate: (request: ScriptToVideoRequest) => void;
+  isGenerating: boolean;
+  credits: number;
+  error?: string;
+}
+
+export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: ScriptInputPanelProps) {
+  const [scriptText, setScriptText] = useState('');
+  const [videoStyle, setVideoStyle] = useState({
+    tone: 'professional' as const,
+    pacing: 'medium' as const,
+    visual_style: 'dynamic' as const,
+  });
+  const [voiceSettings, setVoiceSettings] = useState({
+    voice_id: 'anna' as const,
+    speed: 'normal' as const,
+    emotion: 'authoritative' as const,
+  });
+  const [quality, setQuality] = useState<'draft' | 'standard' | 'premium'>('standard');
+
+  const handleGenerate = () => {
+    if (!scriptText.trim()) return;
+
+    const request: ScriptToVideoRequest = {
+      script_text: scriptText,
+      video_style: videoStyle,
+      voice_settings: voiceSettings,
+      aspect_ratio: '9:16', // TikTok vertical
+      quality,
+      user_id: 'demo-user',
+    };
+
+    onGenerate(request);
+  };
+
+  const estimatedCredits = Math.ceil(scriptText.length / 50) * 5 + 10;
+
+  return (
+    <>
+      {/* Script Input Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Script Input</CardTitle>
+          <CardDescription>Enter your script for AI-powered video generation</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="script">Your Script</Label>
+            <Textarea
+              id="script"
+              placeholder="Enter your script here... AI will analyze and segment it optimally for TikTok-style videos."
+              value={scriptText}
+              onChange={(e) => setScriptText(e.target.value)}
+              rows={6}
+              className="resize-none"
+            />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{scriptText.length} characters</span>
+              <span>~{Math.ceil(scriptText.length / 100)} segments</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Video Style Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Video Style</CardTitle>
+          <CardDescription>Configure the tone and visual style</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Tone</Label>
+              <Select value={videoStyle.tone} onValueChange={(value: any) => setVideoStyle({...videoStyle, tone: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="casual">Casual</SelectItem>
+                  <SelectItem value="educational">Educational</SelectItem>
+                  <SelectItem value="dramatic">Dramatic</SelectItem>
+                  <SelectItem value="energetic">Energetic</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Pacing</Label>
+              <Select value={videoStyle.pacing} onValueChange={(value: any) => setVideoStyle({...videoStyle, pacing: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="slow">Slow & Steady</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="fast">Fast & Viral</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Visual Style</Label>
+              <Select value={videoStyle.visual_style} onValueChange={(value: any) => setVideoStyle({...videoStyle, visual_style: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="realistic">Realistic</SelectItem>
+                  <SelectItem value="artistic">Artistic</SelectItem>
+                  <SelectItem value="minimal">Minimal</SelectItem>
+                  <SelectItem value="dynamic">Dynamic</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Voice Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Voice Settings</CardTitle>
+          <CardDescription>Choose voice characteristics for narration</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Voice</Label>
+              <Select value={voiceSettings.voice_id} onValueChange={(value: any) => setVoiceSettings({...voiceSettings, voice_id: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="anna">Anna (Female)</SelectItem>
+                  <SelectItem value="eric">Eric (Male)</SelectItem>
+                  <SelectItem value="felix">Felix (Male)</SelectItem>
+                  <SelectItem value="oscar">Oscar (Male)</SelectItem>
+                  <SelectItem value="nina">Nina (Female)</SelectItem>
+                  <SelectItem value="sarah">Sarah (Female)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Speed</Label>
+              <Select value={voiceSettings.speed} onValueChange={(value: any) => setVoiceSettings({...voiceSettings, speed: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="slower">Slower</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="faster">Faster</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Emotion</Label>
+              <Select value={voiceSettings.emotion} onValueChange={(value: any) => setVoiceSettings({...voiceSettings, emotion: value})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="neutral">Neutral</SelectItem>
+                  <SelectItem value="excited">Excited</SelectItem>
+                  <SelectItem value="calm">Calm</SelectItem>
+                  <SelectItem value="authoritative">Authoritative</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quality & Generate */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Generation Settings</CardTitle>
+          <CardDescription>Choose quality level and start generation</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Quality Selection */}
+          <div className="space-y-2">
+            <Label>Quality</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['draft', 'standard', 'premium'] as const).map((q) => (
+                <Button
+                  key={q}
+                  variant={quality === q ? 'default' : 'outline'}
+                  className={`capitalize ${quality === q ? 'bg-blue-500 hover:bg-blue-600 text-white' : ''}`}
+                  onClick={() => setQuality(q)}
+                >
+                  {q}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 rounded-lg">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+
+          {/* Generation Button */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Estimated cost: {estimatedCredits} credits</span>
+              <span className={credits >= estimatedCredits ? 'text-blue-600' : 'text-red-600'}>
+                {credits} available
+              </span>
+            </div>
+            
+            <Button
+              onClick={handleGenerate}
+              disabled={!scriptText.trim() || isGenerating || credits < estimatedCredits}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  AI Generating Video...
+                </>
+              ) : (
+                <>
+                  <Film className="w-4 h-4 mr-2" />
+                  Generate Video
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}

@@ -1,0 +1,67 @@
+{
+  "flux-thumbnails-v2": {
+    "id": "flux-thumbnails-v2",
+    "name": "Replicate flux-thumbnails-v2 Model",
+    "url": "https://replicate.com/justmalhar/flux-thumbnails-v2",
+    "toolCount": 3,
+    "lastUpdated": "2025-07-28T10:00:00.000Z",
+    "description": "Generate thumbnails for Youtube using popular templates and styles",
+    "type": "replicate-model",
+    "owner": "justmalhar",
+    "modelName": "flux-thumbnails-v2"
+  },
+  "face-swap-cdingram": {
+    "id": "face-swap-cdingram",
+    "name": "Replicate face-swap Model",
+    "url": "https://replicate.com/cdingram/face-swap",
+    "toolCount": 3,
+    "lastUpdated": "2025-07-28T12:00:00.000Z",
+    "description": "Image to image face swapping using cdingram/face-swap model",
+    "type": "replicate-model",
+    "owner": "cdingram",
+    "modelName": "face-swap",
+    "versionId": "d1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111"
+  },
+  "openai-api": {
+    "id": "openai-api",
+    "name": "OpenAI API",
+    "url": "https://api.openai.com/v1",
+    "toolCount": 1,
+    "lastUpdated": "2025-07-28T16:00:00.000Z",
+    "description": "OpenAI API for AI-powered content generation, focusing on chat completions for title generation",
+    "type": "openapi-schema"
+  },
+  "supabase-storage-api": {
+    "id": "supabase-storage-api",
+    "name": "Supabase Storage API",
+    "url": "https://supabase.com/docs/reference/storage",
+    "toolCount": 12,
+    "lastUpdated": "2025-07-28T18:00:00.000Z",
+    "description": "Supabase Storage API for managing buckets and objects. Essential for uploading reference images to the 'images' bucket before sending URLs to Replicate models.",
+    "type": "openapi-schema"
+  },
+  "ideogram-v3-turbo": {
+    "id": "ideogram-v3-turbo",
+    "name": "Ideogram V3 Turbo",
+    "url": "https://replicate.com/ideogram-ai/ideogram-v3-turbo",
+    "toolCount": 3,
+    "lastUpdated": "2025-07-29T00:00:00.000Z",
+    "description": "Fastest and cheapest Ideogram v3 model for high-quality logo generation with stunning realism and creative designs",
+    "type": "replicate-model",
+    "owner": "ideogram-ai",
+    "modelName": "ideogram-v3-turbo",
+    "versionId": "f8a8eb2c75d7d86ec58e3b8309cee63acb437fbab2695bc5004acf64d2de61a7"
+  },
+  "meta-musicgen": {
+    "id": "meta-musicgen",
+    "name": "Meta MusicGen",
+    "url": "https://replicate.com/meta/musicgen",
+    "toolCount": 3,
+    "lastUpdated": "2025-07-29T12:00:00.000Z",
+    "description": "Generate music from text description using Meta's MusicGen model with stereo output and melody conditioning",
+    "type": "replicate-model",
+    "owner": "meta",
+    "modelName": "musicgen",
+    "versionId": "facebook/musicgen-stereo-melody:6ad9d07e53bf7e1f5ce9f58b11ad5d5fadc0e2e4b48fa35f47f55ff9b9db6de0"
+  }
+}

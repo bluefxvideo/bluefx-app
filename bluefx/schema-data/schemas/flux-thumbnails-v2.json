@@ -1,0 +1,288 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Replicate flux-thumbnails-v2 Model",
+    "version": "1.0.0",
+    "description": "Generate thumbnails for Youtube using popular templates and styles. Supports Flux image generation with various aspect ratios and style options."
+  },
+  "servers": [
+    {
+      "url": "https://api.replicate.com/v1"
+    }
+  ],
+  "paths": {
+    "/predictions": {
+      "post": {
+        "operationId": "create_prediction",
+        "summary": "Create a new prediction for flux-thumbnails-v2",
+        "description": "Generate YouTube thumbnails using Flux model with customizable templates and styles",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["version", "input"],
+                "properties": {
+                  "version": {
+                    "type": "string",
+                    "description": "Model version ID",
+                    "default": "justmalhar/flux-thumbnails-v2"
+                  },
+                  "input": {
+                    "type": "object",
+                    "required": ["prompt"],
+                    "properties": {
+                      "prompt": {
+                        "type": "string",
+                        "description": "Describes the thumbnail to generate"
+                      },
+                      "aspect_ratio": {
+                        "type": "string",
+                        "enum": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
+                        "default": "1:1",
+                        "description": "Aspect ratio for the generated thumbnail"
+                      },
+                      "num_outputs": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4,
+                        "default": 1,
+                        "description": "Number of images to generate"
+                      },
+                      "guidance_scale": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10,
+                        "default": 3,
+                        "description": "Higher values follow the prompt more closely"
+                      },
+                      "num_inference_steps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 28,
+                        "description": "Number of inference steps for generation"
+                      },
+                      "output_format": {
+                        "type": "string",
+                        "enum": ["webp", "jpg", "png"],
+                        "default": "webp",
+                        "description": "Output image format"
+                      },
+                      "output_quality": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "default": 80,
+                        "description": "Quality of the output image (0-100)"
+                      },
+                      "seed": {
+                        "type": "integer",
+                        "description": "Random seed for reproducible results"
+                      },
+                      "enable_safety_checker": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable safety checker to filter unsafe content"
+                      }
+                    }
+                  },
+                  "webhook": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Optional webhook URL to receive prediction results"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prediction created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input parameters"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API token"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}": {
+      "get": {
+        "operationId": "get_prediction",
+        "summary": "Get prediction status and results",
+        "description": "Retrieve the current status and output of a prediction",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction to retrieve"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prediction not found"
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}/cancel": {
+      "post": {
+        "operationId": "cancel_prediction",
+        "summary": "Cancel a running prediction",
+        "description": "Cancel a prediction that is currently running",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction to cancel"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prediction not found"
+          },
+          "409": {
+            "description": "Prediction cannot be cancelled"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Prediction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the prediction"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["starting", "processing", "succeeded", "failed", "canceled"],
+            "description": "Current status of the prediction"
+          },
+          "version": {
+            "type": "string",
+            "description": "Model version used for this prediction"
+          },
+          "input": {
+            "type": "object",
+            "description": "Input parameters used for the prediction"
+          },
+          "output": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Generated thumbnail URLs (when prediction succeeds)"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if prediction failed"
+          },
+          "logs": {
+            "type": "string",
+            "description": "Execution logs"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction was created"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction started processing"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction completed"
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "predict_time": {
+                "type": "number",
+                "description": "Time taken for prediction in seconds"
+              }
+            }
+          },
+          "urls": {
+            "type": "object",
+            "properties": {
+              "get": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to retrieve this prediction"
+              },
+              "cancel": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to cancel this prediction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "API token in format 'Token YOUR_API_TOKEN'"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}

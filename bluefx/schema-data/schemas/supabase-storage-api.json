@@ -1,0 +1,880 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Supabase Storage API",
+    "version": "1.0.0",
+    "description": "Supabase Storage API for managing buckets and objects. Provides endpoints for uploading, downloading, and managing files in storage buckets."
+  },
+  "servers": [
+    {
+      "url": "https://{project_id}.supabase.co/storage/v1",
+      "description": "Supabase Storage API endpoint",
+      "variables": {
+        "project_id": {
+          "description": "Your Supabase project ID"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/bucket": {
+      "get": {
+        "operationId": "listBuckets",
+        "summary": "List all storage buckets",
+        "description": "Retrieves a list of all storage buckets with their details including ID, name, public status, file size limits, allowed MIME types, owner, and creation/update timestamps.",
+        "responses": {
+          "200": {
+            "description": "List of storage buckets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Bucket"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBucket",
+        "summary": "Create a storage bucket",
+        "description": "Creates a new storage bucket with specified properties including name, public access, file size limits, and allowed MIME types.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBucketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bucket created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBucketResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bucket/{bucketId}": {
+      "get": {
+        "operationId": "getBucket",
+        "summary": "Get bucket details",
+        "description": "Retrieves detailed properties and metadata of a specific storage bucket identified by its ID.",
+        "parameters": [
+          {
+            "name": "bucketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the bucket"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bucket details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bucket"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateBucket",
+        "summary": "Update bucket properties",
+        "description": "Modifies the properties of an existing storage bucket, such as its public access status, file size limit, or allowed MIME types.",
+        "parameters": [
+          {
+            "name": "bucketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the bucket to update"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBucketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bucket updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateBucketResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBucket",
+        "summary": "Delete a storage bucket",
+        "description": "Deletes a specific storage bucket and all its contents. This action is irreversible.",
+        "parameters": [
+          {
+            "name": "bucketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the bucket to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bucket deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteBucketResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bucket/{bucketId}/empty": {
+      "post": {
+        "operationId": "emptyBucket",
+        "summary": "Empty a storage bucket",
+        "description": "Removes all objects from a specified storage bucket. The bucket itself is not deleted, only its contents.",
+        "parameters": [
+          {
+            "name": "bucketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the bucket to empty"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bucket emptied successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyBucketResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/object/{bucketName}/{objectPath}": {
+      "post": {
+        "operationId": "uploadObject",
+        "summary": "Upload a new object",
+        "description": "Uploads a new object to a specified bucket at a given path. If an object already exists at the path, it will be overwritten. This is the primary endpoint for uploading reference images to the 'images' bucket.",
+        "parameters": [
+          {
+            "name": "bucketName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The name of the bucket (e.g., 'images' for reference images)",
+            "example": "images"
+          },
+          {
+            "name": "objectPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The full path for the object within the bucket",
+            "example": "user-uploads/reference-image.jpg"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The file to upload"
+                  }
+                }
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Object uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadObjectResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getObject",
+        "summary": "Retrieve an object",
+        "description": "Downloads an object from the specified bucket and path.",
+        "parameters": [
+          {
+            "name": "bucketName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The name of the bucket"
+          },
+          {
+            "name": "objectPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The full path of the object within the bucket"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object retrieved successfully",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateObject",
+        "summary": "Update an existing object",
+        "description": "Updates an object at an existing path in the specified bucket.",
+        "parameters": [
+          {
+            "name": "bucketName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The name of the bucket"
+          },
+          {
+            "name": "objectPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The full path of the object within the bucket"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The updated file content"
+                  }
+                }
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Object updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateObjectResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteObject",
+        "summary": "Delete an object",
+        "description": "Deletes an object from the specified bucket and path.",
+        "parameters": [
+          {
+            "name": "bucketName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The name of the bucket"
+          },
+          {
+            "name": "objectPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The full path of the object within the bucket"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteObjectResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/object/info/{bucketName}/{objectPath}": {
+      "get": {
+        "operationId": "getObjectInfo",
+        "summary": "Get object information",
+        "description": "Retrieves metadata and information about an object without downloading the actual file content.",
+        "parameters": [
+          {
+            "name": "bucketName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The name of the bucket"
+          },
+          {
+            "name": "objectPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The full path of the object within the bucket"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectInfo"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/object/public/{bucketName}/{objectPath}": {
+      "get": {
+        "operationId": "getPublicObject",
+        "summary": "Retrieve an object from a public bucket",
+        "description": "Downloads an object from a public bucket without authentication.",
+        "parameters": [
+          {
+            "name": "bucketName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The name of the public bucket"
+          },
+          {
+            "name": "objectPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The full path of the object within the bucket"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object retrieved successfully",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/object/info/public/{bucketName}/{objectPath}": {
+      "get": {
+        "operationId": "getPublicObjectInfo",
+        "summary": "Get object info from a public bucket",
+        "description": "Retrieves metadata and information about an object in a public bucket without authentication.",
+        "parameters": [
+          {
+            "name": "bucketName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The name of the public bucket"
+          },
+          {
+            "name": "objectPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The full path of the object within the bucket"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectInfo"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Bearer token authentication using Supabase API key or user JWT"
+      }
+    },
+    "schemas": {
+      "Bucket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the bucket"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the bucket"
+          },
+          "public": {
+            "type": "boolean",
+            "description": "Whether the bucket is publicly accessible"
+          },
+          "file_size_limit": {
+            "type": "integer",
+            "description": "Maximum file size allowed in bytes"
+          },
+          "allowed_mime_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of allowed MIME types for files in the bucket"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Owner of the bucket (user ID)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the bucket was created"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the bucket was last updated"
+          }
+        }
+      },
+      "CreateBucketRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the bucket to create"
+          },
+          "id": {
+            "type": "string",
+            "description": "Optional unique identifier for the bucket"
+          },
+          "public": {
+            "type": "boolean",
+            "description": "Whether the bucket should be publicly accessible",
+            "default": false
+          },
+          "file_size_limit": {
+            "type": "integer",
+            "description": "Maximum file size allowed in bytes"
+          },
+          "allowed_mime_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of allowed MIME types for files in the bucket"
+          }
+        }
+      },
+      "CreateBucketResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the created bucket"
+          }
+        }
+      },
+      "UpdateBucketRequest": {
+        "type": "object",
+        "properties": {
+          "public": {
+            "type": "boolean",
+            "description": "Whether the bucket should be publicly accessible"
+          },
+          "file_size_limit": {
+            "type": "integer",
+            "description": "Maximum file size allowed in bytes"
+          },
+          "allowed_mime_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of allowed MIME types for files in the bucket"
+          }
+        }
+      },
+      "UpdateBucketResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Successfully updated"
+          }
+        }
+      },
+      "DeleteBucketResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Successfully deleted"
+          }
+        }
+      },
+      "EmptyBucketResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Successfully emptied"
+          }
+        }
+      },
+      "UploadObjectResponse": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "string",
+            "description": "Unique identifier of the uploaded object"
+          },
+          "Key": {
+            "type": "string",
+            "description": "Full path of the uploaded object",
+            "example": "images/user-uploads/reference-image.jpg"
+          }
+        }
+      },
+      "UpdateObjectResponse": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "string",
+            "description": "Unique identifier of the updated object"
+          },
+          "Key": {
+            "type": "string",
+            "description": "Full path of the updated object"
+          }
+        }
+      },
+      "DeleteObjectResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Successfully deleted"
+          }
+        }
+      },
+      "ObjectInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the object"
+          },
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the object"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Size of the object in bytes"
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "MIME type of the object"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the object was created"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the object was last updated"
+          },
+          "last_accessed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the object was last accessed"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional metadata associated with the object"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "message": {
+            "type": "string",
+            "description": "Detailed error description"
+          },
+          "statusCode": {
+            "type": "integer",
+            "description": "HTTP status code"
+          }
+        }
+      }
+    }
+  }
+}
