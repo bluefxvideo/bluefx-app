@@ -42,9 +42,9 @@ Thumbs.db
 .cache/
 .turbo/
 
-# Track ONLY bluefx/ and remotion/ folders
+# Track ONLY app/ and remotion/ folders
 /*
-!/bluefx/
+!/app/
 !/remotion/
 !/.gitignore
 !/.dockerignore
@@ -59,7 +59,7 @@ Score*.csv
 # Documentation (non-essential)
 *.md
 !README.md
-!bluefx/README.md
+!app/README.md
 !remotion/README.md
 
-# Deployment focus: bluefx/ and remotion/ only
+# Deployment focus: app/ and remotion/ only

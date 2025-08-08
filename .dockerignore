@@ -47,5 +47,5 @@ Thumbs.db
 # Data files
 *.csv
 *.json
-!bluefx/package*.json
+!app/package*.json
 !remotion/package*.json
