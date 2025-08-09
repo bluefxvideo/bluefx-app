@@ -1,18 +1,19 @@
 'use client';
 
+import { DollarSign, TrendingUp, ExternalLink, Award, Percent, Users, ArrowUp, BarChart3 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DollarSign, TrendingUp, ExternalLink, Award, Percent, Users, ArrowUp, BarChart3, BookOpen } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
-import { getTopOffers, searchOffers, getOfferCategories } from '@/actions/research/top-offers';
-import { toast } from 'sonner';
+import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { TabContentWrapper, TabHeader, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip, CartesianGrid } from 'recharts';
+import { getTopOffers, searchOffers, getOfferCategories } from '@/actions/research/top-offers';
+import { toast } from 'sonner';
 
 interface ClickBankOffer {
   id: string;
@@ -298,42 +299,14 @@ export default function TopOffersPage() {
   };
 
   return (
-    <div className="h-full bg-background overflow-hidden">
-      {/* Main Content Area */}
-      <div className="h-full flex flex-col p-6">
-        {/* Tool Header Card */}
-        <div className="bg-card border border-border rounded-xl p-6 mb-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <DollarSign aria-hidden className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  Top Offers
-                </h2>
-                <p className="text-sm text-zinc-400">
-                  Find high-converting ClickBank affiliate offers
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
-              onClick={() => {
-                console.log("Open tutorial");
-              }}
-            >
-              <BookOpen className="w-4 h-4" />
-              Tutorial
-            </Button>
-          </div>
-        </div>
-
-        {/* Main Content - Two Column Layout */}
-        <div className="flex-1 min-h-0">
-          <StandardToolLayout>
+    <>
+      <StandardToolPage
+        icon={DollarSign}
+        title="Top Offers"
+        description="Find high-converting ClickBank affiliate offers"
+        iconGradient="bg-gradient-to-r from-blue-500 to-cyan-500"
+      >
+        <StandardToolLayout>
           {/* Left Panel - Search & Filters */}
           <TabContentWrapper>
             <TabHeader
@@ -860,9 +833,8 @@ export default function TopOffersPage() {
               )}
             </div>
           </div>
-          </StandardToolLayout>
-        </div>
-      </div>
+        </StandardToolLayout>
+      </StandardToolPage>
       
       {/* Floating Scroll to Top Button */}
       {showScrollTop && (
@@ -878,6 +850,6 @@ export default function TopOffersPage() {
           <ArrowUp className="w-5 h-5" />
         </Button>
       )}
-    </div>
+    </>
   );
 }

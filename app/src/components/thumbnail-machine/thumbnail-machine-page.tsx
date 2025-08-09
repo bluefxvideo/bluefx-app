@@ -2,10 +2,10 @@
 
 import { usePathname } from 'next/navigation';
 import { useRef } from 'react';
-import { Image as ImageIcon, BookOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Image as ImageIcon, Wand2, RotateCcw, FileText, History, UserCheck } from 'lucide-react';
+import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
-import { ThumbnailMachineTabs } from './tabs/thumbnail-machine-tabs';
+import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { useThumbnailMachine } from './hooks/use-thumbnail-machine';
 
@@ -18,7 +18,7 @@ import { HistoryTab } from './tabs/history-tab';
 
 /**
  * Thumbnail Machine - Complete AI-Orchestrated Tool with Tabs
- * Follows standardized Phase 4 two-column Replicate-style layout
+ * Now uses fully standardized layout pattern
  */
 export function ThumbnailMachinePage() {
   const pathname = usePathname();
@@ -31,8 +31,6 @@ export function ThumbnailMachinePage() {
     credits,
     clearResults
   } = useThumbnailMachine();
-
-  // Display name is not required in this header; remove profile query for performance
 
   const handleFocusPrompt = () => {
     promptInputRef.current?.focus();
@@ -48,6 +46,40 @@ export function ThumbnailMachinePage() {
   };
 
   const activeTab = getActiveTab();
+
+  // Define tabs for StandardToolTabs
+  const thumbnailTabs = [
+    {
+      id: 'generate',
+      label: 'Generate',
+      icon: Wand2,
+      path: '/dashboard/thumbnail-machine'
+    },
+    {
+      id: 'face-swap',
+      label: 'Face Swap',
+      icon: UserCheck,
+      path: '/dashboard/thumbnail-machine/face-swap'
+    },
+    {
+      id: 'recreate',
+      label: 'Recreate',
+      icon: RotateCcw,
+      path: '/dashboard/thumbnail-machine/recreate'
+    },
+    {
+      id: 'titles',
+      label: 'Titles',
+      icon: FileText,
+      path: '/dashboard/thumbnail-machine/titles'
+    },
+    {
+      id: 'history',
+      label: 'History',
+      icon: History,
+      path: '/dashboard/thumbnail-machine/history'
+    }
+  ];
 
   // Render appropriate tab content
   const renderTabContent = () => {
@@ -95,63 +127,28 @@ export function ThumbnailMachinePage() {
   };
 
   return (
-    <div className="h-full bg-background overflow-hidden">
-      {/* Main Content Area */}
-      <div className="h-full flex flex-col p-6">
-        {/* Tool Header Card */}
-        <div className="bg-card border border-border rounded-xl p-6 mb-6 flex-shrink-0">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <ImageIcon aria-hidden className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  Thumbnail Machine
-                </h2>
-                <p className="text-sm text-zinc-400">
-                  Create engaging thumbnails with AI
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
-              onClick={() => {
-                console.log("Open tutorial");
-              }}
-            >
-              <BookOpen className="w-4 h-4" />
-              Tutorial
-            </Button>
-          </div>
+    <StandardToolPage
+      icon={ImageIcon}
+      title="Thumbnail Machine"
+      description="Create engaging thumbnails with AI"
+      iconGradient="bg-primary"
+      tabs={<StandardToolTabs tabs={thumbnailTabs} activeTab={activeTab} basePath="/dashboard/thumbnail-machine" />}
+    >
+      <StandardToolLayout>
+        {/* Left Panel - Tab Content */}
+        <div className="h-full">{renderTabContent()}</div>
 
-          {/* Tool-specific Tab Navigation */}
-          <div className="bg-secondary/30 rounded-lg p-1">
-            <ThumbnailMachineTabs activeTab={activeTab} layout="horizontal" />
-          </div>
-        </div>
-
-        {/* Main Content - Two Column Layout */}
-        <div className="flex-1 min-h-0">
-          <StandardToolLayout>
-          {/* Left Panel - Tab Content */}
-          <div className="h-full">{renderTabContent()}</div>
-
-          {/* Right Panel - Contextual Output */}
-          <ContextualOutput
-            activeTab={activeTab}
-            result={result}
-            isGenerating={isGenerating}
-            error={error}
-            onClearResults={clearResults}
-            onFocusPrompt={handleFocusPrompt}
-          />
-          </StandardToolLayout>
-        </div>
-      </div>
-    </div>
+        {/* Right Panel - Contextual Output */}
+        <ContextualOutput
+          activeTab={activeTab}
+          result={result}
+          isGenerating={isGenerating}
+          error={error}
+          onClearResults={clearResults}
+          onFocusPrompt={handleFocusPrompt}
+        />
+      </StandardToolLayout>
+    </StandardToolPage>
   );
 }
 

@@ -1,16 +1,17 @@
 'use client';
 
+import { Search, TrendingUp, BarChart3, Target } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, TrendingUp, BarChart3, DollarSign, Target, ExternalLink, BookOpen } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
-import { getTrendingKeywords, searchKeywords } from '@/actions/research/trending-keywords';
-import { toast } from 'sonner';
+import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { TabContentWrapper, TabHeader, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { getTrendingKeywords, searchKeywords } from '@/actions/research/trending-keywords';
+import { toast } from 'sonner';
 
 interface Keyword {
   id: string;
@@ -107,259 +108,222 @@ export default function TrendingKeywordsPage() {
   };
 
   return (
-    <div className="h-full bg-background overflow-hidden">
-      {/* Main Content Area */}
-      <div className="h-full flex flex-col p-6">
-        {/* Tool Header Card */}
-        <div className="bg-card border border-border rounded-xl p-6 mb-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <Search aria-hidden className="w-5 h-5 text-white" />
-              </div>
+    <StandardToolPage
+      icon={Search}
+      title="Trending Keywords"
+      description="Discover high-performing keywords for better SEO rankings"
+      iconGradient="bg-primary"
+    >
+      <StandardToolLayout>
+        {/* Left Panel - Search & Filters */}
+        <TabContentWrapper>
+          <TabHeader
+            icon={Search}
+            title="Keyword Research"
+            description="Search and filter trending keywords"
+          />
+          
+          <TabBody>
+            {/* Search Input */}
+            <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-semibold text-white">
-                  Trending Keywords
-                </h2>
-                <p className="text-sm text-zinc-400">
-                  Discover high-performing keywords for better SEO rankings
-                </p>
+                <label className="text-sm font-medium mb-2 block">Search Keywords</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    placeholder="Search for keywords or topics..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <Button 
+                onClick={handleSearch} 
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 mt-3"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Search Keywords
+              </Button>
+            </div>
+
+            {/* Filters */}
+            <div className="space-y-4">
+              <h3 className="font-medium">Filters</h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-2 block">Category</label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="technology">Technology</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                      <SelectItem value="lifestyle">Lifestyle</SelectItem>
+                      <SelectItem value="education">Education</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-sm text-muted-foreground mb-2 block">Sort By</label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="search_volume">Search Volume</SelectItem>
+                      <SelectItem value="difficulty_score">Difficulty</SelectItem>
+                      <SelectItem value="cost_per_click">Cost per Click</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
-              onClick={() => {
-                console.log("Open tutorial");
-              }}
-            >
-              <BookOpen className="w-4 h-4" />
-              Tutorial
-            </Button>
-          </div>
-        </div>
 
-        {/* Main Content - Two Column Layout */}
-        <div className="flex-1 min-h-0">
-          <StandardToolLayout>
-          {/* Left Panel - Search & Filters */}
-          <TabContentWrapper>
-            <TabHeader
-              icon={Search}
-              title="Keyword Research"
-              description="Search and filter trending keywords"
-            />
-            
-            <TabBody>
-              {/* Search Input */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Search Keywords</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      placeholder="Search for keywords or topics..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={handleSearch} 
-                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 mt-3"
-                >
-                  <Search className="w-4 h-4 mr-2" />
-                  Search Keywords
-                </Button>
-              </div>
-
-              {/* Filters */}
-              <div className="space-y-4">
-                <h3 className="font-medium">Filters</h3>
-                
-                <div className="space-y-3">
-                    <div>
-                      <label className="text-sm text-muted-foreground mb-2 block">Category</label>
-                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          <SelectItem value="business">Business</SelectItem>
-                          <SelectItem value="technology">Technology</SelectItem>
-                          <SelectItem value="marketing">Marketing</SelectItem>
-                          <SelectItem value="lifestyle">Lifestyle</SelectItem>
-                          <SelectItem value="education">Education</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <label className="text-sm text-muted-foreground mb-2 block">Sort By</label>
-                      <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sort by" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="search_volume">Search Volume</SelectItem>
-                          <SelectItem value="difficulty_score">Difficulty</SelectItem>
-                          <SelectItem value="cost_per_click">Cost per Click</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                </div>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="space-y-4">
-                <h3 className="font-medium">Quick Stats</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Card className="p-3 bg-secondary/30 border-border/50">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-blue-500" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Total</p>
-                        <p className="text-lg font-bold">{keywords.length}</p>
-                      </div>
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-3 bg-secondary/30 border-border/50">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-green-500" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Easy</p>
-                        <p className="text-lg font-bold">
-                          {keywords.filter(k => (k.difficulty_score || 100) <= 30).length}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-            </TabBody>
-
-            <TabFooter>
-              <Button 
-                onClick={loadKeywords} 
-                className="w-full"
-                variant="outline"
-              >
-                Refresh Keywords
-              </Button>
-            </TabFooter>
-          </TabContentWrapper>
-          
-          {/* Right Panel - Results */}
-          <div className="h-full overflow-y-auto scrollbar-hover">
-                <div className="space-y-4">
+            {/* Quick Stats */}
+            <div className="space-y-4">
+              <h3 className="font-medium">Quick Stats</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="p-3 bg-secondary/30 border-border/50">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-blue-500" />
-                    <h2 className="text-lg font-semibold">Keyword Results</h2>
-                    <Badge variant="outline">{keywords.length} found</Badge>
-                  </div>
-                  
-                  {isLoading ? (
-                    <div className="space-y-4">
-                      {[...Array(8)].map((_, i) => (
-                        <Card key={i} className="p-4 animate-pulse">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
-                          <div className="flex gap-2">
-                            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                          </div>
-                        </Card>
-                      ))}
+                    <BarChart3 className="w-4 h-4 text-blue-500" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-lg font-bold">{keywords.length}</p>
                     </div>
-                  ) : keywords.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No Keywords Found</h3>
-                      <p className="text-muted-foreground">
-                        Search for keywords to start your research
+                  </div>
+                </Card>
+                
+                <Card className="p-3 bg-secondary/30 border-border/50">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-green-500" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Easy</p>
+                      <p className="text-lg font-bold">
+                        {keywords.filter(k => (k.difficulty_score || 100) <= 30).length}
                       </p>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {keywords.map((keyword) => (
-                        <Card key={keyword.id} className="p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800/40">
-                          <div className="space-y-3">
-                            {/* Keyword Header */}
-                            <div className="flex items-start justify-between">
-                              <h3 className="font-semibold">{keyword.keyword}</h3>
-                              <Badge 
-                                className={`${getDifficultyColor(keyword.difficulty_score)} text-white text-xs`}
-                              >
-                                {getDifficultyLabel(keyword.difficulty_score)}
-                              </Badge>
-                            </div>
-                            
-                            {/* Metrics Grid */}
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div className="flex items-center gap-1">
-                                <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-muted-foreground">Volume:</span>
-                                <span className="font-medium">{formatSearchVolume(keyword.search_volume)}</span>
-                              </div>
-                              
-                              <div className="flex items-center gap-1">
-                                <DollarSign className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-muted-foreground">CPC:</span>
-                                <span className="font-medium">
-                                  {keyword.cost_per_click ? `$${keyword.cost_per_click.toFixed(2)}` : 'N/A'}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center gap-1">
-                                <Target className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-muted-foreground">Rank:</span>
-                                <span className="font-medium">
-                                  {keyword.current_rank || 'Unranked'}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted-foreground">Target:</span>
-                                <span className="font-medium">
-                                  {keyword.target_rank || 'Not set'}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            {/* Category & Actions */}
-                            <div className="flex items-center justify-between">
-                              {keyword.category && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {keyword.category}
-                                </Badge>
-                              )}
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="sm">
-                                  Track
-                                </Button>
-                                {keyword.target_page_url && (
-                                  <Button variant="outline" size="sm">
-                                    <ExternalLink className="w-4 h-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  </div>
+                </Card>
               </div>
-          </StandardToolLayout>
+            </div>
+          </TabBody>
+
+          <TabFooter>
+            <Button 
+              onClick={loadKeywords} 
+              className="w-full"
+              variant="outline"
+            >
+              Refresh Keywords
+            </Button>
+          </TabFooter>
+        </TabContentWrapper>
+        
+        {/* Right Panel - Results */}
+        <div className="h-full overflow-y-auto scrollbar-hover">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-500" />
+              <h2 className="text-lg font-semibold">Keyword Results</h2>
+              <Badge variant="outline">{keywords.length} found</Badge>
+            </div>
+            
+            {isLoading ? (
+              <div className="space-y-4">
+                {[...Array(8)].map((_, i) => (
+                  <Card key={i} className="p-4 animate-pulse">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+                    <div className="flex gap-2">
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : keywords.length === 0 ? (
+              <div className="text-center py-12">
+                <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Keywords Found</h3>
+                <p className="text-muted-foreground">
+                  Search for keywords to start your research
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {keywords.map((keyword) => (
+                  <Card key={keyword.id} className="p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800/40">
+                    <div className="space-y-3">
+                      {/* Keyword Header */}
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold">{keyword.keyword}</h3>
+                        <Badge 
+                          className={`${getDifficultyColor(keyword.difficulty_score)} text-white text-xs`}
+                        >
+                          {getDifficultyLabel(keyword.difficulty_score)}
+                        </Badge>
+                      </div>
+                      
+                      {/* Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-1">
+                          <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Volume:</span>
+                          <span className="font-medium">{formatSearchVolume(keyword.search_volume)}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">CPC:</span>
+                          <span className="font-medium">
+                            {keyword.cost_per_click ? `$${keyword.cost_per_click.toFixed(2)}` : 'N/A'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          <Target className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Rank:</span>
+                          <span className="font-medium">
+                            {keyword.current_rank || 'Unranked'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">Target:</span>
+                          <span className="font-medium">
+                            {keyword.target_rank || 'Not set'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Category & Actions */}
+                      <div className="flex items-center justify-between">
+                        {keyword.category && (
+                          <Badge variant="secondary" className="text-xs">
+                            {keyword.category}
+                          </Badge>
+                        )}
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">
+                            Track
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      </StandardToolLayout>
+    </StandardToolPage>
   );
 }
