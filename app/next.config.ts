@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
     position: 'bottom-right',
   },
   output: 'standalone',
+  images: {
+    domains: ['trjkxgkbkyzthrgkbwfe.supabase.co', 'images.unsplash.com'],
+  },
 };
 
 export default nextConfig;
