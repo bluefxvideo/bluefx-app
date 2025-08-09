@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useRef } from 'react';
 import { Image as ImageIcon, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ThumbnailMachineLayout } from './thumbnail-machine-layout';
+import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { ThumbnailMachineTabs } from './tabs/thumbnail-machine-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { useThumbnailMachine } from './hooks/use-thumbnail-machine';
@@ -134,7 +134,7 @@ export function ThumbnailMachinePage() {
         </div>
 
         {/* Main Content - Two Column Layout */}
-        <ThumbnailMachineLayout>
+        <StandardToolLayout>
           {/* Left Panel - Tab Content */}
           <div className="h-full">{renderTabContent()}</div>
 
@@ -147,7 +147,7 @@ export function ThumbnailMachinePage() {
             onClearResults={clearResults}
             onFocusPrompt={handleFocusPrompt}
           />
-        </ThumbnailMachineLayout>
+        </StandardToolLayout>
       </div>
     </div>
   );

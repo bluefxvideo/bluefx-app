@@ -2,14 +2,10 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Wand2, Sparkles, Image as ImageIcon } from 'lucide-react';
-import { TabFooter } from '@/components/tools/tab-content-wrapper';
-import { Card } from '@/components/ui/card';
+import { Wand2, Image as ImageIcon } from 'lucide-react';
+import { TabContentWrapper, TabHeader, TabBody, TabFooter, TabError } from '@/components/tools/tab-content-wrapper';
 import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
 import { PromptSection } from '../input-panel/prompt-section';
-// Using custom structured layout in this tab; tab wrapper primitives not used here
 
 interface GeneratorTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => void;
@@ -31,6 +27,7 @@ export function GeneratorTab({
 }: GeneratorTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
+    selectedStyle: 'clickbait' as 'clickbait' | 'professional' | 'minimal',
     num_outputs: 4,
     aspect_ratio: '16:9' as '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3',
     reference_image: null as File | null,
@@ -39,11 +36,70 @@ export function GeneratorTab({
     output_quality: 85,
   });
 
+  // Thumbnail styles from legacy implementation
+  const thumbnailStyles = {
+    clickbait: {
+      name: "Clickbait",
+      description: "Eye-catching and attention-grabbing design",
+      subtitle: "Perfect for viral content • Average CTR: 8-15%",
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+      gradient: "from-red-500 to-orange-500",
+      systemPrompt: `Create an attention-grabbing, clickbait-style thumbnail that demands attention. Focus on:
+- Bold, vibrant colors (reds, oranges, yellows)
+- Dramatic lighting and high contrast
+- Exaggerated expressions or reactions
+- High energy and dynamic composition
+- Large, bold text overlay potential`,
+    },
+    professional: {
+      name: "Professional",
+      description: "Clean, corporate, and trustworthy design",
+      subtitle: "Builds authority and trust • Average CTR: 5-8%",
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      ),
+      gradient: "from-blue-500 to-indigo-500",
+      systemPrompt: `Create a professional and polished thumbnail that exudes credibility and expertise. Focus on:
+- Clean, minimalist composition
+- Professional color schemes (blues, grays, whites)
+- High-quality, corporate-friendly imagery
+- Clear typography space
+- Balanced and structured layout`,
+    },
+    minimal: {
+      name: "Minimal",
+      description: "Simple, elegant, and modern design",
+      subtitle: "Clean and focused • Average CTR: 4-7%",
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      ),
+      gradient: "from-gray-500 to-slate-500",
+      systemPrompt: `Create a minimalist and elegant thumbnail that emphasizes simplicity. Focus on:
+- Generous white space
+- Limited color palette (2-3 colors max)
+- Simple geometric shapes
+- Essential elements only
+- Subtle typography space`,
+    },
+  };
+
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
     
+    // Enhance prompt with selected style
+    const selectedStyleConfig = thumbnailStyles[formData.selectedStyle];
+    const enhancedPrompt = `${selectedStyleConfig.systemPrompt}\n\nUser's request: ${formData.prompt}`;
+    
     onGenerate({
-      prompt: formData.prompt,
+      prompt: enhancedPrompt,
       num_outputs: formData.num_outputs,
       aspect_ratio: formData.aspect_ratio,
       reference_image: formData.reference_image || undefined,
@@ -54,166 +110,88 @@ export function GeneratorTab({
     });
   };
 
+  const handleStyleSelect = (style: 'clickbait' | 'professional' | 'minimal') => {
+    setFormData(prev => ({ ...prev, selectedStyle: style }));
+  };
+
   const estimatedCredits = formData.num_outputs * 2;
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* Scrollable Form Content */}
-      <div className="flex-1 overflow-y-auto pr-2 space-y-8 pb-48 scrollbar-hover">
-        {/* Error Display with enhanced styling */}
-        {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl backdrop-blur-sm">
-            <p className="text-red-400 text-sm font-medium">{error}</p>
-          </div>
-        )}
+    <TabContentWrapper>
+      {/* Error Display */}
+      {error && <TabError error={error} />}
+      
+      {/* Header */}
+      <TabHeader
+        icon={ImageIcon}
+        title="Generate Thumbnails"
+        description="Create engaging thumbnails with AI-powered design"
+      />
 
-        {/* Step 1: Describe Your Thumbnail - Enhanced */}
-        <div className="group space-y-5">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center transition-all duration-300">
-                <span className="text-white text-sm font-bold">1</span>
-              </div>
-              {/* Animated ring on hover */}
+      {/* Form Content */}
+      <TabBody>
+        {/* Step 1: Choose Your Style */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm font-bold">1</span>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white mb-1 tracking-tight">Describe Your Vision</h3>
-              <p className="text-zinc-400 font-medium">Tell us what you want to create</p>
+              <h3 className="text-lg font-semibold">Choose Your Style</h3>
+              <p className="text-sm text-muted-foreground">Select the style that best fits your content goals</p>
             </div>
           </div>
           
-          <div className="relative">
-            <PromptSection
-              value={formData.prompt}
-              onChange={(prompt) => setFormData((prev) => ({ ...prev, prompt }))}
-              ref={promptInputRef}
-            />
+          <div className="grid grid-cols-3 gap-3">
+            {Object.entries(thumbnailStyles).map(([key, style]) => (
+              <button
+                key={key}
+                onClick={() => handleStyleSelect(key as 'clickbait' | 'professional' | 'minimal')}
+                className={`relative flex flex-col items-center p-3 rounded-lg border-2 transition-all duration-200 ${
+                  formData.selectedStyle === key
+                    ? "border-primary bg-primary/10"
+                    : "border-border/50 hover:border-border"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-r ${style.gradient} flex items-center justify-center text-white mb-2`}>
+                  {style.icon}
+                </div>
+                <div className="text-sm font-medium text-center">
+                  {style.name}
+                </div>
+                {formData.selectedStyle === key && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                    </svg>
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Step 2: Style Reference - Enhanced */}
-        <div className="group space-y-5">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center transition-all duration-300">
-                <span className="text-white text-sm font-bold">2</span>
-              </div>
+        {/* Step 2: Describe Your Vision */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm font-bold">2</span>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white mb-1 tracking-tight">Style Reference</h3>
-              <p className="text-zinc-400 font-medium">(Optional) Add visual inspiration</p>
+              <h3 className="text-lg font-semibold">Describe Your Vision</h3>
+              <p className="text-sm text-muted-foreground">Tell us what you want to create</p>
             </div>
           </div>
           
-          <Card
-            className="relative p-6 border border-border/50 cursor-pointer transition-all duration-300 
-                       backdrop-blur-sm
-                       hover:border-border
-                       group/upload overflow-hidden"
-            onClick={() => {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.accept = "image/*";
-              input.onchange = (e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file)
-                  setFormData((prev) => ({ ...prev, reference_image: file }));
-              };
-              input.click();
-            }}
-          >
-            
-            {formData.reference_image ? (
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
-                  <ImageIcon className="w-5 h-5 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-white font-semibold">{formData.reference_image.name}</p>
-                  <p className="text-zinc-400 text-sm">Ready to use as style reference</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4 py-4 relative z-10">
-                <div className="relative">
-                  <div className="w-16 h-16 bg-gradient-to-br from-secondary/50 to-card/50 rounded-2xl flex items-center justify-center 
-                                 border border-border/30 group-hover/upload:border-border/70 transition-all duration-300">
-                    <Upload className="w-7 h-7 text-zinc-400 group-hover/upload:text-zinc-300 transition-colors duration-300" />
-                  </div>
-                  {/* Floating sparkles */}
-                  <div className="absolute -top-1 -right-1 opacity-0 group-hover/upload:opacity-100 transition-opacity duration-500">
-                    <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
-                  </div>
-                </div>
-                <div className="text-center space-y-2">
-                  <p className="text-zinc-200 font-semibold text-lg">Drop your inspiration here</p>
-                  <p className="text-zinc-400">Upload an image to guide the style</p>
-                </div>
-              </div>
-            )}
-          </Card>
+          <PromptSection
+            value={formData.prompt}
+            onChange={(prompt) => setFormData((prev) => ({ ...prev, prompt }))}
+            ref={promptInputRef}
+          />
         </div>
+      </TabBody>
 
-        {/* Step 3: Generation Options - Enhanced */}
-        <div className="group space-y-5">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center transition-all duration-300">
-                <span className="text-white text-sm font-bold">3</span>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-1 tracking-tight">Fine-tune Settings</h3>
-              <p className="text-zinc-400 font-medium">Customize your output</p>
-            </div>
-          </div>
-
-          {/* Enhanced Options Grid */}
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-3">
-              <Label className="text-zinc-300 font-semibold text-sm tracking-wide uppercase">Variations</Label>
-              <Select
-                value={formData.num_outputs.toString()}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, num_outputs: parseInt(value) }))}
-              >
-                <SelectTrigger className="h-12 bg-secondary/50 border-border/50 hover:border-border 
-                                         transition-all duration-300 focus:ring-2 focus:ring-primary/40 focus:border-primary/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card/95 backdrop-blur-xl border-border/50">
-                  {[1, 2, 3, 4].map((num) => (
-                    <SelectItem key={num} value={num.toString()} className="hover:bg-secondary/50">
-                      {num} thumbnail{num > 1 ? 's' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-3">
-              <Label className="text-zinc-300 font-semibold text-sm tracking-wide uppercase">Aspect Ratio</Label>
-              <Select
-                value={formData.aspect_ratio}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, aspect_ratio: value as typeof formData.aspect_ratio }))}
-              >
-                <SelectTrigger className="h-12 bg-secondary/50 border-border/50 hover:border-border 
-                                         transition-all duration-300 focus:ring-2 focus:ring-primary/40 focus:border-primary/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card/95 backdrop-blur-xl border-border/50">
-                  <SelectItem value="16:9" className="hover:bg-secondary/50">16:9 (YouTube)</SelectItem>
-                  <SelectItem value="1:1" className="hover:bg-secondary/50">1:1 (Square)</SelectItem>
-                  <SelectItem value="9:16" className="hover:bg-secondary/50">9:16 (Vertical)</SelectItem>
-                  <SelectItem value="4:3" className="hover:bg-secondary/50">4:3 (Classic)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Standardized footer */}
-      <TabFooter className="bg-card/95 backdrop-blur-xl border-t border-border/50 p-4 -mx-4 -mb-4 rounded-b-xl">
+      <TabFooter>
         <Button
           onClick={handleSubmit}
           disabled={isGenerating || !formData.prompt?.trim() || (credits?.available_credits || 0) < estimatedCredits}
@@ -228,11 +206,11 @@ export function GeneratorTab({
           ) : (
             <>
               <Wand2 className="w-4 h-4 mr-2" />
-              Generate Thumbnails
+              Generate Thumbnails ({estimatedCredits} credits)
             </>
           )}
         </Button>
       </TabFooter>
-    </div>
+    </TabContentWrapper>
   );
 }

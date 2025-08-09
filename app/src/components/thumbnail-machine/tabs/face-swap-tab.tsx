@@ -29,7 +29,7 @@ export function FaceSwapTab({
   const [formData, setFormData] = useState({
     sourceImage: null as File | null,
     targetImage: null as File | null,
-    applyToAll: true,
+    applyToAll: false,
     prompt: '',
   });
 
@@ -76,12 +76,14 @@ export function FaceSwapTab({
         {/* Prompt */}
         <div>
           <Label className="text-base font-medium mb-2 block">Thumbnail Concept</Label>
-          <Textarea
-            placeholder="Describe the thumbnail style you want before face swap is applied..."
-            value={formData.prompt}
-            onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
-            className="min-h-[80px] resize-none"
-          />
+          <div className="px-1">
+            <Textarea
+              placeholder="Describe the thumbnail style you want before face swap is applied..."
+              value={formData.prompt}
+              onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
+              className="min-h-[80px] resize-none"
+            />
+          </div>
         </div>
 
         {/* Source Face Upload */}
@@ -145,19 +147,6 @@ export function FaceSwapTab({
           </Card>
         </div>
 
-        {/* Options */}
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="apply-all"
-            checked={formData.applyToAll}
-            onChange={(e) => setFormData(prev => ({ ...prev, applyToAll: e.target.checked }))}
-            className="rounded"
-          />
-          <Label htmlFor="apply-all" className="text-base">
-            Apply face swap to all generated thumbnails
-          </Label>
-        </div>
       </TabBody>
 
       <TabFooter>
