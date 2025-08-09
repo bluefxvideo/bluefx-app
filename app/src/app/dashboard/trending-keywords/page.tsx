@@ -5,11 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, TrendingUp, BarChart3, DollarSign, Target, ExternalLink } from 'lucide-react';
+import { Search, TrendingUp, BarChart3, DollarSign, Target, ExternalLink, BookOpen } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { getTrendingKeywords, searchKeywords } from '@/actions/research/trending-keywords';
 import { toast } from 'sonner';
-import { UniformToolLayout } from '@/components/tools/uniform-tool-layout';
+import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
+import { TabContentWrapper, TabHeader, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 
 interface Keyword {
   id: string;
@@ -106,30 +107,55 @@ export default function TrendingKeywordsPage() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Professional Workspace Container */}
-      <div className="flex-1 overflow-hidden m-3 ml-0">
-        <div className="h-full bg-card rounded-2xl p-6">
-          <UniformToolLayout>
-            {/* Left Panel - Branding, Search & Filters */}
-            <div className="h-full space-y-6 overflow-y-auto scrollbar-hover">
-              {/* Tool Branding */}
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                  <Search className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold">Trending Keywords</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Discover high-performing keywords for better SEO rankings
-                  </p>
-                </div>
+    <div className="h-full bg-background overflow-hidden">
+      {/* Main Content Area */}
+      <div className="h-full flex flex-col p-6">
+        {/* Tool Header Card */}
+        <div className="bg-card border border-border rounded-xl p-6 mb-6 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                <Search aria-hidden className="w-5 h-5 text-white" />
               </div>
-              
-              <div className="border-t border-border/50"></div>
-                {/* Search Input */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Keyword Research</h3>
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Trending Keywords
+                </h2>
+                <p className="text-sm text-zinc-400">
+                  Discover high-performing keywords for better SEO rankings
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
+              onClick={() => {
+                console.log("Open tutorial");
+              }}
+            >
+              <BookOpen className="w-4 h-4" />
+              Tutorial
+            </Button>
+          </div>
+        </div>
+
+        {/* Main Content - Two Column Layout */}
+        <div className="flex-1 min-h-0">
+          <StandardToolLayout>
+          {/* Left Panel - Search & Filters */}
+          <TabContentWrapper>
+            <TabHeader
+              icon={Search}
+              title="Keyword Research"
+              description="Search and filter trending keywords"
+            />
+            
+            <TabBody>
+              {/* Search Input */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Search Keywords</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
@@ -140,20 +166,22 @@ export default function TrendingKeywordsPage() {
                       className="pl-10"
                     />
                   </div>
-                  <Button 
-                    onClick={handleSearch} 
-                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                  >
-                    <Search className="w-4 h-4 mr-2" />
-                    Search Keywords
-                  </Button>
                 </div>
+                
+                <Button 
+                  onClick={handleSearch} 
+                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 mt-3"
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Search Keywords
+                </Button>
+              </div>
 
-                {/* Filters */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Filters</h3>
-                  
-                  <div className="space-y-3">
+              {/* Filters */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Filters</h3>
+                
+                <div className="space-y-3">
                     <div>
                       <label className="text-sm text-muted-foreground mb-2 block">Category</label>
                       <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -184,40 +212,51 @@ export default function TrendingKeywordsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-                </div>
-
-                {/* Quick Stats */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Quick Stats</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Card className="p-3 bg-gray-50 dark:bg-gray-800/30">
-                      <div className="flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4 text-blue-500" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Total</p>
-                          <p className="text-lg font-bold">{keywords.length}</p>
-                        </div>
-                      </div>
-                    </Card>
-                    
-                    <Card className="p-3 bg-gray-50 dark:bg-gray-800/30">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-4 h-4 text-green-500" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Easy</p>
-                          <p className="text-lg font-bold">
-                            {keywords.filter(k => (k.difficulty_score || 100) <= 30).length}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
                 </div>
               </div>
-              
-              {/* Right Panel - Results */}
-              <div className="h-full overflow-y-auto scrollbar-hover">
+
+              {/* Quick Stats */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Quick Stats</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="p-3 bg-secondary/30 border-border/50">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-blue-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="text-lg font-bold">{keywords.length}</p>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-3 bg-secondary/30 border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-green-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Easy</p>
+                        <p className="text-lg font-bold">
+                          {keywords.filter(k => (k.difficulty_score || 100) <= 30).length}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </TabBody>
+
+            <TabFooter>
+              <Button 
+                onClick={loadKeywords} 
+                className="w-full"
+                variant="outline"
+              >
+                Refresh Keywords
+              </Button>
+            </TabFooter>
+          </TabContentWrapper>
+          
+          {/* Right Panel - Results */}
+          <div className="h-full overflow-y-auto scrollbar-hover">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-blue-500" />
@@ -318,7 +357,7 @@ export default function TrendingKeywordsPage() {
                   )}
                 </div>
               </div>
-            </UniformToolLayout>
+          </StandardToolLayout>
         </div>
       </div>
     </div>

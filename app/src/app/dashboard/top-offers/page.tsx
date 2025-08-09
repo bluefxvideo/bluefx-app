@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DollarSign, TrendingUp, ExternalLink, Award, Percent, Users, ArrowUp, BarChart3 } from 'lucide-react';
+import { DollarSign, TrendingUp, ExternalLink, Award, Percent, Users, ArrowUp, BarChart3, BookOpen } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { getTopOffers, searchOffers, getOfferCategories } from '@/actions/research/top-offers';
 import { toast } from 'sonner';
-import { UniformToolLayout } from '@/components/tools/uniform-tool-layout';
+import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
+import { TabContentWrapper, TabHeader, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface ClickBankOffer {
@@ -297,30 +298,55 @@ export default function TopOffersPage() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Professional Workspace Container */}
-      <div className="flex-1 overflow-hidden m-3 ml-0">
-        <div className="h-full bg-card rounded-2xl p-6">
-          <UniformToolLayout>
-            {/* Left Panel - Branding, Search & Filters */}
-            <div className="h-full space-y-6 overflow-y-auto scrollbar-hover">
-              {/* Tool Branding */}
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold">Top Offers</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Find high-converting ClickBank affiliate offers
-                  </p>
-                </div>
+    <div className="h-full bg-background overflow-hidden">
+      {/* Main Content Area */}
+      <div className="h-full flex flex-col p-6">
+        {/* Tool Header Card */}
+        <div className="bg-card border border-border rounded-xl p-6 mb-6 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                <DollarSign aria-hidden className="w-5 h-5 text-white" />
               </div>
-              
-              <div className="border-t border-border/50"></div>
-                {/* Search Input */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Offer Research</h3>
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Top Offers
+                </h2>
+                <p className="text-sm text-zinc-400">
+                  Find high-converting ClickBank affiliate offers
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
+              onClick={() => {
+                console.log("Open tutorial");
+              }}
+            >
+              <BookOpen className="w-4 h-4" />
+              Tutorial
+            </Button>
+          </div>
+        </div>
+
+        {/* Main Content - Two Column Layout */}
+        <div className="flex-1 min-h-0">
+          <StandardToolLayout>
+          {/* Left Panel - Search & Filters */}
+          <TabContentWrapper>
+            <TabHeader
+              icon={DollarSign}
+              title="Offer Research"
+              description="Search and filter affiliate offers"
+            />
+            
+            <TabBody>
+              {/* Search Input */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Search Offers</label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
@@ -331,497 +357,510 @@ export default function TopOffersPage() {
                       className="pl-10"
                     />
                   </div>
-                  <Button 
-                    onClick={handleSearch} 
-                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                  >
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    Search Offers
-                  </Button>
                 </div>
+                <Button 
+                  onClick={handleSearch} 
+                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                >
+                  <DollarSign className="w-4 h-4 mr-2" />
+                  Search Offers
+                </Button>
+              </div>
 
-                {/* Filters */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Filters</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Category Filter */}
-                    <div>
-                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          {categories.map(category => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Sort Filter */}
-                    <div>
-                      <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sort by" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="gravity_score">Gravity Score</SelectItem>
-                          <SelectItem value="commission_rate">Commission Rate</SelectItem>
-                          <SelectItem value="average_dollar_per_sale">Average Sale</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+              {/* Filters */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Filters</h3>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-2 block">Category</label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-
-                {/* Performance Insights */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Performance</h3>
-                  <div className="space-y-3">
-                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/50">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <div>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">High Performers</p>
-                          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                            {offers.filter(o => o.gravity_score >= 50).length}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                    
-                    <Card className="p-3 bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-800/50">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                        <div>
-                          <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">Recurring</p>
-                          <p className="text-lg font-bold text-cyan-600 dark:text-cyan-400">
-                            {offers.filter(o => o.has_recurring_products).length}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
-                </div>
-
-                {/* Quick Stats */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Quick Stats</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Card className="p-3 bg-gray-50 dark:bg-gray-800/30">
-                      <div className="flex items-center gap-2">
-                        <Award className="w-4 h-4 text-blue-500" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Total</p>
-                          <p className="text-lg font-bold">{totalCount.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </Card>
-                    
-                    <Card className="p-3 bg-gray-50 dark:bg-gray-800/30">
-                      <div className="flex items-center gap-2">
-                        <Percent className="w-4 h-4 text-cyan-500" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Avg Com</p>
-                          <p className="text-lg font-bold">
-                            {offers.length > 0 ? 
-                              Math.round((offers.reduce((sum, o) => sum + (o.commission_rate || 0), 0) / offers.length) * 100) : 0}%
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
+                  
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-2 block">Sort By</label>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gravity_score">Gravity Score</SelectItem>
+                        <SelectItem value="commission_rate">Commission Rate</SelectItem>
+                        <SelectItem value="average_dollar_per_sale">Average Sale</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
-              
-              {/* Right Panel - Offers List */}
-              <div className="h-full overflow-y-auto scrollbar-hover offers-scroll-container">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Award className="w-5 h-5 text-yellow-500" />
-                    <h2 className="text-lg font-semibold">ClickBank Offers</h2>
-                    <Badge variant="outline">{totalCount.toLocaleString()} total • {offers.length} loaded</Badge>
-                  </div>
+
+              {/* Performance Insights */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Performance</h3>
+                <div className="space-y-3">
+                  <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/50">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">High Performers</p>
+                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                          {offers.filter(o => o.gravity_score >= 50).length}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
                   
-                  {isLoading ? (
-                    <div className="space-y-4">
-                      {[...Array(8)].map((_, i) => (
-                        <Card key={i} className="p-4 animate-pulse">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
-                          <div className="flex gap-2">
-                            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                  <Card className="p-3 bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-800/50">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                      <div>
+                        <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">Recurring</p>
+                        <p className="text-lg font-bold text-cyan-600 dark:text-cyan-400">
+                          {offers.filter(o => o.has_recurring_products).length}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Quick Stats</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="p-3 bg-secondary/30 border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-4 h-4 text-blue-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="text-lg font-bold">{totalCount.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-3 bg-secondary/30 border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-cyan-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Avg Com</p>
+                        <p className="text-lg font-bold">
+                          {offers.length > 0 ? 
+                            Math.round((offers.reduce((sum, o) => sum + (o.commission_rate || 0), 0) / offers.length) * 100) : 0}%
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </TabBody>
+
+            <TabFooter>
+              <Button 
+                onClick={() => loadOffers(true)} 
+                className="w-full"
+                variant="outline"
+              >
+                Refresh Offers
+              </Button>
+            </TabFooter>
+          </TabContentWrapper>
+          
+          {/* Right Panel - Results */}
+          <div className="h-full overflow-y-auto scrollbar-hover offers-scroll-container">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-lg font-semibold">ClickBank Offers</h2>
+                <Badge variant="outline">{totalCount.toLocaleString()} total • {offers.length} loaded</Badge>
+              </div>
+              
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(8)].map((_, i) => (
+                    <Card key={i} className="p-4 animate-pulse">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+                      <div className="flex gap-2">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : offers.length === 0 ? (
+                <div className="text-center py-12">
+                  <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Offers Found</h3>
+                  <p className="text-muted-foreground">
+                    Search for offers to discover top products
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {offers.map((offer) => (
+                    <Card key={offer.id} className="p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800/40">
+                      <div className="space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-sm line-clamp-2">
+                              {offer.title}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              by {offer.vendor_name}
+                            </p>
                           </div>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : offers.length === 0 ? (
-                    <div className="text-center py-12">
-                      <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No Offers Found</h3>
-                      <p className="text-muted-foreground">
-                        Search for offers to discover top products
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {offers.map((offer) => (
-                        <Card key={offer.id} className="p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800/40">
-                          <div className="space-y-3">
-                            {/* Header */}
-                            <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              className={`${getGravityColor(offer.gravity_score)} text-white text-xs`}
+                            >
+                              {getGravityLabel(offer.gravity_score)}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        {/* Description */}
+                        {offer.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {offer.description}
+                          </p>
+                        )}
+                        
+                        {/* Metrics Grid + Chart Section */}
+                        <div className="flex gap-4">
+                          {/* Metrics Grid - 70% */}
+                          <div className="flex-[0.7]">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
                               <div>
-                                <h3 className="font-semibold text-sm line-clamp-2">
-                                  {offer.title}
-                                </h3>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  by {offer.vendor_name}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge 
-                                  className={`${getGravityColor(offer.gravity_score)} text-white text-xs`}
-                                >
-                                  {getGravityLabel(offer.gravity_score)}
-                                </Badge>
-                              </div>
-                            </div>
-                            
-                            {/* Description */}
-                            {offer.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {offer.description}
-                              </p>
-                            )}
-                            
-                            {/* Metrics Grid + Chart Section */}
-                            <div className="flex gap-4">
-                              {/* Metrics Grid - 70% */}
-                              <div className="flex-[0.7]">
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                  <div>
-                                    <span className="text-muted-foreground">Gravity:</span>
-                                    <span className="font-medium ml-2">
-                                      {offer.gravity_score.toFixed(1)}
-                                    </span>
-                                  </div>
-                                  
-                                  <div>
-                                    <span className="text-muted-foreground">Commission:</span>
-                                    <span className="font-medium ml-2">
-                                      {formatPercentage(offer.commission_rate)}
-                                    </span>
-                                  </div>
-                                  
-                                  <div>
-                                    <span className="text-muted-foreground">Avg Sale:</span>
-                                    <span className="font-medium ml-2">
-                                      {formatCurrency(offer.average_dollar_per_sale)}
-                                    </span>
-                                  </div>
-                                  
-                                  <div>
-                                    <span className="text-muted-foreground">Refund:</span>
-                                    <span className="font-medium ml-2">
-                                      {formatPercentage(offer.refund_rate)}
-                                    </span>
-                                  </div>
-                                </div>
+                                <span className="text-muted-foreground">Gravity:</span>
+                                <span className="font-medium ml-2">
+                                  {offer.gravity_score.toFixed(1)}
+                                </span>
                               </div>
                               
-                              {/* Trend Chart Card - 30% */}
-                              <div className="flex-[0.3]">
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <div className="h-16 flex items-center cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-700/30 transition-colors relative group rounded-lg p-1">
-                                      {/* Hover chart icon */}
-                                      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <BarChart3 className="w-3 h-3 text-muted-foreground" />
-                                      </div>
-                                      <div className="w-full h-20 mt-6">
-                                        {offer.clickbank_history?.[0] ? (
-                                          (() => {
-                                            const miniChartResult = getChartData(offer, 'current');
-                                            const isPositive = miniChartResult.stats?.isPositive ?? false;
-                                            
-                                            return (
-                                              <ResponsiveContainer width="100%" height="100%">
-                                                <LineChart data={miniChartResult.data} style={{ cursor: 'pointer' }}>
-                                                  <CartesianGrid 
-                                                    strokeDasharray="0" 
-                                                    stroke="#374151" 
-                                                    strokeWidth={0.5}
-                                                    vertical={true}
-                                                    horizontal={false}
-                                                  />
-                                                  <XAxis 
-                                                    axisLine={{ stroke: '#374151', strokeWidth: 0.5 }}
-                                                    tickLine={false}
-                                                    tick={false}
-                                                  />
-                                                  <YAxis 
-                                                    domain={['dataMin', 'dataMax']} 
-                                                    width={30}
-                                                    tick={{ fontSize: 8, fill: '#9ca3af' }}
-                                                    axisLine={{ stroke: '#374151', strokeWidth: 0.5 }}
-                                                    tickLine={false}
-                                                    tickCount={2}
-                                                  />
-                                                  <Tooltip 
-                                                    content={({ active, payload }) => {
-                                                      if (active && payload && payload.length) {
-                                                        return (
-                                                          <div className="bg-black/80 text-white px-2 py-1 rounded text-xs font-medium">
-                                                            {payload[0].value?.toFixed(1)}
-                                                          </div>
-                                                        );
-                                                      }
-                                                      return null;
-                                                    }}
-                                                  />
-                                                  <Line 
-                                                    type="linear" 
-                                                    dataKey="value" 
-                                                    stroke={isPositive ? '#10b981' : '#ef4444'}
-                                                    strokeWidth={2}
-                                                    dot={{ fill: isPositive ? '#10b981' : '#ef4444', strokeWidth: 0, r: 3 }}
-                                                    activeDot={false}
-                                                    fill={isPositive ? '#10b981' : '#ef4444'}
-                                                    fillOpacity={0.1}
-                                                  />
-                                                </LineChart>
-                                              </ResponsiveContainer>
-                                            );
-                                          })()
-                                        ) : (
-                                          <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-                                            No trend data
-                                          </div>
-                                        )}
-                                      </div>
-                                      
-                                    </div>
-                                  </DialogTrigger>
-                                  
-                                  <DialogContent className="max-w-2xl">
-                                    <DialogHeader>
-                                      <DialogTitle className="flex items-center gap-2">
-                                        <BarChart3 className="w-5 h-5" />
-                                        {offer.title} - Gravity Trend Analysis
-                                      </DialogTitle>
-                                    </DialogHeader>
-                                    
-                                    {/* Time Period Controls & Links */}
-                                    <div className="flex items-center justify-between mb-4">
-                                      <div className="flex gap-2">
-                                      <Button
-                                        variant={chartTimeframe === 'current' ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setChartTimeframe('current')}
-                                      >
-                                        Current (7d)
-                                      </Button>
-                                      <Button
-                                        variant={chartTimeframe === 'weekly' ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setChartTimeframe('weekly')}
-                                      >
-                                        Weekly
-                                      </Button>
-                                        <Button
-                                          variant={chartTimeframe === 'monthly' ? 'default' : 'outline'}
-                                          size="sm"
-                                          onClick={() => setChartTimeframe('monthly')}
-                                        >
-                                          Monthly
-                                        </Button>
-                                      </div>
-                                      
-                                      <div className="flex gap-2">
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm"
-                                          onClick={() => {
-                                            const affiliateUrl = `https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`;
-                                            navigator.clipboard.writeText(affiliateUrl);
-                                            toast.success('Affiliate link copied to clipboard!');
-                                          }}
-                                        >
-                                          Get Link
-                                        </Button>
-                                        {(offer.sales_page_url || offer.affiliate_page_url) && (
-                                          <Button 
-                                            variant="outline" 
-                                            size="sm"
-                                            onClick={() => {
-                                              const url = offer.sales_page_url || offer.affiliate_page_url;
-                                              if (url) {
-                                                window.open(url, '_blank', 'noopener,noreferrer');
-                                              }
-                                            }}
-                                          >
-                                            <ExternalLink className="w-4 h-4" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Expanded Chart */}
-                                    <div className="h-80 w-full">
-                                      {(() => {
-                                        const chartResult = getChartData(offer, chartTimeframe);
-                                        const isPositive = chartResult.stats?.isPositive ?? false;
+                              <div>
+                                <span className="text-muted-foreground">Commission:</span>
+                                <span className="font-medium ml-2">
+                                  {formatPercentage(offer.commission_rate)}
+                                </span>
+                              </div>
+                              
+                              <div>
+                                <span className="text-muted-foreground">Avg Sale:</span>
+                                <span className="font-medium ml-2">
+                                  {formatCurrency(offer.average_dollar_per_sale)}
+                                </span>
+                              </div>
+                              
+                              <div>
+                                <span className="text-muted-foreground">Refund:</span>
+                                <span className="font-medium ml-2">
+                                  {formatPercentage(offer.refund_rate)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Trend Chart Card - 30% */}
+                          <div className="flex-[0.3]">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <div className="h-16 flex items-center cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-700/30 transition-colors relative group rounded-lg p-1">
+                                  {/* Hover chart icon */}
+                                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <BarChart3 className="w-3 h-3 text-muted-foreground" />
+                                  </div>
+                                  <div className="w-full h-20 mt-6">
+                                    {offer.clickbank_history?.[0] ? (
+                                      (() => {
+                                        const miniChartResult = getChartData(offer, 'current');
+                                        const isPositive = miniChartResult.stats?.isPositive ?? false;
                                         
                                         return (
                                           <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={chartResult.data}>
-                                              <YAxis domain={['dataMin', 'dataMax']} />
+                                            <LineChart data={miniChartResult.data} style={{ cursor: 'pointer' }}>
+                                              <CartesianGrid 
+                                                strokeDasharray="0" 
+                                                stroke="#374151" 
+                                                strokeWidth={0.5}
+                                                vertical={true}
+                                                horizontal={false}
+                                              />
+                                              <XAxis 
+                                                axisLine={{ stroke: '#374151', strokeWidth: 0.5 }}
+                                                tickLine={false}
+                                                tick={false}
+                                              />
+                                              <YAxis 
+                                                domain={['dataMin', 'dataMax']} 
+                                                width={30}
+                                                tick={{ fontSize: 8, fill: '#9ca3af' }}
+                                                axisLine={{ stroke: '#374151', strokeWidth: 0.5 }}
+                                                tickLine={false}
+                                                tickCount={2}
+                                              />
+                                              <Tooltip 
+                                                content={({ active, payload }) => {
+                                                  if (active && payload && payload.length) {
+                                                    return (
+                                                      <div className="bg-black/80 text-white px-2 py-1 rounded text-xs font-medium">
+                                                        {payload[0].value?.toFixed(1)}
+                                                      </div>
+                                                    );
+                                                  }
+                                                  return null;
+                                                }}
+                                              />
                                               <Line 
                                                 type="linear" 
                                                 dataKey="value" 
                                                 stroke={isPositive ? '#10b981' : '#ef4444'}
-                                                strokeWidth={3}
-                                                dot={{ fill: isPositive ? '#10b981' : '#ef4444', strokeWidth: 0, r: 4 }}
+                                                strokeWidth={2}
+                                                dot={{ fill: isPositive ? '#10b981' : '#ef4444', strokeWidth: 0, r: 3 }}
+                                                activeDot={false}
                                                 fill={isPositive ? '#10b981' : '#ef4444'}
                                                 fillOpacity={0.1}
-                                                label={{ 
-                                                  fontSize: 12, 
-                                                  fill: '#ffffff', 
-                                                  offset: 15,
-                                                  style: { 
-                                                    textShadow: '0 0 4px rgba(0,0,0,0.9)',
-                                                    fontWeight: '600'
-                                                  }
-                                                }}
                                               />
                                             </LineChart>
                                           </ResponsiveContainer>
                                         );
-                                      })()}
-                                    </div>
-                                    
-                                    {/* Chart Stats */}
-                                    <div className="grid grid-cols-4 gap-4 pt-4 border-t">
-                                      {(() => {
-                                        const chartResult = getChartData(offer, chartTimeframe);
-                                        const stats = chartResult.stats;
-                                        
-                                        return (
-                                          <>
-                                            <div className="text-center">
-                                              <p className="text-sm text-muted-foreground">Data Points</p>
-                                              <p className="text-lg font-semibold">{stats?.dataPoints || 0}</p>
-                                            </div>
-                                            <div className="text-center">
-                                              <p className="text-sm text-muted-foreground">Max Gravity</p>
-                                              <p className="text-lg font-semibold">{stats?.maxGravity?.toFixed(1) || 'N/A'}</p>
-                                            </div>
-                                            <div className="text-center">
-                                              <p className="text-sm text-muted-foreground">Min Gravity</p>
-                                              <p className="text-lg font-semibold">{stats?.minGravity?.toFixed(1) || 'N/A'}</p>
-                                            </div>
-                                            <div className="text-center">
-                                              <p className="text-sm text-muted-foreground">Change</p>
-                                              <p className={`text-lg font-semibold ${stats?.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                                {stats?.isPositive ? '+' : ''}{stats?.gravityChange?.toFixed(1) || 'N/A'}
-                                              </p>
-                                            </div>
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </div>
-                            </div>
-                            
-                            {/* Features & Actions */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex flex-wrap gap-1">
-                                {offer.has_recurring_products && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Recurring
-                                  </Badge>
-                                )}
-                                {offer.mobile_optimized && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Mobile
-                                  </Badge>
-                                )}
-                                <Badge variant="outline" className="text-xs">
-                                  {offer.category}
-                                </Badge>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => {
-                                    const affiliateUrl = `https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`;
-                                    navigator.clipboard.writeText(affiliateUrl);
-                                    toast.success('Affiliate link copied to clipboard!');
-                                  }}
-                                >
-                                  Get Link
-                                </Button>
-                                {(offer.sales_page_url || offer.affiliate_page_url) && (
-                                  <Button 
-                                    variant="outline" 
+                                      })()
+                                    ) : (
+                                      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
+                                        No trend data
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                </div>
+                              </DialogTrigger>
+                              
+                              <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                  <DialogTitle className="flex items-center gap-2">
+                                    <BarChart3 className="w-5 h-5" />
+                                    {offer.title} - Gravity Trend Analysis
+                                  </DialogTitle>
+                                </DialogHeader>
+                                
+                                {/* Time Period Controls & Links */}
+                                <div className="flex items-center justify-between mb-4">
+                                  <div className="flex gap-2">
+                                  <Button
+                                    variant={chartTimeframe === 'current' ? 'default' : 'outline'}
                                     size="sm"
-                                    onClick={() => {
-                                      const url = offer.sales_page_url || offer.affiliate_page_url;
-                                      if (url) {
-                                        window.open(url, '_blank', 'noopener,noreferrer');
-                                      }
-                                    }}
+                                    onClick={() => setChartTimeframe('current')}
                                   >
-                                    <ExternalLink className="w-4 h-4" />
+                                    Current (7d)
                                   </Button>
-                                )}
-                              </div>
-                            </div>
+                                  <Button
+                                    variant={chartTimeframe === 'weekly' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setChartTimeframe('weekly')}
+                                  >
+                                    Weekly
+                                  </Button>
+                                    <Button
+                                      variant={chartTimeframe === 'monthly' ? 'default' : 'outline'}
+                                      size="sm"
+                                      onClick={() => setChartTimeframe('monthly')}
+                                    >
+                                      Monthly
+                                    </Button>
+                                  </div>
+                                  
+                                  <div className="flex gap-2">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        const affiliateUrl = `https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`;
+                                        navigator.clipboard.writeText(affiliateUrl);
+                                        toast.success('Affiliate link copied to clipboard!');
+                                      }}
+                                    >
+                                      Get Link
+                                    </Button>
+                                    {(offer.sales_page_url || offer.affiliate_page_url) && (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => {
+                                          const url = offer.sales_page_url || offer.affiliate_page_url;
+                                          if (url) {
+                                            window.open(url, '_blank', 'noopener,noreferrer');
+                                          }
+                                        }}
+                                      >
+                                        <ExternalLink className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Expanded Chart */}
+                                <div className="h-80 w-full">
+                                  {(() => {
+                                    const chartResult = getChartData(offer, chartTimeframe);
+                                    const isPositive = chartResult.stats?.isPositive ?? false;
+                                    
+                                    return (
+                                      <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={chartResult.data}>
+                                          <YAxis domain={['dataMin', 'dataMax']} />
+                                          <Line 
+                                            type="linear" 
+                                            dataKey="value" 
+                                            stroke={isPositive ? '#10b981' : '#ef4444'}
+                                            strokeWidth={3}
+                                            dot={{ fill: isPositive ? '#10b981' : '#ef4444', strokeWidth: 0, r: 4 }}
+                                            fill={isPositive ? '#10b981' : '#ef4444'}
+                                            fillOpacity={0.1}
+                                            label={{ 
+                                              fontSize: 12, 
+                                              fill: '#ffffff', 
+                                              offset: 15,
+                                              style: { 
+                                                textShadow: '0 0 4px rgba(0,0,0,0.9)',
+                                                fontWeight: '600'
+                                              }
+                                            }}
+                                          />
+                                        </LineChart>
+                                      </ResponsiveContainer>
+                                    );
+                                  })()}
+                                </div>
+                                
+                                {/* Chart Stats */}
+                                <div className="grid grid-cols-4 gap-4 pt-4 border-t">
+                                  {(() => {
+                                    const chartResult = getChartData(offer, chartTimeframe);
+                                    const stats = chartResult.stats;
+                                    
+                                    return (
+                                      <>
+                                        <div className="text-center">
+                                          <p className="text-sm text-muted-foreground">Data Points</p>
+                                          <p className="text-lg font-semibold">{stats?.dataPoints || 0}</p>
+                                        </div>
+                                        <div className="text-center">
+                                          <p className="text-sm text-muted-foreground">Max Gravity</p>
+                                          <p className="text-lg font-semibold">{stats?.maxGravity?.toFixed(1) || 'N/A'}</p>
+                                        </div>
+                                        <div className="text-center">
+                                          <p className="text-sm text-muted-foreground">Min Gravity</p>
+                                          <p className="text-lg font-semibold">{stats?.minGravity?.toFixed(1) || 'N/A'}</p>
+                                        </div>
+                                        <div className="text-center">
+                                          <p className="text-sm text-muted-foreground">Change</p>
+                                          <p className={`text-lg font-semibold ${stats?.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                                            {stats?.isPositive ? '+' : ''}{stats?.gravityChange?.toFixed(1) || 'N/A'}
+                                          </p>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                           </div>
-                        </Card>
-                      ))}
-                      
-                      {/* Load More Section */}
-                      {hasMore && (
-                        <div className="flex justify-center pt-4">
-                          <Button 
-                            onClick={() => loadOffers(false)}
-                            disabled={isLoadingMore}
-                            variant="outline"
-                            className="w-full"
-                          >
-                            {isLoadingMore ? (
-                              <>
-                                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mr-2" />
-                                Loading more...
-                              </>
-                            ) : (
-                              <>
-                                <TrendingUp className="w-4 h-4 mr-2" />
-                                Load More Offers ({totalCount - offers.length} remaining)
-                              </>
+                        </div>
+                        
+                        {/* Features & Actions */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap gap-1">
+                            {offer.has_recurring_products && (
+                              <Badge variant="secondary" className="text-xs">
+                                Recurring
+                              </Badge>
                             )}
-                          </Button>
+                            {offer.mobile_optimized && (
+                              <Badge variant="secondary" className="text-xs">
+                                Mobile
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {offer.category}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                const affiliateUrl = `https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`;
+                                navigator.clipboard.writeText(affiliateUrl);
+                                toast.success('Affiliate link copied to clipboard!');
+                              }}
+                            >
+                              Get Link
+                            </Button>
+                            {(offer.sales_page_url || offer.affiliate_page_url) && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  const url = offer.sales_page_url || offer.affiliate_page_url;
+                                  if (url) {
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                  }
+                                }}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      
-                      {!hasMore && offers.length > 0 && (
-                        <div className="text-center py-4 text-sm text-muted-foreground">
-                          \u2728 All {totalCount.toLocaleString()} offers loaded
-                        </div>
-                      )}
+                      </div>
+                    </Card>
+                  ))}
+                  
+                  {/* Load More Section */}
+                  {hasMore && (
+                    <div className="flex justify-center pt-4">
+                      <Button 
+                        onClick={() => loadOffers(false)}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mr-2" />
+                            Loading more...
+                          </>
+                        ) : (
+                          <>
+                            <TrendingUp className="w-4 h-4 mr-2" />
+                            Load More Offers ({totalCount - offers.length} remaining)
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {!hasMore && offers.length > 0 && (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      ✨ All {totalCount.toLocaleString()} offers loaded
                     </div>
                   )}
                 </div>
-              </div>
-            </UniformToolLayout>
+              )}
+            </div>
+          </div>
+          </StandardToolLayout>
         </div>
       </div>
       

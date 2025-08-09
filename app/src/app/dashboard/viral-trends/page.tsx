@@ -5,11 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, Hash, Heart, Share2, Eye, ExternalLink, Zap } from 'lucide-react';
+import { TrendingUp, Hash, Heart, Share2, Eye, ExternalLink, Zap, BookOpen } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { getViralTrends, searchTrends } from '@/actions/research/viral-trends';
 import { toast } from 'sonner';
-import { UniformToolLayout } from '@/components/tools/uniform-tool-layout';
+import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
+import { TabContentWrapper, TabHeader, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 
 interface ViralTrend {
   id: string;
@@ -108,30 +109,55 @@ export default function ViralTrendsPage() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Professional Workspace Container */}
-      <div className="flex-1 overflow-hidden m-3 ml-0">
-        <div className="h-full bg-card rounded-2xl p-6">
-          <UniformToolLayout>
-            {/* Left Panel - Branding, Search & Filters */}
-            <div className="h-full space-y-6 overflow-y-auto scrollbar-hover">
-              {/* Tool Branding */}
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold">Viral Trends</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Discover trending content across social platforms
-                  </p>
-                </div>
+    <div className="h-full bg-background overflow-hidden">
+      {/* Main Content Area */}
+      <div className="h-full flex flex-col p-6">
+        {/* Tool Header Card */}
+        <div className="bg-card border border-border rounded-xl p-6 mb-6 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                <TrendingUp aria-hidden className="w-5 h-5 text-white" />
               </div>
-              
-              <div className="border-t border-border/50"></div>
-                {/* Search Input */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Trend Analysis</h3>
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Viral Trends
+                </h2>
+                <p className="text-sm text-zinc-400">
+                  Discover trending content across social platforms
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
+              onClick={() => {
+                console.log("Open tutorial");
+              }}
+            >
+              <BookOpen className="w-4 h-4" />
+              Tutorial
+            </Button>
+          </div>
+        </div>
+
+        {/* Main Content - Two Column Layout */}
+        <div className="flex-1 min-h-0">
+          <StandardToolLayout>
+          {/* Left Panel - Search & Filters */}
+          <TabContentWrapper>
+            <TabHeader
+              icon={TrendingUp}
+              title="Trend Discovery"
+              description="Search and filter viral content"
+            />
+            
+            <TabBody>
+              {/* Search Input */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Search Trends</label>
                   <div className="relative">
                     <TrendingUp className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
@@ -142,109 +168,126 @@ export default function ViralTrendsPage() {
                       className="pl-10"
                     />
                   </div>
-                  <Button 
-                    onClick={handleSearch} 
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500"
-                  >
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    Analyze Trends
-                  </Button>
                 </div>
+                <Button 
+                  onClick={handleSearch} 
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500"
+                >
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Analyze Trends
+                </Button>
+              </div>
 
-                {/* Platform Filter */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Platform</h3>
-                  <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Platform" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Platforms</SelectItem>
-                      <SelectItem value="tiktok">TikTok</SelectItem>
-                      <SelectItem value="instagram">Instagram</SelectItem>
-                      <SelectItem value="twitter">Twitter</SelectItem>
-                      <SelectItem value="youtube">YouTube</SelectItem>
-                      <SelectItem value="linkedin">LinkedIn</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Category Filter */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Category</h3>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      <SelectItem value="entertainment">Entertainment</SelectItem>
-                      <SelectItem value="business">Business</SelectItem>
-                      <SelectItem value="technology">Technology</SelectItem>
-                      <SelectItem value="lifestyle">Lifestyle</SelectItem>
-                      <SelectItem value="education">Education</SelectItem>
-                      <SelectItem value="news">News</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Trending Hashtags Preview */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Hot Hashtags</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.from(new Set(trends.flatMap(t => t.hashtags))).slice(0, 8).map((hashtag, index) => (
-                      <Badge 
-                        key={index} 
-                        variant="outline" 
-                        className="cursor-pointer hover:bg-purple-50 transition-colors text-xs"
-                        onClick={() => setSearchQuery(hashtag)}
-                      >
-                        <Hash className="w-3 h-3 mr-1" />
-                        {hashtag}
-                      </Badge>
-                    ))}
+              {/* Filters */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Filters</h3>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-2 block">Platform</label>
+                    <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Platform" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Platforms</SelectItem>
+                        <SelectItem value="tiktok">TikTok</SelectItem>
+                        <SelectItem value="instagram">Instagram</SelectItem>
+                        <SelectItem value="twitter">Twitter</SelectItem>
+                        <SelectItem value="youtube">YouTube</SelectItem>
+                        <SelectItem value="linkedin">LinkedIn</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-
-                {/* Quick Stats */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Analytics</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Card className="p-3 bg-gray-50 dark:bg-gray-800/30">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-red-500" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Viral</p>
-                          <p className="text-lg font-bold">
-                            {trends.filter(t => t.viral_potential >= 80).length}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                    
-                    <Card className="p-3 bg-gray-50 dark:bg-gray-800/30">
-                      <div className="flex items-center gap-2">
-                        <Eye className="w-4 h-4 text-green-500" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Avg Eng</p>
-                          <p className="text-lg font-bold">
-                            {trends.length > 0 ? Math.round(trends.reduce((sum, t) => sum + t.engagement_score, 0) / trends.length / 1000) : 0}K
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
+                  
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-2 block">Category</label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="entertainment">Entertainment</SelectItem>
+                        <SelectItem value="business">Business</SelectItem>
+                        <SelectItem value="technology">Technology</SelectItem>
+                        <SelectItem value="lifestyle">Lifestyle</SelectItem>
+                        <SelectItem value="education">Education</SelectItem>
+                        <SelectItem value="news">News</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
+
+              {/* Trending Hashtags Preview */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Hot Hashtags</h3>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from(new Set(trends.flatMap(t => t.hashtags))).slice(0, 8).map((hashtag, index) => (
+                    <Badge 
+                      key={index} 
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-purple-50 transition-colors text-xs"
+                      onClick={() => setSearchQuery(hashtag)}
+                    >
+                      <Hash className="w-3 h-3 mr-1" />
+                      {hashtag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Analytics</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="p-3 bg-secondary/30 border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-red-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Viral</p>
+                        <p className="text-lg font-bold">
+                          {trends.filter(t => t.viral_potential >= 80).length}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-3 bg-secondary/30 border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-green-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Avg Eng</p>
+                        <p className="text-lg font-bold">
+                          {trends.length > 0 ? Math.round(trends.reduce((sum, t) => sum + t.engagement_score, 0) / trends.length / 1000) : 0}K
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </TabBody>
+
+            <TabFooter>
+              <Button 
+                onClick={loadTrends} 
+                className="w-full"
+                variant="outline"
+              >
+                Refresh Trends
+              </Button>
+            </TabFooter>
+          </TabContentWrapper>
               
-              {/* Right Panel - Trending Content */}
-              <div className="h-full overflow-y-auto scrollbar-hover">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-purple-500" />
-                    <h2 className="text-lg font-semibold">Viral Content</h2>
-                    <Badge variant="outline">{trends.length} trends</Badge>
-                  </div>
+          {/* Right Panel - Results */}
+          <div className="h-full overflow-y-auto scrollbar-hover">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-purple-500" />
+                <h2 className="text-lg font-semibold">Viral Content</h2>
+                <Badge variant="outline">{trends.length} trends</Badge>
+              </div>
                   
                   {isLoading ? (
                     <div className="space-y-4">
@@ -342,7 +385,7 @@ export default function ViralTrendsPage() {
                   )}
                 </div>
               </div>
-            </UniformToolLayout>
+          </StandardToolLayout>
         </div>
       </div>
     </div>
