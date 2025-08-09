@@ -29,9 +29,9 @@ export interface APISchema {
     url: string;
     description?: string;
   }>;
-  paths: Record<string, any>;
+  paths: Record<string, unknown>;
   components?: {
-    schemas?: Record<string, any>;
+    schemas?: Record<string, unknown>;
   };
 }
 
@@ -81,10 +81,14 @@ export function getSchemaOperations(schema: APISchema): Array<{
     description?: string;
   }> = [];
 
-  for (const [path, pathItem] of Object.entries(schema.paths)) {
-    for (const [method, operation] of Object.entries(pathItem)) {
+  for (const [path, pathItem] of Object.entries(schema.paths || {})) {
+    for (const [method, operation] of Object.entries(pathItem as Record<string, unknown>)) {
       if (typeof operation === 'object' && operation !== null && 'operationId' in operation) {
-        const operationObj = operation as any;
+        const operationObj = operation as {
+          operationId?: string;
+          summary?: string;
+          description?: string;
+        };
         operations.push({
           operationId: operationObj.operationId || `${method}_${path}`,
           method: method.toUpperCase(),

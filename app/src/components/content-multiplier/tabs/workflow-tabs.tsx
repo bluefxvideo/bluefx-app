@@ -70,7 +70,7 @@ export function WorkflowTabs({ activeWorkflowTab }: WorkflowTabsProps) {
     
     const tab = workflowTabs.find(t => t.id === tabId);
     if (tab) {
-      setActiveWorkflowTab(tabId as any);
+      setActiveWorkflowTab(tabId as 'content' | 'platforms' | 'review');
       router.push(tab.path);
     }
   };

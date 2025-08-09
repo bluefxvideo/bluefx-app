@@ -100,14 +100,14 @@ export function CancellationFeedbackModal({
         <div className="p-6 space-y-6">
           {/* Intro Text */}
           <div className="text-sm text-muted-foreground">
-            We're sorry to see you go! Your feedback helps us improve BlueFX for everyone. 
+            We&apos;re sorry to see you go! Your feedback helps us improve BlueFX for everyone. 
             This will only take a minute and is completely optional.
           </div>
 
           {/* Primary Reason */}
           <div className="space-y-3">
             <Label className="text-base font-medium">
-              What's the main reason you're canceling? *
+              What&apos;s the main reason you&apos;re canceling? *
             </Label>
             <div className="space-y-2">
               {PRIMARY_REASONS.map((reason) => (
@@ -185,7 +185,7 @@ export function CancellationFeedbackModal({
           {/* Additional Comments */}
           <div className="space-y-3">
             <Label htmlFor="feedback" className="text-base font-medium">
-              Anything else you'd like us to know?
+              Anything else you&apos;d like us to know?
             </Label>
             <Textarea
               id="feedback"
@@ -240,7 +240,7 @@ export function CancellationFeedbackModal({
                   Processing...
                 </>
               ) : (
-                'Yes, Delete My Account & Cancel'
+'Yes, Delete My Account & Cancel'
               )}
             </Button>
           </div>

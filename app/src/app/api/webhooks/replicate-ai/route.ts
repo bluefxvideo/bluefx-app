@@ -5,20 +5,42 @@ import {
   storeThumbnailResults, 
   recordGenerationMetrics 
 } from '@/actions/database/thumbnail-database';
-import { updateMusicRecord } from '@/actions/database/music-database';
-import { createClient } from '@/app/supabase/server';
+import type { Json } from '@/types/database';
 
 /**
  * ENHANCED AI-Orchestrated Webhook Handler
  * Intelligent processing with real-time broadcasting and multi-tool support
  */
 
+interface ReplicateInput {
+  prompt?: string;
+  negative_prompt?: string;
+  user_id?: string;
+  batch_id?: string;
+  metadata?: {
+    user_id?: string;
+    batch_id?: string;
+  };
+  num_outputs?: number;
+  swap_image?: string;
+  input_image?: string;
+  topic?: string;
+  title_style?: string;
+  title_count?: number;
+  guidance_scale?: number;
+  num_inference_steps?: number;
+  output_quality?: string;
+  seed?: number;
+  reference_image?: string;
+  style_type?: string;
+}
+
 interface ReplicateWebhookPayload {
   id: string;
   status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
   version: string;
-  input: any;
-  output?: any;
+  input: ReplicateInput;
+  output?: string | string[];
   error?: string;
   logs?: string;
   created_at: string;
@@ -43,6 +65,32 @@ interface WebhookProcessingResult {
   credits_used: number;
   real_time_broadcast: boolean;
   error?: string;
+}
+
+interface PayloadAnalysis {
+  tool_type: string;
+  processing_strategy: string;
+  user_id: string | null;
+  batch_id: string | null;
+  workflow_type: string;
+  expected_outputs: number;
+  requires_batch_processing: boolean;
+  requires_face_processing: boolean;
+  requires_real_time_update: boolean;
+}
+
+interface ThumbnailResult {
+  user_id: string;
+  prompt: string;
+  image_urls: string[];
+  dimensions: string;
+  height: number;
+  width: number;
+  model_name: string;
+  model_version?: string | null;
+  batch_id?: string | null;
+  generation_settings?: Json | null;
+  metadata?: Json | null;
 }
 
 /**
@@ -78,7 +126,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Update prediction record with enhanced tracking
     await updatePredictionRecord(payload.id, {
       status: payload.status,
-      output_data: payload.output,
+      output_data: payload.output as Json,
       completed_at: payload.completed_at,
       logs: payload.logs,
     });
@@ -151,7 +199,7 @@ function validateWebhookAuthenticity(request: NextRequest, payload: ReplicateWeb
 /**
  * AI payload analysis for intelligent processing
  */
-async function analyzeWebhookPayload(payload: ReplicateWebhookPayload) {
+async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<PayloadAnalysis> {
   // AI Decision: Analyze payload to determine optimal processing
   const analysis = {
     tool_type: 'unknown',
@@ -168,10 +216,10 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload) {
   // Extract user context
   analysis.user_id = payload.metadata?.user_id || 
                     payload.input?.user_id || 
-                    payload.input?.metadata?.user_id;
+                    payload.input?.metadata?.user_id || null;
 
   analysis.batch_id = payload.metadata?.batch_id || 
-                     payload.input?.batch_id;
+                     payload.input?.batch_id || null;
 
   // AI Decision: Determine tool type from multiple signals
   if (payload.version?.includes('flux-thumbnails-v2') || payload.input?.prompt) {
@@ -186,12 +234,6 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload) {
     analysis.processing_strategy = 'single_face_swap';
     analysis.expected_outputs = 1;
     analysis.requires_face_processing = true;
-    analysis.requires_real_time_update = true;
-  } else if (payload.version?.includes('musicgen') || 
-            (payload.input?.model_version && payload.input.model_version.includes('stereo'))) {
-    analysis.tool_type = 'music-machine';
-    analysis.processing_strategy = 'single_music_generation';
-    analysis.expected_outputs = 1;
     analysis.requires_real_time_update = true;
   } else if (payload.input?.topic || payload.input?.title_style) {
     analysis.tool_type = 'title-generator';
@@ -216,7 +258,7 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload) {
  */
 async function handleSuccessfulGeneration(
   payload: ReplicateWebhookPayload, 
-  analysis: any
+  analysis: PayloadAnalysis
 ): Promise<WebhookProcessingResult> {
   console.log(`🎨 AI Success Handler: Processing ${analysis.tool_type} results`);
   
@@ -233,10 +275,6 @@ async function handleSuccessfulGeneration(
       const singleResult = await processSingleResult(payload, analysis);
       results_processed = singleResult.count;
       credits_used = singleResult.credits;
-    } else if (analysis.processing_strategy === 'single_music_generation') {
-      const musicResult = await processMusicGeneration(payload, analysis);
-      results_processed = musicResult.count;
-      credits_used = musicResult.credits;
     } else {
       console.warn(`⚠️ Unknown processing strategy: ${analysis.processing_strategy}`);
     }
@@ -265,7 +303,7 @@ async function handleSuccessfulGeneration(
 /**
  * Enhanced batch thumbnail processing
  */
-async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis: any) {
+async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
   const outputs = Array.isArray(payload.output) ? payload.output : [payload.output];
   console.log(`🖼️ Batch Processing: ${outputs.length} thumbnails`);
   
@@ -284,7 +322,7 @@ async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis
       // AI Decision: Smart filename generation
       const filename = `${analysis.tool_type}_${batch_id}_var${i + 1}`;
       const uploadResult = await downloadAndUploadImage(
-        imageUrl, 
+        imageUrl as string, 
         analysis.tool_type, 
         filename
       );
@@ -297,15 +335,10 @@ async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis
           dimensions: '1024x1024',
           height: 1024,
           width: 1024,
-          model_name: determineModelVersion(payload),
-          model_version: determineModelVersion(payload),
+          model_name: 'replicate-ai',
           batch_id,
-          generation_settings: payload.input,
-          metadata: {
-            variation_index: i + 1,
-            total_variations: outputs.length,
-            type: 'thumbnail'
-          },
+          model_version: determineModelVersion(payload),
+          generation_settings: payload.input as Json,
         });
         
         credits_used += 2; // CREDITS_PER_THUMBNAIL
@@ -328,7 +361,7 @@ async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis
       num_variations: thumbnailResults.length,
       generation_time_ms: payload.metrics?.predict_time || 0,
       total_credits_used: credits_used,
-      prompt_length: (payload.input?.prompt || '').length,
+      prompt_length: (payload.input.prompt || '').length,
       has_advanced_options: hasAdvancedOptions(payload.input),
     });
     
@@ -341,7 +374,7 @@ async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis
 /**
  * Enhanced single result processing
  */
-async function processSingleResult(payload: ReplicateWebhookPayload, analysis: any) {
+async function processSingleResult(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
   const imageUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
   if (!imageUrl) return { count: 0, credits: 0 };
 
@@ -352,28 +385,23 @@ async function processSingleResult(payload: ReplicateWebhookPayload, analysis: a
 
   try {
     const uploadResult = await downloadAndUploadImage(
-      imageUrl, 
+      imageUrl as string, 
       analysis.tool_type, 
       batch_id
     );
     
     if (uploadResult.success && uploadResult.url) {
-      const result = {
+      const result: ThumbnailResult = {
         user_id: analysis.user_id || 'unknown-user',
         prompt: payload.input?.prompt || 'Generated content',
         image_urls: [uploadResult.url],
         dimensions: '1024x1024',
         height: 1024,
         width: 1024,
-        model_name: determineModelVersion(payload),
-        model_version: determineModelVersion(payload),
+        model_name: 'replicate-ai',
         batch_id,
-        generation_settings: payload.input,
-        metadata: {
-          variation_index: 1,
-          total_variations: 1,
-          type: determineResultType(analysis.tool_type)
-        },
+        model_version: determineModelVersion(payload),
+        generation_settings: payload.input as Json,
       };
       
       await storeThumbnailResults([result]);
@@ -390,115 +418,9 @@ async function processSingleResult(payload: ReplicateWebhookPayload, analysis: a
 }
 
 /**
- * Enhanced music generation processing
- */
-async function processMusicGeneration(payload: ReplicateWebhookPayload, analysis: any) {
-  const audioUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
-  if (!audioUrl) return { count: 0, credits: 0 };
-
-  console.log(`🎵 Music Processing: ${analysis.tool_type}`);
-  
-  try {
-    // Download and upload audio file to our storage
-    const uploadResult = await downloadAndUploadAudio(
-      audioUrl, 
-      'music', 
-      `music_${payload.id}`
-    );
-    
-    if (uploadResult.success && uploadResult.url) {
-      // Update the music record in database
-      const updateResult = await updateMusicRecord(payload.id, {
-        status: 'completed',
-        audio_url: uploadResult.url,
-        quality_rating: 5
-      });
-      
-      if (updateResult.success) {
-        console.log(`✅ Music Complete: Stored ${analysis.tool_type}`);
-        return { count: 1, credits: 0 }; // Credits already deducted during generation
-      }
-    }
-  } catch (error) {
-    console.error('❌ Music processing failed:', error);
-    
-    // Update record with error status
-    await updateMusicRecord(payload.id, {
-      status: 'failed',
-      progress_percentage: 0
-    });
-  }
-
-  return { count: 0, credits: 0 };
-}
-
-/**
- * Download and upload audio file (similar to image upload)
- */
-async function downloadAndUploadAudio(
-  audioUrl: string,
-  bucket: string,
-  filename: string
-): Promise<{ success: boolean; url?: string; file_size_mb?: number; error?: string }> {
-  try {
-    console.log(`🎵 Downloading audio from: ${audioUrl}`);
-    
-    // Download the audio file
-    const response = await fetch(audioUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download audio: ${response.status} ${response.statusText}`);
-    }
-    
-    const audioBlob = await response.blob();
-    const fileSizeMB = audioBlob.size / (1024 * 1024);
-    
-    // Create File object
-    const audioFile = new File([audioBlob], `${filename}.mp3`, {
-      type: 'audio/mpeg'
-    });
-    
-    // Upload to Supabase storage
-    const supabase = await createClient();
-    const uploadPath = `music/${filename}.mp3`;
-    
-    const { data, error } = await supabase.storage
-      .from('audio')
-      .upload(uploadPath, audioFile, {
-        contentType: 'audio/mpeg',
-        upsert: true
-      });
-    
-    if (error) {
-      console.error('Audio upload error:', error);
-      return { success: false, error: error.message };
-    }
-    
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('audio')
-      .getPublicUrl(uploadPath);
-    
-    console.log(`✅ Audio uploaded successfully: ${publicUrlData.publicUrl}`);
-    
-    return {
-      success: true,
-      url: publicUrlData.publicUrl,
-      file_size_mb: Number(fileSizeMB.toFixed(2))
-    };
-    
-  } catch (error) {
-    console.error('Audio download/upload error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Audio upload failed'
-    };
-  }
-}
-
-/**
  * Enhanced failure handling
  */
-async function handleFailedGeneration(payload: ReplicateWebhookPayload, analysis: any): Promise<WebhookProcessingResult> {
+async function handleFailedGeneration(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<WebhookProcessingResult> {
   console.error(`❌ Generation Failed: ${payload.id} - ${payload.error}`);
   
   // AI Decision: Intelligent failure analysis and potential recovery
@@ -520,7 +442,7 @@ async function handleFailedGeneration(payload: ReplicateWebhookPayload, analysis
 /**
  * Processing status updates
  */
-async function handleProcessingUpdate(payload: ReplicateWebhookPayload, analysis: any): Promise<WebhookProcessingResult> {
+async function handleProcessingUpdate(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<WebhookProcessingResult> {
   console.log(`⏳ Processing Update: ${payload.id} - ${analysis.tool_type}`);
   
   return {
@@ -535,9 +457,9 @@ async function handleProcessingUpdate(payload: ReplicateWebhookPayload, analysis
 /**
  * Real-time broadcasting to frontend
  */
-async function broadcastToUser(userId: string, message: any) {
+async function broadcastToUser(userId: string, message: Record<string, unknown>) {
   try {
-    const supabase = createClient();
+    // const _supabase = createClient();
     
     // AI Decision: Broadcast through Supabase Realtime
     const channel = `user_${userId}_updates`;
@@ -567,19 +489,19 @@ function determineModelVersion(payload: ReplicateWebhookPayload): string {
   return payload.version || 'unknown';
 }
 
-function determineResultType(toolType: string): 'thumbnail' | 'faceswap' | 'recreate' {
-  switch (toolType) {
-    case 'face-swap': return 'faceswap';
-    case 'thumbnail-machine': return 'thumbnail';
-    default: return 'thumbnail';
-  }
-}
+// function _determineResultType(_toolType: string): 'thumbnail' | 'faceswap' | 'recreate' {
+//   switch (_toolType) {
+//     case 'face-swap': return 'faceswap';
+//     case 'thumbnail-machine': return 'thumbnail';
+//     default: return 'thumbnail';
+//   }
+// }
 
-function determineStyleType(input: any): string {
+function determineStyleType(input: ReplicateInput): string {
   return input?.style_type || input?.title_style || 'auto';
 }
 
-function hasAdvancedOptions(input: any): boolean {
+function hasAdvancedOptions(input: ReplicateInput): boolean {
   return !!(input?.guidance_scale || input?.num_inference_steps || 
            input?.output_quality || input?.seed || input?.reference_image);
 }

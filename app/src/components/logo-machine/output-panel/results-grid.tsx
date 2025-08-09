@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Copy, ExternalLink } from 'lucide-react';
+import { Download, Eye, Copy } from 'lucide-react';
 
 interface ResultsGridProps {
   thumbnails: {
@@ -25,7 +26,7 @@ export function ResultsGrid({
   thumbnails,
   faceSwappedThumbnails,
   titles,
-  batchId
+  batchId: _batchId
 }: ResultsGridProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -69,11 +70,11 @@ export function ResultsGrid({
             {thumbnails.map((thumbnail) => (
               <Card key={thumbnail.id} className="group overflow-hidden">
                 <div className="relative aspect-video">
-                  <img
+                  <Image
                     src={thumbnail.url}
                     alt={`Thumbnail ${thumbnail.variation_index}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    fill
+                    className="object-cover"
                   />
                   
                   {/* Overlay Controls */}
@@ -126,11 +127,11 @@ export function ResultsGrid({
             {faceSwappedThumbnails.map((thumbnail, index) => (
               <Card key={index} className="group overflow-hidden">
                 <div className="relative aspect-video">
-                  <img
+                  <Image
                     src={thumbnail.url}
                     alt={`Face swapped thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    fill
+                    className="object-cover"
                   />
                   
                   {/* Overlay Controls */}
@@ -207,9 +208,11 @@ export function ResultsGrid({
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
-            <img
+            <Image
               src={selectedImage}
               alt="Preview"
+              width={1200}
+              height={800}
               className="max-w-full max-h-full object-contain"
             />
             <Button

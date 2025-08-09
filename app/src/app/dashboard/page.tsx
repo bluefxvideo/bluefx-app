@@ -25,6 +25,15 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
+import type { Tables } from '@/types/database';
+import type { User } from '@supabase/supabase-js';
+
+// Define proper types
+type UserProfile = User & {
+  profile?: Tables<'profiles'> | null;
+};
+
+type Tutorial = Tables<'tutorials'>;
 
 // Legacy-style tools array
 const availableTools = [
@@ -93,12 +102,12 @@ const availableTools = [
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isBuyCreditsDialogOpen, setIsBuyCreditsDialogOpen] = useState(false);
   const { credits, isLoading: isLoadingCredits, isPurchasing } = useCredits();
 
   // Fetch user profile
-  const { data: userProfile, isLoading: isLoadingProfile } = useQuery({
+  const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfile | null>({
     queryKey: ['user-profile'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -110,7 +119,7 @@ export default function DashboardPage() {
         .eq('id', user.id)
         .single();
 
-      return { ...user, profile };
+      return { ...user, profile } as UserProfile;
     }
   });
 
@@ -119,7 +128,7 @@ export default function DashboardPage() {
                       'User';
 
   // Fetch tutorials
-  const { data: tutorials = [], isLoading: isLoadingTutorials } = useQuery({
+  const { data: tutorials = [], isLoading: isLoadingTutorials } = useQuery<Tutorial[]>({
     queryKey: ['tutorials'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -133,7 +142,7 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    setCurrentUser(userProfile);
+    setCurrentUser(userProfile || null);
   }, [userProfile]);
 
   const handleToolClick = (route: string) => {
@@ -160,7 +169,7 @@ export default function DashboardPage() {
             Hey there, {displayName}!
           </h1>
           <p className="text-sm text-zinc-400">
-            Welcome back, we're happy to have you here!
+            Welcome back, we&apos;re happy to have you here!
           </p>
         </div>
         
@@ -345,8 +354,8 @@ export default function DashboardPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : tutorials.length > 0 ? (
-            tutorials.map((tutorial: any) => {
-              const videoId = tutorial.video_url ? getYouTubeVideoId(tutorial.video_url) : null;
+            tutorials.map((tutorial: Tutorial) => {
+              const videoId = tutorial.video_url ? getYouTubeVideoId(tutorial.video_url as string) : null;
               
               return (
                 <div key={tutorial.id} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
@@ -354,7 +363,7 @@ export default function DashboardPage() {
                     {videoId ? (
                       <iframe
                         src={`https://www.youtube.com/embed/${videoId}`}
-                        title={tutorial.title}
+                        title={tutorial.title as string}
                         className="w-full h-full"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

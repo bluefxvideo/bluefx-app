@@ -75,7 +75,7 @@ export function useThumbnailMachine() {
       
       return { optimisticResult };
     },
-    onSuccess: (response, variables, context) => {
+    onSuccess: (response, _variables, _context) => {
       if (response.success) {
         // Credits are now managed by useCredits hook
         

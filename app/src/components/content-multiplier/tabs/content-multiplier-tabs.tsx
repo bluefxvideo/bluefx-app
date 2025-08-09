@@ -3,12 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useContentMultiplierStore, usePlatformConnections, useCurrentVariant, useSelectedPlatforms } from '../store/content-multiplier-store';
-import { 
-  Upload,
-  CheckCircle,
-  History,
-  Settings,
-} from 'lucide-react';
+// import { 
+//   Upload,
+//   CheckCircle,
+//   History,
+//   Settings,
+// } from 'lucide-react';
 import { XIcon, InstagramIcon, TikTokIcon, LinkedInIcon, FacebookIcon } from '../components/brand-icons';
 
 interface ContentMultiplierTabsProps {
@@ -29,7 +29,7 @@ export function ContentMultiplierTabs({ activeTab }: ContentMultiplierTabsProps)
 
   // Determine which platform tabs should be enabled
   const isTabEnabled = (tabId: string) => {
-    return selected_platforms.includes(tabId as any);
+    return selected_platforms.includes(tabId as 'x' | 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'facebook');
   };
 
   const isConnected = (platform: string) => {
@@ -92,13 +92,13 @@ export function ContentMultiplierTabs({ activeTab }: ContentMultiplierTabsProps)
     
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
-      setActiveTab(tabId as any);
+      setActiveTab(tabId as 'x' | 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'facebook');
       router.push(tab.path);
     }
   };
 
   // Filter tabs to only show selected platforms
-  const availableTabs = tabs.filter(tab => selected_platforms.includes(tab.id as any));
+  const availableTabs = tabs.filter(tab => selected_platforms.includes(tab.id as 'x' | 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'facebook'));
   
   if (availableTabs.length === 0) {
     return null;

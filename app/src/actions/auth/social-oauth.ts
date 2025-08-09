@@ -18,6 +18,13 @@ const OAUTH_CONFIGS = {
     clientId: process.env.TWITTER_CLIENT_ID,
     clientSecret: process.env.TWITTER_CLIENT_SECRET,
   },
+  x: {
+    authUrl: 'https://twitter.com/i/oauth2/authorize',
+    tokenUrl: 'https://api.twitter.com/2/oauth2/token',
+    scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
+    clientId: process.env.TWITTER_CLIENT_ID,
+    clientSecret: process.env.TWITTER_CLIENT_SECRET,
+  },
   instagram: {
     authUrl: 'https://api.instagram.com/oauth/authorize',
     tokenUrl: 'https://api.instagram.com/oauth/access_token',
@@ -45,6 +52,13 @@ const OAUTH_CONFIGS = {
     scopes: ['pages_manage_posts', 'pages_read_engagement', 'public_profile'],
     clientId: process.env.FACEBOOK_CLIENT_ID,
     clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+  },
+  youtube: {
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    scopes: ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube'],
+    clientId: process.env.YOUTUBE_CLIENT_ID,
+    clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
   },
 };
 
@@ -330,10 +344,12 @@ async function fetchUserProfile(platform: SocialPlatform, accessToken: string) {
   // Platform-specific API endpoints for user profile
   const profileEndpoints = {
     twitter: 'https://api.twitter.com/2/users/me',
+    x: 'https://api.twitter.com/2/users/me',
     instagram: 'https://graph.instagram.com/me?fields=id,username,account_type',
     tiktok: 'https://open-api.tiktok.com/oauth/userinfo/',
     linkedin: 'https://api.linkedin.com/v2/people/~',
     facebook: 'https://graph.facebook.com/me?fields=id,name,picture',
+    youtube: 'https://www.googleapis.com/oauth2/v1/userinfo',
   };
 
   const response = await fetch(profileEndpoints[platform], {
@@ -467,10 +483,12 @@ async function revokeTokens(platform: SocialPlatform, userId: string) {
 
     const revokeEndpoints = {
       twitter: 'https://api.twitter.com/2/oauth2/revoke',
+      x: 'https://api.twitter.com/2/oauth2/revoke',
       instagram: null, // Instagram doesn't have a revoke endpoint
       tiktok: null,
       linkedin: null,
       facebook: 'https://graph.facebook.com/me/permissions',
+      youtube: 'https://oauth2.googleapis.com/revoke',
     };
 
     const endpoint = revokeEndpoints[platform];

@@ -18,7 +18,7 @@ interface StandardHistoryFiltersProps {
   onFiltersChange: (filters: HistoryFilters) => void;
 }
 
-interface HistoryFilters {
+export interface HistoryFilters {
   searchTerm: string;
   filterType: string;
   sortOrder: string;

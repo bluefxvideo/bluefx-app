@@ -318,7 +318,7 @@ interface RemotionEffect {
   type: 'transition' | 'filter' | 'overlay';
   start_frame: number;
   end_frame: number;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
 }
 
 // Render optimization analysis
@@ -434,7 +434,7 @@ export async function startVideoRender(request: VideoRenderRequest): Promise<Vid
     );
     
     // 5. Queue render job (this would integrate with your render service)
-    const renderJob = await queueRenderJob({
+    const _renderJob = await queueRenderJob({
       job_id: renderJobId,
       user_id: request.user_id,
       composition: request.composition,
@@ -448,7 +448,7 @@ export async function startVideoRender(request: VideoRenderRequest): Promise<Vid
       status: 'queued',
       progress: 0,
       current_stage: 'preparing_assets',
-      estimated_completion_time: (optimization.optimization as any)?.estimated_render_time_minutes * 60 || 300,
+      estimated_completion_time: ((optimization.optimization as any)?.estimated_render_time_minutes * 60) || 300,
       processing_time_ms: Date.now() - startTime,
       credits_used: creditsRequired,
       render_statistics: {
@@ -491,7 +491,7 @@ export async function getRenderStatus(renderJobId: string): Promise<VideoRenderR
   };
 }
 
-export async function cancelRender(renderJobId: string): Promise<{ success: boolean; error?: string }> {
+export async function cancelRender(_renderJobId: string): Promise<{ success: boolean; error?: string }> {
   // Implementation to cancel a render job
   return { success: true };
 }
@@ -536,7 +536,13 @@ function calculateRenderCredits(
   return Math.ceil(baseCredits * durationMultiplier * qualityMultiplier * resolutionMultiplier);
 }
 
-async function queueRenderJob(job: any): Promise<any> {
+async function queueRenderJob(_job: {
+  job_id: string;
+  user_id: string;
+  composition: VideoComposition;
+  settings: ExportSettings;
+  optimization: unknown;
+}): Promise<{ queued: boolean }> {
   // This would interface with your actual render service
   // Could be Remotion, FFmpeg, cloud render service, etc.
   

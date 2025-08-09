@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, Wand2, AlertTriangle } from 'lucide-react';
 
 interface GenerateButtonProps {

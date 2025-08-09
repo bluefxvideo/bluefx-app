@@ -15,7 +15,7 @@ import { Music, History } from 'lucide-react';
  */
 export function MusicMachinePage() {
   const musicMachineState = useMusicMachine();
-  const { activeTab, setActiveTab } = musicMachineState;
+  const { activeTab, setActiveTab: _setActiveTab } = musicMachineState;
 
   // Define tabs for StandardToolTabs
   const musicTabs = [

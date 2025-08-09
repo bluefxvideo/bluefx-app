@@ -106,8 +106,9 @@ export function testIdeogramSchema() {
       });
       
       // Check Replicate-specific metadata
-      if ((schema as any)._metadata?.replicateModel) {
-        console.log('✅ Replicate metadata found:', (schema as any)._metadata.replicateModel);
+      const metadata = (schema as { _metadata?: { replicateModel?: unknown } })._metadata;
+      if (metadata?.replicateModel) {
+        console.log('✅ Replicate metadata found:', metadata.replicateModel);
       }
       
       return schema;

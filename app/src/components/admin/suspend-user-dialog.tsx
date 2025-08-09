@@ -15,8 +15,13 @@ import { AlertTriangle, Shield } from 'lucide-react'
 import type { Tables } from '@/types/database'
 
 interface UserWithStats extends Tables<'profiles'> {
+  email?: string
+  is_suspended?: boolean
+  suspension_reason?: string | null
   subscription?: Tables<'user_subscriptions'> | null
   credits?: Tables<'user_credits'> | null
+  totalCreditsUsed?: number
+  lastActivity?: string | null
 }
 
 interface SuspendUserDialogProps {
@@ -63,7 +68,7 @@ export function SuspendUserDialog({ user, open, onOpenChange, onSuccess }: Suspe
       } else {
         alert('Error: ' + result.error)
       }
-    } catch (error) {
+    } catch (_error) {
       alert('Failed to update user suspension status')
     } finally {
       setLoading(false)

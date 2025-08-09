@@ -1,6 +1,6 @@
 'use client';
 
-import { StandardHistoryFilters } from '@/components/tools/standard-history-filters';
+import { StandardHistoryFilters, HistoryFilters } from '@/components/tools/standard-history-filters';
 
 /**
  * History Tab - Left-panel filters only (right panel is handled by ContextualOutput)
@@ -13,7 +13,7 @@ export function HistoryTab() {
     { value: 'export', label: 'Video Export' }
   ];
 
-  const handleFiltersChange = (filters: any) => {
+  const handleFiltersChange = (filters: HistoryFilters) => {
     console.log('Script-to-Video filters changed:', filters);
   };
 

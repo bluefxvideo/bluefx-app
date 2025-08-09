@@ -26,11 +26,11 @@ interface HedraWebhookPayload {
 /**
  * Verify webhook signature (if Hedra provides one)
  */
-function verifyWebhookSignature(
+async function verifyWebhookSignature(
   payload: string,
   signature: string | null,
   secret: string
-): boolean {
+): Promise<boolean> {
   if (!signature || !secret) {
     return true; // Skip verification if no signature/secret
   }
@@ -38,7 +38,7 @@ function verifyWebhookSignature(
   // Implement signature verification based on Hedra's method
   // This would typically involve HMAC verification
   try {
-    const crypto = require('crypto');
+    const crypto = await import('crypto');
     const expectedSignature = crypto
       .createHmac('sha256', secret)
       .update(payload)
@@ -97,14 +97,21 @@ async function storeGeneratedVideo(
  * Update avatar video record in database
  */
 async function updateAvatarVideoRecord(
-  supabase: any,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   avatarVideoId: string,
   status: string,
   videoUrl?: string,
   errorMessage?: string
 ) {
   try {
-    const updateData: any = {
+    const updateData: {
+      status: string;
+      updated_at: string;
+      video_url?: string;
+      completed_at?: string;
+      error_message?: string;
+      failed_at?: string;
+    } = {
       status,
       updated_at: new Date().toISOString(),
     };
@@ -241,7 +248,7 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.HEDRA_WEBHOOK_SECRET;
 
     // Verify webhook signature
-    if (webhookSecret && !verifyWebhookSignature(body, signature, webhookSecret)) {
+    if (webhookSecret && !(await verifyWebhookSignature(body, signature, webhookSecret))) {
       console.error('❌ Invalid webhook signature');
       return NextResponse.json(
         { error: 'Invalid signature' },
@@ -253,7 +260,7 @@ export async function POST(request: NextRequest) {
     let payload: HedraWebhookPayload;
     try {
       payload = JSON.parse(body);
-    } catch (error) {
+    } catch (_error) {
       console.error('❌ Invalid webhook payload:', body);
       return NextResponse.json(
         { error: 'Invalid payload' },

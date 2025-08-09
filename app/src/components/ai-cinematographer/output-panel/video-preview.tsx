@@ -3,7 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Download, ExternalLink, Clock } from 'lucide-react';
+import { Download, ExternalLink, Clock } from 'lucide-react';
 
 interface VideoPreviewProps {
   video: {

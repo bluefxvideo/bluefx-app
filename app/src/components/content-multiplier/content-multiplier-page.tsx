@@ -28,7 +28,7 @@ export function ContentMultiplierPage() {
   const searchParams = useSearchParams();
   const activeTab = useActiveTab();
   const activeWorkflowTab = useActiveWorkflowTab();
-  const current_variant = useCurrentVariant();
+  const _current_variant = useCurrentVariant();
 
   // Handle OAuth callback results and navigation
   useEffect(() => {

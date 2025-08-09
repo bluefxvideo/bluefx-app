@@ -1,6 +1,6 @@
 'use server';
 
-import { generateObject, generateText } from 'ai';
+import { generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 
@@ -219,34 +219,34 @@ Determine:
 
     // Step 2: Execute Edit Based on AI's Impact Analysis
     let updated_composition = { ...request.current_composition };
-    const regenerated_assets: any = {};
+    const regenerated_assets: { images?: string[]; audio_segments?: string[]; captions?: CaptionData[] } = {};
 
     switch (request.edit_type) {
       case 'add_segment':
-        updated_composition = await handleAddSegment(request, impactAnalysis);
+        updated_composition = await handleAddSegment(request, impactAnalysis as any);
         break;
         
       case 'remove_segment':
-        updated_composition = await handleRemoveSegment(request, impactAnalysis);
+        updated_composition = await handleRemoveSegment(request, impactAnalysis as any);
         break;
         
       case 'modify_segment':
-        updated_composition = await handleModifySegment(request, impactAnalysis);
+        updated_composition = await handleModifySegment(request, impactAnalysis as any);
         break;
         
       case 'regenerate_image':
-        const imageResult = await handleRegenerateImage(request, impactAnalysis);
+        const imageResult = await handleRegenerateImage(request, impactAnalysis as any);
         updated_composition = imageResult.composition;
         regenerated_assets.images = imageResult.new_images;
         total_credits += imageResult.credits_used;
         break;
         
       case 'adjust_timing':
-        updated_composition = await handleTimingAdjustment(request, impactAnalysis);
+        updated_composition = await handleTimingAdjustment(request, impactAnalysis as any);
         break;
         
       case 'reorder_segments':
-        updated_composition = await handleReorderSegments(request, impactAnalysis);
+        updated_composition = await handleReorderSegments(request, impactAnalysis as any);
         break;
     }
 
@@ -295,7 +295,7 @@ Determine:
       // Apply AI's timeline optimizations
       updated_composition.timeline_data = applyTimelineRecalculation(
         updated_composition.timeline_data,
-        timelineRecalc
+        timelineRecalc as any
       );
       
       total_credits += 1; // Timeline optimization cost
@@ -307,7 +307,7 @@ Determine:
     updated_composition.remotion_template = await updateRemotionTemplate({
       current_template: request.current_composition.remotion_template,
       updated_composition,
-      impact_analysis: impactAnalysis,
+      impact_analysis: impactAnalysis as any,
       regenerated_assets
     });
 
@@ -353,7 +353,7 @@ Determine:
 
 async function handleAddSegment(
   request: VideoEditRequest, 
-  impactAnalysis: any
+  _impactAnalysis: z.infer<typeof EditImpactAnalysisSchema>
 ): Promise<VideoComposition> {
   console.log('➕ Adding new segment with AI optimization...');
   
@@ -386,7 +386,7 @@ async function handleAddSegment(
   });
 
   // Generate assets for new segment
-  const [newImage, newVoiceSegment] = await Promise.all([
+  const [newImage, _newVoiceSegment] = await Promise.all([
     generateSegmentImage((newSegmentPlan as any).image_prompt, '9:16'),
     generateVoiceSegment(newSegmentText, (newSegmentPlan as any).voice_emotion)
   ]);
@@ -420,7 +420,7 @@ async function handleAddSegment(
 
 async function handleRemoveSegment(
   request: VideoEditRequest, 
-  impactAnalysis: any
+  _impactAnalysis: z.infer<typeof EditImpactAnalysisSchema>
 ): Promise<VideoComposition> {
   console.log('➖ Removing segment with AI optimization...');
   
@@ -442,7 +442,7 @@ async function handleRemoveSegment(
 
 async function handleModifySegment(
   request: VideoEditRequest, 
-  impactAnalysis: any
+  _impactAnalysis: z.infer<typeof EditImpactAnalysisSchema>
 ): Promise<VideoComposition> {
   console.log('✏️ Modifying segment with AI optimization...');
   
@@ -467,7 +467,7 @@ async function handleModifySegment(
 
 async function handleRegenerateImage(
   request: VideoEditRequest, 
-  impactAnalysis: any
+  _impactAnalysis: z.infer<typeof EditImpactAnalysisSchema>
 ): Promise<{ composition: VideoComposition; new_images: string[]; credits_used: number }> {
   console.log('🎨 Regenerating image with AI optimization...');
   
@@ -509,7 +509,7 @@ async function handleRegenerateImage(
 
 async function handleTimingAdjustment(
   request: VideoEditRequest, 
-  impactAnalysis: any
+  _impactAnalysis: z.infer<typeof EditImpactAnalysisSchema>
 ): Promise<VideoComposition> {
   console.log('⏱️ Adjusting timing with AI optimization...');
   
@@ -536,7 +536,7 @@ async function handleTimingAdjustment(
 
 async function handleReorderSegments(
   request: VideoEditRequest, 
-  impactAnalysis: any
+  _impactAnalysis: z.infer<typeof EditImpactAnalysisSchema>
 ): Promise<VideoComposition> {
   console.log('🔄 Reordering segments with AI optimization...');
   
@@ -549,7 +549,7 @@ async function handleReorderSegments(
  * Helper functions for asset generation and processing
  */
 
-async function generateSegmentImage(prompt: string, aspectRatio: string) {
+async function generateSegmentImage(_prompt: string, _aspectRatio: string) {
   // Would call your existing image generation model
   return {
     url: `https://storage.example.com/images/${crypto.randomUUID()}.png`,
@@ -557,7 +557,7 @@ async function generateSegmentImage(prompt: string, aspectRatio: string) {
   };
 }
 
-async function generateVoiceSegment(text: string, emotion: string) {
+async function generateVoiceSegment(_text: string, _emotion: string) {
   // Would call your existing voice generation model
   return {
     url: `https://storage.example.com/audio/${crypto.randomUUID()}.mp3`,
@@ -565,7 +565,11 @@ async function generateVoiceSegment(text: string, emotion: string) {
   };
 }
 
-async function reanalyzeAudioWithWhisper(params: any) {
+async function reanalyzeAudioWithWhisper(_params: {
+  audio_url: string;
+  updated_segments: VideoSegment[];
+  previous_timing: TimelineData;
+}) {
   // Would call your Whisper integration
   return {
     updated_captions: [],
@@ -573,17 +577,22 @@ async function reanalyzeAudioWithWhisper(params: any) {
   };
 }
 
-function adjustCaptionTiming(existingCaptions: CaptionData[], affectedSegmentIds: string[]) {
+function adjustCaptionTiming(existingCaptions: CaptionData[], _affectedSegmentIds: string[]) {
   // Smart caption timing adjustment without full reanalysis
   return existingCaptions;
 }
 
-function applyTimelineRecalculation(currentTimeline: TimelineData, recalculation: any) {
+function applyTimelineRecalculation(currentTimeline: TimelineData, _recalculation: z.infer<typeof SegmentRecalculationSchema>) {
   // Apply AI's timeline optimization
   return currentTimeline;
 }
 
-async function updateRemotionTemplate(params: any) {
+async function updateRemotionTemplate(params: {
+  current_template: RemotionTemplate;
+  updated_composition: VideoComposition;
+  impact_analysis: z.infer<typeof EditImpactAnalysisSchema>;
+  regenerated_assets: { images?: string[]; audio_segments?: string[]; captions?: CaptionData[] };
+}) {
   // Update only affected parts of Remotion template
   return params.current_template;
 }

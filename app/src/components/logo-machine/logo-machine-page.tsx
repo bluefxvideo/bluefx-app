@@ -21,7 +21,7 @@ import { Wand2 as GenerateIcon, RotateCcw, History } from 'lucide-react';
  */
 export function LogoMachinePage() {
   const pathname = usePathname();
-  const { credits: userCredits, isLoading: creditsLoading } = useCredits();
+  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
   const {
     generate,
     isGenerating,

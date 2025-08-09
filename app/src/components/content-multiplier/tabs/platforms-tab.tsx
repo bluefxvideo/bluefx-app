@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -37,7 +36,7 @@ export function PlatformsTab() {
     setConnectDialogOpen(true);
   };
 
-  const platforms: { id: SocialPlatform; name: string; icon: any; color: string; description: string }[] = [
+  const platforms: { id: SocialPlatform; name: string; icon: React.ComponentType<{ className?: string; size?: number }>; color: string; description: string }[] = [
     { 
       id: 'twitter', 
       name: 'Twitter/X', 

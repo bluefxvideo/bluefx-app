@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Lightbulb, 
   Target, 
   Zap, 
   TrendingUp,
@@ -52,11 +51,11 @@ export function ContentInputOutput() {
     },
   };
 
-  const contentTips = [
+  const _contentTips = [
     {
       icon: Target,
       title: 'Define Your Audience',
-      description: 'Know who you\'re creating content for to optimize platform adaptations.',
+      description: 'Know who you&apos;re creating content for to optimize platform adaptations.',
     },
     {
       icon: Zap,

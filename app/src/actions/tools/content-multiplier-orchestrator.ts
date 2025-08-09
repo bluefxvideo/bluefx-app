@@ -87,6 +87,9 @@ const ContentMultiplierSchema = z.object({
   original_analysis: ContentAnalysisSchema,
 });
 
+// Infer type from schema
+type ContentMultiplierType = z.infer<typeof ContentMultiplierSchema>;
+
 // Platform configurations
 const PLATFORM_CONFIGS = {
   twitter: {
@@ -180,13 +183,15 @@ export async function contentMultiplierOrchestrator(
 
     const processingTime = Date.now() - startTime;
 
+    const typedResult = result.object as ContentMultiplierType;
+    
     return {
       success: true,
-      platform_adaptations: (result.object as { platform_adaptations?: PlatformContentResult[] }).platform_adaptations || [],
-      original_analysis: (result.object as { original_analysis?: { content_type: string; main_topics: string[]; sentiment: string; key_points: string[]; } }).original_analysis || {
+      platform_adaptations: typedResult.platform_adaptations || [],
+      original_analysis: typedResult.original_analysis || {
         content_type: '',
         main_topics: [],
-        sentiment: '',
+        sentiment: 'neutral',
         key_points: []
       },
       credits_used: creditsUsed,

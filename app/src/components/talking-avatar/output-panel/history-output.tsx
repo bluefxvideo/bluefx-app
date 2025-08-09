@@ -1,8 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { History, ArrowLeft } from 'lucide-react';
+import { History } from 'lucide-react';
 
 export function HistoryOutput() {
   return (

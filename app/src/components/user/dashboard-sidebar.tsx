@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import NextImage from 'next/image'
+// import NextImage from 'next/image'
 import { 
   Image, 
   Video, 
@@ -164,7 +164,7 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { credits, isLoading: isLoadingCredits, isPurchasing } = useCredits()
+  const { isLoading: isLoadingCredits, isPurchasing } = useCredits()
   const { setTheme } = useTheme()
   const { toggleSidebar } = useDashboardLayout()
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)

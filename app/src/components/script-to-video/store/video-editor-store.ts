@@ -12,7 +12,6 @@ import {
   executeSegmentRemoval,
   regenerateSegmentAsset,
   getOperationProgress,
-  type SegmentImpactAnalysis,
   type UserChoiceDialog,
   type OperationProgress
 } from '../../../actions/tools/video-editor-actions';
@@ -151,7 +150,7 @@ interface SegmentData {
   edit_history: Array<{
     type: 'text_change' | 'regenerate_image' | 'style_change';
     timestamp: string;
-    data: any;
+    data: unknown;
   }>;
   status: 'draft' | 'ready' | 'editing' | 'error';
   locked: boolean;
@@ -537,7 +536,7 @@ interface VideoEditorActions {
   // UI actions
   setActiveTab: (tab: 'settings' | 'segments') => void;
   togglePanel: (panel: 'left' | 'right' | 'timeline') => void;
-  showModal: (modal: string, data?: any) => void;
+  showModal: (modal: string, data?: unknown) => void;
   hideModal: (modal: string) => void;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp'>) => void;
   showToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -545,7 +544,7 @@ interface VideoEditorActions {
   // Export actions
   exportVideo: (format?: 'mp4' | 'webm' | 'gif') => Promise<void>;
   cancelExport: () => void;
-  getRemotionConfig: () => any;
+  getRemotionConfig: () => Record<string, unknown>;
 
   // AI Orchestration actions
   generateFromScript: (script: string) => Promise<void>;
@@ -1036,7 +1035,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
           get().showToast('Project saved successfully', 'success');
         },
 
-        loadProject: async (projectId: string) => {
+        loadProject: async (_projectId: string) => {
           set((state) => {
             state.ui.loading.global = true;
           });
@@ -1216,7 +1215,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
           try {
             // Step 1: AI Impact Analysis
             const impactAnalysis = await analyzeSegmentRemoval(
-              get().segments,
+              get().segments as unknown as Array<Record<string, unknown>>,
               id
             );
             
@@ -1344,7 +1343,6 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
 
         addSegment: async (afterId?: string, text?: string) => {
           const newText = text || 'New segment text...';
-          const currentComposition = get().getRemotionConfig();
           
           try {
             // Step 1: AI Impact Analysis
@@ -1681,13 +1679,14 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
           });
         },
 
-        showModal: (modal: string, data?: any) => {
+        showModal: (modal: string, data?: unknown) => {
           set((state) => {
-            if (modal === 'segment_editor' && data?.segment_id) {
+            if (modal === 'segment_editor' && data && typeof data === 'object' && 'segment_id' in data) {
+              const segmentData = data as { segment_id: string; tab?: string };
               state.ui.modals.segment_editor = {
                 open: true,
-                segment_id: data.segment_id,
-                tab: data.tab || 'text'
+                segment_id: segmentData.segment_id,
+                tab: (segmentData.tab as 'voice' | 'image' | 'text' | 'timing') || 'text'
               };
             } else if (modal === 'export_dialog') {
               state.ui.modals.export_dialog.open = true;
@@ -1901,7 +1900,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             
             get().showToast('Timeline synchronized successfully!', 'success');
             
-          } catch (error) {
+          } catch (_error) {
             set((state) => {
               state.timeline.sync_status = 'out_of_sync';
             });

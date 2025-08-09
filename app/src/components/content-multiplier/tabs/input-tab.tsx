@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,13 +36,11 @@ export function InputTab() {
     original_input,
     uploaded_files,
     selected_platforms,
-    content_settings,
     generation_progress,
     setOriginalInput,
     uploadFile,
     removeFile,
     togglePlatform,
-    updateContentSettings,
     generatePlatformContent,
     calculateCreditsEstimate,
     clearCurrentProject,
@@ -90,7 +87,7 @@ export function InputTab() {
         description: 'Navigate to platform tabs to review and edit your content',
         duration: 4000,
       });
-    } catch (error) {
+    } catch (_error) {
       toast.error('Content generation failed', {
         description: 'Please try again or check your input',
       });
@@ -106,7 +103,7 @@ export function InputTab() {
                      selected_platforms.length > 0 && 
                      !generation_progress.is_generating;
 
-  const platforms: { id: SocialPlatform; name: string; icon: any; color: string }[] = [
+  const platforms: { id: SocialPlatform; name: string; icon: React.ComponentType<{ className?: string; size?: number }>; color: string }[] = [
     { id: 'twitter', name: 'Twitter/X', icon: XIcon, color: 'bg-black' },
     { id: 'instagram', name: 'Instagram', icon: InstagramIcon, color: 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500' },
     { id: 'tiktok', name: 'TikTok', icon: TikTokIcon, color: 'bg-black' },

@@ -72,7 +72,7 @@ export function useLogoMachine() {
       
       return { optimisticResult };
     },
-    onSuccess: (response, variables, context) => {
+    onSuccess: (response, _variables, _context) => {
       if (response.success) {
         // Update credits optimistically
         setCredits(prev => prev - response.credits_used);

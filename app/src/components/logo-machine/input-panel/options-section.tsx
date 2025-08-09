@@ -8,23 +8,25 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ChevronDown, ChevronUp, Settings, Type, Sliders } from 'lucide-react';
 
+interface LogoOptions {
+  num_outputs?: number;
+  aspect_ratio?: string;
+  generate_titles?: boolean;
+  title_style?: string;
+  guidance_scale?: number;
+  num_inference_steps?: number;
+  output_quality?: number;
+}
+
 interface OptionsSectionProps {
-  options: {
-    num_outputs?: number;
-    aspect_ratio?: string;
-    generate_titles?: boolean;
-    title_style?: string;
-    guidance_scale?: number;
-    num_inference_steps?: number;
-    output_quality?: number;
-  };
-  onChange: (options: any) => void;
+  options: LogoOptions;
+  onChange: (options: Partial<LogoOptions>) => void;
 }
 
 export function OptionsSection({ options, onChange }: OptionsSectionProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const updateOption = (key: string, value: any) => {
+  const updateOption = (key: keyof LogoOptions, value: LogoOptions[keyof LogoOptions]) => {
     onChange({ [key]: value });
   };
 

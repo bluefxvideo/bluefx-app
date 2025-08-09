@@ -12,7 +12,7 @@ interface OutlineTabProps {
   error?: string;
 }
 
-export function OutlineTab({ ebook, isGenerating, error }: OutlineTabProps) {
+export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error }: OutlineTabProps) {
   const { setActiveTab } = useEbookWriterStore();
 
   if (!ebook || !ebook.title) {

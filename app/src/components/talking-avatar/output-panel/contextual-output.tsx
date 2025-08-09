@@ -2,10 +2,11 @@
 
 import { TalkingAvatarOutput } from './talking-avatar-output';
 import { HistoryOutput } from './history-output';
+import { TalkingAvatarState } from '../hooks/use-talking-avatar';
 
 interface ContextualOutputProps {
   activeTab: string;
-  avatarState: any;
+  avatarState: { state: TalkingAvatarState };
 }
 
 export function ContextualOutput({ activeTab, avatarState }: ContextualOutputProps) {

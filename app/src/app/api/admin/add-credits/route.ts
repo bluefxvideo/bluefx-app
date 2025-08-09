@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
           details: { credits_added: credits },
           created_at: new Date().toISOString()
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Non-critical error, just log it
       console.warn('Failed to log admin action:', error)
     }

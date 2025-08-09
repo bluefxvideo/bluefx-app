@@ -4,12 +4,12 @@ import { Card } from '@/components/ui/card';
 import { Edit3, Sparkles } from 'lucide-react';
 
 interface EditorOutputProps {
-  result?: any;
+  result?: unknown;
   isEditing: boolean;
   error?: string;
 }
 
-export function EditorOutput({ result, isEditing, error }: EditorOutputProps) {
+export function EditorOutput({ }: EditorOutputProps) {
   return (
     <div className="flex-1 flex items-center justify-center">
       <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">

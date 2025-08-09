@@ -80,7 +80,7 @@ export async function uploadImageToStorage(
     console.log(`Uploading image to storage: ${bucket}/${filePath}`);
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from(bucket)
       .upload(filePath, uploadData, {
         contentType: finalContentType,
@@ -218,7 +218,7 @@ export async function uploadAudioToStorage(
     console.log(`Uploading audio to storage: ${bucket}/${filePath}`);
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from(bucket)
       .upload(filePath, uploadData, {
         contentType: finalContentType,

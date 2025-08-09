@@ -77,7 +77,23 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
       permissions: ['Post to timeline', 'Access basic info', 'Page management'],
       features: ['Timeline posting', 'Page posting', 'Community engagement'],
     },
-  };
+    x: {
+      icon: XIcon,
+      name: 'X (formerly Twitter)',
+      color: 'bg-black',
+      supported: true,
+      permissions: ['Post tweets', 'Create threads', 'Read profile info'],
+      features: ['Auto-posting', 'Thread creation', 'Hashtag optimization'],
+    },
+    youtube: {
+      icon: XIcon, // TODO: Replace with YouTube icon
+      name: 'YouTube',
+      color: 'bg-red-500',
+      supported: false,
+      permissions: ['Upload videos', 'Access channel info', 'Manage videos'],
+      features: ['Video uploading', 'Description optimization', 'Thumbnail generation'],
+    },
+  } as const;
 
   if (!platform) return null;
 
@@ -99,6 +115,8 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
         linkedin: 'linkedin_oidc',
         instagram: null, // Not supported by Supabase Auth
         tiktok: null, // Not supported by Supabase Auth
+        x: 'twitter', // X uses same OAuth as Twitter
+        youtube: null, // Not supported by Supabase Auth
       } as const;
       
       const supabaseProvider = providerMap[platform];
@@ -152,7 +170,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
       await disconnectPlatform(platform);
       toast.success(`Disconnected from ${info.name}`);
       onOpenChange(false);
-    } catch (error) {
+    } catch (_error) {
       toast.error(`Failed to disconnect from ${info.name}`);
     }
   };
@@ -193,7 +211,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
               </div>
               <h3 className="font-medium mb-2">Coming Soon</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                We're actively working on {info.name} integration. Stay tuned for updates!
+                We&apos;re actively working on {info.name} integration. Stay tuned for updates!
               </p>
               <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-blue-700 dark:text-blue-300">

@@ -95,7 +95,7 @@ const availableTools = [
 export function MainDashboard() {
   const router = useRouter()
   const supabase = createClient()
-  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<Record<string, unknown> | null>(null)
   const [isBuyCreditsDialogOpen, setIsBuyCreditsDialogOpen] = useState(false)
   const { credits, isLoading: isLoadingCredits, isPurchasing } = useCredits()
 
@@ -131,7 +131,7 @@ export function MainDashboard() {
   })
 
   useEffect(() => {
-    setCurrentUser(userProfile)
+    setCurrentUser(userProfile as any)
   }, [userProfile])
 
   const handleToolClick = (route: string) => {
@@ -307,7 +307,7 @@ export function MainDashboard() {
                       Invalid video URL
                     </div>
                   )}
-                  {currentUser?.profile?.role === 'admin' && (
+                  {(currentUser as any)?.profile?.role === 'admin' && (
                     <div className="absolute top-2 right-2 flex gap-2">
                       <button
                         className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors shadow-lg"
@@ -344,7 +344,7 @@ export function MainDashboard() {
           </div>
         )}
         
-        {currentUser?.profile?.role === 'admin' && !isLoadingProfile && (
+        {(currentUser as any)?.profile?.role === 'admin' && !isLoadingProfile && (
           <Card className="overflow-hidden border-2 border-dashed border-muted-foreground/50 content-center bg-background shadow-md">
             <div className="aspect-video flex items-center justify-center">
               <button

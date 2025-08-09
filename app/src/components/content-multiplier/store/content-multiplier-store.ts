@@ -9,7 +9,7 @@ import { devtools, persist } from 'zustand/middleware';
  */
 
 // Platform Types
-export type SocialPlatform = 'twitter' | 'instagram' | 'tiktok' | 'linkedin' | 'facebook';
+export type SocialPlatform = 'twitter' | 'x' | 'instagram' | 'tiktok' | 'linkedin' | 'facebook' | 'youtube';
 
 export interface PlatformConfig {
   name: string;
@@ -254,6 +254,26 @@ const PLATFORM_CONFIGS: Record<SocialPlatform, PlatformConfig> = {
     aspectRatios: ['16:9', '1:1', '4:5'],
     toneStyle: 'engaging',
   },
+  x: {
+    name: 'X (Twitter)',
+    maxLength: 280,
+    supportsImages: true,
+    supportsVideos: true,
+    supportsThreads: true,
+    recommendedHashtags: 3,
+    aspectRatios: ['16:9', '1:1', '4:5'],
+    toneStyle: 'engaging',
+  },
+  youtube: {
+    name: 'YouTube',
+    maxLength: 5000,
+    supportsImages: true,
+    supportsVideos: true,
+    supportsThreads: false,
+    recommendedHashtags: 5,
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    toneStyle: 'professional',
+  },
 };
 
 // Helper function to generate realistic mock platform content
@@ -261,7 +281,7 @@ function generateMockPlatformContent(
   platform: SocialPlatform, 
   originalContent: string, 
   config: PlatformConfig, 
-  settings: ContentSettings
+  _settings: ContentSettings
 ): PlatformContent {
   const platformStyles = {
     twitter: {
@@ -288,6 +308,16 @@ function generateMockPlatformContent(
       prefix: '👋 ',
       suffix: '\n\nWhat do you think? Let me know in the comments! 👇',
       hashtags: ['#Facebook', '#Community'],
+    },
+    x: {
+      prefix: '🚀 ',
+      suffix: '\n\nThoughts? 💭',
+      hashtags: ['#X', '#Twitter', '#SocialMedia', '#Digital'],
+    },
+    youtube: {
+      prefix: '🎥 ',
+      suffix: '\n\nDon\'t forget to like and subscribe! 👍',
+      hashtags: ['#YouTube', '#Video', '#Content', '#Subscribe', '#Like'],
     },
   };
 
@@ -859,11 +889,11 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
         },
         
         // Placeholder implementations for remaining actions
-        scheduleContent: async (platform: SocialPlatform, scheduledTime?: string) => {
+        scheduleContent: async (_platform: SocialPlatform, _scheduledTime?: string) => {
           // Implementation would schedule content for publishing
         },
         
-        cancelScheduled: async (queueId: string) => {
+        cancelScheduled: async (_queueId: string) => {
           // Implementation would cancel scheduled content
         },
         
@@ -871,15 +901,15 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
           // Implementation would save current variant to database
         },
         
-        loadVariant: async (variantId: string) => {
+        loadVariant: async (_variantId: string) => {
           // Implementation would load variant from database
         },
         
-        deleteVariant: async (variantId: string) => {
+        deleteVariant: async (_variantId: string) => {
           // Implementation would delete variant from database
         },
         
-        duplicateVariant: async (variantId: string) => {
+        duplicateVariant: async (_variantId: string) => {
           // Implementation would duplicate existing variant
         },
       }),

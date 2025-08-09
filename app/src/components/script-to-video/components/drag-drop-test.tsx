@@ -48,7 +48,7 @@ export function DragDropTest() {
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          Drag & Drop Segment Test
+          Drag &amp; Drop Segment Test
           <Badge variant="outline" className="text-xs font-mono">
             Development Tool
           </Badge>
@@ -125,9 +125,9 @@ export function DragDropTest() {
 
         {/* Instructions */}
         <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg">
-          <strong>Drag & Drop Instructions:</strong>
+          <strong>Drag &amp; Drop Instructions:</strong>
           <ul className="mt-1 space-y-1 list-disc list-inside">
-            <li>Click "Add Empty Segment" to add a new segment at position 0</li>
+            <li>Click &quot;Add Empty Segment&quot; to add a new segment at position 0</li>
             <li>Hover over segments in the main grid to see drag handles</li>
             <li>Drag and drop segments to reorder them</li>
             <li>Timeline positions update automatically</li>

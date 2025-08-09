@@ -81,7 +81,7 @@ export function ContentOnlyTab() {
         description: 'Navigate to platform tabs to review and edit your content',
         duration: 4000,
       });
-    } catch (error) {
+    } catch (_error) {
       toast.error('Content generation failed', {
         description: 'Please try again or check your input',
       });

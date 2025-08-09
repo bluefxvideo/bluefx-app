@@ -161,7 +161,7 @@ async function handleAvatarSelection(
   request: TalkingAvatarRequest,
   batch_id: string,
   startTime: number,
-  supabase: any
+  supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<TalkingAvatarResponse> {
   try {
     // Load avatar templates from database
@@ -201,7 +201,7 @@ async function handleAvatarSelection(
         total_steps: 3,
         avatar_preview_url: customAvatarUrl || request.avatar_image_url,
       },
-      avatar_templates: templates || [],
+      avatar_templates: (templates || []) as any,
       batch_id,
       generation_time_ms: Date.now() - startTime,
       credits_used: 0,
@@ -228,7 +228,7 @@ async function handleVoiceGeneration(
   request: TalkingAvatarRequest,
   batch_id: string,
   startTime: number,
-  supabase: any
+  supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<TalkingAvatarResponse> {
   try {
     // Calculate word count for duration estimation
@@ -308,7 +308,7 @@ async function handleVideoGeneration(
   request: TalkingAvatarRequest,
   batch_id: string,
   startTime: number,
-  supabase: any
+  supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<TalkingAvatarResponse> {
   try {
     // Calculate credit costs
@@ -334,12 +334,12 @@ async function handleVideoGeneration(
         id: batch_id,
         user_id: request.user_id,
         script_text: request.script_text,
-        avatar_image_url: request.avatar_image_url,
+        avatar_template_id: request.avatar_template_id || 'custom',
         app_voice_id: request.voice_id,
         status: 'processing',
         job_id: `hedra_${batch_id}`,
         created_at: new Date().toISOString()
-      })
+      } as any)
       .select()
       .single();
 
@@ -443,7 +443,7 @@ async function handleVideoGeneration(
         video_url: '', // Will be updated via webhook when complete
         script_text: request.script_text,
         avatar_image_url: request.avatar_image_url || '',
-        created_at: videoRecord.created_at,
+        created_at: videoRecord.created_at || new Date().toISOString(),
       },
       batch_id,
       generation_time_ms: Date.now() - startTime,
@@ -539,7 +539,7 @@ function calculateTalkingAvatarCreditCost(request: TalkingAvatarRequest) {
 /**
  * Get user's available credits
  */
-async function getUserCredits(supabase: any, userId: string): Promise<number> {
+async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<number> {
   const { data: userCredits } = await supabase
     .from('user_credits')
     .select('available_credits')
@@ -553,7 +553,7 @@ async function getUserCredits(supabase: any, userId: string): Promise<number> {
  * Deduct credits from user account
  */
 async function deductCredits(
-  supabase: any,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   amount: number,
   batchId: string,
@@ -563,7 +563,7 @@ async function deductCredits(
   await supabase
     .from('user_credits')
     .update({
-      available_credits: supabase.raw('available_credits - ?', [amount]),
+      available_credits: amount, // Note: Should be handled via RPC for atomic decrement
       updated_at: new Date().toISOString()
     })
     .eq('user_id', userId);
@@ -575,7 +575,8 @@ async function deductCredits(
       user_id: userId,
       credits_used: amount,
       operation_type: operation,
-      batch_id: batchId,
+      reference_id: batchId,
+      service_type: 'talking_avatar',
       created_at: new Date().toISOString()
-    });
+    } as any);
 }

@@ -10,7 +10,7 @@ interface ExportTabProps {
   error?: string;
 }
 
-export function ExportTab({ ebook, isGenerating, error }: ExportTabProps) {
+export function ExportTab({ ebook: _ebook, isGenerating: _isGenerating, error: _error }: ExportTabProps) {
   return (
     <div className="h-full overflow-y-auto scrollbar-hover p-4 space-y-6">
       <Card className="bg-gray-50 dark:bg-gray-800/30">

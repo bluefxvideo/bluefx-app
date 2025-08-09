@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { Upload, Video, Sliders } from 'lucide-react';
+import { Upload, Video } from 'lucide-react';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
 import { PromptSection } from '../input-panel/prompt-section';
 import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
@@ -31,10 +31,10 @@ export function GeneratorTab({
     prompt: '',
     reference_image: null as File | null,
     duration: 4,
-    aspect_ratio: '16:9' as const,
+    aspect_ratio: '16:9' as '16:9' | '9:16' | '1:1',
     motion_scale: 1.0
   });
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  // const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
@@ -144,7 +144,7 @@ export function GeneratorTab({
               <Label>Aspect Ratio</Label>
               <Select 
                 value={formData.aspect_ratio} 
-                onValueChange={(value: any) => setFormData(prev => ({ ...prev, aspect_ratio: value }))}
+                onValueChange={(value: '16:9' | '9:16' | '1:1') => setFormData(prev => ({ ...prev, aspect_ratio: value }))}
                 disabled={isGenerating}
               >
                 <SelectTrigger>

@@ -76,7 +76,7 @@ export async function searchTrends(
 }
 
 export async function analyzeTrendPotential(
-  content: string
+  _content: string
 ): Promise<{ success: boolean; viral_score?: number; recommendations?: string[]; error?: string }> {
   try {
     // TODO: Implement AI-powered viral potential analysis

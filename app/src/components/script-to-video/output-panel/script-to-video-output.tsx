@@ -17,9 +17,10 @@ import {
 } from 'lucide-react';
 import { TabEmptyStates } from './tab-empty-states';
 import { LoadingSkeleton } from './loading-skeleton';
+import type { ScriptToVideoResponse } from '@/actions/tools/script-to-video-orchestrator';
 
 interface ScriptToVideoOutputProps {
-  result?: any;
+  result?: ScriptToVideoResponse;
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;

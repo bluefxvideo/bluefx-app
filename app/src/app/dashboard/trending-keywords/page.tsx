@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, TrendingUp, BarChart3, DollarSign, Target, ExternalLink } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { getTrendingKeywords, searchKeywords, addKeyword } from '@/actions/research/trending-keywords';
+import { useState, useEffect, useCallback } from 'react';
+import { getTrendingKeywords, searchKeywords } from '@/actions/research/trending-keywords';
 import { toast } from 'sonner';
 import { UniformToolLayout } from '@/components/tools/uniform-tool-layout';
 
@@ -33,11 +33,7 @@ export default function TrendingKeywordsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('search_volume');
 
-  useEffect(() => {
-    loadKeywords();
-  }, [selectedCategory, sortBy]);
-
-  const loadKeywords = async () => {
+  const loadKeywords = useCallback(async () => {
     setIsLoading(true);
     try {
       const result = await getTrendingKeywords({
@@ -54,12 +50,16 @@ export default function TrendingKeywordsPage() {
       } else {
         toast.error(result.error || 'Failed to load keywords');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load trending keywords');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedCategory, sortBy]);
+
+  useEffect(() => {
+    loadKeywords();
+  }, [selectedCategory, sortBy, loadKeywords]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -77,7 +77,7 @@ export default function TrendingKeywordsPage() {
       } else {
         toast.error(result.error || 'Search failed');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Search failed');
     } finally {
       setIsLoading(false);

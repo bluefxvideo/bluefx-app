@@ -63,7 +63,7 @@ export function AddCreditsDialog({ user, open, onOpenChange, onSuccess }: AddCre
       onOpenChange(false)
       onSuccess?.()
       
-    } catch (error) {
+    } catch (_error) {
       alert('Failed to add credits. Please try again.')
     } finally {
       setIsLoading(false)

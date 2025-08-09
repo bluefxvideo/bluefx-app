@@ -2,9 +2,8 @@ import { createClient } from '@/app/supabase/server'
 import { AdminUserTable } from './admin-user-table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+// import { Badge } from '@/components/ui/badge'
 import { 
-  Users, 
   Crown, 
   CreditCard, 
   UserPlus,
@@ -15,6 +14,9 @@ import {
 import type { Tables } from '@/types/database'
 
 interface UserWithStats extends Tables<'profiles'> {
+  email?: string
+  is_suspended?: boolean
+  suspension_reason?: string | null
   subscription?: Tables<'user_subscriptions'> | null
   credits?: Tables<'user_credits'> | null
   totalCreditsUsed?: number

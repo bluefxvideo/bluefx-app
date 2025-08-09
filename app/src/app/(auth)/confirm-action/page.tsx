@@ -1,10 +1,11 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export default function ConfirmActionPage() {
+function ConfirmActionContent() {
   const searchParams = useSearchParams()
   const confirmationUrl = searchParams.get('confirmation_url')
   const action = searchParams.get('action') || 'confirm'
@@ -56,5 +57,13 @@ export default function ConfirmActionPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function ConfirmActionPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ConfirmActionContent />
+    </Suspense>
   )
 }

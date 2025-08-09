@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+// Button import removed as unused
 import { createClient } from '@/app/supabase/client'
 import { 
   Zap, 
@@ -264,8 +264,8 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ user }) =>
           .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
 
         if (usageData) {
-          const toolCounts = usageData.reduce((acc: Record<string, number>, item: any) => {
-            acc[item.service_type] = (acc[item.service_type] || 0) + 1
+          const toolCounts = usageData.reduce((acc: Record<string, number>, item: Record<string, unknown>) => {
+            acc[item.service_type as string] = (acc[item.service_type as string] || 0) + 1
             return acc
           }, {})
 
@@ -273,14 +273,14 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ user }) =>
             .map(([tool, count]) => ({ tool, count: count as number }))
             .sort((a, b) => b.count - a.count)
 
-          const totalCreditsUsed = usageData.reduce((sum: number, item: any) => sum + item.credits_used, 0)
+          const totalCreditsUsed = usageData.reduce((sum: number, item: Record<string, unknown>) => sum + (item.credits_used as number || 0), 0)
 
           setStats({
             monthlyProjects: favoriteTools.length,
             favoriteTools,
-            recentActivity: usageData.slice(0, 5).map((item: any) => ({
-              tool: item.service_type,
-              date: item.created_at,
+            recentActivity: usageData.slice(0, 5).map((item: Record<string, unknown>) => ({
+              tool: item.service_type as string,
+              date: item.created_at as string,
               type: 'Generation'
             })),
             creditsUsed: totalCreditsUsed,

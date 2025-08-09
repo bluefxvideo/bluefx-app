@@ -1,7 +1,6 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 
 interface EbookWriterLayoutProps {
   children: [React.ReactNode, React.ReactNode]; // [InputPanel, OutputPanel]

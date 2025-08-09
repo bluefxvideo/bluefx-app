@@ -1,12 +1,11 @@
 'use server';
 
-import { generateText, generateObject } from 'ai';
+import { generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
-import { uploadImageToStorage } from '../supabase-storage';
 import { 
   storeEbookResults, 
-  createEbookRecord, 
+  // createEbookRecord - imported but unused in current implementation 
   recordEbookMetrics,
   getUserCredits,
   deductCredits 
@@ -59,7 +58,7 @@ export interface EbookWriterRequest {
   // Generation context
   reference_materials?: string[];
   continuation_context?: {
-    existing_chapters: any[];
+    existing_chapters: EbookChapter[];
     current_chapter_index: number;
   };
   
@@ -164,6 +163,11 @@ const ContentGenerationSchema = z.object({
   key_concepts_covered: z.array(z.string()),
   transition_quality: z.enum(['excellent', 'good', 'fair', 'needs_improvement'])
 });
+
+// Infer types from schemas
+type TitleGenerationType = z.infer<typeof TitleGenerationSchema>;
+type OutlineGenerationType = z.infer<typeof OutlineGenerationSchema>;
+type ContentGenerationType = z.infer<typeof ContentGenerationSchema>;
 
 /**
  * Main Orchestrator Function
@@ -335,7 +339,7 @@ async function generateTitles(topic: string): Promise<string[]> {
     `
   });
 
-  return (result.object as any).titles;
+  return (result.object as TitleGenerationType).titles;
 }
 
 /**
@@ -393,13 +397,13 @@ async function generateOutline(request: EbookWriterRequest): Promise<EbookOutlin
     `
   });
 
-  const outline = result.object as any;
+  const outline = result.object as OutlineGenerationType;
   
   return {
-    chapters: outline.chapters.map((chapter: any, index: number) => ({
+    chapters: outline.chapters.map((chapter, index) => ({
       id: `chapter_${index + 1}`,
       title: chapter.title,
-      subsections: chapter.subsections.map((section: any, sIndex: number) => ({
+      subsections: chapter.subsections.map((section, sIndex) => ({
         id: `section_${index + 1}_${sIndex + 1}`,
         title: section.title,
         hint: section.content_hint,
@@ -418,18 +422,23 @@ async function generateOutline(request: EbookWriterRequest): Promise<EbookOutlin
  * Generate content for specific sections or chapters
  * Replaces: ebook-content-generator edge function
  */
-async function generateContent(request: EbookWriterRequest): Promise<any[]> {
+async function generateContent(request: EbookWriterRequest): Promise<{ 
+  chapter_id: string; 
+  section_id: string; 
+  content: string; 
+  word_count: number; 
+}[]> {
   if (!request.continuation_context?.existing_chapters) {
     throw new Error('Content generation requires existing outline structure');
   }
 
   const preferences = request.content_preferences || {};
-  const generatedContent: any[] = [];
+  const generatedContent: { chapter_id: string; section_id: string; content: string; word_count: number; }[] = [];
 
   // For each chapter that needs content generation
   for (const chapter of request.continuation_context.existing_chapters) {
     for (const section of chapter.subsections) {
-      if (!section.content) { // Only generate missing content
+      if (!(section as any).content) { // Only generate missing content
         const content = await generateSectionContent({
           topic: request.topic,
           ebook_title: request.title || `Guide to ${request.topic}`,
@@ -469,7 +478,11 @@ async function generateSectionContent(params: {
   section_hint: string;
   writing_tone: string;
   target_word_count: number;
-  context: any;
+  context: {
+    previous_sections: { chapter_id: string; section_id: string; content: string; word_count: number; }[];
+    chapter_objectives: string[];
+    overall_audience: string;
+  };
 }): Promise<{ content: string; word_count: number }> {
   
   const result = await generateObject({
@@ -508,9 +521,10 @@ async function generateSectionContent(params: {
     `
   });
 
+  const content = result.object as ContentGenerationType;
   return {
-    content: (result.object as any).content,
-    word_count: (result.object as any).word_count
+    content: content.content,
+    word_count: content.word_count
   };
 }
 
@@ -527,7 +541,8 @@ async function generateCover(request: EbookWriterRequest): Promise<{ image_url: 
   const title = request.title || `The Complete Guide to ${request.topic}`;
   
   // Create optimized prompt for cover generation
-  const coverPrompt = `
+  /*
+  const _coverPrompt = `
     Professional ebook cover design for "${title}"
     
     Style: ${preferences.style}
@@ -547,6 +562,7 @@ async function generateCover(request: EbookWriterRequest): Promise<{ image_url: 
     
     The cover should convey expertise and value, appealing to the target audience interested in ${request.topic}.
   `;
+  */
 
   // Note: In a real implementation, this would call Replicate's Ideogram or similar
   // For now, we'll simulate the response
@@ -608,7 +624,7 @@ function calculateContentCredits(request: EbookWriterRequest): number {
 export async function exportEbook(
   ebookId: string,
   format: 'pdf' | 'epub' | 'docx',
-  userId: string
+  _userId: string
 ): Promise<{ success: boolean; download_url?: string; error?: string }> {
   
   try {
@@ -635,12 +651,12 @@ export async function exportEbook(
  * Replaces: History functionality from ebook-writer-service
  */
 export async function getEbookHistory(
-  userId: string,
-  limit: number = 20,
-  offset: number = 0
+  _userId: string,
+  _limit: number = 20,
+  _offset: number = 0
 ): Promise<{
   success: boolean;
-  ebooks?: any[];
+  ebooks?: unknown[];
   total_count?: number;
   error?: string;
 }> {

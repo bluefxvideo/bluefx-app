@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { 
   Play, 
   Pause, 
   SkipBack, 
   SkipForward,
-  Maximize2,
   Settings,
   Volume2,
   Type,
@@ -55,7 +54,7 @@ export function EnhancedTimeline({
 
   // Group segments by track
   const videoSegments = segments.filter(s => s.track === 'video');
-  const audioSegments = segments.filter(s => s.track === 'audio');
+  const _audioSegments = segments.filter(s => s.track === 'audio');
   const captionSegments = segments.filter(s => s.track === 'captions');
 
   const handleTimelineClick = (e: React.MouseEvent) => {

@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 
 export function ThumbnailExamplesCarousel() {
   // Show only the mountain/lifestyle image
@@ -12,9 +13,11 @@ export function ThumbnailExamplesCarousel() {
       <div className="space-y-4">
         <Card className="overflow-hidden bg-zinc-800/50 border-zinc-700 hover:shadow-lg transition-shadow pt-0">
           <div className="relative">
-            <img
+            <Image
               src={featuredThumbnail.src}
               alt={featuredThumbnail.title}
+              width={400}
+              height={225}
               className="w-full aspect-video object-cover"
             />
             {/* Category Badge */}

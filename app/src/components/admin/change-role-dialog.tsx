@@ -21,8 +21,13 @@ import { Shield, User, Headphones, TestTube } from 'lucide-react'
 import type { Tables } from '@/types/database'
 
 interface UserWithStats extends Tables<'profiles'> {
+  email?: string
+  is_suspended?: boolean
+  suspension_reason?: string | null
   subscription?: Tables<'user_subscriptions'> | null
   credits?: Tables<'user_credits'> | null
+  totalCreditsUsed?: number
+  lastActivity?: string | null
 }
 
 interface ChangeRoleDialogProps {
@@ -72,7 +77,7 @@ export function ChangeRoleDialog({ user, open, onOpenChange, onSuccess }: Change
       } else {
         alert('Error: ' + result.error)
       }
-    } catch (error) {
+    } catch (_error) {
       alert('Failed to change user role')
     } finally {
       setLoading(false)

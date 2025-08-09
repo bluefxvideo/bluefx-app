@@ -9,8 +9,6 @@ import {
   Check,
   Wifi,
   WifiOff,
-  ExternalLink,
-  Settings,
   Users,
 } from 'lucide-react';
 import { XIcon, InstagramIcon, TikTokIcon, LinkedInIcon, FacebookIcon } from './brand-icons';
@@ -39,7 +37,7 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
 
   const connections = usePlatformConnections();
 
-  const platforms: { id: SocialPlatform; name: string; icon: any; color: string; description: string }[] = [
+  const platforms: { id: SocialPlatform; name: string; icon: React.ComponentType<{ className?: string; size?: number }>; color: string; description: string }[] = [
     { 
       id: 'twitter', 
       name: 'Twitter/X', 

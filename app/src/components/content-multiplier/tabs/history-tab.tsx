@@ -1,6 +1,6 @@
 'use client';
 
-import { StandardHistoryFilters } from '@/components/tools/standard-history-filters';
+import { StandardHistoryFilters, HistoryFilters } from '@/components/tools/standard-history-filters';
 
 /**
  * History Tab - Uses standardized history filters for content multiplier history
@@ -15,7 +15,7 @@ export function HistoryTab() {
     { value: 'facebook', label: 'Facebook Content' }
   ];
 
-  const handleFiltersChange = (filters: any) => {
+  const handleFiltersChange = (filters: HistoryFilters) => {
     console.log('Content filters changed:', filters);
     // TODO: Implement actual filtering logic
   };

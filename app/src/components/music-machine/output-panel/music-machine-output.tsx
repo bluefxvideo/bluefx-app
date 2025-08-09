@@ -1,12 +1,12 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Download, Music, Clock, Volume2, Zap } from 'lucide-react';
+import { Music, Clock, Zap } from 'lucide-react';
+import type { UseMusicMachineReturn } from '../hooks/use-music-machine';
 
 interface MusicMachineOutputProps {
-  musicMachineState: any;
+  musicMachineState: UseMusicMachineReturn;
 }
 
 /**
@@ -16,9 +16,9 @@ interface MusicMachineOutputProps {
 export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProps) {
   const { 
     activeTab, 
-    state, 
-    playingMusicId, 
-    handleMusicPlayback 
+    state: _state, 
+    playingMusicId: _playingMusicId, 
+    handleMusicPlayback: _handleMusicPlayback 
   } = musicMachineState;
 
   if (activeTab === 'generate') {
@@ -32,8 +32,8 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
   return <DefaultOutput />;
 }
 
-function GenerateOutput({ musicMachineState }: { musicMachineState: any }) {
-  const { state, playingMusicId, handleMusicPlayback } = musicMachineState;
+function GenerateOutput({ musicMachineState }: { musicMachineState: { state: { isGenerating: boolean; currentGeneration: unknown } } }) {
+  const { state } = musicMachineState;
 
   if (state.isGenerating || state.currentGeneration) {
     return (
@@ -50,7 +50,7 @@ function GenerateOutput({ musicMachineState }: { musicMachineState: any }) {
         <div className="w-full max-w-sm mb-6">
           <div className="flex justify-between text-xs text-muted-foreground mb-2">
             <span>Processing...</span>
-            <span>⏱️ ~{Math.ceil(state.duration / 15)} min</span>
+            <span>⏱️ ~{Math.ceil((state as any).duration / 15)} min</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2">
             <div className="h-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full animate-pulse" 
@@ -58,7 +58,7 @@ function GenerateOutput({ musicMachineState }: { musicMachineState: any }) {
           </div>
         </div>
 
-        {state.currentGeneration && (
+        {(state as any).currentGeneration && (
           <Card className="p-4 w-full max-w-md border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
@@ -68,22 +68,22 @@ function GenerateOutput({ musicMachineState }: { musicMachineState: any }) {
             <div className="space-y-2 text-xs text-muted-foreground">
               <div className="flex justify-between">
                 <span>Prompt:</span>
-                <span className="text-right max-w-[200px] truncate">{state.currentGeneration.prompt}</span>
+                <span className="text-right max-w-[200px] truncate">{(state as any).currentGeneration?.prompt}</span>
               </div>
               <div className="flex justify-between">
                 <span>Duration:</span>
-                <span>{state.currentGeneration.duration}s</span>
+                <span>{(state as any).currentGeneration?.duration}s</span>
               </div>
               <div className="flex justify-between">
                 <span>Genre:</span>
-                <span>{state.currentGeneration.genre}</span>
+                <span>{(state as any).currentGeneration?.genre}</span>
               </div>
             </div>
           </Card>
         )}
 
         <p className="text-xs text-muted-foreground mt-4">
-          You'll receive a notification when your music is ready
+          You&apos;ll receive a notification when your music is ready
         </p>
       </div>
     );
@@ -117,8 +117,8 @@ function GenerateOutput({ musicMachineState }: { musicMachineState: any }) {
   );
 }
 
-function HistoryOutput({ musicMachineState }: { musicMachineState: any }) {
-  const { state, playingMusicId, handleMusicPlayback } = musicMachineState;
+function HistoryOutput({ musicMachineState }: { musicMachineState: { state: { isLoading: boolean; musicHistory: unknown[] } } }) {
+  const { state } = musicMachineState;
 
   if (state.isLoading) {
     return (
@@ -147,16 +147,16 @@ function HistoryOutput({ musicMachineState }: { musicMachineState: any }) {
             <Badge variant="secondary" className="text-xs">Tip</Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Try prompts like "upbeat electronic dance music" or "calm acoustic guitar melody"
+            Try prompts like &quot;upbeat electronic dance music&quot; or &quot;calm acoustic guitar melody&quot;
           </p>
         </Card>
       </div>
     );
   }
 
-  const completedMusic = state.musicHistory.filter((m: any) => m.status === 'completed');
-  const totalDuration = completedMusic.reduce((sum: number, m: any) => sum + m.duration, 0);
-  const totalSize = completedMusic.reduce((sum: number, m: any) => sum + (m.file_size_mb || 0), 0);
+  const completedMusic = (state as any).musicHistory?.filter((m: any) => m.status === 'completed') || [];
+  const _totalDuration = completedMusic.reduce((sum: number, m: any) => sum + (m.duration || 0), 0);
+  const _totalSize = completedMusic.reduce((sum: number, m: any) => sum + (m.file_size_mb || 0), 0);
 
   return (
     <div className="h-full flex flex-col items-center justify-center text-center p-8">
@@ -177,13 +177,13 @@ function HistoryOutput({ musicMachineState }: { musicMachineState: any }) {
         
         <Card className="p-3 text-center bg-white dark:bg-gray-800/40">
           <p className="text-lg font-semibold text-blue-500">
-            {Math.floor(totalDuration / 60)}:{(totalDuration % 60).toString().padStart(2, '0')}
+            {Math.floor(_totalDuration / 60)}:{(_totalDuration % 60).toString().padStart(2, '0')}
           </p>
           <p className="text-xs text-muted-foreground">Total Duration</p>
         </Card>
         
         <Card className="p-3 text-center bg-white dark:bg-gray-800/40">
-          <p className="text-lg font-semibold text-blue-500">{totalSize.toFixed(1)}MB</p>
+          <p className="text-lg font-semibold text-blue-500">{_totalSize.toFixed(1)}MB</p>
           <p className="text-xs text-muted-foreground">Total Size</p>
         </Card>
       </div>

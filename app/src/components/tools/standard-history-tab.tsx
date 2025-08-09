@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
-import { StandardHistoryFilters } from '@/components/tools/standard-history-filters';
+import { StandardHistoryFilters, HistoryFilters } from '@/components/tools/standard-history-filters';
 
 interface FilterOption {
   value: string;
@@ -12,7 +12,7 @@ interface FilterOption {
 interface StandardHistoryTabProps {
   toolName: string;
   toolTypes: FilterOption[];
-  onFiltersChange: (filters: any) => void;
+  onFiltersChange: (filters: HistoryFilters) => void;
   RightPanel: ReactNode; // caller provides the right panel content (results list/grid)
 }
 

@@ -1,11 +1,10 @@
 'use client';
 
-import { useContentMultiplierStore, useContentProgress, useActiveTab, useActiveWorkflowTab } from './store/content-multiplier-store';
+import { useContentProgress, useActiveTab, useActiveWorkflowTab } from './store/content-multiplier-store';
 import { WorkflowTabs } from './tabs/workflow-tabs';
 import { ContentMultiplierTabs } from './tabs/content-multiplier-tabs';
 import { ContentMultiplierOutput } from './output-panel/content-multiplier-output';
 import { Card } from '@/components/ui/card';
-import { Layers } from 'lucide-react';
 
 interface ContentMultiplierLayoutProps {
   children: React.ReactNode;

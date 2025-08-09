@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Video, User, Mic, Upload, Play, Square, ArrowRight, ArrowLeft } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
+import { AvatarTemplate } from '@/actions/tools/talking-avatar';
 
 interface GeneratorTabProps {
-  avatarState: any;
+  avatarState: UseTalkingAvatarReturn;
 }
 
 export function GeneratorTab({ avatarState }: GeneratorTabProps) {
@@ -25,7 +28,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
   } = avatarState;
 
   const [localScriptText, setLocalScriptText] = useState(state.scriptText);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<AvatarTemplate | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [customImage, setCustomImage] = useState<File | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
@@ -49,7 +52,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
       setCustomImage(file);
       setSelectedTemplate(null);
       // Update the main state and right panel with custom image
-      await handleAvatarSelection(undefined, file);
+      await handleAvatarSelection(null, file);
     }
   };
 
@@ -111,7 +114,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
         // Generate voice and stay in Step 2 to show preview
         if (selectedVoice && localScriptText.trim()) {
           await handleVoiceGeneration(selectedVoice, localScriptText);
-          // Stay in Step 2 to show voice preview - don't auto-advance
+          // Stay in Step 2 to show voice preview - don&apos;t auto-advance
         }
       } else {
         // Voice already generated, proceed to Step 3 for video generation
@@ -179,7 +182,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
             
             {/* Avatar Templates Grid */}
             <div className="grid grid-cols-2 gap-2">
-                {state.avatarTemplates.map((template: any) => (
+                {state.avatarTemplates.map((template: AvatarTemplate) => (
                   <Card
                     key={template.id}
                     className={`p-2 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] bg-white dark:bg-gray-800/40 ${
@@ -196,10 +199,11 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
                   >
                     <div className="relative aspect-square bg-muted rounded-lg mb-1 flex items-center justify-center overflow-hidden">
                       {template.thumbnail_url ? (
-                        <img 
+                        <Image 
                           src={template.thumbnail_url} 
                           alt={template.name}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
                           onError={(e) => {
                             console.log('Image failed to load:', template.thumbnail_url);
                             e.currentTarget.style.display = 'none';

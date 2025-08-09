@@ -48,7 +48,10 @@ export function useScriptToVideo() {
 
   // Edit mutation for editor functionality
   const editMutation = useMutation({
-    mutationFn: async (editData: any) => {
+    mutationFn: async (editData: {
+      type: string;
+      data: unknown;
+    }) => {
       // TODO: Implement edit orchestrator integration
       console.log('Edit operation:', editData);
       return { success: true };
@@ -61,7 +64,10 @@ export function useScriptToVideo() {
   });
 
   // Basic generation function
-  const generateBasic = async (scriptText: string, options?: any) => {
+  const generateBasic = async (scriptText: string, options?: {
+    quality?: 'draft' | 'standard' | 'premium';
+    aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
+  }) => {
     const response = await generateBasicScriptVideo(
       scriptText,
       'demo-user',

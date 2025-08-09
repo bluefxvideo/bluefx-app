@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -36,7 +35,7 @@ interface ToastProps {
 }
 
 function Toast({ toast }: ToastProps) {
-  const { ui } = useVideoEditorStore();
+  const { ui: _ui } = useVideoEditorStore();
 
   const getIcon = () => {
     switch (toast.type) {

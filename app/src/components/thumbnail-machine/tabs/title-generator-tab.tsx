@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card } from '@/components/ui/card';
-import { Type, Wand2 } from 'lucide-react';
+// import { Card } from '@/components/ui/card';
+import { Type } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
@@ -100,7 +100,7 @@ export function TitleGeneratorTab({
           <Label className="text-base font-medium mb-2 block">Title Style</Label>
           <Select
             value={formData.style}
-            onValueChange={(value: any) => setFormData(prev => ({ ...prev, style: value }))}
+            onValueChange={(value) => setFormData(prev => ({ ...prev, style: value as 'engaging' | 'emotional' | 'professional' | 'shocking' | 'educational' }))}
           >
             <SelectTrigger>
               <SelectValue />

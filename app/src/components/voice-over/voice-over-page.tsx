@@ -12,7 +12,7 @@ import { Mic, History, Settings } from 'lucide-react';
 
 export function VoiceOverPage() {
   const voiceOverState = useVoiceOver();
-  const { activeTab, setActiveTab } = voiceOverState;
+  const { activeTab } = voiceOverState;
 
   // Define tabs for StandardToolTabs
   const voiceOverTabs = [

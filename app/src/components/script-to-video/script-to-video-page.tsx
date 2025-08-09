@@ -21,7 +21,6 @@ import { UserChoiceDialog } from './components/user-choice-dialog';
 export function ScriptToVideoPage() {
   const pathname = usePathname();
   const {
-    generate,
     edit,
     isGenerating,
     isEditing,
@@ -68,7 +67,7 @@ export function ScriptToVideoPage() {
       case 'editor':
         return (
           <VideoEditorPanel
-            onEdit={edit}
+            onEdit={(editData) => edit({ type: 'edit', data: editData })}
             isEditing={isEditing}
             currentComposition={result}
             credits={credits}

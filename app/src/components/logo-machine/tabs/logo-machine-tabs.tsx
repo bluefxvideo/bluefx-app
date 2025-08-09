@@ -12,7 +12,7 @@ interface LogoMachineTabsProps {
  * Compact inline tab navigation for Logo Machine
  * Designed for header integration matching Thumbnail Machine exactly
  */
-export function LogoMachineTabs({ activeTab, layout = 'horizontal' }: LogoMachineTabsProps) {
+export function LogoMachineTabs({ activeTab, layout: _layout = 'horizontal' }: LogoMachineTabsProps) {
   const tabs = [
     {
       id: 'generate',

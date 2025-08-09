@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+// Unused card components removed
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wand2, Palette } from 'lucide-react';
+import { Palette } from 'lucide-react';
 import { LogoMachineRequest } from '@/actions/tools/logo-machine';
-import { TabContentWrapper, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 
 interface GeneratorTabProps {
@@ -23,9 +23,14 @@ interface GeneratorTabProps {
  * Uses Ideogram V3 Turbo for professional logo design
  */
 export function GeneratorTab({ onGenerate, isGenerating, credits, error }: GeneratorTabProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    company_name: string;
+    style: string;
+    color_scheme: string;
+    industry: string;
+  }>({
     company_name: '',
-    style: 'modern' as const,
+    style: 'modern',
     color_scheme: '',
     industry: ''
   });
@@ -37,7 +42,7 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
 
     const request: LogoMachineRequest = {
       company_name: formData.company_name.trim(),
-      style: formData.style,
+      style: formData.style as any,
       color_scheme: formData.color_scheme || undefined,
       industry: formData.industry || undefined,
       workflow_intent: 'generate',
@@ -101,7 +106,7 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
               <Label htmlFor="style">Logo Style</Label>
               <Select 
                 value={formData.style} 
-                onValueChange={(value: any) => setFormData(prev => ({ ...prev, style: value }))}
+                onValueChange={(value: string) => setFormData(prev => ({ ...prev, style: value }))}
                 disabled={isGenerating}
               >
                 <SelectTrigger className="bg-muted border-muted-foreground">

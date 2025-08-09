@@ -69,7 +69,7 @@ export function GeneratorTab({
     try {
       await generateFromScript(formData.script_text);
       showToast('Video generated successfully! Switch to Editor tab to customize.', 'success');
-    } catch (error) {
+    } catch {
       showToast('Failed to generate video. Please try again.', 'error');
     }
   };
@@ -129,7 +129,7 @@ export function GeneratorTab({
               </Label>
               <Select
                 value={formData.video_style.tone}
-                onValueChange={(value: any) => setFormData((prev) => ({
+                onValueChange={(value: "professional" | "casual" | "educational" | "dramatic" | "energetic") => setFormData((prev) => ({
                   ...prev,
                   video_style: { ...prev.video_style, tone: value }
                 }))}
@@ -156,7 +156,7 @@ export function GeneratorTab({
               </Label>
               <Select
                 value={formData.video_style.pacing}
-                onValueChange={(value: any) => setFormData((prev) => ({
+                onValueChange={(value: "slow" | "medium" | "fast") => setFormData((prev) => ({
                   ...prev,
                   video_style: { ...prev.video_style, pacing: value }
                 }))}
@@ -181,7 +181,7 @@ export function GeneratorTab({
               </Label>
               <Select
                 value={formData.video_style.visual_style}
-                onValueChange={(value: any) => setFormData((prev) => ({
+                onValueChange={(value: "artistic" | "minimal" | "realistic" | "dynamic") => setFormData((prev) => ({
                   ...prev,
                   video_style: { ...prev.video_style, visual_style: value }
                 }))}
@@ -217,7 +217,7 @@ export function GeneratorTab({
               </Label>
               <Select
                 value={formData.voice_settings.voice_id}
-                onValueChange={(value: any) => setFormData((prev) => ({
+                onValueChange={(value: string) => setFormData((prev) => ({
                   ...prev,
                   voice_settings: { ...prev.voice_settings, voice_id: value }
                 }))}
@@ -245,7 +245,7 @@ export function GeneratorTab({
               </Label>
               <Select
                 value={formData.voice_settings.speed}
-                onValueChange={(value: any) => setFormData((prev) => ({
+                onValueChange={(value: "slower" | "normal" | "faster") => setFormData((prev) => ({
                   ...prev,
                   voice_settings: { ...prev.voice_settings, speed: value }
                 }))}
@@ -270,7 +270,7 @@ export function GeneratorTab({
               </Label>
               <Select
                 value={formData.voice_settings.emotion}
-                onValueChange={(value: any) => setFormData((prev) => ({
+                onValueChange={(value: "neutral" | "excited" | "calm" | "authoritative" | "confident") => setFormData((prev) => ({
                   ...prev,
                   voice_settings: { ...prev.voice_settings, emotion: value }
                 }))}

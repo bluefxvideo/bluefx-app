@@ -1,7 +1,7 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { Video, Sparkles, History } from 'lucide-react';
+// import { Card } from '@/components/ui/card';
+import { Video, History } from 'lucide-react';
 
 /**
  * Tab-specific empty states for different cinematographer tools

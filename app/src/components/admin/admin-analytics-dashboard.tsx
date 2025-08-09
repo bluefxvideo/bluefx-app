@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/app/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+// import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
@@ -474,7 +474,7 @@ export function AdminAnalyticsDashboard() {
                   {analytics.hourlyDistribution
                     .sort((a, b) => b.activity - a.activity)
                     .slice(0, 6)
-                    .map((hour, index) => (
+                    .map((hour, _index) => (
                       <div key={hour.hour} className="flex items-center justify-between">
                         <span className="text-sm">
                           {hour.hour.toString().padStart(2, '0')}:00 - {(hour.hour + 1).toString().padStart(2, '0')}:00
@@ -582,7 +582,7 @@ export function AdminAnalyticsDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {analytics.subscriptionPlans.map((plan, index) => (
+                  {analytics.subscriptionPlans.map((plan, _index) => (
                     <div key={plan.plan_type} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                       <div className="flex items-center space-x-2">
                         <Crown className="h-4 w-4 text-yellow-500" />

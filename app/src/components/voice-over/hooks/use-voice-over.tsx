@@ -47,11 +47,11 @@ export interface VoiceOverState {
 export function useVoiceOver() {
   const pathname = usePathname();
   
-  const getActiveTabFromPath = () => {
+  const getActiveTabFromPath = useCallback(() => {
     if (pathname.includes('/history')) return 'history';
     if (pathname.includes('/settings')) return 'settings';
     return 'generate';
-  };
+  }, [pathname]);
 
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
@@ -85,7 +85,7 @@ export function useVoiceOver() {
   // Update active tab when pathname changes
   useEffect(() => {
     setActiveTab(getActiveTabFromPath());
-  }, [pathname]);
+  }, [pathname, getActiveTabFromPath]);
 
   // Get current user
   useEffect(() => {
@@ -102,12 +102,54 @@ export function useVoiceOver() {
     return () => subscription.unsubscribe();
   }, [supabase.auth]);
 
+  // Load voice history
+  const loadVoiceHistory = useCallback(async () => {
+    if (!user) return;
+    
+    setState(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      const result = await getVoiceOverHistory(user.id, 50);
+      
+      if (result.success) {
+        setState(prev => ({
+          ...prev,
+          voiceHistory: (result.data || []).map(voice => ({
+            ...voice,
+            script_text: voice.script_text || '',
+            user_id: voice.user_id || 'unknown',
+            batch_id: voice.batch_id || 'unknown',
+            credits_used: voice.credits_used || 0,
+            audio_url: voice.audio_url || '',
+            duration_seconds: voice.duration_seconds ?? 0,
+            file_size_mb: voice.file_size_mb ?? 0,
+            export_format: voice.export_format || 'mp3',
+            created_at: voice.created_at || new Date().toISOString(),
+            // Handle optional fields properly
+            voice_settings: voice.voice_settings as { speed?: number; pitch?: number; volume?: number; emphasis?: "none" | "moderate" | "strong" } | undefined,
+            quality_rating: voice.quality_rating ?? undefined
+          })),
+          isLoading: false,
+        }));
+      } else {
+        throw new Error(result.error || 'Failed to load history');
+      }
+    } catch (error) {
+      console.error('History load error:', error);
+      setState(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : 'Failed to load history',
+        isLoading: false 
+      }));
+    }
+  }, [user]);
+
   // Load voice history when tab changes
   useEffect(() => {
     if (activeTab === 'history' && user) {
       loadVoiceHistory();
     }
-  }, [activeTab, user]);
+  }, [activeTab, user, loadVoiceHistory]);
 
   // Update estimated credits based on settings
   useEffect(() => {
@@ -225,44 +267,6 @@ export function useVoiceOver() {
     }
   }, [user, state.scriptText, state.selectedVoice, state.voiceSettings, state.exportFormat, state.quality, state.useSSML]);
 
-  // Load voice history
-  const loadVoiceHistory = useCallback(async () => {
-    if (!user) return;
-    
-    setState(prev => ({ ...prev, isLoading: true }));
-    
-    try {
-      const result = await getVoiceOverHistory(user.id, 50);
-      
-      if (result.success) {
-        setState(prev => ({
-          ...prev,
-          voiceHistory: (result.data || []).map(voice => ({
-            ...voice,
-            script_text: voice.script_text || '',
-            user_id: voice.user_id || 'unknown',
-            batch_id: voice.batch_id || 'unknown',
-            credits_used: voice.credits_used || 0,
-            audio_url: voice.audio_url || '',
-            duration_seconds: voice.duration_seconds ?? 0,
-            file_size_mb: voice.file_size_mb ?? 0,
-            export_format: voice.export_format || 'mp3',
-            created_at: voice.created_at || new Date().toISOString()
-          })),
-          isLoading: false,
-        }));
-      } else {
-        throw new Error(result.error || 'Failed to load history');
-      }
-    } catch (error) {
-      console.error('History load error:', error);
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'Failed to load history',
-        isLoading: false 
-      }));
-    }
-  }, [user]);
 
   // Delete voice
   const deleteVoice = useCallback(async (voiceId: string) => {

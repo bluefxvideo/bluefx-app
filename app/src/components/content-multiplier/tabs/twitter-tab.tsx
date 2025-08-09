@@ -11,7 +11,6 @@ import {
   Send, 
   Calendar, 
   Hash,
-  AtSign,
   ArrowLeft,
 } from 'lucide-react';
 import { useContentMultiplierStore, usePlatformConnections } from '../store/content-multiplier-store';
@@ -29,7 +28,6 @@ export function TwitterTab() {
     generation_progress,
     regeneratePlatformContent,
     updatePlatformContent,
-    updatePlatformHashtags,
     publishNow,
     setActiveTab,
   } = useContentMultiplierStore();
@@ -300,7 +298,7 @@ export function TwitterTab() {
           <div className="flex items-start gap-2">
             <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5" />
             <div className="text-sm">
-              <span className="font-medium">Engagement:</span> Optimized for Twitter's algorithm
+              <span className="font-medium">Engagement:</span> Optimized for Twitter&apos;s algorithm
             </div>
           </div>
 

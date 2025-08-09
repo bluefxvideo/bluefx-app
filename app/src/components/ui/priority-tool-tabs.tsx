@@ -116,7 +116,7 @@ export function PriorityToolTabs({
           {/* Primary tabs - always visible */}
           <div className="overflow-x-auto overflow-y-hidden scrollbar-hover">
             <TabsList className="flex h-auto !bg-transparent p-0 border-0 shadow-none rounded-none w-max min-w-full gap-3 px-2">
-              {primaryTabs.map((tab, index) => renderTabTrigger(tab, false))}
+              {primaryTabs.map((tab, _index) => renderTabTrigger(tab, false))}
               
               {/* More tabs indicator/dropdown */}
               {hasSecondaryTabs && (

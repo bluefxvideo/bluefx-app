@@ -1,9 +1,10 @@
 'use client';
 
 import { Video, User, Mic } from 'lucide-react';
+import { TalkingAvatarState } from '../hooks/use-talking-avatar';
 
 interface TalkingAvatarOutputProps {
-  avatarState: any;
+  avatarState: { state: TalkingAvatarState };
 }
 
 export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {

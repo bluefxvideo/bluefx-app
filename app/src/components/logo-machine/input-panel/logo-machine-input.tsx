@@ -1,21 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card } from '@/components/ui/card';
-import { Upload, Wand2 } from 'lucide-react';
-import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
+import { Wand2 } from 'lucide-react';
+import { LogoMachineRequest } from '@/actions/tools/logo-machine';
 import { PromptSection } from './prompt-section';
 import { UploadSection } from './upload-section';
 import { OptionsSection } from './options-section';
 import { GenerateButton } from './generate-button';
 
-interface ThumbnailMachineInputProps {
-  onGenerate: (request: ThumbnailMachineRequest) => void;
+interface LogoMachineInputProps {
+  onGenerate: (request: LogoMachineRequest) => void;
   isGenerating: boolean;
   credits: number;
   error?: string;
@@ -25,13 +19,13 @@ interface ThumbnailMachineInputProps {
  * Input Panel - Left side of two-column layout
  * Handles all user inputs for thumbnail generation
  */
-export function ThumbnailMachineInput({
+export function LogoMachineInput({
   onGenerate,
   isGenerating,
   credits,
   error
-}: ThumbnailMachineInputProps) {
-  const [formData, setFormData] = useState<Partial<ThumbnailMachineRequest>>({
+}: LogoMachineInputProps) {
+  const [formData, setFormData] = useState<any>({
     prompt: '',
     num_outputs: 4,
     aspect_ratio: '16:9',
@@ -45,7 +39,7 @@ export function ThumbnailMachineInput({
       ...formData,
       prompt: formData.prompt,
       user_id: 'current-user', // Will be set by hook
-    } as ThumbnailMachineRequest);
+    } as any);
   };
 
   const estimatedCredits = (
@@ -81,17 +75,17 @@ export function ThumbnailMachineInput({
       <div className="flex-1 space-y-4 overflow-visible scrollbar-hover">
         <PromptSection
           value={formData.prompt || ''}
-          onChange={(prompt) => setFormData(prev => ({ ...prev, prompt }))}
+          onChange={(prompt) => setFormData((prev: any) => ({ ...prev, prompt }))}
         />
         
         <UploadSection
           referenceImage={formData.reference_image}
           onReferenceImageChange={(reference_image) => 
-            setFormData(prev => ({ ...prev, reference_image }))
+            setFormData((prev: any) => ({ ...prev, reference_image }))
           }
           faceSwap={formData.face_swap}
           onFaceSwapChange={(face_swap) => 
-            setFormData(prev => ({ ...prev, face_swap }))
+            setFormData((prev: any) => ({ ...prev, face_swap }))
           }
         />
         
@@ -105,7 +99,7 @@ export function ThumbnailMachineInput({
             num_inference_steps: formData.num_inference_steps,
             output_quality: formData.output_quality,
           }}
-          onChange={(options) => setFormData(prev => ({ ...prev, ...options }))}
+          onChange={(options) => setFormData((prev: any) => ({ ...prev, ...options }))}
         />
       </div>
 

@@ -2,7 +2,7 @@
 
 import { AlertTriangle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface CancellationWarningModalProps {
   isOpen: boolean
@@ -31,7 +31,7 @@ export function CancellationWarningModal({
           <div className="flex items-center">
             <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400 mr-3" />
             <h2 className="text-xl font-semibold">
-              Wait! Don't lose your special rate
+              Wait! Don&apos;t lose your special rate
             </h2>
           </div>
           <Button
@@ -49,7 +49,7 @@ export function CancellationWarningModal({
           <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-yellow-800 dark:text-yellow-200">
-                You're Currently Getting a Special Rate
+                You&apos;re Currently Getting a Special Rate
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -79,7 +79,7 @@ export function CancellationWarningModal({
               </div>
               
               <div className="text-center text-sm text-yellow-700 dark:text-yellow-300 font-medium">
-                💰 You're saving {Math.round(((parseInt(futurePrice.replace('$', '')) - parseInt(currentPrice.replace('$', ''))) / parseInt(futurePrice.replace('$', ''))) * 100)}% per month with your current plan!
+                💰 You&apos;re saving {Math.round(((parseInt(futurePrice.replace('$', '')) - parseInt(currentPrice.replace('$', ''))) / parseInt(futurePrice.replace('$', ''))) * 100)}% per month with your current plan!
               </div>
             </CardContent>
           </Card>
@@ -116,7 +116,7 @@ export function CancellationWarningModal({
                 ⚠️ Important Note
               </div>
               <div className="text-sm text-orange-700 dark:text-orange-300">
-                If you decide to re-subscribe later, you'll pay the full {futurePrice}/month rate. 
+                If you decide to re-subscribe later, you&apos;ll pay the full {futurePrice}/month rate. 
                 Special discounts are typically only available to new customers.
               </div>
             </CardContent>

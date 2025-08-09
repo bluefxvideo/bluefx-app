@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,9 +24,7 @@ interface ResultsGridProps {
 
 export function ResultsGrid({
   thumbnails,
-  faceSwappedThumbnails,
-  titles,
-  batchId
+  faceSwappedThumbnails
 }: ResultsGridProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -72,11 +71,12 @@ export function ResultsGrid({
             {/* Centered Image */}
             <div className="relative aspect-video rounded-lg overflow-hidden 
                             border border-zinc-700/50 shadow-xl mx-auto max-w-lg">
-              <img
-                src={displayThumbnail?.url || displayFaceSwapped?.url}
+              <Image
+                src={displayThumbnail?.url || displayFaceSwapped?.url || ''}
                 alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                loading="lazy"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
               
               {/* Overlay Controls */}
@@ -148,10 +148,13 @@ export function ResultsGrid({
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
-            <img
+            <Image
               src={selectedImage}
               alt="Preview"
               className="max-w-full max-h-full object-contain"
+              width={800}
+              height={600}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             />
             <Button
               className="absolute top-4 right-4 bg-zinc-700 hover:bg-zinc-600 text-white border-zinc-600"

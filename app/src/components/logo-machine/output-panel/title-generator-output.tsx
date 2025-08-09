@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Copy, CheckCircle, Type, Trash2 } from 'lucide-react';
-import { LoadingSkeleton } from './loading-skeleton';
-import { EmptyState } from './empty-state';
 
 interface TitleGeneratorOutputProps {
   titles?: string[];

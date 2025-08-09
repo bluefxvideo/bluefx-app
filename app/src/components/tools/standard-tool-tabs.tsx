@@ -21,7 +21,7 @@ interface StandardToolTabsProps {
  * Ensures consistent tab styling across every tool
  * Matches Thumbnail Machine styling exactly
  */
-export function StandardToolTabs({ tabs, activeTab, basePath }: StandardToolTabsProps) {
+export function StandardToolTabs({ tabs, activeTab }: StandardToolTabsProps) {
   return (
     <div className="flex items-center gap-1">
       {tabs.map((tab) => {

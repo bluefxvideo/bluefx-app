@@ -27,6 +27,9 @@ import { DeleteUserDialog } from './delete-user-dialog'
 import type { Tables } from '@/types/database'
 
 interface UserWithStats extends Tables<'profiles'> {
+  email?: string
+  is_suspended?: boolean
+  suspension_reason?: string | null
   subscription?: Tables<'user_subscriptions'> | null
   credits?: Tables<'user_credits'> | null
   totalCreditsUsed?: number

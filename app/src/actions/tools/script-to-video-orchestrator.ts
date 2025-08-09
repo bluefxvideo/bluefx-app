@@ -1,9 +1,8 @@
 'use server';
 
-import { generateText, generateObject } from 'ai';
+import { generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
-import { uploadImageToStorage } from '../supabase-storage';
 import { 
   storeScriptVideoResults, 
   createPredictionRecord, 
@@ -157,6 +156,10 @@ const SegmentAnalysisSchema = z.object({
   content_type: z.enum(['educational', 'commercial', 'storytelling', 'informational', 'entertainment'])
 });
 
+// Infer types from schemas
+type SegmentAnalysisType = z.infer<typeof SegmentAnalysisSchema>;
+type ProductionPlanType = z.infer<typeof ProductionPlanSchema>;
+
 // Credit constants
 const CREDITS_PER_SEGMENT = 3;
 const VOICE_GENERATION_CREDITS = 5;
@@ -196,7 +199,7 @@ export async function generateScriptToVideo(
     // Step 2: AI Script Analysis & Segmentation
     console.log('🧠 AI Analyzing script and creating production plan...');
     
-    const { object: segmentAnalysis } = await generateObject({
+    const { object: segmentAnalysis }: { object: SegmentAnalysisType } = await generateObject({
       model: openai('gpt-4o'),
       schema: SegmentAnalysisSchema,
       system: `You are an expert video production AI. Analyze scripts and break them into optimal segments for video production.
@@ -228,12 +231,12 @@ Create optimal segments with:
     });
 
     total_credits += AI_ORCHESTRATION_CREDITS;
-    console.log(`✅ Script analyzed: ${(segmentAnalysis as any).segments.length} segments, ${(segmentAnalysis as any).content_type} content`);
+    console.log(`✅ Script analyzed: ${segmentAnalysis.segments.length} segments, ${segmentAnalysis.content_type} content`);
 
     // Step 3: AI Production Planning
     console.log('🎯 AI Creating comprehensive production plan...');
     
-    const { object: productionPlan } = await generateObject({
+    const { object: productionPlan }: { object: ProductionPlanType } = await generateObject({
       model: openai('gpt-4o'),
       schema: ProductionPlanSchema,
       system: `You are a master video production director. Create comprehensive production plans that optimize for quality, efficiency, and user preferences.
@@ -254,8 +257,8 @@ VISUAL OPTIMIZATION:
 - Consider aspect ratio for intended platform`,
       prompt: `Create a comprehensive production plan for this analyzed script:
 
-Segments: ${JSON.stringify((segmentAnalysis as any).segments)}
-Content Type: ${(segmentAnalysis as any).content_type}
+Segments: ${JSON.stringify(segmentAnalysis.segments)}
+Content Type: ${segmentAnalysis.content_type}
 User Preferences: ${JSON.stringify({
         video_style: request.video_style,
         voice_settings: request.voice_settings,
@@ -271,7 +274,7 @@ Optimize for:
     });
 
     total_credits += AI_ORCHESTRATION_CREDITS;
-    console.log(`🎬 Production plan created: ${(productionPlan as any).workflow_type} workflow, complexity ${(productionPlan as any).complexity_score}/10`);
+    console.log(`🎬 Production plan created: ${productionPlan.workflow_type} workflow, complexity ${productionPlan.complexity_score}/10`);
 
     // Step 4: Create Prediction Record
     await createPredictionRecord({
@@ -284,42 +287,42 @@ Optimize for:
       input_data: { 
         ...request,
         production_plan: productionPlan as unknown as Json,
-        segment_count: (segmentAnalysis as any).segments.length
+        segment_count: segmentAnalysis.segments.length
       } as unknown as Json,
     });
 
     // Step 5: Execute Production Based on AI Plan
-    const generatedSegments: VideoSegment[] = [];
+    // const _generatedSegments: VideoSegment[] = [];
     let generatedImages: { url: string; segment_index: number; prompt: string; }[] = [];
     let audioUrl: string | undefined;
 
-    if ((productionPlan as any).workflow_type === 'parallel') {
+    if (productionPlan.workflow_type === 'parallel') {
       console.log('🔄 Executing parallel production workflow...');
       
       // Parallel execution for independent segments
       const [voiceResult, imageResults] = await Promise.all([
-        generateVoiceForAllSegments((productionPlan as any).segments, (productionPlan as any).voice_optimization),
-        generateImagesForAllSegments((productionPlan as any).segments, (productionPlan as any).visual_optimization, request.aspect_ratio || '16:9')
+        generateVoiceForAllSegments(productionPlan.segments, productionPlan.voice_optimization),
+        generateImagesForAllSegments(productionPlan.segments, productionPlan.visual_optimization, request.aspect_ratio || '16:9')
       ]);
 
       audioUrl = voiceResult.audio_url;
       generatedImages = imageResults;
-      total_credits += voiceResult.credits_used + imageResults.reduce((sum, img) => sum + img.credits_used, 0);
+      total_credits += voiceResult.credits_used + imageResults.reduce((sum, img) => sum + ((img as any).credits_used || IMAGE_GENERATION_CREDITS), 0);
       
       optimization_applied.push('Parallel processing for maximum efficiency');
       
-    } else if ((productionPlan as any).workflow_type === 'sequential') {
+    } else if (productionPlan.workflow_type === 'sequential') {
       console.log('📝 Executing sequential production workflow...');
       
       // Sequential execution for dependent segments
-      for (let i = 0; i < (productionPlan as any).segments.length; i++) {
-        const segment = (productionPlan as any).segments[i];
+      for (let i = 0; i < productionPlan.segments.length; i++) {
+        const segment = productionPlan.segments[i];
         
         // Generate voice for this segment
-        const voiceResult = await generateVoiceForSegment(segment, (productionPlan as any).voice_optimization, i);
+        const voiceResult = await generateVoiceForSegment(segment, productionPlan.voice_optimization, i);
         
         // Generate image for this segment  
-        const imageResult = await generateImageForSegment(segment, (productionPlan as any).visual_optimization, i, request.aspect_ratio || '16:9');
+        const imageResult = await generateImageForSegment(segment, productionPlan.visual_optimization, i, request.aspect_ratio || '16:9');
         
         if (i === 0) audioUrl = voiceResult.audio_url; // Use first segment's audio URL
         generatedImages.push(imageResult);
@@ -333,11 +336,11 @@ Optimize for:
       // Hybrid workflow - AI decides optimal execution per segment
       console.log('🎭 Executing hybrid production workflow...');
       
-      const criticalSegments = (productionPlan as any).segments.filter((_: any, i: number) => i < 2); // First 2 segments
-      const remainingSegments = (productionPlan as any).segments.slice(2);
+      const criticalSegments = productionPlan.segments.filter((_: ProductionPlanType['segments'][0], i: number) => i < 2); // First 2 segments
+      const remainingSegments = productionPlan.segments.slice(2);
       
       // Sequential for critical segments
-      for (const segment of criticalSegments) {
+      for (const _segment of criticalSegments) {
         // Individual processing for maximum quality
       }
       
@@ -354,7 +357,7 @@ Optimize for:
     
     const assemblyPlan = await generateAssemblyPlan(
       productionPlan,
-      generatedImages, 
+      generatedImages.map(img => ({ ...img, credits_used: IMAGE_GENERATION_CREDITS })), 
       audioUrl,
       segmentAnalysis
     );
@@ -370,8 +373,8 @@ Optimize for:
       'script-to-video-generation',
       { 
         batch_id, 
-        segment_count: (segmentAnalysis as any).segments.length,
-        workflow_type: (productionPlan as any).workflow_type 
+        segment_count: segmentAnalysis.segments.length,
+        workflow_type: productionPlan.workflow_type 
       }
     );
 
@@ -385,7 +388,7 @@ Optimize for:
       script_text: request.script_text,
       video_url: videoUrl,
       audio_url: audioUrl,
-      segments: (segmentAnalysis as any).segments,
+      segments: segmentAnalysis.segments,
       batch_id,
       model_version: 'gpt-4o-orchestrated',
       generation_parameters: request as unknown as Json,
@@ -398,11 +401,11 @@ Optimize for:
       user_id: request.user_id,
       batch_id,
       model_version: 'gpt-4o-orchestrated',
-      workflow_type: (productionPlan as any).workflow_type,
-      segment_count: (segmentAnalysis as any).segments.length,
+      workflow_type: productionPlan.workflow_type,
+      segment_count: segmentAnalysis.segments.length,
       generation_time_ms: Date.now() - startTime,
       total_credits_used: total_credits,
-      complexity_score: (productionPlan as any).complexity_score,
+      complexity_score: productionPlan.complexity_score,
       ai_optimizations_applied: optimization_applied.length
     });
 
@@ -414,7 +417,7 @@ Optimize for:
       video_url: videoUrl,
       audio_url: audioUrl,
       generated_images: generatedImages,
-      segments: (segmentAnalysis as any).segments.map((seg: any, i: number) => ({
+      segments: segmentAnalysis.segments.map((seg, i) => ({
         id: seg.id,
         text: seg.text,
         start_time: seg.start_time,
@@ -423,23 +426,23 @@ Optimize for:
         image_prompt: seg.image_prompt,
         voice_emotion: seg.voice_emotion,
         timing_data: {
-          words_per_minute: (productionPlan as any).segments[i]?.timing_optimization.words_per_minute || 180,
-          pause_duration: (productionPlan as any).segments[i]?.timing_optimization.pause_duration || 0.5
+          words_per_minute: productionPlan.segments[i]?.timing_optimization.words_per_minute || 180,
+          pause_duration: productionPlan.segments[i]?.timing_optimization.pause_duration || 0.5
         }
       })),
       timeline_data: {
-        total_duration: (segmentAnalysis as any).total_duration,
-        segment_count: (segmentAnalysis as any).segments.length,
-        frame_count: Math.ceil((segmentAnalysis as any).total_duration * 30) // 30 FPS
+        total_duration: segmentAnalysis.total_duration,
+        segment_count: segmentAnalysis.segments.length,
+        frame_count: Math.ceil(segmentAnalysis.total_duration * 30) // 30 FPS
       },
       production_plan: {
-        workflow_type: (productionPlan as any).workflow_type,
-        complexity_score: (productionPlan as any).complexity_score,
-        estimated_duration: (productionPlan as any).estimated_duration,
-        segment_strategy: (productionPlan as any).reasoning,
-        voice_optimization: (productionPlan as any).voice_optimization.emotion_consistency,
-        visual_optimization: (productionPlan as any).visual_optimization.style_consistency,
-        quality_optimizations: (productionPlan as any).quality_optimizations
+        workflow_type: productionPlan.workflow_type,
+        complexity_score: productionPlan.complexity_score,
+        estimated_duration: productionPlan.estimated_duration,
+        segment_strategy: productionPlan.reasoning,
+        voice_optimization: productionPlan.voice_optimization.emotion_consistency,
+        visual_optimization: productionPlan.visual_optimization.style_consistency,
+        quality_optimizations: productionPlan.quality_optimizations
       },
       optimization_applied,
       prediction_id: batch_id,
@@ -482,7 +485,7 @@ function calculateEstimatedCredits(request: ScriptToVideoRequest): number {
 }
 
 // Placeholder functions for production steps
-async function generateVoiceForAllSegments(segments: any[], voiceOptimization: any) {
+async function generateVoiceForAllSegments(_segments: ProductionPlanType['segments'], _voiceOptimization: ProductionPlanType['voice_optimization']) {
   // Would integrate with OpenAI TTS or similar
   return {
     audio_url: `https://storage.example.com/audio/${crypto.randomUUID()}.mp3`,
@@ -490,7 +493,7 @@ async function generateVoiceForAllSegments(segments: any[], voiceOptimization: a
   };
 }
 
-async function generateImagesForAllSegments(segments: any[], visualOptimization: any, aspectRatio: string) {
+async function generateImagesForAllSegments(segments: ProductionPlanType['segments'], _visualOptimization: ProductionPlanType['visual_optimization'], _aspectRatio: string) {
   // Would integrate with FLUX or similar image generation
   return segments.map((segment, index) => ({
     url: `https://storage.example.com/images/${crypto.randomUUID()}.png`,
@@ -500,14 +503,14 @@ async function generateImagesForAllSegments(segments: any[], visualOptimization:
   }));
 }
 
-async function generateVoiceForSegment(segment: any, voiceOptimization: any, index: number) {
+async function generateVoiceForSegment(_segment: ProductionPlanType['segments'][0], _voiceOptimization: ProductionPlanType['voice_optimization'], index: number) {
   return {
     audio_url: `https://storage.example.com/audio/segment_${index}_${crypto.randomUUID()}.mp3`,
     credits_used: VOICE_GENERATION_CREDITS
   };
 }
 
-async function generateImageForSegment(segment: any, visualOptimization: any, index: number, aspectRatio: string) {
+async function generateImageForSegment(segment: ProductionPlanType['segments'][0], _visualOptimization: ProductionPlanType['visual_optimization'], index: number, _aspectRatio: string) {
   return {
     url: `https://storage.example.com/images/segment_${index}_${crypto.randomUUID()}.png`,
     segment_index: index,
@@ -516,12 +519,12 @@ async function generateImageForSegment(segment: any, visualOptimization: any, in
   };
 }
 
-async function generateAssemblyPlan(productionPlan: any, images: any[], audioUrl: string | undefined, segmentAnalysis: any) {
+async function generateAssemblyPlan(_productionPlan: ProductionPlanType, _images: { url: string; segment_index: number; prompt: string; credits_used: number }[], audioUrl: string | undefined, segmentAnalysis: SegmentAnalysisType) {
   // AI would create optimal video assembly strategy
   return {
     assembly_strategy: 'timeline-based',
     transition_effects: ['fade', 'slide'],
-    audio_sync_points: (segmentAnalysis as any).segments.map((seg: any) => ({
+    audio_sync_points: segmentAnalysis.segments.map((seg) => ({
       segment_id: seg.id,
       start_time: seg.start_time,
       audio_file: audioUrl
@@ -529,7 +532,7 @@ async function generateAssemblyPlan(productionPlan: any, images: any[], audioUrl
   };
 }
 
-async function executeVideoAssembly(assemblyPlan: any): Promise<string> {
+async function executeVideoAssembly(_assemblyPlan: { assembly_strategy: string; transition_effects: string[]; audio_sync_points: { segment_id: string; start_time: number; audio_file: string | undefined }[] }): Promise<string> {
   // Would integrate with Remotion for actual video generation
   return `https://storage.example.com/videos/${crypto.randomUUID()}.mp4`;
 }

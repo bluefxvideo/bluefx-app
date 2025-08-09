@@ -1,7 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Wand2, Sparkles, UserRound, RotateCcw } from 'lucide-react';
+import { Sparkles, UserRound, RotateCcw } from 'lucide-react';
 import { ThumbnailExamplesCarousel } from './thumbnail-examples-carousel';
 
 interface EmptyStateProps {
@@ -12,7 +12,7 @@ interface EmptyStateProps {
  * Tab-specific empty states for different thumbnail machine tools
  */
 
-export function GenerateEmptyState({ onFocusPrompt }: EmptyStateProps) {
+export function GenerateEmptyState({}: EmptyStateProps) {
   return (
     <div className="flex-1 overflow-hidden">
       <ThumbnailExamplesCarousel />

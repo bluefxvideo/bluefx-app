@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { executeAICinematographer, CinematographerRequest, CinematographerResponse } from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos } from '@/actions/database/cinematographer-database';
@@ -20,7 +20,7 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
   const supabase = createClient();
   
   // Load video history
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
       const { videos: historyVideos } = await getCinematographerVideos(userId);
@@ -30,7 +30,7 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, [userId]);
 
   // Generate video
   const generateVideo = async (request: CinematographerRequest) => {
@@ -114,14 +114,14 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [userId, result?.batch_id, supabase]);
+  }, [userId, result?.batch_id, supabase, result]);
 
   // Load initial history
   useEffect(() => {
     if (userId) {
       loadHistory();
     }
-  }, [userId]);
+  }, [userId, loadHistory]);
 
   return {
     // Generation state

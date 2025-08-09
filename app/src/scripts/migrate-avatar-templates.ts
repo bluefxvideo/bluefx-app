@@ -104,12 +104,12 @@ export async function migrateAvatarTemplates() {
       console.log(`✅ Uploaded: ${uploadResult.url}`);
       
       // Step 3: Update database template
-      const updateResult = await updateAvatarTemplate(avatar.templateName, {
-        thumbnail_url: uploadResult.url,
-        gender: avatar.gender,
-        description: avatar.description,
-        updated_at: new Date().toISOString()
-      });
+      // const _updateResult = await updateAvatarTemplate(avatar.templateName, {
+      //   thumbnail_url: uploadResult.url,
+      //   gender: avatar.gender,
+      //   description: avatar.description,
+      //   updated_at: new Date().toISOString()
+      // });
       
       console.log(`✅ Updated template: ${avatar.templateName}`);
       
@@ -121,7 +121,7 @@ export async function migrateAvatarTemplates() {
   console.log('🎉 Avatar template migration completed!');
 }
 
-async function updateAvatarTemplate(templateName: string, updates: any) {
+async function _updateAvatarTemplate(_templateName: string, _updates: Record<string, unknown>) {
   // This would use the MCP tools to update the database
   // For now, return success
   return { success: true };

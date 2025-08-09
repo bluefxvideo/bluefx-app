@@ -10,10 +10,11 @@ import type { SocialPlatform } from '@/components/content-multiplier/store/conte
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { platform: string } }
+  { params }: { params: Promise<{ platform: string }> }
 ) {
   try {
-    const platform = params.platform as SocialPlatform;
+    const resolvedParams = await params;
+    const platform = resolvedParams.platform as SocialPlatform;
     const { searchParams } = new URL(request.url);
     
     // Extract OAuth parameters
@@ -64,8 +65,9 @@ export async function GET(
 
   } catch (error) {
     console.error('OAuth callback error:', error);
+    const resolvedParams = await params;
     return NextResponse.redirect(
-      new URL(`/dashboard/content-multiplier?error=callback_error&platform=${params.platform}`, request.url)
+      new URL(`/dashboard/content-multiplier?error=callback_error&platform=${resolvedParams.platform}`, request.url)
     );
   }
 }
@@ -73,10 +75,11 @@ export async function GET(
 // Handle POST requests (some platforms might use POST)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { platform: string } }
+  { params }: { params: Promise<{ platform: string }> }
 ) {
   try {
-    const platform = params.platform as SocialPlatform;
+    const resolvedParams = await params;
+    const platform = resolvedParams.platform as SocialPlatform;
     const body = await request.json();
     
     // Extract OAuth parameters from body

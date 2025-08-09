@@ -10,15 +10,11 @@ import { Video, History } from 'lucide-react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 
 export function TalkingAvatarPage() {
-  const {
-    activeTab,
-    setActiveTab,
-    ...avatarState
-  } = useTalkingAvatar();
+  const avatarState = useTalkingAvatar();
 
   // Render appropriate tab content
   const renderTabContent = () => {
-    switch (activeTab) {
+    switch (avatarState.activeTab) {
       case 'history':
         return <HistoryTab />;
       default:
@@ -46,7 +42,7 @@ export function TalkingAvatarPage() {
   const tabsComponent = (
     <StandardToolTabs 
       tabs={avatarTabs}
-      activeTab={activeTab} 
+      activeTab={avatarState.activeTab} 
       basePath="/dashboard/talking-avatar"
     />
   );
@@ -69,7 +65,7 @@ export function TalkingAvatarPage() {
           // Right Panel - Output
           <ContextualOutput
             key="output"
-            activeTab={activeTab}
+            activeTab={avatarState.activeTab}
             avatarState={avatarState}
           />
         ]}

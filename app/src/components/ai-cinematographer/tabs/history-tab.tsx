@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { History, Search, Filter, Calendar } from 'lucide-react';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
-import { Button } from '@/components/ui/button';
+// import { Button } from '@/components/ui/button';
 
 interface HistoryTabProps {
   videos: CinematographerVideo[];
@@ -21,7 +21,7 @@ interface HistoryTabProps {
  * Left panel shows filters, right panel shows the actual history list
  * Following exact Thumbnail Machine pattern
  */
-export function HistoryTab({ videos, isLoading, onRefresh }: HistoryTabProps) {
+export function HistoryTab({ videos, isLoading: _isLoading, onRefresh: _onRefresh }: HistoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -157,7 +157,7 @@ export function HistoryTab({ videos, isLoading, onRefresh }: HistoryTabProps) {
                 </button>
               </div>
               <div className="text-xs text-muted-foreground space-y-1">
-                {searchTerm && <div>Search: "{searchTerm}"</div>}
+                {searchTerm && <div>Search: &quot;{searchTerm}&quot;</div>}
                 {filterType !== 'all' && <div>Status: {filterType}</div>}
                 {dateRange !== 'all' && <div>Date: {dateRange}</div>}
                 {sortOrder !== 'newest' && <div>Sort: {sortOrder}</div>}

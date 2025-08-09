@@ -12,7 +12,7 @@ interface ThumbnailMachineTabsProps {
  * Compact inline tab navigation for Thumbnail Machine
  * Designed for header integration with logo and branding
  */
-export function ThumbnailMachineTabs({ activeTab, layout = 'horizontal' }: ThumbnailMachineTabsProps) {
+export function ThumbnailMachineTabs({ activeTab, layout: _layout = 'horizontal' }: ThumbnailMachineTabsProps) {
   const tabs = [
     {
       id: 'generate',

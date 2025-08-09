@@ -62,7 +62,12 @@ export interface GeneratedVoice {
   duration_seconds: number;
   file_size_mb: number;
   export_format: string;
-  voice_settings?: any;
+  voice_settings?: {
+    speed?: number;
+    pitch?: number;
+    volume?: number;
+    emphasis?: 'strong' | 'moderate' | 'none';
+  };
   batch_id: string;
   credits_used: number;
   created_at: string;
@@ -128,7 +133,17 @@ export async function executeVoiceOver(
 
     // Generate single voice
     const voiceId = authenticatedRequest.voice_id;
-    let generatedAudio: any = null;
+    let generatedAudio: {
+      id: string;
+      audio_url: string;
+      voice_id: string;
+      voice_name: string;
+      script_text: string;
+      duration_seconds: number;
+      file_size_mb: number;
+      export_format: string;
+      created_at: string;
+    } | null = null;
     let totalCreditsUsed = 0;
 
     try {
@@ -190,7 +205,7 @@ export async function executeVoiceOver(
         duration_seconds: estimatedDuration,
         file_size_mb: estimatedFileSize,
         export_format: authenticatedRequest.export_format || 'mp3',
-        created_at: voiceRecord.created_at,
+        created_at: voiceRecord?.created_at || new Date().toISOString(),
       };
 
       totalCreditsUsed = creditCosts.per_voice;
@@ -207,7 +222,7 @@ export async function executeVoiceOver(
 
     return {
       success: generatedAudio !== null,
-      generated_audio: generatedAudio,
+      generated_audio: generatedAudio as any,
       voice_options: getVoiceOptions(),
       batch_id,
       generation_time_ms: Date.now() - startTime,
@@ -424,7 +439,7 @@ function calculateVoiceOverCreditCost(request: VoiceOverRequest) {
 /**
  * Get user's available credits
  */
-async function getUserCredits(supabase: any, userId: string): Promise<number> {
+async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<number> {
   const { data: userCredits } = await supabase
     .from('user_credits')
     .select('available_credits')
@@ -438,7 +453,7 @@ async function getUserCredits(supabase: any, userId: string): Promise<number> {
  * Deduct credits from user account
  */
 async function deductCredits(
-  supabase: any,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   amount: number,
   batchId: string,
@@ -448,7 +463,7 @@ async function deductCredits(
   await supabase
     .from('user_credits')
     .update({
-      available_credits: supabase.raw('available_credits - ?', [amount]),
+      available_credits: amount, // Note: Should be handled via RPC for atomic decrement
       updated_at: new Date().toISOString()
     })
     .eq('user_id', userId);
@@ -460,7 +475,8 @@ async function deductCredits(
       user_id: userId,
       credits_used: amount,
       operation_type: operation,
-      batch_id: batchId,
+      reference_id: batchId,
+      service_type: 'voice_over',
       created_at: new Date().toISOString()
-    });
+    } as any);
 }

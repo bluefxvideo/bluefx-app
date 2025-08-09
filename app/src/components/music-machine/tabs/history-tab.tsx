@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Play, Pause, Download, Trash2, Music, Clock, Volume2 } from 'lucide-react';
 import { GeneratedMusic } from '@/actions/database/music-database';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { UseMusicMachineReturn } from '../hooks/use-music-machine';
 
 interface HistoryTabProps {
-  musicMachineState: any;
+  musicMachineState: UseMusicMachineReturn;
 }
 
 /**

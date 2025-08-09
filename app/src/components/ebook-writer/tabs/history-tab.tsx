@@ -1,6 +1,6 @@
 'use client';
 
-import { StandardHistoryFilters } from '@/components/tools/standard-history-filters';
+import { StandardHistoryFilters, HistoryFilters } from '@/components/tools/standard-history-filters';
 
 /**
  * History Tab - Uses standardized history filters for ebook creation history
@@ -16,7 +16,7 @@ export function HistoryTab() {
     { value: 'export', label: 'Ebook Export' }
   ];
 
-  const handleFiltersChange = (filters: any) => {
+  const handleFiltersChange = (filters: HistoryFilters) => {
     console.log('Ebook filters changed:', filters);
     // TODO: Implement actual filtering logic
   };

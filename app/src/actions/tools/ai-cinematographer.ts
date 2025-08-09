@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
+// import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { Json } from '@/types/database';
 
@@ -162,17 +162,17 @@ async function handleVideoGeneration(
 ): Promise<CinematographerResponse> {
   try {
     // Construct video generation prompt
-    const videoPrompt = constructVideoPrompt(request, referenceImageUrl);
+    // const videoPrompt = constructVideoPrompt(request, referenceImageUrl);
     
     // Create video generation prediction
-    const prediction = await createVideoGenerationPrediction({
-      prompt: videoPrompt,
-      image: referenceImageUrl,
-      duration: request.duration || 4,
-      aspect_ratio: request.aspect_ratio || '16:9',
-      motion_scale: request.motion_scale || 1.0,
-      webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai` // For status updates
-    });
+    // const _prediction = await createVideoGenerationPrediction({
+    //   prompt: videoPrompt,
+    //   image: referenceImageUrl,
+    //   duration: request.duration || 4,
+    //   aspect_ratio: request.aspect_ratio || '16:9',
+    //   motion_scale: request.motion_scale || 1.0,
+    //   webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai` // For status updates
+    // });
 
     // Create database record for tracking
     const { data: videoRecord, error: dbError } = await (await supabase)
@@ -248,11 +248,11 @@ async function handleVideoGeneration(
  * Handle audio integration workflow
  */
 async function handleAudioIntegration(
-  request: CinematographerRequest,
+  _request: CinematographerRequest,
   batch_id: string,
   startTime: number,
-  creditCost: number,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  _creditCost: number,
+  _supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<CinematographerResponse> {
   // TODO: Implement audio integration
   return {
@@ -268,22 +268,7 @@ async function handleAudioIntegration(
 /**
  * Construct optimized prompt for video generation
  */
-function constructVideoPrompt(request: CinematographerRequest, referenceImageUrl?: string): string {
-  let prompt = '';
-  
-  // Base prompt construction
-  if (referenceImageUrl) {
-    prompt = `Professional cinematic video based on reference image. ${request.prompt}. `;
-  } else {
-    prompt = `Professional cinematic video: ${request.prompt}. `;
-  }
-  
-  // Add cinematic quality modifiers
-  prompt += 'Cinematic lighting, professional camera work, smooth motion, high production value, ';
-  prompt += 'depth of field, color grading, professional video quality.';
-  
-  return prompt;
-}
+// Removed unused function constructVideoPrompt
 
 /**
  * Calculate credit costs for cinematographer operations

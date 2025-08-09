@@ -6,6 +6,8 @@
  * to timeline editing to video export.
  */
 
+import type { VideoEditorState, VideoEditorActions } from '../store/video-editor-store';
+
 export const TEST_SCRIPTS = {
   startup_validation: `Hook: Did you know 90% of startups fail because of one simple mistake?
 
@@ -126,7 +128,7 @@ export const TEST_SETTINGS = {
  * Test User Flow Functions
  */
 export class TestUserFlow {
-  static async simulateScriptGeneration(store: any, scriptKey: keyof typeof TEST_SCRIPTS) {
+  static async simulateScriptGeneration(store: VideoEditorState & VideoEditorActions, scriptKey: keyof typeof TEST_SCRIPTS) {
     const script = TEST_SCRIPTS[scriptKey];
     const settings = TEST_SETTINGS.professional;
     
@@ -147,7 +149,7 @@ export class TestUserFlow {
     console.log('⏱️ Total duration:', store.project.duration, 'seconds');
   }
   
-  static simulateEditorInteractions(store: any) {
+  static simulateEditorInteractions(store: VideoEditorState & VideoEditorActions) {
     console.log('🎨 Simulating editor interactions...');
     
     // Change typography
@@ -181,7 +183,7 @@ export class TestUserFlow {
     console.log('🎨 Editor interactions completed');
   }
   
-  static async simulateExportFlow(store: any) {
+  static async simulateExportFlow(store: VideoEditorState & VideoEditorActions) {
     console.log('📤 Starting export process...');
     
     // Get Remotion config
@@ -195,7 +197,7 @@ export class TestUserFlow {
     console.log('📁 Export history:', store.export.history.length, 'items');
   }
   
-  static async runCompleteFlow(store: any, scriptKey: keyof typeof TEST_SCRIPTS = 'startup_validation') {
+  static async runCompleteFlow(store: VideoEditorState & VideoEditorActions, scriptKey: keyof typeof TEST_SCRIPTS = 'startup_validation') {
     console.log('🚀 Running complete user flow test...');
     
     try {

@@ -10,7 +10,7 @@ interface ContentTabProps {
   error?: string;
 }
 
-export function ContentTab({ ebook, isGenerating, error }: ContentTabProps) {
+export function ContentTab({ ebook: _ebook, isGenerating: _isGenerating, error: _error }: ContentTabProps) {
   return (
     <div className="h-full overflow-y-auto scrollbar-hover p-4 space-y-6">
       <Card className="bg-gray-50 dark:bg-gray-800/30">

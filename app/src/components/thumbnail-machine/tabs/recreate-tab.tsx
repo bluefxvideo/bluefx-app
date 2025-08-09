@@ -4,9 +4,10 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { RotateCcw, Upload, Wand2, ImageIcon } from 'lucide-react';
+import { RotateCcw, Upload, ImageIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
+import Image from 'next/image';
 import { TabContentWrapper, TabHeader, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 
 interface RecreateTabProps {
@@ -77,9 +78,11 @@ export function RecreateTab({
             {formData.referenceImage ? (
               <div className="space-y-3">
                 <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                  <img
+                  <Image
                     src={URL.createObjectURL(formData.referenceImage)}
                     alt="Reference thumbnail"
+                    width={400}
+                    height={225}
                     className="w-full h-full object-cover"
                   />
                 </div>

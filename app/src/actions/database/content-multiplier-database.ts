@@ -8,7 +8,8 @@ import type {
   PublishingQueue,
   SocialPlatform,
   PlatformContent,
-  UploadedFile
+  UploadedFile,
+  ContentSettings
 } from '@/components/content-multiplier/store/content-multiplier-store';
 
 /**
@@ -72,7 +73,7 @@ export async function getContentVariantHistory(userId: string, limit = 20, offse
         original_content: record.original_content,
         platform_adaptations: (generatedVariants as { platform_adaptations?: PlatformContent[] })?.platform_adaptations || [],
         upload_files: (generatedVariants as { upload_files?: UploadedFile[] })?.upload_files || [],
-        settings: record.settings as unknown as Json,
+        settings: record.settings as unknown as ContentSettings,
         total_platforms: record.variant_count || 0,
         status: 'completed' as const,
         created_at: record.created_at || '',

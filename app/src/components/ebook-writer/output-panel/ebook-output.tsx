@@ -1,5 +1,6 @@
 'use client';
 
+import NextImage from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,9 +10,8 @@ import {
   FileText, 
   Image, 
   Download, 
-  Sparkles,
   Clock,
-  CreditCard,
+  Sparkles,
   Trash2
 } from 'lucide-react';
 import type { EbookMetadata } from '../store/ebook-writer-store';
@@ -108,13 +108,15 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
           {ebook.cover && (
             <div className="space-y-2">
               <div className="text-sm font-medium flex items-center gap-2">
-                <Image className="h-4 w-4" />
+                <Image className="h-4 w-4" aria-hidden="true" />
                 Cover Image
               </div>
               <div className="relative">
-                <img 
+                <NextImage 
                   src={ebook.cover.image_url} 
                   alt="Ebook Cover"
+                  width={200}
+                  height={300}
                   className="w-full max-w-[200px] rounded-lg shadow-md"
                 />
               </div>

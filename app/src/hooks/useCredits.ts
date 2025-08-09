@@ -194,7 +194,7 @@ export function useCredits() {
 
   // Set up real-time subscription for server-side updates
   useEffect(() => {
-    let channel: any
+    let channel: ReturnType<typeof supabase.channel> | null = null
     
     const setupRealTimeSubscription = async () => {
       try {

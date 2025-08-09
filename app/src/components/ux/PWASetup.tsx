@@ -129,12 +129,12 @@ export const PWASetup: React.FC = () => {
       setDeferredPrompt(null)
     }
 
-    window.addEventListener('beforeinstallprompt' as any, handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled' as any, handleAppInstalled)
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
+    window.addEventListener('appinstalled', handleAppInstalled as EventListener)
 
     return () => {
-      window.removeEventListener('beforeinstallprompt' as any, handleBeforeInstallPrompt)
-      window.removeEventListener('appinstalled' as any, handleAppInstalled)
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
+      window.removeEventListener('appinstalled', handleAppInstalled as EventListener)
     }
   }, [isInstalled])
 
@@ -215,10 +215,10 @@ export const usePWA = () => {
       setCanInstall(true)
     }
 
-    window.addEventListener('beforeinstallprompt' as any, handleBeforeInstallPrompt)
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
 
     return () => {
-      window.removeEventListener('beforeinstallprompt' as any, handleBeforeInstallPrompt)
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
     }
   }, [])
 

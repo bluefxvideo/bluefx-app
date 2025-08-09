@@ -73,12 +73,12 @@ export const OnboardingSystem: React.FC<OnboardingSystemProps> = ({ user }) => {
     }
   }, [user])
 
-  const handleJoyrideCallback = (data: any) => {
-    const { action, index, status, type } = data
+  const handleJoyrideCallback = (data: Record<string, unknown>) => {
+    const { action, index, status, type } = data as { action: string; index: number; status: string; type: string }
 
-    if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type as any)) {
+    if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type as typeof EVENTS.STEP_AFTER)) {
       setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1))
-    } else if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as any)) {
+    } else if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as typeof STATUS.FINISHED)) {
       setRun(false)
       completeOnboarding()
     }

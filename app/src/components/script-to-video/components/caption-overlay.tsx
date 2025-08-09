@@ -42,7 +42,7 @@ export function CaptionOverlay() {
       textAlign: 'center' as const, // Always center for video captions
       lineHeight: 1.3,
       letterSpacing: `${typography.letter_spacing}px`,
-      textTransform: typography.text_transform as any,
+      textTransform: typography.text_transform as 'none' | 'capitalize' | 'uppercase' | 'lowercase' | 'initial' | 'inherit',
       textDecoration: typography.text_decoration,
       color: colors.text_color,
       backgroundColor: 'rgba(0, 0, 0, 0.75)', // Semi-transparent background for readability
@@ -99,8 +99,6 @@ export function CaptionOverlay() {
 
   // Position caption based on layout settings - optimized for video overlay
   const getPositionStyle = () => {
-    const { layout } = settings;
-    
     return {
       position: 'absolute' as const,
       left: '50%',
@@ -115,20 +113,6 @@ export function CaptionOverlay() {
     };
   };
 
-  const getAnchorTransform = (anchor: string) => {
-    switch (anchor) {
-      case 'top-left': return 'translate(0%, 0%)';
-      case 'top-center': return 'translate(-50%, 0%)';
-      case 'top-right': return 'translate(-100%, 0%)';
-      case 'center-left': return 'translate(0%, -50%)';
-      case 'center': return 'translate(-50%, -50%)';
-      case 'center-right': return 'translate(-100%, -50%)';
-      case 'bottom-left': return 'translate(0%, -100%)';
-      case 'bottom-center': return 'translate(-50%, -100%)';
-      case 'bottom-right': return 'translate(-100%, -100%)';
-      default: return 'translate(-50%, -50%)';
-    }
-  };
 
   return (
     <div

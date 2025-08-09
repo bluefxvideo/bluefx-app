@@ -1,7 +1,6 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { Film, Edit3, History, Sparkles } from 'lucide-react';
+import { Film, Edit3, History } from 'lucide-react';
 
 interface TabEmptyStatesProps {
   activeTab: string;

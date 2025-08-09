@@ -18,7 +18,7 @@ export default async function SetupPasswordPage({
   searchParams: Promise<{ legacy?: string; from?: string }>
 }) {
   const supabase = await createClient()
-  const params = await searchParams
+  const _params = await searchParams
   
   // Check if user is authenticated (token should already be verified by auth-callback)
   const { data: { user }, error } = await supabase.auth.getUser()

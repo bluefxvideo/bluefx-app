@@ -9,9 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Music } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { UseMusicMachineReturn } from '../hooks/use-music-machine';
+
+interface DurationOption {
+  label: string;
+  value: number;
+}
 
 interface GeneratorTabProps {
-  musicMachineState: any;
+  musicMachineState: UseMusicMachineReturn;
 }
 
 /**
@@ -43,16 +49,16 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
 
   const canGenerate = localPrompt.trim().length > 0;
 
-  // Get genres and moods from model info
-  const genres = state.modelInfo?.genres || [
+  // Default genres and moods (model info doesn't contain these UI constants)
+  const genres = [
     'pop', 'rock', 'electronic', 'ambient', 'jazz', 'classical'
   ];
   
-  const moods = state.modelInfo?.moods || [
+  const moods = [
     'happy', 'sad', 'energetic', 'calm', 'dramatic', 'mysterious'
   ];
 
-  const durations = state.modelInfo?.durations || [
+  const durations = [
     { label: 'Short (30s)', value: 30 },
     { label: 'Medium (60s)', value: 60 },
     { label: 'Long (120s)', value: 120 },
@@ -133,7 +139,7 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
         <div className="space-y-2">
           <Label>Duration</Label>
           <div className="grid grid-cols-2 gap-2 p-1">
-            {durations.map((duration: any) => (
+            {durations.map((duration: DurationOption) => (
               <Card
                 key={duration.value}
                 className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
@@ -211,7 +217,7 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
               <p className="text-sm font-medium">Generating music...</p>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              This may take 1-2 minutes. You'll be notified when complete.
+              This may take 1-2 minutes. You&apos;ll be notified when complete.
             </p>
           </Card>
         )}

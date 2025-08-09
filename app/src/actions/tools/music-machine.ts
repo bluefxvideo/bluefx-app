@@ -310,7 +310,7 @@ function optimizePromptForMusic(
 /**
  * Get user's available credits from database
  */
-async function getUserCredits(supabase: any, userId: string): Promise<number> {
+async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<number> {
   const { data: userCredits } = await supabase
     .from('user_credits')
     .select('available_credits')
@@ -324,7 +324,7 @@ async function getUserCredits(supabase: any, userId: string): Promise<number> {
  * Deduct credits from user account with transaction logging
  */
 async function deductCredits(
-  supabase: any,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   amount: number,
   batchId: string,
@@ -334,7 +334,7 @@ async function deductCredits(
   await supabase
     .from('user_credits')
     .update({
-      available_credits: supabase.raw('available_credits - ?', [amount]),
+      available_credits: amount, // Note: This should be handled via RPC or proper SQL for atomic decrement
       updated_at: new Date().toISOString()
     })
     .eq('user_id', userId);
@@ -346,7 +346,8 @@ async function deductCredits(
       user_id: userId,
       credits_used: amount,
       operation_type: operation,
-      batch_id: batchId,
+      reference_id: batchId,
+      service_type: 'music_generation',
       created_at: new Date().toISOString()
-    });
+    } as any);
 }

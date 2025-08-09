@@ -37,13 +37,26 @@ export interface TalkingAvatarState {
   estimatedCredits: number;
 }
 
-export function useTalkingAvatar() {
+export interface UseTalkingAvatarReturn {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  state: TalkingAvatarState;
+  loadAvatarTemplates: () => Promise<void>;
+  handleAvatarSelection: (template: AvatarTemplate | null, customFile?: File) => Promise<void>;
+  handleVoiceGeneration: (voiceId: string, scriptText: string) => Promise<void>;
+  handleVideoGeneration: () => Promise<void>;
+  resetWizard: () => void;
+  goToStep: (step: number) => void;
+  clearVoice: () => void;
+}
+
+export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const pathname = usePathname();
   
-  const getActiveTabFromPath = () => {
+  const getActiveTabFromPath = useCallback(() => {
     if (pathname.includes('/history')) return 'history';
     return 'generate';
-  };
+  }, [pathname]);
 
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
@@ -72,7 +85,7 @@ export function useTalkingAvatar() {
   // Update active tab when pathname changes
   useEffect(() => {
     setActiveTab(getActiveTabFromPath());
-  }, [pathname]);
+  }, [pathname, getActiveTabFromPath]);
 
   // Get current user
   useEffect(() => {
@@ -131,7 +144,7 @@ export function useTalkingAvatar() {
   }, [state.avatarTemplates.length]);
 
   // Step 1: Handle avatar selection
-  const handleAvatarSelection = useCallback(async (template?: AvatarTemplate, customImage?: File) => {
+  const handleAvatarSelection = useCallback(async (template: AvatarTemplate | null, customImage?: File) => {
     if (!user) return;
     
     setState(prev => ({ ...prev, isLoading: true, error: null }));

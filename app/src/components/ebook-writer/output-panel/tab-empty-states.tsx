@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { 
   BookOpen, 
   Type, 
@@ -9,7 +8,6 @@ import {
   Image, 
   Download, 
   History,
-  Sparkles 
 } from 'lucide-react';
 
 export function TabEmptyStates({ activeTab }: { activeTab: string }) {

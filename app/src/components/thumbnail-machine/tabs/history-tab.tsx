@@ -1,6 +1,6 @@
 'use client';
 
-import { StandardHistoryFilters } from '@/components/tools/standard-history-filters';
+import { StandardHistoryFilters, HistoryFilters } from '@/components/tools/standard-history-filters';
 
 /**
  * History Tab - Uses standardized history filters for thumbnail generation history
@@ -14,7 +14,7 @@ export function HistoryTab() {
     { value: 'titles', label: 'Title Generator' }
   ];
 
-  const handleFiltersChange = (filters: any) => {
+  const handleFiltersChange = (filters: HistoryFilters) => {
     console.log('Thumbnail filters changed:', filters);
     // TODO: Implement actual filtering logic
   };

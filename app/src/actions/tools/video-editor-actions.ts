@@ -5,8 +5,8 @@ import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 
 // Import orchestrators
-import type { VideoEditRequest, VideoEditResponse } from './script-video-editor-orchestrator';
-import type { VideoRenderRequest, VideoRenderResponse } from './script-video-render-orchestrator';
+import type { VideoEditRequest } from './script-video-editor-orchestrator';
+import type { VideoRenderRequest } from './script-video-render-orchestrator';
 
 /**
  * Video Editor Server Actions
@@ -53,7 +53,7 @@ export interface OperationProgress {
   stage: string;
   estimatedTimeRemaining?: number;
   creditsUsed: number;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 
@@ -86,16 +86,16 @@ const SegmentImpactSchema = z.object({
  * Analyze the impact of adding a segment
  */
 export async function analyzeSegmentAddition(
-  currentSegments: any[],
+  currentSegments: unknown[],
   afterSegmentId: string | undefined,
   newText: string
 ): Promise<SegmentImpactAnalysis> {
   try {
     const insertIndex = afterSegmentId 
-      ? currentSegments.findIndex(s => s.id === afterSegmentId) + 1
-      : currentSegments.length;
+      ? (currentSegments || []).findIndex((s: any) => s.id === afterSegmentId) + 1
+      : (currentSegments || []).length;
     
-    const contextSegments = currentSegments.slice(Math.max(0, insertIndex - 2), insertIndex + 2);
+    const contextSegments = (currentSegments || []).slice(Math.max(0, insertIndex - 2), insertIndex + 2);
     
     const analysis = await generateObject({
       model: openai('gpt-4o'),
@@ -104,7 +104,7 @@ export async function analyzeSegmentAddition(
         Analyze the impact of adding a new segment to this video:
         
         Current segments context:
-        ${contextSegments.map((s, i) => `${i}: "${s.text}" (${s.duration}s)`).join('\n')}
+        ${contextSegments.map((s: any, i: number) => `${i}: "${s.text}" (${s.duration}s)`).join('\n')}
         
         New segment text: "${newText}"
         Insertion position: ${insertIndex} (after ${afterSegmentId || 'beginning'})
@@ -124,27 +124,27 @@ export async function analyzeSegmentAddition(
       `
     });
 
-    const result = analysis.object as any;
+    const result = analysis.object as Record<string, unknown>;
     
     return {
       operation: 'add',
-      scope: result.operation_scope,
-      affectedSegmentIds: result.affected_segment_ids,
-      requiresUserChoice: result.requires_user_choice,
-      strategies: result.recommended_strategies.map((s: any) => ({
-        id: s.strategy_id,
-        name: s.name,
-        description: s.description,
-        creditsRequired: s.credits_required,
-        processingTime: s.processing_time_seconds,
-        affectedSegments: result.affected_segment_ids,
-        preservesCustomizations: s.preserves_customizations,
-        qualityImpact: s.quality_impact
+      scope: (result.operation_scope as any),
+      affectedSegmentIds: (result.affected_segment_ids as any),
+      requiresUserChoice: (result.requires_user_choice as any),
+      strategies: ((result.recommended_strategies as any) || []).map((s: any) => ({
+        id: s.strategy_id as string,
+        name: s.name as string,
+        description: s.description as string,
+        creditsRequired: s.credits_required as number,
+        processingTime: s.processing_time_seconds as number,
+        affectedSegments: result.affected_segment_ids as string[],
+        preservesCustomizations: s.preserves_customizations as boolean,
+        qualityImpact: s.quality_impact as string
       })),
-      recommendedStrategy: result.recommended_strategies[0]?.strategy_id || 'isolated'
+      recommendedStrategy: (result.recommended_strategies as any)?.[0]?.strategy_id || 'isolated'
     };
     
-  } catch (error) {
+  } catch (_error) {
     // Fallback to safe analysis
     return {
       operation: 'add',
@@ -172,7 +172,7 @@ export async function analyzeSegmentAddition(
  * Analyze the impact of removing a segment
  */
 export async function analyzeSegmentRemoval(
-  currentSegments: any[],
+  currentSegments: Array<Record<string, unknown>>,
   segmentId: string
 ): Promise<SegmentImpactAnalysis> {
   try {
@@ -201,27 +201,27 @@ export async function analyzeSegmentRemoval(
       `
     });
 
-    const result = analysis.object as any;
+    const result = analysis.object as Record<string, unknown>;
     
     return {
       operation: 'remove',
-      scope: result.operation_scope,
-      affectedSegmentIds: result.affected_segment_ids,
-      requiresUserChoice: result.requires_user_choice,
-      strategies: result.recommended_strategies.map((s: any) => ({
-        id: s.strategy_id,
-        name: s.name,
-        description: s.description,
-        creditsRequired: s.credits_required,
-        processingTime: s.processing_time_seconds,
-        affectedSegments: result.affected_segment_ids,
-        preservesCustomizations: s.preserves_customizations,
-        qualityImpact: s.quality_impact
+      scope: (result.operation_scope as any),
+      affectedSegmentIds: (result.affected_segment_ids as any),
+      requiresUserChoice: (result.requires_user_choice as any),
+      strategies: ((result.recommended_strategies as any) || []).map((s: any) => ({
+        id: s.strategy_id as string,
+        name: s.name as string,
+        description: s.description as string,
+        creditsRequired: s.credits_required as number,
+        processingTime: s.processing_time_seconds as number,
+        affectedSegments: result.affected_segment_ids as string[],
+        preservesCustomizations: s.preserves_customizations as boolean,
+        qualityImpact: s.quality_impact as string
       })),
-      recommendedStrategy: result.recommended_strategies[0]?.strategy_id || 'simple_remove'
+      recommendedStrategy: (result.recommended_strategies as any)?.[0]?.strategy_id || 'simple_remove'
     };
     
-  } catch (error) {
+  } catch (_error) {
     return {
       operation: 'remove',
       scope: 'isolated',
@@ -250,7 +250,7 @@ export async function analyzeSegmentRemoval(
 export async function executeSegmentAddition(
   projectId: string,
   userId: string,
-  currentComposition: any,
+  currentComposition: Record<string, unknown> | any,
   afterSegmentId: string | undefined,
   newText: string,
   strategy: string
@@ -259,14 +259,14 @@ export async function executeSegmentAddition(
     const operationId = `add_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // Create edit request for the Edit Orchestrator
-    const editRequest: VideoEditRequest = {
+    const _editRequest: VideoEditRequest = {
       project_id: projectId,
       user_id: userId,
-      current_composition: currentComposition,
+      current_composition: currentComposition as any,
       edit_type: 'add_segment',
       edit_data: {
         new_text: newText,
-        new_position: afterSegmentId ? currentComposition.segments.findIndex((s: any) => s.id === afterSegmentId) + 1 : currentComposition.segments.length
+        new_position: afterSegmentId ? ((currentComposition as any).segments || []).findIndex((s: any) => s.id === afterSegmentId) + 1 : ((currentComposition as any).segments || []).length
       }
     };
     
@@ -282,7 +282,7 @@ export async function executeSegmentAddition(
       creditsUsed: 0
     };
     
-  } catch (error) {
+  } catch (_error) {
     return {
       operationId: 'error',
       type: 'add_segment',
@@ -290,7 +290,7 @@ export async function executeSegmentAddition(
       progress: 0,
       stage: 'Failed',
       creditsUsed: 0,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: _error instanceof Error ? _error.message : 'Unknown error'
     };
   }
 }
@@ -301,17 +301,17 @@ export async function executeSegmentAddition(
 export async function executeSegmentRemoval(
   projectId: string,
   userId: string,
-  currentComposition: any,
+  currentComposition: Record<string, unknown> | any,
   segmentId: string,
   strategy: string
 ): Promise<OperationProgress> {
   try {
     const operationId = `remove_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const editRequest: VideoEditRequest = {
+    const _editRequest: VideoEditRequest = {
       project_id: projectId,
       user_id: userId,
-      current_composition: currentComposition,
+      current_composition: currentComposition as any,
       edit_type: 'remove_segment',
       edit_data: {
         segment_id: segmentId
@@ -328,7 +328,7 @@ export async function executeSegmentRemoval(
       creditsUsed: 0
     };
     
-  } catch (error) {
+  } catch (_error) {
     return {
       operationId: 'error',
       type: 'remove_segment',
@@ -336,7 +336,7 @@ export async function executeSegmentRemoval(
       progress: 0,
       stage: 'Failed',
       creditsUsed: 0,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: _error instanceof Error ? _error.message : 'Unknown error'
     };
   }
 }
@@ -347,7 +347,7 @@ export async function executeSegmentRemoval(
 export async function regenerateSegmentAsset(
   projectId: string,
   userId: string,
-  currentComposition: any,
+  currentComposition: Record<string, unknown> | any,
   segmentId: string,
   assetType: 'image' | 'voice',
   customPrompt?: string
@@ -355,10 +355,10 @@ export async function regenerateSegmentAsset(
   try {
     const operationId = `regen_${assetType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const editRequest: VideoEditRequest = {
+    const _editRequest: VideoEditRequest = {
       project_id: projectId,
       user_id: userId,
-      current_composition: currentComposition,
+      current_composition: currentComposition as any,
       edit_type: 'regenerate_image', // or regenerate_voice based on assetType
       edit_data: {
         segment_id: segmentId,
@@ -376,7 +376,7 @@ export async function regenerateSegmentAsset(
       creditsUsed: 0
     };
     
-  } catch (error) {
+  } catch (_error) {
     return {
       operationId: 'error',
       type: 'regenerate_asset',
@@ -384,7 +384,7 @@ export async function regenerateSegmentAsset(
       progress: 0,
       stage: 'Failed',
       creditsUsed: 0,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: _error instanceof Error ? _error.message : 'Unknown error'
     };
   }
 }
@@ -395,19 +395,19 @@ export async function regenerateSegmentAsset(
 export async function startVideoExport(
   projectId: string,
   userId: string,
-  composition: any,
-  exportSettings: any,
+  composition: Record<string, unknown>,
+  exportSettings: Record<string, unknown>,
   platformPreset?: string
 ): Promise<OperationProgress> {
   try {
     const operationId = `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const renderRequest: VideoRenderRequest = {
+    const _renderRequest: VideoRenderRequest = {
       project_id: projectId,
       user_id: userId,
-      composition,
-      export_settings: exportSettings,
-      render_quality: exportSettings.quality || 'standard',
+      composition: composition as any,
+      export_settings: exportSettings as any,
+      render_quality: (exportSettings as any).quality || 'standard',
       platform_preset: platformPreset as any
     };
     
@@ -422,7 +422,7 @@ export async function startVideoExport(
       creditsUsed: 0
     };
     
-  } catch (error) {
+  } catch (_error) {
     return {
       operationId: 'error',
       type: 'export_video',
@@ -430,7 +430,7 @@ export async function startVideoExport(
       progress: 0,
       stage: 'Failed',
       creditsUsed: 0,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: _error instanceof Error ? _error.message : 'Unknown error'
     };
   }
 }
@@ -469,7 +469,7 @@ export async function getOperationProgress(operationId: string): Promise<Operati
 /**
  * Cancel an operation
  */
-export async function cancelOperation(operationId: string): Promise<{ success: boolean; error?: string }> {
+export async function cancelOperation(_operationId: string): Promise<{ success: boolean; error?: string }> {
   // Implementation to cancel an operation
   return { success: true };
 }
@@ -480,7 +480,7 @@ export async function cancelOperation(operationId: string): Promise<{ success: b
 export async function getCostPreview(
   operation: 'add' | 'remove' | 'regenerate' | 'export',
   strategy: string,
-  composition: any
+  _composition: Record<string, unknown>
 ): Promise<{
   creditsRequired: number;
   estimatedTime: number;
@@ -542,8 +542,8 @@ export async function getCostPreview(
     }
   };
   
-  const breakdown = (costBreakdowns as any)[operation]?.[strategy] || (costBreakdowns as any)[operation]?.['isolated'] || [];
-  const creditsRequired = breakdown.reduce((sum: any, item: any) => sum + item.credits, 0);
+  const breakdown = (costBreakdowns as Record<string, Record<string, Array<{item: string; credits: number; description: string}>>>)[operation]?.[strategy] || (costBreakdowns as Record<string, Record<string, Array<{item: string; credits: number; description: string}>>>)[operation]?.['isolated'] || [];
+  const creditsRequired = breakdown.reduce((sum: number, item: {item: string; credits: number; description: string}) => sum + item.credits, 0);
   const estimatedTime = creditsRequired * 8; // Rough estimate: 8 seconds per credit
   
   return {

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DollarSign, TrendingUp, ExternalLink, Award, Percent, Users, ArrowUp, BarChart3 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getTopOffers, searchOffers, getOfferCategories } from '@/actions/research/top-offers';
 import { toast } from 'sonner';
 import { UniformToolLayout } from '@/components/tools/uniform-tool-layout';
@@ -39,7 +39,7 @@ interface ClickBankOffer {
     avg_gravity: number;
     gravity_change: number;
     data_points: number;
-    daily_data?: any;
+    daily_data?: Record<string, unknown>;
   }[];
 }
 
@@ -58,30 +58,7 @@ export default function TopOffersPage() {
   const [chartTimeframe, setChartTimeframe] = useState<'current' | 'weekly' | 'monthly'>('current');
   const PAGE_SIZE = 50;
 
-  useEffect(() => {
-    loadOffers(true);
-    loadCategories();
-  }, [selectedCategory, sortBy]);
-
-  // Infinite scroll effect
-  useEffect(() => {
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (target.scrollTop + target.clientHeight >= target.scrollHeight - 100) {
-        if (!isLoadingMore && hasMore) {
-          loadOffers(false);
-        }
-      }
-    };
-
-    const scrollContainer = document.querySelector('.offers-scroll-container');
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
-      return () => scrollContainer.removeEventListener('scroll', handleScroll);
-    }
-  }, [isLoadingMore, hasMore]);
-
-  const loadOffers = async (reset = true) => {
+  const loadOffers = useCallback(async (reset = true) => {
     if (reset) {
       setIsLoading(true);
       setCurrentPage(0);
@@ -119,14 +96,36 @@ export default function TopOffersPage() {
       } else {
         toast.error(result.error || 'Failed to load offers');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load top offers');
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  };
+  }, [selectedCategory, sortBy, currentPage]);
 
+  useEffect(() => {
+    loadOffers(true);
+    loadCategories();
+  }, [selectedCategory, sortBy, loadOffers]);
+
+  // Infinite scroll effect
+  useEffect(() => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.scrollTop + target.clientHeight >= target.scrollHeight - 100) {
+        if (!isLoadingMore && hasMore) {
+          loadOffers(false);
+        }
+      }
+    };
+
+    const scrollContainer = document.querySelector('.offers-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [isLoadingMore, hasMore, loadOffers]);
 
   const loadCategories = async () => {
     try {
@@ -152,7 +151,7 @@ export default function TopOffersPage() {
       } else {
         toast.error(result.error || 'Search failed');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Search failed');
     } finally {
       setIsLoading(false);

@@ -5,9 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, Hash, Heart, Share2, Eye, Calendar, ExternalLink, Zap } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { getViralTrends, searchTrends, analyzeTrendPotential } from '@/actions/research/viral-trends';
+import { TrendingUp, Hash, Heart, Share2, Eye, ExternalLink, Zap } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { getViralTrends, searchTrends } from '@/actions/research/viral-trends';
 import { toast } from 'sonner';
 import { UniformToolLayout } from '@/components/tools/uniform-tool-layout';
 
@@ -31,11 +31,7 @@ export default function ViralTrendsPage() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  useEffect(() => {
-    loadTrends();
-  }, [selectedPlatform, selectedCategory]);
-
-  const loadTrends = async () => {
+  const loadTrends = useCallback(async () => {
     setIsLoading(true);
     try {
       const result = await getViralTrends({
@@ -49,12 +45,16 @@ export default function ViralTrendsPage() {
       } else {
         toast.error(result.error || 'Failed to load viral trends');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to load viral trends');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedPlatform, selectedCategory]);
+
+  useEffect(() => {
+    loadTrends();
+  }, [selectedPlatform, selectedCategory, loadTrends]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -69,7 +69,7 @@ export default function ViralTrendsPage() {
       } else {
         toast.error(result.error || 'Search failed');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Search failed');
     } finally {
       setIsLoading(false);

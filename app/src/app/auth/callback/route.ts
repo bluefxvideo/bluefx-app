@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         // Get the provider information from the session
         const provider = data.user.app_metadata?.provider;
         const providerToken = data.session.provider_token;
-        const providerRefreshToken = data.session.provider_refresh_token;
+        const _providerRefreshToken = data.session.provider_refresh_token;
         
         console.log('OAuth success:', {
           provider,

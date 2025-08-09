@@ -44,13 +44,28 @@ export interface MusicMachineState {
   modelInfo: Awaited<ReturnType<typeof getMusicGenModelInfo>> | null;
 }
 
+export interface UseMusicMachineReturn {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  state: MusicMachineState;
+  playingMusicId: string | null;
+  generateMusic: () => Promise<void>;
+  loadMusicHistory: () => Promise<void>;
+  deleteMusic: (musicId: string) => Promise<void>;
+  handleMusicPlayback: (musicId: string, audioUrl: string) => void;
+  updatePrompt: (prompt: string) => void;
+  updateSettings: (updates: Partial<MusicMachineState>) => void;
+  clearGeneration: () => void;
+  setState: React.Dispatch<React.SetStateAction<MusicMachineState>>;
+}
+
 export function useMusicMachine() {
   const pathname = usePathname();
   
-  const getActiveTabFromPath = () => {
+  const getActiveTabFromPath = useCallback(() => {
     if (pathname.includes('/history')) return 'history';
     return 'generate';
-  };
+  }, [pathname]);
 
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
@@ -78,7 +93,7 @@ export function useMusicMachine() {
   // Update active tab when pathname changes
   useEffect(() => {
     setActiveTab(getActiveTabFromPath());
-  }, [pathname]);
+  }, [pathname, getActiveTabFromPath]);
 
   // Get current user
   useEffect(() => {
@@ -217,7 +232,7 @@ export function useMusicMachine() {
       }));
       toast.error('Music generation failed');
     }
-  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model_version]);
+  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model_version]); // startPolling removed to avoid circular dep
 
   // Start polling for music completion
   const startPolling = useCallback((predictionId: string) => {

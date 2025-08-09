@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { 
   Play, 
   Pause,
@@ -15,11 +16,9 @@ import {
   Layers,
   Sparkles,
   Zap,
-  Loader2,
   Brain,
   Mic,
-  Camera,
-  Edit3
+  Camera
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,9 +26,10 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { CaptionOverlay } from '../components/caption-overlay';
+import type { ScriptToVideoResponse } from '@/actions/tools/script-to-video-orchestrator';
 
 interface VideoPreviewProps {
-  result?: any;
+  result?: ScriptToVideoResponse;
   isGenerating: boolean;
   isEditing: boolean;
   error?: string;
@@ -40,7 +40,6 @@ interface VideoPreviewProps {
 export function VideoPreview({
   result,
   isGenerating,
-  isEditing,
   error,
   onClearResults,
   activeMode
@@ -54,7 +53,6 @@ export function VideoPreview({
     segments,
     timeline,
     project,
-    ui,
     // Actions
     play,
     pause,
@@ -364,11 +362,12 @@ export function VideoPreview({
               const pattern = kenBurnsPatterns[segmentIndex % kenBurnsPatterns.length];
               
               return (
-                <div className="w-full h-full overflow-hidden">
-                  <img
+                <div className="relative w-full h-full overflow-hidden">
+                  <Image
                     src={imageUrl}
                     alt={currentSegment ? `Segment ${currentSegment.index + 1}` : 'Video preview'}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                     style={{
                       transform: timeline.is_playing 
                         ? `scale(${pattern.scale}) translate(${pattern.x}px, ${pattern.y}px)`

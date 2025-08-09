@@ -620,23 +620,23 @@ export const useEbookWriterStore = create<EbookWriterState>()(
         },
         
         // Placeholder implementations for remaining actions
-        updateChapter: (chapterId: string, updates: Partial<EbookChapter>) => {
+        updateChapter: (_chapterId: string, _updates: Partial<EbookChapter>) => {
           // Implementation would update chapter in the outline
         },
         
-        addChapter: (afterChapterId?: string) => {
+        addChapter: (_afterChapterId?: string) => {
           // Implementation would add new chapter to outline
         },
         
-        removeChapter: (chapterId: string) => {
+        removeChapter: (_chapterId: string) => {
           // Implementation would remove chapter from outline
         },
         
-        reorderChapters: (fromIndex: number, toIndex: number) => {
+        reorderChapters: (_fromIndex: number, _toIndex: number) => {
           // Implementation would reorder chapters in outline
         },
         
-        generateSectionContent: async (chapterId: string, sectionId: string) => {
+        generateSectionContent: async (_chapterId: string, _sectionId: string) => {
           // Implementation would generate content for specific section
         },
         
@@ -644,15 +644,15 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           // Implementation would generate content for all chapters
         },
         
-        updateSectionContent: (chapterId: string, sectionId: string, content: string) => {
+        updateSectionContent: (_chapterId: string, _sectionId: string, _content: string) => {
           // Implementation would update section content
         },
         
-        updateCoverPreferences: (preferences: Partial<EbookCover>) => {
+        updateCoverPreferences: (_preferences: Partial<EbookCover>) => {
           // Implementation would update cover preferences
         },
         
-        exportEbook: async (format: 'pdf' | 'epub' | 'docx') => {
+        exportEbook: async (_format: 'pdf' | 'epub' | 'docx') => {
           // Implementation would export ebook in specified format
         },
         
@@ -660,11 +660,11 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           // Implementation would save current ebook to database
         },
         
-        loadEbook: async (ebookId: string) => {
+        loadEbook: async (_ebookId: string) => {
           // Implementation would load ebook from database
         },
         
-        deleteEbook: async (ebookId: string) => {
+        deleteEbook: async (_ebookId: string) => {
           // Implementation would delete ebook from database
         },
       }),

@@ -5,7 +5,6 @@ import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { 
   Upload, 
   FileText, 
@@ -15,10 +14,8 @@ import {
   X, 
   Wand2,
   Plus,
-  Settings,
 } from 'lucide-react';
 import { useContentMultiplierStore, usePlatformConnections } from '../store/content-multiplier-store';
-import type { SocialPlatform } from '../store/content-multiplier-store';
 import { PlatformSelectionPanel } from '../components/platform-selection-panel';
 import { toast } from 'sonner';
 
@@ -43,7 +40,7 @@ export function SimplifiedInputTab() {
     clearCurrentProject,
   } = useContentMultiplierStore();
 
-  const connections = usePlatformConnections();
+  const _connections = usePlatformConnections();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     for (const file of acceptedFiles) {
@@ -87,7 +84,7 @@ export function SimplifiedInputTab() {
         description: 'Navigate to platform tabs to review and edit your content',
         duration: 4000,
       });
-    } catch (error) {
+    } catch (_error) {
       toast.error('Content generation failed', {
         description: 'Please try again or check your input',
       });
@@ -105,7 +102,7 @@ export function SimplifiedInputTab() {
     return FileText;
   };
 
-  const formatFileSize = (bytes: number) => {
+  const _formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];

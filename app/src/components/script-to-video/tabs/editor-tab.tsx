@@ -3,15 +3,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit3, Plus, Trash2, RotateCcw } from 'lucide-react';
+import type { SegmentData } from '../store/video-editor-store';
+
+interface Composition {
+  segments?: SegmentData[];
+}
 
 interface EditorTabProps {
-  onEdit: (editData: any) => void;
+  onEdit: (editData: unknown) => void;
   isEditing: boolean;
-  currentComposition?: any;
+  currentComposition?: Composition;
   credits: number;
 }
 
-export function EditorTab({ onEdit, isEditing, currentComposition, credits }: EditorTabProps) {
+export function EditorTab({ currentComposition }: EditorTabProps) {
   if (!currentComposition) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -58,7 +63,7 @@ export function EditorTab({ onEdit, isEditing, currentComposition, credits }: Ed
           {/* Segment Timeline */}
           <div className="space-y-4">
             <h4 className="font-medium">Segments Timeline</h4>
-            {currentComposition.segments?.map((segment: any, index: number) => (
+            {currentComposition.segments?.map((segment: SegmentData, index: number) => (
               <div key={segment.id} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Segment {index + 1}</span>

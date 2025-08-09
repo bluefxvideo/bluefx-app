@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Film, Zap, AlertCircle } from 'lucide-react';
+import { Loader2, Film, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,15 +18,23 @@ interface ScriptInputPanelProps {
 
 export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: ScriptInputPanelProps) {
   const [scriptText, setScriptText] = useState('');
-  const [videoStyle, setVideoStyle] = useState({
-    tone: 'professional' as const,
-    pacing: 'medium' as const,
-    visual_style: 'dynamic' as const,
+  const [videoStyle, setVideoStyle] = useState<{
+    tone: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';
+    pacing: 'slow' | 'medium' | 'fast';
+    visual_style: 'realistic' | 'artistic' | 'minimal' | 'dynamic';
+  }>({
+    tone: 'professional',
+    pacing: 'medium',
+    visual_style: 'dynamic',
   });
-  const [voiceSettings, setVoiceSettings] = useState({
-    voice_id: 'anna' as const,
-    speed: 'normal' as const,
-    emotion: 'authoritative' as const,
+  const [voiceSettings, setVoiceSettings] = useState<{
+    voice_id: 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah';
+    speed: 'slower' | 'normal' | 'faster';
+    emotion: 'neutral' | 'excited' | 'calm' | 'authoritative';
+  }>({
+    voice_id: 'anna',
+    speed: 'normal',
+    emotion: 'authoritative',
   });
   const [quality, setQuality] = useState<'draft' | 'standard' | 'premium'>('standard');
 
@@ -84,7 +92,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Tone</Label>
-              <Select value={videoStyle.tone} onValueChange={(value: any) => setVideoStyle({...videoStyle, tone: value})}>
+              <Select value={videoStyle.tone} onValueChange={(value) => setVideoStyle({...videoStyle, tone: value as 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic'})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -100,7 +108,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
 
             <div className="space-y-2">
               <Label>Pacing</Label>
-              <Select value={videoStyle.pacing} onValueChange={(value: any) => setVideoStyle({...videoStyle, pacing: value})}>
+              <Select value={videoStyle.pacing} onValueChange={(value) => setVideoStyle({...videoStyle, pacing: value as 'slow' | 'medium' | 'fast'})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -114,7 +122,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
 
             <div className="space-y-2">
               <Label>Visual Style</Label>
-              <Select value={videoStyle.visual_style} onValueChange={(value: any) => setVideoStyle({...videoStyle, visual_style: value})}>
+              <Select value={videoStyle.visual_style} onValueChange={(value) => setVideoStyle({...videoStyle, visual_style: value as 'realistic' | 'artistic' | 'minimal' | 'dynamic'})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -140,7 +148,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Voice</Label>
-              <Select value={voiceSettings.voice_id} onValueChange={(value: any) => setVoiceSettings({...voiceSettings, voice_id: value})}>
+              <Select value={voiceSettings.voice_id} onValueChange={(value) => setVoiceSettings({...voiceSettings, voice_id: value as 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah'})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -157,7 +165,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
 
             <div className="space-y-2">
               <Label>Speed</Label>
-              <Select value={voiceSettings.speed} onValueChange={(value: any) => setVoiceSettings({...voiceSettings, speed: value})}>
+              <Select value={voiceSettings.speed} onValueChange={(value) => setVoiceSettings({...voiceSettings, speed: value as 'slower' | 'normal' | 'faster'})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -171,7 +179,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
 
             <div className="space-y-2">
               <Label>Emotion</Label>
-              <Select value={voiceSettings.emotion} onValueChange={(value: any) => setVoiceSettings({...voiceSettings, emotion: value})}>
+              <Select value={voiceSettings.emotion} onValueChange={(value) => setVoiceSettings({...voiceSettings, emotion: value as 'neutral' | 'excited' | 'calm' | 'authoritative'})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

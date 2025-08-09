@@ -22,9 +22,9 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
     const contentTables: (keyof Database['public']['Tables'])[] = [
       'avatar_videos',
       'generated_voices',
-      'ai_predictions',
+      'generated_images',
       'credit_usage',
-      'addon_purchases'
+      'content_multiplier_history'
     ] as const
     
     for (const table of contentTables) {
@@ -53,24 +53,9 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
       .eq('user_id', userId)
 
     // 3. Delete webhook events related to this user (optional - you might want to keep for audit)
-    // Note: This depends on if you store user_id in webhook_events
-    console.log('Cleaning webhook events...')
-    const { data: webhookEvents } = await supabase
-      .from('webhook_events')
-      .select('payload')
-      .eq('processor', 'clickbank')
-    
-    if (webhookEvents) {
-      for (const event of webhookEvents) {
-        // Check if webhook payload contains this user's receipt or email
-        const payload = event.payload as { customer?: { email?: string }; receipt?: string }
-        if (payload?.customer?.email?.includes(userId) || 
-            payload?.receipt && await isReceiptForUser(payload.receipt, userId)) {
-          // Optionally delete webhook events for this user
-          // await supabase.from('webhook_events').delete().eq('id', event.id)
-        }
-      }
-    }
+    // Note: webhook_events table doesn't exist in current schema, skipping
+    console.log('Skipping webhook events cleanup (table not in schema)...')
+    // If you add webhook_events table later, uncomment and implement this section
 
     // 4. Delete profile (this has CASCADE on auth.users)
     console.log('Deleting profile...')
@@ -134,7 +119,7 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
 /**
  * Helper function to check if a receipt belongs to a specific user
  */
-async function isReceiptForUser(receipt: string, userId: string): Promise<boolean> {
+async function _isReceiptForUser(receipt: string, userId: string): Promise<boolean> {
   const supabase = createAdminClient()
   
   // Check if there's a user with this receipt in their metadata

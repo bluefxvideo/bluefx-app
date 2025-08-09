@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +44,7 @@ export function HistoryTab() {
     return () => subscription.unsubscribe();
   }, [supabase.auth]);
 
-  const loadVideos = async () => {
+  const loadVideos = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
@@ -64,11 +65,11 @@ export function HistoryTab() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     loadVideos();
-  }, [user]);
+  }, [user, loadVideos]);
 
   const handleDelete = async (videoId: string) => {
     if (!user || deletingIds.has(videoId)) return;
@@ -171,12 +172,13 @@ export function HistoryTab() {
               <Card key={video.id} className="p-4">
                 <div className="flex items-start gap-4">
                   {/* Avatar Thumbnail */}
-                  <div className="w-12 h-12 bg-muted rounded-lg flex-shrink-0 overflow-hidden">
+                  <div className="relative w-12 h-12 bg-muted rounded-lg flex-shrink-0 overflow-hidden">
                     {video.avatar_image_url ? (
-                      <img
+                      <Image
                         src={video.avatar_image_url}
                         alt="Avatar"
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

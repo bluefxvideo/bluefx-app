@@ -1,54 +1,46 @@
 'use client';
 
+import Image from 'next/image';
 import { 
   Play, 
-  Pause, 
-  SkipBack, 
-  SkipForward, 
   Scissors, 
   Plus, 
   Trash2, 
   RotateCcw,
   Settings,
-  Move,
   Edit3,
   Image as ImageIcon,
   Volume2,
-  Type,
-  Loader2,
   GripVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useVideoEditorStore } from '../store/video-editor-store';
-import { AddSegmentDialog } from '../components/add-segment-dialog';
 import { TimelineSyncIndicator } from '../components/timeline-sync-indicator';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface VideoEditorPanelProps {
-  onEdit: (editData: any) => void;
+  onEdit: (editData: unknown) => void;
   isEditing: boolean;
-  currentComposition?: any;
+  currentComposition?: unknown;
   credits: number;
 }
 
-export function VideoEditorPanel({ onEdit, isEditing, currentComposition, credits }: VideoEditorPanelProps) {
+export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposition: _currentComposition, credits: _credits }: VideoEditorPanelProps) {
   // Local dialog state
-  const [addSegmentDialogOpen, setAddSegmentDialogOpen] = useState(false);
-  const [addSegmentAfter, setAddSegmentAfter] = useState<string | undefined>();
+  const [_addSegmentDialogOpen, _setAddSegmentDialogOpen] = useState(false);
+  const [_addSegmentAfter, _setAddSegmentAfter] = useState<string | undefined>();
   
   // Drag and drop state
   const [draggedSegment, setDraggedSegment] = useState<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   
   // Text editing state
-  const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState('');
+  const [_editingSegmentId, _setEditingSegmentId] = useState<string | null>(null);
+  const [_editingText, _setEditingText] = useState('');
 
   // Get state and actions from Zustand store
   const {
@@ -56,7 +48,6 @@ export function VideoEditorPanel({ onEdit, isEditing, currentComposition, credit
     segments,
     timeline,
     settings,
-    project,
     // Actions
     setActiveTab,
     updateTypography,
@@ -65,23 +56,23 @@ export function VideoEditorPanel({ onEdit, isEditing, currentComposition, credit
     selectSegment,
     regenerateAsset,
     deleteSegment,
-    addSegment,
+    addSegment: _addSegment,
     addEmptySegment,
     splitSegment,
     reorderSegments,
     showToast,
-    updateSegmentText
+    updateSegmentText: _updateSegmentText
   } = useVideoEditorStore();
 
   // Separate subscription for UI state to ensure reactivity
   const ui = useVideoEditorStore((state) => state.ui);
   
 
-  const handleSegmentSelect = (segmentId: string, multi = false) => {
+  const _handleSegmentSelect = (segmentId: string, multi = false) => {
     selectSegment(segmentId, multi);
   };
 
-  const handleSegmentEdit = async (segmentId: string, action: string) => {
+  const _handleSegmentEdit = async (segmentId: string, action: string) => {
     if (action === 'regenerate_image') {
       await regenerateAsset(segmentId, 'image');
     } else if (action === 'remove_segment') {
@@ -466,12 +457,13 @@ export function VideoEditorPanel({ onEdit, isEditing, currentComposition, credit
                       }}
                     >
                       {/* Segment Image */}
-                      <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
+                      <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
                         {segment.assets.image.url ? (
-                          <img
+                          <Image
                             src={segment.assets.image.url}
                             alt={`Segment ${i + 1}`}
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -488,8 +480,8 @@ export function VideoEditorPanel({ onEdit, isEditing, currentComposition, credit
                               className="h-8 w-8 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingSegmentId(segment.id);
-                                setEditingText(segment.text);
+                                _setEditingSegmentId(segment.id);
+                                _setEditingText(segment.text);
                                 // Scroll to bottom
                                 setTimeout(() => {
                                   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });

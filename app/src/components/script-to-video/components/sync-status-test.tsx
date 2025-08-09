@@ -162,7 +162,7 @@ export function SyncStatusTest() {
             <ul className="mt-1 space-y-1 list-disc list-inside">
               <li>Segments with voice issues show orange borders and volume icons</li>
               <li>Sync indicator appears at top when timeline is out of sync</li>
-              <li>"Sync Audio" button allows regeneration of missing voice/captions</li>
+              <li>&quot;Sync Audio&quot; button allows regeneration of missing voice/captions</li>
             </ul>
           </div>
         </div>

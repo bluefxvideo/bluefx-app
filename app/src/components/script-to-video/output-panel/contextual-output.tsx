@@ -3,10 +3,11 @@
 import { ScriptToVideoOutput } from './script-to-video-output';
 import { HistoryOutput } from './history-output';
 import { EditorOutput } from './editor-output';
+import type { ScriptToVideoResponse } from '@/actions/tools/script-to-video-orchestrator';
 
 interface ContextualOutputProps {
   activeTab: string;
-  result?: any;
+  result?: ScriptToVideoResponse;
   isGenerating: boolean;
   isEditing: boolean;
   error?: string;

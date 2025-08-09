@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useVideoEditorStore } from "../store/video-editor-store";
-import { getCostPreview, type SegmentStrategy } from "../../../actions/tools/video-editor-actions";
+import { getCostPreview } from "../../../actions/tools/video-editor-actions";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -32,7 +32,7 @@ export function UserChoiceDialog() {
         dialog.strategies.map(async (strategy) => {
           try {
             const cost = await getCostPreview(
-              dialog.operation as any,
+              dialog.operation as 'add' | 'remove' | 'regenerate' | 'export',
               strategy.id,
               {} // Would pass actual composition
             );

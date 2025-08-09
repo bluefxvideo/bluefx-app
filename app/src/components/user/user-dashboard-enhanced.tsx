@@ -3,12 +3,11 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+// Badge import removed as unused
 import { createClient } from '@/app/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { 
-  BarChart, 
-  Bar, 
+  // BarChart, Bar removed as unused 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -24,7 +23,7 @@ import {
   CreditCard,
   TrendingUp,
   Activity,
-  Calendar,
+  // Calendar removed as unused
   Download,
   Image,
   Video,
@@ -47,20 +46,9 @@ interface UserDashboardStats {
   lastActive: string
 }
 
-interface ToolUsageData {
-  tool_id: string
-  usage_count: number
-  credits_used: number
-  last_used: string
-}
+// ToolUsageData interface removed as unused
 
-interface ContentStats {
-  generated_images: number
-  avatar_videos: number
-  ebook_history: number
-  music_history: number
-  script_to_video_history: number
-}
+// ContentStats interface removed as unused
 
 interface UsageTrend {
   date: string
@@ -123,7 +111,7 @@ export function UserDashboardEnhanced() {
         totalCreditsUsed,
         creditsAvailable: credits?.available_credits || 0,
         monthlyAllocation: credits?.total_credits || 0,
-        contentCreated: Object.values(contentStats || {}).reduce((sum: number, count: any) => sum + (count || 0), 0),
+        contentCreated: Object.values(contentStats || {}).reduce((sum: number, count: unknown) => sum + ((count as number) || 0), 0),
         toolsUsed: creditUsage?.length || 0,
         lastActive: lastActivity?.[0]?.created_at || new Date().toISOString()
       } as UserDashboardStats
@@ -261,7 +249,7 @@ export function UserDashboardEnhanced() {
 
   // Tool icons mapping
   const getToolIcon = (toolId: string) => {
-    const iconMap: Record<string, any> = {
+    const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
       'thumbnail-machine': Image,
       'ai-cinematographer': Video,
       'script-writer': FileText,
