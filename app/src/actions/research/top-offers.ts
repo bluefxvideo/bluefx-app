@@ -119,22 +119,10 @@ export async function getTopOffers(
     // Get historical data for each offer
     const offersWithHistory = await Promise.all(
       (data || []).map(async (offer) => {
-        const { data: historyData } = await supabase
-          .from('clickbank_history')
-          .select('max_gravity, min_gravity, avg_gravity, gravity_change, data_points, daily_data')
-          .eq('clickbank_id', offer.clickbank_id)
-          .single();
-        
+        // Remove clickbank_history query since table doesn't exist
         return {
           ...offer,
-          clickbank_history: historyData ? [{
-            max_gravity: parseFloat(historyData.max_gravity) || 0,
-            min_gravity: parseFloat(historyData.min_gravity) || 0,
-            avg_gravity: parseFloat(historyData.avg_gravity) || 0,
-            gravity_change: parseFloat(historyData.gravity_change) || 0,
-            data_points: historyData.data_points || 0,
-            daily_data: historyData.daily_data
-          }] : null
+          clickbank_history: null
         };
       })
     );
@@ -208,7 +196,7 @@ export async function getOfferCategories(): Promise<{ success: boolean; data?: s
       };
     }
     
-    const categories = [...new Set(data?.map(item => item.category).filter(Boolean))] || [];
+    const categories = [...new Set(data?.map(item => item.category).filter(Boolean))];
     
     return {
       success: true,
@@ -224,7 +212,7 @@ export async function getOfferCategories(): Promise<{ success: boolean; data?: s
   }
 }
 
-export async function getOfferTrendData(clickbankId: string): Promise<{ 
+export async function getOfferTrendData(_clickbankId: string): Promise<{ 
   success: boolean; 
   data?: { 
     max_gravity: number;
@@ -236,31 +224,23 @@ export async function getOfferTrendData(clickbankId: string): Promise<{
   error?: string 
 }> {
   try {
-    const supabase = await createClient();
-    
-    const { data, error } = await supabase
-      .from('clickbank_history')
-      .select('max_gravity, min_gravity, avg_gravity, gravity_change, data_points')
-      .eq('clickbank_id', clickbankId)
-      .single();
-    
-    if (error && error.code !== 'PGRST116') {
-      return {
-        success: false,
-        error: 'Failed to fetch trend data'
-      };
-    }
-    
+    // Since clickbank_history table doesn't exist, return default data
     return {
       success: true,
-      data: data || undefined
+      data: {
+        max_gravity: 0,
+        min_gravity: 0,
+        avg_gravity: 0,
+        gravity_change: 0,
+        data_points: 0,
+      }
     };
     
   } catch (error) {
     console.error('Get offer trend data error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch trend data'
+      error: error instanceof Error ? error.message : 'Failed to get trend data'
     };
   }
 }

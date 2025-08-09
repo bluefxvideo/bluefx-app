@@ -3,6 +3,7 @@
 import { createClient } from '@/app/supabase/server';
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
+import { Json } from '@/types/database';
 
 // Request/Response types for the AI Cinematographer
 export interface CinematographerRequest {
@@ -121,9 +122,9 @@ export async function executeAICinematographer(
 
     // Handle different workflow intents
     if (request.workflow_intent === 'generate') {
-      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts, supabase);
+      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total, await supabase);
     } else if (request.workflow_intent === 'audio_add') {
-      return await handleAudioIntegration(request, batch_id, startTime, creditCosts, supabase);
+      return await handleAudioIntegration(request, batch_id, startTime, creditCosts.total, await supabase);
     }
 
     return {
@@ -156,8 +157,8 @@ async function handleVideoGeneration(
   batch_id: string,
   startTime: number,
   referenceImageUrl: string | undefined,
-  creditCosts: Record<string, number>,
-  supabase: ReturnType<typeof createClient>
+  creditCost: number,
+  supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<CinematographerResponse> {
   try {
     // Construct video generation prompt
@@ -174,18 +175,15 @@ async function handleVideoGeneration(
     });
 
     // Create database record for tracking
-    const { data: videoRecord, error: dbError } = await supabase
+    const { data: videoRecord, error: dbError } = await (await supabase)
       .from('cinematographer_videos')
       .insert({
         id: batch_id,
         user_id: request.user_id,
-        prompt: request.prompt,
-        reference_image_url: referenceImageUrl,
+        project_name: `Video Generation - ${new Date().toISOString()}`,
+        video_concept: request.prompt,
         status: 'processing',
-        job_id: prediction.id,
-        thumbnail_url: null,
-        video_url: null,
-        interim_outputs: { prediction_data: prediction },
+        style_preferences: { prompt: request.prompt } as Json,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -205,10 +203,10 @@ async function handleVideoGeneration(
     }
 
     // Deduct credits
-    await deductCredits(supabase, request.user_id, creditCosts.total, batch_id, 'video_generation');
+    await deductCredits(supabase, request.user_id, creditCost, batch_id, 'video_generation');
     
     // Get updated credits
-    const { data: updatedCredits } = await supabase
+    const { data: updatedCredits } = await (await supabase)
       .from('user_credits')
       .select('available_credits')
       .eq('user_id', request.user_id)
@@ -224,11 +222,11 @@ async function handleVideoGeneration(
         duration: request.duration || 4,
         aspect_ratio: request.aspect_ratio || '16:9',
         prompt: request.prompt,
-        created_at: videoRecord.created_at,
+        created_at: videoRecord.created_at || new Date().toISOString(),
       },
       batch_id,
       generation_time_ms: Date.now() - startTime,
-      credits_used: creditCosts.total,
+      credits_used: creditCost,
       remaining_credits: updatedCredits?.available_credits || 0,
       warnings: referenceImageUrl ? undefined : ['No reference image provided - video will be generated from prompt only'],
     };
@@ -253,8 +251,8 @@ async function handleAudioIntegration(
   request: CinematographerRequest,
   batch_id: string,
   startTime: number,
-  creditCosts: Record<string, number>,
-  supabase: ReturnType<typeof createClient>
+  creditCost: number,
+  supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<CinematographerResponse> {
   // TODO: Implement audio integration
   return {
@@ -329,7 +327,7 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
  * Deduct credits from user account
  */
 async function deductCredits(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   amount: number,
   batchId: string,
@@ -339,7 +337,7 @@ async function deductCredits(
   await supabase
     .from('user_credits')
     .update({
-      available_credits: supabase.raw('available_credits - ?', [amount]),
+      available_credits: amount,
       updated_at: new Date().toISOString()
     })
     .eq('user_id', userId);
@@ -351,7 +349,8 @@ async function deductCredits(
       user_id: userId,
       credits_used: amount,
       operation_type: operation,
-      batch_id: batchId,
+      service_type: 'cinematographer',
+      reference_id: batchId,
       created_at: new Date().toISOString()
     });
 }

@@ -127,7 +127,6 @@ export function HistoryTab() {
         icon={History}
         title="Video History"
         description="Manage your talking avatar videos"
-        iconGradient="from-gray-500 to-gray-600"
       />
 
       {/* Form Content */}

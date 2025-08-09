@@ -13,7 +13,7 @@ import {
   createApiError,
   type ApiResponse
 } from '@/types/validation'
-import { type Tables, type TablesInsert, type InsertTables } from '@/types/database'
+import { type Tables, type InsertTables } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 
 // Type definitions for RPC function returns

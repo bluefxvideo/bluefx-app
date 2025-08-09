@@ -47,7 +47,10 @@ export default function TrendingKeywordsPage() {
       });
       
       if (result.success) {
-        setKeywords(result.data || []);
+        setKeywords((result.data || []).map(keyword => ({
+          ...keyword,
+          target_page_url: null // Add missing field with default value
+        })));
       } else {
         toast.error(result.error || 'Failed to load keywords');
       }
@@ -66,7 +69,10 @@ export default function TrendingKeywordsPage() {
       const result = await searchKeywords(searchQuery);
       
       if (result.success) {
-        setKeywords(result.data || []);
+        setKeywords((result.data || []).map(keyword => ({
+          ...keyword,
+          target_page_url: null // Add missing field with default value
+        })));
         toast.success(`Found ${result.data?.length || 0} keywords`);
       } else {
         toast.error(result.error || 'Search failed');

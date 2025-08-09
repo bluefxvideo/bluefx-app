@@ -61,8 +61,7 @@ export function HistoryTab({ voiceOverState }: HistoryTabProps) {
       <TabHeader
         icon={History}
         title="Voice History"
-        description="View and manage your generated voices"
-        iconGradient="from-gray-500 to-gray-600"
+        description={`${state.voiceHistory.length} generated voice${state.voiceHistory.length !== 1 ? 's' : ''}`}
       />
 
       {/* Form Content */}

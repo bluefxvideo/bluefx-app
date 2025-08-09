@@ -13,7 +13,7 @@ export interface PlatformAdaptationRequest {
   contentSettings: ContentSettingsData;
   userContext?: {
     userId: string;
-    preferences?: any;
+    preferences?: Record<string, unknown>;
   };
 }
 
@@ -182,8 +182,13 @@ export async function contentMultiplierOrchestrator(
 
     return {
       success: true,
-      platform_adaptations: (result.object as any).platform_adaptations,
-      original_analysis: (result.object as any).original_analysis,
+      platform_adaptations: (result.object as { platform_adaptations?: PlatformContentResult[] }).platform_adaptations || [],
+      original_analysis: (result.object as { original_analysis?: { content_type: string; main_topics: string[]; sentiment: string; key_points: string[]; } }).original_analysis || {
+        content_type: '',
+        main_topics: [],
+        sentiment: '',
+        key_points: []
+      },
       credits_used: creditsUsed,
       processing_time: processingTime,
     };

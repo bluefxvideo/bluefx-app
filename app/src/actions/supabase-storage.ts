@@ -338,7 +338,7 @@ export async function listStorageImages(
 
     return {
       success: true,
-      files: data,
+      files: data as unknown as Record<string, unknown>[],
     };
 
   } catch (error) {

@@ -9,6 +9,7 @@ import {
   getUserCredits,
   deductCredits 
 } from '../database/logo-database';
+import { Json } from '@/types/database';
 
 /**
  * Unified Logo Machine Server Action
@@ -130,7 +131,7 @@ export async function generateLogo(
       service_id: request.workflow_intent || 'generate',
       model_version: 'ideogram-v3-turbo',
       status: 'starting',
-      input_data: request,
+      input_data: request as unknown as Json,
     });
 
     // Step 4: AI Decision - Smart Prompt Construction
@@ -158,7 +159,7 @@ export async function generateLogo(
       service_id: request.workflow_intent || 'generate',
       model_version: 'ideogram-v3-turbo',
       status: 'processing',
-      input_data: request,
+      input_data: request as unknown as Json,
     });
 
     // Step 6: Wait for Completion
@@ -211,8 +212,8 @@ export async function generateLogo(
         color_scheme: request.color_scheme,
         industry: request.industry,
         workflow_intent: request.workflow_intent,
-        generation_parameters: request,
-      },
+        generation_parameters: request as unknown as Json,
+      } as unknown as Json,
       status: 'completed',
     });
 

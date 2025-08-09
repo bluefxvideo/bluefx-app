@@ -6,7 +6,9 @@ import type {
   ContentVariant, 
   OAuthConnection, 
   PublishingQueue,
-  SocialPlatform 
+  SocialPlatform,
+  PlatformContent,
+  UploadedFile
 } from '@/components/content-multiplier/store/content-multiplier-store';
 
 /**
@@ -25,8 +27,8 @@ export async function saveContentVariant(variant: ContentVariant, userId: string
       generated_variants: {
         platform_adaptations: variant.platform_adaptations,
         upload_files: variant.upload_files,
-      } as Json,
-      settings: variant.settings as Json,
+      } as unknown as Json,
+      settings: variant.settings as unknown as Json,
       output_format: 'multi-platform',
       word_count: variant.original_content.length,
       variant_count: variant.platform_adaptations.length,
@@ -68,9 +70,9 @@ export async function getContentVariantHistory(userId: string, limit = 20, offse
       return {
         id: record.id,
         original_content: record.original_content,
-        platform_adaptations: generatedVariants?.platform_adaptations || [],
-        upload_files: generatedVariants?.upload_files || [],
-        settings: record.settings as Json,
+        platform_adaptations: (generatedVariants as { platform_adaptations?: PlatformContent[] })?.platform_adaptations || [],
+        upload_files: (generatedVariants as { upload_files?: UploadedFile[] })?.upload_files || [],
+        settings: record.settings as unknown as Json,
         total_platforms: record.variant_count || 0,
         status: 'completed' as const,
         created_at: record.created_at || '',
@@ -154,7 +156,7 @@ export async function getOAuthConnections(userId: string) {
         avatar_url: record.avatar_url || undefined,
         expires_at: record.expires_at || undefined,
         last_connected: record.last_connected || '',
-        connection_status: (record.connection_status as 'connected' | 'disconnected' | 'expired') || 'disconnected',
+        connection_status: (record.connection_status as 'active' | 'disconnected' | 'expired') || 'disconnected',
       };
     });
 
@@ -390,7 +392,7 @@ export async function getContentMultiplierAnalytics(userId: string, days = 30) {
       total_variants: data.length,
       total_platforms: data.reduce((sum, record) => sum + (record.variant_count || 0), 0),
       average_quality_score: data.reduce((sum, record) => sum + (record.quality_score || 0), 0) / data.length || 0,
-      most_used_platforms: calculateMostUsedPlatforms(data),
+      most_used_platforms: calculateMostUsedPlatforms(data as Array<{ export_formats?: string[] }>),
       content_performance: data.map(record => ({
         id: record.id,
         created_at: record.created_at,

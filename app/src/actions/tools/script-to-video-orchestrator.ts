@@ -11,6 +11,7 @@ import {
   getUserCredits,
   deductCredits 
 } from '../database/script-video-database';
+import { Json } from '@/types/database';
 
 /**
  * Script-to-Video AI Orchestrator
@@ -282,13 +283,13 @@ Optimize for:
       status: 'processing',
       input_data: { 
         ...request,
-        production_plan: productionPlan,
+        production_plan: productionPlan as unknown as Json,
         segment_count: (segmentAnalysis as any).segments.length
-      },
+      } as unknown as Json,
     });
 
     // Step 5: Execute Production Based on AI Plan
-    let generatedSegments: VideoSegment[] = [];
+    const generatedSegments: VideoSegment[] = [];
     let generatedImages: { url: string; segment_index: number; prompt: string; }[] = [];
     let audioUrl: string | undefined;
 
@@ -387,8 +388,8 @@ Optimize for:
       segments: (segmentAnalysis as any).segments,
       batch_id,
       model_version: 'gpt-4o-orchestrated',
-      generation_parameters: request,
-      production_plan: productionPlan,
+      generation_parameters: request as unknown as Json,
+      production_plan: productionPlan as unknown as Json,
       credits_used: total_credits
     });
 

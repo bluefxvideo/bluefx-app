@@ -68,7 +68,7 @@ export async function recordGenerationMetrics(data: {
   return { success: true };
 }
 
-export async function getUserCredits(user_id: string) {
+export async function getUserCredits(_user_id: string) {
   // TODO: Integrate with your credit system
   return {
     success: true,

@@ -152,11 +152,11 @@ export class HedraAPI {
     };
 
     if (duration) {
-      requestBody.generated_video_inputs.duration = duration;
+      (requestBody.generated_video_inputs as { duration?: number }).duration = duration;
     }
 
     if (seed) {
-      requestBody.generated_video_inputs.seed = seed;
+      (requestBody.generated_video_inputs as { seed?: number }).seed = seed;
     }
 
     const response = await fetch(`${this.baseUrl}/generations`, {

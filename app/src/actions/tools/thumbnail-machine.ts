@@ -11,6 +11,7 @@ import {
   getUserCredits,
   deductCredits 
 } from '../database/thumbnail-database';
+import { Json } from '@/types/database';
 
 /**
  * Unified Thumbnail Machine Server Action
@@ -141,7 +142,7 @@ export async function generateThumbnails(
       service_id: 'generate',
       model_version: 'flux-thumbnails-v2',
       status: 'starting',
-      input_data: request,
+      input_data: request as unknown as Json,
     });
 
     // Step 4: AI Decision - Core Thumbnail Generation
@@ -168,7 +169,7 @@ export async function generateThumbnails(
       service_id: 'generate',
       model_version: 'flux-thumbnails-v2',
       status: 'processing',
-      input_data: request,
+      input_data: request as unknown as Json,
     });
 
     // Step 5: Wait for Completion
@@ -292,7 +293,7 @@ export async function generateThumbnails(
       model_name: 'flux-thumbnails-v2',
       model_version: 'flux-thumbnails-v2',
       batch_id: thumb.batch_id,
-      generation_settings: request,
+      generation_settings: request as unknown as Json,
       metadata: {
         variation_index: thumb.variation_index,
         total_variations: thumbnails.length,

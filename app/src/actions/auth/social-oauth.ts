@@ -1,7 +1,6 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { redirect } from 'next/navigation';
 import { saveOAuthConnection, disconnectPlatform } from '@/actions/database/content-multiplier-database';
 import type { SocialPlatform, OAuthConnection } from '@/components/content-multiplier/store/content-multiplier-store';
 
@@ -360,7 +359,7 @@ async function testPlatformConnection(platform: SocialPlatform, accessToken: str
   try {
     const response = await fetchUserProfile(platform, accessToken);
     return !!response.username;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -381,10 +380,9 @@ async function generatePKCEChallenge(): Promise<string> {
   return Buffer.from(codeVerifier).toString('base64url');
 }
 
-async function storeOAuthState(state: string, userId: string, platform: string) {
+async function storeOAuthState(_state: string, _userId: string, _platform: string) {
   // Store state in session or temporary storage for verification
   // This is a simplified implementation
-  const supabase = await createClient();
   
   // You could store this in a temporary table or cache
   // For now, we'll skip the storage and just validate the format
@@ -396,7 +394,7 @@ async function verifyOAuthState(state: string, userId: string, platform: string)
     const [stateUserId, statePlatform] = decoded.split(':');
     
     return stateUserId === userId && statePlatform === platform;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

@@ -11,6 +11,7 @@ import {
   getUserCredits,
   deductCredits 
 } from '../database/ebook-writer-database';
+import { Json } from '@/types/database';
 
 /**
  * Ebook Writer AI Orchestrator
@@ -195,7 +196,7 @@ export async function ebookWriterOrchestrator(
     }
 
     // Initialize response structure
-    let response: Partial<EbookWriterResponse> = {
+    const response: Partial<EbookWriterResponse> = {
       success: true,
       prediction_id: batch_id,
       batch_id,
@@ -264,7 +265,7 @@ export async function ebookWriterOrchestrator(
       user_id: request.user_id,
       topic: request.topic,
       title: request.title || response.generated_titles?.[0] || 'Untitled',
-      outline: response.outline,
+      outline: response.outline as unknown as Json,
       content: response.generated_content,
       cover_url: response.cover?.image_url,
       batch_id,

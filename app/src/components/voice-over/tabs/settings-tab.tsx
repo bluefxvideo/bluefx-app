@@ -45,8 +45,7 @@ export function SettingsTab({ voiceOverState }: SettingsTabProps) {
       <TabHeader
         icon={Settings}
         title="Voice Settings"
-        description="Configure voice generation parameters"
-        iconGradient="from-slate-500 to-slate-600"
+        description="Configure your voice generation preferences"
       />
 
       {/* Form Content */}

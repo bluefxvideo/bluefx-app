@@ -132,7 +132,6 @@ export function HistoryTab({ musicMachineState }: HistoryTabProps) {
         icon={Music}
         title="Music History"
         description={`${state.musicHistory.length} generated track${state.musicHistory.length !== 1 ? 's' : ''}`}
-        iconGradient="from-gray-500 to-gray-600"
       />
 
       {/* Form Content */}

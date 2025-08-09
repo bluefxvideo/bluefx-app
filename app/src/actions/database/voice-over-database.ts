@@ -329,7 +329,7 @@ export async function getVoiceGenerationAnalytics(
     }
 
     // Get total usage stats
-    const { data: totalStats, error: totalError } = await supabase
+    const { error: totalError } = await supabase
       .rpc('get_voice_over_stats', { user_id_param: userId });
 
     if (totalError) {
@@ -340,7 +340,6 @@ export async function getVoiceGenerationAnalytics(
     const voiceUsageMap = new Map();
     let totalGenerations = 0;
     let totalCreditsUsed = 0;
-    const totalDuration = 0;
 
     voiceStats?.forEach((voice: Record<string, unknown>) => {
       const voiceId = voice.voice_id;
@@ -355,10 +354,10 @@ export async function getVoiceGenerationAnalytics(
       
       const voiceData = voiceUsageMap.get(voiceId);
       voiceData.count += 1;
-      voiceData.credits_used += voice.credits_used;
+      voiceData.credits_used += (voice.credits_used as number) || 0;
       
       totalGenerations += 1;
-      totalCreditsUsed += voice.credits_used;
+      totalCreditsUsed += (voice.credits_used as number) || 0;
     });
 
     return {

@@ -108,7 +108,7 @@ export async function searchKeywords(
       .select('*')
       .ilike('keyword', `%${query}%`)
       .eq('is_active', true)
-      .order('search_volume', { ascending: false, nullsLast: true })
+      .order('search_volume', { ascending: false })
       .limit(20);
     
     if (searchError) {
