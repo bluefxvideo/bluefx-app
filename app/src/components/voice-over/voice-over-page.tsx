@@ -61,7 +61,6 @@ export function VoiceOverPage() {
     <StandardToolPage
       icon={Mic}
       title="Voice Over Studio"
-      description="Generate professional AI voice overs"
       iconGradient="bg-primary"
       tabs={tabsComponent}
     >

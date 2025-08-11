@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';  
 import { RotateCcw, Upload, Image as ImageIcon } from 'lucide-react';
 import { LogoMachineRequest } from '@/actions/tools/logo-machine';
-import { TabContentWrapper, TabHeader, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 
 interface RecreateTabProps {
   onGenerate: (request: LogoMachineRequest) => void;
@@ -65,32 +66,34 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
     <TabContentWrapper>
       {/* Error Display */}
       {error && <TabError error={error} />}
-      
-      {/* Header */}
-      <TabHeader
-        icon={RotateCcw}
-        title="Logo Recreate"
-        description="Recreate or modify existing logos"
-      />
 
       {/* Form Sections */}
       <TabBody>
-        {/* Company Name - Required */}
-        <div className="space-y-2">
-          <Label htmlFor="company_name">Company Name *</Label>
-          <Input
-            id="company_name"
-            value={formData.company_name}
-            onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
-            placeholder="Enter your company name"
-            required
-            disabled={isGenerating}
-          />
-        </div>
+        {/* Step 1: Company Details */}
+        <StandardStep
+          stepNumber={1}
+          title="Company Details"
+          description="Tell us about your company"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="company_name">Company Name *</Label>
+            <Input
+              id="company_name"
+              value={formData.company_name}
+              onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
+              placeholder="Enter your company name"
+              required
+              disabled={isGenerating}
+            />
+          </div>
+        </StandardStep>
 
-        {/* Reference Image Upload - Required */}
-        <div className="space-y-2">
-          <Label htmlFor="reference_image">Reference Logo Image *</Label>
+        {/* Step 2: Upload Reference Image */}
+        <StandardStep
+          stepNumber={2}
+          title="Upload Reference Image"
+          description="Upload the logo you want to recreate"
+        >
           <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
             <input
               type="file"
@@ -122,47 +125,26 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
               )}
             </label>
           </Card>
-        </div>
+        </StandardStep>
 
-        {/* Modification Instructions */}
-        <div className="space-y-2">
-          <Label htmlFor="modifications">Modifications (Optional)</Label>
-          <Textarea
-            id="modifications"
-            value={formData.modifications}
-            onChange={(e) => setFormData(prev => ({ ...prev, modifications: e.target.value }))}
-            placeholder="e.g., make it more modern, change colors to blue, simplify the design..."
-            rows={3}
-            disabled={isGenerating}
-          />
-        </div>
-
-        {/* Recreation Options */}
-        <div className="space-y-3">
-          <Label>Recreation Preferences</Label>
+        {/* Step 3: Modification Instructions */}
+        <StandardStep
+          stepNumber={3}
+          title="Modification Instructions"
+          description="Specify changes you want to make (optional)"
+        >
           <div className="space-y-2">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={formData.maintain_style}
-                onChange={(e) => setFormData(prev => ({ ...prev, maintain_style: e.target.checked }))}
-                disabled={isGenerating}
-                className="rounded"
-              />
-              <span className="text-sm">Maintain original style and aesthetic</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={formData.maintain_concept}
-                onChange={(e) => setFormData(prev => ({ ...prev, maintain_concept: e.target.checked }))}
-                disabled={isGenerating}
-                className="rounded"
-              />
-              <span className="text-sm">Keep core concept and symbolism</span>
-            </label>
+            <Textarea
+              id="modifications"
+              value={formData.modifications}
+              onChange={(e) => setFormData(prev => ({ ...prev, modifications: e.target.value }))}
+              placeholder="e.g., make it more modern, change colors to blue, simplify the design..."
+              rows={3}
+              disabled={isGenerating}
+              className="resize-y"
+            />
           </div>
-        </div>
+        </StandardStep>
       </TabBody>
 
       <TabFooter>

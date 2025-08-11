@@ -144,7 +144,7 @@ const EditImpactAnalysisSchema = z.object({
   estimated_processing_time: z.number(),
   estimated_credits: z.number(),
   optimization_strategy: z.string(),
-  reasoning: z.string()
+  reasoningText: z.string()
 });
 
 const SegmentRecalculationSchema = z.object({
@@ -387,7 +387,7 @@ async function handleAddSegment(
 
   // Generate assets for new segment
   const [newImage, _newVoiceSegment] = await Promise.all([
-    generateSegmentImage((newSegmentPlan as any).image_prompt, '9:16'),
+    generateSegmentImage((newSegmentPlan as any).image_prompt, '9:16', request.user_id),
     generateVoiceSegment(newSegmentText, (newSegmentPlan as any).voice_emotion)
   ]);
 
@@ -483,7 +483,8 @@ async function handleRegenerateImage(
   // Generate new image
   const newImage = await generateSegmentImage(
     newPrompt || targetSegment.image_prompt, 
-    '9:16'
+    '9:16',
+    request.user_id
   );
 
   const updatedSegments = request.current_composition.segments.map(segment => {
@@ -549,11 +550,29 @@ async function handleReorderSegments(
  * Helper functions for asset generation and processing
  */
 
-async function generateSegmentImage(_prompt: string, _aspectRatio: string) {
-  // Would call your existing image generation model
+async function generateSegmentImage(prompt: string, aspectRatio: string, userId: string = 'temp-user') {
+  // Import the real image generation service
+  const { regenerateSegmentImage } = await import('../services/image-generation-service');
+  
+  // Call real FLUX Kontext Pro API
+  const result = await regenerateSegmentImage(
+    crypto.randomUUID(), // segment_id
+    prompt,
+    {
+      visual_style: 'realistic',
+      aspect_ratio: aspectRatio as '16:9' | '9:16' | '1:1' | '4:3',
+      quality: 'standard'
+    },
+    userId
+  );
+  
+  if (!result.success) {
+    throw new Error(`Image generation failed: ${result.error}`);
+  }
+  
   return {
-    url: `https://storage.example.com/images/${crypto.randomUUID()}.png`,
-    credits_used: 4
+    url: result.image_url!,
+    credits_used: 4 // Standard cost for image generation
   };
 }
 
@@ -565,21 +584,76 @@ async function generateVoiceSegment(_text: string, _emotion: string) {
   };
 }
 
-async function reanalyzeAudioWithWhisper(_params: {
+async function reanalyzeAudioWithWhisper(params: {
   audio_url: string;
   updated_segments: VideoSegment[];
   previous_timing: TimelineData;
 }) {
-  // Would call your Whisper integration
+  // Import the real Whisper analysis service
+  const { analyzeAudioWithWhisper } = await import('../services/whisper-analysis-service');
+  
+  console.log('🎤 Running Whisper analysis for precise word timing...');
+  
+  // Prepare segments for Whisper analysis
+  const whisperRequest = {
+    audio_url: params.audio_url,
+    segments: params.updated_segments.map(seg => ({
+      id: seg.id,
+      text: seg.text,
+      start_time: seg.start_time,
+      end_time: seg.end_time
+    }))
+  };
+
+  // Call real Whisper API
+  const result = await analyzeAudioWithWhisper(whisperRequest);
+  
+  if (!result.success) {
+    console.warn('⚠️ Whisper analysis failed, using estimation:', result.error);
+    // Fallback to estimated timing
+    return {
+      updated_captions: params.updated_segments.map(seg => ({
+        segment_id: seg.id,
+        word_timings: estimateWordTimings(seg.text, seg.start_time, seg.duration)
+      })),
+      word_timings: []
+    };
+  }
+
+  console.log(`✅ Whisper analysis completed: ${result.word_count} words, ${result.speaking_rate.toFixed(1)} WPM`);
+
+  // Convert Whisper results to caption format
+  const updated_captions = result.segment_timings.map(timing => ({
+    segment_id: timing.segment_id,
+    word_timings: timing.word_timings.map(word => ({
+      word: word.word,
+      start_time: word.start,
+      end_time: word.end,
+      confidence: word.confidence || 0.95
+    }))
+  }));
+
   return {
-    updated_captions: [],
-    word_timings: []
+    updated_captions,
+    word_timings: result.segment_timings.flatMap(seg => seg.word_timings)
   };
 }
 
 function adjustCaptionTiming(existingCaptions: CaptionData[], _affectedSegmentIds: string[]) {
   // Smart caption timing adjustment without full reanalysis
   return existingCaptions;
+}
+
+function estimateWordTimings(text: string, startTime: number, duration: number) {
+  const words = text.split(' ');
+  const timePerWord = duration / words.length;
+  
+  return words.map((word, index) => ({
+    word,
+    start_time: startTime + (index * timePerWord),
+    end_time: startTime + ((index + 1) * timePerWord),
+    confidence: 0.7 // Lower confidence for estimated timing
+  }));
 }
 
 function applyTimelineRecalculation(currentTimeline: TimelineData, _recalculation: z.infer<typeof SegmentRecalculationSchema>) {

@@ -2,7 +2,7 @@
 
 import { streamText, generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
-import { createStreamableValue } from 'ai/rsc';
+import { createStreamableValue } from '@ai-sdk/rsc';
 import { z } from 'zod';
 
 // Types matching the store interfaces

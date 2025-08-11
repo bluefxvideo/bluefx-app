@@ -79,7 +79,7 @@ const SegmentImpactSchema = z.object({
     preserves_customizations: z.boolean(),
     technical_details: z.string()
   })),
-  reasoning: z.string()
+  reasoningText: z.string()
 });
 
 /**

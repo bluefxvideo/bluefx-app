@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 // Badge import removed as unused
 import { createClient } from '@/app/supabase/client'
 import { useQuery } from '@tanstack/react-query'
+import { UsageDashboardSkeleton, ChartSkeleton } from '@/components/dashboard/dashboard-skeletons'
 import { 
   // BarChart, Bar removed as unused 
   XAxis, 
@@ -289,12 +290,7 @@ export function UserDashboardEnhanced() {
 
   // Loading state
   if (statsLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <span className="ml-2 text-gray-600">Loading your dashboard...</span>
-      </div>
-    )
+    return <UsageDashboardSkeleton />
   }
 
   // Error state
@@ -390,9 +386,7 @@ export function UserDashboardEnhanced() {
           </CardHeader>
           <CardContent>
             {trendsLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
+              <ChartSkeleton />
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={usageTrends}>
@@ -433,9 +427,7 @@ export function UserDashboardEnhanced() {
           </CardHeader>
           <CardContent>
             {toolUsageLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
+              <ChartSkeleton />
             ) : pieChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
@@ -476,8 +468,22 @@ export function UserDashboardEnhanced() {
         </CardHeader>
         <CardContent>
           {toolUsageLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-3 border rounded-lg animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                    <div>
+                      <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                      <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                    <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : toolUsage.length > 0 ? (
             <div className="space-y-4">

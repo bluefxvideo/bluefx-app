@@ -8,7 +8,8 @@ import { RotateCcw, Upload, ImageIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
 import Image from 'next/image';
-import { TabContentWrapper, TabHeader, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 
 interface RecreateTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => void;
@@ -59,18 +60,14 @@ export function RecreateTab({
     <TabContentWrapper>
       {/* Error Display */}
       {error && <TabError error={error} />}
-      
-      {/* Header */}
-      <TabHeader
-        icon={RotateCcw}
-        title="Recreate"
-        description="Upload a reference thumbnail and generate similar variations"
-      />
 
       <TabBody>
-        {/* Reference Image Upload */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Reference Thumbnail</Label>
+        {/* Step 1: Upload Reference Image */}
+        <StandardStep
+          stepNumber={1}
+          title="Upload Reference Image"
+          description="Upload a thumbnail to recreate with variations"
+        >
           <Card 
             className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
             onClick={() => fileInputRef.current?.click()}
@@ -111,27 +108,34 @@ export function RecreateTab({
               if (file) handleImageUpload(file);
             }}
           />
-        </div>
+        </StandardStep>
 
-        {/* Optional Description */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Modification Instructions (Optional)</Label>
+        {/* Step 2: Describe Your Thumbnail */}
+        <StandardStep
+          stepNumber={2}
+          title="Describe Your Thumbnail"
+          description="Specify changes you want to make (optional)"
+        >
           <div className="px-1">
             <Textarea
-              placeholder="e.g., 'Make it more vibrant', 'Change the background', 'Add more energy'..."
+              placeholder="Describe changes you want... (e.g., 'Make it more vibrant', 'Change the background', 'Add more energy', 'Keep the same style but brighter colors')"
               value={formData.prompt}
               onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
-              className="min-h-[80px] resize-none bg-muted border-muted-foreground focus:outline-offset-[-1px]"
+              className="min-h-[80px] resize-y"
             />
+            <div className="flex justify-between text-sm text-muted-foreground mt-1">
+              <span>Leave empty to recreate exact style</span>
+              <span>{formData.prompt.length}/500</span>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Leave empty to recreate the exact style and composition
-          </p>
-        </div>
+        </StandardStep>
 
-        {/* Style Options */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Recreation Style</Label>
+        {/* Step 3: Choose Recreation Style */}
+        <StandardStep
+          stepNumber={3}
+          title="Choose Recreation Style"
+          description="Select how to recreate your reference image"
+        >
           <div className="grid grid-cols-1 gap-2">
             {[
               { id: 'similar', label: 'Similar Style', desc: 'Keep the same style and composition' },
@@ -162,7 +166,7 @@ export function RecreateTab({
               </Card>
             ))}
           </div>
-        </div>
+        </StandardStep>
       </TabBody>
 
       <TabFooter>

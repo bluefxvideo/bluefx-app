@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { History, Search, Filter, Calendar, ArrowUpDown } from 'lucide-react';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody } from '@/components/tools/tab-content-wrapper';
 
 interface FilterOption {
   value: string;
@@ -49,16 +49,22 @@ export function StandardHistoryFilters({
 
   return (
     <TabContentWrapper>
-      {/* Header */}
-      <TabHeader
-        icon={History}
-        title="History Filters"
-        description={`Filter and search your ${toolName} history`}
-      />
+      {/* Header - Match StandardStep Layout */}
+      <div className="flex items-center gap-4 mb-5">
+        <div className="relative">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center transition-all duration-300">
+            <History className="w-5 h-5 text-white" />
+          </div>
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-white mb-1 tracking-tight">History Filters</h3>
+          <p className="text-zinc-400 font-medium">Filter and search your {toolName} history</p>
+        </div>
+      </div>
 
       {/* Filter Controls */}
       <TabBody>
-        {/* Search */}
+        {/* Search - Full Width */}
         <div className="px-1">
           <Label className="text-base font-medium mb-2 block flex items-center gap-2">
             <Search className="w-4 h-4 text-muted-foreground" />
@@ -71,49 +77,52 @@ export function StandardHistoryFilters({
           />
         </div>
 
-        {/* Type Filter */}
-        <div>
-          <Label className="text-base font-medium mb-2 block flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            Tool Type
-          </Label>
-          <Select value={filters.filterType} onValueChange={(value) => updateFilters({ filterType: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {toolTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Filters Grid - 2 Columns */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Tool Type */}
+          <div>
+            <Label className="text-base font-medium mb-2 block flex items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              Tool Type
+            </Label>
+            <Select value={filters.filterType} onValueChange={(value) => updateFilters({ filterType: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {toolTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Date Range */}
+          <div>
+            <Label className="text-base font-medium mb-2 block flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              Date Range
+            </Label>
+            <Select value={filters.dateRange} onValueChange={(value) => updateFilters({ dateRange: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="quarter">This Quarter</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* Date Range */}
-        <div>
-          <Label className="text-base font-medium mb-2 block flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            Date Range
-          </Label>
-          <Select value={filters.dateRange} onValueChange={(value) => updateFilters({ dateRange: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="quarter">This Quarter</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Sort Order */}
+        {/* Sort By - Full Width for Balance */}
         <div>
           <Label className="text-base font-medium mb-2 block flex items-center gap-2">
             <ArrowUpDown className="w-4 h-4 text-muted-foreground" />

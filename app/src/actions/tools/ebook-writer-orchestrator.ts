@@ -136,7 +136,7 @@ interface EbookSubsection {
 // AI Schemas for structured generation
 const TitleGenerationSchema = z.object({
   titles: z.array(z.string()).min(5).max(5),
-  reasoning: z.string(),
+  reasoningText: z.string(),
   target_audience_analysis: z.string()
 });
 

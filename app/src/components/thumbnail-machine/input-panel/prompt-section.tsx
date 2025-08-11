@@ -14,12 +14,6 @@ export const PromptSection = forwardRef<HTMLTextAreaElement, PromptSectionProps>
   ({ value, onChange }, ref) => {
     return (
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-muted-foreground" />
-          <Label htmlFor="prompt" className="text-lg font-medium">
-            Prompt
-          </Label>
-        </div>
         <div className="px-1">
           <Textarea
           ref={ref}
@@ -31,8 +25,8 @@ export const PromptSection = forwardRef<HTMLTextAreaElement, PromptSectionProps>
           maxLength={500}
           />
         </div>
-        <div className="flex justify-between text-base text-muted-foreground">
-          <span>Tip: Be descriptive for better results</span>
+        <div className="flex justify-between text-sm text-muted-foreground">
+          <span>Be descriptive for better results</span>
           <span>{value.length}/500</span>
         </div>
       </div>

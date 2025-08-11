@@ -165,7 +165,6 @@ export function ContentMultiplierPage() {
     <StandardToolPage
       icon={Zap}
       title="Content Multiplier"
-      description="Transform content across multiple social platforms"
       iconGradient="bg-primary"
       tabs={tabsComponent}
     >

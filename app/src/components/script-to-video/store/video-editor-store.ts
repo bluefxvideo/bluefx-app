@@ -62,6 +62,8 @@ interface ProjectState {
   };
   credits_used: number;
   generation_time_ms: number;
+  video_id?: string; // Database ID for fetching captions
+  video_url?: string; // Generated video URL
 }
 
 interface VoiceSettings {
@@ -138,6 +140,7 @@ interface SegmentData {
       words: WordTimingData[];
       style_applied: string;
       status: 'pending' | 'generating' | 'ready' | 'error';
+      caption_chunks?: any; // Professional caption chunks from generation
     };
   };
   overrides?: {
@@ -486,6 +489,7 @@ interface PositionSettings {
 // Actions interface
 interface VideoEditorActions {
   // Project actions
+  initializeUser: (user_id: string) => void;
   createProject: (script: string, settings?: Partial<ProjectState>) => Promise<void>;
   updateProject: (updates: Partial<ProjectState>) => void;
   saveProject: () => Promise<void>;
@@ -494,7 +498,7 @@ interface VideoEditorActions {
   // Timeline actions
   play: () => void;
   pause: () => void;
-  seek: (time: number) => void;
+  seek: (time: number, pausePlayback?: boolean) => void;
   setZoom: (level: number) => void;
   selectSegment: (id: string, multi?: boolean) => void;
   moveSegment: (id: string, newStartTime: number) => void;
@@ -548,138 +552,31 @@ interface VideoEditorActions {
 
   // AI Orchestration actions
   generateFromScript: (script: string) => Promise<void>;
+  loadGenerationResults: (results: any) => void;
+  loadExistingResults: (user_id: string) => Promise<void>;
   regenerateSegment: (segmentId: string, type?: 'voice' | 'image' | 'both') => Promise<void>;
   optimizeTimeline: () => Promise<void>;
 }
 
-// Helper function to create draft segments for testing
-const createDraftSegments = (): SegmentData[] => [
-  {
-    id: 'seg_1',
-    index: 0,
-    text: 'Hook: Did you know 90% of startups fail because of one simple mistake?',
-    text_hash: btoa('Hook: Did you know 90% of startups fail because of one simple mistake?'),
-    start_time: 0,
-    end_time: 3.5,
-    duration: 3.5,
-    original_duration: 3.5,
-    assets: {
-      voice: { url: 'https://example.com/voice/1.mp3', duration: 3.5, status: 'ready' },
-      image: { url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', prompt: 'Dramatic startup office scene', status: 'ready' },
-      captions: { words: [], style_applied: 'default', status: 'ready' }
-    },
-    edit_history: [],
-    status: 'ready',
-    locked: false
-  },
-  {
-    id: 'seg_2',
-    index: 1,
-    text: 'They focus on the product instead of understanding their customers.',
-    text_hash: btoa('They focus on the product instead of understanding their customers.'),
-    start_time: 3.5,
-    end_time: 7.8,
-    duration: 4.3,
-    original_duration: 4.3,
-    assets: {
-      voice: { url: 'https://example.com/voice/2.mp3', duration: 4.3, status: 'ready' },
-      image: { url: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400', prompt: 'Product vs customer research', status: 'ready' },
-      captions: { words: [], style_applied: 'default', status: 'ready' }
-    },
-    edit_history: [],
-    status: 'ready',
-    locked: false
-  },
-  {
-    id: 'seg_3',
-    index: 2,
-    text: 'Here\'s how to validate your idea in just 48 hours.',
-    text_hash: btoa('Here\'s how to validate your idea in just 48 hours.'),
-    start_time: 7.8,
-    end_time: 11.2,
-    duration: 3.4,
-    original_duration: 3.4,
-    assets: {
-      voice: { url: 'https://example.com/voice/3.mp3', duration: 3.4, status: 'ready' },
-      image: { url: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400', prompt: '48 hours validation checklist', status: 'ready' },
-      captions: { words: [], style_applied: 'default', status: 'ready' }
-    },
-    edit_history: [],
-    status: 'ready',
-    locked: false
-  },
-  {
-    id: 'seg_4',
-    index: 3,
-    text: 'Step 1: Create a simple landing page with your value proposition.',
-    text_hash: btoa('Step 1: Create a simple landing page with your value proposition.'),
-    start_time: 11.2,
-    end_time: 15.1,
-    duration: 3.9,
-    original_duration: 3.9,
-    assets: {
-      voice: { url: 'https://example.com/voice/4.mp3', duration: 3.9, status: 'ready' },
-      image: { url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400', prompt: 'Landing page mockup', status: 'ready' },
-      captions: { words: [], style_applied: 'default', status: 'ready' }
-    },
-    edit_history: [],
-    status: 'ready',
-    locked: false
-  },
-  {
-    id: 'seg_5',
-    index: 4,
-    text: 'Step 2: Drive traffic using targeted social media posts.',
-    text_hash: btoa('Step 2: Drive traffic using targeted social media posts.'),
-    start_time: 15.1,
-    end_time: 18.7,
-    duration: 3.6,
-    original_duration: 3.6,
-    assets: {
-      voice: { url: 'https://example.com/voice/5.mp3', duration: 3.6, status: 'ready' },
-      image: { url: 'https://images.unsplash.com/photo-1611262588024-d12430b98920?w=400', prompt: 'Social media analytics', status: 'ready' },
-      captions: { words: [], style_applied: 'default', status: 'ready' }
-    },
-    edit_history: [],
-    status: 'ready',
-    locked: false
-  },
-  {
-    id: 'seg_6',
-    index: 5,
-    text: 'Step 3: Collect emails and feedback from interested users.',
-    text_hash: btoa('Step 3: Collect emails and feedback from interested users.'),
-    start_time: 18.7,
-    end_time: 22.4,
-    duration: 3.7,
-    original_duration: 3.7,
-    assets: {
-      voice: { url: 'https://example.com/voice/6.mp3', duration: 3.7, status: 'ready' },
-      image: { url: 'https://images.unsplash.com/photo-1596526131083-e8c633c948d2?w=400', prompt: 'Email signup form', status: 'ready' },
-      captions: { words: [], style_applied: 'default', status: 'ready' }
-    },
-    edit_history: [],
-    status: 'ready',
-    locked: false
-  }
-];
+// Helper function to create empty segments (no default mock data)
+const createDraftSegments = (): SegmentData[] => [];
 
 // Default state
 const getInitialState = (): VideoEditorState => ({
   project: {
     id: `proj_${Date.now()}`,
-    name: 'Startup Validation Video',
-    description: 'Demo project with draft segments',
+    name: 'New Video Project',
+    description: 'Create your script-to-video project',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    user_id: 'user_1',
-    duration: 22.4,
+    user_id: '', // Will be set when user loads
+    duration: 0,
     aspect_ratio: '9:16',
     resolution: { width: 1080, height: 1920 },
     frame_rate: 30,
-    status: 'completed',
+    status: 'draft',
     version: 1,
-    original_script: 'Hook: Did you know 90% of startups fail because of one simple mistake? They focus on the product instead of understanding their customers...',
+    original_script: '',
     generation_settings: {
       voice_settings: {
         voice_id: 'anna',
@@ -693,8 +590,8 @@ const getInitialState = (): VideoEditorState => ({
       },
       quality: 'standard'
     },
-    credits_used: 25,
-    generation_time_ms: 45000
+    credits_used: 0,
+    generation_time_ms: 0
   },
   
   timeline: {
@@ -986,6 +883,23 @@ const getInitialState = (): VideoEditorState => ({
   }
 });
 
+// Helper function to create Unicode-safe text hash
+function createTextHash(text: string): string {
+  try {
+    // First try regular btoa for ASCII-only text (most common case)
+    return btoa(text);
+  } catch (_error) {
+    // If btoa fails (Unicode characters), use UTF-8 encoding
+    // Convert Unicode string to UTF-8 bytes, then to base64
+    const utf8Bytes = new TextEncoder().encode(text);
+    let binary = '';
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      binary += String.fromCharCode(utf8Bytes[i]);
+    }
+    return btoa(binary);
+  }
+}
+
 // Create the store
 export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>()(
   devtools(
@@ -993,6 +907,12 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
         ...getInitialState(),
 
         // Project actions
+        initializeUser: (user_id: string) => {
+          set((state) => {
+            state.project.user_id = user_id;
+          });
+        },
+
         createProject: async (script: string, settings?: Partial<ProjectState>) => {
           set((state) => {
             state.project = {
@@ -1001,7 +921,8 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
               original_script: script,
               id: `proj_${Date.now()}`,
               created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              user_id: state.project.user_id // Keep the real user ID
             };
             state.ui.loading.global = true;
           });
@@ -1048,41 +969,155 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
           });
         },
 
+        // Load real generation results into editor
+        loadGenerationResults: (results: any) => {
+          if (!results || !results.success) {
+            console.warn('No valid results to load:', results);
+            return;
+          }
+          
+          console.log('Loading generation results:', results);
+          
+          set((state) => {
+            // Convert orchestrator results to store segments
+            const segments: SegmentData[] = results.segments?.map((segment: any, index: number) => {
+              
+              // Find matching image by segment_index to ensure correct mapping
+              const matchingImage = results.generated_images?.find((img: any) => img.segment_index === index);
+              const imageUrl = matchingImage?.url || '';
+              
+              console.log(`Segment ${index}: "${segment.text.substring(0, 50)}..." -> Image: ${imageUrl ? 'Found' : 'Missing'}`);
+              
+              return {
+                id: segment.id || `seg_${index + 1}`,
+                index,
+                text: segment.text,
+                text_hash: createTextHash(segment.text),
+                start_time: segment.start_time,
+                end_time: segment.end_time,
+                duration: segment.duration,
+                original_duration: segment.duration,
+                assets: {
+                  voice: {
+                    url: results.audio_url,
+                    duration: segment.duration,
+                    status: results.audio_url ? 'ready' as const : 'pending' as const
+                  },
+                  image: {
+                    url: imageUrl,
+                    prompt: segment.image_prompt || matchingImage?.prompt || `Visual for: ${segment.text.substring(0, 50)}`,
+                    status: imageUrl ? 'ready' as const : 'pending' as const
+                  },
+                  captions: {
+                    words: results.word_timings?.[index]?.word_timings?.map((wt: any) => ({
+                      word: wt.word,
+                      start_time: wt.start,
+                      end_time: wt.end,
+                      confidence: wt.confidence || 0.95
+                    })) || [],
+                    style_applied: 'default',
+                    status: 'ready' as const,
+                    // Store caption chunks if available
+                    caption_chunks: segment.caption_chunks || null
+                  }
+                },
+                edit_history: [],
+                status: 'ready' as const,
+                locked: false
+              };
+            }) || [];
+
+            console.log(`✅ Loaded ${segments.length} segments into editor`);
+
+            // Update store state
+            state.segments = segments;
+            state.project.duration = results.timeline_data?.total_duration || 60;
+            state.project.status = 'editing';
+            state.project.video_url = results.video_url;
+            state.project.video_id = results.video_id; // Store video_id for captions
+            state.project.original_script = results.final_script || results.script_text || state.project.original_script;
+            state.ui.loading.global = false;
+            
+            // Update timeline to match duration
+            state.timeline.viewport_end = Math.max(30, state.project.duration);
+            
+            // Show notification if script was generated from prompt
+            if (results.was_script_generated) {
+              state.ui.feedback.notifications.unshift({
+                id: `script_gen_${Date.now()}`,
+                type: 'info',
+                title: 'Script Generated!',
+                message: 'AI created a script from your idea. You can view and edit it in the segments tab.',
+                timestamp: new Date().toISOString(),
+                read: false
+              });
+            }
+          });
+        },
+
+        // Load existing results from database
+        loadExistingResults: async (user_id: string) => {
+          if (!user_id) {
+            console.warn('No user_id provided to loadExistingResults');
+            return;
+          }
+
+          set((state) => {
+            state.ui.loading.global = true;
+          });
+
+          try {
+            console.log('Loading existing results for user:', user_id);
+            
+            // Call server action to get latest results
+            const response = await fetch('/api/script-video/latest', {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ user_id })
+            });
+            
+            console.log('API response status:', response.status, response.statusText);
+            
+            if (response.ok) {
+              const contentType = response.headers.get('content-type');
+              console.log('Response content-type:', contentType);
+              
+              if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                console.log('API response data:', data);
+                
+                if (data.success && data.result) {
+                  get().loadGenerationResults(data.result);
+                } else {
+                  console.log('No existing script-to-video results found for user');
+                }
+              } else {
+                console.error('API returned non-JSON response');
+                const text = await response.text();
+                console.error('Response text:', text);
+              }
+            } else {
+              console.error('Failed to fetch latest results:', response.status, response.statusText);
+            }
+          } catch (error) {
+            console.error('Error loading existing results:', error);
+          }
+
+          set((state) => {
+            state.ui.loading.global = false;
+          });
+        },
+
         // Timeline actions
         play: () => {
           set((state) => {
             state.timeline.is_playing = true;
           });
-          
-          // Start real-time playhead movement
-          const startTime = Date.now();
-          const initialTime = get().timeline.current_time;
-          
-          const updatePlayhead = () => {
-            const currentState = get();
-            if (!currentState.timeline.is_playing) return;
-            
-            const elapsed = (Date.now() - startTime) / 1000;
-            const newTime = initialTime + elapsed * currentState.timeline.playback_rate;
-            
-            if (newTime >= currentState.project.duration) {
-              // End of video reached
-              set((state) => {
-                state.timeline.current_time = state.project.duration;
-                state.timeline.is_playing = false;
-              });
-              return;
-            }
-            
-            set((state) => {
-              state.timeline.current_time = newTime;
-            });
-            
-            // Continue animation
-            requestAnimationFrame(updatePlayhead);
-          };
-          
-          requestAnimationFrame(updatePlayhead);
+          // Removed animation loop - audio element drives timeline updates via timeupdate events
+          // This prevents conflicts between multiple timeline update sources
         },
 
         pause: () => {
@@ -1091,11 +1126,13 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
           });
         },
 
-        seek: (time: number) => {
+        seek: (time: number, pausePlayback: boolean = true) => {
           set((state) => {
             state.timeline.current_time = Math.max(0, Math.min(time, state.project.duration));
-            // Pause when seeking manually
-            state.timeline.is_playing = false;
+            // Only pause when seeking manually, not when audio is updating timeline
+            if (pausePlayback) {
+              state.timeline.is_playing = false;
+            }
           });
         },
 
@@ -1117,13 +1154,9 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             } else {
               state.timeline.selected_segment_ids = [id];
               
-              // Auto-seek to selected segment's start time
-              const selectedSegment = state.segments.find(s => s.id === id);
-              if (selectedSegment) {
-                state.timeline.current_time = selectedSegment.start_time;
-                // Stop playback when seeking to a new segment
-                state.timeline.is_playing = false;
-              }
+              // DON'T auto-seek when selecting a segment from the timeline view
+              // This was causing the timeline to jump to segment start (0) when clicking on timeline
+              // Only seek if explicitly needed for other operations
             }
           });
         },
@@ -1147,7 +1180,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             if (segment) {
               const oldText = segment.text;
               segment.text = text;
-              segment.text_hash = btoa(text);
+              segment.text_hash = createTextHash(text);
               segment.edit_history.push({
                 type: 'text_change',
                 timestamp: new Date().toISOString(),
@@ -1316,7 +1349,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
                 start_time: atTime,
                 duration: segment.end_time - atTime,
                 text: segment.text.substring(Math.floor(segment.text.length / 2)),
-                text_hash: btoa(segment.text.substring(Math.floor(segment.text.length / 2))),
+                text_hash: createTextHash(segment.text.substring(Math.floor(segment.text.length / 2))),
                 edit_history: []
               };
               
@@ -1324,7 +1357,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
               segment.end_time = atTime;
               segment.duration = atTime - segment.start_time;
               segment.text = segment.text.substring(0, Math.floor(segment.text.length / 2));
-              segment.text_hash = btoa(segment.text);
+              segment.text_hash = createTextHash(segment.text);
               
               // Insert new segment
               state.segments.splice(segmentIndex + 1, 0, newSegment);
@@ -1390,7 +1423,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             id: newSegmentId,
             index: 0, // Always add at first position
             text: 'Enter segment text...',
-            text_hash: btoa('Enter segment text...'),
+            text_hash: createTextHash('Enter segment text...'),
             start_time: 0, // Will be recalculated
             end_time: duration,
             duration,
@@ -1511,7 +1544,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
               id: `seg_${Date.now()}`,
               index: insertIndex,
               text,
-              text_hash: btoa(text),
+              text_hash: createTextHash(text),
               start_time: startTime,
               end_time: startTime + duration,
               duration,
@@ -2059,7 +2092,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
               id: `seg_${Date.now()}_${index}`,
               index,
               text: sentence.trim(),
-              text_hash: btoa(sentence.trim()),
+              text_hash: createTextHash(sentence.trim()),
               start_time: startTime,
               end_time: startTime + duration,
               duration,

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import type { EbookMetadata } from '../store/ebook-writer-store';
 import { TabEmptyStates } from './tab-empty-states';
+import { OutputPanelShell } from '@/components/tools/output-panel-shell';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 interface EbookOutputProps {
   ebook: EbookMetadata | null;
@@ -25,8 +27,35 @@ interface EbookOutputProps {
 }
 
 export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutputProps) {
-  if (!ebook) {
+  const getStatus = () => {
+    if (isGenerating) return 'loading';
+    if (error) return 'error';
+    if (!ebook) return 'idle';
+    return 'ready';
+  };
+
+  const renderEmpty = () => {
+    if (activeTab === 'topic') {
+      return (
+        <UnifiedEmptyState
+          icon={BookOpen}
+          title="Choose Your Topic"
+          description="Start by selecting what your ebook will be about to begin the creation process."
+        />
+      );
+    }
+    
     return <TabEmptyStates activeTab={activeTab} />;
+  };
+
+  if (!ebook) {
+    return (
+      <OutputPanelShell
+        status={getStatus()}
+        errorMessage={error}
+        empty={renderEmpty()}
+      />
+    );
   }
 
   const getStatusColor = (status: string) => {
@@ -45,8 +74,8 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
     return totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
   };
 
-  return (
-    <div className="h-full overflow-y-auto scrollbar-hover space-y-4">
+  const renderContent = () => (
+    <>
       {/* Main Ebook Card */}
       <Card className="bg-white dark:bg-gray-800/40">
         <CardHeader>
@@ -188,6 +217,18 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
           </CardContent>
         </Card>
       )}
-    </div>
+    </>
+  );
+
+  return (
+    <OutputPanelShell
+      status={getStatus()}
+      errorMessage={error}
+      empty={renderEmpty()}
+    >
+      <div className="space-y-4">
+        {renderContent()}
+      </div>
+    </OutputPanelShell>
   );
 }

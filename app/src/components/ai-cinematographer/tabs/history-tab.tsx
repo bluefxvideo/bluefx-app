@@ -5,9 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { History, Search, Filter, Calendar } from 'lucide-react';
+import { History, Search, Filter, Calendar, ArrowUpDown } from 'lucide-react';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody } from '@/components/tools/tab-content-wrapper';
 // import { Button } from '@/components/ui/button';
 
 interface HistoryTabProps {
@@ -29,17 +29,23 @@ export function HistoryTab({ videos, isLoading: _isLoading, onRefresh: _onRefres
 
   return (
     <TabContentWrapper>
-      {/* Header */}
-      <TabHeader
-        icon={History}
-        title="History Filters"
-        description="Filter and search your video generation history"
-      />
+      {/* Header - Match StandardStep Layout */}
+      <div className="flex items-center gap-4 mb-5">
+        <div className="relative">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center transition-all duration-300">
+            <History className="w-5 h-5 text-white" />
+          </div>
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-white mb-1 tracking-tight">History Filters</h3>
+          <p className="text-zinc-400 font-medium">Filter and search your video generation history</p>
+        </div>
+      </div>
 
       {/* Filter Controls */}
       <TabBody>
-        {/* Search */}
-        <div>
+        {/* Search - Full Width */}
+        <div className="px-1">
           <Label className="text-base font-medium mb-2 block flex items-center gap-2">
             <Search className="w-4 h-4 text-muted-foreground" />
             Search
@@ -51,49 +57,55 @@ export function HistoryTab({ videos, isLoading: _isLoading, onRefresh: _onRefres
           />
         </div>
 
-        {/* Status Filter */}
-        <div>
-          <Label className="text-base font-medium mb-2 block flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            Status
-          </Label>
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Videos</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Filters Grid - 2 Columns */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Status Filter */}
+          <div>
+            <Label className="text-base font-medium mb-2 block flex items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              Status
+            </Label>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Videos</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Date Range */}
+          <div>
+            <Label className="text-base font-medium mb-2 block flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              Date Range
+            </Label>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* Date Range */}
+        {/* Sort Order - Full Width for Balance */}
         <div>
           <Label className="text-base font-medium mb-2 block flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            Date Range
+            <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+            Sort Order
           </Label>
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Sort Order */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Sort Order</Label>
           <Select value={sortOrder} onValueChange={setSortOrder}>
             <SelectTrigger>
               <SelectValue />

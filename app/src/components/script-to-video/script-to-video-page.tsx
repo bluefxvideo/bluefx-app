@@ -1,11 +1,14 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { VideoPreview } from './panels/video-preview';
 import { useScriptToVideo } from './hooks/use-script-to-video';
+import { useVideoEditorStore } from './store/video-editor-store';
+import { createClient } from '@/app/supabase/client';
 import { FileText, Edit, History } from 'lucide-react';
 
 // Tab content components
@@ -20,6 +23,9 @@ import { UserChoiceDialog } from './components/user-choice-dialog';
  */
 export function ScriptToVideoPage() {
   const pathname = usePathname();
+  const supabase = createClient();
+  const initializeUser = useVideoEditorStore((state) => state.initializeUser);
+  const loadExistingResults = useVideoEditorStore((state) => state.loadExistingResults);
   const {
     edit,
     isGenerating,
@@ -29,6 +35,27 @@ export function ScriptToVideoPage() {
     credits,
     clearResults
   } = useScriptToVideo();
+
+  // Initialize user in video editor store and load existing results
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          initializeUser(user.id);
+          
+          // Load existing generation results if on editor tab
+          if (pathname.includes('/editor')) {
+            loadExistingResults(user.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user for video editor:', error);
+      }
+    };
+
+    loadUser();
+  }, [initializeUser, loadExistingResults, pathname]);
 
   // Determine active tab from URL
   const getActiveTab = () => {

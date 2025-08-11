@@ -198,9 +198,9 @@ export function TitleGeneratorOutput({
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center">
-        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto">
-            <Type className="w-7 h-7 text-white" />
+        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed bg-secondary border-muted-foreground/20">
+          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
+            <Type className="w-8 h-8 text-white" />
           </div>
           <div>
             <h3 className="font-medium mb-2">Ready to Generate Titles</h3>

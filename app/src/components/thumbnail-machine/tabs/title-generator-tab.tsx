@@ -9,7 +9,8 @@ import { Type } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
-import { TabContentWrapper, TabHeader, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 
 interface TitleGeneratorTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => void;
@@ -57,47 +58,49 @@ export function TitleGeneratorTab({
     <TabContentWrapper>
       {/* Error Display */}
       {error && <TabError error={error} />}
-      
-      {/* Header */}
-      <TabHeader
-        icon={Type}
-        title="Title Generator"
-        description="Generate engaging YouTube titles optimized for clicks and SEO"
-      />
 
       {/* Form Content */}
       <TabBody>
-        {/* Topic Input */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Video Topic or Content</Label>
+        {/* Step 1: Describe Your Video */}
+        <StandardStep
+          stepNumber={1}
+          title="Describe Your Video"
+          description="Tell us what your video is about"
+        >
           <Textarea
             placeholder="Describe your video content... (e.g., 'Gaming tutorial for Minecraft beginners', 'Recipe for chocolate chip cookies', 'Tech review of iPhone 15')..."
             value={formData.topic}
             onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
-            className="min-h-[100px] resize-none"
+            className="min-h-[100px] resize-y"
           />
           <div className="flex justify-between text-sm text-muted-foreground mt-1">
             <span>Be specific for better results</span>
             <span>{formData.topic.length}/500</span>
           </div>
-        </div>
+        </StandardStep>
 
-        {/* Target Keywords */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Target Keywords (Optional)</Label>
-          <Input
-            placeholder="e.g., tutorial, beginner, 2024, how to, best..."
-            value={formData.targetKeywords}
-            onChange={(e) => setFormData(prev => ({ ...prev, targetKeywords: e.target.value }))}
-          />
-          <p className="text-sm text-muted-foreground mt-1">
-            Comma-separated keywords to include in titles
-          </p>
-        </div>
+        {/* Step 2: Customize Settings */}
+        <StandardStep
+          stepNumber={2}
+          title="Customize Settings"
+          description="Fine-tune your title generation preferences"
+        >
+          {/* Target Keywords */}
+          <div>
+            <Label className="text-base font-medium mb-2 block">Target Keywords (Optional)</Label>
+            <Input
+              placeholder="e.g., tutorial, beginner, 2024, how to, best..."
+              value={formData.targetKeywords}
+              onChange={(e) => setFormData(prev => ({ ...prev, targetKeywords: e.target.value }))}
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Comma-separated keywords to include in titles
+            </p>
+          </div>
 
-        {/* Title Style */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Title Style</Label>
+          {/* Title Style */}
+          <div>
+            <Label className="text-base font-medium mb-2 block">Title Style</Label>
           <Select
             value={formData.style}
             onValueChange={(value) => setFormData(prev => ({ ...prev, style: value as 'engaging' | 'emotional' | 'professional' | 'shocking' | 'educational' }))}
@@ -115,24 +118,25 @@ export function TitleGeneratorTab({
           </Select>
         </div>
 
-        {/* Number of Titles */}
-        <div>
-          <Label className="text-base font-medium mb-2 block">Number of Titles</Label>
-          <Select
-            value={formData.titleCount.toString()}
-            onValueChange={(value) => setFormData(prev => ({ ...prev, titleCount: parseInt(value) }))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="5">5 titles</SelectItem>
-              <SelectItem value="10">10 titles</SelectItem>
-              <SelectItem value="15">15 titles</SelectItem>
-              <SelectItem value="20">20 titles</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Number of Titles */}
+          <div>
+            <Label className="text-base font-medium mb-2 block">Number of Titles</Label>
+            <Select
+              value={formData.titleCount.toString()}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, titleCount: parseInt(value) }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5 titles</SelectItem>
+                <SelectItem value="10">10 titles</SelectItem>
+                <SelectItem value="15">15 titles</SelectItem>
+                <SelectItem value="20">20 titles</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </StandardStep>
 
         {/* Tips Card - Hidden for now, but kept for future use */}
         {/* 

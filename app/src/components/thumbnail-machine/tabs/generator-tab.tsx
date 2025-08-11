@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Wand2, Image as ImageIcon } from 'lucide-react';
-import { TabContentWrapper, TabHeader, TabBody, TabFooter, TabError } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabFooter, TabError } from '@/components/tools/tab-content-wrapper';
 import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
 import { PromptSection } from '../input-panel/prompt-section';
+import { StandardStep } from '@/components/tools/standard-step';
 
 interface GeneratorTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => void;
@@ -120,28 +121,15 @@ export function GeneratorTab({
     <TabContentWrapper>
       {/* Error Display */}
       {error && <TabError error={error} />}
-      
-      {/* Header */}
-      <TabHeader
-        icon={ImageIcon}
-        title="Generate Thumbnails"
-        description="Create engaging thumbnails with AI-powered design"
-      />
 
       {/* Form Content */}
       <TabBody>
         {/* Step 1: Choose Your Style */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">1</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold">Choose Your Style</h3>
-              <p className="text-sm text-muted-foreground">Select the style that best fits your content goals</p>
-            </div>
-          </div>
-          
+        <StandardStep
+          stepNumber={1}
+          title="Choose Your Style"
+          description="Select the visual approach for your thumbnails"
+        >
           <div className="grid grid-cols-3 gap-3">
             {Object.entries(thumbnailStyles).map(([key, style]) => (
               <button
@@ -169,26 +157,20 @@ export function GeneratorTab({
               </button>
             ))}
           </div>
-        </div>
+        </StandardStep>
 
-        {/* Step 2: Describe Your Vision */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">2</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold">Describe Your Vision</h3>
-              <p className="text-sm text-muted-foreground">Tell us what you want to create</p>
-            </div>
-          </div>
-          
+        {/* Step 2: Describe Your Thumbnail */}
+        <StandardStep
+          stepNumber={2}
+          title="Describe Your Thumbnail"
+          description="Tell AI what kind of thumbnail you want"
+        >
           <PromptSection
             value={formData.prompt}
             onChange={(prompt) => setFormData((prev) => ({ ...prev, prompt }))}
             ref={promptInputRef}
           />
-        </div>
+        </StandardStep>
       </TabBody>
 
       <TabFooter>

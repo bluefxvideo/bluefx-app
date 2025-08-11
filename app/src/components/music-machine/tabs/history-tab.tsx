@@ -6,7 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, Download, Trash2, Music, Clock, Volume2 } from 'lucide-react';
 import { GeneratedMusic } from '@/actions/database/music-database';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 import { UseMusicMachineReturn } from '../hooks/use-music-machine';
 
 interface HistoryTabProps {
@@ -79,64 +80,57 @@ export function HistoryTab({ musicMachineState }: HistoryTabProps) {
 
   if (state.isLoading) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 py-4 mb-4 border-b">
-          <div className="w-8 h-8 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg flex items-center justify-center">
-            <Music className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h2 className="font-semibold">Music History</h2>
-            <p className="text-xs text-muted-foreground">Your generated music tracks</p>
-          </div>
-        </div>
-        
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 mx-auto mb-4 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
-            <p className="text-sm text-muted-foreground">Loading music history...</p>
-          </div>
-        </div>
-      </div>
+      <TabContentWrapper>
+        <TabBody>
+          <StandardStep
+            stepNumber={1}
+            title="Music History"
+            description="Your generated music tracks"
+          >
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-8 h-8 mx-auto mb-4 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+                <p className="text-sm text-muted-foreground">Loading music history...</p>
+              </div>
+            </div>
+          </StandardStep>
+        </TabBody>
+      </TabContentWrapper>
     );
   }
 
   if (state.musicHistory.length === 0) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 py-4 mb-4 border-b">
-          <div className="w-8 h-8 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg flex items-center justify-center">
-            <Music className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h2 className="font-semibold">Music History</h2>
-            <p className="text-xs text-muted-foreground">Your generated music tracks</p>
-          </div>
-        </div>
-        
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-            <p className="text-sm font-medium mb-2">No music generated yet</p>
-            <p className="text-xs text-muted-foreground mb-4">
-              Generate your first AI music track to see it here
-            </p>
-          </div>
-        </div>
-      </div>
+      <TabContentWrapper>
+        <TabBody>
+          <StandardStep
+            stepNumber={1}
+            title="Music History"
+            description="Your generated music tracks"
+          >
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <Music className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-sm font-medium mb-2">No music generated yet</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Generate your first AI music track to see it here
+                </p>
+              </div>
+            </div>
+          </StandardStep>
+        </TabBody>
+      </TabContentWrapper>
     );
   }
 
   return (
     <TabContentWrapper>
-      {/* Header */}
-      <TabHeader
-        icon={Music}
-        title="Music History"
-        description={`${state.musicHistory.length} generated track${state.musicHistory.length !== 1 ? 's' : ''}`}
-      />
-
-      {/* Form Content */}
       <TabBody>
+        <StandardStep
+          stepNumber={1}
+          title="Music History"
+          description={`${state.musicHistory.length} generated track${state.musicHistory.length !== 1 ? 's' : ''}`}
+        >
         {state.musicHistory.map((music: GeneratedMusic) => (
           <Card key={music.id} className="p-4 hover:shadow-md transition-all duration-200">
             <div className="flex items-start gap-3">
@@ -237,6 +231,7 @@ export function HistoryTab({ musicMachineState }: HistoryTabProps) {
             </div>
           </Card>
         ))}
+        </StandardStep>
       </TabBody>
     </TabContentWrapper>
   );

@@ -82,7 +82,6 @@ export function AICinematographerPage() {
     <StandardToolPage
       icon={Video}
       title="AI Cinematographer"
-      description="Create professional videos with AI-powered cinematography"
       iconGradient="bg-primary"
       tabs={<StandardToolTabs tabs={cinematographerTabs} activeTab={activeTab} basePath="/dashboard/ai-cinematographer" />}
     >

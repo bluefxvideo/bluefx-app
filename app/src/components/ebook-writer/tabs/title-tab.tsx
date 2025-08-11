@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Type, Wand2, ArrowRight, ArrowLeft } from 'lucide-react';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
 import type { TitleOptions } from '../store/ebook-writer-store';
 
@@ -48,39 +49,46 @@ export function TitleTab({ topic, titleOptions, isGenerating, error }: TitleTabP
 
   if (!topic) {
     return (
-      <div className="h-full flex items-center justify-center p-4">
-        <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
-          <CardContent className="pt-6">
-            <Type className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-medium mb-2">No Topic Selected</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Please go back and select a topic first.
-            </p>
-            <Button 
-              variant="outline" 
-              onClick={() => setActiveTab('topic')}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Topic
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <TabContentWrapper>
+        <TabBody>
+          <StandardStep
+            stepNumber={1}
+            title="No Topic Selected"
+            description="Please go back and select a topic first"
+          >
+            <div className="h-full flex items-center justify-center">
+              <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
+                <CardContent className="pt-6">
+                  <Type className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="font-medium mb-2">No Topic Selected</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Please go back and select a topic first.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setActiveTab('topic')}
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Topic
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </StandardStep>
+        </TabBody>
+      </TabContentWrapper>
     );
   }
 
   return (
     <TabContentWrapper>
-      {/* Header */}
-      <TabHeader
-        icon={Type}
-        title="Choose Your Ebook Title"
-        description={`Topic: ${topic}`}
-      />
-
-      {/* Form Content */}
       <TabBody>
-      <Card className="bg-gray-50 dark:bg-gray-800/30">
+        <StandardStep
+          stepNumber={1}
+          title="Choose Your Ebook Title"
+          description={`Topic: ${topic}`}
+        >
+          <Card className="bg-gray-50 dark:bg-gray-800/30">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Type className="h-5 w-5 text-blue-500" />
@@ -99,7 +107,7 @@ export function TitleTab({ topic, titleOptions, isGenerating, error }: TitleTabP
               <Button 
                 onClick={handleGenerateTitles}
                 disabled={isGenerating}
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                className="w-full bg-primary"
               >
                 {isGenerating ? (
                   'Generating Titles...'
@@ -180,24 +188,6 @@ export function TitleTab({ topic, titleOptions, isGenerating, error }: TitleTabP
                 />
               </div>
 
-              <div className="flex gap-2 pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setActiveTab('topic')}
-                  className="flex-1"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Button>
-                <Button 
-                  onClick={handleContinue}
-                  disabled={!canContinue}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-                >
-                  Continue to Outline
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
             </div>
           )}
           
@@ -207,8 +197,30 @@ export function TitleTab({ topic, titleOptions, isGenerating, error }: TitleTabP
             </div>
           )}
         </CardContent>
-      </Card>
+          </Card>
+        </StandardStep>
       </TabBody>
+      
+      <TabFooter>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setActiveTab('topic')}
+            className="flex-1"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button 
+            onClick={handleContinue}
+            disabled={!canContinue}
+            className="flex-1 bg-primary"
+          >
+            Continue to Outline
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </TabFooter>
     </TabContentWrapper>
   );
 }

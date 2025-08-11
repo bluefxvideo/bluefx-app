@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Upload, Video } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
-import { PromptSection } from '../input-panel/prompt-section';
-import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
@@ -31,8 +32,7 @@ export function GeneratorTab({
     prompt: '',
     reference_image: null as File | null,
     duration: 4,
-    aspect_ratio: '16:9' as '16:9' | '9:16' | '1:1',
-    motion_scale: 1.0
+    aspect_ratio: '16:9' as '16:9' | '9:16' | '1:1'
   });
   // const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -44,7 +44,6 @@ export function GeneratorTab({
       reference_image: formData.reference_image || undefined,
       duration: formData.duration,
       aspect_ratio: formData.aspect_ratio,
-      motion_scale: formData.motion_scale,
       workflow_intent: 'generate',
       user_id: 'demo-user'
     });
@@ -61,28 +60,33 @@ export function GeneratorTab({
       {/* Error Display */}
       {error && <TabError error={error} />}
       
-      {/* Header */}
-      <TabHeader
-        icon={Video}
-        title="Video Generator"
-        description="Create professional cinematic videos"
-      />
-
       {/* Form Sections */}
       <TabBody>
-      <div className="flex-1 space-y-4 overflow-visible scrollbar-hover">
-        {/* Prompt Section */}
-        <PromptSection
-          prompt={formData.prompt}
-          onPromptChange={(prompt) => setFormData(prev => ({ ...prev, prompt }))}
-          placeholder="Describe the cinematic video you want to create..."
-          disabled={isGenerating}
-          error={error}
-        />
+        {/* Step 1: Describe Your Video */}
+        <StandardStep
+          stepNumber={1}
+          title="Describe Your Video"
+          description="Tell AI what cinematic video to create"
+        >
+          <Textarea
+            placeholder="Describe the cinematic video you want to create..."
+            value={formData.prompt}
+            onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
+            className="min-h-[120px] resize-y"
+            disabled={isGenerating}
+          />
+          <div className="flex justify-between text-sm text-muted-foreground mt-1">
+            <span>Be specific for better results</span>
+            <span>{formData.prompt.length}/500</span>
+          </div>
+        </StandardStep>
 
-        {/* Reference Image Upload */}
-        <div className="space-y-2">
-          <Label>Reference Image (Optional)</Label>
+        {/* Step 2: Reference Image */}
+        <StandardStep
+          stepNumber={2}
+          title="Reference Image"
+          description="Upload an optional style reference (optional)"
+        >
           <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
             <input
               type="file"
@@ -114,10 +118,15 @@ export function GeneratorTab({
               )}
             </label>
           </Card>
-        </div>
+        </StandardStep>
 
-        {/* Generation Options */}
-        <div className="space-y-4">
+        {/* Step 3: Video Settings */}
+        <StandardStep
+          stepNumber={3}
+          title="Video Settings"
+          description="Configure your video generation preferences"
+        >
+          <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             {/* Duration */}
             <div className="space-y-2">
@@ -160,34 +169,15 @@ export function GeneratorTab({
             </div>
           </div>
 
-          {/* Motion Scale */}
-          <div className="space-y-2">
-            <Label>Motion Scale: {formData.motion_scale.toFixed(1)}</Label>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.1}
-              value={formData.motion_scale}
-              onChange={(e) => setFormData(prev => ({ ...prev, motion_scale: parseFloat(e.target.value) }))}
-              disabled={isGenerating}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0.0 (Minimal)</span>
-              <span>2.0 (Dynamic)</span>
-            </div>
           </div>
-        </div>
-      </div>
+        </StandardStep>
       </TabBody>
 
-      {/* Generate Button - Outside scrollable area */}
-      <div className="mt-6">
+      <TabFooter>
         <Button
           onClick={handleSubmit}
           disabled={isGenerating || credits < estimatedCredits || !formData.prompt?.trim()}
-          className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium"
+          className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
           {isGenerating ? (
@@ -208,7 +198,7 @@ export function GeneratorTab({
             Insufficient credits. You need {estimatedCredits} credits.
           </p>
         )}
-      </div>
+      </TabFooter>
     </TabContentWrapper>
   );
 }

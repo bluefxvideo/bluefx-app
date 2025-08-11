@@ -125,35 +125,142 @@ export function CaptionOverlay() {
     >
       {/* Word-by-word highlighting for precise lip-sync */}
       <div className="relative">
-        {currentSegment.text.split(' ').map((word, index) => {
+        {(() => {
           const words = currentSegment.text.split(' ');
-          const segmentProgress = (timeline.current_time - currentSegment.start_time) / currentSegment.duration;
+          const wordElements = words.map((word, index) => {
+          const currentTime = timeline.current_time;
+          const wordTimings = currentSegment.assets.captions.words;
+          let isCurrentWord = false;
           
-          // Calculate word timing - each word gets equal time within the segment
-          const wordStartTime = index / words.length;
-          const wordEndTime = (index + 1) / words.length;
+          if (wordTimings && wordTimings.length > index) {
+            // Use enhanced Whisper timing data for professional lip sync accuracy
+            const wordTiming = wordTimings[index];
+            
+            // Professional frame-aligned timing calculation
+            let wordAbsoluteStart: number;
+            let wordAbsoluteEnd: number;
+            
+            if (wordTiming.start_time < currentSegment.start_time) {
+              // Word timings are relative to audio start, need to offset to segment
+              wordAbsoluteStart = currentSegment.start_time + wordTiming.start_time;
+              wordAbsoluteEnd = currentSegment.start_time + wordTiming.end_time;
+            } else {
+              // Word timings are already absolute
+              wordAbsoluteStart = wordTiming.start_time;
+              wordAbsoluteEnd = wordTiming.end_time;
+            }
+            
+            // Frame-perfect alignment (30fps standard)
+            const frameRate = 30;
+            const frameDuration = 1 / frameRate;
+            wordAbsoluteStart = Math.round(wordAbsoluteStart / frameDuration) * frameDuration;
+            wordAbsoluteEnd = Math.round(wordAbsoluteEnd / frameDuration) * frameDuration;
+            
+            // Confidence-based buffer adjustment - high confidence words get tighter timing
+            const confidence = wordTiming.confidence || 0.8;
+            const baseBuffer = 0.05; // 50ms base buffer
+            const confidenceBuffer = baseBuffer * (1.5 - confidence); // Lower confidence = bigger buffer
+            
+            isCurrentWord = currentTime >= (wordAbsoluteStart - confidenceBuffer) && 
+                           currentTime < (wordAbsoluteEnd + confidenceBuffer);
+            
+            // Debug logging for first few words
+            if (isCurrentWord && index < 3) {
+              console.log(`✨ Highlighting word "${word}" at time ${currentTime.toFixed(2)} (${wordAbsoluteStart.toFixed(2)} - ${wordAbsoluteEnd.toFixed(2)})`);
+            } else if (index < 3) {
+              console.log(`   Word "${word}" not highlighted at time ${currentTime.toFixed(2)} (needs ${wordAbsoluteStart.toFixed(2)} - ${wordAbsoluteEnd.toFixed(2)})`);
+            }
+          } else {
+            // Fallback to equal distribution if Whisper timing not available
+            const words = currentSegment.text.split(' ');
+            const segmentProgress = (timeline.current_time - currentSegment.start_time) / currentSegment.duration;
+            const wordStartTime = index / words.length;
+            const wordEndTime = (index + 1) / words.length;
+            
+            isCurrentWord = segmentProgress >= wordStartTime && segmentProgress < wordEndTime;
+          }
           
-          // Check if this specific word is currently being "spoken"
-          const isCurrentWord = segmentProgress >= wordStartTime && segmentProgress < wordEndTime;
+          // Enhanced visual styling based on timing confidence
+          const confidence = (wordTimings && wordTimings[index]) ? wordTimings[index].confidence || 0.8 : 0.5;
+          const highConfidence = confidence > 0.8;
           
           return (
             <span
               key={index}
-              className={`inline-block mr-1 transition-all duration-100 ${
-                isCurrentWord ? 'transform scale-110' : 'transform scale-100'
+              className={`inline-block mr-1 transition-all duration-75 ${
+                isCurrentWord 
+                  ? highConfidence 
+                    ? 'transform scale-110 animate-pulse' 
+                    : 'transform scale-105'
+                  : 'transform scale-100'
               }`}
               style={{
                 color: isCurrentWord 
                   ? settings.colors.highlight_color 
                   : settings.colors.text_color,
-                opacity: 1,
-                fontWeight: isCurrentWord ? 'bold' : 'normal'
+                opacity: isCurrentWord ? 1 : 0.85,
+                fontWeight: isCurrentWord ? (highConfidence ? '700' : '600') : 'normal',
+                textShadow: isCurrentWord 
+                  ? (highConfidence ? '0 0 8px rgba(255, 255, 255, 0.6)' : '0 0 4px rgba(255, 255, 255, 0.4)')
+                  : '1px 1px 2px rgba(0, 0, 0, 0.9)',
+                filter: isCurrentWord && highConfidence ? 'brightness(1.1)' : 'none'
               }}
+              title={'Confidence: ' + (confidence * 100).toFixed(0) + '%'} // Debug tooltip
             >
               {word}
             </span>
           );
-        })}
+        });
+        
+        // Check if any word is currently highlighted
+        const anyWordHighlighted = wordElements.some(element => 
+          element.props.className.includes('scale-110')
+        );
+        
+        // If no word is highlighted and we have word timings, find the closest word
+        if (!anyWordHighlighted && currentSegment.assets.captions.words.length > 0) {
+          const currentTime = timeline.current_time;
+          let closestWordIndex = 0;
+          let closestDistance = Infinity;
+          
+          currentSegment.assets.captions.words.forEach((wordTiming, index) => {
+            if (index < words.length) {
+              const wordStart = wordTiming.start_time < currentSegment.start_time 
+                ? currentSegment.start_time + wordTiming.start_time 
+                : wordTiming.start_time;
+              const distance = Math.abs(currentTime - wordStart);
+              
+              if (distance < closestDistance) {
+                closestDistance = distance;
+                closestWordIndex = index;
+              }
+            }
+          });
+          
+          // Force highlight the closest word
+          console.log(`🔄 Force highlighting word ${closestWordIndex} at time ${currentTime.toFixed(2)}`);
+          
+          return words.map((word, index) => (
+            <span
+              key={index}
+              className={`inline-block mr-1 transition-all duration-100 ${
+                index === closestWordIndex ? 'transform scale-110' : 'transform scale-100'
+              }`}
+              style={{
+                color: index === closestWordIndex 
+                  ? settings.colors.highlight_color 
+                  : settings.colors.text_color,
+                opacity: 1,
+                fontWeight: index === closestWordIndex ? 'bold' : 'normal'
+              }}
+            >
+              {word}
+            </span>
+          ));
+        }
+        
+        return wordElements;
+        })()}
       </div>
     </div>
   );

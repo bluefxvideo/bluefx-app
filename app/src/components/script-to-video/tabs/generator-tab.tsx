@@ -10,6 +10,7 @@ import { Film, Sliders, Mic, Zap, TestTube } from 'lucide-react';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { TEST_SCRIPTS } from '../examples/test-user-flow';
 import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
+import { useScriptToVideo } from '../hooks/use-script-to-video';
 
 interface GeneratorTabProps {
   credits: number;
@@ -26,12 +27,16 @@ export function GeneratorTab({
   const {
     // State
     project,
-    ui,
     // Actions
-    generateFromScript,
     updateProject,
     showToast
   } = useVideoEditorStore();
+  
+  // Use real script-to-video hook
+  const { 
+    generateBasic, 
+    isGenerating
+  } = useScriptToVideo();
 
   const [formData, setFormData] = useState({
     script_text: project.original_script || '',
@@ -65,12 +70,26 @@ export function GeneratorTab({
       aspect_ratio: '9:16'
     });
 
-    // Generate video from script
+    // Generate video from script using real orchestrator
     try {
-      await generateFromScript(formData.script_text);
-      showToast('Video generated successfully! Switch to Editor tab to customize.', 'success');
-    } catch {
-      showToast('Failed to generate video. Please try again.', 'error');
+      console.log('🎬 Generator Tab: Starting generation...', {
+        scriptLength: formData.script_text.length,
+        quality: formData.quality
+      });
+      
+      await generateBasic(formData.script_text, {
+        quality: formData.quality,
+        aspect_ratio: '9:16'
+      });
+      
+      console.log('✅ Generator Tab: Generation completed successfully');
+      showToast('Video generation completed! Redirecting to editor...', 'success');
+    } catch (error) {
+      console.error('❌ Generator Tab: Generation failed:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to generate video. Please try again.', 
+        'error'
+      );
     }
   };
 
@@ -91,24 +110,37 @@ export function GeneratorTab({
         {project.status === 'error' && (
           <TabError error="Generation failed. Please try again with a different script." />
         )}
-        {/* Script Input */}
+        {/* Smart Input Field */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-muted-foreground" />
             <Label className="text-sm font-medium">
-              Your Script
+              Script or Video Idea
             </Label>
           </div>
           <Textarea
-            placeholder="Enter your script here... AI will analyze and segment it optimally for TikTok-style videos."
+            placeholder="Enter your script OR describe your video idea:
+
+Examples:
+• &quot;Create a story about a cat winning the lottery&quot;
+• &quot;Did you know 90% of startups fail? Here's how to validate your idea in 48 hours...&quot;
+
+AI will automatically detect and handle both!"
             value={formData.script_text}
             onChange={(e) => setFormData((prev) => ({ ...prev, script_text: e.target.value }))}
-            rows={6}
+            rows={8}
             className="resize-none"
           />
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>{formData.script_text.length} characters</span>
-            <span>~{Math.ceil(formData.script_text.length / 100)} segments</span>
+            <span>
+              {formData.script_text.length < 50 
+                ? "💡 Idea mode" 
+                : formData.script_text.length < 200 
+                ? "📝 Short script" 
+                : "📜 Full script"
+              } • ~4-6 segments
+            </span>
           </div>
         </div>
 
@@ -363,12 +395,12 @@ export function GeneratorTab({
         <Button
           onClick={handleSubmit}
           disabled={
-            !formData.script_text.trim() || ui.loading.global || credits < estimatedCredits
+            !formData.script_text.trim() || isGenerating || credits < estimatedCredits
           }
           className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
-          {ui.loading.global ? (
+          {isGenerating ? (
             <>
               <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
               AI Generating Video...

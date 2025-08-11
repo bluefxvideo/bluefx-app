@@ -3,6 +3,7 @@
 import { LogoMachineResponse } from '@/actions/tools/logo-machine';
 import { LogoMachineOutput } from './logo-machine-output';
 import { HistoryOutput } from './history-output';
+import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 
 interface ContextualOutputProps {
   activeTab: string;
@@ -23,21 +24,42 @@ export function ContextualOutput({
   error,
   onClearResults
 }: ContextualOutputProps) {
-  switch (activeTab) {
-    case 'history':
-      return <HistoryOutput />;
-    
-    case 'generate':
-    case 'recreate':
-    default:
-      return (
+  if (activeTab === 'history') {
+    return (
+      <OutputPanelShell
+        title="History"
+        status={isGenerating ? 'loading' : error ? 'error' : result ? 'ready' : 'idle'}
+        errorMessage={error}
+        empty={<HistoryOutput />}
+      >
+        <HistoryOutput />
+      </OutputPanelShell>
+    );
+  }
+
+  // Default: generate / recreate
+  return (
+    <OutputPanelShell
+      title={activeTab === 'recreate' ? 'Recreate Results' : 'Logo Results'}
+      status={isGenerating ? 'loading' : error ? 'error' : (result?.success ? 'ready' : 'idle')}
+      errorMessage={error}
+      empty={
         <LogoMachineOutput
-          result={result}
-          isGenerating={isGenerating}
-          error={error}
+          result={undefined}
+          isGenerating={false}
+          error={undefined}
           onClearResults={onClearResults}
           activeTab={activeTab}
         />
-      );
-  }
+      }
+    >
+      <LogoMachineOutput
+        result={result}
+        isGenerating={false}
+        error={undefined}
+        onClearResults={onClearResults}
+        activeTab={activeTab}
+      />
+    </OutputPanelShell>
+  );
 }

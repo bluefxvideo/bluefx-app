@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Play, Square, Mic } from 'lucide-react';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 
 // Voice options with enhanced details
 const VOICE_OPTIONS = [
@@ -106,35 +107,33 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
 
   return (
     <TabContentWrapper>
-      {/* Header */}
-      <TabHeader
-        icon={Mic}
-        title="Voice Over Studio"
-        description="Generate professional AI voice overs"
-      />
-
       {/* Form Content */}
       <TabBody>
-        {/* Script Input */}
-        <div className="space-y-2">
-          <Label>Script Text</Label>
+        {/* Step 1: Script Input */}
+        <StandardStep
+          stepNumber={1}
+          title="Enter Your Script"
+          description="Write or paste the text you want to convert to speech"
+        >
           <Textarea
             value={localScriptText}
             onChange={(e) => setLocalScriptText(e.target.value)}
             placeholder="Enter the text you want to convert to speech..."
-            className="min-h-[100px] resize-none"
+            className="min-h-[100px] resize-y"
             disabled={state.isGenerating}
           />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Words: {localScriptText.trim().split(/\s+/).filter(Boolean).length}</span>
             <span>Est. duration: {Math.ceil(localScriptText.trim().split(/\s+/).filter(Boolean).length / 2.5)}s</span>
           </div>
-        </div>
+        </StandardStep>
 
-        {/* Voice Selection */}
-        <div className="space-y-2">
-          <Label>Voice Selection</Label>
-
+        {/* Step 2: Voice Selection */}
+        <StandardStep
+          stepNumber={2}
+          title="Choose Your Voice"
+          description="Select the perfect AI voice for your content"
+        >
           <div className="grid grid-cols-1 gap-2 p-1">
             {VOICE_OPTIONS.map((voice) => (
               <Card
@@ -176,12 +175,15 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
               </Card>
             ))}
           </div>
-        </div>
+        </StandardStep>
 
-        {/* Voice Settings */}
-        <div className="space-y-4">
-          <Label>Voice Settings</Label>
-
+        {/* Step 3: Voice Settings */}
+        <StandardStep
+          stepNumber={3}
+          title="Customize Settings"
+          description="Fine-tune voice parameters and export options"
+        >
+          <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             {/* Speed */}
             <div className="space-y-2">
@@ -257,7 +259,8 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
               </Select>
             </div>
           </div>
-        </div>
+          </div>
+        </StandardStep>
 
         {state.error && (
           <Card className="p-4 border-destructive bg-white dark:bg-gray-800/40">
@@ -266,12 +269,11 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
         )}
       </TabBody>
 
-      {/* Generate Button - Outside scrollable area */}
-      <div className="mt-6">
+      <TabFooter>
         <Button
           onClick={generateVoice}
           disabled={!canGenerate || state.isGenerating}
-          className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium"
+          className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
         {state.isGenerating ? (
@@ -286,7 +288,7 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
           </>
         )}
         </Button>
-      </div>
+      </TabFooter>
     </TabContentWrapper>
   );
 }

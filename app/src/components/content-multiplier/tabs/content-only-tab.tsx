@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useContentMultiplierStore } from '../store/content-multiplier-store';
 import { toast } from 'sonner';
+import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 
 /**
  * Content-Only Tab Component
@@ -108,22 +110,13 @@ export function ContentOnlyTab() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-            <Layers className="w-4 h-4 text-white" />
-          </div>
-          <h2 className="text-xl font-semibold">Content Input</h2>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Enter your content to multiply across social media platforms
-        </p>
-      </div>
-
-      {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto scrollbar-hover space-y-6">
+    <TabContentWrapper>
+      <TabBody>
+        <StandardStep
+          stepNumber={1}
+          title="Content Input"
+          description="Enter your content to multiply across social media platforms"
+        >
         {/* Content Input Section */}
         <Card className="bg-white dark:bg-gray-800/40">
           <CardHeader>
@@ -144,7 +137,7 @@ export function ContentOnlyTab() {
                 onChange={(e) => setOriginalInput(e.target.value)}
                 placeholder="Enter your content here... You can also upload files below."
                 rows={6}
-                className="text-sm resize-none"
+                className="text-sm resize-y"
               />
               <div className="flex justify-between items-center">
                 <span className="text-xs text-muted-foreground">
@@ -220,38 +213,40 @@ export function ContentOnlyTab() {
             </CardContent>
           </Card>
         )}
-      </div>
-
-      {/* Fixed Bottom Button Area */}
-      <div className="flex-shrink-0 pt-4 space-y-2">
-        <Button 
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-purple-600 hover:to-pink-600"
-          size="lg"
-        >
-          {generation_progress.is_generating ? (
-            'Generating Content...'
-          ) : (
-            <>
-              <Wand2 className="mr-2 h-4 w-4" />
-              Generate Platform Content
-            </>
-          )}
-        </Button>
-
-        {/* Clear Project Button */}
-        {(original_input || uploaded_files.length > 0) && (
+        </StandardStep>
+      </TabBody>
+      
+      <TabFooter>
+        <div className="space-y-2">
           <Button 
-            variant="outline" 
-            onClick={clearCurrentProject}
-            className="w-full"
-            size="sm"
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            className="w-full bg-primary"
+            size="lg"
           >
-            Clear All
+            {generation_progress.is_generating ? (
+              'Generating Content...'
+            ) : (
+              <>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Generate Platform Content
+              </>
+            )}
           </Button>
-        )}
-      </div>
-    </div>
+
+          {/* Clear Project Button */}
+          {(original_input || uploaded_files.length > 0) && (
+            <Button 
+              variant="outline" 
+              onClick={clearCurrentProject}
+              className="w-full"
+              size="sm"
+            >
+              Clear All
+            </Button>
+          )}
+        </div>
+      </TabFooter>
+    </TabContentWrapper>
   );
 }

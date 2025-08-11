@@ -146,9 +146,6 @@ export function CinematographerOutput({
   // Empty state
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-medium text-muted-foreground">Video Results</h3>
-      </div>
       {activeTab === 'history' ? (
         <HistoryEmptyState />
       ) : (

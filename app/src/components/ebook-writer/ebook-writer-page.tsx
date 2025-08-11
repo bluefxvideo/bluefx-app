@@ -160,7 +160,6 @@ export function EbookWriterPage() {
     <StandardToolPage
       icon={BookOpen}
       title="Ebook Writer"
-      description="Create professional ebooks with AI assistance"
       iconGradient="bg-primary"
       tabs={tabsComponent}
     >

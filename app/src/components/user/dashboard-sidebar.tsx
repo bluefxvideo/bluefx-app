@@ -19,18 +19,15 @@ import {
   TrendingUp,
   DollarSign,
   Search,
-  Loader2,
   User,
   LogOut,
   ChevronUp,
   Moon,
   Sun,
-  Home,
   PanelLeftClose,
   PanelLeft
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useCredits } from '@/hooks/useCredits'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { signOut } from '@/actions/auth'
@@ -164,7 +161,6 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { isLoading: isLoadingCredits, isPurchasing } = useCredits()
   const { setTheme } = useTheme()
   const { toggleSidebar } = useDashboardLayout()
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
@@ -173,8 +169,6 @@ export function DashboardSidebar({
   const isToolActive = (route: string) => {
     return pathname === route || pathname?.startsWith(route + '/')
   }
-
-  const isDashboardActive = pathname === '/dashboard'
 
   const handleToolClick = (route: string) => {
     router.push(route)
@@ -215,7 +209,12 @@ export function DashboardSidebar({
         {/* Logo Section with Collapse Toggle */}
         <div className="p-4 pr-4 border-b border-border flex items-center justify-between">
           {!isCollapsed && (
-            <span className="ml-2 text-xl font-bold text-white">BlueFX</span>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="ml-2 text-xl font-bold text-white hover:text-blue-400 transition-colors cursor-pointer"
+            >
+              BlueFX
+            </button>
           )}
           {isCollapsed && <div className="w-full" />}
           <button
@@ -229,92 +228,6 @@ export function DashboardSidebar({
               <PanelLeftClose className="h-5 w-5 text-zinc-400 group-hover:text-white transition-colors" />
             )}
           </button>
-        </div>
-
-        {/* Dashboard navigation */}
-        <div className={cn("p-2 pt-4")}>
-          <Tooltip delayDuration={500}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "group w-full h-12 justify-start cursor-pointer transition-all duration-300",
-                  isCollapsed ? "p-2" : "p-3"
-                )}
-                onClick={() => router.push("/dashboard")}
-              >
-                <div className="flex items-center w-full relative">
-                  <div
-                    className={cn(
-                      "flex items-center justify-center rounded-lg transition-all duration-300 ease-in-out",
-                      "aspect-square shrink-0",
-                      isCollapsed ? "w-8 h-8" : "w-10 h-10",
-                      isDashboardActive
-                        ? "bg-primary"
-                        : "bg-card"
-                    )}
-                  >
-                    <Home
-                      className={cn(
-                        "transition-all duration-300",
-                        "h-5 w-5", // Consistent icon size
-                        isDashboardActive ? "text-white" : "text-zinc-400"
-                      )}
-                    />
-                    {isPurchasing && (
-                      <div className="absolute -top-1 -right-1">
-                        <Loader2
-                          className={cn(
-                            "h-3 w-3 animate-spin",
-                            isDashboardActive ? "text-white" : "text-zinc-400"
-                          )}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    className={cn(
-                      "flex-1 text-left ml-3 overflow-hidden transition-all duration-300 ease-in-out",
-                      isCollapsed
-                        ? "opacity-0 max-w-0"
-                        : "opacity-100 max-w-full"
-                    )}
-                  >
-                    {isDashboardActive ? (
-                      <p className="text-base font-semibold whitespace-nowrap">
-                        Dashboard
-                      </p>
-                    ) : isPurchasing ? (
-                      <div className="flex items-center space-x-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <p className="text-base font-medium whitespace-nowrap">
-                          Updating...
-                        </p>
-                      </div>
-                    ) : isLoadingCredits ? (
-                      <div className="flex items-center space-x-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <p className="text-base font-medium whitespace-nowrap">
-                          Loading...
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-base font-medium whitespace-nowrap">
-                        Dashboard
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              className={isCollapsed ? "" : "hidden"}
-            >
-              <p className="font-medium">Dashboard</p>
-            </TooltipContent>
-          </Tooltip>
         </div>
 
         {/* Tool categories */}
@@ -477,7 +390,7 @@ export function DashboardSidebar({
                     className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10"
                     onClick={() => {
                       setShowAccountDropdown(false);
-                      router.push("/profile");
+                      router.push("/dashboard/profile");
                     }}
                   >
                     <User className="w-4 h-4 mr-2" />
@@ -490,7 +403,7 @@ export function DashboardSidebar({
                     className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10"
                     onClick={() => {
                       setShowAccountDropdown(false);
-                      router.push("/subscription");
+                      router.push("/dashboard/subscription");
                     }}
                   >
                     <CreditCard className="w-4 h-4 mr-2" />

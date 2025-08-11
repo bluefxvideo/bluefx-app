@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { 
   Play, 
@@ -25,7 +25,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useVideoEditorStore } from '../store/video-editor-store';
-import { CaptionOverlay } from '../components/caption-overlay';
+import { SimpleCaptionOverlay } from '../components/simple-caption-overlay';
+import { useCaptionStore } from '../store/caption-store';
 import type { ScriptToVideoResponse } from '@/actions/tools/script-to-video-orchestrator';
 
 interface VideoPreviewProps {
@@ -46,6 +47,7 @@ export function VideoPreview({
 }: VideoPreviewProps) {
   // Local state for video playback
   const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
   
   // Get state and actions from Zustand store
   const {
@@ -54,11 +56,116 @@ export function VideoPreview({
     timeline,
     project,
     // Actions
-    play,
-    pause,
-    seek,
     selectSegment
   } = useVideoEditorStore();
+  
+  // Caption store is used by SimpleCaptionOverlay component
+
+  // Get audio URL from either result prop or store segments
+  const audioUrl = result?.audio_url || segments.find(s => s.assets.voice.url)?.assets.voice.url;
+  
+  // Get video ID from result or project store for captions
+  const videoId = result?.video_id || project?.video_id || null;
+  
+  // Track if audio URL changes
+  const previousAudioUrl = useRef(audioUrl);
+  useEffect(() => {
+    if (previousAudioUrl.current !== audioUrl) {
+      console.log('AUDIO URL CHANGED from', previousAudioUrl.current, 'to', audioUrl);
+      previousAudioUrl.current = audioUrl;
+    }
+  }, [audioUrl]);
+  
+  // Debug log
+  console.log('VideoPreview - Audio URL:', audioUrl, 'Result:', result?.audio_url, 'Segments:', segments.length);
+  console.log('Segment timing data:', segments.map(s => ({ id: s.id, start: s.start_time, end: s.end_time, duration: s.duration })));
+
+  // Handle play/pause functionality - LEGACY PATTERN
+  const handlePlayPause = () => {
+    if (!audioRef.current || !audioUrl) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      // Update store state directly to avoid conflicts
+      useVideoEditorStore.setState((state) => {
+        state.timeline.is_playing = false;
+      });
+    } else {
+      // SIMPLIFIED: Just play from current audio position, don't try to sync
+      // The audio position was already set when timeline was clicked
+      console.log('PLAY CLICKED - Audio will play from:', audioRef.current.currentTime);
+      
+      // Update state
+      setIsPlaying(true);
+      useVideoEditorStore.setState((state) => {
+        state.timeline.is_playing = true;
+      });
+      
+      // Play the audio
+      audioRef.current.play()
+        .then(() => {
+          console.log('Playback started at:', audioRef.current.currentTime);
+        })
+        .catch(e => {
+          console.error('Play failed:', e);
+          setIsPlaying(false);
+          useVideoEditorStore.setState((state) => {
+            state.timeline.is_playing = false;
+          });
+        });
+    }
+  };
+
+  // LEGACY PATTERN: Simple audio sync
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioUrl) return;
+
+    const handleTimeUpdate = () => {
+      const currentTime = audio.currentTime;
+      console.log('[VideoPreview] Audio time update:', currentTime, 'Playing:', isPlaying);
+      
+      // Always update timeline when audio time changes
+      // This ensures captions stay in sync
+      useVideoEditorStore.setState((state) => {
+        state.timeline.current_time = Math.max(0, Math.min(currentTime, state.project.duration));
+      });
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    return () => audio.removeEventListener('timeupdate', handleTimeUpdate);
+  }, [isPlaying, audioUrl]);
+
+
+  // Handle basic audio events
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      useVideoEditorStore.setState((state) => {
+        state.timeline.is_playing = false;
+      });
+    };
+
+    const handleError = (e: any) => {
+      console.error('Audio playback error:', e);
+      setIsPlaying(false);
+      useVideoEditorStore.setState((state) => {
+        state.timeline.is_playing = false;
+      });
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+
+    return () => {
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+    };
+  }, []);
 
   // Loading State
   if (isGenerating) {
@@ -205,14 +312,24 @@ export function VideoPreview({
 
             {/* Video Actions */}
             <div className="flex gap-2">
-              <Button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white">
-                <Play className="w-4 h-4 mr-2" />
-                Play
+              <Button 
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                onClick={handlePlayPause}
+                disabled={!audioUrl}
+              >
+                {isPlaying ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                {isPlaying ? 'Pause' : 'Play'} {!audioUrl && '(No Audio)'}
               </Button>
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={() => console.log('Download clicked - not implemented yet')}
+              >
                 <Download className="w-4 h-4" />
               </Button>
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={() => console.log('Share clicked - not implemented yet')}
+              >
                 <Share2 className="w-4 h-4" />
               </Button>
             </div>
@@ -335,31 +452,28 @@ export function VideoPreview({
                 timeline.current_time < segment.end_time
               );
               
-              const imageUrl = currentSegment?.assets.image.url || segments[0]?.assets.image.url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400";
+              // Use the current segment's image, fallback to first segment's image
+              const imageUrl = currentSegment?.assets.image.url || segments[0]?.assets.image.url;
+              
+              // Show a fallback if no image available
+              if (!imageUrl) {
+                return (
+                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <Film className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No image available</p>
+                    </div>
+                  </div>
+                );
+              }
               
               // Calculate progress within current segment for Ken Burns effect
               const segmentProgress = currentSegment 
-                ? (timeline.current_time - currentSegment.start_time) / currentSegment.duration 
+                ? Math.min(1, Math.max(0, (timeline.current_time - currentSegment.start_time) / currentSegment.duration))
                 : 0;
               
-              // Ken Burns effect - different patterns per segment for variety
-              const segmentIndex = currentSegment?.index || 0;
-              const kenBurnsPatterns = [
-                // Pattern 1: Zoom in from left
-                { scale: 1.0 + (segmentProgress * 0.2), x: -10 + (segmentProgress * 10), y: 0 },
-                // Pattern 2: Zoom in from right  
-                { scale: 1.0 + (segmentProgress * 0.2), x: 10 - (segmentProgress * 10), y: 0 },
-                // Pattern 3: Zoom in from center
-                { scale: 1.0 + (segmentProgress * 0.3), x: 0, y: 0 },
-                // Pattern 4: Pan left to right
-                { scale: 1.15, x: -15 + (segmentProgress * 30), y: 0 },
-                // Pattern 5: Pan top to bottom
-                { scale: 1.15, x: 0, y: -10 + (segmentProgress * 20) },
-                // Pattern 6: Zoom out effect
-                { scale: 1.3 - (segmentProgress * 0.2), x: 0, y: 0 }
-              ];
-              
-              const pattern = kenBurnsPatterns[segmentIndex % kenBurnsPatterns.length];
+              // Simple Ken Burns effect - slow zoom
+              const scale = 1.0 + (segmentProgress * 0.1); // Subtle zoom from 1.0 to 1.1
               
               return (
                 <div className="relative w-full h-full overflow-hidden">
@@ -370,8 +484,8 @@ export function VideoPreview({
                     className="object-cover"
                     style={{
                       transform: timeline.is_playing 
-                        ? `scale(${pattern.scale}) translate(${pattern.x}px, ${pattern.y}px)`
-                        : 'scale(1) translate(0px, 0px)',
+                        ? `scale(${scale})`
+                        : 'scale(1)',
                       transition: timeline.is_playing 
                         ? `transform ${currentSegment?.duration || 3}s linear`
                         : 'transform 0.3s ease-out'
@@ -382,13 +496,13 @@ export function VideoPreview({
               );
             })()}
             
-            {/* Real-time Caption Overlay with Lip Sync */}
-            <CaptionOverlay />
+            {/* Real-time Caption Overlay with Professional Chunks */}
+            <SimpleCaptionOverlay videoId={videoId} />
             
             {/* Center Play/Pause Button - Main Control */}
             <div 
               className="absolute inset-0 flex items-center justify-center cursor-pointer group"
-              onClick={timeline.is_playing ? pause : play}
+              onClick={handlePlayPause}
             >
               <div className={`w-16 h-16 bg-white/90 rounded-full flex items-center justify-center transition-all duration-200 ${
                 timeline.is_playing 
@@ -414,7 +528,15 @@ export function VideoPreview({
                 variant="ghost" 
                 size="sm" 
                 className="text-white hover:bg-white/10"
-                onClick={() => seek(0)}
+                onClick={() => {
+                  // Direct state update to avoid dependency issues
+                  useVideoEditorStore.setState((state) => {
+                    state.timeline.current_time = 0;
+                  });
+                  if (audioRef.current) {
+                    audioRef.current.currentTime = 0;
+                  }
+                }}
               >
                 <SkipBack className="w-4 h-4" />
               </Button>
@@ -422,15 +544,24 @@ export function VideoPreview({
                 variant="ghost" 
                 size="sm" 
                 className="text-white hover:bg-white/10"
-                onClick={timeline.is_playing ? pause : play}
+                onClick={handlePlayPause}
+                disabled={!audioUrl}
               >
-                {timeline.is_playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 className="text-white hover:bg-white/10"
-                onClick={() => seek(project.duration)}
+                onClick={() => {
+                  // Direct state update to avoid dependency issues
+                  useVideoEditorStore.setState((state) => {
+                    state.timeline.current_time = state.project.duration;
+                  });
+                  if (audioRef.current) {
+                    audioRef.current.currentTime = project.duration;
+                  }
+                }}
               >
                 <SkipForward className="w-4 h-4" />
               </Button>
@@ -454,15 +585,47 @@ export function VideoPreview({
             </div>
           </div>
 
-          {/* Timeline Tracks Container */}
+          {/* Timeline Tracks Container - LEGACY PATTERN */}
           <div 
             className="relative space-y-2 cursor-pointer overflow-hidden px-2 pb-4"
             onClick={(e) => {
+              // LEGACY PATTERN: Simple direct control
               const rect = e.currentTarget.getBoundingClientRect();
               const clickX = e.clientX - rect.left - 8 - 8; // Account for container padding + track padding
               const timelineWidth = rect.width - 16 - 16; // Account for all padding
               const clickedTime = Math.max(0, (clickX / timelineWidth) * project.duration);
-              seek(Math.max(0, Math.min(clickedTime, project.duration)));
+              const finalTime = Math.max(0, Math.min(clickedTime, project.duration));
+              
+              console.log(`TIMELINE CLICKED: seeking to ${finalTime}s`);
+              console.log('Store timeline BEFORE click:', useVideoEditorStore.getState().timeline.current_time);
+              
+              // Pause audio if playing
+              if (audioRef.current && !audioRef.current.paused) {
+                audioRef.current.pause();
+                setIsPlaying(false);
+              }
+              
+              // Set audio position directly - like legacy
+              if (audioRef.current) {
+                const audioDuration = audioRef.current.duration || 0;
+                const clampedPosition = Math.min(finalTime, audioDuration);
+                audioRef.current.currentTime = clampedPosition;
+                console.log('Audio position set to:', clampedPosition, 'Audio actual:', audioRef.current.currentTime);
+              }
+              
+              // Update store last to avoid interference
+              useVideoEditorStore.setState((state) => {
+                state.timeline.current_time = Math.max(0, Math.min(finalTime, state.project.duration));
+                state.timeline.is_playing = false;
+              });
+              
+              console.log('Store timeline AFTER click:', useVideoEditorStore.getState().timeline.current_time);
+              
+              // Check again in next tick to see if something reset it
+              setTimeout(() => {
+                console.log('Store timeline after timeout:', useVideoEditorStore.getState().timeline.current_time);
+                console.log('Audio position after timeout:', audioRef.current?.currentTime);
+              }, 50);
             }}
           >
             {/* Main Video Track - Purple like Blotato */}
@@ -501,6 +664,7 @@ export function VideoPreview({
                       } ${i > 0 ? 'ml-1' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
+                        // Just select segment for visual feedback - don't interfere with timeline
                         selectSegment(segment.id);
                       }}
                     >
@@ -550,44 +714,73 @@ export function VideoPreview({
             </div>
           </div>
         </div>
+        
+        {/* Hidden Audio Element for Playback - Only render when we have audio */}
+        {audioUrl && (
+          <audio
+            ref={audioRef}
+            src={audioUrl}
+            preload="auto"
+            onLoadedMetadata={() => {
+              console.log('Audio loaded:', audioUrl, 'Duration:', audioRef.current?.duration);
+            }}
+            onError={(e) => console.error('Audio error:', e)}
+            onSeeking={() => console.log('Audio is seeking...')}
+            onSeeked={() => console.log('Audio seek complete, position:', audioRef.current?.currentTime)}
+            onLoadStart={() => console.log('Audio load started')}
+            onCanPlay={() => console.log('Audio can play')}
+            onTimeUpdate={() => {
+              // Log first few timeupdate events after play
+              if (audioRef.current && audioRef.current.currentTime < 0.5) {
+                console.log('TimeUpdate early in playback:', audioRef.current.currentTime);
+              }
+            }}
+            style={{ display: 'none' }}
+          />
+        )}
       </div>
     );
   }
 
-  // Empty State
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-center py-16">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto">
-            <Film className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h3 className="text-lg font-medium mb-2 flex items-center justify-center gap-2">
-              Ready to Create Videos
-              <Sparkles className="w-4 h-4 text-yellow-500" />
-            </h3>
-            <p className="text-muted-foreground leading-relaxed">
-              {activeMode === 'generate' 
-                ? 'Enter your script to generate professional TikTok-style videos with AI orchestration.'
-                : 'Generate a video first to access the timeline editor with drag-and-drop segments.'
-              }
-            </p>
-          </div>
+  // Empty State - Show only if no segments exist
+  if (segments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-16">
+          <div className="text-center space-y-4 max-w-sm">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto">
+              <Film className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium mb-2 flex items-center justify-center gap-2">
+                Ready to Create Videos
+                <Sparkles className="w-4 h-4 text-yellow-500" />
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                {activeMode === 'generate' 
+                  ? 'Enter your script to generate professional TikTok-style videos with AI orchestration.'
+                  : 'Generate a video first to access the timeline editor.'
+                }
+              </p>
+            </div>
 
-          <div className="space-y-2 pt-2">
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p className="font-medium">💡 AI Features:</p>
-              <ul className="text-left space-y-1">
-                <li>• Intelligent script segmentation</li>
-                <li>• Automated voice & visual generation</li>
-                <li>• Perfect lip-sync captions</li>
-                <li>• Professional timeline editing</li>
-              </ul>
+            <div className="space-y-2 pt-2">
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-medium">💡 AI Features:</p>
+                <ul className="text-left space-y-1">
+                  <li>• Intelligent script segmentation</li>
+                  <li>• Automated voice & visual generation</li>
+                  <li>• Perfect lip-sync captions</li>
+                  <li>• Professional timeline editing</li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If we have segments but we're in generate mode, return null to let other components handle display
+  return null;
 }

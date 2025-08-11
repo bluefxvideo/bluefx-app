@@ -5,6 +5,7 @@ import { PlatformPreviewOutput } from './platform-preview-output';
 import { ReviewOutput } from './review-output';
 import { HistoryOutput } from './history-output';
 import { TabEmptyStates } from './tab-empty-states';
+import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 
 interface ContentMultiplierOutputProps {
   activeTab: string;
@@ -36,8 +37,8 @@ export function ContentMultiplierOutput({ activeTab }: ContentMultiplierOutputPr
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <OutputPanelShell status="idle">
       {renderOutput()}
-    </div>
+    </OutputPanelShell>
   );
 }

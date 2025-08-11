@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { BookOpen, ArrowRight, Lightbulb } from 'lucide-react';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 
 interface TopicTabProps {
   currentTopic: string;
@@ -47,100 +48,106 @@ export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
 
   return (
     <TabContentWrapper>
-      {/* Header */}
-      <TabHeader
-        icon={BookOpen}
-        title="Choose Your Topic"
-        description="Start by defining what your ebook will be about"
-      />
-
-      {/* Form Content */}
       <TabBody>
-      <Card className="bg-gray-50 dark:bg-gray-800/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-emerald-500" />
-            Choose Your Ebook Topic
-          </CardTitle>
-          <CardDescription>
-            What would you like to write about? Be specific to get better results.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="topic">Main Topic</Label>
-            <Input
-              id="topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., Digital Marketing for Small Businesses"
-              className="text-base"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="description">Additional Context (Optional)</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Provide any specific focus areas, target audience, or requirements..."
-              rows={3}
-              className="text-sm"
-            />
-          </div>
-
-          <Button 
-            onClick={handleSubmit}
-            disabled={!topic.trim() || isGenerating}
-            className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-          >
-            {isGenerating ? (
-              'Processing...'
-            ) : (
-              <>
-                Continue to Title Generation
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
-          
-          {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="bg-gray-50 dark:bg-gray-800/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Lightbulb className="h-5 w-5 text-yellow-500" />
-            Topic Ideas
-          </CardTitle>
-          <CardDescription>
-            Need inspiration? Try one of these popular topics:
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-2">
-            {topicSuggestions.map((suggestion, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                className="justify-start text-left h-auto p-3 hover:bg-muted"
-                onClick={() => setTopic(suggestion)}
-              >
-                <div>
-                  <div className="font-medium">{suggestion}</div>
+        <StandardStep
+          stepNumber={1}
+          title="Choose Your Topic"
+          description="Start by defining what your ebook will be about"
+        >
+          <Card className="bg-gray-50 dark:bg-gray-800/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-emerald-500" />
+                Choose Your Ebook Topic
+              </CardTitle>
+              <CardDescription>
+                What would you like to write about? Be specific to get better results.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="topic">Main Topic</Label>
+                <Input
+                  id="topic"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="e.g., Digital Marketing for Small Businesses"
+                  className="text-base"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="description">Additional Context (Optional)</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Provide any specific focus areas, target audience, or requirements..."
+                  rows={3}
+                  className="text-sm resize-y"
+                />
+              </div>
+              
+              {error && (
+                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                  {error}
                 </div>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
+        </StandardStep>
+
+        <StandardStep
+          stepNumber={2}
+          title="Topic Ideas"
+          description="Need inspiration? Try one of these popular topics"
+        >
+          <Card className="bg-gray-50 dark:bg-gray-800/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Lightbulb className="h-5 w-5 text-yellow-500" />
+                Topic Ideas
+              </CardTitle>
+              <CardDescription>
+                Need inspiration? Try one of these popular topics:
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-2">
+                {topicSuggestions.map((suggestion, index) => (
+                  <Button
+                    key={index}
+                    variant="ghost"
+                    className="justify-start text-left h-auto p-3 hover:bg-muted"
+                    onClick={() => setTopic(suggestion)}
+                  >
+                    <div>
+                      <div className="font-medium">{suggestion}</div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </StandardStep>
       </TabBody>
+      
+      <TabFooter>
+        <Button 
+          onClick={handleSubmit}
+          disabled={!topic.trim() || isGenerating}
+          className="w-full bg-primary hover:from-blue-600 hover:to-cyan-600"
+        >
+          {isGenerating ? (
+            'Processing...'
+          ) : (
+            <>
+              Continue to Title Generation
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          )}
+        </Button>
+      </TabFooter>
     </TabContentWrapper>
   );
 }

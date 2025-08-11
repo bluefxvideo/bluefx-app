@@ -24,7 +24,9 @@ import {
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
+import { ToolsGridSkeleton, CreditBalanceSkeleton, TutorialsSkeleton } from '@/components/dashboard/dashboard-skeletons';
 import type { Tables } from '@/types/database';
 import type { User } from '@supabase/supabase-js';
 
@@ -106,9 +108,11 @@ export default function DashboardPage() {
   const [isBuyCreditsDialogOpen, setIsBuyCreditsDialogOpen] = useState(false);
   const { credits, isLoading: isLoadingCredits, isPurchasing } = useCredits();
 
-  // Fetch user profile
+  // Fetch user profile with better caching
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfile | null>({
     queryKey: ['user-profile'],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -127,9 +131,11 @@ export default function DashboardPage() {
                       userProfile?.email?.split('@')[0] || 
                       'User';
 
-  // Fetch tutorials
+  // Fetch tutorials with better caching
   const { data: tutorials = [], isLoading: isLoadingTutorials } = useQuery<Tutorial[]>({
     queryKey: ['tutorials'],
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    cacheTime: 30 * 60 * 1000, // 30 minutes
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tutorials')
@@ -161,121 +167,103 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="h-full bg-[#0f0f0f]">
-      {/* Welcome Header with Tabs */}
-      <div className="px-6 pt-6 pb-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-white mb-1">
-            Hey there, {displayName}!
-          </h1>
-          <p className="text-sm text-zinc-400">
-            Welcome back, we&apos;re happy to have you here!
-          </p>
-        </div>
-        
-        {/* Navigation Tabs */}
-        <div className="flex gap-8 border-b border-zinc-800">
-          <button className="pb-3 text-sm font-medium text-white border-b-2 border-blue-500">
-            My Tasks
-          </button>
-          <button className="pb-3 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">
-            Profile
-          </button>
-          <button className="pb-3 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">
-            Stats
-          </button>
-          <button className="pb-3 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">
-            Inbox
-          </button>
-          <button className="pb-3 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">
-            Team
-          </button>
-          <button className="pb-3 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">
-            Settings
-          </button>
-        </div>
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-foreground">
+          Hey there, {displayName}!
+        </h1>
+        <p className="text-muted-foreground">
+          Welcome back, we&apos;re happy to have you here!
+        </p>
+      </div>
+      
+      {/* Navigation Tabs */}
+      <div className="flex gap-8 border-b mb-6">
+        <button 
+          className="pb-3 text-sm font-medium text-foreground border-b-2 border-primary"
+          onClick={() => router.push('/dashboard')}
+        >
+          Dashboard
+        </button>
+        <button 
+          className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => router.push('/dashboard/usage')}
+        >
+          Usage
+        </button>
+        <button 
+          className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => router.push('/dashboard/profile')}
+        >
+          Profile
+        </button>
+        <button 
+          className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => router.push('/dashboard/subscription')}
+        >
+          Subscription
+        </button>
       </div>
 
-      <div className="px-6 pb-6 overflow-y-auto scrollbar-hover">
-        {/* Stats Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {/* Total Expenses Card */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-zinc-400 text-sm">Total Expenses</span>
-              <span className="px-2 py-1 bg-red-500/10 text-red-500 text-xs font-medium rounded">↓ Loss</span>
-            </div>
-            <p className="text-2xl font-bold text-white">$27,340</p>
-          </div>
-
-          {/* Total Revenue Card */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-zinc-400 text-sm">Total Revenue</span>
-              <span className="px-2 py-1 bg-red-500/10 text-red-500 text-xs font-medium rounded">↓ Loss</span>
-            </div>
-            <p className="text-2xl font-bold text-white">$128.47</p>
-          </div>
-
-          {/* Total Credits Card */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-zinc-400 text-sm">Total Credits</span>
-              <span className="px-2 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded">✓ Label</span>
-            </div>
-            <p className="text-2xl font-bold text-white">$990.66</p>
-          </div>
-        </div>
-
-        {/* Tools Grid - Styled like Dribbble cards */}
+      <div className="space-y-6">
+        {/* Tools Grid */}
         <div className="mb-8">
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-white">Your Tools</h2>
-                <p className="text-sm text-zinc-400">Access your creative toolkit</p>
+          {isLoadingProfile ? (
+            <ToolsGridSkeleton />
+          ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Your Tools</CardTitle>
+                  <CardDescription>Access your creative toolkit</CardDescription>
+                </div>
+                <span className="px-3 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full">
+                  Active
+                </span>
               </div>
-              <span className="px-3 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full">
-                Active
-              </span>
-            </div>
-            {isLoadingProfile ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-              </div>
-            ) : (
+            </CardHeader>
+            <CardContent>
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {availableTools.map((tool, index) => (
                   <div 
                     key={index} 
-                    className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all hover:scale-105"
+                    className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg bg-secondary hover:bg-secondary/80 transition-all hover:scale-105"
                     onClick={() => handleToolClick(tool.route)}
                   >
                     <div className={`relative bg-gradient-to-br ${tool.gradient} w-12 h-12 flex items-center justify-center text-white rounded-lg shadow-sm`}>
                       <tool.icon className="w-6 h-6" />
                     </div>
-                    <span className="text-xs mt-2 text-center font-medium text-zinc-300 whitespace-nowrap">
+                    <span className="text-xs mt-2 text-center font-medium text-muted-foreground whitespace-nowrap">
                       {tool.name.split(' ')[0]}
                     </span>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
+          )}
         </div>
 
-        {/* Credit Balance and Community Cards - Styled like Dribbble */}
+        {/* Credit Balance and Community Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Credit Balance</h3>
-                <p className="text-sm text-zinc-400">Your current available credits</p>
+          {isLoadingCredits ? (
+            <CreditBalanceSkeleton />
+          ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Credit Balance</CardTitle>
+                  <CardDescription>Your current available credits</CardDescription>
+                </div>
+                <span className="px-3 py-1 bg-blue-500/10 text-blue-500 text-xs font-medium rounded-full">
+                  Monthly
+                </span>
               </div>
-              <span className="px-3 py-1 bg-blue-500/10 text-blue-500 text-xs font-medium rounded-full">
-                Monthly
-              </span>
-            </div>
+            </CardHeader>
+            <CardContent>
             <div className="space-y-4">
               {isPurchasing && (
                 <div className="flex items-center space-x-2 text-blue-500">
@@ -283,22 +271,15 @@ export default function DashboardPage() {
                   <span className="text-sm">Processing purchase...</span>
                 </div>
               )}
-              {isLoadingCredits ? (
-                <div className="flex items-center space-x-2 text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading credits...</span>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-3xl font-bold text-white">
-                    {credits?.available_credits || 0}
-                  </p>
-                  <p className="text-sm text-zinc-400 mt-1">
-                    Credits remaining
-                  </p>
-                </div>
-              )}
-              <p className="text-xs text-zinc-500 mt-2">
+              <div>
+                <p className="text-3xl font-bold text-white">
+                  {credits?.available_credits || 0}
+                </p>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Credits remaining
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
                 Credits refresh monthly with your subscription
               </p>
             </div>
@@ -312,25 +293,30 @@ export default function DashboardPage() {
               </Button>
               <Button 
                 variant="outline" 
-                className="flex items-center gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                className="flex items-center gap-2"
                 onClick={handleViewUsage}
               >
                 <BarChart className="h-4 w-4" />
                 View Usage
               </Button>
             </div>
-          </div>
+            </CardContent>
+          </Card>
+          )}
 
           {/* Community & Support */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Join Our Community</h3>
-                <p className="text-sm text-zinc-400">Connect with other creators</p>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Join Our Community</CardTitle>
+                  <CardDescription>Connect with other creators</CardDescription>
+                </div>
+                <Facebook className="w-8 h-8 text-blue-500" />
               </div>
-              <Facebook className="w-8 h-8 text-blue-500" />
-            </div>
-            <p className="text-zinc-300 mb-4">
+            </CardHeader>
+            <CardContent>
+            <p className="text-foreground mb-4">
               Get support, share your creations, and collaborate with other users in our active Facebook community.
             </p>
             <a 
@@ -339,26 +325,26 @@ export default function DashboardPage() {
               rel="noopener noreferrer" 
               className="block"
             >
-              <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+              <Button variant="outline" className="w-full">
                 View Community
               </Button>
             </a>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Tool Tutorials */}
-        <h2 className="text-xl font-semibold text-white mb-4">Tool Tutorials</h2>
+        <h2 className="text-xl font-semibold mb-4">Tool Tutorials</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoadingTutorials || isLoadingProfile ? (
-            <div className="col-span-full flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <TutorialsSkeleton />
           ) : tutorials.length > 0 ? (
             tutorials.map((tutorial: Tutorial) => {
               const videoId = tutorial.video_url ? getYouTubeVideoId(tutorial.video_url as string) : null;
               
               return (
-                <div key={tutorial.id} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                <Card key={tutorial.id}>
+                  <CardContent className="p-4">
                   <div className="aspect-video bg-muted relative rounded-sm overflow-hidden">
                     {videoId ? (
                       <iframe
@@ -392,36 +378,37 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="mt-4">
-                    <h3 className="text-base font-medium text-white">{tutorial.title}</h3>
+                    <h3 className="text-base font-medium">{tutorial.title}</h3>
                     {tutorial.description && (
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <p className="text-sm text-muted-foreground mt-1">
                         {tutorial.description}
                       </p>
                     )}
-                    <p className="text-xs text-zinc-500 mt-2">
+                    <p className="text-xs text-muted-foreground mt-2">
                       Tool: {tutorial.tool_name}
                     </p>
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
               );
             })
           ) : (
-            <div className="col-span-full text-center py-8 text-zinc-500">
+            <div className="col-span-full text-center py-8 text-muted-foreground">
               No tutorials available yet.
             </div>
           )}
           
           {currentUser?.profile?.role === 'admin' && !isLoadingProfile && (
-            <div className="bg-zinc-900/50 border-2 border-dashed border-zinc-700 rounded-xl overflow-hidden">
+            <Card className="border-2 border-dashed">
               <div className="aspect-video flex items-center justify-center">
                 <button
-                  className="p-4 text-zinc-500 hover:text-zinc-300 transition-colors flex flex-col items-center"
+                  className="p-4 text-muted-foreground hover:text-foreground transition-colors flex flex-col items-center"
                 >
                   <Upload className="h-12 w-12 mb-2" />
                   <p>Upload New Tutorial</p>
                 </button>
               </div>
-            </div>
+            </Card>
           )}
         </div>
       </div>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Palette } from 'lucide-react';
 import { LogoMachineRequest } from '@/actions/tools/logo-machine';
-import { TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 
 interface GeneratorTabProps {
@@ -55,12 +55,11 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
   const estimatedCredits = 3; // Logo generation cost
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* Scrollable Form Content */}
-      <div className="flex-1 overflow-y-auto pr-2 space-y-8 pb-48 scrollbar-hover">
-        {/* Error Display */}
-        {error && <TabError error={error} />}
+    <TabContentWrapper>
+      {/* Error Display */}
+      {error && <TabError error={error} />}
 
+      <TabBody>
         {/* Step 1: Company Details */}
         <StandardStep
           stepNumber={1}
@@ -136,13 +135,13 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
             </div>
           </div>
         </StandardStep>
-      </div>
+      </TabBody>
 
-      <TabFooter className="bg-card/95 backdrop-blur-xl border-t border-border/50 p-4 -mx-4 -mb-4 rounded-b-xl">
+      <TabFooter>
         <Button
           onClick={handleSubmit}
           disabled={isGenerating || credits < estimatedCredits || !formData.company_name.trim()}
-          className="w-full h-12 bg-primary hover:bg-primary/90 transition-all duration-300 font-medium"
+          className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
           {isGenerating ? (
@@ -163,6 +162,6 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
           </p>
         )}
       </TabFooter>
-    </div>
+    </TabContentWrapper>
   );
 }

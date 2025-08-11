@@ -15,9 +15,12 @@ import {
   CheckCircle,
   AlertCircle,
   Users,
-  Settings
+  Settings,
+  History
 } from 'lucide-react';
 import { useState } from 'react';
+import { OutputPanelShell } from '@/components/tools/output-panel-shell';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 import { VoiceOverState } from '../hooks/use-voice-over';
 import { GeneratedVoice } from '@/actions/tools/voice-over';
@@ -84,7 +87,19 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
   // Generate Tab Output
   if (activeTab === 'generate') {
     return (
-      <div className="h-full p-6 space-y-6 overflow-y-auto scrollbar-hover">
+      <OutputPanelShell
+        title="Voice Results"
+        status={state.isGenerating ? 'loading' : state.error ? 'error' : state.generatedAudios.length > 0 ? 'ready' : 'idle'}
+        errorMessage={state.error}
+        empty={
+          <UnifiedEmptyState
+            icon={Mic}
+            title="Ready to Generate"
+            description="Enter your script text and select voice settings to create professional voice overs powered by AI."
+          />
+        }
+      >
+      <div className="h-full space-y-6 overflow-y-auto scrollbar-hover">
         {/* Generation Status */}
         {state.isGenerating && (
           <Card className="p-6">
@@ -210,18 +225,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
           </Card>
         )}
 
-        {/* Empty State */}
-        {!state.isGenerating && state.generatedAudios.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center mb-4">
-              <Mic className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2">Ready to Create Magic ✨</h3>
-            <p className="text-base text-muted-foreground max-w-md">
-              Enter your script text and select voice settings to create professional voice overs powered by AI.
-            </p>
-          </div>
-        )}
+        {/* Empty State handled by OutputPanelShell */}
 
         {/* Current Settings Preview */}
         <Card className="p-4">
@@ -268,6 +272,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
           </Card>
         )}
       </div>
+      </OutputPanelShell>
     );
   }
 

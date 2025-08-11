@@ -57,8 +57,7 @@ export function ContextualOutput({
   // Default: generate / face-swap / recreate
   return (
     <OutputPanelShell
-      title={activeTab === 'generate' ? 'Ready to Create?' : activeTab === 'face-swap' ? 'Face Swap' : 'Recreate'}
-      subtitle={activeTab === 'generate' ? 'Your generated thumbnails will appear here' : undefined}
+      title={activeTab === 'generate' ? 'Thumbnail Results' : activeTab === 'face-swap' ? 'Face Swap Results' : 'Recreate Results'}
       status={isGenerating ? 'loading' : error ? 'error' : (result?.success ? 'ready' : 'idle')}
       errorMessage={error}
       actions={undefined}

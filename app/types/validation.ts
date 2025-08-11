@@ -48,7 +48,7 @@ export const UserSubscriptionUpdateSchema = UserSubscriptionInsertSchema.partial
 })
 
 // User Credits Schemas
-export const UserCreditsSchema = z.object({
+const UserCreditsBaseSchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),
   total_credits: z.number().int().min(0),
@@ -57,6 +57,20 @@ export const UserCreditsSchema = z.object({
   credits_per_month: z.number().int().min(0),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
+})
+
+export const UserCreditsSchema = UserCreditsBaseSchema.refine(
+  (data) => data.used_credits <= data.total_credits + data.bonus_credits,
+  {
+    message: "Used credits cannot exceed total available credits",
+    path: ["used_credits"],
+  }
+)
+
+export const UserCreditsInsertSchema = UserCreditsBaseSchema.omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
 }).refine(
   (data) => data.used_credits <= data.total_credits + data.bonus_credits,
   {
@@ -65,13 +79,7 @@ export const UserCreditsSchema = z.object({
   }
 )
 
-export const UserCreditsInsertSchema = UserCreditsSchema.omit({
-  id: true,
-  created_at: true,
-  updated_at: true,
-})
-
-export const UserCreditsUpdateSchema = UserCreditsInsertSchema.partial().omit({
+export const UserCreditsUpdateSchema = UserCreditsBaseSchema.partial().omit({
   user_id: true,
 })
 

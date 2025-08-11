@@ -130,7 +130,7 @@ export function ThumbnailMachinePage() {
     <StandardToolPage
       icon={ImageIcon}
       title="Thumbnail Machine"
-      description="Create engaging thumbnails with AI"
+      description=""
       iconGradient="bg-primary"
       tabs={<StandardToolTabs tabs={thumbnailTabs} activeTab={activeTab} basePath="/dashboard/thumbnail-machine" />}
     >

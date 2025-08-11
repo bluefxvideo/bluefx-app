@@ -92,7 +92,6 @@ export function LogoMachinePage() {
     <StandardToolPage
       icon={Wand2}
       title="Logo Machine"
-      description="Create stunning logos and brand identities with AI"
       iconGradient="bg-primary"
       tabs={<StandardToolTabs tabs={logoTabs} activeTab={activeTab} basePath="/dashboard/logo-generator" />}
     >

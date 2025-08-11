@@ -39,7 +39,7 @@ export function StandardToolPage({
                 <Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-2xl font-bold text-white">
                   {title}
                 </h2>
                 <p className="text-sm text-zinc-400">

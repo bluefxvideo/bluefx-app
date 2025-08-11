@@ -1,0 +1,268 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Replicate FLUX Kontext Pro Model",
+    "version": "1.0.0",
+    "description": "A state-of-the-art text-based image editing model that delivers high-quality outputs. Perfect for script-to-video image generation."
+  },
+  "servers": [
+    {
+      "url": "https://api.replicate.com/v1"
+    }
+  ],
+  "paths": {
+    "/predictions": {
+      "post": {
+        "operationId": "create_prediction",
+        "summary": "Create a new prediction for flux-kontext-pro",
+        "description": "Generate high-quality images using FLUX Kontext Pro model with natural language prompts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["version", "input"],
+                "properties": {
+                  "version": {
+                    "type": "string",
+                    "description": "Model version ID",
+                    "default": "aa776ca45ce7f7d185418f700df8ec6ca6cb367bfd88e9cd225666c4c179d1d7"
+                  },
+                  "input": {
+                    "type": "object",
+                    "required": ["prompt"],
+                    "properties": {
+                      "prompt": {
+                        "type": "string",
+                        "description": "Text description for image generation or editing"
+                      },
+                      "seed": {
+                        "type": "integer",
+                        "description": "Random seed for reproducible results"
+                      },
+                      "input_image": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Optional reference image URL"
+                      },
+                      "aspect_ratio": {
+                        "type": "string",
+                        "default": "match_input_image",
+                        "description": "Aspect ratio for generated image"
+                      },
+                      "output_format": {
+                        "type": "string",
+                        "enum": ["jpg", "png"],
+                        "default": "png",
+                        "description": "Output image format"
+                      },
+                      "safety_tolerance": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6,
+                        "default": 2,
+                        "description": "Safety filter tolerance level"
+                      },
+                      "prompt_upsampling": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Enable prompt enhancement for better results"
+                      }
+                    }
+                  },
+                  "webhook": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Optional webhook URL to receive prediction results"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prediction created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input parameters"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API token"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}": {
+      "get": {
+        "operationId": "get_prediction",
+        "summary": "Get prediction status and results",
+        "description": "Retrieve the current status and output of a prediction",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction to retrieve"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prediction not found"
+          }
+        }
+      }
+    },
+    "/predictions/{prediction_id}/cancel": {
+      "post": {
+        "operationId": "cancel_prediction",
+        "summary": "Cancel a running prediction",
+        "description": "Cancel a prediction that is currently running",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the prediction to cancel"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prediction not found"
+          },
+          "409": {
+            "description": "Prediction cannot be cancelled"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Prediction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the prediction"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["starting", "processing", "succeeded", "failed", "canceled"],
+            "description": "Current status of the prediction"
+          },
+          "version": {
+            "type": "string",
+            "description": "Model version used for this prediction"
+          },
+          "input": {
+            "type": "object",
+            "description": "Input parameters used for the prediction"
+          },
+          "output": {
+            "type": "string",
+            "format": "uri",
+            "description": "Generated image URL (when prediction succeeds)"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if prediction failed"
+          },
+          "logs": {
+            "type": "string",
+            "description": "Execution logs"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction was created"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction started processing"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the prediction completed"
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "predict_time": {
+                "type": "number",
+                "description": "Time taken for prediction in seconds"
+              }
+            }
+          },
+          "urls": {
+            "type": "object",
+            "properties": {
+              "get": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to retrieve this prediction"
+              },
+              "cancel": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to cancel this prediction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "API token in format 'Token YOUR_API_TOKEN'"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}

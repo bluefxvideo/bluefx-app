@@ -56,7 +56,6 @@ export function MusicMachinePage() {
     <StandardToolPage
       icon={Music}
       title="Music Maker"
-      description="Generate AI-powered music tracks and compositions"
       iconGradient="bg-primary"
       tabs={tabsComponent}
     >

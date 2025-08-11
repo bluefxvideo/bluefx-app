@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Music } from 'lucide-react';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 import { UseMusicMachineReturn } from '../hooks/use-music-machine';
 
 interface DurationOption {
@@ -67,147 +68,159 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
 
   return (
     <TabContentWrapper>
-      {/* Header */}
-      <TabHeader
-        icon={Music}
-        title="Music Maker"
-        description="Generate AI music with MusicGen"
-      />
-
-      {/* Form Content */}
       <TabBody>
-        {/* Music Prompt */}
-        <div className="space-y-2">
-          <Label>Music Description</Label>
-          <Textarea
-            value={localPrompt}
-            onChange={(e) => setLocalPrompt(e.target.value)}
-            placeholder="Describe the music you want to create... (e.g., 'upbeat acoustic guitar melody with drums')"
-            className="min-h-[100px] resize-none"
-            disabled={state.isGenerating}
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Words: {localPrompt.trim().split(/\s+/).filter(Boolean).length}</span>
-            <span>Est. generation time: {Math.ceil(state.duration / 15)}min</span>
-          </div>
-        </div>
-
-        {/* Genre and Mood Selection */}
-        <div className="grid grid-cols-2 gap-4">
+        <StandardStep
+          stepNumber={1}
+          title="Describe Your Music"
+          description="Tell us what kind of music you want to create"
+        >
           <div className="space-y-2">
-            <Label>Genre</Label>
-            <Select
-              value={state.genre}
-              onValueChange={(genre) => updateSettings({ genre })}
+            <Label>Music Description</Label>
+            <Textarea
+              value={localPrompt}
+              onChange={(e) => setLocalPrompt(e.target.value)}
+              placeholder="Describe the music you want to create... (e.g., 'upbeat acoustic guitar melody with drums')"
+              className="min-h-[100px] resize-y"
               disabled={state.isGenerating}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {genres.map((genre: string) => (
-                  <SelectItem key={genre} value={genre}>
-                    {genre.charAt(0).toUpperCase() + genre.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Words: {localPrompt.trim().split(/\s+/).filter(Boolean).length}</span>
+              <span>Est. generation time: {Math.ceil(state.duration / 15)}min</span>
+            </div>
           </div>
+        </StandardStep>
 
+        <StandardStep
+          stepNumber={2}
+          title="Choose Style"
+          description="Select the genre and mood for your music"
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Genre</Label>
+              <Select
+                value={state.genre}
+                onValueChange={(genre) => updateSettings({ genre })}
+                disabled={state.isGenerating}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {genres.map((genre: string) => (
+                    <SelectItem key={genre} value={genre}>
+                      {genre.charAt(0).toUpperCase() + genre.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mood</Label>
+              <Select
+                value={state.mood}
+                onValueChange={(mood) => updateSettings({ mood })}
+                disabled={state.isGenerating}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {moods.map((mood: string) => (
+                    <SelectItem key={mood} value={mood}>
+                      {mood.charAt(0).toUpperCase() + mood.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </StandardStep>
+
+        <StandardStep
+          stepNumber={3}
+          title="Set Duration"
+          description="Choose how long you want your music to be"
+        >
           <div className="space-y-2">
-            <Label>Mood</Label>
-            <Select
-              value={state.mood}
-              onValueChange={(mood) => updateSettings({ mood })}
-              disabled={state.isGenerating}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {moods.map((mood: string) => (
-                  <SelectItem key={mood} value={mood}>
-                    {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Duration Selection */}
-        <div className="space-y-2">
-          <Label>Duration</Label>
-          <div className="grid grid-cols-2 gap-2 p-1">
-            {durations.map((duration: DurationOption) => (
-              <Card
-                key={duration.value}
-                className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
-                  state.duration === duration.value
-                    ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
-                    : 'hover:bg-muted/50'
-                }`}
-                onClick={() => updateSettings({ duration: duration.value })}
-              >
-                <div className="text-center">
-                  <p className="text-sm font-medium">{duration.label}</p>
-                  <Badge variant="outline" className="text-xs mt-1">
-                    {duration.value}s
-                  </Badge>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Model Quality */}
-        <div className="space-y-2">
-          <Label>Model Quality</Label>
-          <div className="space-y-2 p-1">
-            {[
-              {
-                id: 'stereo-melody-large',
-                name: 'Stereo Melody Large',
-                description: 'Best quality (Recommended)',
-                recommended: true
-              },
-              {
-                id: 'stereo-large',
-                name: 'Stereo Large', 
-                description: 'High quality stereo',
-                recommended: false
-              },
-              {
-                id: 'large',
-                name: 'Large',
-                description: 'Standard mono (Fastest)',
-                recommended: false
-              }
-            ].map((model) => (
-              <Card
-                key={model.id}
-                className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
-                  state.model_version === model.id
-                    ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
-                    : 'hover:bg-muted/50'
-                }`}
-                onClick={() => updateSettings({ model_version: model.id as 'stereo-large' | 'stereo-melody-large' | 'large' })}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{model.name}</p>
-                    <p className="text-xs text-muted-foreground">{model.description}</p>
-                  </div>
-                  {model.recommended && (
-                    <Badge variant="secondary" className="text-xs">
-                      Recommended
+            <Label>Duration</Label>
+            <div className="grid grid-cols-2 gap-2 p-1">
+              {durations.map((duration: DurationOption) => (
+                <Card
+                  key={duration.value}
+                  className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
+                    state.duration === duration.value
+                      ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
+                      : 'hover:bg-muted/50'
+                  }`}
+                  onClick={() => updateSettings({ duration: duration.value })}
+                >
+                  <div className="text-center">
+                    <p className="text-sm font-medium">{duration.label}</p>
+                    <Badge variant="outline" className="text-xs mt-1">
+                      {duration.value}s
                     </Badge>
-                  )}
-                </div>
-              </Card>
-            ))}
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        </StandardStep>
+
+        <StandardStep
+          stepNumber={4}
+          title="Select Quality"
+          description="Choose the model quality for generation"
+        >
+          <div className="space-y-2">
+            <Label>Model Quality</Label>
+            <div className="space-y-2 p-1">
+              {[
+                {
+                  id: 'stereo-melody-large',
+                  name: 'Stereo Melody Large',
+                  description: 'Best quality (Recommended)',
+                  recommended: true
+                },
+                {
+                  id: 'stereo-large',
+                  name: 'Stereo Large', 
+                  description: 'High quality stereo',
+                  recommended: false
+                },
+                {
+                  id: 'large',
+                  name: 'Large',
+                  description: 'Standard mono (Fastest)',
+                  recommended: false
+                }
+              ].map((model) => (
+                <Card
+                  key={model.id}
+                  className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
+                    state.model_version === model.id
+                      ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
+                      : 'hover:bg-muted/50'
+                  }`}
+                  onClick={() => updateSettings({ model_version: model.id as 'stereo-large' | 'stereo-melody-large' | 'large' })}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{model.name}</p>
+                      <p className="text-xs text-muted-foreground">{model.description}</p>
+                    </div>
+                    {model.recommended && (
+                      <Badge variant="secondary" className="text-xs">
+                        Recommended
+                      </Badge>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </StandardStep>
 
         {/* Current Generation Status */}
         {state.currentGeneration && (
@@ -229,12 +242,11 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
         )}
       </TabBody>
 
-      {/* Generate Button - Outside scrollable area */}
-      <div className="mt-6">
+      <TabFooter>
         <Button
           onClick={generateMusic}
           disabled={!canGenerate || state.isGenerating}
-          className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium"
+          className="w-full h-12 bg-primary hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
           {state.isGenerating ? (
@@ -249,7 +261,7 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
             </>
           )}
         </Button>
-      </div>
+      </TabFooter>
     </TabContentWrapper>
   );
 }

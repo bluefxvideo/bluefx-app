@@ -52,7 +52,7 @@ export function TabHeader({
         )}>
           <Icon className="w-5 h-5 text-white" />
         </div>
-        <h2 className="text-2xl font-semibold">{title}</h2>
+        <h2 className="text-xl font-semibold">{title}</h2>
       </div>
       <p className="text-lg text-muted-foreground" style={{ lineHeight: "1.5" }}>
         {description}
@@ -68,7 +68,7 @@ export function TabHeader({
 export function TabBody({ children, className }: TabBodyProps) {
   return (
     <div className={cn(
-      "flex-1 overflow-y-auto overflow-x-visible scrollbar-hover space-y-6",
+      "flex-1 overflow-y-auto overflow-x-visible scrollbar-hover space-y-8",
       className
     )}>
       {children}
