@@ -24,20 +24,20 @@ export function SimpleCaptionOverlay({ videoId }: { videoId?: string }) {
     }
   }, [videoId, loadCaptions]);
   
-  // Update current chunk as video plays
+  // Update current chunk as video plays - FIXED: Direct timeline lookup
   useEffect(() => {
     if (timeline.current_time !== undefined) {
       if (allChunks.length > 0) {
-        console.log('[SimpleCaptionOverlay] Updating chunk for time:', timeline.current_time, 'Total chunks:', allChunks.length);
+        console.log('[SimpleCaptionOverlay] Updating chunk for ABSOLUTE time:', timeline.current_time, 'Total chunks:', allChunks.length);
+        // FIXED: Direct timeline.current_time lookup (no segment calculation)
         updateCurrentChunk(timeline.current_time);
       } else {
-        // In fallback mode, just log the time update
         console.log('[SimpleCaptionOverlay] Timeline update (fallback mode):', timeline.current_time);
       }
     }
   }, [timeline.current_time, updateCurrentChunk, allChunks.length]);
   
-  // Fallback: If no chunks loaded, create simple chunks from segment text
+  // FIXED: Improved fallback with absolute timing
   const getCurrentSegmentText = () => {
     if (!segments || segments.length === 0) return null;
     
@@ -48,13 +48,16 @@ export function SimpleCaptionOverlay({ videoId }: { videoId?: string }) {
     
     if (!currentSegment) return null;
     
-    // Create simple time-based chunks from segment text
+    // FIXED: Create chunks with absolute timing (no segment-relative calculation)
     const text = currentSegment.text;
     const words = text.split(' ');
-    const segmentProgress = (timeline.current_time - currentSegment.start_time) / currentSegment.duration;
     
-    // Show different parts of text based on progress through segment
-    const wordsPerChunk = 6; // Show 6 words at a time
+    // Use absolute time within segment for consistent display
+    const timeIntoSegment = timeline.current_time - currentSegment.start_time;
+    const segmentProgress = Math.min(1, Math.max(0, timeIntoSegment / currentSegment.duration));
+    
+    // Show progressive text reveal based on absolute time
+    const wordsPerChunk = 6;
     const totalChunks = Math.ceil(words.length / wordsPerChunk);
     const currentChunkIndex = Math.min(Math.floor(segmentProgress * totalChunks), totalChunks - 1);
     
@@ -62,10 +65,12 @@ export function SimpleCaptionOverlay({ videoId }: { videoId?: string }) {
     const endWord = Math.min(startWord + wordsPerChunk, words.length);
     const displayWords = words.slice(startWord, endWord).join(' ');
     
+    console.log(`[Fallback] Time: ${timeline.current_time.toFixed(2)}s, Segment: ${currentSegment.start_time}-${currentSegment.end_time}, Progress: ${(segmentProgress*100).toFixed(1)}%, Text: "${displayWords}"`);
+    
     return {
       text: displayWords,
       lines: [displayWords],
-      confidence: 1.0
+      confidence: 0.7 // Lower confidence for fallback
     };
   };
   

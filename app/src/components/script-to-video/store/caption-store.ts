@@ -85,16 +85,22 @@ export const useCaptionStore = create<CaptionStore>((set, get) => ({
     }
   },
   
-  // Update which chunk should be displayed based on current video time
+  // FIXED: Update chunk based on ABSOLUTE timeline time
   updateCurrentChunk: (currentTime: number) => {
     const { allChunks, currentChunkIndex } = get();
     
     if (allChunks.length === 0) return;
     
-    // Find the chunk that should be displayed at current time
+    // FIXED: Direct lookup using absolute timeline time (chunks already have absolute timing)
     const newIndex = allChunks.findIndex(chunk => 
       currentTime >= chunk.start_time && currentTime < chunk.end_time
     );
+    
+    // Debug log for timing verification
+    if (newIndex !== currentChunkIndex && newIndex >= 0) {
+      const chunk = allChunks[newIndex];
+      console.log(`[CaptionStore] Time ${currentTime.toFixed(2)}s → Chunk "${chunk.text}" (${chunk.start_time.toFixed(2)}s-${chunk.end_time.toFixed(2)}s)`);
+    }
     
     // Only update if changed (avoid unnecessary re-renders)
     if (newIndex !== currentChunkIndex) {

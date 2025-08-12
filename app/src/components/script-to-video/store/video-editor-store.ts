@@ -127,6 +127,7 @@ interface SegmentData {
     voice: {
       url?: string;
       duration?: number;
+      audio_offset?: number; // NEW: Where this segment starts in the continuous audio file
       waveform_data?: number[];
       status: 'pending' | 'generating' | 'ready' | 'error';
     };
@@ -976,7 +977,14 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             return;
           }
           
-          console.log('Loading generation results:', results);
+          console.log('🎬 Loading generation results into store:', {
+            has_segments: !!results.segments,
+            segments_count: results.segments?.length || 0,
+            has_images: !!results.generated_images,
+            images_count: results.generated_images?.length || 0,
+            has_audio: !!results.audio_url,
+            full_results: results
+          });
           
           set((state) => {
             // Convert orchestrator results to store segments
@@ -999,8 +1007,9 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
                 original_duration: segment.duration,
                 assets: {
                   voice: {
-                    url: results.audio_url,
-                    duration: segment.duration,
+                    url: results.audio_url, // FIXED: All segments share same continuous audio file
+                    duration: results.timeline_data?.total_duration || 60, // FIXED: Use total audio duration, not segment duration
+                    audio_offset: segment.start_time, // NEW: Track where this segment starts in the audio
                     status: results.audio_url ? 'ready' as const : 'pending' as const
                   },
                   image: {

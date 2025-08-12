@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -26,6 +26,9 @@ export function ScriptToVideoPage() {
   const supabase = createClient();
   const initializeUser = useVideoEditorStore((state) => state.initializeUser);
   const loadExistingResults = useVideoEditorStore((state) => state.loadExistingResults);
+  
+  // Local state for generation progress
+  const [isLocalGenerating, setIsLocalGenerating] = useState(false);
   const {
     edit,
     isGenerating,
@@ -106,6 +109,7 @@ export function ScriptToVideoPage() {
         return (
           <GeneratorTab
             credits={credits}
+            onGeneratingChange={setIsLocalGenerating}
           />
         );
     }
@@ -115,7 +119,6 @@ export function ScriptToVideoPage() {
     <StandardToolPage
       icon={FileText}
       title="Script to Video"
-      description="Transform scripts into engaging videos with AI"
       iconGradient="bg-primary"
       tabs={<StandardToolTabs tabs={scriptToVideoTabs} activeTab={activeTab} basePath="/dashboard/script-to-video" />}
     >
@@ -128,7 +131,7 @@ export function ScriptToVideoPage() {
         {/* Right Panel - Video Preview/Output */}
         <VideoPreview
           result={result}
-          isGenerating={isGenerating}
+          isGenerating={isGenerating || isLocalGenerating}
           isEditing={isEditing}
           error={error}
           onClearResults={clearResults}

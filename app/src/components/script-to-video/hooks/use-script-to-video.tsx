@@ -29,21 +29,38 @@ export function useScriptToVideo() {
   useEffect(() => {
     const loadUserAndCredits = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        console.log('🔄 Loading user and credits...');
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.error('❌ Auth error:', userError);
+          return;
+        }
+        
         if (user) {
+          console.log('✅ User loaded in useEffect:', user.id);
           setUser(user);
+          
           const creditResult = await getUserCredits(user.id);
+          console.log('💰 Credit result:', creditResult);
+          
           if (creditResult.success) {
-            setCredits(creditResult.credits || 0);
+            const newCredits = creditResult.credits || 0;
+            console.log('💰 Setting credits from', credits, 'to', newCredits);
+            setCredits(newCredits);
+          } else {
+            console.error('❌ Failed to get credits:', creditResult.error);
           }
+        } else {
+          console.log('❌ No user found in useEffect');
         }
       } catch (error) {
-        console.error('Error loading user and credits:', error);
+        console.error('❌ Error loading user and credits:', error);
       }
     };
 
     loadUserAndCredits();
-  }, []);
+  }, [supabase]);
 
   // Main generation mutation
   const generateMutation = useMutation({
@@ -104,38 +121,110 @@ export function useScriptToVideo() {
   const generateBasic = async (scriptText: string, options?: {
     quality?: 'draft' | 'standard' | 'premium';
     aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
+    video_style?: {
+      tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';
+      pacing?: 'slow' | 'medium' | 'fast';
+      visual_style?: 'realistic' | 'artistic' | 'minimal' | 'dynamic';
+    };
+    voice_settings?: {
+      voice_id?: 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah';
+      speed?: 'slower' | 'normal' | 'faster';
+      emotion?: 'neutral' | 'excited' | 'calm' | 'confident' | 'authoritative';
+    };
   }) => {
-    if (!user?.id) {
-      throw new Error('User not authenticated');
+    // Get the current user, either from state or fetch fresh
+    let currentUserId = user?.id;
+    console.log('🔍 generateBasic - Current user state:', { user: user?.id, userObject: !!user });
+    
+    if (!currentUserId) {
+      console.log('🔄 User not loaded, trying alternative approach...');
+      
+      // Try getting session instead of user - sometimes more reliable
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('🔍 Session response:', { session: session?.user?.id, error });
+        
+        if (error) {
+          console.error('❌ Session error:', error);
+          throw new Error(`Authentication failed: ${error.message}`);
+        }
+        
+        if (!session?.user?.id) {
+          console.error('❌ No session found');
+          throw new Error('User not authenticated - please log in again');
+        }
+        
+        currentUserId = session.user.id;
+        setUser(session.user);
+        console.log('✅ User loaded from session:', currentUserId);
+      } catch (error) {
+        console.error('🚨 Failed to get session:', error);
+        throw error;
+      }
     }
 
-    console.log('🎬 Starting basic script video generation for user:', user.id);
+    console.log('🎬 Starting basic script video generation for user:', currentUserId);
+    console.log('🎬 Generation options:', options);
+    console.log('🎬 Script length:', scriptText.length);
     
-    const response = await generateBasicScriptVideo(
-      scriptText,
-      user.id,
-      options
-    );
-    
-    if (response.success) {
-      setCredits(prev => prev - response.credits_used);
-      setResult(response);
+    try {
+      const response = await generateBasicScriptVideo(
+        scriptText,
+        currentUserId,
+        options
+      );
+      console.log('🎬 Raw response from orchestrator:', response);
       
-      // Load results into editor store
-      const { useVideoEditorStore } = require('../store/video-editor-store');
-      useVideoEditorStore.getState().loadGenerationResults(response);
+      if (response.success) {
+        console.log('🎉 Generation successful!', {
+          segments_count: response.segments?.length || 0,
+          images_count: response.generated_images?.length || 0,
+          has_audio: !!response.audio_url,
+          video_id: response.video_id
+        });
+        
+        setCredits(prev => prev - response.credits_used);
+        setResult(response);
+        
+        // Load results into editor store
+        const { useVideoEditorStore } = require('../store/video-editor-store');
+        useVideoEditorStore.getState().loadGenerationResults(response);
+        
+        // Auto-redirect to editor tab 
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/dashboard/script-to-video/editor';
+          }
+        }, 1000);
+      } else {
+        throw new Error(response.error || 'Generation failed');
+      }
       
-      // Auto-redirect to editor tab 
-      setTimeout(() => {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/dashboard/script-to-video/editor';
-        }
-      }, 1000);
-    } else {
-      throw new Error(response.error || 'Generation failed');
+      return response;
+    } catch (error) {
+      console.error('🚨 Error in generateBasicScriptVideo:', error);
+      throw error;
     }
-    
-    return response;
+  };
+
+  // Reload credits function
+  const reloadCredits = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('🔍 Current logged in user:', user?.id);
+      if (user) {
+        const creditResult = await getUserCredits(user.id);
+        console.log('🔍 getUserCredits result:', creditResult);
+        if (creditResult.success) {
+          setCredits(creditResult.credits || 0);
+          console.log('🔄 Credits reloaded from', credits, 'to', creditResult.credits);
+        } else {
+          console.error('🔍 Failed to get credits:', creditResult.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error reloading credits:', error);
+    }
   };
 
   return {
@@ -143,6 +232,10 @@ export function useScriptToVideo() {
     generate: generateMutation.mutate,
     generateBasic,
     isGenerating: generateMutation.isPending,
+    
+    // User state
+    isUserLoaded: !!user?.id,
+    user,
     
     // Editing
     edit: editMutation.mutate,
@@ -155,6 +248,7 @@ export function useScriptToVideo() {
     
     // Actions
     clearResults: () => setResult(undefined),
+    reloadCredits,
     
     // Utilities
     calculateEstimatedCredits: (scriptText: string) => {

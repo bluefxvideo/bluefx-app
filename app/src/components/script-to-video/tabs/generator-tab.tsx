@@ -6,14 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Film, Sliders, Mic, Zap, TestTube } from 'lucide-react';
+import { Film, Mic, Zap } from 'lucide-react';
 import { useVideoEditorStore } from '../store/video-editor-store';
-import { TEST_SCRIPTS } from '../examples/test-user-flow';
 import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
 import { useScriptToVideo } from '../hooks/use-script-to-video';
 
 interface GeneratorTabProps {
   credits: number;
+  onGeneratingChange?: (isGenerating: boolean) => void;
 }
 
 /**
@@ -21,8 +21,12 @@ interface GeneratorTabProps {
  * The core functionality for AI-orchestrated video creation
  */
 export function GeneratorTab({
-  credits
+  credits,
+  onGeneratingChange
 }: GeneratorTabProps) {
+  // Local state for generation
+  const [isLocalGenerating, setIsLocalGenerating] = useState(false);
+
   // Get state and actions from Zustand store
   const {
     // State
@@ -35,7 +39,8 @@ export function GeneratorTab({
   // Use real script-to-video hook
   const { 
     generateBasic, 
-    isGenerating
+    isGenerating,
+    reloadCredits
   } = useScriptToVideo();
 
   const [formData, setFormData] = useState({
@@ -52,13 +57,16 @@ export function GeneratorTab({
     },
     quality: project.generation_settings.quality,
   });
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleSubmit = async () => {
+    console.log('🚀 handleSubmit called!');
+    
     if (!formData.script_text.trim()) {
       showToast('Please enter a script to generate video', 'warning');
       return;
     }
+    
+    console.log('✅ Script validation passed');
     
     // Update project settings
     updateProject({
@@ -70,16 +78,27 @@ export function GeneratorTab({
       aspect_ratio: '9:16'
     });
 
+    console.log('🎬 About to call generateBasic...');
+    
     // Generate video from script using real orchestrator
     try {
+      setIsLocalGenerating(true);
+      onGeneratingChange?.(true);
+      
       console.log('🎬 Generator Tab: Starting generation...', {
         scriptLength: formData.script_text.length,
-        quality: formData.quality
+        quality: formData.quality,
+        video_style: formData.video_style,
+        voice_settings: formData.voice_settings
       });
+      
+      console.log('🚀 Calling generateBasic now...');
       
       await generateBasic(formData.script_text, {
         quality: formData.quality,
-        aspect_ratio: '9:16'
+        aspect_ratio: '9:16',
+        video_style: formData.video_style,
+        voice_settings: formData.voice_settings
       });
       
       console.log('✅ Generator Tab: Generation completed successfully');
@@ -90,10 +109,33 @@ export function GeneratorTab({
         error instanceof Error ? error.message : 'Failed to generate video. Please try again.', 
         'error'
       );
+    } finally {
+      setIsLocalGenerating(false);
+      onGeneratingChange?.(false);
     }
   };
 
   const estimatedCredits = Math.ceil(formData.script_text.length / 50) * 5 + 10;
+
+  // Debug info  
+  const hasScript = !!formData.script_text.trim();
+  const creditCheck = credits > 0 && credits < estimatedCredits;
+  const isDisabled = !hasScript || isGenerating || isLocalGenerating || creditCheck;
+  
+  console.log('🔍 GeneratorTab Debug:', `
+    Script: "${formData.script_text}" (${formData.script_text.length} chars)
+    Has Script: ${hasScript}
+    Credits: ${credits}
+    Estimated: ${estimatedCredits}  
+    Is Generating: ${isGenerating}
+    Credit Check: ${creditCheck}
+    Button Disabled: ${isDisabled}
+    
+    Disable Reasons:
+    - No Script: ${!hasScript}
+    - Generating: ${isGenerating}  
+    - Insufficient Credits: ${creditCheck}
+  `);
 
   return (
     <TabContentWrapper>
@@ -322,80 +364,23 @@ AI will automatically detect and handle both!"
           </div>
         </div>
 
-        {/* Quality Selection */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Quality</Label>
-          <div className="grid grid-cols-3 gap-2">
-            {(['draft', 'standard', 'premium'] as const).map((q) => (
-              <Button
-                key={q}
-                variant={formData.quality === q ? 'default' : 'outline'}
-                className={`capitalize ${formData.quality === q ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' : ''}`}
-                onClick={() => setFormData((prev) => ({ ...prev, quality: q }))}
-              >
-                {q}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Advanced Options Toggle */}
-        <Button
-          variant="ghost"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full justify-between h-8 px-0 text-xs"
-        >
-          <div className="flex items-center gap-1">
-            <Sliders className="w-3 h-3" />
-            <span>Advanced Settings</span>
-          </div>
-          <span>{showAdvanced ? "−" : "+"}</span>
-        </Button>
-
-        {/* Advanced Options */}
-        {showAdvanced && (
-          <Card className="p-3 space-y-3 bg-muted/20 border-dashed">
-            <div className="text-xs text-muted-foreground mb-2">
-              Fine-tune AI orchestration parameters
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Advanced settings will be available in future updates
-            </div>
-          </Card>
-        )}
-
-        {/* Demo Scripts */}
-      <div className="border-t pt-4 space-y-2">
-        <div className="flex items-center gap-2 mb-2">
-          <TestTube className="w-4 h-4 text-muted-foreground" />
-          <Label className="text-sm font-medium">Try Demo Scripts</Label>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(TEST_SCRIPTS).map(([key, script]) => (
-            <Button
-              key={key}
-              variant="outline"
-              size="sm"
-              className="text-xs h-8"
-              onClick={() => setFormData(prev => ({ 
-                ...prev, 
-                script_text: script.substring(0, 500) + (script.length > 500 ? '...' : '')
-              }))}
-            >
-              {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-            </Button>
-          ))}
-        </div>
-      </div>
 
       </TabBody>
 
       {/* Generate Button - Outside scrollable area */}
       <div className="mt-6">
         <Button
-          onClick={handleSubmit}
+          onClick={(e) => {
+            console.log('🎬 Generate Button Clicked!', { 
+              event: e,
+              isDisabled,
+              preventDefault: e.preventDefault,
+              target: e.target 
+            });
+            handleSubmit();
+          }}
           disabled={
-            !formData.script_text.trim() || isGenerating || credits < estimatedCredits
+            !formData.script_text.trim() || isGenerating || (credits > 0 && credits < estimatedCredits)
           }
           className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"

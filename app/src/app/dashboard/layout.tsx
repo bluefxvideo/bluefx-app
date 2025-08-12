@@ -19,7 +19,19 @@ export default async function DashboardRootLayout({
   const { data: { user }, error } = await supabase.auth.getUser();
   
   if (error || !user) {
-    redirect('/login');
+    redirect('/login?message=Please log in to access your dashboard');
+  }
+
+  // Verify session is actually valid by testing a simple query
+  try {
+    const { error: testError } = await supabase.from('profiles').select('id').eq('id', user.id).limit(1);
+    if (testError && testError.code === 'PGRST301') {
+      // JWT expired or invalid
+      redirect('/login?message=Your session has expired. Please log in again.');
+    }
+  } catch (sessionError) {
+    console.error('Session validation error:', sessionError);
+    redirect('/login?message=Session validation failed. Please log in again.');
   }
 
   return (

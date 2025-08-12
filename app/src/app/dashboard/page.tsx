@@ -108,24 +108,46 @@ export default function DashboardPage() {
   const [isBuyCreditsDialogOpen, setIsBuyCreditsDialogOpen] = useState(false);
   const { credits, isLoading: isLoadingCredits, isPurchasing } = useCredits();
 
-  // Fetch user profile with better caching
-  const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfile | null>({
+  // Fetch user profile with better caching and error handling
+  const { data: userProfile, isLoading: isLoadingProfile, error: profileError } = useQuery<UserProfile | null>({
     queryKey: ['user-profile'],
     staleTime: 5 * 60 * 1000, // 5 minutes
     cacheTime: 10 * 60 * 1000, // 10 minutes
+    retry: 3,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw authError;
+      }
+      
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        // Don't throw here - profile might not exist yet
+      }
+
       return { ...user, profile } as UserProfile;
     }
   });
+
+  // Handle authentication errors by redirecting to login
+  useEffect(() => {
+    if (profileError && !isLoadingProfile) {
+      console.error('Profile query failed:', profileError);
+      router.push('/login?message=Session expired. Please log in again.');
+    }
+  }, [profileError, isLoadingProfile, router]);
 
   const displayName = userProfile?.user_metadata?.full_name || 
                       userProfile?.email?.split('@')[0] || 

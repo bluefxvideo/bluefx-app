@@ -216,8 +216,11 @@ function enhancePromptForStyle(
 
   // Add cinematic quality for diverse storytelling
   const cinematicPrompt = 'cinematic composition, professional storytelling, diverse camera angles, engaging visual narrative';
+  
+  // Add character consistency emphasis for image generation models
+  const consistencyPrompt = 'maintain character consistency, same character throughout series, consistent visual identity';
 
-  return `${basePrompt}, ${cinematicPrompt}, ${styleEnhancements[styleSettings.visual_style]}, ${qualityEnhancements[styleSettings.quality]}`.trim();
+  return `${basePrompt}, ${cinematicPrompt}, ${consistencyPrompt}, ${styleEnhancements[styleSettings.visual_style]}, ${qualityEnhancements[styleSettings.quality]}`.trim();
 }
 
 function convertAspectRatio(ratio: string): string {

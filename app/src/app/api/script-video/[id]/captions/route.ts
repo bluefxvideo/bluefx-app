@@ -34,28 +34,47 @@ export async function GET(
       );
     }
     
-    // Try new caption_data first, fallback to processing_logs
+    // FIXED: Handle both absolute and relative timing formats
     let segments = [];
     
     if (data.caption_data?.chunks) {
-      // New structured caption data
+      // New structured caption data (already absolute timing)
       segments = data.caption_data.chunks.segments || [];
     } else if (data.processing_logs?.caption_chunks) {
-      // Legacy caption chunks
-      segments = data.processing_logs.caption_chunks.segments || [];
+      // Legacy caption chunks - convert to absolute timing
+      const legacySegments = data.processing_logs.caption_chunks.segments || [];
+      segments = legacySegments.map((seg: any) => {
+        const segmentStartTime = seg.segment_start_time || 0;
+        
+        return {
+          ...seg,
+          caption_chunks: (seg.caption_chunks || []).map((chunk: any) => ({
+            ...chunk,
+            // FIXED: Convert relative to absolute timing
+            start_time: segmentStartTime + (chunk.start_time || 0),
+            end_time: segmentStartTime + (chunk.end_time || chunk.start_time + 2),
+            confidence: chunk.confidence || 0.8
+          }))
+        };
+      });
+      
+      console.log(`[Captions API] Converted ${segments.length} legacy segments to absolute timing`);
     } else if (data.processing_logs?.segments) {
-      // Fallback: use segment text (old videos without chunks)
+      // Fallback: create chunks from segment text with absolute timing
       segments = data.processing_logs.segments.map((seg: any) => ({
         segment_id: seg.id,
         caption_chunks: [{
           id: `${seg.id}_full`,
           text: seg.text,
-          start_time: seg.start_time,
-          end_time: seg.end_time,
-          lines: [seg.text], // Show as single chunk (legacy)
+          start_time: seg.start_time, // Already absolute
+          end_time: seg.end_time,     // Already absolute
+          duration: seg.end_time - seg.start_time,
+          lines: [seg.text],
           confidence: 0.5
         }]
       }));
+      
+      console.log(`[Captions API] Created ${segments.length} fallback chunks from segments`);
     }
     
     return NextResponse.json({

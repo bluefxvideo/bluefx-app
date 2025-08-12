@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { 
   Play, 
@@ -15,18 +15,14 @@ import {
   Clock, 
   Layers,
   Sparkles,
-  Zap,
-  Brain,
-  Mic,
-  Camera
+  Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { SimpleCaptionOverlay } from '../components/simple-caption-overlay';
-import { useCaptionStore } from '../store/caption-store';
+import { VideoGenerationProgress } from '../components/video-generation-progress';
 import type { ScriptToVideoResponse } from '@/actions/tools/script-to-video-orchestrator';
 
 interface VideoPreviewProps {
@@ -45,8 +41,7 @@ export function VideoPreview({
   onClearResults,
   activeMode
 }: VideoPreviewProps) {
-  // Local state for video playback
-  const [isPlaying, setIsPlaying] = useState(false);
+  // FIXED: Minimize local state, use Zustand as single source of truth
   const audioRef = useRef<HTMLAudioElement>(null);
   
   // Get state and actions from Zustand store
@@ -78,38 +73,33 @@ export function VideoPreview({
   
   // Debug log
   console.log('VideoPreview - Audio URL:', audioUrl, 'Result:', result?.audio_url, 'Segments:', segments.length);
+  console.log('🔍 VideoPreview segments debug:', segments.map(s => ({ id: s.id, text: s.text?.substring(0, 30) })));
   console.log('Segment timing data:', segments.map(s => ({ id: s.id, start: s.start_time, end: s.end_time, duration: s.duration })));
 
-  // Handle play/pause functionality - LEGACY PATTERN
+  // FIXED: Single source of truth play/pause using Zustand store
   const handlePlayPause = () => {
     if (!audioRef.current || !audioUrl) return;
 
-    if (isPlaying) {
+    const currentlyPlaying = timeline.is_playing;
+
+    if (currentlyPlaying) {
       audioRef.current.pause();
-      setIsPlaying(false);
-      // Update store state directly to avoid conflicts
       useVideoEditorStore.setState((state) => {
         state.timeline.is_playing = false;
       });
     } else {
-      // SIMPLIFIED: Just play from current audio position, don't try to sync
-      // The audio position was already set when timeline was clicked
       console.log('PLAY CLICKED - Audio will play from:', audioRef.current.currentTime);
       
-      // Update state
-      setIsPlaying(true);
       useVideoEditorStore.setState((state) => {
         state.timeline.is_playing = true;
       });
       
-      // Play the audio
       audioRef.current.play()
         .then(() => {
           console.log('Playback started at:', audioRef.current.currentTime);
         })
         .catch(e => {
           console.error('Play failed:', e);
-          setIsPlaying(false);
           useVideoEditorStore.setState((state) => {
             state.timeline.is_playing = false;
           });
@@ -117,25 +107,27 @@ export function VideoPreview({
     }
   };
 
-  // LEGACY PATTERN: Simple audio sync
+  // FIXED: Single source of truth audio sync (eliminates race conditions)
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !audioUrl) return;
 
     const handleTimeUpdate = () => {
       const currentTime = audio.currentTime;
-      console.log('[VideoPreview] Audio time update:', currentTime, 'Playing:', isPlaying);
       
-      // Always update timeline when audio time changes
-      // This ensures captions stay in sync
+      // FIXED: Single, throttled timeline update to prevent race conditions
       useVideoEditorStore.setState((state) => {
-        state.timeline.current_time = Math.max(0, Math.min(currentTime, state.project.duration));
+        // Only update if significantly different (reduces noise)
+        const timeDiff = Math.abs(state.timeline.current_time - currentTime);
+        if (timeDiff > 0.1) { // 100ms threshold
+          state.timeline.current_time = Math.max(0, Math.min(currentTime, state.project.duration));
+        }
       });
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     return () => audio.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [isPlaying, audioUrl]);
+  }, [audioUrl]); // FIXED: Removed isPlaying dependency to prevent restart
 
 
   // Handle basic audio events
@@ -144,7 +136,6 @@ export function VideoPreview({
     if (!audio) return;
 
     const handleEnded = () => {
-      setIsPlaying(false);
       useVideoEditorStore.setState((state) => {
         state.timeline.is_playing = false;
       });
@@ -152,7 +143,6 @@ export function VideoPreview({
 
     const handleError = (e: any) => {
       console.error('Audio playback error:', e);
-      setIsPlaying(false);
       useVideoEditorStore.setState((state) => {
         state.timeline.is_playing = false;
       });
@@ -167,68 +157,15 @@ export function VideoPreview({
     };
   }, []);
 
-  // Loading State
+  // Loading State - Show generation progress
   if (isGenerating) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Video Generation</CardTitle>
-          <CardDescription>Creating your professional video with intelligent orchestration</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Generation Progress */}
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto animate-pulse">
-              <Film className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h3 className="font-medium mb-2">AI Orchestrator Working...</h3>
-              <p className="text-sm text-muted-foreground">
-                Analyzing script and optimizing production workflow
-              </p>
-            </div>
-          </div>
-
-          <Progress value={35} className="w-full" />
-
-          {/* Generation Steps */}
-          <div className="space-y-3">
-            {[
-              { icon: Brain, label: 'AI analyzing script', completed: true },
-              { icon: Zap, label: 'Creating production plan', completed: true },
-              { icon: Mic, label: 'Generating voice over', completed: false, active: true },
-              { icon: Camera, label: 'Creating visuals', completed: false },
-              { icon: Film, label: 'Assembling video', completed: false },
-            ].map((step, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                  step.completed 
-                    ? 'bg-blue-100 text-blue-600' 
-                    : step.active 
-                    ? 'bg-blue-100 text-blue-600 animate-pulse' 
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  <step.icon className="w-3 h-3" />
-                </div>
-                <span className={`text-sm ${
-                  step.completed 
-                    ? 'text-blue-600' 
-                    : step.active 
-                    ? 'text-blue-600 font-medium' 
-                    : 'text-muted-foreground'
-                }`}>
-                  {step.label}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Estimated Time */}
-          <div className="text-center pt-4 border-t">
-            <p className="text-xs text-muted-foreground">
-              Estimated completion: 45-60 seconds
-            </p>
-          </div>
+      <Card className="h-full">
+        <CardContent className="p-0 h-full">
+          <VideoGenerationProgress 
+            isGenerating={isGenerating}
+            onComplete={() => console.log('Generation completed!')}
+          />
         </CardContent>
       </Card>
     );
@@ -288,8 +225,8 @@ export function VideoPreview({
                   controls
                   className="w-full h-full object-cover"
                   poster={result.generated_images?.[0]?.url}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
+                  onPlay={() => useVideoEditorStore.setState(state => { state.timeline.is_playing = true; })}
+                  onPause={() => useVideoEditorStore.setState(state => { state.timeline.is_playing = false; })}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
@@ -301,7 +238,7 @@ export function VideoPreview({
               )}
               
               {/* Play Overlay */}
-              {!isPlaying && (
+              {!timeline.is_playing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
                   <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center">
                     <Play className="w-8 h-8 text-black ml-1" />
@@ -317,8 +254,8 @@ export function VideoPreview({
                 onClick={handlePlayPause}
                 disabled={!audioUrl}
               >
-                {isPlaying ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                {isPlaying ? 'Pause' : 'Play'} {!audioUrl && '(No Audio)'}
+                {timeline.is_playing ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                {timeline.is_playing ? 'Pause' : 'Play'} {!audioUrl && '(No Audio)'}
               </Button>
               <Button 
                 variant="outline"
@@ -547,7 +484,7 @@ export function VideoPreview({
                 onClick={handlePlayPause}
                 disabled={!audioUrl}
               >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {timeline.is_playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               </Button>
               <Button 
                 variant="ghost" 
@@ -596,36 +533,28 @@ export function VideoPreview({
               const clickedTime = Math.max(0, (clickX / timelineWidth) * project.duration);
               const finalTime = Math.max(0, Math.min(clickedTime, project.duration));
               
-              console.log(`TIMELINE CLICKED: seeking to ${finalTime}s`);
-              console.log('Store timeline BEFORE click:', useVideoEditorStore.getState().timeline.current_time);
+              console.log(`TIMELINE CLICKED: seeking to ${finalTime.toFixed(2)}s`);
               
-              // Pause audio if playing
-              if (audioRef.current && !audioRef.current.paused) {
-                audioRef.current.pause();
-                setIsPlaying(false);
-              }
-              
-              // Set audio position directly - like legacy
+              // FIXED: Single atomic operation - pause, seek, update state
               if (audioRef.current) {
+                // Pause first
+                if (!audioRef.current.paused) {
+                  audioRef.current.pause();
+                }
+                
+                // Seek audio to exact position
                 const audioDuration = audioRef.current.duration || 0;
-                const clampedPosition = Math.min(finalTime, audioDuration);
-                audioRef.current.currentTime = clampedPosition;
-                console.log('Audio position set to:', clampedPosition, 'Audio actual:', audioRef.current.currentTime);
+                const seekTime = Math.max(0, Math.min(finalTime, audioDuration));
+                audioRef.current.currentTime = seekTime;
+                
+                // Update timeline state immediately (audio timeupdate will sync)
+                useVideoEditorStore.setState((state) => {
+                  state.timeline.current_time = seekTime;
+                  state.timeline.is_playing = false;
+                });
+                
+                console.log(`SEEK: Audio=${seekTime.toFixed(2)}s, Timeline=${seekTime.toFixed(2)}s`);
               }
-              
-              // Update store last to avoid interference
-              useVideoEditorStore.setState((state) => {
-                state.timeline.current_time = Math.max(0, Math.min(finalTime, state.project.duration));
-                state.timeline.is_playing = false;
-              });
-              
-              console.log('Store timeline AFTER click:', useVideoEditorStore.getState().timeline.current_time);
-              
-              // Check again in next tick to see if something reset it
-              setTimeout(() => {
-                console.log('Store timeline after timeout:', useVideoEditorStore.getState().timeline.current_time);
-                console.log('Audio position after timeout:', audioRef.current?.currentTime);
-              }, 50);
             }}
           >
             {/* Main Video Track - Purple like Blotato */}
