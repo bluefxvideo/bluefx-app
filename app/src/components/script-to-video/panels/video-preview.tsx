@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { SimpleCaptionOverlay } from '../components/simple-caption-overlay';
+import { LipSyncCaptions, useWordTimings } from '../components/lip-sync-captions';
 import { VideoGenerationProgress } from '../components/video-generation-progress';
 import type { ScriptToVideoResponse } from '@/actions/tools/script-to-video-orchestrator';
 
@@ -61,6 +62,9 @@ export function VideoPreview({
   
   // Get video ID from result or project store for captions
   const videoId = result?.video_id || project?.video_id || null;
+  
+  // Load word-level timings for lip sync
+  const { words, isLoading: wordsLoading } = useWordTimings(videoId || '');
   
   // Track if audio URL changes
   const previousAudioUrl = useRef(audioUrl);
@@ -433,8 +437,28 @@ export function VideoPreview({
               );
             })()}
             
-            {/* Real-time Caption Overlay with Professional Chunks */}
-            <SimpleCaptionOverlay videoId={videoId} />
+            {/* Word-level Lip Sync Captions */}
+            {words.length > 0 ? (
+              <LipSyncCaptions videoId={videoId} words={words} />
+            ) : (
+              <SimpleCaptionOverlay videoId={videoId} />
+            )}
+            
+            {/* Loading indicator for word timings */}
+            {wordsLoading && (
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                fontSize: '12px',
+                color: '#fbbf24',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: '4px 8px',
+                borderRadius: '4px'
+              }}>
+                Loading lip sync...
+              </div>
+            )}
             
             {/* Center Play/Pause Button - Main Control */}
             <div 
