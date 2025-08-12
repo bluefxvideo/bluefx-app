@@ -6,13 +6,14 @@ import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { VideoPreview } from './panels/video-preview';
+import { ScriptPreviewPanel } from './components/script-preview-panel';
 import { useScriptToVideo } from './hooks/use-script-to-video';
 import { useVideoEditorStore } from './store/video-editor-store';
 import { createClient } from '@/app/supabase/client';
 import { FileText, Edit, History } from 'lucide-react';
 
 // Tab content components
-import { GeneratorTab } from './tabs/generator-tab';
+import { GeneratorTab, type MultiStepState } from './tabs/generator-tab';
 import { VideoEditorPanel } from './panels/video-editor-panel';
 import { HistoryTab } from './tabs/history-tab';
 import { UserChoiceDialog } from './components/user-choice-dialog';
@@ -21,6 +22,7 @@ import { UserChoiceDialog } from './components/user-choice-dialog';
  * Script to Video - Complete AI-Orchestrated Tool with Tabs
  * Uses uniform tool layout consistent with all BlueFX tools
  */
+
 export function ScriptToVideoPage() {
   const pathname = usePathname();
   const supabase = createClient();
@@ -29,6 +31,23 @@ export function ScriptToVideoPage() {
   
   // Local state for generation progress
   const [isLocalGenerating, setIsLocalGenerating] = useState(false);
+  
+  // Multi-step state - shared between generator tab and preview panel
+  const [multiStepState, setMultiStepState] = useState<MultiStepState>({
+    currentStep: 1,
+    totalSteps: 3,
+    useMyScript: false,
+    ideaText: '',
+    generatedScript: '',
+    finalScript: '',
+    isGeneratingScript: false,
+  });
+  
+  // Additional state for workflow tracking
+  const [voiceSelected, setVoiceSelected] = useState(false);
+  const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+
   const {
     edit,
     isGenerating,
@@ -110,15 +129,57 @@ export function ScriptToVideoPage() {
           <GeneratorTab
             credits={credits}
             onGeneratingChange={setIsLocalGenerating}
+            multiStepState={multiStepState}
+            onMultiStepStateChange={setMultiStepState}
+            onVoiceSelected={setVoiceSelected}
+            onGeneratingVoiceChange={setIsGeneratingVoice}
+            onGeneratingVideoChange={setIsGeneratingVideo}
           />
         );
     }
+  };
+
+  // Render appropriate right panel content
+  const renderRightPanel = () => {
+    // Show workflow checklist during all generation steps
+    if (activeTab === 'generate' && (multiStepState.currentStep <= 3 || multiStepState.isGeneratingScript || isGeneratingVideo)) {
+      return (
+        <ScriptPreviewPanel
+          currentStep={multiStepState.currentStep}
+          totalSteps={multiStepState.totalSteps}
+          generatedScript={multiStepState.generatedScript}
+          finalScript={multiStepState.finalScript}
+          useMyScript={multiStepState.useMyScript}
+          isGeneratingScript={multiStepState.isGeneratingScript}
+          isGeneratingVoice={isGeneratingVoice}
+          isGeneratingVideo={isGeneratingVideo}
+          voiceSelected={voiceSelected}
+          isEditable={true}
+          onScriptEdit={(script) => {
+            setMultiStepState(prev => ({ ...prev, finalScript: script }));
+          }}
+        />
+      );
+    }
+
+    // Default to video preview
+    return (
+      <VideoPreview
+        result={result}
+        isGenerating={isGenerating || isLocalGenerating}
+        isEditing={isEditing}
+        error={error}
+        onClearResults={clearResults}
+        activeMode={activeTab as 'generate' | 'editor'}
+      />
+    );
   };
 
   return (
     <StandardToolPage
       icon={FileText}
       title="Script to Video"
+      description="Transform scripts into professional video content"
       iconGradient="bg-primary"
       tabs={<StandardToolTabs tabs={scriptToVideoTabs} activeTab={activeTab} basePath="/dashboard/script-to-video" />}
     >
@@ -128,15 +189,8 @@ export function ScriptToVideoPage() {
           {renderTabContent()}
         </div>
         
-        {/* Right Panel - Video Preview/Output */}
-        <VideoPreview
-          result={result}
-          isGenerating={isGenerating || isLocalGenerating}
-          isEditing={isEditing}
-          error={error}
-          onClearResults={clearResults}
-          activeMode={activeTab as 'generate' | 'editor'}
-        />
+        {/* Right Panel - Script Preview or Video Preview */}
+        {renderRightPanel()}
       </StandardToolLayout>
       
       {/* User Choice Dialog - Global Modal */}

@@ -22,6 +22,13 @@ export interface ScriptToVideoRequest {
   user_id: string;
   aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
   quality?: 'draft' | 'standard' | 'premium';
+  voice_settings?: {
+    voice_id?: string;
+    speed?: 'slower' | 'normal' | 'faster';
+    emotion?: 'neutral' | 'excited' | 'calm' | 'confident' | 'authoritative';
+  };
+  was_script_generated?: boolean; // Whether script was generated from an idea
+  original_idea?: string; // The original idea if script was generated
 }
 
 export interface ScriptToVideoResponse {
@@ -177,7 +184,7 @@ export async function generateScriptToVideo(
     
     // Parallel execution
     const [voiceResult, imageResults] = await Promise.all([
-      generateVoiceForAllSegments(mockSegments, request.user_id, batch_id),
+      generateVoiceForAllSegments(mockSegments, request.user_id, batch_id, request.voice_settings),
       generateImagesForAllSegments(mockSegments, request.aspect_ratio || '16:9', request.user_id, batch_id)
     ]);
 
@@ -298,7 +305,7 @@ export async function generateScriptToVideo(
       audio_url: audioUrl,
       generated_images: generatedImages,
       final_script: finalScript,
-      was_script_generated: false,
+      was_script_generated: request.was_script_generated || false,
       segments: mockSegments.map((seg) => ({
         id: seg.id,
         text: seg.text,
@@ -344,10 +351,32 @@ export async function generateScriptToVideo(
 async function generateVoiceForAllSegments(
   segments: any[],
   user_id: string,
-  batch_id: string
+  batch_id: string,
+  voice_settings?: {
+    voice_id?: string;
+    speed?: 'slower' | 'normal' | 'faster';
+    emotion?: 'neutral' | 'excited' | 'calm' | 'confident' | 'authoritative';
+  }
 ) {
   // Import the voice service
   const { generateVoiceForAllSegments: generateVoice } = await import('../services/voice-generation-service');
+  
+  // Map voice IDs from UI selections to OpenAI voices
+  const voiceMapping: Record<string, string> = {
+    'alloy': 'alloy',
+    'nova': 'nova',
+    'echo': 'echo',
+    'onyx': 'onyx',
+    'anna': 'alloy',   // Legacy mapping
+    'eric': 'echo',    // Legacy mapping
+    'felix': 'onyx',   // Legacy mapping
+    'nina': 'nova'     // Legacy mapping
+  };
+  
+  const selectedVoice = voice_settings?.voice_id || 'alloy';
+  const mappedVoice = voiceMapping[selectedVoice] || 'alloy';
+  
+  console.log(`🎤 Using voice: ${selectedVoice} (mapped to: ${mappedVoice})`);
   
   // Prepare request
   const voiceRequest = {
@@ -359,9 +388,9 @@ async function generateVoiceForAllSegments(
       duration: s.duration
     })),
     voice_settings: {
-      voice_id: 'anna' as any,
-      speed: 'normal' as any,
-      emotion: 'neutral' as any
+      voice_id: mappedVoice as any,
+      speed: voice_settings?.speed || 'normal' as any,
+      emotion: voice_settings?.emotion || 'neutral' as any
     },
     user_id,
     batch_id
@@ -436,35 +465,49 @@ async function executeVideoAssembly(_images: any[], _audioUrl: string | undefine
 
 async function createStoryBasedSegments(script: string, _segmentAnalysis: { segment_count: number }): Promise<{ segments: any[], storyContext: any }> {
   try {
-    console.log('🎬 Creating storyboard segments...');
+    console.log('🎬 Creating storyboard segments with visual consistency...');
     
     const { object: storyboard } = await generateObject({
       model: openai('gpt-4o'),
       schema: z.object({
+        main_characters: z.string().describe('Description of main characters or subjects that appear throughout'),
+        visual_style: z.string().describe('Consistent visual style and mood'),
+        setting: z.string().describe('Primary setting or environment'),
         segments: z.array(z.object({
           text_content: z.string(),
-          image_prompt: z.string()
+          image_prompt: z.string().describe('Include character/setting consistency details')
         }))
       }),
-      prompt: `Create 4-6 diverse visual segments for this script: "${script}"
-      
-Each segment should:
-1. Have different visual scenes (no repetition)
-2. Show story progression 
-3. Use varied camera angles and environments
-4. Create engaging image prompts
+      prompt: `Analyze this script and create 4-6 visual segments with CONSISTENT characters and settings: "${script}"
 
-Split the script into natural segments with unique visuals for each.`
+CRITICAL: Maintain visual consistency across all segments!
+1. First identify the main character(s), setting, and visual style
+2. Use THE SAME character descriptions in EVERY segment
+3. Keep the setting/environment consistent or show logical progression
+4. Include character details (appearance, clothing, colors) in EVERY prompt
+5. Show story progression while maintaining character/setting consistency
+
+For example, if the story is about "a pink flying pig named Percy", EVERY image prompt must include "Percy the pink flying pig with wings" to maintain consistency.
+
+Split the script into natural segments with consistent visuals.`
     });
 
     console.log('✅ Storyboard created:', storyboard.segments.length, 'segments');
+    console.log('🎨 Visual consistency:', {
+      characters: storyboard.main_characters,
+      style: storyboard.visual_style,
+      setting: storyboard.setting
+    });
     
-    // Create segments with timing
+    // Create segments with timing and enhanced prompts
     let cumulativeTime = 0;
     const storySegments = storyboard.segments.map((scene, index) => {
       const duration = Math.max(3, Math.min(8, calculateSpeechDuration(scene.text_content)));
       const startTime = cumulativeTime;
       cumulativeTime += duration;
+      
+      // Enhance prompt with consistency details
+      const enhancedPrompt = `${scene.image_prompt}. Style: ${storyboard.visual_style}`;
       
       return {
         id: `segment-${index + 1}`,
@@ -472,13 +515,16 @@ Split the script into natural segments with unique visuals for each.`
         start_time: startTime,
         end_time: startTime + duration,
         duration: duration,
-        image_prompt: scene.image_prompt
+        image_prompt: enhancedPrompt
       };
     });
 
     const storyContext = {
       total_scenes: storyboard.segments.length,
-      ai_determined_count: storyboard.segments.length
+      ai_determined_count: storyboard.segments.length,
+      main_characters: storyboard.main_characters,
+      visual_style: storyboard.visual_style,
+      setting: storyboard.setting
     };
 
     return { segments: storySegments, storyContext };
@@ -511,12 +557,22 @@ export async function generateBasicScriptVideo(
   options?: {
     quality?: 'draft' | 'standard' | 'premium';
     aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
+    voice_settings?: {
+      voice_id?: string;
+      speed?: 'slower' | 'normal' | 'faster';
+      emotion?: 'neutral' | 'excited' | 'calm' | 'confident' | 'authoritative';
+    };
+    was_script_generated?: boolean;
+    original_idea?: string;
   }
 ): Promise<ScriptToVideoResponse> {
   return generateScriptToVideo({
     script_text,
     user_id,
     quality: options?.quality || 'standard',
-    aspect_ratio: options?.aspect_ratio || '16:9'
+    aspect_ratio: options?.aspect_ratio || '16:9',
+    voice_settings: options?.voice_settings,
+    was_script_generated: options?.was_script_generated,
+    original_idea: options?.original_idea
   });
 }

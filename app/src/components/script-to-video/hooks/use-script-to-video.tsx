@@ -131,6 +131,8 @@ export function useScriptToVideo() {
       speed?: 'slower' | 'normal' | 'faster';
       emotion?: 'neutral' | 'excited' | 'calm' | 'confident' | 'authoritative';
     };
+    was_script_generated?: boolean;
+    original_idea?: string;
   }) => {
     // Get the current user, either from state or fetch fresh
     let currentUserId = user?.id;

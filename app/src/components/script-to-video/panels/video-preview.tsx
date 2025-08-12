@@ -711,7 +711,7 @@ export function VideoPreview({
               </h3>
               <p className="text-muted-foreground leading-relaxed">
                 {activeMode === 'generate' 
-                  ? 'Enter your script to generate professional TikTok-style videos with AI orchestration.'
+                  ? 'Follow the multi-step process to generate professional TikTok-style videos with AI orchestration.'
                   : 'Generate a video first to access the timeline editor.'
                 }
               </p>
@@ -719,12 +719,11 @@ export function VideoPreview({
 
             <div className="space-y-2 pt-2">
               <div className="text-xs text-muted-foreground space-y-1">
-                <p className="font-medium">💡 AI Features:</p>
+                <p className="font-medium">🎬 Multi-Step Process:</p>
                 <ul className="text-left space-y-1">
-                  <li>• Intelligent script segmentation</li>
-                  <li>• Automated voice & visual generation</li>
-                  <li>• Perfect lip-sync captions</li>
-                  <li>• Professional timeline editing</li>
+                  <li>• <strong>Step 1:</strong> Idea/Script input</li>
+                  <li>• <strong>Step 2:</strong> Script review & editing</li>
+                  <li>• <strong>Step 3:</strong> Voice & video generation</li>
                 </ul>
               </div>
             </div>

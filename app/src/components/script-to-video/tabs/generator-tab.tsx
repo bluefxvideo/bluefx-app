@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Film, Mic, Zap } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Film, Mic, Zap, ArrowRight, ArrowLeft, FileText, Play, Square, CheckCircle } from 'lucide-react';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
 import { useScriptToVideo } from '../hooks/use-script-to-video';
@@ -14,24 +14,74 @@ import { useScriptToVideo } from '../hooks/use-script-to-video';
 interface GeneratorTabProps {
   credits: number;
   onGeneratingChange?: (isGenerating: boolean) => void;
+  multiStepState?: MultiStepState;
+  onMultiStepStateChange?: (state: MultiStepState) => void;
+  onVoiceSelected?: (selected: boolean) => void;
+  onGeneratingVoiceChange?: (isGenerating: boolean) => void;
+  onGeneratingVideoChange?: (isGenerating: boolean) => void;
+}
+
+// Multi-step state interface
+export interface MultiStepState {
+  currentStep: number;
+  totalSteps: number;
+  useMyScript: boolean;
+  ideaText: string;
+  generatedScript: string;
+  finalScript: string;
+  isGeneratingScript: boolean;
 }
 
 /**
- * Generator Tab - Main script to video generation interface
- * The core functionality for AI-orchestrated video creation
+ * Generator Tab - Multi-step script to video generation interface
+ * Step 1: Idea/Script input with option to use existing script
+ * Step 2: Script review and editing
+ * Step 3: Voice selection and generation
  */
 export function GeneratorTab({
   credits,
-  onGeneratingChange
+  onGeneratingChange,
+  multiStepState,
+  onMultiStepStateChange,
+  onVoiceSelected,
+  onGeneratingVoiceChange,
+  onGeneratingVideoChange
 }: GeneratorTabProps) {
-  // Local state for generation
-  const [isLocalGenerating, setIsLocalGenerating] = useState(false);
+  // Use shared multi-step state with fallback
+  const stepState = multiStepState || {
+    currentStep: 1,
+    totalSteps: 3,
+    useMyScript: false,
+    ideaText: '',
+    generatedScript: '',
+    finalScript: '',
+    isGeneratingScript: false,
+  };
+
+  const setStepState = (updater: MultiStepState | ((prev: MultiStepState) => MultiStepState)) => {
+    if (!onMultiStepStateChange) return;
+    
+    if (typeof updater === 'function') {
+      const newState = updater(stepState);
+      onMultiStepStateChange(newState);
+    } else {
+      onMultiStepStateChange(updater);
+    }
+  };
+
+  // Local state for voice selection and generation
+  const [selectedVoice, setSelectedVoice] = useState('anna');
+  const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
+  const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+
+  // Voice playback state
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
   // Get state and actions from Zustand store
   const {
-    // State
     project,
-    // Actions
     updateProject,
     showToast
   } = useVideoEditorStore();
@@ -39,12 +89,10 @@ export function GeneratorTab({
   // Use real script-to-video hook
   const { 
     generateBasic, 
-    isGenerating,
-    reloadCredits
   } = useScriptToVideo();
 
+  // Form data for final generation
   const [formData, setFormData] = useState({
-    script_text: project.original_script || '',
     video_style: {
       tone: project.generation_settings.video_style.tone,
       pacing: project.generation_settings.video_style.pacing,
@@ -58,345 +106,591 @@ export function GeneratorTab({
     quality: project.generation_settings.quality,
   });
 
-  const handleSubmit = async () => {
-    console.log('🚀 handleSubmit called!');
-    
-    if (!formData.script_text.trim()) {
-      showToast('Please enter a script to generate video', 'warning');
+  // Generate script from idea using AI
+  const generateScript = async () => {
+    if (!stepState.ideaText.trim()) {
+      showToast('Please enter your video idea', 'warning');
       return;
     }
-    
-    console.log('✅ Script validation passed');
-    
-    // Update project settings
-    updateProject({
-      generation_settings: {
-        video_style: formData.video_style,
-        voice_settings: formData.voice_settings,
-        quality: formData.quality
-      },
-      aspect_ratio: '9:16'
-    });
 
-    console.log('🎬 About to call generateBasic...');
-    
-    // Generate video from script using real orchestrator
+    setStepState({ ...stepState, isGeneratingScript: true });
+    onGeneratingChange?.(true);
+
     try {
-      setIsLocalGenerating(true);
-      onGeneratingChange?.(true);
+      // Use client wrapper for script generation
+      const { generateQuickScript } = await import('@/actions/client/script-generation-client');
       
-      console.log('🎬 Generator Tab: Starting generation...', {
-        scriptLength: formData.script_text.length,
-        quality: formData.quality,
-        video_style: formData.video_style,
-        voice_settings: formData.voice_settings
+      const result = await generateQuickScript(
+        stepState.ideaText, 
+        project.user_id || '', 
+        { 
+          tone: formData.video_style.tone 
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Script generation failed');
+      }
+
+      setStepState({
+        ...stepState,
+        generatedScript: result.script,
+        finalScript: result.script,
+        isGeneratingScript: false,
+        currentStep: 2  // Automatically advance to Step 2 for review
       });
+
+      showToast(`Script generated! ${result.metadata?.word_count || 0} words, ~${result.metadata?.estimated_duration || 0}s`, 'success');
+    } catch (error) {
+      console.error('Script generation failed:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to generate script. Please try again.', 
+        'error'
+      );
+      setStepState({ ...stepState, isGeneratingScript: false });
+    } finally {
+      onGeneratingChange?.(false);
+    }
+  };
+
+  // Generate voice from script
+  const generateVoice = async () => {
+    if (!stepState.finalScript.trim()) {
+      showToast('No script available for voice generation', 'warning');
+      return;
+    }
+
+    setIsGeneratingVoice(true);
+    onGeneratingChange?.(true);
+    onGeneratingVoiceChange?.(true);
+
+    try {
+      // Mock voice generation - replace with actual voice service call
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      console.log('🚀 Calling generateBasic now...');
+      const mockAudioUrl = 'https://example.com/generated-voice.mp3';
       
-      await generateBasic(formData.script_text, {
+      setVoiceAudioUrl(mockAudioUrl);
+      setIsGeneratingVoice(false);
+
+      showToast('Voice generated successfully!', 'success');
+    } catch (error) {
+      console.error('Voice generation failed:', error);
+      showToast('Failed to generate voice. Please try again.', 'error');
+      setIsGeneratingVoice(false);
+    } finally {
+      onGeneratingChange?.(false);
+      onGeneratingVoiceChange?.(false);
+    }
+  };
+
+  // Final video generation
+  const generateVideo = async () => {
+    if (!stepState.finalScript.trim()) {
+      showToast('No script available for video generation', 'warning');
+      return;
+    }
+
+    setIsGeneratingVideo(true);
+    onGeneratingChange?.(true);
+    onGeneratingVideoChange?.(true);
+
+    try {
+      // Update project settings
+      updateProject({
+        generation_settings: {
+          video_style: formData.video_style,
+          voice_settings: {
+            ...formData.voice_settings,
+            voice_id: selectedVoice
+          },
+          quality: formData.quality
+        },
+        aspect_ratio: '9:16'
+      });
+
+      // Generate video using the orchestrator
+      await generateBasic(stepState.finalScript, {
         quality: formData.quality,
         aspect_ratio: '9:16',
         video_style: formData.video_style,
-        voice_settings: formData.voice_settings
+        voice_settings: {
+          ...formData.voice_settings,
+          voice_id: selectedVoice as "anna" | "eric" | "felix" | "oscar" | "nina" | "sarah"
+        },
+        // Mark if script was generated from idea
+        was_script_generated: !stepState.useMyScript && stepState.generatedScript.length > 0,
+        original_idea: !stepState.useMyScript ? stepState.ideaText : undefined
       });
-      
-      console.log('✅ Generator Tab: Generation completed successfully');
-      showToast('Video generation completed! Redirecting to editor...', 'success');
+
+      showToast('Video generation completed! Check the preview panel.', 'success');
     } catch (error) {
-      console.error('❌ Generator Tab: Generation failed:', error);
+      console.error('Video generation failed:', error);
       showToast(
         error instanceof Error ? error.message : 'Failed to generate video. Please try again.', 
         'error'
       );
     } finally {
-      setIsLocalGenerating(false);
+      setIsGeneratingVideo(false);
       onGeneratingChange?.(false);
+      onGeneratingVideoChange?.(false);
     }
   };
 
-  const estimatedCredits = Math.ceil(formData.script_text.length / 50) * 5 + 10;
+  // Handle step navigation
+  const goToStep = (step: number) => {
+    setStepState({ ...stepState, currentStep: step });
+  };
 
-  // Debug info  
-  const hasScript = !!formData.script_text.trim();
-  const creditCheck = credits > 0 && credits < estimatedCredits;
-  const isDisabled = !hasScript || isGenerating || isLocalGenerating || creditCheck;
-  
-  console.log('🔍 GeneratorTab Debug:', `
-    Script: "${formData.script_text}" (${formData.script_text.length} chars)
-    Has Script: ${hasScript}
-    Credits: ${credits}
-    Estimated: ${estimatedCredits}  
-    Is Generating: ${isGenerating}
-    Credit Check: ${creditCheck}
-    Button Disabled: ${isDisabled}
-    
-    Disable Reasons:
-    - No Script: ${!hasScript}
-    - Generating: ${isGenerating}  
-    - Insufficient Credits: ${creditCheck}
-  `);
+  const canProceedFromStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return stepState.useMyScript 
+          ? stepState.finalScript.trim().length > 0
+          : stepState.ideaText.trim().length > 0;
+      case 2:
+        return stepState.finalScript.trim().length > 0;
+      case 3:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  // Handle step actions
+  const handleStepAction = async () => {
+    if (stepState.currentStep === 1) {
+      if (stepState.useMyScript) {
+        // Skip script generation, go to step 2
+        goToStep(2);
+      } else if (stepState.generatedScript) {
+        // Script already generated, proceed to step 2
+        goToStep(2);
+      } else {
+        // Generate script from idea
+        await generateScript();
+        // Stay on step 1 to show generated script preview, then allow proceeding to step 2
+      }
+    } else if (stepState.currentStep === 2) {
+      // Proceed to voice generation step
+      goToStep(3);
+    } else if (stepState.currentStep === 3) {
+      // Generate video
+      await generateVideo();
+    }
+  };
+
+  const resetWizard = () => {
+    setStepState({
+      currentStep: 1,
+      totalSteps: 3,
+      useMyScript: false,
+      ideaText: '',
+      generatedScript: '',
+      finalScript: '',
+      isGeneratingScript: false,
+    });
+    setSelectedVoice('anna');
+    setVoiceAudioUrl(null);
+    setIsGeneratingVoice(false);
+    setIsGeneratingVideo(false);
+  };
+
+  // Voice playback functionality
+  const handleVoicePlayback = (voiceId: string, sampleUrl: string) => {
+    if (playingVoiceId === voiceId && currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    const audio = new Audio(sampleUrl);
+    setCurrentAudio(audio);
+    setPlayingVoiceId(voiceId);
+
+    audio.addEventListener('ended', () => {
+      setCurrentAudio(null);
+      setPlayingVoiceId(null);
+    });
+
+    audio.addEventListener('error', () => {
+      console.error('Audio playback failed for:', sampleUrl);
+      setCurrentAudio(null);
+      setPlayingVoiceId(null);
+    });
+
+    audio.play().catch((error) => {
+      console.error('Audio playback failed:', error);
+      setCurrentAudio(null);
+      setPlayingVoiceId(null);
+    });
+  };
+
+  // Update voice selection
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      voice_settings: {
+        ...prev.voice_settings,
+        voice_id: selectedVoice
+      }
+    }));
+    // Notify parent that voice has been selected
+    onVoiceSelected?.(true);
+  }, [selectedVoice, onVoiceSelected]);
+
+  const estimatedCredits = Math.ceil(stepState.finalScript.length / 50) * 5 + 10;
 
   return (
     <TabContentWrapper>
       {/* Header */}
       <TabHeader
         icon={Film}
-        title="Script to Video"
-        description="Transform your script into professional video content"
+        title="Script to Video Generator"
+        description="Create AI-powered video content with multi-step workflow"
       />
 
       {/* Form Content */}
       <TabBody>
-        {/* Error Display */}
-        {project.status === 'error' && (
-          <TabError error="Generation failed. Please try again with a different script." />
-        )}
-        {/* Smart Input Field */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-sm font-medium">
-              Script or Video Idea
-            </Label>
+        {/* Progress Indicator */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-base font-medium">Step {stepState.currentStep} of {stepState.totalSteps}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetWizard}
+              className="text-xs"
+            >
+              Start Over
+            </Button>
           </div>
-          <Textarea
-            placeholder="Enter your script OR describe your video idea:
+          <div className="w-full bg-muted rounded-full h-2">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(stepState.currentStep / stepState.totalSteps) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Step 1: Idea/Script Input */}
+        {stepState.currentStep === 1 && (
+          <div className="space-y-4">
+            {/* Use My Script Checkbox */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="use-my-script"
+                checked={stepState.useMyScript}
+                onCheckedChange={(checked) => {
+                  setStepState({ 
+                    ...stepState, 
+                    useMyScript: checked as boolean,
+                    // Clear opposite field when switching modes
+                    ideaText: checked ? '' : stepState.ideaText,
+                    finalScript: checked ? stepState.finalScript : ''
+                  });
+                }}
+              />
+              <Label htmlFor="use-my-script" className="text-sm font-medium">
+                Use my script (skip script generation)
+              </Label>
+            </div>
+
+            {stepState.useMyScript ? (
+              /* Script Input Mode */
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Your Script</Label>
+                </div>
+                <Textarea
+                  placeholder="Enter your complete script here...
+
+Example:
+Did you know 90% of startups fail? Here's how to validate your idea in 48 hours...
+
+[Your full script content]"
+                  value={stepState.finalScript}
+                  onChange={(e) => setStepState({ ...stepState, finalScript: e.target.value })}
+                  rows={10}
+                  className="resize-none"
+                />
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>{stepState.finalScript.length} characters</span>
+                  <span>Word count: {stepState.finalScript.trim().split(/\s+/).filter(Boolean).length}</span>
+                </div>
+              </div>
+            ) : (
+              /* Idea Input Mode */
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Video Idea</Label>
+                </div>
+                <Textarea
+                  placeholder="Describe your video idea and AI will generate a script...
 
 Examples:
-• &quot;Create a story about a cat winning the lottery&quot;
-• &quot;Did you know 90% of startups fail? Here's how to validate your idea in 48 hours...&quot;
+• Create a story about a cat winning the lottery
+• Explain how to validate a startup idea in 48 hours  
+• Make a tutorial about cooking the perfect pasta
+• Write an inspirational message about overcoming challenges"
+                  value={stepState.ideaText}
+                  onChange={(e) => setStepState({ ...stepState, ideaText: e.target.value })}
+                  rows={6}
+                  className="resize-none"
+                />
+                <div className="text-sm text-muted-foreground">
+                  {stepState.ideaText.length} characters • AI will generate a ~200-300 word script
+                </div>
 
-AI will automatically detect and handle both!"
-            value={formData.script_text}
-            onChange={(e) => setFormData((prev) => ({ ...prev, script_text: e.target.value }))}
-            rows={8}
-            className="resize-none"
-          />
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{formData.script_text.length} characters</span>
-            <span>
-              {formData.script_text.length < 50 
-                ? "💡 Idea mode" 
-                : formData.script_text.length < 200 
-                ? "📝 Short script" 
-                : "📜 Full script"
-              } • ~4-6 segments
-            </span>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Video Style Settings */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Film className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-sm font-medium">Video Style</Label>
+        {/* Step 2: Script Review and Editing */}
+        {stepState.currentStep === 2 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Review and Edit Script</Label>
+            </div>
+            <Textarea
+              placeholder="Review and edit your script before generating voice..."
+              value={stepState.finalScript}
+              onChange={(e) => setStepState({ ...stepState, finalScript: e.target.value })}
+              rows={12}
+              className="resize-none"
+            />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{stepState.finalScript.length} characters</span>
+              <span>Word count: {stepState.finalScript.trim().split(/\s+/).filter(Boolean).length}</span>
+            </div>
+            
+            <Card className="p-3 bg-blue-50 dark:bg-blue-950/20">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                💡 <strong>Tip:</strong> Make any final edits to your script here. Once you proceed to the next step, 
+                you&apos;ll select a voice and generate the audio.
+              </p>
+            </Card>
           </div>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <Label
-                htmlFor="tone"
-                className="text-xs text-muted-foreground"
-              >
-                Tone
-              </Label>
-              <Select
-                value={formData.video_style.tone}
-                onValueChange={(value: "professional" | "casual" | "educational" | "dramatic" | "energetic") => setFormData((prev) => ({
-                  ...prev,
-                  video_style: { ...prev.video_style, tone: value }
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="professional">Professional</SelectItem>
-                  <SelectItem value="casual">Casual</SelectItem>
-                  <SelectItem value="educational">Educational</SelectItem>
-                  <SelectItem value="dramatic">Dramatic</SelectItem>
-                  <SelectItem value="energetic">Energetic</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* Step 3: Voice Selection and Generation */}
+        {stepState.currentStep === 3 && (
+          <div className="space-y-4">
+            {/* Voice Selection */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">Select Voice</Label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  { 
+                    id: 'alloy', 
+                    name: 'Alloy', 
+                    description: 'Natural female voice',
+                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_01.mp3'
+                  },
+                  { 
+                    id: 'nova', 
+                    name: 'Nova', 
+                    description: 'Warm female voice',
+                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_2.mp3'
+                  },
+                  { 
+                    id: 'echo', 
+                    name: 'Echo', 
+                    description: 'Deep male voice',
+                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_1.mp3'
+                  },
+                  { 
+                    id: 'onyx', 
+                    name: 'Onyx', 
+                    description: 'Professional male voice',
+                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_2.mp3'
+                  }
+                ].map((voice) => (
+                  <Card
+                    key={voice.id}
+                    className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md bg-white dark:bg-gray-800/40 ${
+                      selectedVoice === voice.id 
+                        ? 'ring-2 ring-purple-500 bg-blue-100/10 shadow-lg' 
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => setSelectedVoice(voice.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{voice.name}</p>
+                        <p className="text-xs text-muted-foreground">{voice.description}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleVoicePlayback(voice.id, voice.sampleUrl);
+                        }}
+                      >
+                        {playingVoiceId === voice.id ? (
+                          <Square className="w-3 h-3" />
+                        ) : (
+                          <Play className="w-3 h-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
 
-            <div>
-              <Label
-                htmlFor="pacing"
-                className="text-xs text-muted-foreground"
+            {/* Voice Generation Button */}
+            {!voiceAudioUrl && (
+              <Button
+                onClick={generateVoice}
+                disabled={isGeneratingVoice}
+                variant="outline"
+                className="w-full"
               >
-                Pacing
-              </Label>
-              <Select
-                value={formData.video_style.pacing}
-                onValueChange={(value: "slow" | "medium" | "fast") => setFormData((prev) => ({
-                  ...prev,
-                  video_style: { ...prev.video_style, pacing: value }
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="slow">Slow & Steady</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="fast">Fast & Viral</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {isGeneratingVoice ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Generating Voice...
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-4 h-4 mr-2" />
+                    Generate Voice Preview
+                  </>
+                )}
+              </Button>
+            )}
 
-            <div>
-              <Label
-                htmlFor="visual-style"
-                className="text-xs text-muted-foreground"
-              >
-                Visual Style
-              </Label>
-              <Select
-                value={formData.video_style.visual_style}
-                onValueChange={(value: "artistic" | "minimal" | "realistic" | "dynamic") => setFormData((prev) => ({
-                  ...prev,
-                  video_style: { ...prev.video_style, visual_style: value }
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="realistic">Realistic</SelectItem>
-                  <SelectItem value="artistic">Artistic</SelectItem>
-                  <SelectItem value="minimal">Minimal</SelectItem>
-                  <SelectItem value="dynamic">Dynamic</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Voice Preview */}
+            {voiceAudioUrl && (
+              <Card className="p-4 bg-green-50 dark:bg-green-950/20">
+                <h3 className="font-semibold mb-3">Voice Generated!</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium">Voice: {selectedVoice}</p>
+                      <p className="text-xs text-muted-foreground">Ready for video generation</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <audio controls className="flex-1">
+                      <source src={voiceAudioUrl} type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setVoiceAudioUrl(null);
+                      }}
+                      className="text-xs"
+                    >
+                      Regenerate
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Generation Summary */}
+            <Card className="p-4 bg-white dark:bg-gray-800/40">
+              <h3 className="font-semibold mb-3">Generation Summary</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Script Length:</span>
+                  <span className="text-muted-foreground">
+                    {stepState.finalScript.trim().split(/\s+/).filter(Boolean).length} words
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Voice:</span>
+                  <span className="text-muted-foreground">{selectedVoice}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Estimated Credits:</span>
+                  <span className="text-muted-foreground">{estimatedCredits} credits</span>
+                </div>
+              </div>
+            </Card>
           </div>
-        </div>
+        )}
 
-        {/* Voice Settings */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Mic className="w-4 h-4 text-muted-foreground" />
-            <Label className="text-sm font-medium">Voice Settings</Label>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <Label
-                htmlFor="voice"
-                className="text-xs text-muted-foreground"
-              >
-                Voice
-              </Label>
-              <Select
-                value={formData.voice_settings.voice_id}
-                onValueChange={(value: string) => setFormData((prev) => ({
-                  ...prev,
-                  voice_settings: { ...prev.voice_settings, voice_id: value }
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="anna">Anna (Female)</SelectItem>
-                  <SelectItem value="eric">Eric (Male)</SelectItem>
-                  <SelectItem value="felix">Felix (Male)</SelectItem>
-                  <SelectItem value="oscar">Oscar (Male)</SelectItem>
-                  <SelectItem value="nina">Nina (Female)</SelectItem>
-                  <SelectItem value="sarah">Sarah (Female)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label
-                htmlFor="speed"
-                className="text-xs text-muted-foreground"
-              >
-                Speed
-              </Label>
-              <Select
-                value={formData.voice_settings.speed}
-                onValueChange={(value: "slower" | "normal" | "faster") => setFormData((prev) => ({
-                  ...prev,
-                  voice_settings: { ...prev.voice_settings, speed: value }
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="slower">Slower</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="faster">Faster</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label
-                htmlFor="emotion"
-                className="text-xs text-muted-foreground"
-              >
-                Emotion
-              </Label>
-              <Select
-                value={formData.voice_settings.emotion}
-                onValueChange={(value: "neutral" | "excited" | "calm" | "authoritative" | "confident") => setFormData((prev) => ({
-                  ...prev,
-                  voice_settings: { ...prev.voice_settings, emotion: value }
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="neutral">Neutral</SelectItem>
-                  <SelectItem value="excited">Excited</SelectItem>
-                  <SelectItem value="calm">Calm</SelectItem>
-                  <SelectItem value="confident">Confident</SelectItem>
-                  <SelectItem value="authoritative">Authoritative</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-
+        {/* Error Display */}
+        {project.status === 'error' && (
+          <TabError error="Generation failed. Please try again with different settings." />
+        )}
       </TabBody>
 
-      {/* Generate Button - Outside scrollable area */}
+      {/* Footer Buttons - Outside scrollable area */}
       <div className="mt-6">
-        <Button
-          onClick={(e) => {
-            console.log('🎬 Generate Button Clicked!', { 
-              event: e,
-              isDisabled,
-              preventDefault: e.preventDefault,
-              target: e.target 
-            });
-            handleSubmit();
-          }}
-          disabled={
-            !formData.script_text.trim() || isGenerating || (credits > 0 && credits < estimatedCredits)
-          }
-          className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium"
-          size="lg"
-        >
-          {isGenerating ? (
-            <>
-              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              AI Generating Video...
-            </>
-          ) : (
-            <>
-              <Film className="w-4 h-4 mr-2" />
-              Generate Video ({estimatedCredits} credits)
-            </>
+        <div className="flex gap-2">
+          {stepState.currentStep > 1 && (
+            <Button
+              variant="outline"
+              onClick={() => goToStep(stepState.currentStep - 1)}
+              disabled={stepState.isGeneratingScript || isGeneratingVoice || isGeneratingVideo}
+              className="flex-1"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
           )}
-        </Button>
+          
+          <Button
+            onClick={handleStepAction}
+            disabled={
+              !canProceedFromStep(stepState.currentStep) || 
+              stepState.isGeneratingScript || 
+              isGeneratingVoice || 
+              isGeneratingVideo ||
+              (stepState.currentStep === 3 && credits > 0 && credits < estimatedCredits)
+            }
+            className={`${stepState.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium`}
+            size="lg"
+          >
+            <Film className="w-4 h-4 mr-2" />
+            {stepState.isGeneratingScript ? (
+              <>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Generating Script...
+              </>
+            ) : isGeneratingVoice ? (
+              <>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Generating Voice...
+              </>
+            ) : isGeneratingVideo ? (
+              <>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Generating Video...
+              </>
+            ) : (
+              stepState.currentStep === 3 ? `Generate Video (${estimatedCredits} credits)` :
+              stepState.currentStep === 2 ? 'Continue to Voice' :
+              stepState.useMyScript ? 'Continue with Script' : 
+              stepState.generatedScript ? 'Continue to Review' : 'Generate Script'
+            )}
+            {stepState.currentStep < 3 && !stepState.isGeneratingScript && <ArrowRight className="w-4 h-4 ml-2" />}
+          </Button>
+        </div>
       </div>
     </TabContentWrapper>
   );

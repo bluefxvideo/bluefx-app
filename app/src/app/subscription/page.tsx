@@ -45,7 +45,7 @@ interface UserProfile {
   email?: string
   user_metadata?: {
     payment_processor?: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     [key: string]: any
   }
 }
