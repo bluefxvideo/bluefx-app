@@ -983,11 +983,22 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             has_images: !!results.generated_images,
             images_count: results.generated_images?.length || 0,
             has_audio: !!results.audio_url,
-            full_results: results
+            video_id: results.video_id,
+            prediction_id: results.prediction_id,
+            batch_id: results.batch_id,
+            available_keys: Object.keys(results)
           });
           
           set((state) => {
             // Convert orchestrator results to store segments
+            console.log('🔍 Raw segment data:', results.segments?.map((s: any, i: number) => ({
+              index: i,
+              start_time: s.start_time,
+              end_time: s.end_time,
+              duration: s.duration,
+              text_preview: s.text?.substring(0, 50)
+            })));
+            
             const segments: SegmentData[] = results.segments?.map((segment: any, index: number) => {
               
               // Find matching image by segment_index to ensure correct mapping
@@ -996,14 +1007,26 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
               
               console.log(`Segment ${index}: "${segment.text.substring(0, 50)}..." -> Image: ${imageUrl ? 'Found' : 'Missing'}`);
               
+              // Calculate proper timing if missing or corrupted
+              const segmentDuration = segment.duration || 5; // Default 5 seconds
+              let startTime = segment.start_time;
+              let endTime = segment.end_time;
+              
+              // If timing is null or invalid, use emergency fallback (should not happen with new flow)
+              if (startTime == null || startTime === 'null' || isNaN(startTime)) {
+                startTime = index * segmentDuration; // Emergency fallback timing
+                endTime = startTime + segmentDuration;
+                console.error(`🚨 EMERGENCY: Using fallback timing for segment ${index}: ${startTime}-${endTime} - THIS SHOULD NOT HAPPEN`);
+              }
+              
               return {
                 id: segment.id || `seg_${index + 1}`,
                 index,
                 text: segment.text,
                 text_hash: createTextHash(segment.text),
-                start_time: segment.start_time,
-                end_time: segment.end_time,
-                duration: segment.duration,
+                start_time: startTime,
+                end_time: endTime,
+                duration: segmentDuration,
                 original_duration: segment.duration,
                 assets: {
                   voice: {
@@ -1043,12 +1066,22 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             state.project.duration = results.timeline_data?.total_duration || 60;
             state.project.status = 'editing';
             state.project.video_url = results.video_url;
-            state.project.video_id = results.video_id; // Store video_id for captions
+            // Try multiple sources for video_id
+            state.project.video_id = results.video_id || results.prediction_id || results.batch_id;
+            console.log('🔍 Setting video_id from:', { 
+              video_id: results.video_id, 
+              prediction_id: results.prediction_id, 
+              batch_id: results.batch_id,
+              final_video_id: state.project.video_id 
+            });
             state.project.original_script = results.final_script || results.script_text || state.project.original_script;
             state.ui.loading.global = false;
             
             // Update timeline to match duration
             state.timeline.viewport_end = Math.max(30, state.project.duration);
+            
+            // Clear any existing selections
+            state.timeline.selected_segment_ids = [];
             
             // Show notification if script was generated from prompt
             if (results.was_script_generated) {
@@ -1161,7 +1194,13 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
                 state.timeline.selected_segment_ids.push(id);
               }
             } else {
-              state.timeline.selected_segment_ids = [id];
+              // Only select if not already selected, or if we're switching to a different segment
+              const currentSelection = state.timeline.selected_segment_ids;
+              const isAlreadySelected = currentSelection.length === 1 && currentSelection[0] === id;
+              
+              if (!isAlreadySelected) {
+                state.timeline.selected_segment_ids = [id];
+              }
               
               // DON'T auto-seek when selecting a segment from the timeline view
               // This was causing the timeline to jump to segment start (0) when clicking on timeline
@@ -1196,11 +1235,19 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
                 data: { old_text: oldText, new_text: text }
               });
               state.ui.feedback.unsaved_changes = true;
+              
+              // Mark segment as needing voice regeneration
+              if (!state.timeline.segments_needing_voice.includes(id)) {
+                state.timeline.segments_needing_voice.push(id);
+              }
             }
           });
           
           // Mark timeline as out of sync since text changed
           get().markTimelineOutOfSync([id]);
+          
+          // Show resync prompt
+          get().showToast('Text updated. Click "Resync Timeline" to regenerate voice and realign timing.', 'warning');
         },
 
         openTextEditor: (segmentId: string) => {
@@ -1910,12 +1957,80 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
           });
           
           try {
-            // This would call the Edit Orchestrator to regenerate voice + captions
-            get().showToast('Regenerating voice and captions...', 'info');
+            get().showToast('Regenerating voice and realigning timeline...', 'info');
             
-            // Mock regeneration process
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Import the resync service
+            const { resyncSegmentsAfterEdit } = await import('@/actions/services/segment-resync-service');
             
+            // Get current state
+            const state = get();
+            const segments = state.segments;
+            const videoId = state.project.video_id;
+            const userId = state.project.user_id;
+            
+            if (!videoId) {
+              throw new Error('No video ID found');
+            }
+            
+            // Prepare segments with resync flags
+            const segmentsForResync = segments.map(seg => ({
+              id: seg.id,
+              text: seg.text,
+              start_time: seg.start_time,
+              end_time: seg.end_time,
+              duration: seg.duration,
+              image_prompt: seg.assets.image.prompt || '',
+              needs_voice_regen: state.timeline.segments_needing_voice.includes(seg.id)
+            }));
+            
+            // Execute resync
+            const result = await resyncSegmentsAfterEdit({
+              video_id: videoId,
+              segments: segmentsForResync,
+              voice_settings: state.settings.voice,
+              user_id: userId
+            });
+            
+            if (result.success) {
+              // Update segments with new timing
+              set((state) => {
+                // Update segments with realigned timing
+                result.segments.forEach((resyncedSeg: any) => {
+                  const storeSegment = state.segments.find(s => s.id === resyncedSeg.id);
+                  if (storeSegment) {
+                    storeSegment.start_time = resyncedSeg.start_time;
+                    storeSegment.end_time = resyncedSeg.end_time;
+                    storeSegment.duration = resyncedSeg.duration;
+                    
+                    // Update voice asset
+                    if (result.audio_url) {
+                      storeSegment.assets.voice = {
+                        url: result.audio_url,
+                        status: 'ready'
+                      };
+                    }
+                    
+                    // Update word timings if available
+                    if (resyncedSeg.word_timings) {
+                      storeSegment.assets.captions.words = resyncedSeg.word_timings;
+                    }
+                  }
+                });
+                
+                // Clear sync flags
+                state.timeline.segments_needing_voice = [];
+                state.timeline.sync_status = 'synced';
+                state.timeline.last_segment_change = null;
+                
+                // Update project duration
+                state.project.duration = Math.max(...state.segments.map(s => s.end_time));
+              });
+              
+              get().showToast('Timeline synchronized successfully!', 'success');
+            } else {
+              throw new Error(result.error || 'Resync failed');
+            }
+          
             set((state) => {
               state.timeline.sync_status = 'synced';
               state.timeline.last_audio_generation = new Date().toISOString();

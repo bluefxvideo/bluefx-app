@@ -169,16 +169,17 @@ export function useWordTimings(videoId: string) {
           
           if (data.segments) {
             data.segments.forEach((segment: any) => {
-              if (segment.words) {
-                segment.words.forEach((word: any) => {
-                  wordTimings.push({
-                    text: word.word || word.text,
-                    start_time: word.start,
-                    end_time: word.end,
-                    confidence: word.confidence || 0.8
-                  });
+              // Handle both word_timings array and words array formats
+              const wordsArray = segment.word_timings || segment.words || [];
+              
+              wordsArray.forEach((word: any) => {
+                wordTimings.push({
+                  text: word.word || word.text || word,
+                  start_time: word.start || word.start_time || 0,
+                  end_time: word.end || word.end_time || 0,
+                  confidence: word.confidence || 0.8
                 });
-              }
+              });
             });
           }
           

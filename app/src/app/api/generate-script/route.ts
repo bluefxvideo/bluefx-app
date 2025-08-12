@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateScriptFromIdea } from '@/actions/services/script-generation-service';
+import { generateScriptFromIdeaAPI } from '@/services/script-generation-api';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const result = await generateScriptFromIdea({
+    // Basic validation
+    if (!body.idea || !body.user_id) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          script: '',
+          credits_used: 0,
+          error: 'Missing required fields: idea and user_id' 
+        },
+        { status: 400 }
+      );
+    }
+    
+    const result = await generateScriptFromIdeaAPI({
       idea: body.idea,
       user_id: body.user_id,
       style: body.style

@@ -294,6 +294,7 @@ export function GeneratorTab({
     setVoiceAudioUrl(null);
     setIsGeneratingVoice(false);
     setIsGeneratingVideo(false);
+    onVoiceSelected(false); // Reset voice selection state
   };
 
   // Voice playback functionality

@@ -39,8 +39,8 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   
   // Text editing state
-  const [_editingSegmentId, _setEditingSegmentId] = useState<string | null>(null);
-  const [_editingText, _setEditingText] = useState('');
+  const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   // Get state and actions from Zustand store
   const {
@@ -397,13 +397,28 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
               
               
               <div className="grid grid-cols-2 gap-3">
-                {segments.map((segment, i) => {
-                  const isSelected = timeline.selected_segment_ids.includes(segment.id);
-                  const isCurrentlyPlaying = timeline.current_time >= segment.start_time && timeline.current_time < segment.end_time;
-                  const isDragging = draggedSegment === segment.id;
-                  const isDragOver = dragOverIndex === i;
-                  const needsVoice = timeline.segments_needing_voice.includes(segment.id);
-                  const hasVoiceIssue = segment.assets.voice.status === 'pending' || needsVoice;
+                {(() => {
+                  // Find the currently playing segment index using realigned timing (only one should be playing)
+                  // This ensures left panel highlighting matches image/caption timing
+                  const playingSegmentIndex = timeline.is_playing ? 
+                    segments.findIndex(seg => 
+                      timeline.current_time >= seg.start_time && 
+                      timeline.current_time < seg.end_time
+                    ) : -1;
+                  
+                  // Debug: log segment timing issues
+                  if (timeline.is_playing && playingSegmentIndex === -1) {
+                    console.log('🔍 No playing segment found for time:', timeline.current_time, 'segments:', segments.map(s => `${s.start_time}-${s.end_time}`));
+                  }
+                  
+                  return segments.map((segment, i) => {
+                    const isSelected = timeline.selected_segment_ids.includes(segment.id);
+                    // Only the first matching segment should show as playing
+                    const isCurrentlyPlaying = timeline.is_playing && i === playingSegmentIndex;
+                    const isDragging = draggedSegment === segment.id;
+                    const isDragOver = dragOverIndex === i;
+                    const needsVoice = timeline.segments_needing_voice.includes(segment.id);
+                    const hasVoiceIssue = segment.assets.voice.status === 'pending' || needsVoice;
                   
                   return (
                     <div
@@ -524,7 +539,7 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                           <span>{segment.status === 'ready' ? 'Ready' : 'Draft'}</span>
                         </div>
                         <div className="text-xs opacity-75 truncate mt-1">
-                          {segment.duration.toFixed(1)}s • {segment.text.substring(0, 30)}...
+                          {segment.duration ? `${segment.duration.toFixed(1)}s` : '0s'} • {segment.text ? segment.text.substring(0, 30) : ''}...
                         </div>
                       </div>
                       
@@ -557,7 +572,8 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                       )}
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -575,9 +591,55 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                     <div className="space-y-3">
                       <div>
                         <Label className="text-xs text-muted-foreground">Text Content</Label>
-                        <p className="text-sm mt-1 p-2 bg-muted rounded text-muted-foreground">
-                          {selectedSegment.text}
-                        </p>
+                        {editingSegmentId === selectedSegment.id ? (
+                          <div className="mt-1 space-y-2">
+                            <textarea
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              className="w-full min-h-[60px] p-2 text-sm bg-background border rounded resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={async () => {
+                                  // Save the edited text
+                                  await _updateSegmentText(selectedSegment.id, editingText);
+                                  setEditingSegmentId(null);
+                                  showToast('Text updated', 'success');
+                                }}
+                                className="h-7"
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingSegmentId(null);
+                                  setEditingText('');
+                                }}
+                                className="h-7"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div 
+                            className="text-sm mt-1 p-2 bg-muted rounded text-muted-foreground cursor-pointer hover:bg-muted/80 transition-colors"
+                            onClick={() => {
+                              setEditingSegmentId(selectedSegment.id);
+                              setEditingText(selectedSegment.text);
+                            }}
+                          >
+                            {selectedSegment.text}
+                            <div className="text-xs text-muted-foreground/60 mt-1">
+                              Click to edit
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
                       <div>
@@ -590,15 +652,15 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                       <div className="grid grid-cols-3 gap-3 text-sm">
                         <div>
                           <Label className="text-xs text-muted-foreground">Start</Label>
-                          <p className="font-medium">{selectedSegment.start_time.toFixed(1)}s</p>
+                          <p className="font-medium">{selectedSegment.start_time?.toFixed(1) || '0.0'}s</p>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">Duration</Label>
-                          <p className="font-medium">{selectedSegment.duration.toFixed(1)}s</p>
+                          <p className="font-medium">{selectedSegment.duration?.toFixed(1) || '0.0'}s</p>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">End</Label>
-                          <p className="font-medium">{selectedSegment.end_time.toFixed(1)}s</p>
+                          <p className="font-medium">{selectedSegment.end_time?.toFixed(1) || '0.0'}s</p>
                         </div>
                       </div>
                       
@@ -616,10 +678,27 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                           variant="outline" 
                           size="sm"
                           className="flex-1"
-                          onClick={() => {/* TODO: Edit text functionality */}}
+                          onClick={() => {
+                            // Scroll to text editor
+                            setEditingSegmentId(selectedSegment.id);
+                            setEditingText(selectedSegment.text);
+                          }}
                         >
                           <Edit3 className="w-4 h-4 mr-1" />
                           Edit Text
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            const midPoint = selectedSegment.start_time + (selectedSegment.duration / 2);
+                            splitSegment(selectedSegment.id, midPoint);
+                            showToast('Segment split', 'success');
+                          }}
+                        >
+                          <Scissors className="w-3 h-3 mr-1" />
+                          Split
                         </Button>
                       </div>
                     </div>

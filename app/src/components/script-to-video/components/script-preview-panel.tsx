@@ -1,7 +1,5 @@
 'use client';
 
-import { WorkflowChecklist } from './workflow-checklist';
-
 interface ScriptPreviewPanelProps {
   currentStep: number;
   totalSteps: number;
@@ -29,15 +27,5 @@ export function ScriptPreviewPanel({
   onScriptEdit,
   isEditable = false
 }: ScriptPreviewPanelProps) {
-  // Show workflow checklist for all steps
-  return (
-    <WorkflowChecklist
-      currentStep={currentStep}
-      scriptGenerated={!!generatedScript || !!finalScript}
-      voiceSelected={voiceSelected}
-      isGeneratingScript={isGeneratingScript}
-      isGeneratingVoice={isGeneratingVoice}
-      isGeneratingVideo={isGeneratingVideo}
-    />
-  );
+  return <div />;
 }

@@ -139,7 +139,8 @@ export async function generateScriptToVideo(
     console.log(`✅ Analysis complete - target duration: ${targetDuration}s`);
 
     // Create intelligent segments using story beat analysis
-    const result = await createStoryBasedSegments(finalScript, segmentAnalysis);
+
+    const result = await createStoryBasedSegments(finalScript, segmentAnalysis, request.original_idea);
     const mockSegments = result.segments;
     storyContext = result.storyContext;
     
@@ -176,28 +177,37 @@ export async function generateScriptToVideo(
       } as unknown as Json,
     });
 
-    // Step 5: Execute Production
+    // Step 5: Execute Voice Generation FIRST (required for timing analysis)
     let generatedImages: { url: string; segment_index: number; prompt: string; }[] = [];
     let audioUrl: string | undefined = undefined;
 
-    console.log('🔄 Executing parallel production workflow...');
+    console.log('🔄 Starting voice generation (required for accurate timing)...');
     
-    // Parallel execution
-    const [voiceResult, imageResults] = await Promise.all([
-      generateVoiceForAllSegments(mockSegments, request.user_id, batch_id, request.voice_settings),
-      generateImagesForAllSegments(mockSegments, request.aspect_ratio || '16:9', request.user_id, batch_id)
-    ]);
+    let voiceResult: { audio_url?: string; credits_used: number };
+    
+    try {
+      console.log('🎤 Generating voice with estimated timing...');
+      voiceResult = await generateVoiceForAllSegments(mockSegments, request.user_id, batch_id, request.voice_settings);
+      console.log('✅ Voice generation completed:', { 
+        audio_url: voiceResult.audio_url ? 'Generated' : 'NULL',
+        credits: voiceResult.credits_used 
+      });
+    } catch (error) {
+      console.error('❌ Voice generation failed:', error);
+      throw new Error(`Voice generation failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     audioUrl = voiceResult.audio_url;
-    generatedImages = imageResults;
-    total_credits += voiceResult.credits_used + (imageResults.length * 4); // 4 credits per image
-    
-    optimization_applied.push('Parallel processing for efficiency');
+    total_credits += voiceResult.credits_used;
 
-    // Step 6: Whisper Analysis for Precise Word Timing
+    // Step 6: Whisper Analysis for Precise Word Timing (REQUIRED)
     console.log('🎤 Analyzing audio with Whisper for precise lip sync...');
     let wordTimings: any[] = [];
     let captionChunks: any = null;
+    
+    if (!audioUrl) {
+      throw new Error('No audio generated - cannot proceed without voice for timing analysis');
+    }
     
     if (audioUrl) {
       const { analyzeAudioWithWhisper } = await import('../services/whisper-analysis-service');
@@ -217,6 +227,32 @@ export async function generateScriptToVideo(
         total_credits += 3; // Whisper analysis cost
         console.log(`✅ Whisper analysis: ${whisperResult.word_count} words, ${whisperResult.speaking_rate.toFixed(1)} WPM`);
         optimization_applied.push('Precise word-level timing with Whisper AI');
+        
+        // CRITICAL: Realign segments to match actual voice timing
+        console.log('🎯 Realigning segments to match actual voice timing...');
+        const { realignSegmentsWithVoiceTiming } = await import('../services/segment-realignment-service');
+        const realignedSegments = await realignSegmentsWithVoiceTiming(mockSegments, whisperResult);
+        
+        // Replace the estimated segments with realigned ones
+        mockSegments.length = 0;
+        mockSegments.push(...realignedSegments);
+        console.log('✅ Segments realigned to match voice timing');
+        
+        // CRITICAL: Generate images AFTER realignment to ensure timing sync
+        console.log('🖼️ Generating images with REAL timing (post-realignment)...');
+        try {
+          const imageResults = await generateImagesForAllSegments(mockSegments, request.aspect_ratio || '16:9', request.user_id, batch_id);
+          generatedImages = imageResults;
+          total_credits += (imageResults.length * 4); // 4 credits per image
+          console.log('✅ Images generated with real timing:', { 
+            count: imageResults.length,
+            first_url: imageResults[0]?.url ? 'Generated' : 'NULL'
+          });
+          optimization_applied.push('Images generated with real voice timing (not estimated)');
+        } catch (error) {
+          console.error('❌ Image generation failed:', error);
+          throw new Error(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
         
         // Step 6.5: Create Professional Caption Chunks
         console.log('📝 Creating professional caption chunks following industry standards...');
@@ -238,8 +274,8 @@ export async function generateScriptToVideo(
           warnings.push('Caption chunking failed - using fallback display');
         }
       } else {
-        console.warn('⚠️ Whisper analysis failed, using estimated timing');
-        warnings.push('Word timing estimation used (Whisper analysis failed)');
+        console.error('❌ Whisper analysis failed - CANNOT proceed without real timing');
+        throw new Error('Whisper analysis failed - real timing required for synchronization');
       }
     }
 
@@ -279,7 +315,42 @@ export async function generateScriptToVideo(
       production_plan: productionPlan as unknown as Json,
       credits_used: total_credits,
       word_timings: wordTimings,
-      caption_chunks: captionChunks
+      caption_chunks: captionChunks,
+      // Add the missing parameters that database expects
+      storyboard_data: storyContext ? {
+        narrative_analysis: {
+          total_scenes: storyContext.total_scenes,
+          ai_determined_count: storyContext.ai_determined_count,
+          original_idea: storyContext.original_idea
+        },
+        characters: storyContext.main_characters || [],
+        scene_orchestration: mockSegments.map(seg => ({
+          id: seg.id,
+          text: seg.text,
+          image_prompt: seg.image_prompt,
+          enhanced_prompt: seg.image_prompt // Store the enhanced prompt with character descriptions
+        })),
+        original_context: {
+          visual_style: storyContext.visual_style,
+          setting: storyContext.setting,
+          characters: storyContext.main_characters || []
+        }
+      } : null,
+      whisper_data: whisperResult ? {
+        full_analysis: whisperResult,
+        quality_metrics: {
+          word_count: whisperResult.word_count || 0,
+          speaking_rate: whisperResult.speaking_rate || 0,
+          confidence_avg: whisperResult.confidence_avg || 0
+        },
+        frame_alignment: whisperResult.segment_timings || []
+      } : null,
+      caption_settings: captionChunks ? {
+        content_type: 'standard',
+        quality_score: captionChunks.quality_score || 100,
+        total_chunks: captionChunks.total_chunks || 0,
+        avg_words_per_chunk: captionChunks.avg_words_per_chunk || 0
+      } : null
     });
 
     // Step 9: Record Analytics
@@ -361,22 +432,10 @@ async function generateVoiceForAllSegments(
   // Import the voice service
   const { generateVoiceForAllSegments: generateVoice } = await import('../services/voice-generation-service');
   
-  // Map voice IDs from UI selections to OpenAI voices
-  const voiceMapping: Record<string, string> = {
-    'alloy': 'alloy',
-    'nova': 'nova',
-    'echo': 'echo',
-    'onyx': 'onyx',
-    'anna': 'alloy',   // Legacy mapping
-    'eric': 'echo',    // Legacy mapping
-    'felix': 'onyx',   // Legacy mapping
-    'nina': 'nova'     // Legacy mapping
-  };
+  // Use the voice ID as-is - the voice service will handle the mapping
+  const selectedVoice = voice_settings?.voice_id || 'anna';
   
-  const selectedVoice = voice_settings?.voice_id || 'alloy';
-  const mappedVoice = voiceMapping[selectedVoice] || 'alloy';
-  
-  console.log(`🎤 Using voice: ${selectedVoice} (mapped to: ${mappedVoice})`);
+  console.log(`🎤 Using voice: ${selectedVoice}`);
   
   // Prepare request
   const voiceRequest = {
@@ -388,7 +447,7 @@ async function generateVoiceForAllSegments(
       duration: s.duration
     })),
     voice_settings: {
-      voice_id: mappedVoice as any,
+      voice_id: selectedVoice as any, // Pass the voice ID directly
       speed: voice_settings?.speed || 'normal' as any,
       emotion: voice_settings?.emotion || 'neutral' as any
     },
@@ -463,33 +522,53 @@ async function executeVideoAssembly(_images: any[], _audioUrl: string | undefine
   return `https://storage.example.com/videos/${crypto.randomUUID()}.mp4`;
 }
 
-async function createStoryBasedSegments(script: string, _segmentAnalysis: { segment_count: number }): Promise<{ segments: any[], storyContext: any }> {
+async function createStoryBasedSegments(script: string, _segmentAnalysis: { segment_count: number }, originalIdea?: string): Promise<{ segments: any[], storyContext: any }> {
   try {
     console.log('🎬 Creating storyboard segments with visual consistency...');
     
     const { object: storyboard } = await generateObject({
       model: openai('gpt-4o'),
       schema: z.object({
-        main_characters: z.string().describe('Description of main characters or subjects that appear throughout'),
-        visual_style: z.string().describe('Consistent visual style and mood'),
+        main_characters: z.array(z.object({
+          name: z.string().describe('Character identifier'),
+          description: z.string().describe('Detailed visual description with specific colors, features, clothing, style')
+        })).describe('Main characters with consistent visual descriptions'),
+        visual_style: z.string().describe('Consistent visual style and mood across all segments'),
         setting: z.string().describe('Primary setting or environment'),
         segments: z.array(z.object({
-          text_content: z.string(),
-          image_prompt: z.string().describe('Include character/setting consistency details')
+          text_content: z.string().describe('CLEAN NARRATIVE TEXT ONLY - No segment labels, numbers, or descriptions. Just the pure spoken content that will be read aloud by the narrator.'),
+          image_prompt: z.string().describe('Scene description that references character descriptions when characters appear')
         }))
       }),
-      prompt: `Analyze this script and create 4-6 visual segments with CONSISTENT characters and settings: "${script}"
+      prompt: `Analyze this script and create a professional visual narrative: "${script}"
 
-CRITICAL: Maintain visual consistency across all segments!
-1. First identify the main character(s), setting, and visual style
-2. Use THE SAME character descriptions in EVERY segment
-3. Keep the setting/environment consistent or show logical progression
-4. Include character details (appearance, clothing, colors) in EVERY prompt
-5. Show story progression while maintaining character/setting consistency
+${originalIdea ? `CORE CONCEPT: "${originalIdea}" - This should be central to the story and main character design.` : ''}
 
-For example, if the story is about "a pink flying pig named Percy", EVERY image prompt must include "Percy the pink flying pig with wings" to maintain consistency.
+STEP 1 - CHARACTER DESIGN:
+First, extract and define the main characters with detailed, reusable visual descriptions. Include specific colors, features, clothing, and distinctive characteristics that will remain consistent whenever they appear.
 
-Split the script into natural segments with consistent visuals.`
+STEP 2 - SEGMENT CREATION:
+Create 4-6 natural story segments. For each segment, provide:
+
+TEXT_CONTENT: Pure narrative text that will be spoken by a narrator. NO segment labels, numbers, or visual descriptions. Only the actual words to be read aloud.
+
+IMAGE_PROMPT: Separate visual description for generating the scene image. CRITICAL: When characters appear, you MUST reference their exact character descriptions by name to ensure visual consistency across all segments.
+
+EXAMPLES OF GOOD TEXT_CONTENT:
+✅ "The Aurora One soars through the clouds, its sleek design cutting through the morning sky."
+✅ "Advanced technology meets elegant craftsmanship in this revolutionary aircraft."
+
+EXAMPLES OF BAD TEXT_CONTENT (DO NOT DO THIS):
+❌ "Segment 1: Opening shot - The Aurora One soars through clouds"
+❌ "Scene description: Advanced technology meets craftsmanship"
+❌ "Closing shot, the Aurora One flies into the horizon"
+
+CRITICAL FOR CHARACTER CONSISTENCY:
+- Every image prompt featuring a character MUST include their exact visual description
+- Use specific details like colors, features, clothing, and distinctive characteristics
+- The same character should look identical in every segment they appear in
+
+Focus on natural story progression with clean narrative text that flows naturally when spoken.`
     });
 
     console.log('✅ Storyboard created:', storyboard.segments.length, 'segments');
@@ -506,8 +585,15 @@ Split the script into natural segments with consistent visuals.`
       const startTime = cumulativeTime;
       cumulativeTime += duration;
       
-      // Enhance prompt with consistency details
-      const enhancedPrompt = `${scene.image_prompt}. Style: ${storyboard.visual_style}`;
+      // Enhance prompt with character descriptions and style for consistency
+      const characterDescriptions = storyboard.main_characters
+        .map(char => `${char.name}: ${char.description}`)
+        .join('. ');
+      
+      const enhancedPrompt = `${scene.image_prompt}. Characters: ${characterDescriptions}. Style: ${storyboard.visual_style}`;
+      
+      console.log(`Segment ${index + 1} text: "${scene.text_content}"`);
+      console.log(`Segment ${index + 1} enhanced prompt: "${enhancedPrompt}"`);
       
       return {
         id: `segment-${index + 1}`,
@@ -524,7 +610,8 @@ Split the script into natural segments with consistent visuals.`
       ai_determined_count: storyboard.segments.length,
       main_characters: storyboard.main_characters,
       visual_style: storyboard.visual_style,
-      setting: storyboard.setting
+      setting: storyboard.setting,
+      original_idea: originalIdea // Preserve the original idea for consistency
     };
 
     return { segments: storySegments, storyContext };

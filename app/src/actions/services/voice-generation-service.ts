@@ -45,14 +45,23 @@ export interface VoiceGenerationResponse {
 }
 
 // Map your voice IDs to OpenAI TTS voices
-const VOICE_MAPPING = {
+const VOICE_MAPPING: Record<string, string> = {
+  // UI voice names
   'anna': 'nova',      // Female, friendly
   'eric': 'onyx',      // Male, confident  
   'felix': 'echo',     // Male, warm
   'oscar': 'fable',    // Male, authoritative
   'nina': 'shimmer',   // Female, gentle
-  'sarah': 'alloy'     // Female, professional
-} as const;
+  'sarah': 'alloy',    // Female, professional
+  
+  // Direct OpenAI voice names (pass-through)
+  'alloy': 'alloy',
+  'echo': 'echo',
+  'fable': 'fable',
+  'nova': 'nova',
+  'onyx': 'onyx',
+  'shimmer': 'shimmer'
+};
 
 // Map speed settings to OpenAI speed values
 const SPEED_MAPPING = {
@@ -78,12 +87,18 @@ export async function generateVoiceForAllSegments(
       .map(segment => segment.text.trim())
       .join('... '); // Add pause between segments
 
+    // Get the OpenAI voice name
+    const openAIVoice = VOICE_MAPPING[request.voice_settings.voice_id] || 'alloy';
+    const speedValue = SPEED_MAPPING[request.voice_settings.speed] || 1.0;
+    
+    console.log(`🔊 OpenAI TTS: voice=${openAIVoice}, speed=${speedValue}`);
+    
     // Generate speech using OpenAI TTS
     const response = await openai.audio.speech.create({
       model: 'tts-1', // or 'tts-1-hd' for higher quality
-      voice: VOICE_MAPPING[request.voice_settings.voice_id],
+      voice: openAIVoice as any, // OpenAI expects specific voice strings
       input: fullScript,
-      speed: SPEED_MAPPING[request.voice_settings.speed],
+      speed: speedValue,
       response_format: 'mp3'
     });
 

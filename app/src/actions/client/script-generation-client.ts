@@ -1,6 +1,6 @@
 'use client';
 
-import { ScriptGenerationResponse } from '../services/script-generation-service';
+import type { ScriptGenerationResponse } from '@/types/script-generation';
 
 /**
  * Client-side wrapper for script generation service

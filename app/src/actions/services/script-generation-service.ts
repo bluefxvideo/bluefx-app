@@ -3,29 +3,10 @@
 import { generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
+import type { ScriptGenerationRequest, ScriptGenerationResponse } from '@/types/script-generation';
 
-export interface ScriptGenerationRequest {
-  idea: string;
-  user_id: string;
-  style?: {
-    tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';
-    pacing?: 'slow' | 'medium' | 'fast';
-    target_duration?: number; // in seconds
-  };
-}
-
-export interface ScriptGenerationResponse {
-  success: boolean;
-  script: string;
-  metadata?: {
-    word_count: number;
-    estimated_duration: number;
-    tone_analysis: string;
-    key_points: string[];
-  };
-  credits_used: number;
-  error?: string;
-}
+// Re-export types for backward compatibility
+export type { ScriptGenerationRequest, ScriptGenerationResponse };
 
 /**
  * Generate a professional video script from a user's idea

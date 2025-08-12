@@ -24,6 +24,23 @@ export function useScriptToVideo() {
   const [result, setResult] = useState<ScriptToVideoResponse | undefined>();
   const router = useRouter();
   const supabase = createClient();
+  
+  // Restore from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('script-to-video-result');
+      if (saved) {
+        const { result: savedResult, timestamp } = JSON.parse(saved);
+        // Only restore if saved within last hour
+        if (Date.now() - timestamp < 3600000) {
+          setResult(savedResult);
+          console.log('🔄 Restored previous generation from localStorage');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to restore from localStorage:', e);
+    }
+  }, []);
 
   // Load user and credits on mount
   useEffect(() => {
@@ -86,6 +103,18 @@ export function useScriptToVideo() {
         // Update credits optimistically
         setCredits(prev => prev - response.credits_used);
         setResult(response);
+        
+        // Save to localStorage immediately to prevent data loss
+        try {
+          localStorage.setItem('script-to-video-result', JSON.stringify({
+            result: response,
+            timestamp: Date.now(),
+            script: scriptText
+          }));
+          console.log('💾 Saved generation result to localStorage');
+        } catch (e) {
+          console.error('Failed to save to localStorage:', e);
+        }
         
         // Load results into editor store
         const { useVideoEditorStore } = require('../store/video-editor-store');
@@ -187,6 +216,18 @@ export function useScriptToVideo() {
         
         setCredits(prev => prev - response.credits_used);
         setResult(response);
+        
+        // Save to localStorage immediately
+        try {
+          localStorage.setItem('script-to-video-result', JSON.stringify({
+            result: response,
+            timestamp: Date.now(),
+            script: scriptText
+          }));
+          console.log('💾 Saved generation result to localStorage');
+        } catch (e) {
+          console.error('Failed to save to localStorage:', e);
+        }
         
         // Load results into editor store
         const { useVideoEditorStore } = require('../store/video-editor-store');

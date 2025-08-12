@@ -28,6 +28,7 @@ export interface ScriptVideoRecord {
   credits_used: number;
   word_timings?: any[]; // Whisper word-level timing data
   caption_chunks?: any; // Professional caption chunks following broadcast standards
+  caption_settings?: any; // Caption generation settings and metadata
   
   // New comprehensive metadata for consistency
   storyboard_data?: {

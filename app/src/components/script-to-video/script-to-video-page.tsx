@@ -163,16 +163,7 @@ export function ScriptToVideoPage() {
     }
 
     // Default to video preview
-    return (
-      <VideoPreview
-        result={result}
-        isGenerating={isGenerating || isLocalGenerating}
-        isEditing={isEditing}
-        error={error}
-        onClearResults={clearResults}
-        activeMode={activeTab as 'generate' | 'editor'}
-      />
-    );
+    return <VideoPreview />;
   };
 
   return (
