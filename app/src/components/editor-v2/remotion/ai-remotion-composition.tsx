@@ -303,24 +303,12 @@ function CaptionSequence({
   const { fps } = useVideoConfig();
   const { caption_metadata, details } = sequence;
   
-  // Check if we have segments (new format) or words (old format)
-  if (!caption_metadata?.segments && !caption_metadata?.words) {
-    return (
-      <AbsoluteFill>
-        <div style={{
-          position: 'absolute',
-          top: 50,
-          left: 50,
-          color: 'red',
-          fontSize: '24px'
-        }}>
-          Caption Error: No segments or words
-        </div>
-      </AbsoluteFill>
-    );
+  // Check if we have segments (unified format)
+  if (!caption_metadata?.segments) {
+    return <AbsoluteFill />;
   }
   
-  // Use absolute timeline position (not sequence-relative) for segments
+  // Use absolute timeline position for unified track
   const currentTimeMs = (frame * 1000) / fps;
   
   // Find current caption segment based on timeline position  

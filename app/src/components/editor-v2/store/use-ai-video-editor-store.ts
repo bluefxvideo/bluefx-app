@@ -540,8 +540,7 @@ export const useAIVideoEditorStore = create<AIVideoEditorState & AIVideoEditorAc
         const mockData = await response.json();
         const { sampleCaptions } = mockData;
         
-        // Create ONE caption track with all caption segments (like professional video editors)
-        // Calculate total duration to cover all captions
+        // Create ONE unified caption track with all segments (professional approach)
         const totalDuration = Math.max(...sampleCaptions.map((c: any) => c.display.to));
         
         // Store all caption segments for dynamic rendering
@@ -558,13 +557,14 @@ export const useAIVideoEditorStore = create<AIVideoEditorState & AIVideoEditorAc
           }
         }));
         
-        // Create ONE caption track item that contains all segments
-        const singleCaptionTrack: Omit<AITrackItem, 'id'> = {
+        // Create ONE unified caption track
+        const unifiedCaptionTrack: Omit<AITrackItem, 'id'> = {
           type: 'caption' as const,
-          start: 0, // Start from beginning
-          duration: Math.floor(totalDuration / 1000 * 30), // Convert total ms to frames (30fps)
-          layer: 10, // High layer for captions
+          start: 0,
+          duration: Math.floor(totalDuration / 1000 * 30),
+          layer: 10,
           details: {
+            text: "Captions", // Track name
             fontSize: 48,
             width: 800,
             fontFamily: 'Inter',
@@ -580,14 +580,14 @@ export const useAIVideoEditorStore = create<AIVideoEditorState & AIVideoEditorAc
             left: 140
           },
           caption_metadata: {
-            segments: captionSegments, // Store all segments for dynamic rendering
+            segments: captionSegments, // All segments stored internally
             sourceUrl: null,
             parentId: null
           }
         };
         
-        // Add single caption track to composition
-        get().addTrackItem(singleCaptionTrack);
+        // Add unified caption track to composition
+        get().addTrackItem(unifiedCaptionTrack);
         
         console.log('Mock caption data loaded successfully');
         
