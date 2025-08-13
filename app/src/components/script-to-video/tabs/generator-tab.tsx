@@ -117,8 +117,8 @@ export function GeneratorTab({
     onGeneratingChange?.(true);
 
     try {
-      // Use client wrapper for script generation
-      const { generateQuickScript } = await import('@/actions/client/script-generation-client');
+      // Use server action for script generation
+      const { generateQuickScript } = await import('@/actions/services/script-generation-service');
       
       const result = await generateQuickScript(
         stepState.ideaText, 

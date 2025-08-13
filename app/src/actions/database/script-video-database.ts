@@ -57,6 +57,14 @@ export interface ScriptVideoRecord {
     quality_score: number;
     avg_words_per_chunk: number;
   };
+  
+  // Phase-specific data (NEW ARCHITECTURE)
+  remotion_composition?: any;  // PRIMARY: Remotion-native composition
+  generation_metadata?: any;   // SECONDARY: Generation settings for regeneration
+  editor_overlays?: any;       // TERTIARY: Non-destructive editor changes
+  
+  // Legacy unified editor data (for backward compatibility)
+  editor_data?: any;
 }
 
 export async function storeScriptVideoResults(record: ScriptVideoRecord) {
@@ -95,6 +103,14 @@ export async function storeScriptVideoResults(record: ScriptVideoRecord) {
           chunks: record.caption_chunks,
           settings: record.caption_settings
         } : null,
+        
+        // Phase-specific data (NEW ARCHITECTURE)
+        remotion_composition: record.remotion_composition || null,
+        generation_metadata: record.generation_metadata || null,
+        editor_overlays: record.editor_overlays || null,
+        
+        // Legacy unified editor data (backward compatibility)
+        editor_data: record.editor_data || null,
         
         // Version tracking for auto-save
         version_number: 1,
@@ -237,6 +253,20 @@ export async function getLatestScriptVideoResults(user_id: string) {
       return { success: true, result: null };
     }
 
+    // Calculate actual duration from Whisper frame alignment data
+    let actualDuration = 60; // Only as last resort fallback
+    
+    if (data.whisper_data?.frame_alignment && data.whisper_data.frame_alignment.length > 0) {
+      // Sum up all segment durations from Whisper analysis for true continuous duration
+      actualDuration = data.whisper_data.frame_alignment.reduce((total: number, frame: any) => {
+        return total + (frame.duration || 0);
+      }, 0);
+    } else if (data.processing_logs?.segments && data.processing_logs.segments.length > 0) {
+      // Fallback to segment end times if available
+      const maxEndTime = Math.max(...data.processing_logs.segments.map((s: any) => s.end_time || 0));
+      if (maxEndTime > 0) actualDuration = maxEndTime;
+    }
+
     // Convert database format back to ScriptToVideoResponse format
     const result = {
       success: true,
@@ -245,16 +275,19 @@ export async function getLatestScriptVideoResults(user_id: string) {
       generated_images: data.processing_logs?.generated_images || [],
       segments: data.processing_logs?.segments || [],
       timeline_data: {
-        total_duration: data.duration_seconds || 60,
+        total_duration: actualDuration,
         segment_count: data.processing_logs?.segments?.length || 0,
-        frame_count: Math.ceil((data.duration_seconds || 60) * 30)
+        frame_count: Math.ceil(actualDuration * 30)
       },
       production_plan: data.processing_logs?.production_plan,
       prediction_id: data.id,
       batch_id: data.processing_logs?.batch_id || '',
       credits_used: data.processing_logs?.credits_used || 0,
       generation_time_ms: 0,
-      word_timings: data.processing_logs?.word_timings || []
+      word_timings: data.processing_logs?.word_timings || [],
+      // CRITICAL: Include Whisper frame alignment data for correct timing
+      whisper_frame_alignment: data.whisper_data?.frame_alignment || [],
+      video_id: data.id // Include database ID for caption fetching
     };
 
     return { success: true, result };

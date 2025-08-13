@@ -111,6 +111,7 @@ export async function generateScriptToVideo(
   let storyContext: any = null;
   let whisperResult: any = null;
   let segmentAnalysis = { total_duration: 0, segment_count: 0 };
+  let imageMetadata: any = null;
 
   try {
     console.log(`🎬 AI Video Orchestrator: Starting intelligent production for user ${request.user_id}`);
@@ -180,10 +181,11 @@ export async function generateScriptToVideo(
     // Step 5: Execute Voice Generation FIRST (required for timing analysis)
     let generatedImages: { url: string; segment_index: number; prompt: string; }[] = [];
     let audioUrl: string | undefined = undefined;
+    let voiceMetadata: any = null;
 
     console.log('🔄 Starting voice generation (required for accurate timing)...');
     
-    let voiceResult: { audio_url?: string; credits_used: number };
+    let voiceResult: { audio_url?: string; credits_used: number; metadata?: any };
     
     try {
       console.log('🎤 Generating voice with estimated timing...');
@@ -199,6 +201,20 @@ export async function generateScriptToVideo(
 
     audioUrl = voiceResult.audio_url;
     total_credits += voiceResult.credits_used;
+    
+    // Store voice metadata for structured storage
+    voiceMetadata = {
+      synthesis_params: {
+        voice_id: request.voice_settings?.voice_id || 'anna',
+        speed: request.voice_settings?.speed || 'normal',
+        emotion: request.voice_settings?.emotion || 'neutral',
+        model: 'openai-tts-1'
+      },
+      emotion_mapping: voiceResult.metadata?.emotion_mapping || null,
+      timing_adjustments: voiceResult.metadata?.timing_adjustments || null,
+      generation_timestamp: new Date().toISOString(),
+      credits_used: voiceResult.credits_used
+    };
 
     // Step 6: Whisper Analysis for Precise Word Timing (REQUIRED)
     console.log('🎤 Analyzing audio with Whisper for precise lip sync...');
@@ -249,6 +265,29 @@ export async function generateScriptToVideo(
             first_url: imageResults[0]?.url ? 'Generated' : 'NULL'
           });
           optimization_applied.push('Images generated with real voice timing (not estimated)');
+          
+          // Store image metadata for structured storage
+          imageMetadata = {
+            generation_params: {
+              aspect_ratio: request.aspect_ratio || '16:9',
+              visual_style: 'realistic',
+              quality: 'standard',
+              model: 'flux-kontext-pro'
+            },
+            consistency_settings: {
+              characters: storyContext?.main_characters || [],
+              visual_style: storyContext?.visual_style || 'realistic',
+              setting: storyContext?.setting || 'general'
+            },
+            seed_values: imageResults.map((img, idx) => ({
+              segment_index: idx,
+              prompt: img.prompt,
+              url: img.url
+            })),
+            generation_timestamp: new Date().toISOString(),
+            total_images: imageResults.length,
+            credits_used: imageResults.length * 4
+          };
         } catch (error) {
           console.error('❌ Image generation failed:', error);
           throw new Error(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -301,7 +340,162 @@ export async function generateScriptToVideo(
       warnings.push('Credit deduction failed - please contact support');
     }
 
-    // Step 8: Store Results
+    // Step 8: Build Remotion-Native Composition (PRIMARY DATA)
+    const totalFrames = Math.ceil(segmentAnalysis.total_duration * 30);
+    
+    const remotionComposition = {
+      // Remotion Composition Config
+      composition: {
+        id: `video-${batch_id}`,
+        durationInFrames: totalFrames,
+        fps: 30,
+        width: 1920,
+        height: 1080
+      },
+      
+      // Remotion Sequences (Frame-Perfect)
+      sequences: [
+        // Audio sequence (full track)
+        {
+          id: `audio-${batch_id}`,
+          from: 0,
+          durationInFrames: totalFrames,
+          type: 'audio',
+          layer: 0,
+          props: {
+            audioSrc: audioUrl || '',
+            volume: 1.0
+          }
+        },
+        
+        // Image sequences
+        ...mockSegments.map((seg, idx) => ({
+          id: `image-${seg.id}`,
+          from: Math.floor(seg.start_time * 30),
+          durationInFrames: Math.floor(seg.duration * 30),
+          type: 'image',
+          layer: 1,
+          props: {
+            imageSrc: generatedImages[idx]?.url || '',
+            imagePrompt: seg.image_prompt,
+            scaleMode: 'cover',
+            opacity: 1.0
+          }
+        })),
+        
+        // Text sequences (captions)
+        ...mockSegments.map((seg, idx) => ({
+          id: `text-${seg.id}`,
+          from: Math.floor(seg.start_time * 30),
+          durationInFrames: Math.floor(seg.duration * 30),
+          type: 'text',
+          layer: 2,
+          props: {
+            text: seg.text,
+            fontSize: 48,
+            fontFamily: 'Inter',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            color: '#FFFFFF',
+            strokeColor: '#000000',
+            strokeWidth: 2,
+            position: {
+              x: 960,  // center horizontally
+              y: 850   // bottom third
+            }
+          }
+        }))
+      ],
+      
+      // Assets Bundle
+      assets: {
+        audioUrl: audioUrl || '',
+        imageUrls: generatedImages.map(img => img.url),
+        voiceSegments: [], // Individual segments if needed
+        customAssets: []   // User uploads
+      },
+      
+      // Rendering Settings
+      rendering: {
+        codec: 'h264',
+        crf: 23,
+        pixelFormat: 'yuv420p',
+        proRes: false,
+        concurrency: 4
+      }
+    };
+    
+    // Generation Metadata (for regeneration)
+    const generationMetadata = {
+      // AI Orchestration
+      orchestration: {
+        batch_id,
+        model_versions: {
+          script: 'gpt-4o',
+          voice: 'openai-tts-1',
+          images: 'flux-kontext-pro',
+          orchestrator: 'gpt-4o-orchestrated'
+        },
+        production_plan: {
+          workflow_type: productionPlan.workflow_type,
+          complexity_score: productionPlan.complexity_score,
+          ai_optimizations_applied: optimization_applied
+        }
+      },
+      
+      // Script Generation
+      script: {
+        original_idea: request.original_idea || null,
+        final_text: finalScript,
+        was_generated: request.was_script_generated || false,
+        word_count: finalScript.trim().split(/\s+/).length
+      },
+      
+      // Voice Settings
+      voice_synthesis: {
+        voice_id: request.voice_settings?.voice_id || 'anna',
+        speed: request.voice_settings?.speed || 'normal',
+        emotion: request.voice_settings?.emotion || 'neutral',
+        model: 'openai-tts-1',
+        credits_used: voiceMetadata.credits_used
+      },
+      
+      // Image Settings
+      image_generation: {
+        aspect_ratio: request.aspect_ratio || '16:9',
+        visual_style: storyContext?.visual_style || 'realistic',
+        quality: request.quality || 'standard',
+        model: 'flux-kontext-pro',
+        story_context: {
+          characters: storyContext?.main_characters || [],
+          setting: storyContext?.setting || '',
+          mood: 'professional'
+        },
+        credits_used: imageMetadata?.credits_used || 0
+      },
+      
+      // Whisper Analysis
+      whisper_analysis: {
+        speaking_rate: whisperResult?.speaking_rate || 0,
+        confidence_avg: whisperResult?.confidence_avg || 0,
+        word_count: whisperResult?.word_count || 0,
+        word_timings: wordTimings
+      },
+      
+      // Credits & Performance
+      credits_breakdown: {
+        script_generation: request.was_script_generated ? 3 : 0,
+        voice_generation: voiceMetadata.credits_used,
+        image_generation: imageMetadata?.credits_used || 0,
+        whisper_analysis: 3,
+        caption_processing: 1,
+        video_assembly: 8,
+        total: total_credits
+      },
+      generation_time_ms: Date.now() - startTime
+    };
+
+    // Step 9: Store Results with Remotion-Native Primary Data
     const storeResult = await storeScriptVideoResults({
       user_id: request.user_id,
       script_text: finalScript,
@@ -316,7 +510,17 @@ export async function generateScriptToVideo(
       credits_used: total_credits,
       word_timings: wordTimings,
       caption_chunks: captionChunks,
-      // Add the missing parameters that database expects
+      
+      // PRIMARY: Remotion-Native Composition
+      remotion_composition: remotionComposition,
+      
+      // SECONDARY: Generation Metadata (for regeneration)
+      generation_metadata: generationMetadata,
+      
+      // TERTIARY: Editor Overlays (initially null)
+      editor_overlays: null,
+      
+      // Legacy structured metadata (keep for compatibility)
       storyboard_data: storyContext ? {
         narrative_analysis: {
           total_scenes: storyContext.total_scenes,
@@ -328,7 +532,7 @@ export async function generateScriptToVideo(
           id: seg.id,
           text: seg.text,
           image_prompt: seg.image_prompt,
-          enhanced_prompt: seg.image_prompt // Store the enhanced prompt with character descriptions
+          enhanced_prompt: seg.image_prompt
         })),
         original_context: {
           visual_style: storyContext.visual_style,
@@ -345,6 +549,8 @@ export async function generateScriptToVideo(
         },
         frame_alignment: whisperResult.segment_timings || []
       } : null,
+      voice_data: voiceMetadata,
+      image_data: imageMetadata,
       caption_settings: captionChunks ? {
         content_type: 'standard',
         quality_score: captionChunks.quality_score || 100,
@@ -371,7 +577,15 @@ export async function generateScriptToVideo(
 
     return {
       success: true,
-      video_id: storeResult?.video_id, // Include database ID for caption fetching
+      video_id: storeResult?.video_id,
+      
+      // PRIMARY: Remotion-Native Composition (ready for rendering)
+      remotion_composition: remotionComposition,
+      
+      // SECONDARY: Generation metadata (for regeneration)
+      generation_metadata: generationMetadata,
+      
+      // Legacy response format (for backward compatibility)
       video_url: videoUrl,
       audio_url: audioUrl,
       generated_images: generatedImages,
@@ -388,7 +602,7 @@ export async function generateScriptToVideo(
       timeline_data: {
         total_duration: segmentAnalysis.total_duration,
         segment_count: segmentAnalysis.segment_count,
-        frame_count: Math.ceil(segmentAnalysis.total_duration * 30) // 30 FPS
+        frame_count: Math.ceil(segmentAnalysis.total_duration * 30)
       },
       production_plan: productionPlan,
       optimization_applied,

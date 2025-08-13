@@ -35,6 +35,11 @@ export function useScriptToVideo() {
         if (Date.now() - timestamp < 3600000) {
           setResult(savedResult);
           console.log('🔄 Restored previous generation from localStorage');
+          console.log('📊 localStorage timeline_data:', savedResult?.timeline_data);
+          
+          // CRITICAL: Also load into editor store when restoring from localStorage
+          const { useVideoEditorStore } = require('../store/video-editor-store');
+          useVideoEditorStore.getState().loadGenerationResults(savedResult);
         }
       }
     } catch (e) {

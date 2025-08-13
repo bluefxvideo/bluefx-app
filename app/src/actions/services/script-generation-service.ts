@@ -5,8 +5,7 @@ import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import type { ScriptGenerationRequest, ScriptGenerationResponse } from '@/types/script-generation';
 
-// Re-export types for backward compatibility
-export type { ScriptGenerationRequest, ScriptGenerationResponse };
+// Types are imported but not re-exported to avoid build conflicts
 
 /**
  * Generate a professional video script from a user's idea

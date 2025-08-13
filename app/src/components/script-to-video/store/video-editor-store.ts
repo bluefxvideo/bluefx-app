@@ -990,49 +990,107 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
           });
           
           set((state) => {
-            // Convert orchestrator results to store segments
-            console.log('🔍 Raw segment data:', results.segments?.map((s: any, i: number) => ({
+            // CRITICAL FIX: Use Whisper frame_alignment data instead of corrupted segments timing
+            console.log('🔍 Checking for Whisper frame alignment data...');
+            
+            let segmentTimingData = results.segments || [];
+            let totalDuration = results.timeline_data?.total_duration;
+            
+            // Check if we have stored Whisper data from database
+            if (results.whisper_frame_alignment && results.whisper_frame_alignment.length > 0) {
+              console.log('⚠️ Whisper frame_alignment found but contains per-segment timing, not continuous timeline');
+              console.log('📊 Whisper segments analyzed individually, need to reconstruct continuous timeline');
+              
+              // CRITICAL FIX: Whisper analyzed segments individually, need to create continuous timeline
+              // Reconstruct continuous timeline by laying segments sequentially
+              let currentTime = 0;
+              segmentTimingData = results.whisper_frame_alignment.map((frameData: any, index: number) => {
+                const segmentDuration = frameData.duration;
+                const startTime = currentTime;
+                const endTime = currentTime + segmentDuration;
+                currentTime = endTime;
+                
+                return {
+                  id: frameData.segment_id,
+                  text: frameData.text,
+                  start_time: startTime,
+                  end_time: endTime,
+                  duration: segmentDuration,
+                  image_prompt: results.segments?.find((s: any) => s.id === frameData.segment_id)?.image_prompt || '',
+                  word_timings: frameData.word_timings?.map((wt: any) => ({
+                    ...wt,
+                    start: wt.start + startTime, // Offset word timing to continuous timeline
+                    end: wt.end + startTime,
+                    start_time: wt.start + startTime,
+                    end_time: wt.end + startTime
+                  })) || []
+                };
+              });
+              
+              totalDuration = currentTime; // Use reconstructed timeline duration
+              console.log(`✅ Reconstructed continuous timeline: ${totalDuration.toFixed(1)}s across ${segmentTimingData.length} segments`);
+            } else {
+              console.log('⚠️ No Whisper frame_alignment found, using segments data with timing validation');
+              
+              // Validate and fix timing corruption in regular segments
+              segmentTimingData = results.segments?.map((segment: any, index: number) => {
+                const segmentDuration = segment.duration || 5;
+                let startTime = segment.start_time;
+                let endTime = segment.end_time;
+                
+                // Fix corrupted timing data
+                if (startTime == null || startTime === 'null' || isNaN(startTime) || 
+                    endTime == null || endTime === 'null' || isNaN(endTime) ||
+                    endTime <= startTime) {
+                  console.warn(`🔧 Fixing corrupted timing for segment ${index}`);
+                  startTime = index === 0 ? 0 : (results.segments[index - 1]?.end_time || index * 5);
+                  endTime = startTime + segmentDuration;
+                }
+                
+                return {
+                  ...segment,
+                  start_time: startTime,
+                  end_time: endTime,
+                  duration: endTime - startTime
+                };
+              }) || [];
+              
+              if (segmentTimingData.length > 0) {
+                totalDuration = Math.max(...segmentTimingData.map((s: any) => s.end_time));
+                console.log(`📊 Calculated duration from segments: ${totalDuration}s`);
+              }
+            }
+            
+            console.log('🔍 Using timing data:', segmentTimingData.map((s: any, i: number) => ({
               index: i,
+              id: s.id,
               start_time: s.start_time,
               end_time: s.end_time,
               duration: s.duration,
-              text_preview: s.text?.substring(0, 50)
+              text_preview: s.text?.substring(0, 30)
             })));
             
-            const segments: SegmentData[] = results.segments?.map((segment: any, index: number) => {
-              
+            const segments: SegmentData[] = segmentTimingData.map((segment: any, index: number) => {
               // Find matching image by segment_index to ensure correct mapping
               const matchingImage = results.generated_images?.find((img: any) => img.segment_index === index);
               const imageUrl = matchingImage?.url || '';
               
-              console.log(`Segment ${index}: "${segment.text.substring(0, 50)}..." -> Image: ${imageUrl ? 'Found' : 'Missing'}`);
-              
-              // Calculate proper timing if missing or corrupted
-              const segmentDuration = segment.duration || 5; // Default 5 seconds
-              let startTime = segment.start_time;
-              let endTime = segment.end_time;
-              
-              // If timing is null or invalid, use emergency fallback (should not happen with new flow)
-              if (startTime == null || startTime === 'null' || isNaN(startTime)) {
-                startTime = index * segmentDuration; // Emergency fallback timing
-                endTime = startTime + segmentDuration;
-                console.error(`🚨 EMERGENCY: Using fallback timing for segment ${index}: ${startTime}-${endTime} - THIS SHOULD NOT HAPPEN`);
-              }
+              console.log(`Segment ${index}: "${segment.text.substring(0, 30)}..." -> Image: ${imageUrl ? 'Found' : 'Missing'}, Timing: ${segment.start_time}s-${segment.end_time}s`);
               
               return {
                 id: segment.id || `seg_${index + 1}`,
                 index,
                 text: segment.text,
                 text_hash: createTextHash(segment.text),
-                start_time: startTime,
-                end_time: endTime,
-                duration: segmentDuration,
+                start_time: segment.start_time,
+                end_time: segment.end_time,
+                duration: segment.duration,
                 original_duration: segment.duration,
                 assets: {
                   voice: {
-                    url: results.audio_url, // FIXED: All segments share same continuous audio file
-                    duration: results.timeline_data?.total_duration || 60, // FIXED: Use total audio duration, not segment duration
-                    audio_offset: segment.start_time, // NEW: Track where this segment starts in the audio
+                    url: results.audio_url, // All segments share same continuous audio file
+                    duration: totalDuration, // Use actual total audio duration
+                    audio_offset: segment.start_time, // Where this segment starts in the audio
                     status: results.audio_url ? 'ready' as const : 'pending' as const
                   },
                   image: {
@@ -1041,7 +1099,7 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
                     status: imageUrl ? 'ready' as const : 'pending' as const
                   },
                   captions: {
-                    words: results.word_timings?.[index]?.word_timings?.map((wt: any) => ({
+                    words: segment.word_timings?.map((wt: any) => ({
                       word: wt.word,
                       start_time: wt.start,
                       end_time: wt.end,
@@ -1057,13 +1115,13 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
                 status: 'ready' as const,
                 locked: false
               };
-            }) || [];
+            });
 
             console.log(`✅ Loaded ${segments.length} segments into editor`);
 
             // Update store state
             state.segments = segments;
-            state.project.duration = results.timeline_data?.total_duration || 60;
+            state.project.duration = totalDuration;
             state.project.status = 'editing';
             state.project.video_url = results.video_url;
             // Try multiple sources for video_id
