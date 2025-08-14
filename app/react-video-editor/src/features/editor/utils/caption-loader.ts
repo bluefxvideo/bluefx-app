@@ -1,8 +1,9 @@
 import { ITrackItem } from "@designcombo/types";
 import { ICaptionTrackItem } from "../player/items/Caption";
 import { dispatch } from "@designcombo/events";
-import { ADD_TEXT, ADD_ITEMS } from "@designcombo/state";
+import { ADD_TEXT } from "@designcombo/state";
 import { generateId } from "@designcombo/timeline";
+
 
 /**
  * Load mock caption data for testing
@@ -96,8 +97,10 @@ export async function loadMockCaptionData(): Promise<ICaptionTrackItem | null> {
   }
 }
 
+
+
 /**
- * Helper to add caption track using ADD_TEXT (safer approach)
+ * Add caption track to editor using text items with caption metadata
  */
 export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
   // Use ADD_TEXT with exact same structure as TEXT_ADD_PAYLOAD

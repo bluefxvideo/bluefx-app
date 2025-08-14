@@ -9,17 +9,25 @@ import useStore from "../store/use-store";
 function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
   const [editingSegmentIndex, setEditingSegmentIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  const [editingTiming, setEditingTiming] = useState<number | null>(null);
+  const [editStartTime, setEditStartTime] = useState(0);
+  const [editEndTime, setEditEndTime] = useState(0);
   
   // Get all segments from all caption tracks
   const allSegments = useMemo(() => {
     const segments: any[] = [];
     captionTracks.forEach(track => {
-      const trackSegments = (track.details as any)?.captionSegments || [];
+      let trackSegments: any[] = [];
+      
+      // Caption tracks are text items with captionSegments
+      trackSegments = (track.details as any)?.captionSegments || [];
+      
       trackSegments.forEach((segment: any, index: number) => {
         segments.push({
           ...segment,
           trackId: track.id,
-          segmentIndex: index
+          segmentIndex: index,
+          trackType: track.type
         });
       });
     });
@@ -40,6 +48,13 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
     setEditText(text);
   };
 
+  const handleTimingEditClick = (index: number, start: number, end: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingTiming(index);
+    setEditStartTime(start);
+    setEditEndTime(end);
+  };
+
   const handleSave = () => {
     // TODO: Update the segment text in the store
     console.log('Saving text:', editText);
@@ -47,9 +62,43 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
     setEditText("");
   };
 
+  const handleTimingSave = () => {
+    // TODO: Update the segment timing in the store
+    console.log('Saving timing:', { start: editStartTime, end: editEndTime });
+    setEditingTiming(null);
+    setEditStartTime(0);
+    setEditEndTime(0);
+  };
+
   const handleCancel = () => {
     setEditingSegmentIndex(null);
     setEditText("");
+  };
+
+  const handleTimingCancel = () => {
+    setEditingTiming(null);
+    setEditStartTime(0);
+    setEditEndTime(0);
+  };
+
+  const parseTimeInput = (timeStr: string): number => {
+    // Parse MM:SS.S format to milliseconds
+    const parts = timeStr.split(':');
+    if (parts.length !== 2) return 0;
+    
+    const minutes = parseInt(parts[0]) || 0;
+    const secondsParts = parts[1].split('.');
+    const seconds = parseInt(secondsParts[0]) || 0;
+    const deciseconds = parseInt(secondsParts[1]) || 0;
+    
+    return minutes * 60000 + seconds * 1000 + deciseconds * 100;
+  };
+
+  const formatTimeInput = (ms: number): string => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const deciseconds = Math.floor((ms % 1000) / 100);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}.${deciseconds}`;
   };
 
   return (
@@ -77,7 +126,38 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
                     <Clock className="h-3 w-3 flex-shrink-0" />
-                    <span className="text-xs">{formatTime(segment.start)} - {formatTime(segment.end)}</span>
+                    {editingTiming === index ? (
+                      <div className="flex items-center gap-1">
+                        <input 
+                          type="text" 
+                          className="w-16 text-xs p-1 border rounded" 
+                          value={formatTimeInput(editStartTime)}
+                          onChange={(e) => setEditStartTime(parseTimeInput(e.target.value))}
+                          placeholder="0:00.0"
+                        />
+                        <span>-</span>
+                        <input 
+                          type="text" 
+                          className="w-16 text-xs p-1 border rounded" 
+                          value={formatTimeInput(editEndTime)}
+                          onChange={(e) => setEditEndTime(parseTimeInput(e.target.value))}
+                          placeholder="0:00.0"
+                        />
+                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={handleTimingSave}>
+                          ✓
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={handleTimingCancel}>
+                          ✕
+                        </Button>
+                      </div>
+                    ) : (
+                      <span 
+                        className="text-xs cursor-pointer hover:bg-accent/30 rounded px-1 -mx-1"
+                        onClick={(e) => handleTimingEditClick(index, segment.start, segment.end, e)}
+                      >
+                        {formatTime(segment.start)} - {formatTime(segment.end)}
+                      </span>
+                    )}
                   </div>
                   
                   {editingSegmentIndex === index ? (
@@ -137,6 +217,7 @@ export default function Captions() {
   // Check if caption tracks exist
   const captionTracks = useMemo(() => {
     return Object.values(trackItemsMap).filter(item => 
+      // Caption tracks are text items with isCaptionTrack flag
       item.type === "text" && (item.details as any)?.isCaptionTrack
     );
   }, [trackItemsMap]);
@@ -156,6 +237,7 @@ export default function Captions() {
       setIsLoading(false);
     }
   };
+
 
   // Show different content based on whether captions exist
   if (captionTracks.length > 0) {

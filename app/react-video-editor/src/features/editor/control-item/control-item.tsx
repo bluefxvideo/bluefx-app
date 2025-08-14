@@ -9,6 +9,7 @@ import {
 } from "@designcombo/types";
 import { useEffect, useState } from "react";
 import BasicText from "./basic-text";
+import BasicCaption from "./basic-caption";
 import BasicImage from "./basic-image";
 import BasicVideo from "./basic-video";
 import BasicAudio from "./basic-audio";
@@ -57,6 +58,14 @@ const ActiveControlItem = ({
 			</div>
 		);
 	}
+
+	// Check if this is a caption track (text item with isCaptionTrack flag)
+	const isCaptionTrack = trackItem.type === "text" && (trackItem.details as any)?.isCaptionTrack;
+
+	if (isCaptionTrack) {
+		return <BasicCaption trackItem={trackItem as ITrackItem & IText} />;
+	}
+
 	return (
 		<>
 			{
