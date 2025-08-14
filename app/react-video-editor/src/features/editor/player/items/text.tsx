@@ -13,21 +13,10 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 
 	const currentTimeMs = (frame * 1000) / fps;
 	
-	// Debug logging
-	console.log('Caption Debug:', {
-		currentTimeMs,
-		frame,
-		fps,
-		segmentsCount: captionSegments.length,
-		segments: captionSegments
-	});
-	
 	// Find active caption segment
 	const activeSegment = captionSegments.find((segment: any) => 
 		currentTimeMs >= segment.start && currentTimeMs < segment.end
 	);
-	
-	console.log('Active segment:', activeSegment);
 	
 	if (!activeSegment) {
 		// No active segment - hide caption
@@ -115,19 +104,8 @@ export default function Text({
 	const isCaptionTrack = !!(details as any).isCaptionTrack;
 	const captionSegments = (details as any).captionSegments;
 	
-	// Debug logging
-	console.log('Text component render:', {
-		id: item.id,
-		isCaptionTrack,
-		itemKeys: Object.keys(item),
-		detailsKeys: Object.keys(details),
-		captionSegments,
-		hasSegments: !!(captionSegments && captionSegments.length > 0)
-	});
-
 	// Use separate component for captions to isolate useCurrentFrame hook
 	if (isCaptionTrack) {
-		console.log('Rendering CaptionText component');
 		return <CaptionText item={item} options={options} />;
 	}
 
