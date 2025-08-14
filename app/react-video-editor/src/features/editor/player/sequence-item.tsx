@@ -1,8 +1,9 @@
 import React from "react";
 import { IAudio, IImage, ITrackItem, IText, IVideo } from "@designcombo/types";
-import { Audio, Image, Text, Video, Caption } from "./items";
+import { Audio, Image, Text, Video } from "./items";
+import Caption from "./items/SimpleCaption";
+import { ICaptionTrackItem } from "./items/SimpleCaption";
 import { SequenceItemOptions } from "./base-sequence";
-import { ICaptionTrackItem } from "./items/Caption";
 
 export const SequenceItem: Record<
 	string,

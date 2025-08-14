@@ -13,6 +13,7 @@ import useStore from "../store/use-store";
 import Playhead from "./playhead";
 import { useCurrentPlayerFrame } from "../hooks/use-current-frame";
 import { Audio, Image, Text, Video } from "./items";
+import Caption from "./items/caption";
 import StateManager, { REPLACE_MEDIA } from "@designcombo/state";
 import {
 	TIMELINE_OFFSET_CANVAS_LEFT,
@@ -27,6 +28,7 @@ CanvasTimeline.registerItems({
 	Image,
 	Audio,
 	Video,
+	Caption,
 });
 
 const EMPTY_SIZE = { width: 0, height: 0 };

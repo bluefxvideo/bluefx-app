@@ -1,5 +1,5 @@
 import { SequenceItem } from "./sequence-item";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { dispatch, filter, subject } from "@designcombo/events";
 import {
 	EDIT_OBJECT,
@@ -150,22 +150,44 @@ const Composition = () => {
 		return () => subscription.unsubscribe();
 	}, [editableTextId]);
 
-	return (
-		<>
-			{groupedItems.map((group, index) => {
-				if (group.length === 1) {
-					const item = trackItemsMap[group[0].id];
-					return SequenceItem[item.type](item, {
-						fps,
-						handleTextChange,
-						onTextBlur,
-						editableTextId,
-						frame,
-						size,
-						isTransition: false,
+	// Create a stable list of all items to prevent hook order changes
+	const allItems = React.useMemo(() => {
+		const items: Array<{ id: string; item: any; key: string }> = [];
+		
+		groupedItems.forEach((group, index) => {
+			if (group.length === 1) {
+				const item = trackItemsMap[group[0].id];
+				if (item && SequenceItem[item.type]) {
+					items.push({
+						id: item.id,
+						item,
+						key: `${item.type}-${item.id}`
 					});
 				}
-				return null;
+			}
+		});
+		
+		return items;
+	}, [groupedItems, trackItemsMap]);
+
+	return (
+		<>
+			{allItems.map(({ id, item, key }) => {
+				const itemRenderer = SequenceItem[item.type];
+				
+				return (
+					<React.Fragment key={key}>
+						{itemRenderer(item, {
+							fps,
+							handleTextChange,
+							onTextBlur,
+							editableTextId,
+							frame,
+							size,
+							isTransition: false,
+						})}
+					</React.Fragment>
+				);
 			})}
 		</>
 	);

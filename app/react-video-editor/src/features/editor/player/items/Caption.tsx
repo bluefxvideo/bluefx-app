@@ -37,28 +37,61 @@ interface CaptionProps {
  * Caption Component - Renders captions with word-level timing
  * Based on V2 implementation but adapted for React Video Editor
  */
-export function Caption({ item, options }: CaptionProps) {
+function CaptionComponent({ item, options }: CaptionProps) {
+  // Always call hooks in the same order regardless of conditions
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   
   // Get caption metadata
   const { caption_metadata, details } = item;
   
-  // Check if we have segments
-  if (!caption_metadata?.segments || caption_metadata.segments.length === 0) {
-    return <AbsoluteFill />;
-  }
-  
   // Calculate current time in milliseconds
   const currentTimeMs = (frame * 1000) / fps;
   
-  // Find current caption segment
-  const currentSegment = caption_metadata.segments.find(
-    segment => currentTimeMs >= segment.start && currentTimeMs < segment.end
-  );
+  // Always calculate these to maintain hook order
+  const hasSegments = caption_metadata?.segments && caption_metadata.segments.length > 0;
+  const currentSegment = hasSegments 
+    ? caption_metadata.segments.find(segment => currentTimeMs >= segment.start && currentTimeMs < segment.end)
+    : null;
+  
+  // Debug logging (removed to prevent re-render issues)
+  // console.log('Caption render:', { frame, currentTimeMs, hasSegments });
+  
+  // Early return after all hooks are called - but show debug info
+  if (!hasSegments) {
+    return (
+      <AbsoluteFill>
+        <div style={{ 
+          position: 'absolute', 
+          top: 20, 
+          left: 20, 
+          color: 'red', 
+          fontSize: 16,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          padding: 8
+        }}>
+          NO CAPTION SEGMENTS
+        </div>
+      </AbsoluteFill>
+    );
+  }
   
   if (!currentSegment) {
-    return <AbsoluteFill />;
+    return (
+      <AbsoluteFill>
+        <div style={{ 
+          position: 'absolute', 
+          top: 20, 
+          left: 20, 
+          color: 'yellow', 
+          fontSize: 16,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          padding: 8
+        }}>
+          NO ACTIVE SEGMENT (t={currentTimeMs.toFixed(0)}ms)
+        </div>
+      </AbsoluteFill>
+    );
   }
   
   // Find active words based on current time
@@ -86,6 +119,19 @@ export function Caption({ item, options }: CaptionProps) {
   // Render caption with word-level highlighting
   return (
     <AbsoluteFill>
+      {/* Debug indicator */}
+      <div style={{ 
+        position: 'absolute', 
+        top: 10, 
+        left: 10, 
+        color: 'green', 
+        fontSize: 12,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        padding: 4
+      }}>
+        CAPTION ACTIVE: {currentSegment.text.substring(0, 20)}...
+      </div>
+      
       <div
         style={{
           position: 'absolute',
@@ -140,3 +186,6 @@ export function Caption({ item, options }: CaptionProps) {
     </AbsoluteFill>
   );
 }
+
+// Export memoized version to prevent unnecessary re-renders
+export const Caption = React.memo(CaptionComponent);

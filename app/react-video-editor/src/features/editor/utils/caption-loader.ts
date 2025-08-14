@@ -1,5 +1,8 @@
 import { ITrackItem } from "@designcombo/types";
 import { ICaptionTrackItem } from "../player/items/Caption";
+import { dispatch } from "@designcombo/events";
+import { ADD_TEXT, ADD_ITEMS } from "@designcombo/state";
+import { generateId } from "@designcombo/timeline";
 
 /**
  * Load mock caption data for testing
@@ -94,14 +97,43 @@ export async function loadMockCaptionData(): Promise<ICaptionTrackItem | null> {
 }
 
 /**
- * Helper to add caption track to the editor
+ * Helper to add caption track using ADD_TEXT (safer approach)
  */
-export function addCaptionTrackToEditor(
-  captionTrack: ICaptionTrackItem,
-  addTrackItem: (item: Omit<ITrackItem, 'id'>) => void
-) {
-  // Remove id so the store can generate a new one
-  const { id, ...trackWithoutId } = captionTrack;
-  addTrackItem(trackWithoutId as any);
-  console.log('Caption track added to editor');
+export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
+  // Use ADD_TEXT instead of creating a new type - this is safer
+  const textPayload = {
+    id: generateId(),
+    details: {
+      text: 'CAPTIONS TRACK',
+      fontSize: 32,
+      fontFamily: 'Inter',
+      fontUrl: '',
+      color: '#FFFFFF',
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      textAlign: 'center' as const,
+      width: 800,
+      height: 60,
+      opacity: 1,
+      skewX: 0,
+      skewY: 0,
+      lineHeight: 1.4,
+      letterSpacing: 0,
+      fontWeight: 400,
+      fontStyle: 'normal',
+      textDecoration: 'none',
+      wordSpacing: 0,
+      textShadow: 'none',
+      textTransform: 'none' as const,
+      transform: 'translate(0px, 0px) scale(1) rotate(0deg)',
+    },
+    // Store caption data in metadata for later use
+    caption_metadata: captionTrack.caption_metadata,
+  };
+  
+  dispatch(ADD_TEXT, {
+    payload: textPayload,
+    options: {}
+  });
+  
+  console.log('Caption track added as text item to avoid hooks issues', textPayload);
 }

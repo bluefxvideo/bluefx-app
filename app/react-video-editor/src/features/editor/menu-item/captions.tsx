@@ -2,14 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Subtitles, FileText, Wand2 } from "lucide-react";
 import { loadMockCaptionData, addCaptionTrackToEditor } from "../utils/caption-loader";
-import useStore from "../store/use-store";
 import { useState } from "react";
 
 /**
  * Caption Menu Item - Add and manage captions
  */
 export default function Captions() {
-  const { addTrackItem } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [captionAdded, setCaptionAdded] = useState(false);
 
@@ -18,7 +16,7 @@ export default function Captions() {
     try {
       const captionTrack = await loadMockCaptionData();
       if (captionTrack) {
-        addCaptionTrackToEditor(captionTrack, addTrackItem);
+        addCaptionTrackToEditor(captionTrack);
         setCaptionAdded(true);
         setTimeout(() => setCaptionAdded(false), 3000);
       }
