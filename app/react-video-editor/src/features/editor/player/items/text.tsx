@@ -6,30 +6,92 @@ import { useCurrentFrame } from "remotion";
 
 // Separate component for caption text to isolate hooks
 function CaptionText({ item, options }: { item: IText; options: SequenceItemOptions }) {
-	const { handleTextChange, onTextBlur, fps, editableTextId } = options;
+	const { handleTextChange, onTextBlur, fps } = options;
 	const { id, details } = item as IText;
 	const frame = useCurrentFrame();
-	const captionMetadata = (item as any).caption_metadata;
+	const captionSegments = (details as any).captionSegments || [];
 
-	let displayText = details.text;
 	const currentTimeMs = (frame * 1000) / fps;
 	
+	// Debug logging
+	console.log('Caption Debug:', {
+		currentTimeMs,
+		frame,
+		fps,
+		segmentsCount: captionSegments.length,
+		segments: captionSegments
+	});
+	
 	// Find active caption segment
-	const activeSegment = captionMetadata?.segments?.find((segment: any) => 
+	const activeSegment = captionSegments.find((segment: any) => 
 		currentTimeMs >= segment.start && currentTimeMs < segment.end
 	);
 	
-	if (activeSegment) {
-		displayText = activeSegment.text;
+	console.log('Active segment:', activeSegment);
+	
+	if (!activeSegment) {
+		// No active segment - hide caption
+		const children = (
+			<MotionText
+				key={id}
+				id={id}
+				content=""
+				editable={false}
+				onChange={handleTextChange}
+				onBlur={onTextBlur}
+				style={calculateTextStyles(details)}
+			/>
+		);
+		return BaseSequence({ item, options, children });
+	}
+
+	// Word-level highlighting logic
+	const words = activeSegment.words || [];
+	let displayContent;
+
+	if (words.length > 0) {
+		// Create word-by-word highlighted content
+		const highlightedWords = words.map((word: any, index: number) => {
+			const wordStart = word.start;
+			const wordEnd = word.end;
+			
+			let wordColor;
+			if (currentTimeMs >= wordEnd) {
+				// Word has been spoken - use appeared color
+				wordColor = activeSegment.style?.appearedColor || (details as any).appearedColor || "#FFFFFF";
+			} else if (currentTimeMs >= wordStart && currentTimeMs < wordEnd) {
+				// Word is currently being spoken - use active color
+				wordColor = activeSegment.style?.activeColor || (details as any).activeColor || "#00FF88";
+			} else {
+				// Word hasn't been spoken yet - use default color
+				wordColor = activeSegment.style?.color || details.color || "#E0E0E0";
+			}
+
+			return (
+				<span 
+					key={index} 
+					style={{ 
+						color: wordColor,
+						transition: 'color 0.1s ease'
+					}}
+				>
+					{word.word}
+					{index < words.length - 1 ? " " : ""}
+				</span>
+			);
+		});
+
+		displayContent = <span>{highlightedWords}</span>;
 	} else {
-		displayText = "";
+		// Fallback to segment text if no word-level data
+		displayContent = activeSegment.text;
 	}
 
 	const children = (
 		<MotionText
 			key={id}
 			id={id}
-			content={displayText}
+			content={displayContent}
 			editable={false} // Don't allow editing during caption playback
 			onChange={handleTextChange}
 			onBlur={onTextBlur}
@@ -49,11 +111,23 @@ export default function Text({
 	const { handleTextChange, onTextBlur, editableTextId } = options;
 	const { id, details } = item as IText;
 
-	// Check if this is a caption track (has itemSubtype: "caption")
-	const itemSubtype = (item as any).itemSubtype;
+	// Check if this is a caption track (stored in details)
+	const isCaptionTrack = !!(details as any).isCaptionTrack;
+	const captionSegments = (details as any).captionSegments;
+	
+	// Debug logging
+	console.log('Text component render:', {
+		id: item.id,
+		isCaptionTrack,
+		itemKeys: Object.keys(item),
+		detailsKeys: Object.keys(details),
+		captionSegments,
+		hasSegments: !!(captionSegments && captionSegments.length > 0)
+	});
 
 	// Use separate component for captions to isolate useCurrentFrame hook
-	if (itemSubtype === "caption") {
+	if (isCaptionTrack) {
+		console.log('Rendering CaptionText component');
 		return <CaptionText item={item} options={options} />;
 	}
 
