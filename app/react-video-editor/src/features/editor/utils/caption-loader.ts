@@ -108,6 +108,7 @@ export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
       to: captionTrack.caption_metadata?.segments?.reduce((max, seg) => Math.max(max, seg.end), 0) || 30000,
     },
     type: "text",
+    itemSubtype: "caption", // Flag to identify this as a caption track
     details: {
       text: "🎬 CAPTIONS TRACK", // Clear indicator this is captions
       fontSize: 48,
