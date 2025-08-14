@@ -311,6 +311,26 @@ export function SceneInteractions({
 				height: nextHeight,
 				direction,
 			}) => {
+				const targetId = getIdFromClassName(target.className) as string;
+				const trackItem = trackItemsMap[targetId];
+				const isCaptionTrack = trackItem?.details && (trackItem.details as any).isCaptionTrack;
+
+				// For caption tracks, handle resizing differently to avoid text sizing issues
+				if (isCaptionTrack) {
+					target.style.width = `${nextWidth}px`;
+					target.style.height = `${nextHeight}px`;
+					
+					// Only update container dimensions for captions, don't modify text styling
+					const animationDiv = target.firstElementChild
+						?.firstElementChild as HTMLDivElement | null;
+					if (animationDiv) {
+						animationDiv.style.width = `${nextWidth}px`;
+						animationDiv.style.height = `${nextHeight}px`;
+					}
+					return;
+				}
+
+				// Regular text handling (non-captions)
 				if (direction[1] === 1) {
 					const currentWidth = target.clientWidth;
 					const currentHeight = target.clientHeight;
@@ -363,19 +383,37 @@ export function SceneInteractions({
 			}}
 			onResizeEnd={({ target }) => {
 				const targetId = getIdFromClassName(target.className) as string;
-				const textDiv = target.firstElementChild?.firstElementChild
-					?.firstElementChild as HTMLDivElement;
-				dispatch(EDIT_OBJECT, {
-					payload: {
-						[targetId]: {
-							details: {
-								width: Number.parseFloat(target.style.width),
-								height: Number.parseFloat(target.style.height),
-								fontSize: Number.parseFloat(textDiv.style.fontSize),
+				const trackItem = trackItemsMap[targetId];
+				const isCaptionTrack = trackItem?.details && (trackItem.details as any).isCaptionTrack;
+
+				if (isCaptionTrack) {
+					// For captions, only update width and height, not fontSize
+					dispatch(EDIT_OBJECT, {
+						payload: {
+							[targetId]: {
+								details: {
+									width: Number.parseFloat(target.style.width),
+									height: Number.parseFloat(target.style.height),
+								},
 							},
 						},
-					},
-				});
+					});
+				} else {
+					// For regular text, update fontSize as well
+					const textDiv = target.firstElementChild?.firstElementChild
+						?.firstElementChild as HTMLDivElement;
+					dispatch(EDIT_OBJECT, {
+						payload: {
+							[targetId]: {
+								details: {
+									width: Number.parseFloat(target.style.width),
+									height: Number.parseFloat(target.style.height),
+									fontSize: Number.parseFloat(textDiv.style.fontSize),
+								},
+							},
+						},
+					});
+				}
 			}}
 			onDragGroupEnd={() => {
 				if (holdGroupPosition) {
