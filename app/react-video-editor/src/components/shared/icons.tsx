@@ -53,6 +53,7 @@ import {
 	ChevronsUp,
 	Volume2,
 	ShapesIcon,
+	Subtitles,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -308,6 +309,7 @@ export const Icons = {
 
 	upload: UploadIcon,
 	video: VideoIcon,
+	subtitles: Subtitles,
 	voiceOver: AudioLinesIcon,
 
 	radix: (props: LucideProps) => (

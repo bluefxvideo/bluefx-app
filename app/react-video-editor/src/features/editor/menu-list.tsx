@@ -44,6 +44,12 @@ const MENU_ITEMS = [
 		label: "Audio",
 		ariaLabel: "Add and manage audio content",
 	},
+	{
+		id: "captions",
+		icon: Icons.subtitles,
+		label: "Captions",
+		ariaLabel: "Add and manage captions",
+	},
 ] as const;
 
 // Memoized menu button component for better performance

@@ -7,6 +7,7 @@ import { Videos } from "./videos";
 import { VoiceOver } from "./voice-over";
 import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { Uploads } from "./uploads";
+import Captions from "./captions";
 
 const ActiveMenuItem = () => {
 	const { activeMenuItem } = useLayoutStore();
@@ -37,6 +38,10 @@ const ActiveMenuItem = () => {
 	}
 	if (activeMenuItem === "uploads") {
 		return <Uploads />;
+	}
+
+	if (activeMenuItem === "captions") {
+		return <Captions />;
 	}
 
 	return null;

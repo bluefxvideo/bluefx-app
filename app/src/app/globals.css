@@ -27,7 +27,7 @@
 
 .dark {
   /* BlueFX deep blue-gray theme for 60+ demographic */
-  --background: 220 24% 10%;        /* #1a1d29 - Main backgrounds */
+  --background: 220 24% 8.5%;       /* #131720 - Main backgrounds */
   --foreground: 210 20% 92%;       /* Clean white-blue text */
   --card: 220 22% 15%;             /* #252a3a - Secondary backgrounds (cards, panels) */
   --card-content: 220 18% 18%;      /* #2d3348 - Interactive elements */

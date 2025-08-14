@@ -1,0 +1,254 @@
+{
+  "sampleCaptions": [
+    {
+      "id": "caption-1",
+      "type": "caption",
+      "name": "Caption",
+      "display": {
+        "from": 0,
+        "to": 3000
+      },
+      "metadata": {
+        "words": [
+          {
+            "word": "Welcome",
+            "start": 0,
+            "end": 600,
+            "confidence": 0.98443294
+          },
+          {
+            "word": "to",
+            "start": 600,
+            "end": 800,
+            "confidence": 0.99123456
+          },
+          {
+            "word": "the",
+            "start": 800,
+            "end": 1000,
+            "confidence": 0.97654321
+          },
+          {
+            "word": "AI",
+            "start": 1000,
+            "end": 1400,
+            "confidence": 0.99876543
+          },
+          {
+            "word": "video",
+            "start": 1400,
+            "end": 2000,
+            "confidence": 0.98765432
+          },
+          {
+            "word": "editor!",
+            "start": 2000,
+            "end": 3000,
+            "confidence": 0.99234567
+          }
+        ],
+        "sourceUrl": "mock-audio-1.mp3",
+        "parentId": "mock-audio-track-1"
+      },
+      "details": {
+        "text": "Welcome to the AI video editor!",
+        "fontSize": 48,
+        "width": 800,
+        "fontFamily": "Inter",
+        "fontUrl": null,
+        "textAlign": "center",
+        "appearedColor": "#FFFFFF",
+        "activeColor": "#00FF88",
+        "activeFillColor": "#FF6B35",
+        "color": "#E0E0E0",
+        "backgroundColor": "rgba(0, 0, 0, 0.7)",
+        "borderColor": "#000000",
+        "borderWidth": 2,
+        "height": null,
+        "top": 1600,
+        "left": 140
+      }
+    },
+    {
+      "id": "caption-2", 
+      "type": "caption",
+      "name": "Caption",
+      "display": {
+        "from": 3500,
+        "to": 7200
+      },
+      "metadata": {
+        "words": [
+          {
+            "word": "This",
+            "start": 3500,
+            "end": 3800,
+            "confidence": 0.96789123
+          },
+          {
+            "word": "powerful",
+            "start": 3800,
+            "end": 4600,
+            "confidence": 0.98456789
+          },
+          {
+            "word": "tool",
+            "start": 4600,
+            "end": 5000,
+            "confidence": 0.99123456
+          },
+          {
+            "word": "helps",
+            "start": 5000,
+            "end": 5400,
+            "confidence": 0.97654321
+          },
+          {
+            "word": "you",
+            "start": 5400,
+            "end": 5600,
+            "confidence": 0.99876543
+          },
+          {
+            "word": "create",
+            "start": 5600,
+            "end": 6200,
+            "confidence": 0.98765432
+          },
+          {
+            "word": "amazing",
+            "start": 6200,
+            "end": 6800,
+            "confidence": 0.99234567
+          },
+          {
+            "word": "content.",
+            "start": 6800,
+            "end": 7200,
+            "confidence": 0.98345678
+          }
+        ],
+        "sourceUrl": "mock-audio-1.mp3",
+        "parentId": "mock-audio-track-1"
+      },
+      "details": {
+        "text": "This powerful tool helps you create amazing content.",
+        "fontSize": 44,
+        "width": 900,
+        "fontFamily": "Inter",
+        "fontUrl": null,
+        "textAlign": "center", 
+        "appearedColor": "#FFFFFF",
+        "activeColor": "#FF3B82",
+        "activeFillColor": "#3B82F6",
+        "color": "#F0F0F0",
+        "backgroundColor": "rgba(20, 20, 20, 0.8)",
+        "borderColor": "#333333",
+        "borderWidth": 1,
+        "height": null,
+        "top": 1550,
+        "left": 90
+      }
+    },
+    {
+      "id": "caption-3",
+      "type": "caption", 
+      "name": "Caption",
+      "display": {
+        "from": 7800,
+        "to": 10500
+      },
+      "metadata": {
+        "words": [
+          {
+            "word": "Generate",
+            "start": 7800,
+            "end": 8400,
+            "confidence": 0.99123456
+          },
+          {
+            "word": "images,",
+            "start": 8400,
+            "end": 9000,
+            "confidence": 0.98456789
+          },
+          {
+            "word": "text,",
+            "start": 9000,
+            "end": 9300,
+            "confidence": 0.97654321
+          },
+          {
+            "word": "and",
+            "start": 9300,
+            "end": 9500,
+            "confidence": 0.99876543
+          },
+          {
+            "word": "audio",
+            "start": 9500,
+            "end": 10000,
+            "confidence": 0.98765432
+          },
+          {
+            "word": "instantly!",
+            "start": 10000,
+            "end": 10500,
+            "confidence": 0.99234567
+          }
+        ],
+        "sourceUrl": "mock-audio-1.mp3",
+        "parentId": "mock-audio-track-1"
+      },
+      "details": {
+        "text": "Generate images, text, and audio instantly!",
+        "fontSize": 52,
+        "width": 950,
+        "fontFamily": "Inter",
+        "fontUrl": null,
+        "textAlign": "center",
+        "appearedColor": "#FFFFFF", 
+        "activeColor": "#F59E0B",
+        "activeFillColor": "#8B5CF6",
+        "color": "#FAFAFA",
+        "backgroundColor": "rgba(15, 23, 42, 0.9)",
+        "borderColor": "#64748B",
+        "borderWidth": 2,
+        "height": null,
+        "top": 1500,
+        "left": 65
+      }
+    }
+  ],
+  "mockAudioTrack": {
+    "id": "mock-audio-track-1",
+    "type": "audio",
+    "name": "Mock AI Speech",
+    "display": {
+      "from": 0,
+      "to": 12000
+    },
+    "trim": {
+      "from": 0,
+      "to": 12000
+    },
+    "playbackRate": 1,
+    "details": {
+      "src": "/mocks/sample-audio.mp3",
+      "volume": 100
+    },
+    "metadata": {},
+    "duration": 12000
+  },
+  "usage": {
+    "description": "Mock caption data following React Video Editor structure",
+    "notes": [
+      "Times are in milliseconds",
+      "Confidence scores range from 0-1", 
+      "Colors support hex and rgba formats",
+      "fontSize in pixels, positions in pixels from top-left",
+      "activeColor highlights current word, appearedColor for completed words"
+    ],
+    "integration": "Import this data in editor for caption testing"
+  }
+}
