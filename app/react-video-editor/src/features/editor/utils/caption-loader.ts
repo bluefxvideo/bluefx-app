@@ -100,31 +100,31 @@ export async function loadMockCaptionData(): Promise<ICaptionTrackItem | null> {
  * Helper to add caption track using ADD_TEXT (safer approach)
  */
 export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
-  // Use ADD_TEXT instead of creating a new type - this is safer
+  // Use ADD_TEXT with exact same structure as TEXT_ADD_PAYLOAD
   const textPayload = {
     id: generateId(),
+    display: {
+      from: 0,
+      to: captionTrack.caption_metadata?.segments?.reduce((max, seg) => Math.max(max, seg.end), 0) || 30000,
+    },
+    type: "text",
     details: {
-      text: 'CAPTIONS TRACK',
-      fontSize: 32,
-      fontFamily: 'Inter',
-      fontUrl: '',
-      color: '#FFFFFF',
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      textAlign: 'center' as const,
+      text: "🎬 CAPTIONS TRACK", // Clear indicator this is captions
+      fontSize: 48,
       width: 800,
-      height: 60,
-      opacity: 1,
-      skewX: 0,
-      skewY: 0,
-      lineHeight: 1.4,
-      letterSpacing: 0,
-      fontWeight: 400,
-      fontStyle: 'normal',
-      textDecoration: 'none',
-      wordSpacing: 0,
-      textShadow: 'none',
-      textTransform: 'none' as const,
-      transform: 'translate(0px, 0px) scale(1) rotate(0deg)',
+      fontUrl: "", // Will use default font
+      fontFamily: "Inter",
+      color: "#00FF88", // Green to distinguish from regular text
+      wordWrap: "break-word",
+      textAlign: "center",
+      borderWidth: 2,
+      borderColor: "#4A9EFF",
+      boxShadow: {
+        color: "#000000",
+        x: 2,
+        y: 2,
+        blur: 4,
+      },
     },
     // Store caption data in metadata for later use
     caption_metadata: captionTrack.caption_metadata,
@@ -135,5 +135,5 @@ export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
     options: {}
   });
   
-  console.log('Caption track added as text item to avoid hooks issues', textPayload);
+  console.log('Caption track added as text item with proper structure', textPayload);
 }
