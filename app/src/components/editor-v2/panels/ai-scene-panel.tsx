@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { Player } from '@remotion/player';
 import { useAIVideoEditorStore } from '../store/use-ai-video-editor-store';
+import useEditorStore from '../store/use-editor-store';
 import { useAIEditorContext } from '../context/ai-editor-context';
 import { AIRemotionComposition } from '../remotion/ai-remotion-composition';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,28 @@ export function AIScenePanel() {
   } = useAIVideoEditorStore();
   
   const { playerRef, sceneRef } = useAIEditorContext();
+  
+  // Import setPlayerRef from editor store
+  const { setPlayerRef } = useEditorStore();
+  
+  // Debug player mounting and sync with editor store
+  useEffect(() => {
+    console.log('Scene panel mounted, playerRef:', playerRef);
+    console.log('Player current:', playerRef.current);
+    
+    const checkPlayer = () => {
+      if (playerRef.current) {
+        console.log('Player is now available:', playerRef.current);
+        // Set the playerRef in the editor store so timeline can access it
+        setPlayerRef(playerRef);
+      } else {
+        console.log('Player still not available, checking again in 100ms');
+        setTimeout(checkPlayer, 100);
+      }
+    };
+    
+    checkPlayer();
+  }, [playerRef, setPlayerRef]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sceneZoom, setSceneZoom] = useState(1);
   
@@ -116,7 +139,7 @@ export function AIScenePanel() {
             {composition.composition.width}×{composition.composition.height} • {composition.composition.fps}fps
           </div>
           <div className="text-xs font-medium">
-            {Math.floor(timeline.currentFrame / composition.composition.fps)}s / {Math.floor(composition.composition.durationInFrames / composition.composition.fps)}s
+            {Math.floor((timeline.currentFrame || 0) / (composition.composition.fps || 30))}s / {Math.floor((composition.composition.durationInFrames || 0) / (composition.composition.fps || 30))}s
           </div>
         </Card>
       </div>
@@ -156,6 +179,8 @@ export function AIScenePanel() {
             showVolumeControls={false}
             clickToPlay={true}
             doubleClickToFullscreen={false}
+            onPlay={() => console.log('Player started playing via onPlay')}
+            onPause={() => console.log('Player paused via onPause')}
           />
           
           {/* Overlay for additional scene info */}
@@ -182,7 +207,7 @@ export function AIScenePanel() {
             Zoom: {Math.round(sceneZoom * 100)}%
           </span>
           <span>
-            Frame: {timeline.currentFrame}
+            Frame: {typeof timeline.currentFrame === 'number' ? timeline.currentFrame : 0}
           </span>
         </div>
       </div>

@@ -33,12 +33,22 @@ export function AIEditorProvider({ children }: { children: ReactNode }) {
   };
   
   const togglePlayback = () => {
+    console.log('togglePlayback called');
+    console.log('playerRef.current:', playerRef.current);
+    
     if (playerRef.current) {
-      if (playerRef.current.isPlaying()) {
+      const isPlaying = playerRef.current.isPlaying();
+      console.log('Current playing state:', isPlaying);
+      
+      if (isPlaying) {
+        console.log('Calling player.pause()');
         playerRef.current.pause();
       } else {
+        console.log('Calling player.play()');
         playerRef.current.play();
       }
+    } else {
+      console.error('Player ref is null - player not mounted yet');
     }
   };
   

@@ -125,7 +125,7 @@ export function AIEditorNavbar() {
         
         {/* Timeline Indicator */}
         <div className="ml-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{Math.floor(timeline.currentFrame / (composition?.composition.fps || 30))}s</span>
+          <span>{Math.floor((timeline.currentFrame || 0) / (composition?.composition.fps || 30))}s</span>
           <span>/</span>
           <span>{Math.floor((composition?.composition.durationInFrames || 0) / (composition?.composition.fps || 30))}s</span>
         </div>

@@ -23,15 +23,15 @@ import {
   RotateCw
 } from 'lucide-react';
 import { useAIVideoEditorStore } from '../store/use-ai-video-editor-store';
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 export function AIControlPanel() {
   const {
     timeline,
     composition,
-    updateSequence,
+    updateTrackItem,
     regenerateItem,
-    deleteSequence,
+    removeTrackItem,
     ai_operations
   } = useAIVideoEditorStore();
   
@@ -41,6 +41,42 @@ export function AIControlPanel() {
   
   const selectedItem = selectedItems[0]; // For single selection
   const [regeneratePrompt, setRegeneratePrompt] = useState('');
+  const [captionEditText, setCaptionEditText] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // Get selected caption segment if any
+  const selectedCaptionSegment = timeline.selectedCaptionSegment;
+  const selectedSegmentData = selectedCaptionSegment && selectedItem?.caption_metadata?.segments 
+    ? selectedItem.caption_metadata.segments[selectedCaptionSegment.segmentIndex]
+    : null;
+    
+  // Initialize edit text when segment changes
+  React.useEffect(() => {
+    if (selectedSegmentData) {
+      setCaptionEditText(selectedSegmentData.text || '');
+      setHasUnsavedChanges(false);
+    }
+  }, [selectedSegmentData]);
+  
+  const handleSaveCaptionEdit = () => {
+    if (!selectedCaptionSegment || !selectedSegmentData || !selectedItem.caption_metadata?.segments) return;
+    
+    const updatedSegments = [...selectedItem.caption_metadata.segments];
+    updatedSegments[selectedCaptionSegment.segmentIndex] = {
+      ...selectedSegmentData,
+      text: captionEditText
+    };
+    
+    updateTrackItem(selectedItem.id, {
+      ...selectedItem,
+      caption_metadata: {
+        ...selectedItem.caption_metadata,
+        segments: updatedSegments
+      }
+    });
+    
+    setHasUnsavedChanges(false);
+  };
 
   const handleRegenerateItem = async () => {
     if (!selectedItem) return;
@@ -53,7 +89,7 @@ export function AIControlPanel() {
   const handlePropertyChange = (property: string, value: any) => {
     if (!selectedItem) return;
     
-    updateSequence(selectedItem.id, {
+    updateTrackItem(selectedItem.id, {
       ...selectedItem,
       details: {
         ...selectedItem.details,
@@ -69,7 +105,7 @@ export function AIControlPanel() {
       x: 0, y: 0, scale: 1, rotation: 0
     };
     
-    updateSequence(selectedItem.id, {
+    updateTrackItem(selectedItem.id, {
       ...selectedItem,
       details: {
         ...selectedItem.details,
@@ -124,7 +160,7 @@ export function AIControlPanel() {
                   size="sm"
                   className="w-full"
                   onClick={() => {
-                    selectedItems.forEach(item => deleteSequence(item.id));
+                    selectedItems.forEach(item => removeTrackItem(item.id));
                   }}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -150,7 +186,10 @@ export function AIControlPanel() {
           <div>
             <h2 className="text-lg font-semibold">Properties</h2>
             <p className="text-xs text-muted-foreground capitalize">
-              {selectedItem.type} • Layer {selectedItem.layer}
+              {selectedCaptionSegment 
+                ? `Caption Segment ${selectedCaptionSegment.segmentIndex + 1} • Layer ${selectedItem.layer}`
+                : `${selectedItem.type} • Layer ${selectedItem.layer}`
+              }
             </p>
           </div>
           {selectedItem.ai_metadata && (
@@ -179,7 +218,41 @@ export function AIControlPanel() {
                   <Label className="text-sm font-medium">Content</Label>
                 </div>
                 
-                {selectedItem.type === 'text' && (
+                {/* Caption Segment Content */}
+                {selectedCaptionSegment && selectedSegmentData && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="segment-text" className="text-xs">Caption Text</Label>
+                      <Textarea
+                        id="segment-text"
+                        value={captionEditText}
+                        onChange={(e) => {
+                          setCaptionEditText(e.target.value);
+                          setHasUnsavedChanges(e.target.value !== selectedSegmentData?.text);
+                        }}
+                        className="mt-1 min-h-[80px] resize-none"
+                        placeholder="Enter caption text..."
+                      />
+                    </div>
+                    
+                    {/* Save button */}
+                    {hasUnsavedChanges && (
+                      <Button 
+                        onClick={handleSaveCaptionEdit}
+                        size="sm"
+                        className="w-full"
+                      >
+                        Save Caption Changes
+                      </Button>
+                    )}
+                    
+                    <div className="text-xs text-muted-foreground">
+                      Timing: {selectedSegmentData.start}ms - {selectedSegmentData.end}ms
+                    </div>
+                  </div>
+                )}
+                
+                {selectedItem.type === 'text' && !selectedCaptionSegment && (
                   <div className="space-y-3">
                     <div>
                       <Label htmlFor="text-content" className="text-xs">Text</Label>
@@ -223,7 +296,7 @@ export function AIControlPanel() {
                     <Slider
                       value={[selectedItem.duration]}
                       onValueChange={([value]) => 
-                        updateSequence(selectedItem.id, { ...selectedItem, duration: value })
+                        updateTrackItem(selectedItem.id, { ...selectedItem, duration: value })
                       }
                       min={30}
                       max={600}
@@ -455,7 +528,7 @@ export function AIControlPanel() {
             variant="outline"
             size="sm"
             className="text-red-600 hover:text-red-700"
-            onClick={() => deleteSequence(selectedItem.id)}
+            onClick={() => removeTrackItem(selectedItem.id)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

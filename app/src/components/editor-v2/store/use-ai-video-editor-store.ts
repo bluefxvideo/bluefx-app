@@ -119,6 +119,10 @@ export interface AIVideoEditorState {
     zoom: number;
     scrollLeft: number;
     selectedItemIds: string[];
+    selectedCaptionSegment: {
+      trackId: string;
+      segmentIndex: number;
+    } | null;
   };
   
   // AI operations state
@@ -167,6 +171,8 @@ export interface AIVideoEditorActions {
   // Selection management
   selectItems: (itemIds: string[]) => void;
   clearSelection: () => void;
+  selectCaptionSegment: (trackId: string, segmentIndex: number) => void;
+  clearCaptionSegmentSelection: () => void;
   
   // Timeline controls
   setCurrentFrame: (frame: number) => void;
@@ -179,8 +185,13 @@ export interface AIVideoEditorActions {
   regenerateItem: (itemId: string, settings?: any) => Promise<void>;
   generateNewItem: (type: AITrackItem['type'], prompt: string, position: number) => Promise<void>;
   
+  // Batch operations
+  duplicateSelectedItems: () => void;
+  deleteSelectedItems: () => void;
+  
   // Mock data operations (development only)
   loadMockCaptionData: () => Promise<void>;
+  loadMockData: () => void;
   
   // UI controls
   setActivePanel: (panel: AIVideoEditorState['ui']['activePanel']) => void;
@@ -202,7 +213,8 @@ const initialState: AIVideoEditorState = {
     isPlaying: false,
     zoom: 1,
     scrollLeft: 0,
-    selectedItemIds: []
+    selectedItemIds: [],
+    selectedCaptionSegment: null
   },
   
   ai_operations: {
@@ -383,7 +395,27 @@ export const useAIVideoEditorStore = create<AIVideoEditorState & AIVideoEditorAc
       set((state) => ({
         timeline: {
           ...state.timeline,
-          selectedItemIds: []
+          selectedItemIds: [],
+          selectedCaptionSegment: null
+        }
+      }));
+    },
+    
+    selectCaptionSegment: (trackId, segmentIndex) => {
+      set((state) => ({
+        timeline: {
+          ...state.timeline,
+          selectedItemIds: [trackId], // Select the track too
+          selectedCaptionSegment: { trackId, segmentIndex }
+        }
+      }));
+    },
+    
+    clearCaptionSegmentSelection: () => {
+      set((state) => ({
+        timeline: {
+          ...state.timeline,
+          selectedCaptionSegment: null
         }
       }));
     },
@@ -524,6 +556,31 @@ export const useAIVideoEditorStore = create<AIVideoEditorState & AIVideoEditorAc
       }
     },
     
+    // Batch operations for selected items
+    duplicateSelectedItems: () => {
+      const state = get();
+      const selectedIds = state.timeline.selectedItemIds;
+      
+      selectedIds.forEach(itemId => {
+        get().duplicateTrackItem(itemId);
+      });
+      
+      // Clear selection after duplication
+      get().clearSelection();
+    },
+    
+    deleteSelectedItems: () => {
+      const state = get();
+      const selectedIds = state.timeline.selectedItemIds;
+      
+      selectedIds.forEach(itemId => {
+        get().removeTrackItem(itemId);
+      });
+      
+      // Clear selection after deletion
+      get().clearSelection();
+    },
+    
     // Mock data operations (development only)
     loadMockCaptionData: async () => {
       try {
@@ -594,6 +651,91 @@ export const useAIVideoEditorStore = create<AIVideoEditorState & AIVideoEditorAc
       } catch (error) {
         console.error('Failed to load mock caption data:', error);
       }
+    },
+
+    // Create basic mock data for timeline testing - similar to research screenshot
+    loadMockData: () => {
+      // Add multiple text items like in the research implementation
+      const mockItems = [
+        {
+          type: 'text' as const,
+          start: 0,
+          duration: 150, // 5 seconds at 30fps
+          layer: 1,
+          details: {
+            text: 'Heading and some body',
+            fontSize: 48,
+            fontFamily: 'Inter',
+            color: '#FFFFFF',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            textAlign: 'center' as const,
+            width: 800,
+            height: 100,
+            top: 500,
+            left: 560,
+            opacity: 1
+          }
+        },
+        {
+          type: 'text' as const,
+          start: 30,
+          duration: 120, // 4 seconds overlapping
+          layer: 2,
+          details: {
+            text: 'Heading and some body',
+            fontSize: 48,
+            fontFamily: 'Inter',
+            color: '#FFFFFF',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            textAlign: 'center' as const,
+            width: 800,
+            height: 100,
+            top: 300,
+            left: 560,
+            opacity: 1
+          }
+        },
+        {
+          type: 'text' as const,
+          start: 60,
+          duration: 90, // 3 seconds overlapping  
+          layer: 3,
+          details: {
+            text: 'Heading and some body',
+            fontSize: 48,
+            fontFamily: 'Inter',
+            color: '#FFFFFF',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            textAlign: 'center' as const,
+            width: 800,
+            height: 100,
+            top: 100,
+            left: 560,
+            opacity: 1
+          }
+        },
+        {
+          type: 'image' as const,
+          start: 0,
+          duration: 180, // 6 seconds, bottom layer
+          layer: 0,
+          details: {
+            src: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600',
+            width: 800,
+            height: 600,
+            top: 240,
+            left: 560,
+            opacity: 1
+          }
+        }
+      ];
+
+      // Add all mock items
+      mockItems.forEach(item => {
+        get().addTrackItem(item);
+      });
+
+      console.log('Mock track data loaded successfully');
     },
     
     // UI controls

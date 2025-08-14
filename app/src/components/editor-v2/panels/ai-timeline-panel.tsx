@@ -16,7 +16,9 @@ export function AITimelinePanel() {
     setCurrentFrame,
     setZoom,
     selectItems,
-    clearSelection
+    clearSelection,
+    selectCaptionSegment,
+    clearCaptionSegmentSelection
   } = useAIVideoEditorStore();
   
   const { seekToFrame, togglePlayback } = useAIEditorContext();
@@ -208,37 +210,91 @@ export function AITimelinePanel() {
                             }
                           }}
                         >
-                          <div className="flex h-full items-center px-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs font-medium truncate">
-                                {isCaption
-                                  ? `"${sequence.details.text?.substring(0, 25)}${sequence.details.text?.length > 25 ? '...' : ''}"`
-                                  : sequence.details.text || 
-                                    (sequence.details.src ? `${sequence.type} asset` : sequence.type)
-                                }
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {isCaption && sequence.caption_metadata?.words
-                                  ? `${sequence.caption_metadata.words.length} words`
-                                  : `${Math.round(sequence.duration / fps * 10) / 10}s`
-                                }
+                          {/* Caption segments visualization */}
+                          {isCaption && sequence.caption_metadata?.segments ? (
+                            <div className="relative h-full">
+                              {sequence.caption_metadata.segments.map((segment: any, index: number) => {
+                                const segmentStartMs = segment.start;
+                                const segmentEndMs = segment.end;
+                                const segmentDurationMs = segmentEndMs - segmentStartMs;
+                                
+                                // Calculate position within this sequence
+                                const sequenceStartMs = sequence.start * 1000 / fps;
+                                const sequenceDurationMs = sequence.duration * 1000 / fps;
+                                
+                                const segmentStartPercent = ((segmentStartMs - sequenceStartMs) / sequenceDurationMs) * 100;
+                                const segmentWidthPercent = (segmentDurationMs / sequenceDurationMs) * 100;
+                                
+                                // Check if this segment is selected
+                                const isSegmentSelected = timeline.selectedCaptionSegment?.trackId === sequence.id && timeline.selectedCaptionSegment?.segmentIndex === index;
+                                
+                                return (
+                                  <div
+                                    key={index}
+                                    className={`absolute top-0 h-full border cursor-pointer transition-colors ${
+                                      isSegmentSelected 
+                                        ? 'border-amber-500 bg-amber-500/30 ring-1 ring-amber-500' 
+                                        : 'border-amber-400/30 bg-amber-500/10 hover:bg-amber-500/20'
+                                    }`}
+                                    style={{
+                                      left: `${Math.max(0, segmentStartPercent)}%`,
+                                      width: `${Math.min(100 - Math.max(0, segmentStartPercent), segmentWidthPercent)}%`
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Select this specific caption segment
+                                      selectCaptionSegment(sequence.id, index);
+                                      // Jump to segment start time
+                                      setCurrentFrame(Math.floor(segmentStartMs * fps / 1000));
+                                    }}
+                                  >
+                                    <div className="flex h-full items-center px-1">
+                                      <div className="text-xs font-medium truncate text-amber-700">
+                                        {segment.text?.substring(0, 15)}...
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              
+                              {/* Overall track info */}
+                              <div className="absolute right-1 top-1 text-xs text-amber-600">
+                                💬 {sequence.caption_metadata.segments.length}
                               </div>
                             </div>
-                            
-                            {/* Caption Indicator */}
-                            {isCaption && (
-                              <div className="ml-1 text-xs text-amber-600">
-                                💬
+                          ) : (
+                            <div className="flex h-full items-center px-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-medium truncate">
+                                  {isCaption
+                                    ? `"${sequence.details.text?.substring(0, 25)}${sequence.details.text?.length > 25 ? '...' : ''}"`
+                                    : sequence.details.text || 
+                                      (sequence.details.src ? `${sequence.type} asset` : sequence.type)
+                                  }
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {isCaption && sequence.caption_metadata?.words
+                                    ? `${sequence.caption_metadata.words.length} words`
+                                    : `${Math.round(sequence.duration / fps * 10) / 10}s`
+                                  }
+                                </div>
                               </div>
-                            )}
-                            
-                            {/* AI Indicator */}
-                            {sequence.ai_metadata && (
-                              <div className="ml-1 text-xs text-purple-400">
-                                ✨
-                              </div>
-                            )}
-                          </div>
+                              
+                              {/* Caption Indicator */}
+                              {isCaption && (
+                                <div className="ml-1 text-xs text-amber-600">
+                                  💬
+                                </div>
+                              )}
+                              
+                              {/* AI Indicator */}
+                              {sequence.ai_metadata && (
+                                <div className="ml-1 text-xs text-purple-400">
+                                  ✨
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       

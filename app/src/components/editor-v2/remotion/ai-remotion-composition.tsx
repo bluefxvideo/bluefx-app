@@ -337,7 +337,8 @@ function CaptionSequence({
         start: currentSegment.start,
         end: currentSegment.end,
         wordCount: currentSegment.words.length
-      } : null
+      } : null,
+      allSegments: caption_metadata.segments?.map(s => ({ text: s.text, start: s.start, end: s.end }))
     });
   }
   
