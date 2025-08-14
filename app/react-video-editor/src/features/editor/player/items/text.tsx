@@ -19,7 +19,7 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 	);
 	
 	if (!activeSegment) {
-		// No active segment - hide caption
+		// No active segment - hide caption completely (no background)
 		const children = (
 			<MotionText
 				key={id}
@@ -28,7 +28,11 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 				editable={false}
 				onChange={handleTextChange}
 				onBlur={onTextBlur}
-				style={calculateTextStyles(details)}
+				style={{
+					...calculateTextStyles(details),
+					backgroundColor: "transparent", // No background when no segment
+					padding: "0px", // No padding when no segment
+				}}
 			/>
 		);
 		return BaseSequence({ item, options, children });
@@ -76,154 +80,35 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 		displayContent = activeSegment.text;
 	}
 
-	// Create separate boxes with content-fitted widths
-	const renderCaptionWithFittedLineBackgrounds = () => {
-		// If no background, use simple rendering
-		if (!details.backgroundColor || details.backgroundColor === "transparent") {
-			const simpleStyles = {
-				...calculateTextStyles(details),
-				textShadow: (details as any).textShadowEnabled !== false 
-					? "2px 2px 4px rgba(0, 0, 0, 0.8)" 
-					: "none",
-			};
-			
-			return (
-				<MotionText
-					key={id}
-					id={id}
-					content={displayContent}
-					editable={false}
-					onChange={handleTextChange}
-					onBlur={onTextBlur}
-					style={simpleStyles}
-				/>
-			);
-		}
-
-		// For backgrounds, create individual line elements that fit their content
-		const textContent = typeof displayContent === 'string' ? displayContent : displayContent?.props?.children || '';
-		
-		// Base styles for each line
-		const lineStyles = {
-			display: "inline-block",
-			background: details.backgroundColor,
-			padding: `${Math.floor(((details as any).padding || 16) * 0.4)}px ${(details as any).padding || 16}px`,
-			borderRadius: `${(details as any).borderRadius || 8}px`,
-			margin: "2px 0",
-			lineHeight: "1.2",
-			textShadow: (details as any).textShadowEnabled !== false 
-				? "2px 2px 4px rgba(0, 0, 0, 0.8)" 
-				: "none",
-			fontSize: details.fontSize || "16px",
-			fontFamily: details.fontFamily || "Arial",
-			color: details.color || "#000000",
-			textAlign: details.textAlign || "center",
-			// KEY: Make each box fit its content width
-			width: "fit-content",
-			minWidth: "auto",
-		};
-
-		const containerStyles = {
-			display: "flex",
-			flexDirection: "column" as const,
-			alignItems: "center",
-			gap: "2px",
-		};
-
-		// If it's a complex display content with spans (word highlighting), handle it specially
-		if (typeof displayContent !== 'string') {
-			// Extract the actual text content from the spans to do proper line breaking
-			let textForBreaking = '';
-			if (displayContent && displayContent.props && displayContent.props.children) {
-				const children = displayContent.props.children;
-				if (Array.isArray(children)) {
-					textForBreaking = children.map(child => 
-						typeof child === 'string' ? child : child.props?.children || ''
-					).join('');
-				} else {
-					textForBreaking = typeof children === 'string' ? children : '';
-				}
-			}
-
-			// If we got text, split it into lines and recreate the highlighting
-			if (textForBreaking) {
-				const wordsArray = textForBreaking.split(' ');
-				const lines = [];
-				let currentLine = [];
-				const maxCharactersPerLine = 25;
-
-				for (let i = 0; i < wordsArray.length; i++) {
-					const testLine = [...currentLine, wordsArray[i]].join(' ');
-					
-					if (testLine.length > maxCharactersPerLine && currentLine.length > 0) {
-						lines.push(currentLine.join(' '));
-						currentLine = [wordsArray[i]];
-					} else {
-						currentLine.push(wordsArray[i]);
-					}
-					
-					if (i === wordsArray.length - 1) {
-						lines.push(currentLine.join(' '));
-					}
-				}
-
-				// For now, render each line with the original highlighting (simplified)
-				return (
-					<div style={containerStyles}>
-						{lines.map((line, index) => (
-							<span key={index} style={lineStyles}>
-								{line}
-							</span>
-						))}
-					</div>
-				);
-			}
-
-			// Fallback: render as single line
-			return (
-				<div style={containerStyles}>
-					<span style={lineStyles}>
-						{displayContent}
-					</span>
-				</div>
-			);
-		}
-
-		// For simple text, split more naturally to create properly sized lines
-		const wordsArray = textContent.split(' ');
-		const lines = [];
-		let currentLine = [];
-		const maxCharactersPerLine = 25; // Character-based limit instead of word-based
-
-		for (let i = 0; i < wordsArray.length; i++) {
-			const testLine = [...currentLine, wordsArray[i]].join(' ');
-			
-			// If adding this word would exceed the character limit, start a new line
-			if (testLine.length > maxCharactersPerLine && currentLine.length > 0) {
-				lines.push(currentLine.join(' '));
-				currentLine = [wordsArray[i]];
-			} else {
-				currentLine.push(wordsArray[i]);
-			}
-			
-			// If it's the last word, add the remaining line
-			if (i === wordsArray.length - 1) {
-				lines.push(currentLine.join(' '));
-			}
-		}
-
-		return (
-			<div style={containerStyles}>
-				{lines.map((line, index) => (
-					<span key={index} style={lineStyles}>
-						{line}
-					</span>
-				))}
-			</div>
-		);
+	// Custom styles for captions
+	const captionStyles = {
+		...calculateTextStyles(details),
+		// Apply caption-specific styles
+		textShadow: (details as any).textShadowEnabled !== false 
+			? "2px 2px 4px rgba(0, 0, 0, 0.8)" 
+			: "none",
+		backgroundColor: details.backgroundColor || "transparent",
+		padding: `${Math.floor(((details as any).padding || 16) * 0.5)}px ${(details as any).padding || 16}px`,
+		borderRadius: `${(details as any).borderRadius || 8}px`,
+		display: "inline-block",
+		margin: "0 auto",
+		lineHeight: "1.3",
+		textAlign: details.textAlign || "center",
+		maxWidth: "90%",
+		width: "fit-content",
 	};
 
-	const children = renderCaptionWithFittedLineBackgrounds();
+	const children = (
+		<MotionText
+			key={id}
+			id={id}
+			content={displayContent}
+			editable={false} // Don't allow editing during caption playback
+			onChange={handleTextChange}
+			onBlur={onTextBlur}
+			style={captionStyles}
+		/>
+	);
 	return BaseSequence({ item, options, children });
 }
 
