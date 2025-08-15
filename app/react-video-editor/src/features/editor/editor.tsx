@@ -30,6 +30,7 @@ import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { ITrackItem } from "@designcombo/types";
 import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
+import { loadAIAssetsFromURL } from "./utils/ai-asset-loader";
 
 const stateManager = new StateManager({
 	size: {
@@ -192,6 +193,25 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 
 	useEffect(() => {
 		setLoaded(true);
+	}, []);
+
+	// Load AI-generated assets from URL parameters
+	useEffect(() => {
+		const loadAIAssets = async () => {
+			try {
+				const result = await loadAIAssetsFromURL();
+				if (result.success) {
+					console.log('✅ AI assets loaded from URL:', result.video_id);
+					setProjectName(`AI Video - ${result.video_id}`);
+				} else if (!result.skipped) {
+					console.log('ℹ️ No AI assets to load from URL');
+				}
+			} catch (error) {
+				console.error('❌ Failed to load AI assets from URL:', error);
+			}
+		};
+
+		loadAIAssets();
 	}, []);
 
 	return (

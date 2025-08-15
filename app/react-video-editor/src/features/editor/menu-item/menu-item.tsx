@@ -8,6 +8,7 @@ import { VoiceOver } from "./voice-over";
 import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { Uploads } from "./uploads";
 import Captions from "./captions";
+import AIAssets from "./ai-assets";
 
 const ActiveMenuItem = () => {
 	const { activeMenuItem } = useLayoutStore();
@@ -42,6 +43,10 @@ const ActiveMenuItem = () => {
 
 	if (activeMenuItem === "captions") {
 		return <Captions />;
+	}
+
+	if (activeMenuItem === "ai-assets") {
+		return <AIAssets />;
 	}
 
 	return null;

@@ -50,6 +50,12 @@ const MENU_ITEMS = [
 		label: "Captions",
 		ariaLabel: "Add and manage captions",
 	},
+	{
+		id: "ai-assets",
+		icon: Icons.style,
+		label: "AI Assets",
+		ariaLabel: "Load AI-generated content",
+	},
 ] as const;
 
 // Memoized menu button component for better performance
