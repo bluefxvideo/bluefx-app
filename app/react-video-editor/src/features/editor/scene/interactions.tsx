@@ -343,41 +343,41 @@ export function SceneInteractions({
 					target.style.width = `${currentWidth * scale}px`;
 					target.style.height = `${currentHeight * scale}px`;
 
-					// Safely access nested elements
+					// Find the text element with a more robust selector
+					const textElement = target.querySelector('[data-text-id]') as HTMLDivElement | null;
+					if (textElement) {
+						const currentFontSize = Number.parseFloat(
+							getComputedStyle(textElement).fontSize,
+						);
+						textElement.style.fontSize = `${currentFontSize * scale}px`;
+						textElement.style.width = `${currentWidth * scale}px`;
+						textElement.style.height = `${currentHeight * scale}px`;
+					}
+
+					// Also update any nested animation div if it exists
 					const animationDiv = target.firstElementChild
 						?.firstElementChild as HTMLDivElement | null;
 					if (animationDiv) {
 						animationDiv.style.width = `${currentWidth * scale}px`;
 						animationDiv.style.height = `${currentHeight * scale}px`;
-
-						const textDiv =
-							animationDiv.firstElementChild as HTMLDivElement | null;
-						if (textDiv) {
-							const fontSize = Number.parseFloat(
-								getComputedStyle(textDiv).fontSize,
-							);
-							textDiv.style.fontSize = `${fontSize * scale}px`;
-							textDiv.style.width = `${currentWidth * scale}px`;
-							textDiv.style.height = `${currentHeight * scale}px`;
-						}
 					}
 				} else {
 					target.style.width = `${nextWidth}px`;
 					target.style.height = `${nextHeight}px`;
 
-					// Safely access nested elements
+					// Find the text element with a more robust selector
+					const textElement = target.querySelector('[data-text-id]') as HTMLDivElement | null;
+					if (textElement) {
+						textElement.style.width = `${nextWidth}px`;
+						textElement.style.height = `${nextHeight}px`;
+					}
+
+					// Also update any nested animation div if it exists
 					const animationDiv = target.firstElementChild
 						?.firstElementChild as HTMLDivElement | null;
 					if (animationDiv) {
 						animationDiv.style.width = `${nextWidth}px`;
 						animationDiv.style.height = `${nextHeight}px`;
-
-						const textDiv =
-							animationDiv.firstElementChild as HTMLDivElement | null;
-						if (textDiv) {
-							textDiv.style.width = `${nextWidth}px`;
-							textDiv.style.height = `${nextHeight}px`;
-						}
 					}
 				}
 			}}
@@ -400,16 +400,23 @@ export function SceneInteractions({
 					});
 				} else {
 					// For regular text, update fontSize as well
-					const textDiv = target.firstElementChild?.firstElementChild
-						?.firstElementChild as HTMLDivElement;
+					const textElement = target.querySelector('[data-text-id]') as HTMLDivElement | null;
+					const fontSize = textElement ? Number.parseFloat(textElement.style.fontSize) : undefined;
+					
+					const payload: any = {
+						width: Number.parseFloat(target.style.width),
+						height: Number.parseFloat(target.style.height),
+					};
+					
+					// Only include fontSize if we successfully found it
+					if (fontSize && !isNaN(fontSize)) {
+						payload.fontSize = fontSize;
+					}
+					
 					dispatch(EDIT_OBJECT, {
 						payload: {
 							[targetId]: {
-								details: {
-									width: Number.parseFloat(target.style.width),
-									height: Number.parseFloat(target.style.height),
-									fontSize: Number.parseFloat(textDiv.style.fontSize),
-								},
+								details: payload,
 							},
 						},
 					});
