@@ -315,17 +315,57 @@ export function SceneInteractions({
 				const trackItem = trackItemsMap[targetId];
 				const isCaptionTrack = trackItem?.details && (trackItem.details as any).isCaptionTrack;
 
-				// For caption tracks, handle resizing differently to avoid text sizing issues
+				// For caption tracks, handle resizing by scaling font size proportionally
 				if (isCaptionTrack) {
+					const currentWidth = target.clientWidth;
+					const currentHeight = target.clientHeight;
+
+					// Calculate scale factor - use the average of both dimensions for more natural scaling
+					const scaleX = nextWidth / currentWidth;
+					const scaleY = nextHeight / currentHeight;
+					const scale = (scaleX + scaleY) / 2; // Use average for more natural scaling
+
+					// Update target dimensions
 					target.style.width = `${nextWidth}px`;
 					target.style.height = `${nextHeight}px`;
-					
-					// Only update container dimensions for captions, don't modify text styling
+
+					// Update animation div if it exists
 					const animationDiv = target.firstElementChild
 						?.firstElementChild as HTMLDivElement | null;
 					if (animationDiv) {
 						animationDiv.style.width = `${nextWidth}px`;
 						animationDiv.style.height = `${nextHeight}px`;
+					}
+
+					// Find and scale the caption text element - try multiple selectors
+					let textElement = target.querySelector('[data-text-id]') as HTMLDivElement | null;
+					
+					// If not found, try finding by class name
+					if (!textElement) {
+						textElement = target.querySelector('.designcombo_textLayer') as HTMLDivElement | null;
+					}
+					
+					// If still not found, try finding any div with text content
+					if (!textElement) {
+						const allDivs = target.querySelectorAll('div');
+						for (const div of allDivs) {
+							if (div.textContent && div.textContent.trim().length > 0) {
+								textElement = div as HTMLDivElement;
+								break;
+							}
+						}
+					}
+
+					if (textElement) {
+						const currentFontSize = Number.parseFloat(
+							getComputedStyle(textElement).fontSize,
+						);
+						const newFontSize = Math.max(12, currentFontSize * scale); // Minimum 12px font size
+						textElement.style.fontSize = `${newFontSize}px`;
+						
+						// Also ensure the text element fills the container
+						textElement.style.width = `100%`;
+						textElement.style.height = `100%`;
 					}
 					return;
 				}
@@ -387,14 +427,41 @@ export function SceneInteractions({
 				const isCaptionTrack = trackItem?.details && (trackItem.details as any).isCaptionTrack;
 
 				if (isCaptionTrack) {
-					// For captions, only update width and height, not fontSize
+					// For captions, update width, height, and fontSize
+					let textElement = target.querySelector('[data-text-id]') as HTMLDivElement | null;
+					
+					// If not found, try finding by class name
+					if (!textElement) {
+						textElement = target.querySelector('.designcombo_textLayer') as HTMLDivElement | null;
+					}
+					
+					// If still not found, try finding any div with text content
+					if (!textElement) {
+						const allDivs = target.querySelectorAll('div');
+						for (const div of allDivs) {
+							if (div.textContent && div.textContent.trim().length > 0) {
+								textElement = div as HTMLDivElement;
+								break;
+							}
+						}
+					}
+					
+					const fontSize = textElement ? Number.parseFloat(textElement.style.fontSize) : undefined;
+					
+					const payload: any = {
+						width: Number.parseFloat(target.style.width),
+						height: Number.parseFloat(target.style.height),
+					};
+					
+					// Include fontSize if we successfully found and scaled it
+					if (fontSize && !isNaN(fontSize)) {
+						payload.fontSize = fontSize;
+					}
+					
 					dispatch(EDIT_OBJECT, {
 						payload: {
 							[targetId]: {
-								details: {
-									width: Number.parseFloat(target.style.width),
-									height: Number.parseFloat(target.style.height),
-								},
+								details: payload,
 							},
 						},
 					});
