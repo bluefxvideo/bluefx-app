@@ -13,7 +13,8 @@ import {
   Sparkles,
   Zap,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Edit3
 } from 'lucide-react';
 import { TabEmptyStates } from './tab-empty-states';
 import { LoadingSkeleton } from './loading-skeleton';
@@ -102,6 +103,17 @@ export function ScriptToVideoOutput({
             <Button className="flex-1">
               <Play className="w-4 h-4 mr-2" />
               Play
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                // Redirect to React Video Editor with auto-load
+                const editorUrl = `${process.env.NEXT_PUBLIC_REACT_VIDEO_EDITOR_URL || 'http://localhost:3002'}/?loadAI=${result.video_id}`;
+                window.open(editorUrl, '_blank');
+              }}
+              title="Edit in Video Editor"
+            >
+              <Edit3 className="w-4 h-4" />
             </Button>
             <Button variant="outline">
               <Download className="w-4 h-4" />
