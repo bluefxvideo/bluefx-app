@@ -34,13 +34,23 @@ export async function GET(
 		console.log(`📊 Remotion progress for ${id}:`, statusData);
 		
 		// Transform response to match combo.sh format expected by the editor
+		// Fix URL construction - convert relative URLs to absolute external URLs
+		let videoUrl = statusData.downloadUrl || statusData.outputUrl || statusData.url;
+		if (videoUrl && videoUrl.startsWith('/')) {
+			// Convert relative URL to absolute external URL
+			const remotionExternalUrl = process.env.NEXT_PUBLIC_REMOTION_SERVER_URL || 
+			                           process.env.REMOTION_SERVER_URL?.replace('http://remotion:3001', 'http://localhost:3001') ||
+			                           'http://localhost:3001';
+			videoUrl = `${remotionExternalUrl}${videoUrl}`;
+		}
+		
 		const editorResponse = {
 			video: {
 				id: id,
 				status: statusData.status === 'completed' ? 'COMPLETED' : 
 				        statusData.status === 'failed' ? 'FAILED' : 'PENDING',
 				progress: Math.round((statusData.progress || 0) * 100),
-				url: statusData.downloadUrl || statusData.outputUrl || statusData.url
+				url: videoUrl
 			}
 		};
 
