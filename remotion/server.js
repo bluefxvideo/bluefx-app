@@ -199,6 +199,13 @@ function videoStreamMiddleware(req, res, next) {
   res.set("Cross-Origin-Resource-Policy", "cross-origin");
   res.set("Cache-Control", "public, max-age=3600");
   res.set("Accept-Ranges", "bytes");
+  
+  // Check if this is a download request (has download parameter)
+  const isDownloadRequest = req.query.download === 'true';
+  if (isDownloadRequest) {
+    const filename = req.path.split('/').pop() || 'video.mp4';
+    res.set("Content-Disposition", `attachment; filename="${filename}"`);
+  }
 
   // Handle range requests for video streaming
   if (range && isVideo) {
