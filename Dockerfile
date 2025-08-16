@@ -11,7 +11,7 @@ COPY app/package*.json ./
 COPY app/yarn.lock* ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci --only=production --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -19,7 +19,7 @@ WORKDIR /app
 
 COPY app/package*.json ./
 COPY app/yarn.lock* ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 COPY app/ .
 
