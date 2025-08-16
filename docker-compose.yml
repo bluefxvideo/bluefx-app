@@ -9,10 +9,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${APP_NODE_ENV:-production}
       - PORT=3000
       - REMOTION_SERVICE_URL=http://remotion:3001
       - REACT_VIDEO_EDITOR_URL=http://react-video-editor:3002
+      - DATABASE_URL=${APP_DATABASE_URL}
+      - NEXTAUTH_SECRET=${APP_NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${APP_NEXTAUTH_URL}
     depends_on:
       - remotion
       - react-video-editor
@@ -28,9 +31,11 @@ services:
     ports:
       - "3002:3002"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${EDITOR_NODE_ENV:-production}
       - PORT=3002
       - REMOTION_SERVICE_URL=http://remotion:3001
+      - PEXELS_API_KEY=${EDITOR_PEXELS_API_KEY}
+      - UPLOAD_SERVICE_URL=${EDITOR_UPLOAD_SERVICE_URL}
     depends_on:
       - remotion
     restart: unless-stopped
@@ -45,11 +50,11 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${REMOTION_NODE_ENV:-production}
       - PORT=3001
-      - REMOTION_CONCURRENCY=2
+      - REMOTION_CONCURRENCY=${REMOTION_CONCURRENCY:-2}
       - REMOTION_API_KEY=${REMOTION_API_KEY}
-      - CORS_ORIGIN=*
+      - CORS_ORIGIN=${REMOTION_CORS_ORIGIN:-*}
     volumes:
       - remotion_output:/app/output
       - remotion_output_local:/app/output_local
