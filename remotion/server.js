@@ -334,8 +334,8 @@ const authenticate = (req, res, next) => {
   const apiKey = req.headers["x-api-key"];
   const validApiKey = process.env.REMOTION_API_KEY;
 
-  // Allow health check without API key
-  if (req.path === "/health" || req.path === "/") {
+  // Allow health check and output files without API key
+  if (req.path === "/health" || req.path === "/" || req.path.startsWith("/output/")) {
     return next();
   }
 
