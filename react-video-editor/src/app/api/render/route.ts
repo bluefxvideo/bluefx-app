@@ -116,11 +116,14 @@ export async function GET(request: Request) {
 		// Fix URL construction - convert relative URLs to absolute external URLs
 		let videoUrl = statusData.outputUrl || statusData.url;
 		if (videoUrl && videoUrl.startsWith('/')) {
-			// Convert relative URL to absolute external URL
-			const remotionExternalUrl = process.env.NEXT_PUBLIC_REMOTION_SERVER_URL || 
-			                           process.env.REMOTION_SERVER_URL?.replace('http://remotion:3001', 'http://localhost:3001') ||
-			                           'http://localhost:3001';
-			videoUrl = `${remotionExternalUrl}${videoUrl}`;
+			// Convert internal Docker URL to external URL that browsers can access
+			// In development: http://remotion:3001 → http://localhost:3001
+			// In production: Should be set to actual external Remotion URL
+			const internalUrl = process.env.REMOTION_SERVER_URL || 'http://localhost:3001';
+			const externalUrl = internalUrl
+				.replace('http://remotion:3001', 'http://localhost:3001')  // Development
+				.replace('https://remotion:3001', 'https://localhost:3001'); // Just in case
+			videoUrl = `${externalUrl}${videoUrl}`;
 		}
 		
 		const editorResponse = {
