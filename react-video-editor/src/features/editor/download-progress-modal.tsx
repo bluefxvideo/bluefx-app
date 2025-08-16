@@ -4,31 +4,19 @@ import { Button } from "@/components/ui/button";
 import { CircleCheckIcon, XIcon } from "lucide-react";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { download } from "@/utils/download";
-import { getAIGenerationInfo } from "../utils/ai-asset-loader";
-import useStore from "../store/use-store";
 
 const DownloadProgressModal = () => {
 	const { progress, displayProgressModal, output, actions } =
 		useDownloadState();
-	const { trackItemsMap } = useStore();
 	const isCompleted = progress === 100;
 
 	const handleDownload = async () => {
 		if (output?.url) {
-			// Generate a meaningful filename
-			let filename = "video";
-			
-			// Check if this is AI-generated content and use video ID
-			const aiInfo = getAIGenerationInfo(trackItemsMap);
-			if (aiInfo.hasAIContent && aiInfo.videoId) {
-				filename = `ai-video-${aiInfo.videoId.slice(-8)}`;
-			} else {
-				// Fallback to timestamp
-				const now = new Date();
-				const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-				const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-				filename = `video-${dateStr}-${timeStr}`;
-			}
+			// Generate a meaningful filename with timestamp
+			const now = new Date();
+			const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+			const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+			const filename = `video-${dateStr}-${timeStr}`;
 			
 			await download(output.url, filename);
 			console.log("downloading:", filename);
