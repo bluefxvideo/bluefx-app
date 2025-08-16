@@ -12,8 +12,10 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - REMOTION_SERVICE_URL=http://remotion:3001
+      - REACT_VIDEO_EDITOR_URL=http://react-video-editor:3002
     depends_on:
       - remotion
+      - react-video-editor
     restart: unless-stopped
     mem_limit: 1g
     cpus: '0.5'
@@ -24,10 +26,10 @@ services:
       context: ./react-video-editor
       dockerfile: Dockerfile
     ports:
-      - "3002:3000"
+      - "3002:3002"
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3002
       - REMOTION_SERVICE_URL=http://remotion:3001
     depends_on:
       - remotion
@@ -41,10 +43,10 @@ services:
       context: ./remotion
       dockerfile: Dockerfile
     ports:
-      - "3001:3000"
+      - "3001:3001"
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3001
       - REMOTION_CONCURRENCY=2
       - REMOTION_API_KEY=${REMOTION_API_KEY}
       - CORS_ORIGIN=*
