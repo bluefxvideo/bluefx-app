@@ -4,7 +4,7 @@ FROM node:18-alpine AS base
 # Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
-WORKDIR /app/app
+WORKDIR /app
 
 # Copy package files
 COPY app/package*.json ./
@@ -15,7 +15,7 @@ RUN npm ci --only=production
 
 # Rebuild the source code only when needed
 FROM base AS builder
-WORKDIR /app/app
+WORKDIR /app
 
 COPY app/package*.json ./
 COPY app/yarn.lock* ./
@@ -36,9 +36,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy built application
-COPY --from=builder /app/app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 

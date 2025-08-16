@@ -42,14 +42,16 @@ Thumbs.db
 .cache/
 .turbo/
 
-# Track ONLY app/ and remotion/ folders
+# Track ONLY app/, remotion/, and react-video-editor/ folders
 /*
 !/app/
 !/remotion/
+!/react-video-editor/
 !/.gitignore
 !/.dockerignore
 !/Dockerfile
 !/README.md
+!/docker-compose.yml
 
 # CSV and data files
 *.csv
@@ -61,5 +63,6 @@ Score*.csv
 !README.md
 !app/README.md
 !remotion/README.md
+!react-video-editor/README.md
 
-# Deployment focus: app/ and remotion/ only
+# Deployment focus: app/, remotion/, and react-video-editor/ only
