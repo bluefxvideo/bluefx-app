@@ -21,7 +21,7 @@ const DownloadProgressModal = () => {
 			open={displayProgressModal}
 			onOpenChange={actions.setDisplayProgressModal}
 		>
-			<DialogContent className="flex h-[627px] flex-col gap-0 bg-background p-0 sm:max-w-[844px]">
+			<DialogContent className="flex h-[627px] flex-col gap-0 bg-background p-0 sm:max-w-[844px]" showCloseButton={false}>
 				<DialogTitle className="hidden" />
 				<DialogDescription className="hidden" />
 				<XIcon
