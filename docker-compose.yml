@@ -125,7 +125,3 @@ volumes:
     driver: local
   remotion_output_local:
     driver: local
-
-networks:
-  default:
-    driver: bridge
