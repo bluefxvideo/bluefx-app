@@ -168,7 +168,7 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Custom video streaming middleware with proper range request support
 function videoStreamMiddleware(req, res, next) {
-  const filePath = path.join(process.cwd(), "output", req.path);
+  const filePath = path.join(process.cwd(), "output", req.path.substring(1));
 
   // Check if file exists
   if (!fs.existsSync(filePath)) {
