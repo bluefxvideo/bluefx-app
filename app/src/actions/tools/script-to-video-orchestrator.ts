@@ -606,12 +606,31 @@ export async function generateScriptToVideo(
       // Convert caption chunks to the format expected by storeCaptionChunks
       const captionChunksToStore: any[] = [];
       
+      // Find the corresponding segment timing from the segments array for absolute timing
+      const segmentTimingMap = new Map();
+      mockSegments.forEach((seg: any) => {
+        segmentTimingMap.set(seg.id, {
+          start_time: seg.start_time || 0,
+          end_time: seg.end_time || 0
+        });
+      });
+      
       captionChunks.segments.forEach((segment: any, segmentIndex: number) => {
+        // Get the absolute timing for this segment
+        const segmentTiming = segmentTimingMap.get(segment.segment_id) || { start_time: 0, end_time: 0 };
+        const segmentStartTime = segmentTiming.start_time;
+        
+        console.log(`🔧 Processing captions for ${segment.segment_id} (absolute start: ${segmentStartTime}s, chunks: ${segment.caption_chunks.length})`);
+        
         segment.caption_chunks.forEach((chunk: any, chunkIndex: number) => {
+          // Convert relative timing to absolute timing
+          const absoluteStartTime = segmentStartTime + chunk.start_time;
+          const absoluteEndTime = segmentStartTime + chunk.end_time;
+          
           captionChunksToStore.push({
             text_content: chunk.text,
-            start_time: chunk.start_time,
-            end_time: chunk.end_time,
+            start_time: absoluteStartTime,
+            end_time: absoluteEndTime,
             duration: chunk.duration,
             chunk_index: captionChunksToStore.length, // Global chunk index
             word_count: chunk.word_count,
@@ -623,11 +642,13 @@ export async function generateScriptToVideo(
             style_properties: {},
             generation_method: 'whisper_ai_chunking',
             quality_score: 100,
-            primary_segment_id: null, // mockSegments use string IDs, not UUIDs
-            related_segment_ids: null // No related segment UUIDs available
+            primary_segment_id: segment.segment_id, // Associate with the segment
+            related_segment_ids: null
           });
         });
       });
+      
+      console.log(`📊 Caption timing conversion complete: ${captionChunksToStore.length} chunks, range ${Math.min(...captionChunksToStore.map(c => c.start_time)).toFixed(1)}s - ${Math.max(...captionChunksToStore.map(c => c.end_time)).toFixed(1)}s`);
       
       const captionStoreResult = await storeCaptionChunks(storeResult.video_id, captionChunksToStore);
       

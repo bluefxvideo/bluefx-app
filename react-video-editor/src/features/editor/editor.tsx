@@ -7,7 +7,7 @@ import usePlayerEvents from "./hooks/use-player-events";
 import Scene from "./scene";
 import { SceneRef } from "./scene/scene.types";
 import StateManager, { DESIGN_LOAD } from "@designcombo/state";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -49,6 +49,11 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 	const [loaded, setLoaded] = useState(false);
 	const [trackItem, setTrackItem] = useState<ITrackItem | null>(null);
 	const [hasLoadedDesign, setHasLoadedDesign] = useState(false);
+	
+	// Enhanced loading state management
+	const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+	const [loadingSource, setLoadingSource] = useState<string | null>(null);
+	const [loadingError, setLoadingError] = useState<string | null>(null);
 	const {
 		setTrackItem: setLayoutTrackItem,
 		setFloatingControl,
@@ -59,74 +64,97 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 
 	useTimelineEvents();
 	usePlayerEvents();
+	
+	// Atomic loading function to prevent race conditions
+	const loadDesignAtomically = useCallback(async (
+		loadFunction: () => Promise<{ payload: any; source: string }>,
+		source: string
+	) => {
+		// Prevent concurrent loading
+		if (isLoadingAssets || hasLoadedDesign) {
+			console.log(`⏭️ Skipping ${source} - already loading or loaded`);
+			return false;
+		}
+		
+		setIsLoadingAssets(true);
+		setLoadingSource(source);
+		setLoadingError(null);
+		
+		try {
+			console.log(`🔄 Starting atomic loading from: ${source}`);
+			const { payload } = await loadFunction();
+			
+			if (payload) {
+				console.log(`📤 Dispatching DESIGN_LOAD from: ${source}`);
+				dispatch(DESIGN_LOAD, { payload });
+				setHasLoadedDesign(true);
+				console.log(`✅ Successfully loaded design from: ${source}`);
+				return true;
+			}
+		} catch (error) {
+			console.error(`❌ Failed to load from ${source}:`, error);
+			setLoadingError(error instanceof Error ? error.message : 'Unknown error');
+		} finally {
+			setIsLoadingAssets(false);
+			setLoadingSource(null);
+		}
+		
+		return false;
+	}, [isLoadingAssets, hasLoadedDesign]);
 
 	const { setCompactFonts, setFonts } = useDataState();
 
 	useEffect(() => {
 		if (tempId) {
-			const fetchVideoJson = async () => {
-				try {
-					const response = await fetch(
-						`https://scheme.combo.sh/video-json/${id}`,
-					);
-					if (!response.ok) {
-						throw new Error(`HTTP error! status: ${response.status}`);
-					}
-					const data = await response.json();
-
-					const payload = data.videoJson.json;
-					if (payload && !hasLoadedDesign) {
-						dispatch(DESIGN_LOAD, { payload });
-						setHasLoadedDesign(true);
-					}
-				} catch (error) {
-					console.error("Error fetching video JSON:", error);
+			loadDesignAtomically(async () => {
+				const response = await fetch(`https://scheme.combo.sh/video-json/${id}`);
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
 				}
-			};
-			fetchVideoJson();
+				const data = await response.json();
+				return { 
+					payload: data.videoJson.json, 
+					source: 'tempId-video-json' 
+				};
+			}, 'tempId-video-json');
 		}
 
 		if (id) {
-			const fetchSceneById = async () => {
-				try {
-					const response = await fetch(`/api/scene/${id}`);
-					if (!response.ok) {
-						throw new Error(`HTTP error! status: ${response.status}`);
-					}
-					const data = await response.json();
-					console.log("Fetched scene data:", data);
-
-					if (data.success && data.scene) {
-						// Set project name if available
-						if (data.project?.name) {
-							setProjectName(data.project.name);
-						}
-
-						// Load the scene content into the editor
-						if (data.scene.content && !hasLoadedDesign) {
-							dispatch(DESIGN_LOAD, { payload: data.scene.content });
-							setHasLoadedDesign(true);
-						}
-					} else {
-						console.error("Failed to fetch scene:", data.error);
-					}
-				} catch (error) {
-					console.error("Error fetching scene by ID:", error);
+			loadDesignAtomically(async () => {
+				const response = await fetch(`/api/scene/${id}`);
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
 				}
-			};
-			fetchSceneById();
+				const data = await response.json();
+				console.log("Fetched scene data:", data);
+
+				if (data.success && data.scene) {
+					// Set project name if available
+					if (data.project?.name) {
+						setProjectName(data.project.name);
+					}
+					
+					return { 
+						payload: data.scene.content, 
+						source: 'scene-by-id' 
+					};
+				} else {
+					throw new Error(data.error || "Failed to fetch scene");
+				}
+			}, 'scene-by-id');
 		}
-	}, [id, tempId, hasLoadedDesign]);
+	}, [id, tempId, loadDesignAtomically]);
 
 	useEffect(() => {
 		console.log("scene", scene);
 		console.log("timeline", timeline);
-		if (scene && timeline && !hasLoadedDesign) {
+		if (scene && timeline && !hasLoadedDesign && !isLoadingAssets) {
 			console.log("scene", scene);
-			dispatch(DESIGN_LOAD, { payload: scene });
-			setHasLoadedDesign(true);
+			loadDesignAtomically(async () => {
+				return { payload: scene, source: 'scene-store' };
+			}, 'scene-store');
 		}
-	}, [scene, timeline, hasLoadedDesign]);
+	}, [scene, timeline, hasLoadedDesign, isLoadingAssets, loadDesignAtomically]);
 
 	useEffect(() => {
 		setCompactFonts(getCompactFontData(FONTS));
@@ -199,37 +227,76 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		setLoaded(true);
 	}, []);
 
-	// Load AI-generated assets from URL parameters
+	// Load AI-generated assets from URL parameters with highest priority
 	useEffect(() => {
 		console.log('🚀 EDITOR: Starting AI asset loading useEffect');
 		
-		// Only run once on mount and when not already loaded
-		if (hasLoadedDesign) {
-			console.log('⏭️ Skipping AI asset loading - design already loaded');
-			return;
-		}
-		
 		const loadAIAssets = async () => {
 			try {
-				console.log('🚀 EDITOR: Calling loadAIAssetsFromURL...');
+				// Give AI loading highest priority by loading it immediately
 				const result = await loadAIAssetsFromURL();
 				console.log('🚀 EDITOR: Result from loadAIAssetsFromURL:', result);
 				
 				if (result.success) {
 					console.log('✅ AI assets loaded from URL:', result.video_id);
 					setProjectName(`AI Video - ${result.video_id}`);
+					// The loadAIAssetsFromURL already dispatches DESIGN_LOAD
 					setHasLoadedDesign(true);
+					setIsLoadingAssets(false); // Clear loading state
+					setLoadingSource(null);
 				} else if (!result.skipped) {
 					console.log('ℹ️ No AI assets to load from URL');
+					setIsLoadingAssets(false);
+					setLoadingSource(null);
 				} else {
 					console.log('⏭️ Skipped AI asset loading:', result.reason);
+					setIsLoadingAssets(false);
+					setLoadingSource(null);
 				}
 			} catch (error) {
 				console.error('❌ Failed to load AI assets from URL:', error);
+				setLoadingError(error instanceof Error ? error.message : 'AI loading failed');
+				setIsLoadingAssets(false); // Clear loading state on error
+				setLoadingSource(null);
 			}
 		};
 
-		loadAIAssets();
+		// Run AI loading immediately on mount if URL params exist
+		const urlParams = new URLSearchParams(window.location.search);
+		const hasVideoId = urlParams.get('videoId');
+		const hasLegacyId = urlParams.get('loadAI');
+		const hasMockMode = urlParams.get('mock') === 'true';
+		
+		if (hasVideoId || hasLegacyId || hasMockMode) {
+			console.log('🎯 AI asset URL parameters detected - starting priority loading');
+			setIsLoadingAssets(true); // Show loading state
+			setLoadingSource('AI-assets');
+			
+			// Clear any existing design state before AI loading
+			console.log('🧹 Clearing existing design state before AI loading');
+			dispatch(DESIGN_LOAD, { 
+				payload: {
+					fps: 30,
+					size: { width: 1920, height: 1080 },
+					duration: 30000,
+					trackItems: [],
+					trackItemsMap: {},
+					trackItemIds: [],
+					tracks: [],
+					activeIds: [],
+					transitionsMap: {},
+					transitionIds: [],
+					scale: { index: 7, unit: 300, zoom: 1 / 300, segments: 5 },
+					background: { type: "color", value: "transparent" },
+					structure: []
+				}
+			});
+			
+			// Small delay to ensure state is cleared
+			setTimeout(() => {
+				loadAIAssets();
+			}, 100);
+		}
 	}, []); // Empty dependency array - run only once on mount
 
 	return (
@@ -283,7 +350,21 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						defaultSize={30}
 						onResize={handleTimelineResize}
 					>
-						{playerRef && <Timeline stateManager={stateManager} />}
+						{isLoadingAssets ? (
+							<div className="flex items-center justify-center h-full bg-muted/50">
+								<div className="text-center">
+									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+									<p className="text-sm text-muted-foreground">
+										Loading {loadingSource}...
+									</p>
+									{loadingError && (
+										<p className="text-xs text-red-500 mt-2">{loadingError}</p>
+									)}
+								</div>
+							</div>
+						) : (
+							playerRef && <Timeline stateManager={stateManager} />
+						)}
 					</ResizablePanel>
 				</ResizablePanelGroup>
 

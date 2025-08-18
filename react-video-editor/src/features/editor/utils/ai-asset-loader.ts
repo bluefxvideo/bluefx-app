@@ -250,6 +250,7 @@ async function loadAIAssetsFromBlueFX({
     onProgress?.('Connecting to BlueFX...', 10);
     
     console.log('🔗 Fetching video data from BlueFX API:', `${apiUrl}/api/script-video/editor-data`);
+    console.log('🔗 Request payload:', { user_id: userId, videoId: videoId });
     
     // Fetch video data from BlueFX API
     const response = await fetch(`${apiUrl}/api/script-video/editor-data`, {
@@ -259,7 +260,13 @@ async function loadAIAssetsFromBlueFX({
     });
     
     if (!response.ok) {
-      throw new Error(`BlueFX API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ BlueFX API error:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`BlueFX API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     onProgress?.('Processing video data...', 30);

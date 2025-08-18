@@ -33,8 +33,20 @@ class Image extends Resizable {
 		util.loadImage(this.src)
 			.then((img) => {
 				// Validate image before using
-				if (!img || !img.width || !img.height) {
-					console.warn('Invalid image loaded:', this.src);
+				if (!img || !img.width || !img.height || img.width <= 0 || img.height <= 0) {
+					console.warn('Invalid image loaded:', this.src, { width: img?.width, height: img?.height });
+					// Set fallback color instead of trying to create pattern
+					this.set("fill", "#cccccc");
+					this.canvas?.requestRenderAll();
+					return;
+				}
+				
+				// Additional validation for image state
+				if (img.complete === false || img.naturalWidth === 0) {
+					console.warn('Image not fully loaded:', this.src);
+					// Set fallback color and retry later
+					this.set("fill", "#cccccc");
+					this.canvas?.requestRenderAll();
 					return;
 				}
 				
