@@ -109,7 +109,6 @@ export async function generateScriptToVideo(
   
   // Generation state
   let storyContext: any = null;
-  let whisperResult: any = null;
   let segmentAnalysis = { total_duration: 0, segment_count: 0 };
   let imageMetadata: any = null;
 
@@ -216,144 +215,56 @@ export async function generateScriptToVideo(
       credits_used: voiceResult.credits_used
     };
 
-    // Step 6: Whisper Analysis for Precise Word Timing (REQUIRED)
-    console.log('🎤 Analyzing audio with Whisper for precise lip sync...');
-    let wordTimings: any[] = [];
-    let captionChunks: any = null;
-    
+    // Step 6: Generate Images (using estimated timing)
     if (!audioUrl) {
       throw new Error('No audio generated - cannot proceed without voice for timing analysis');
     }
     
-    if (audioUrl) {
-      const { analyzeAudioWithWhisper } = await import('../services/whisper-analysis-service');
+    try {
+      const imageResults = await generateImagesForAllSegments(mockSegments, request.aspect_ratio || '16:9', request.user_id, batch_id);
+      generatedImages = imageResults;
+      total_credits += (imageResults.length * 4); // 4 credits per image
+      console.log('✅ Images generated with estimated timing:', { 
+        count: imageResults.length,
+        first_url: imageResults[0]?.url ? 'Generated' : 'NULL'
+      });
+      optimization_applied.push('Images generated with estimated timing');
       
-      whisperResult = await analyzeAudioWithWhisper({
-        audio_url: audioUrl,
-        segments: mockSegments.map(seg => ({
-          id: seg.id,
-          text: seg.text,
-          start_time: seg.start_time,
-          end_time: seg.end_time
-        }))
-      }, 30); // 30fps frame rate for professional video editing accuracy
-
-      if (whisperResult.success) {
-        wordTimings = whisperResult.segment_timings;
-        total_credits += 3; // Whisper analysis cost
-        console.log(`✅ Whisper analysis: ${whisperResult.word_count} words, ${whisperResult.speaking_rate.toFixed(1)} WPM`);
-        optimization_applied.push('Precise word-level timing with Whisper AI');
-        
-        // CRITICAL: Realign segments to match actual voice timing
-        console.log('🎯 Realigning segments to match actual voice timing...');
-        const { realignSegmentsWithVoiceTiming } = await import('../services/segment-realignment-service');
-        const realignedSegments = await realignSegmentsWithVoiceTiming(mockSegments, whisperResult);
-        
-        // Replace the estimated segments with realigned ones
-        mockSegments.length = 0;
-        mockSegments.push(...realignedSegments);
-        console.log('✅ Segments realigned to match voice timing');
-        
-        // CRITICAL: Generate images AFTER realignment to ensure timing sync
-        console.log('🖼️ Generating images with REAL timing (post-realignment)...');
-        try {
-          const imageResults = await generateImagesForAllSegments(mockSegments, request.aspect_ratio || '16:9', request.user_id, batch_id);
-          generatedImages = imageResults;
-          total_credits += (imageResults.length * 4); // 4 credits per image
-          console.log('✅ Images generated with real timing:', { 
-            count: imageResults.length,
-            first_url: imageResults[0]?.url ? 'Generated' : 'NULL'
-          });
-          optimization_applied.push('Images generated with real voice timing (not estimated)');
-          
-          // Store image metadata for structured storage
-          imageMetadata = {
-            generation_params: {
-              aspect_ratio: request.aspect_ratio || '16:9',
-              visual_style: 'realistic',
-              quality: 'standard',
-              model: 'flux-kontext-pro'
-            },
-            consistency_settings: {
-              characters: storyContext?.main_characters || [],
-              visual_style: storyContext?.visual_style || 'realistic',
-              setting: storyContext?.setting || 'general'
-            },
-            seed_values: imageResults.map((img, idx) => ({
-              segment_index: idx,
-              prompt: img.prompt,
-              url: img.url
-            })),
-            generation_timestamp: new Date().toISOString(),
-            total_images: imageResults.length,
-            credits_used: imageResults.length * 4
-          };
-        } catch (error) {
-          console.error('❌ Image generation failed completely:', error);
-          // Allow continuation with a warning instead of throwing
-          warnings.push(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
-          
-          // Set empty result to continue with other processing
-          imagesResult = {
-            success: false,
-            generated_images: [],
-            credits_used: 0,
+      // Store image metadata for structured storage
+      imageMetadata = {
+        generation_params: {
+          aspect_ratio: request.aspect_ratio || '16:9',
+          visual_style: 'realistic',
+          quality: 'standard',
+          model: 'flux-kontext-pro'
+        },
+        consistency_settings: {
+          characters: storyContext?.main_characters || [],
+          visual_style: storyContext?.visual_style || 'realistic',
+          setting: storyContext?.setting || 'general'
+        },
+        seed_values: imageResults.map((img, idx) => ({
+          segment_index: idx,
+          prompt: img.prompt,
+          url: img.url
+        })),
+        generation_timestamp: new Date().toISOString(),
+        total_images: imageResults.length,
+        credits_used: imageResults.length * 4
+      };
+    } catch (error) {
+      console.error('❌ Image generation failed completely:', error);
+      // Allow continuation with a warning instead of throwing
+      warnings.push(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
+      
+      // Set empty result to continue with other processing
+      imagesResult = {
+        success: false,
+        generated_images: [],
+        credits_used: 0,
             total_generation_time_ms: 0,
             error: error instanceof Error ? error.message : String(error)
           };
-        }
-        
-        // Step 6.4: Redistribute Segments to Match Actual Audio Duration
-        const actualAudioDuration = whisperResult.total_duration;
-        const estimatedDuration = segmentAnalysis.total_duration;
-        
-        if (Math.abs(actualAudioDuration - estimatedDuration) > 2) {
-          console.log(`🎯 Redistributing segments: estimated ${estimatedDuration}s → actual ${actualAudioDuration}s`);
-          
-          // Redistribute segment timing proportionally
-          const scaleFactor = actualAudioDuration / estimatedDuration;
-          
-          mockSegments.forEach(segment => {
-            const originalStart = segment.start_time;
-            const originalEnd = segment.end_time;
-            
-            segment.start_time = originalStart * scaleFactor;
-            segment.end_time = originalEnd * scaleFactor;
-            segment.duration = segment.end_time - segment.start_time;
-          });
-          
-          // Update segment analysis
-          segmentAnalysis.total_duration = actualAudioDuration;
-          
-          console.log(`✅ Segments redistributed to match ${actualAudioDuration}s audio duration`);
-          optimization_applied.push('Audio-visual duration synchronization');
-        } else {
-          console.log(`✓ Audio duration matches estimated duration (${actualAudioDuration}s ≈ ${estimatedDuration}s)`);
-        }
-        
-        // Step 6.5: Create Professional Caption Chunks
-        console.log('📝 Creating professional caption chunks following industry standards...');
-        const { createProfessionalCaptions } = await import('../services/caption-chunking-service');
-        
-        // Use standard content type
-        const contentType = 'standard';
-        
-        const captionResult = await createProfessionalCaptions(whisperResult, contentType);
-        
-        if (captionResult.success) {
-          captionChunks = captionResult;
-          total_credits += 1; // Caption processing cost
-          console.log(`✅ Created ${captionResult.total_chunks} professional caption chunks`);
-          console.log(`   📊 Avg ${captionResult.avg_words_per_chunk.toFixed(1)} words/chunk, Quality: ${captionResult.quality_score.toFixed(0)}/100`);
-          optimization_applied.push('Professional caption chunking (Netflix/broadcast standards)');
-        } else {
-          console.warn('⚠️ Caption chunking failed, will use full segment text');
-          warnings.push('Caption chunking failed - using fallback display');
-        }
-      } else {
-        console.error('❌ Whisper analysis failed - CANNOT proceed without real timing');
-        throw new Error('Whisper analysis failed - real timing required for synchronization');
-      }
     }
 
     // Step 7: Video Assembly
@@ -512,12 +423,12 @@ export async function generateScriptToVideo(
         credits_used: imageMetadata?.credits_used || 0
       },
       
-      // Whisper Analysis
+      // Whisper Analysis (removed - now done on-demand in editor)
       whisper_analysis: {
-        speaking_rate: whisperResult?.speaking_rate || 0,
-        confidence_avg: whisperResult?.confidence_avg || 0,
-        word_count: whisperResult?.word_count || 0,
-        word_timings: wordTimings
+        speaking_rate: 0,
+        confidence_avg: 0,
+        word_count: 0,
+        word_timings: []
       },
       
       // Credits & Performance
@@ -525,8 +436,8 @@ export async function generateScriptToVideo(
         script_generation: request.was_script_generated ? 3 : 0,
         voice_generation: voiceMetadata.credits_used,
         image_generation: imageMetadata?.credits_used || 0,
-        whisper_analysis: 3,
-        caption_processing: 1,
+        whisper_analysis: 0, // Removed - now done on-demand in editor
+        caption_processing: 0, // Removed - now done on-demand in editor
         video_assembly: 8,
         total: total_credits
       },
@@ -546,8 +457,7 @@ export async function generateScriptToVideo(
       generation_parameters: request as unknown as Json,
       production_plan: productionPlan as unknown as Json,
       credits_used: total_credits,
-      word_timings: wordTimings,
-      caption_chunks: captionChunks,
+      word_timings: [],
       
       // PRIMARY: Remotion-Native Composition
       remotion_composition: remotionComposition,
@@ -578,88 +488,12 @@ export async function generateScriptToVideo(
           characters: storyContext.main_characters || []
         }
       } : null,
-      whisper_data: whisperResult ? {
-        full_analysis: whisperResult,
-        quality_metrics: {
-          word_count: whisperResult.word_count || 0,
-          speaking_rate: whisperResult.speaking_rate || 0,
-          confidence_avg: whisperResult.confidence_avg || 0
-        },
-        frame_alignment: whisperResult.segment_timings || []
-      } : null,
+      whisper_data: null, // Whisper analysis now done on-demand in editor
       voice_data: voiceMetadata,
       image_data: imageMetadata,
-      caption_settings: captionChunks ? {
-        content_type: 'standard',
-        quality_score: captionChunks.quality_score || 100,
-        total_chunks: captionChunks.total_chunks || 0,
-        avg_words_per_chunk: captionChunks.avg_words_per_chunk || 0
-      } : null
+      caption_settings: null
     });
 
-    // Step 8.5: Store Caption Chunks in Separate Table
-    if (captionChunks && storeResult?.video_id) {
-      console.log('📝 Storing caption chunks in separate table...');
-      
-      const { storeCaptionChunks } = await import('../database/script-video-database');
-      
-      // Convert caption chunks to the format expected by storeCaptionChunks
-      const captionChunksToStore: any[] = [];
-      
-      // Find the corresponding segment timing from the segments array for absolute timing
-      const segmentTimingMap = new Map();
-      mockSegments.forEach((seg: any) => {
-        segmentTimingMap.set(seg.id, {
-          start_time: seg.start_time || 0,
-          end_time: seg.end_time || 0
-        });
-      });
-      
-      captionChunks.segments.forEach((segment: any, segmentIndex: number) => {
-        // Get the absolute timing for this segment
-        const segmentTiming = segmentTimingMap.get(segment.segment_id) || { start_time: 0, end_time: 0 };
-        const segmentStartTime = segmentTiming.start_time;
-        
-        console.log(`🔧 Processing captions for ${segment.segment_id} (absolute start: ${segmentStartTime}s, chunks: ${segment.caption_chunks.length})`);
-        
-        segment.caption_chunks.forEach((chunk: any, chunkIndex: number) => {
-          // Convert relative timing to absolute timing
-          const absoluteStartTime = segmentStartTime + chunk.start_time;
-          const absoluteEndTime = segmentStartTime + chunk.end_time;
-          
-          captionChunksToStore.push({
-            text_content: chunk.text,
-            start_time: absoluteStartTime,
-            end_time: absoluteEndTime,
-            duration: chunk.duration,
-            chunk_index: captionChunksToStore.length, // Global chunk index
-            word_count: chunk.word_count,
-            confidence_score: chunk.confidence || 1.0,
-            word_timings: chunk.word_timings || null,
-            speaker_id: null,
-            language_code: 'en',
-            display_text: chunk.text,
-            style_properties: {},
-            generation_method: 'whisper_ai_chunking',
-            quality_score: 100,
-            primary_segment_id: segment.segment_id, // Associate with the segment
-            related_segment_ids: null
-          });
-        });
-      });
-      
-      console.log(`📊 Caption timing conversion complete: ${captionChunksToStore.length} chunks, range ${Math.min(...captionChunksToStore.map(c => c.start_time)).toFixed(1)}s - ${Math.max(...captionChunksToStore.map(c => c.end_time)).toFixed(1)}s`);
-      
-      const captionStoreResult = await storeCaptionChunks(storeResult.video_id, captionChunksToStore);
-      
-      if (captionStoreResult.success) {
-        console.log(`✅ Stored ${captionChunksToStore.length} caption chunks in separate table`);
-        optimization_applied.push('Separate caption table storage for better performance');
-      } else {
-        console.warn('⚠️ Failed to store caption chunks:', captionStoreResult.error);
-        warnings.push('Caption chunks not stored in separate table');
-      }
-    }
 
     // Step 9: Record Analytics
     await recordGenerationMetrics({

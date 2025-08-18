@@ -4,6 +4,7 @@ import { Subtitles, FileText, Wand2, Play, Edit, Clock } from "lucide-react";
 import { loadMockCaptionData, addCaptionTrackToEditor } from "../utils/caption-loader";
 import { useState, useMemo } from "react";
 import useStore from "../store/use-store";
+import { CaptionGeneratorPanel } from "@/components/caption-generator-panel";
 
 // Caption segment management component
 function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
@@ -212,7 +213,7 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
 export default function Captions() {
   const [isLoading, setIsLoading] = useState(false);
   const [captionAdded, setCaptionAdded] = useState(false);
-  const { trackItemsMap } = useStore();
+  const { trackItemsMap, trackItems } = useStore();
 
   // Check if caption tracks exist
   const captionTracks = useMemo(() => {
@@ -249,6 +250,12 @@ export default function Captions() {
           <h3 className="font-semibold">Captions</h3>
         </div>
 
+        {/* AI Caption Generator */}
+        <CaptionGeneratorPanel
+          trackItems={trackItems}
+          existingWhisperData={undefined} // TODO: Extract from AI asset data if available
+        />
+
         <CaptionSegmentManager captionTracks={captionTracks} />
 
         <div className="border-t pt-4">
@@ -273,6 +280,12 @@ export default function Captions() {
         <Subtitles className="h-5 w-5" />
         <h3 className="font-semibold">Captions</h3>
       </div>
+
+      {/* AI Caption Generator */}
+      <CaptionGeneratorPanel
+        trackItems={trackItems}
+        existingWhisperData={undefined} // TODO: Extract from AI asset data if available
+      />
 
       <Card className="p-4">
         <div className="space-y-4">

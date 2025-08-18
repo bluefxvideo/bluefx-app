@@ -272,30 +272,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 			setIsLoadingAssets(true); // Show loading state
 			setLoadingSource('AI-assets');
 			
-			// Clear any existing design state before AI loading
-			console.log('🧹 Clearing existing design state before AI loading');
-			dispatch(DESIGN_LOAD, { 
-				payload: {
-					fps: 30,
-					size: { width: 1920, height: 1080 },
-					duration: 30000,
-					trackItems: [],
-					trackItemsMap: {},
-					trackItemIds: [],
-					tracks: [],
-					activeIds: [],
-					transitionsMap: {},
-					transitionIds: [],
-					scale: { index: 7, unit: 300, zoom: 1 / 300, segments: 5 },
-					background: { type: "color", value: "transparent" },
-					structure: []
-				}
-			});
-			
-			// Small delay to ensure state is cleared
-			setTimeout(() => {
-				loadAIAssets();
-			}, 100);
+			// Load AI assets directly without pre-clearing (prevents double DESIGN_LOAD)
+			loadAIAssets();
 		}
 	}, []); // Empty dependency array - run only once on mount
 

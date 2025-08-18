@@ -1,0 +1,367 @@
+'use server';
+
+import { analyzeAudioWithWhisper, WhisperAnalysisResponse } from '../../services/whisper-analysis-service';
+
+/**
+ * Caption Orchestrator SDK
+ * 
+ * Generates frame-accurate captions using direct Whisper word timings
+ * for professional lip-sync accuracy in video editing.
+ */
+
+export interface CaptionGenerationOptions {
+  maxWordsPerChunk?: number;      // Default: 6 words
+  minChunkDuration?: number;      // Default: 0.833 seconds (5/6 second)
+  maxChunkDuration?: number;      // Default: 4.0 seconds
+  frameRate?: number;             // Default: 30fps
+  maxCharsPerLine?: number;       // Default: 42 characters
+  contentType?: 'educational' | 'standard' | 'fast';  // Default: 'standard'
+}
+
+export interface ProfessionalCaptionChunk {
+  id: string;
+  text: string;
+  start_time: number;       // Frame-aligned absolute timing
+  end_time: number;         // Frame-aligned absolute timing
+  duration: number;
+  word_count: number;
+  char_count: number;
+  lines: string[];          // Split into 1-2 lines for display
+  confidence: number;       // Average word confidence
+  word_boundaries: {        // Individual word timings for fine control
+    word: string;
+    start: number;
+    end: number;
+    confidence: number;
+  }[];
+}
+
+export interface CaptionGenerationResponse {
+  success: boolean;
+  captions: ProfessionalCaptionChunk[];
+  total_chunks: number;
+  total_duration: number;
+  avg_words_per_chunk: number;
+  quality_metrics: {
+    avg_confidence: number;
+    timing_precision: number;  // Frame alignment accuracy
+    readability_score: number; // Based on chunk length and line breaks
+  };
+  whisper_data?: WhisperAnalysisResponse; // Include for debugging/reuse
+  error?: string;
+}
+
+/**
+ * Main Caption Generation Function
+ * Uses direct Whisper word timings for maximum accuracy
+ */
+export async function generateCaptionsForAudio(
+  audioUrl: string,
+  existingWhisperData?: WhisperAnalysisResponse,
+  options: CaptionGenerationOptions = {}
+): Promise<CaptionGenerationResponse> {
+  const startTime = Date.now();
+  console.log('🎬 Caption Orchestrator: Starting caption generation...');
+  console.log('📍 Audio URL:', audioUrl);
+  console.log('📊 Using existing Whisper data:', !!existingWhisperData);
+
+  // Set defaults
+  const opts = {
+    maxWordsPerChunk: 6,
+    minChunkDuration: 0.833,  // 5/6 second minimum
+    maxChunkDuration: 4.0,
+    frameRate: 30,
+    maxCharsPerLine: 42,
+    contentType: 'standard' as const,
+    ...options
+  };
+
+  try {
+    // Step 1: Get or Generate Whisper Analysis
+    let whisperData: WhisperAnalysisResponse;
+    
+    if (existingWhisperData) {
+      console.log('✅ Using existing Whisper analysis');
+      whisperData = existingWhisperData;
+    } else {
+      console.log('🔍 Generating fresh Whisper analysis...');
+      whisperData = await analyzeAudioWithWhisper({
+        audio_url: audioUrl,
+        segments: [] // No pre-existing segments, let Whisper segment naturally
+      });
+      
+      if (!whisperData.success) {
+        throw new Error(`Whisper analysis failed: ${whisperData.error}`);
+      }
+      console.log('✅ Whisper analysis completed');
+    }
+
+    // Step 2: Extract all word timings from all segments
+    const allWords: any[] = [];
+    if (whisperData.segment_timings) {
+      whisperData.segment_timings.forEach(segment => {
+        if (segment.word_timings) {
+          segment.word_timings.forEach(word => {
+            allWords.push({
+              ...word,
+              // Ensure absolute timing (segment start + word relative time)
+              start: segment.start_time + word.start,
+              end: segment.start_time + word.end
+            });
+          });
+        }
+      });
+    }
+
+    if (allWords.length === 0) {
+      throw new Error('No word timings available from Whisper analysis');
+    }
+
+    console.log(`📝 Processing ${allWords.length} words into professional captions...`);
+
+    // Step 3: Generate Professional Caption Chunks
+    const captions = createProfessionalCaptionChunks(allWords, opts);
+
+    // Step 4: Calculate Quality Metrics
+    const qualityMetrics = calculateQualityMetrics(captions, whisperData);
+
+    const generationTime = Date.now() - startTime;
+    console.log(`🎉 Caption generation completed in ${generationTime}ms`);
+    console.log(`📊 Generated ${captions.length} caption chunks covering ${captions[captions.length - 1]?.end_time.toFixed(1)}s`);
+
+    return {
+      success: true,
+      captions,
+      total_chunks: captions.length,
+      total_duration: captions.length > 0 ? captions[captions.length - 1].end_time : 0,
+      avg_words_per_chunk: captions.length > 0 
+        ? captions.reduce((sum, c) => sum + c.word_count, 0) / captions.length 
+        : 0,
+      quality_metrics: qualityMetrics,
+      whisper_data: whisperData
+    };
+
+  } catch (error) {
+    console.error('❌ Caption generation failed:', error);
+    return {
+      success: false,
+      captions: [],
+      total_chunks: 0,
+      total_duration: 0,
+      avg_words_per_chunk: 0,
+      quality_metrics: {
+        avg_confidence: 0,
+        timing_precision: 0,
+        readability_score: 0
+      },
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Create Professional Caption Chunks from Whisper Words
+ * Groups words into readable chunks with natural boundaries
+ */
+function createProfessionalCaptionChunks(
+  words: any[],
+  options: Required<CaptionGenerationOptions>
+): ProfessionalCaptionChunk[] {
+  const chunks: ProfessionalCaptionChunk[] = [];
+  let currentChunk: any[] = [];
+  let chunkIndex = 0;
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    currentChunk.push(word);
+
+    // Check if we should end this chunk
+    const shouldEndChunk = (
+      // Max words reached
+      currentChunk.length >= options.maxWordsPerChunk ||
+      // Natural pause (gap between words > 0.5s)
+      (i < words.length - 1 && words[i + 1].start - word.end > 0.5) ||
+      // Punctuation boundary
+      word.word.match(/[.!?]$/) ||
+      // Max duration reached
+      (word.end - currentChunk[0].start) >= options.maxChunkDuration ||
+      // Last word
+      i === words.length - 1
+    );
+
+    if (shouldEndChunk && currentChunk.length > 0) {
+      // Create chunk from accumulated words
+      const chunkStart = currentChunk[0].start;
+      const chunkEnd = currentChunk[currentChunk.length - 1].end;
+      const chunkDuration = chunkEnd - chunkStart;
+
+      // Ensure minimum duration
+      const finalDuration = Math.max(chunkDuration, options.minChunkDuration);
+      const finalEndTime = chunkStart + finalDuration;
+
+      const chunkText = currentChunk.map(w => w.word).join(' ').trim();
+      const lines = splitIntoLines(chunkText, options.maxCharsPerLine);
+
+      chunks.push({
+        id: `caption-${chunkIndex}`,
+        text: chunkText,
+        start_time: alignToFrame(chunkStart, options.frameRate),
+        end_time: alignToFrame(finalEndTime, options.frameRate),
+        duration: alignToFrame(finalDuration, options.frameRate),
+        word_count: currentChunk.length,
+        char_count: chunkText.length,
+        lines: lines,
+        confidence: currentChunk.reduce((sum, w) => sum + (w.confidence || 0.9), 0) / currentChunk.length,
+        word_boundaries: currentChunk.map(w => ({
+          word: w.word,
+          start: alignToFrame(w.start, options.frameRate),
+          end: alignToFrame(w.end, options.frameRate),
+          confidence: w.confidence || 0.9
+        }))
+      });
+
+      // Reset for next chunk
+      currentChunk = [];
+      chunkIndex++;
+    }
+  }
+
+  return chunks;
+}
+
+/**
+ * Split text into lines following professional captioning standards
+ */
+function splitIntoLines(text: string, maxCharsPerLine: number): string[] {
+  if (text.length <= maxCharsPerLine) {
+    return [text];
+  }
+
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length <= maxCharsPerLine) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        // Single word is too long, force it
+        lines.push(word);
+      }
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  // Professional standard: max 2 lines
+  return lines.slice(0, 2);
+}
+
+/**
+ * Align timestamp to frame boundary for perfect video sync
+ */
+function alignToFrame(timestamp: number, frameRate: number): number {
+  const frameDuration = 1 / frameRate;
+  return Math.round(timestamp / frameDuration) * frameDuration;
+}
+
+/**
+ * Calculate caption quality metrics
+ */
+function calculateQualityMetrics(
+  captions: ProfessionalCaptionChunk[],
+  whisperData: WhisperAnalysisResponse
+) {
+  if (captions.length === 0) {
+    return {
+      avg_confidence: 0,
+      timing_precision: 0,
+      readability_score: 0
+    };
+  }
+
+  // Average confidence across all words
+  const allWordConfidences: number[] = [];
+  captions.forEach(caption => {
+    caption.word_boundaries.forEach(word => {
+      allWordConfidences.push(word.confidence);
+    });
+  });
+  const avg_confidence = allWordConfidences.reduce((a, b) => a + b, 0) / allWordConfidences.length;
+
+  // Timing precision (how well aligned to frames)
+  const frameDuration = 1 / 30; // 30fps
+  let timingErrors = 0;
+  captions.forEach(caption => {
+    const startError = caption.start_time % frameDuration;
+    const endError = caption.end_time % frameDuration;
+    timingErrors += Math.min(startError, frameDuration - startError);
+    timingErrors += Math.min(endError, frameDuration - endError);
+  });
+  const timing_precision = Math.max(0, 100 - (timingErrors / captions.length * 2) * 1000);
+
+  // Readability score based on chunk characteristics
+  let readabilityPoints = 100;
+  captions.forEach(caption => {
+    // Penalize very short or very long chunks
+    if (caption.word_count < 2) readabilityPoints -= 5;
+    if (caption.word_count > 8) readabilityPoints -= 3;
+    
+    // Penalize chunks that are too long character-wise
+    if (caption.char_count > 84) readabilityPoints -= 5; // 2 lines * 42 chars
+    
+    // Reward good duration (1-4 seconds is ideal)
+    if (caption.duration >= 1.0 && caption.duration <= 4.0) {
+      readabilityPoints += 2;
+    } else if (caption.duration < 0.833 || caption.duration > 6.0) {
+      readabilityPoints -= 3;
+    }
+  });
+  
+  const readability_score = Math.max(0, Math.min(100, readabilityPoints));
+
+  return {
+    avg_confidence: Math.round(avg_confidence * 100) / 100,
+    timing_precision: Math.round(timing_precision * 100) / 100,
+    readability_score: Math.round(readability_score * 100) / 100
+  };
+}
+
+/**
+ * Utility: Extract audio URL from various video/editor sources
+ */
+export async function extractAudioUrl(source: {
+  audioUrl?: string;
+  trackItems?: any[];
+  whisperData?: any;
+}): Promise<string | null> {
+  // Direct audio URL
+  if (source.audioUrl) {
+    return source.audioUrl;
+  }
+
+  // Extract from track items (editor format)
+  if (source.trackItems) {
+    const audioTrack = source.trackItems.find(item => 
+      item.type === 'audio' && item.details?.src
+    );
+    if (audioTrack) {
+      return audioTrack.details.src;
+    }
+  }
+
+  // Extract from existing Whisper data
+  if (source.whisperData?.audio_url) {
+    return source.whisperData.audio_url;
+  }
+
+  return null;
+}

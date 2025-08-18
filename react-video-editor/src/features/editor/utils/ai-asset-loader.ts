@@ -283,7 +283,7 @@ async function loadAIAssetsFromBlueFX({
       script: videoData.script?.substring(0, 100) + '...',
       voiceUrl: videoData.voice?.url,
       imageCount: videoData.images?.urls?.length || 0,
-      captionCount: videoData.captions?.chunks?.length || 0
+      captionCount: 0 // Captions now generated on-demand in editor
     });
     
     onProgress?.('Converting to editor format...', 60);
@@ -429,12 +429,12 @@ function convertBlueFXDataToAIAssets(videoData: any) {
       segment_count: segments.length,
       frame_count: Math.floor(totalDuration * (videoData.metadata?.frameRate || 30))
     },
-    word_timings: videoData.captions?.wordTimings || [],
+    word_timings: [], // Word timings now come from on-demand Whisper analysis
     caption_chunks: {
-      total_chunks: videoData.captions?.chunks?.length || 0,
-      chunks: videoData.captions?.chunks || [],
-      quality_score: 100,
-      avg_words_per_chunk: 5
+      total_chunks: 0,
+      chunks: [], // Captions generated on-demand via AI Caption Generator
+      quality_score: 0,
+      avg_words_per_chunk: 0
     },
     whisper_data: videoData.voice?.whisperData,
     metadata: {
