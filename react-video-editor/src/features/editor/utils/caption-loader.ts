@@ -104,11 +104,34 @@ export async function loadMockCaptionData(): Promise<ICaptionTrackItem | null> {
  */
 export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
   // Use ADD_TEXT with exact same structure as TEXT_ADD_PAYLOAD
+  // Use the duration from the caption track if provided, otherwise calculate from segments
+  const segmentMaxEnd = captionTrack.caption_metadata?.segments?.reduce((max, seg) => Math.max(max, seg.end), 0);
+  const duration = captionTrack.display?.to || 
+    captionTrack.metadata?.duration ||
+    segmentMaxEnd || 30000;
+    
+  console.log('📐 Caption track duration calculation:', {
+    displayTo: captionTrack.display?.to,
+    metadataDuration: captionTrack.metadata?.duration,
+    segmentMaxEnd: segmentMaxEnd,
+    finalDuration: duration,
+    finalDurationSec: duration / 1000,
+    segmentCount: captionTrack.caption_metadata?.segments?.length
+  });
+    
+  // Log the actual segment end times to debug the 43-second issue
+  if (captionTrack.caption_metadata?.segments) {
+    const segmentEnds = captionTrack.caption_metadata.segments.map(s => s.end);
+    console.log('🔍 DEBUG: Segment end times (ms):', segmentEnds);
+    console.log('🔍 DEBUG: Last segment end:', Math.max(...segmentEnds) / 1000, 'seconds');
+    console.log('🔍 DEBUG: First segment start:', Math.min(...captionTrack.caption_metadata.segments.map(s => s.start)) / 1000, 'seconds');
+  }
+  
   const textPayload = {
     id: generateId(),
     display: {
       from: 0,
-      to: captionTrack.caption_metadata?.segments?.reduce((max, seg) => Math.max(max, seg.end), 0) || 30000,
+      to: duration,
     },
     type: "text",
     details: {

@@ -48,10 +48,32 @@ export function CaptionGeneratorPanel({
   const { state, generateCaptions, clearError, reset } = useCaptionGenerator();
   const { trackItemsMap } = useStore();
 
-  // Extract audio info from timeline
+  // Extract audio info from timeline - use stable version to prevent re-renders
   const audioInfo = useMemo(() => {
-    return extractAudioFromTimeline(trackItems);
-  }, [trackItems]);
+    console.log('🔍 CaptionGeneratorPanel - Received trackItems:', trackItems?.length || 0);
+    console.log('🔍 CaptionGeneratorPanel - TrackItems details:', trackItems?.map(item => ({ id: item.id, type: item.type, src: item.details?.src })));
+    
+    // Only process if we have trackItems
+    if (!trackItems || trackItems.length === 0) {
+      console.log('🔍 CaptionGeneratorPanel - No trackItems available');
+      return {};
+    }
+    
+    const audioTracks = trackItems.filter(item => item.type === 'audio' && item.details?.src);
+    console.log('🔍 CaptionGeneratorPanel - Audio tracks found:', audioTracks.length);
+    
+    if (audioTracks.length > 0) {
+      const firstAudio = audioTracks[0];
+      console.log('🔍 CaptionGeneratorPanel - Using audio:', firstAudio.details.src);
+      
+      return {
+        audioUrl: firstAudio.details.src,
+        duration: firstAudio.duration || firstAudio.metadata?.duration
+      };
+    }
+    
+    return {};
+  }, [trackItems.length, trackItems.map(item => item.id).join(',')]);
 
   // Check if we have everything needed for generation
   const canGenerate = useMemo(() => {
@@ -74,22 +96,50 @@ export function CaptionGeneratorPanel({
           ...generationOptions,
           maxCharsPerLine: 42, // Professional standard
           minChunkDuration: 0.833,
-          maxChunkDuration: 4.0
+          maxChunkDuration: 4.0,
+          audioDuration: audioInfo.duration  // Pass known audio duration for boundary checking
         }
       });
 
       if (result.success && result.captions.length > 0) {
         console.log('✅ Captions generated, adding to timeline...');
         
-        // Convert captions to track items and add to editor
+        // Convert captions to unified track format
         const captionTrackItems = captionsToTrackItems(result.captions, 'ai-generated-captions');
         
-        // Add to timeline (you may need to adjust this based on your store structure)
-        captionTrackItems.forEach(trackItem => {
-          addCaptionTrackToEditor(trackItem);
-        });
-
-        console.log(`🎉 Added ${result.captions.length} AI-generated captions to timeline`);
+        if (captionTrackItems.length > 0) {
+          // Create the caption track structure expected by addCaptionTrackToEditor
+          // captionTrackItems[0].duration is in frames, convert to milliseconds correctly
+          const durationInMs = (captionTrackItems[0].duration / 30) * 1000;
+          
+          const captionTrack = {
+            id: captionTrackItems[0].id,
+            type: 'caption' as const,
+            name: 'AI Generated Captions',
+            display: {
+              from: 0,
+              to: durationInMs,
+            },
+            metadata: {
+              resourceId: '',
+              duration: durationInMs,
+            },
+            cut: {
+              from: 0,
+              to: durationInMs,
+            },
+            details: captionTrackItems[0].details,
+            caption_metadata: {
+              segments: captionTrackItems[0].details.captionSegments,
+              sourceUrl: undefined,
+              parentId: undefined
+            }
+          };
+          
+          // Add unified caption track to timeline
+          addCaptionTrackToEditor(captionTrack);
+          console.log(`🎉 Added AI-generated caption track with ${result.captions.length} segments to timeline`);
+        }
       }
     } catch (error) {
       console.error('❌ Caption generation failed:', error);

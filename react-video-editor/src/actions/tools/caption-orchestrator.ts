@@ -16,6 +16,7 @@ export interface CaptionGenerationOptions {
   frameRate?: number;             // Default: 30fps
   maxCharsPerLine?: number;       // Default: 42 characters
   contentType?: 'educational' | 'standard' | 'fast';  // Default: 'standard'
+  audioDuration?: number;         // Known audio duration in seconds for boundary checking
 }
 
 export interface ProfessionalCaptionChunk {
@@ -80,15 +81,37 @@ export async function generateCaptionsForAudio(
     // Step 1: Get or Generate Whisper Analysis
     let whisperData: WhisperAnalysisResponse;
     
-    if (existingWhisperData) {
-      console.log('✅ Using existing Whisper analysis');
-      whisperData = existingWhisperData;
+    console.log('🔍 TIMING DEBUG:', {
+      audioUrl,
+      hasExistingWhisperData: !!existingWhisperData,
+      existingDuration: existingWhisperData?.total_duration,
+      providedAudioDuration: opts.audioDuration,
+      source: 'caption-orchestrator'
+    });
+    
+    if (existingWhisperData && opts.audioDuration) {
+      // Validate existing data matches current audio duration
+      const existingDuration = existingWhisperData.total_duration;
+      const toleranceSeconds = 2; // Allow 2-second tolerance
+      
+      if (Math.abs(existingDuration - opts.audioDuration) <= toleranceSeconds) {
+        console.log('✅ Using compatible existing Whisper analysis');
+        whisperData = existingWhisperData;
+      } else {
+        console.log(`⚠️ Duration mismatch: existing=${existingDuration}s, current=${opts.audioDuration}s. Generating fresh analysis.`);
+        whisperData = await analyzeAudioWithWhisper({
+          audio_url: audioUrl,
+          segments: []
+        }, 30);
+      }
     } else {
-      console.log('🔍 Generating fresh Whisper analysis...');
+      // Always generate fresh analysis if no duration validation possible
+      console.log('🔍 Generating fresh Whisper analysis (no existing data or duration)...');
+      console.log('🔍 DEBUG: Calling analyzeAudioWithWhisper for:', audioUrl);
       whisperData = await analyzeAudioWithWhisper({
         audio_url: audioUrl,
         segments: [] // No pre-existing segments, let Whisper segment naturally
-      });
+      }, 30); // Pass 30 fps
       
       if (!whisperData.success) {
         throw new Error(`Whisper analysis failed: ${whisperData.error}`);
@@ -99,18 +122,29 @@ export async function generateCaptionsForAudio(
     // Step 2: Extract all word timings from all segments
     const allWords: any[] = [];
     if (whisperData.segment_timings) {
-      whisperData.segment_timings.forEach(segment => {
+      console.log('🔍 DEBUG Whisper segments:', whisperData.segment_timings.length);
+      whisperData.segment_timings.forEach((segment, idx) => {
+        console.log(`🔍 DEBUG Segment ${idx}: start=${segment.start_time}, end=${segment.end_time}`);
         if (segment.word_timings) {
           segment.word_timings.forEach(word => {
+            // Word timings from Whisper are already absolute, not relative
             allWords.push({
               ...word,
-              // Ensure absolute timing (segment start + word relative time)
-              start: segment.start_time + word.start,
-              end: segment.start_time + word.end
+              start: word.start,  // Already absolute timing
+              end: word.end       // Already absolute timing
             });
           });
         }
       });
+    }
+    
+    // Debug: Check if words extend beyond expected duration
+    if (allWords.length > 0) {
+      const maxWordEnd = Math.max(...allWords.map(w => w.end));
+      console.log(`🔍 DEBUG Max word end time: ${maxWordEnd}s (should be ~30s for 30s audio)`);
+      if (maxWordEnd > 35) {
+        console.warn(`⚠️ WARNING: Word timings extend to ${maxWordEnd}s, which exceeds expected audio duration!`);
+      }
     }
 
     if (allWords.length === 0) {
@@ -119,11 +153,18 @@ export async function generateCaptionsForAudio(
 
     console.log(`📝 Processing ${allWords.length} words into professional captions...`);
 
+    // Get audio duration - prefer the known duration from frontend, then Whisper data
+    const audioDuration = opts.audioDuration || 
+      whisperData.total_duration || 
+      (allWords.length > 0 ? Math.max(...allWords.map(w => w.end)) : undefined);
+    
+    console.log(`🎵 Audio duration: ${audioDuration?.toFixed(2)}s (source: ${opts.audioDuration ? 'frontend' : 'whisper'})`);
+
     // Step 3: Generate Professional Caption Chunks
-    const captions = createProfessionalCaptionChunks(allWords, opts);
+    const captions = createProfessionalCaptionChunks(allWords, opts, audioDuration);
 
     // Step 4: Calculate Quality Metrics
-    const qualityMetrics = calculateQualityMetrics(captions, whisperData);
+    const qualityMetrics = calculateQualityMetrics(captions, whisperData, audioDuration);
 
     const generationTime = Date.now() - startTime;
     console.log(`🎉 Caption generation completed in ${generationTime}ms`);
@@ -133,7 +174,7 @@ export async function generateCaptionsForAudio(
       success: true,
       captions,
       total_chunks: captions.length,
-      total_duration: captions.length > 0 ? captions[captions.length - 1].end_time : 0,
+      total_duration: audioDuration || (captions.length > 0 ? captions[captions.length - 1].end_time : 0),
       avg_words_per_chunk: captions.length > 0 
         ? captions.reduce((sum, c) => sum + c.word_count, 0) / captions.length 
         : 0,
@@ -165,7 +206,8 @@ export async function generateCaptionsForAudio(
  */
 function createProfessionalCaptionChunks(
   words: any[],
-  options: Required<CaptionGenerationOptions>
+  options: Required<CaptionGenerationOptions>,
+  maxAudioDuration?: number
 ): ProfessionalCaptionChunk[] {
   const chunks: ProfessionalCaptionChunk[] = [];
   let currentChunk: any[] = [];
@@ -195,19 +237,41 @@ function createProfessionalCaptionChunks(
       const chunkEnd = currentChunk[currentChunk.length - 1].end;
       const chunkDuration = chunkEnd - chunkStart;
 
-      // Ensure minimum duration
-      const finalDuration = Math.max(chunkDuration, options.minChunkDuration);
-      const finalEndTime = chunkStart + finalDuration;
+      // Ensure minimum duration, but respect audio boundary
+      const naturalEndTime = chunkEnd;
+      let finalDuration = chunkDuration;
+      let finalEndTime = naturalEndTime;
+      
+      // Only extend duration if we're not at the end of audio and duration is too short
+      if (chunkDuration < options.minChunkDuration) {
+        const extendedEndTime = chunkStart + options.minChunkDuration;
+        
+        // Only extend if it won't exceed audio duration
+        if (!maxAudioDuration || extendedEndTime <= maxAudioDuration) {
+          finalDuration = options.minChunkDuration;
+          finalEndTime = extendedEndTime;
+        } else {
+          // Keep natural timing to stay within audio bounds
+          console.log(`⚠️ Chunk ${chunkIndex}: Keeping natural duration ${chunkDuration.toFixed(3)}s to respect audio boundary`);
+        }
+      }
 
       const chunkText = currentChunk.map(w => w.word).join(' ').trim();
       const lines = splitIntoLines(chunkText, options.maxCharsPerLine);
 
+      // Ensure we don't exceed audio duration if provided
+      let cappedEndTime = finalEndTime;
+      if (maxAudioDuration && finalEndTime > maxAudioDuration) {
+        cappedEndTime = maxAudioDuration;
+        console.log(`🔍 Capping chunk ${chunkIndex} end from ${finalEndTime}s to ${maxAudioDuration}s`);
+      }
+      
       chunks.push({
         id: `caption-${chunkIndex}`,
         text: chunkText,
         start_time: alignToFrame(chunkStart, options.frameRate),
-        end_time: alignToFrame(finalEndTime, options.frameRate),
-        duration: alignToFrame(finalDuration, options.frameRate),
+        end_time: alignToFrame(cappedEndTime, options.frameRate),
+        duration: alignToFrame(cappedEndTime - chunkStart, options.frameRate),
         word_count: currentChunk.length,
         char_count: chunkText.length,
         lines: lines,
@@ -278,7 +342,8 @@ function alignToFrame(timestamp: number, frameRate: number): number {
  */
 function calculateQualityMetrics(
   captions: ProfessionalCaptionChunk[],
-  whisperData: WhisperAnalysisResponse
+  whisperData: WhisperAnalysisResponse,
+  audioDuration?: number
 ) {
   if (captions.length === 0) {
     return {
@@ -306,7 +371,17 @@ function calculateQualityMetrics(
     timingErrors += Math.min(startError, frameDuration - startError);
     timingErrors += Math.min(endError, frameDuration - endError);
   });
-  const timing_precision = Math.max(0, 100 - (timingErrors / captions.length * 2) * 1000);
+  // Enhanced timing precision: also check if captions exceed audio duration
+  let audioBoundaryPenalty = 0;
+  if (audioDuration) {
+    const lastCaptionEnd = Math.max(...captions.map(c => c.end_time));
+    if (lastCaptionEnd > audioDuration) {
+      audioBoundaryPenalty = Math.min(50, (lastCaptionEnd - audioDuration) * 10); // Penalty for exceeding
+      console.log(`⚠️ Caption timing exceeds audio duration by ${(lastCaptionEnd - audioDuration).toFixed(2)}s`);
+    }
+  }
+  
+  const timing_precision = Math.max(0, 100 - (timingErrors / captions.length * 2) * 1000 - audioBoundaryPenalty);
 
   // Readability score based on chunk characteristics
   let readabilityPoints = 100;

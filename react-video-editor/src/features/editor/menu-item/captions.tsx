@@ -213,15 +213,20 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
 export default function Captions() {
   const [isLoading, setIsLoading] = useState(false);
   const [captionAdded, setCaptionAdded] = useState(false);
-  const { trackItemsMap, trackItems } = useStore();
+  const { trackItemsMap } = useStore();
+
+  // Get all track items from the map (more reliable than trackItems array)
+  const allTrackItems = useMemo(() => {
+    return Object.values(trackItemsMap);
+  }, [trackItemsMap]);
 
   // Check if caption tracks exist
   const captionTracks = useMemo(() => {
-    return Object.values(trackItemsMap).filter(item => 
+    return allTrackItems.filter(item => 
       // Caption tracks are text items with isCaptionTrack flag
       item.type === "text" && (item.details as any)?.isCaptionTrack
     );
-  }, [trackItemsMap]);
+  }, [allTrackItems]);
 
   const handleLoadTestCaptions = async () => {
     setIsLoading(true);
@@ -251,10 +256,19 @@ export default function Captions() {
         </div>
 
         {/* AI Caption Generator */}
-        <CaptionGeneratorPanel
-          trackItems={trackItems}
-          existingWhisperData={undefined} // TODO: Extract from AI asset data if available
-        />
+        {allTrackItems.length > 0 ? (
+          <div>
+            <div className="text-xs text-green-600 mb-2">✅ Loaded {allTrackItems.length} track items (including {allTrackItems.filter(item => item.type === 'audio').length} audio tracks)</div>
+            <CaptionGeneratorPanel
+              trackItems={allTrackItems}
+              existingWhisperData={undefined} // TODO: Extract from AI asset data if available
+            />
+          </div>
+        ) : (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            ⏳ Loading timeline data... (trackItems: {allTrackItems.length})
+          </div>
+        )}
 
         <CaptionSegmentManager captionTracks={captionTracks} />
 
@@ -282,10 +296,19 @@ export default function Captions() {
       </div>
 
       {/* AI Caption Generator */}
-      <CaptionGeneratorPanel
-        trackItems={trackItems}
-        existingWhisperData={undefined} // TODO: Extract from AI asset data if available
-      />
+      {allTrackItems.length > 0 ? (
+        <div>
+          <div className="text-xs text-green-600 mb-2">✅ Loaded {allTrackItems.length} track items (including {allTrackItems.filter(item => item.type === 'audio').length} audio tracks)</div>
+          <CaptionGeneratorPanel
+            trackItems={allTrackItems}
+            existingWhisperData={undefined} // TODO: Extract from AI asset data if available
+          />
+        </div>
+      ) : (
+        <div className="p-4 text-center text-sm text-muted-foreground">
+          ⏳ Loading timeline data... (trackItems: {allTrackItems.length})
+        </div>
+      )}
 
       <Card className="p-4">
         <div className="space-y-4">

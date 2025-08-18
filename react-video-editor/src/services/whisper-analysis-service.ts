@@ -75,6 +75,7 @@ export async function analyzeAudioWithWhisper(
 
     // Call OpenAI Whisper with word-level timestamps
     console.log('🔍 Calling OpenAI Whisper API with word timestamps...');
+    console.log(`🔍 Audio URL being analyzed: ${request.audio_url}`);
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
@@ -88,7 +89,17 @@ export async function analyzeAudioWithWhisper(
 
     // Extract word timings from Whisper response
     const whisperWords = (transcription as any).words || [];
+    
+    // DEBUG: Log raw Whisper response to find the 43s issue
+    if (whisperWords.length > 0) {
+      console.log('🔍 DEBUG: Raw Whisper response:');
+      console.log(`  - First word: "${whisperWords[0].word}" start=${whisperWords[0].start}s end=${whisperWords[0].end}s`);
+      console.log(`  - Last word: "${whisperWords[whisperWords.length - 1].word}" start=${whisperWords[whisperWords.length - 1].start}s end=${whisperWords[whisperWords.length - 1].end}s`);
+      console.log(`  - Total words: ${whisperWords.length}`);
+    }
+    
     const totalDuration = Math.max(...whisperWords.map((w: any) => w.end)) || 0;
+    console.log(`🔍 DEBUG: Calculated total duration from Whisper: ${totalDuration}s`);
 
     // Apply forced alignment for improved accuracy
     const alignedWords = applyForcedAlignment(whisperWords, frameRate);

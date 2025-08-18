@@ -75,7 +75,15 @@ export function useCaptionGenerator(): UseCaptionGeneratorReturn {
       
       // Use real Whisper-based implementation
       const { generateCaptionsFromRequest } = await import('../actions/generate-captions');
+      console.log('🔍 DEBUG: Calling server action with request:', request);
       const result = await generateCaptionsFromRequest(request);
+      console.log('🔍 DEBUG: Server action returned:', {
+        success: result.success,
+        captionCount: result.captions?.length,
+        firstCaption: result.captions?.[0],
+        lastCaption: result.captions?.[result.captions?.length - 1],
+        totalDuration: result.total_duration
+      });
       
       if (!result.success) {
         throw new Error(result.error || 'Caption generation failed');
@@ -177,6 +185,7 @@ export function hasExistingCaptions(trackItems: any[]): boolean {
 
 /**
  * Utility: Convert captions to timeline track items
+ * Creates a single unified caption track with segments (like mock data)
  */
 export function captionsToTrackItems(
   captions: CaptionGenerationResponse['captions'],
@@ -186,35 +195,64 @@ export function captionsToTrackItems(
     return [];
   }
 
-  return captions.map((caption, index) => ({
-    id: `${trackId}-${index}`,
+  // Convert captions to caption segments format
+  const captionSegments = captions.map((caption) => ({
+    start: Math.round(caption.start_time * 1000), // Convert to milliseconds
+    end: Math.round(caption.end_time * 1000), // Use end_time directly (already calculated correctly)
+    text: caption.text,
+    words: caption.word_boundaries || [],
+    confidence: caption.confidence,
+    style: {
+      fontSize: 24,
+      color: '#FFFFFF',
+      activeColor: '#FFFF00', // Highlight color
+      appearedColor: '#FFFFFF'
+    }
+  }));
+
+  // Calculate total duration in milliseconds
+  const totalDuration = Math.max(...captionSegments.map(seg => seg.end));
+  
+  console.log('📊 Caption conversion:', {
+    captionCount: captions.length,
+    firstCaption: captions[0] ? {
+      start: captions[0].start_time,
+      end: captions[0].end_time,
+      duration: captions[0].duration
+    } : null,
+    lastCaption: captions[captions.length - 1] ? {
+      start: captions[captions.length - 1].start_time,
+      end: captions[captions.length - 1].end_time,
+      duration: captions[captions.length - 1].duration
+    } : null,
+    totalDurationMs: totalDuration,
+    totalDurationSec: totalDuration / 1000
+  });
+
+  // Create single unified caption track (similar to mock data structure)
+  return [{
+    id: trackId,
     type: 'text',
-    start: Math.round(caption.start_time * 30), // Convert to frames
-    duration: Math.round(caption.duration * 30), // Convert to frames
+    start: 0,
+    duration: Math.round(totalDuration / 1000 * 30), // Convert to frames for timeline
     details: {
-      text: caption.text,
-      lines: caption.lines,
+      text: '🤖 AI Generated Captions',
+      fontSize: 24,
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
+      color: '#00FF88', // Green to distinguish AI captions
+      textAlign: 'center',
       isCaptionTrack: true,
-      confidence: caption.confidence,
-      wordBoundaries: caption.word_boundaries,
       
-      // Styling for professional captions
-      style: {
-        fontSize: 24,
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'bold',
-        color: '#FFFFFF',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        textAlign: 'center',
-        position: 'bottom',
-        padding: 8
-      }
+      // Store caption segments in the format expected by CaptionSegmentManager
+      captionSegments: captionSegments
     },
     metadata: {
       source: 'ai-generated',
       generator: 'whisper-caption-orchestrator',
       frameAligned: true,
-      qualityScore: caption.confidence
+      totalCaptions: captions.length,
+      avgConfidence: captions.reduce((sum, cap) => sum + cap.confidence, 0) / captions.length
     }
-  }));
+  }];
 }

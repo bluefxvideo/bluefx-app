@@ -413,9 +413,41 @@ function convertBlueFXDataToAIAssets(videoData: any) {
     return convertedSegment;
   });
   
-  // Calculate total duration
-  const totalDuration = videoData.metadata?.totalDuration || 
-                        Math.max(segments.length * 5, 30); // At least 30 seconds
+  // Calculate total duration based on actual segment end times
+  const calculatedDurationFromSegments = segments.length > 0 
+    ? Math.max(...segments.map(s => s.end_time || 0))
+    : 0;
+    
+  const totalDuration = calculatedDurationFromSegments || 
+                        videoData.metadata?.totalDuration || 
+                        Math.max(segments.length * 5, 30); // Fallback
+  
+  console.log('🔍 Duration calculation:', {
+    calculatedFromSegments: calculatedDurationFromSegments,
+    metadataDuration: videoData.metadata?.totalDuration,
+    fallbackDuration: Math.max(segments.length * 5, 30),
+    finalDuration: totalDuration,
+    lastSegmentEndTime: segments.length > 0 ? segments[segments.length - 1].end_time : 'none'
+  });
+  
+  // TEMPORARY FIX: Use Whisper analysis duration if available and segments seem truncated
+  if (videoData.whisperData?.total_duration && 
+      videoData.whisperData.total_duration > totalDuration + 5) {
+    console.log(`🔧 TIMING OVERRIDE: Using Whisper duration ${videoData.whisperData.total_duration}s instead of segment duration ${totalDuration}s`);
+    const whisperDuration = videoData.whisperData.total_duration;
+    
+    // Proportionally extend segments to match Whisper duration
+    const scaleFactor = whisperDuration / totalDuration;
+    segments.forEach((segment, idx) => {
+      const originalEnd = segment.end_time;
+      segment.start_time = segment.start_time * scaleFactor;
+      segment.end_time = segment.end_time * scaleFactor;
+      segment.duration = segment.end_time - segment.start_time;
+      console.log(`📐 Extended segment ${idx + 1}: ${originalEnd}s → ${segment.end_time.toFixed(2)}s`);
+    });
+    
+    totalDuration = whisperDuration;
+  }
   
   return {
     success: true, // Important: this is required by validateAIAssets

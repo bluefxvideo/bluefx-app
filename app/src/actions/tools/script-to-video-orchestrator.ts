@@ -201,6 +201,36 @@ export async function generateScriptToVideo(
     audioUrl = voiceResult.audio_url;
     total_credits += voiceResult.credits_used;
     
+    // CRITICAL FIX: Get actual audio duration and fix segment timings
+    if (audioUrl && voiceResult.metadata?.actual_duration) {
+      const actualAudioDuration = voiceResult.metadata.actual_duration;
+      const estimatedDuration = mockSegments[mockSegments.length - 1].end_time;
+      
+      console.log(`🔧 TIMING FIX: Estimated duration: ${estimatedDuration}s, Actual audio: ${actualAudioDuration}s`);
+      
+      if (Math.abs(actualAudioDuration - estimatedDuration) > 2) {
+        console.log('⚠️ Significant timing mismatch detected, adjusting segments...');
+        
+        // Proportionally adjust all segment timings to match actual audio
+        const scaleFactor = actualAudioDuration / estimatedDuration;
+        
+        mockSegments.forEach((segment, idx) => {
+          const originalStartTime = segment.start_time;
+          const originalEndTime = segment.end_time;
+          
+          segment.start_time = originalStartTime * scaleFactor;
+          segment.end_time = originalEndTime * scaleFactor;
+          segment.duration = segment.end_time - segment.start_time;
+          
+          console.log(`📐 Segment ${idx + 1}: ${originalStartTime}s-${originalEndTime}s → ${segment.start_time.toFixed(2)}s-${segment.end_time.toFixed(2)}s`);
+        });
+        
+        // Update analysis with corrected duration
+        segmentAnalysis.total_duration = actualAudioDuration;
+        console.log(`✅ Segment timings adjusted to actual audio duration: ${actualAudioDuration}s`);
+      }
+    }
+    
     // Store voice metadata for structured storage
     voiceMetadata = {
       synthesis_params: {
