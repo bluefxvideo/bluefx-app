@@ -48,6 +48,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 	const { activeIds, trackItemsMap, transitionsMap } = useStore();
 	const [loaded, setLoaded] = useState(false);
 	const [trackItem, setTrackItem] = useState<ITrackItem | null>(null);
+	const [hasLoadedDesign, setHasLoadedDesign] = useState(false);
 	const {
 		setTrackItem: setLayoutTrackItem,
 		setFloatingControl,
@@ -74,8 +75,9 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 					const data = await response.json();
 
 					const payload = data.videoJson.json;
-					if (payload) {
+					if (payload && !hasLoadedDesign) {
 						dispatch(DESIGN_LOAD, { payload });
+						setHasLoadedDesign(true);
 					}
 				} catch (error) {
 					console.error("Error fetching video JSON:", error);
@@ -101,8 +103,9 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						}
 
 						// Load the scene content into the editor
-						if (data.scene.content) {
+						if (data.scene.content && !hasLoadedDesign) {
 							dispatch(DESIGN_LOAD, { payload: data.scene.content });
+							setHasLoadedDesign(true);
 						}
 					} else {
 						console.error("Failed to fetch scene:", data.error);
@@ -113,16 +116,17 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 			};
 			fetchSceneById();
 		}
-	}, [id, tempId]);
+	}, [id, tempId, hasLoadedDesign]);
 
 	useEffect(() => {
 		console.log("scene", scene);
 		console.log("timeline", timeline);
-		if (scene && timeline) {
+		if (scene && timeline && !hasLoadedDesign) {
 			console.log("scene", scene);
 			dispatch(DESIGN_LOAD, { payload: scene });
+			setHasLoadedDesign(true);
 		}
-	}, [scene, timeline]);
+	}, [scene, timeline, hasLoadedDesign]);
 
 	useEffect(() => {
 		setCompactFonts(getCompactFontData(FONTS));
@@ -197,14 +201,28 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 
 	// Load AI-generated assets from URL parameters
 	useEffect(() => {
+		console.log('🚀 EDITOR: Starting AI asset loading useEffect');
+		
+		// Only run once on mount and when not already loaded
+		if (hasLoadedDesign) {
+			console.log('⏭️ Skipping AI asset loading - design already loaded');
+			return;
+		}
+		
 		const loadAIAssets = async () => {
 			try {
+				console.log('🚀 EDITOR: Calling loadAIAssetsFromURL...');
 				const result = await loadAIAssetsFromURL();
+				console.log('🚀 EDITOR: Result from loadAIAssetsFromURL:', result);
+				
 				if (result.success) {
 					console.log('✅ AI assets loaded from URL:', result.video_id);
 					setProjectName(`AI Video - ${result.video_id}`);
+					setHasLoadedDesign(true);
 				} else if (!result.skipped) {
 					console.log('ℹ️ No AI assets to load from URL');
+				} else {
+					console.log('⏭️ Skipped AI asset loading:', result.reason);
 				}
 			} catch (error) {
 				console.error('❌ Failed to load AI assets from URL:', error);
@@ -212,7 +230,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		};
 
 		loadAIAssets();
-	}, []);
+	}, []); // Empty dependency array - run only once on mount
 
 	return (
 		<div className="flex h-screen w-screen flex-col bg-background">

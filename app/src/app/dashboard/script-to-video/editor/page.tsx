@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { ScriptToVideoPage } from '@/components/script-to-video/script-to-video-page';
+import { EditorRedirect } from '@/components/script-to-video/editor-redirect';
 
 export const metadata: Metadata = {
   title: 'Script to Video Editor | BlueFX AI',
@@ -8,8 +8,8 @@ export const metadata: Metadata = {
 
 /**
  * Script to Video Editor Tab Route
- * Smart editing with minimal regeneration
+ * Redirects to external React video editor
  */
 export default function ScriptToVideoEditorRoute() {
-  return <ScriptToVideoPage />;
+  return <EditorRedirect />;
 }

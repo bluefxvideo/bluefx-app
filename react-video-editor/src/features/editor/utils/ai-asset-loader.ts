@@ -7,6 +7,9 @@ import { convertAIAssetsToEditorFormat, validateAIAssets, createMockAICompositio
  * Fetches AI-generated assets and loads them into the React Video Editor
  */
 
+// Prevent duplicate loading
+let isLoading = false;
+
 export interface AIAssetLoadOptions {
   video_id?: string;
   loadMockData?: boolean;
@@ -56,6 +59,7 @@ export async function loadAIGeneratedAssets(options: AIAssetLoadOptions = {}) {
     onProgress?.('Loading into editor...', 80);
     
     // Load into the editor using DESIGN_LOAD
+    console.log('📤 Dispatching DESIGN_LOAD from general loader...');
     dispatch(DESIGN_LOAD, { payload: editorPayload });
     
     onProgress?.('Complete!', 100);
@@ -118,43 +122,322 @@ async function fetchAIAssetsFromDatabase(video_id: string) {
 
 /**
  * Load AI assets from URL parameters
- * Handles: /react-video-editor?loadAI=VIDEO_ID
+ * Handles BlueFX redirect format: /?videoId=ID&userId=ID&apiUrl=URL
+ * Also supports legacy format: ?loadAI=VIDEO_ID
  */
 export function loadAIAssetsFromURL(): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const videoId = urlParams.get('loadAI');
-      const mockMode = urlParams.get('mock') === 'true';
-      
-      if (!videoId && !mockMode) {
-        resolve({ skipped: true, reason: 'No loadAI parameter found' });
+      // Prevent duplicate loading
+      if (isLoading) {
+        console.log('⏭️ Already loading AI assets, skipping...');
+        resolve({ skipped: true, reason: 'Already loading' });
         return;
       }
       
-      console.log('🔗 Loading AI assets from URL:', { videoId, mockMode });
-      
-      loadAIGeneratedAssets({
-        video_id: videoId || undefined,
-        loadMockData: mockMode,
-        onProgress: (stage, progress) => {
-          console.log(`📊 Loading progress: ${stage} (${progress}%)`);
-        },
-        onSuccess: (id) => {
-          console.log('🎉 URL-based loading completed:', id);
-          resolve({ success: true, video_id: id });
-        },
-        onError: (error) => {
-          console.error('❌ URL-based loading failed:', error);
-          reject(new Error(error));
+      // Set a timeout to reset loading flag in case of hang
+      const loadingTimeout = setTimeout(() => {
+        if (isLoading) {
+          console.warn('⚠️ Loading timeout - resetting flag');
+          isLoading = false;
         }
-      });
+      }, 30000); // 30 second timeout
+      
+      console.log('🔍 STEP 1: Checking URL for parameters');
+      console.log('🔍 Current URL:', window.location.href);
+      console.log('🔍 Search params:', window.location.search);
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Check for BlueFX format first
+      const videoId = urlParams.get('videoId');
+      const userId = urlParams.get('userId');
+      const apiUrl = urlParams.get('apiUrl');
+      
+      console.log('🔍 STEP 2: Parsed BlueFX parameters:', { videoId, userId, apiUrl });
+      
+      // Check for legacy format
+      const legacyVideoId = urlParams.get('loadAI');
+      const mockMode = urlParams.get('mock') === 'true';
+      
+      console.log('🔍 STEP 3: Legacy parameters:', { legacyVideoId, mockMode });
+      
+      if (videoId && userId && apiUrl) {
+        // BlueFX format - fetch from BlueFX API
+        console.log('🔗 Loading AI assets from BlueFX:', { videoId, userId, apiUrl });
+        isLoading = true;
+        
+        loadAIAssetsFromBlueFX({
+          videoId,
+          userId,
+          apiUrl,
+          onProgress: (stage, progress) => {
+            console.log(`📊 BlueFX Loading progress: ${stage} (${progress}%)`);
+          },
+          onSuccess: (id) => {
+            console.log('🎉 BlueFX-based loading completed:', id);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            resolve({ success: true, video_id: id });
+          },
+          onError: (error) => {
+            console.error('❌ BlueFX-based loading failed:', error);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            reject(new Error(error));
+          }
+        });
+        
+      } else if (legacyVideoId || mockMode) {
+        // Legacy format
+        console.log('🔗 Loading AI assets from URL (legacy):', { videoId: legacyVideoId, mockMode });
+        isLoading = true;
+        
+        loadAIGeneratedAssets({
+          video_id: legacyVideoId || undefined,
+          loadMockData: mockMode,
+          onProgress: (stage, progress) => {
+            console.log(`📊 Loading progress: ${stage} (${progress}%)`);
+          },
+          onSuccess: (id) => {
+            console.log('🎉 URL-based loading completed:', id);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            resolve({ success: true, video_id: id });
+          },
+          onError: (error) => {
+            console.error('❌ URL-based loading failed:', error);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            reject(new Error(error));
+          }
+        });
+        
+      } else {
+        clearTimeout(loadingTimeout);
+        resolve({ skipped: true, reason: 'No video parameters found in URL' });
+        return;
+      }
       
     } catch (error) {
       console.error('❌ URL parsing error:', error);
       reject(error);
     }
   });
+}
+
+/**
+ * Load AI assets from BlueFX API
+ */
+async function loadAIAssetsFromBlueFX({
+  videoId,
+  userId,
+  apiUrl,
+  onProgress,
+  onSuccess,
+  onError
+}: {
+  videoId: string;
+  userId: string;
+  apiUrl: string;
+  onProgress?: (stage: string, progress: number) => void;
+  onSuccess?: (video_id: string) => void;
+  onError?: (error: string) => void;
+}) {
+  console.log('🚀 Starting BlueFX asset loading:', { videoId, userId, apiUrl });
+  
+  try {
+    onProgress?.('Connecting to BlueFX...', 10);
+    
+    console.log('🔗 Fetching video data from BlueFX API:', `${apiUrl}/api/script-video/editor-data`);
+    
+    // Fetch video data from BlueFX API
+    const response = await fetch(`${apiUrl}/api/script-video/editor-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, videoId: videoId })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`BlueFX API error: ${response.status} ${response.statusText}`);
+    }
+    
+    onProgress?.('Processing video data...', 30);
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'BlueFX API returned error');
+    }
+    
+    const videoData = data.data;
+    console.log('✅ Received BlueFX video data:', {
+      videoId: videoData.videoId,
+      script: videoData.script?.substring(0, 100) + '...',
+      voiceUrl: videoData.voice?.url,
+      imageCount: videoData.images?.urls?.length || 0,
+      captionCount: videoData.captions?.chunks?.length || 0
+    });
+    
+    onProgress?.('Converting to editor format...', 60);
+    
+    // Convert BlueFX data to AI assets format
+    const aiAssets = convertBlueFXDataToAIAssets(videoData);
+    console.log('🔄 Converted AI assets:', {
+      video_id: aiAssets.video_id,
+      hasScript: !!aiAssets.script,
+      imageCount: aiAssets.generated_images?.length || 0,
+      hasAudio: !!aiAssets.audio_url,
+      segmentCount: aiAssets.segments?.length || 0
+    });
+    
+    // Validate the converted assets
+    console.log('🔍 Validating converted assets...');
+    const isValid = validateAIAssets(aiAssets);
+    console.log('🔍 Validation result:', isValid);
+    
+    if (!isValid) {
+      console.error('❌ Asset validation failed:', aiAssets);
+      throw new Error('Invalid converted assets format - check console for details');
+    }
+    
+    onProgress?.('Loading into editor...', 80);
+    
+    // Convert to editor format and dispatch directly (avoid duplicate loading)
+    console.log('🔄 Converting to editor format...');
+    const editorPayload = convertAIAssetsToEditorFormat(aiAssets);
+    console.log('✅ Editor payload created:', {
+      trackItems: editorPayload?.trackItems?.length || 0,
+      duration: editorPayload?.duration || 0,
+      fps: editorPayload?.fps || 0
+    });
+    
+    console.log('📤 Dispatching DESIGN_LOAD from BlueFX loader...');
+    dispatch(DESIGN_LOAD, { payload: editorPayload });
+    
+    onProgress?.('Complete!', 100);
+    onSuccess?.(videoData.videoId);
+    
+    console.log('🎉 BlueFX video data loaded successfully into editor!');
+    
+  } catch (error) {
+    console.error('❌ Failed to load BlueFX assets:', error);
+    console.error('❌ Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    onError?.(errorMessage);
+    throw error;
+  }
+}
+
+/**
+ * Convert BlueFX video data to AI assets format
+ */
+function convertBlueFXDataToAIAssets(videoData: any) {
+  console.log('🔄 Converting BlueFX data to AI assets format');
+  
+  // Convert images to expected format
+  console.log('🔍 Converting images - raw videoData.images:', videoData.images);
+  console.log('🔍 URLs array:', videoData.images?.urls);
+  
+  const generated_images = (videoData.images?.urls || []).map((url: any, index: number) => {
+    console.log(`🔍 Processing image ${index}:`, { url, type: typeof url });
+    
+    // Ensure URL is a string
+    const imageUrl = typeof url === 'string' ? url : (url?.url || String(url));
+    console.log(`🔍 Final image URL ${index}:`, imageUrl);
+    
+    return {
+      url: imageUrl,
+      segment_index: index,
+      prompt: videoData.images?.segments?.[index]?.image_prompt || `Image ${index + 1}`
+    };
+  });
+  
+  // Convert segments to expected format
+  console.log('🔍 Converting segments - raw videoData.images?.segments:', videoData.images?.segments);
+  
+  const segments = (videoData.images?.segments || []).map((segment: any, index: number) => {
+    console.log(`🔍 Processing segment ${index}:`, {
+      id: segment.id,
+      text: segment.text,
+      start_time: segment.start_time,
+      end_time: segment.end_time,
+      duration: segment.duration
+    });
+    
+    // Fix null start_time by using word_timings data or calculating from whisper analysis
+    let calculatedStartTime = segment.start_time;
+    let calculatedEndTime = segment.end_time;
+    let calculatedDuration = segment.duration;
+    
+    if (!calculatedStartTime && segment.word_timings && segment.word_timings.length > 0) {
+      // Use first word's start time
+      calculatedStartTime = segment.word_timings[0].start;
+      console.log(`🔧 Fixed start_time for segment ${index} using word timings: ${calculatedStartTime}`);
+    }
+    
+    if (!calculatedStartTime) {
+      // Fallback: use index-based timing
+      calculatedStartTime = index * 5;
+      console.log(`🔧 Fallback start_time for segment ${index}: ${calculatedStartTime}`);
+    }
+    
+    if (!calculatedDuration && calculatedEndTime && calculatedStartTime) {
+      calculatedDuration = calculatedEndTime - calculatedStartTime;
+    } else if (!calculatedDuration) {
+      calculatedDuration = 5; // Default 5 seconds
+    }
+    
+    const convertedSegment = {
+      id: segment.id || `segment-${index}`,
+      text: segment.text || `Segment ${index + 1}`,
+      start_time: calculatedStartTime,
+      end_time: calculatedEndTime || (calculatedStartTime + calculatedDuration),
+      duration: calculatedDuration,
+      image_prompt: segment.image_prompt || segment.visual_description || `Image prompt ${index + 1}`
+    };
+    
+    console.log(`🔍 Final segment ${index}:`, convertedSegment);
+    return convertedSegment;
+  });
+  
+  // Calculate total duration
+  const totalDuration = videoData.metadata?.totalDuration || 
+                        Math.max(segments.length * 5, 30); // At least 30 seconds
+  
+  return {
+    success: true, // Important: this is required by validateAIAssets
+    video_id: videoData.videoId,
+    final_script: videoData.script,
+    audio_url: videoData.voice?.url,
+    generated_images,
+    segments,
+    timeline_data: {
+      total_duration: totalDuration,
+      segment_count: segments.length,
+      frame_count: Math.floor(totalDuration * (videoData.metadata?.frameRate || 30))
+    },
+    word_timings: videoData.captions?.wordTimings || [],
+    caption_chunks: {
+      total_chunks: videoData.captions?.chunks?.length || 0,
+      chunks: videoData.captions?.chunks || [],
+      quality_score: 100,
+      avg_words_per_chunk: 5
+    },
+    whisper_data: videoData.voice?.whisperData,
+    metadata: {
+      totalDuration: totalDuration,
+      frameRate: videoData.metadata?.frameRate || 30,
+      wordCount: videoData.metadata?.wordCount || 0,
+      speakingRate: videoData.metadata?.speakingRate || 0,
+      creditsUsed: videoData.metadata?.creditsUsed || 0
+    }
+  };
 }
 
 /**

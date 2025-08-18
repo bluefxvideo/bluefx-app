@@ -122,21 +122,50 @@ export async function storeScriptVideoResults(record: ScriptVideoRecord) {
 
     if (videoError) throw videoError;
 
-    // Store segments
+    // Store segments with guaranteed valid timing
     if (record.segments.length > 0) {
-      const segmentsData = record.segments.map((segment: any, index) => ({
-        video_id: videoData.id,
-        segment_index: index,
-        text_content: segment.text || '',
-        start_time: segment.start_time || 0,
-        end_time: segment.end_time || 0,
-        duration: segment.duration || 0,
-        image_url: segment.image_url,
-        image_prompt: segment.image_prompt,
-        voice_url: segment.voice_url,
-        voice_duration: segment.voice_duration,
-        segment_status: 'ready'
-      }));
+      let cumulativeTime = 0;
+      const segmentsData = record.segments.map((segment: any, index) => {
+        // Ensure we always have valid timing
+        let startTime = segment.start_time;
+        let endTime = segment.end_time;
+        let duration = segment.duration;
+        
+        // Fix any null/undefined timing
+        if (startTime === null || startTime === undefined) {
+          startTime = cumulativeTime;
+          console.warn(`🔧 Fixed null start_time for segment ${index}: using ${startTime}`);
+        }
+        
+        if (duration === null || duration === undefined) {
+          // Estimate based on text length (~180 words per minute)
+          const wordCount = (segment.text || '').split(/\s+/).length;
+          duration = Math.max(3, Math.min(8, wordCount / 3));
+          console.warn(`🔧 Fixed null duration for segment ${index}: estimated ${duration}s`);
+        }
+        
+        if (endTime === null || endTime === undefined) {
+          endTime = startTime + duration;
+          console.warn(`🔧 Fixed null end_time for segment ${index}: calculated ${endTime}`);
+        }
+        
+        // Update cumulative time for next segment
+        cumulativeTime = endTime;
+        
+        return {
+          video_id: videoData.id,
+          segment_index: index,
+          text_content: segment.text || '',
+          start_time: startTime,
+          end_time: endTime,
+          duration: duration,
+          image_url: segment.image_url,
+          image_prompt: segment.image_prompt,
+          voice_url: segment.voice_url,
+          voice_duration: segment.voice_duration,
+          segment_status: 'ready'
+        };
+      });
 
       const { error: segmentsError } = await supabase
         .from('video_segments')
@@ -267,6 +296,10 @@ export async function getLatestScriptVideoResults(user_id: string) {
       if (maxEndTime > 0) actualDuration = maxEndTime;
     }
 
+    // Fetch caption chunks from the separate table
+    const captionResult = await getCaptionChunks(data.id);
+    const captionChunks = captionResult.success ? captionResult.captions : [];
+    
     // Convert database format back to ScriptToVideoResponse format
     const result = {
       success: true,
@@ -287,6 +320,15 @@ export async function getLatestScriptVideoResults(user_id: string) {
       word_timings: data.processing_logs?.word_timings || [],
       // CRITICAL: Include Whisper frame alignment data for correct timing
       whisper_frame_alignment: data.whisper_data?.frame_alignment || [],
+      // NEW: Include separate caption chunks with improved structure
+      caption_chunks: {
+        total_chunks: captionChunks.length,
+        chunks: captionChunks,
+        quality_score: captionChunks.length > 0 ? 
+          captionChunks.reduce((avg, chunk) => avg + (chunk.quality_score || 100), 0) / captionChunks.length : 100,
+        avg_words_per_chunk: captionChunks.length > 0 ?
+          captionChunks.reduce((avg, chunk) => avg + (chunk.word_count || 0), 0) / captionChunks.length : 0
+      },
       video_id: data.id // Include database ID for caption fetching
     };
 
@@ -448,5 +490,130 @@ export async function updateOperationProgress(
   } catch (error) {
     console.error('Error updating operation progress:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+// Caption management functions for the new separate table
+export async function storeCaptionChunks(
+  video_id: string,
+  captionChunks: Array<{
+    text_content: string;
+    start_time: number;
+    end_time: number;
+    duration: number;
+    chunk_index: number;
+    word_count?: number;
+    confidence_score?: number;
+    word_timings?: any[];
+    speaker_id?: string;
+    language_code?: string;
+    display_text?: string;
+    style_properties?: any;
+    generation_method?: string;
+    quality_score?: number;
+    primary_segment_id?: string;
+    related_segment_ids?: string[];
+  }>
+) {
+  try {
+    console.log(`📝 Storing ${captionChunks.length} caption chunks for video ${video_id}`);
+    
+    // First, clear existing captions for this video
+    const { error: deleteError } = await supabase
+      .from('video_captions')
+      .delete()
+      .eq('video_id', video_id);
+    
+    if (deleteError) throw deleteError;
+    
+    // Insert new caption chunks
+    const { data, error } = await supabase
+      .from('video_captions')
+      .insert(
+        captionChunks.map(chunk => ({
+          video_id,
+          text_content: chunk.text_content,
+          start_time: chunk.start_time,
+          end_time: chunk.end_time,
+          duration: chunk.duration,
+          chunk_index: chunk.chunk_index,
+          word_count: chunk.word_count || chunk.text_content.split(/\s+/).length,
+          confidence_score: chunk.confidence_score || 1.0,
+          word_timings: chunk.word_timings || null,
+          speaker_id: chunk.speaker_id || null,
+          language_code: chunk.language_code || 'en',
+          display_text: chunk.display_text || chunk.text_content,
+          style_properties: chunk.style_properties || {},
+          generation_method: chunk.generation_method || 'whisper',
+          quality_score: chunk.quality_score || 100,
+          primary_segment_id: chunk.primary_segment_id || null,
+          related_segment_ids: chunk.related_segment_ids || null
+        }))
+      )
+      .select();
+    
+    if (error) throw error;
+    
+    console.log(`✅ Successfully stored ${data.length} caption chunks`);
+    return { success: true, captions: data };
+    
+  } catch (error) {
+    console.error('Error storing caption chunks:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+export async function getCaptionChunks(video_id: string) {
+  try {
+    const { data, error } = await supabase
+      .from('video_captions')
+      .select('*')
+      .eq('video_id', video_id)
+      .order('chunk_index');
+    
+    if (error) throw error;
+    
+    return { success: true, captions: data || [] };
+    
+  } catch (error) {
+    console.error('Error getting caption chunks:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      captions: []
+    };
+  }
+}
+
+export async function updateCaptionChunk(
+  caption_id: string,
+  updates: {
+    text_content?: string;
+    start_time?: number;
+    end_time?: number;
+    duration?: number;
+    display_text?: string;
+    style_properties?: any;
+    needs_review?: boolean;
+  }
+) {
+  try {
+    const { error } = await supabase
+      .from('video_captions')
+      .update(updates)
+      .eq('id', caption_id);
+    
+    if (error) throw error;
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Error updating caption chunk:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 }

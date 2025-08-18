@@ -44,6 +44,7 @@ export class AudioDataManager {
 		}
 	}
 
+
 	private cleanupCache(): void {
 		const now = Date.now();
 		const entries = Object.entries(this.audioDatas);

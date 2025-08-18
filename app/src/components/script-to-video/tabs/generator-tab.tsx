@@ -160,25 +160,46 @@ export function GeneratorTab({
       return;
     }
 
+    // Get current user ID from the video editor store
+    const currentUserId = project.user_id;
+    if (!currentUserId) {
+      showToast('User not authenticated. Please refresh and try again.', 'error');
+      return;
+    }
+
     setIsGeneratingVoice(true);
     onGeneratingChange?.(true);
     onGeneratingVoiceChange?.(true);
 
     try {
-      // Mock voice generation - replace with actual voice service call
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      console.log('🎤 Starting voice generation with real service...');
       
-      const mockAudioUrl = 'https://example.com/generated-voice.mp3';
+      // Import the voice generation service dynamically
+      const { generateVoiceForScript } = await import('@/actions/services/voice-generation-service');
       
-      setVoiceAudioUrl(mockAudioUrl);
-      setIsGeneratingVoice(false);
+      // Call the real voice generation service
+      const result = await generateVoiceForScript(
+        stepState.finalScript,
+        {
+          voice_id: selectedVoice as 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah',
+          speed: formData.voice_settings.speed || 'normal',
+          emotion: formData.voice_settings.emotion || 'neutral'
+        },
+        currentUserId
+      );
 
-      showToast('Voice generated successfully!', 'success');
+      if (result.success && result.audio_url) {
+        setVoiceAudioUrl(result.audio_url);
+        showToast(`Voice generated successfully! (${result.credits_used} credits used)`, 'success');
+        console.log('✅ Voice generation completed:', result.audio_url);
+      } else {
+        throw new Error(result.error || 'Voice generation failed');
+      }
     } catch (error) {
       console.error('Voice generation failed:', error);
-      showToast('Failed to generate voice. Please try again.', 'error');
-      setIsGeneratingVoice(false);
+      showToast(`Failed to generate voice: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     } finally {
+      setIsGeneratingVoice(false);
       onGeneratingChange?.(false);
       onGeneratingVoiceChange?.(false);
     }
@@ -251,7 +272,8 @@ export function GeneratorTab({
       case 2:
         return stepState.finalScript.trim().length > 0;
       case 3:
-        return true;
+        // For video generation, only require that a voice has been selected
+        return selectedVoice.length > 0;
       default:
         return false;
     }
@@ -557,26 +579,28 @@ Examples:
               </div>
             </div>
 
-            {/* Voice Generation Button */}
+            {/* Optional Voice Preview Generation */}
             {!voiceAudioUrl && (
-              <Button
-                onClick={generateVoice}
-                disabled={isGeneratingVoice}
-                variant="outline"
-                className="w-full"
-              >
-                {isGeneratingVoice ? (
-                  <>
-                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Generating Voice...
-                  </>
-                ) : (
-                  <>
-                    <Mic className="w-4 h-4 mr-2" />
-                    Generate Voice Preview
-                  </>
-                )}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={generateVoice}
+                  disabled={isGeneratingVoice}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isGeneratingVoice ? (
+                    <>
+                      <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Generating Voice Preview...
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4 mr-2" />
+                      Generate Voice Preview ({selectedVoice})
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
 
             {/* Voice Preview */}
@@ -661,8 +685,7 @@ Examples:
               !canProceedFromStep(stepState.currentStep) || 
               stepState.isGeneratingScript || 
               isGeneratingVoice || 
-              isGeneratingVideo ||
-              (stepState.currentStep === 3 && credits > 0 && credits < estimatedCredits)
+              isGeneratingVideo
             }
             className={`${stepState.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium`}
             size="lg"

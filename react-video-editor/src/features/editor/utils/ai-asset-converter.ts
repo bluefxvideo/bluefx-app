@@ -45,20 +45,30 @@ export interface AIGeneratedAssets {
       confidence: number;
     }>;
   }>;
-  // Optional caption chunks from your orchestrator
+  // NEW: Separate caption chunks from new table structure
   caption_chunks?: {
     total_chunks: number;
     chunks: Array<{
-      text: string;
-      start: number;
-      end: number;
-      words?: Array<{
-        word: string;
-        start: number;
-        end: number;
-        confidence: number;
-      }>;
+      id?: string;
+      text_content: string;
+      start_time: number;
+      end_time: number;
+      duration: number;
+      chunk_index: number;
+      word_count?: number;
+      confidence_score?: number;
+      word_timings?: any[];
+      speaker_id?: string;
+      language_code?: string;
+      display_text?: string;
+      style_properties?: any;
+      generation_method?: string;
+      quality_score?: number;
+      primary_segment_id?: string;
+      related_segment_ids?: string[];
     }>;
+    quality_score: number;
+    avg_words_per_chunk: number;
   };
 }
 
@@ -259,7 +269,10 @@ export function convertAIAssetsToEditorFormat(
         },
         
         // Caption track marker (using any type to bypass strict checking)
-        ...(({ isCaptionTrack: true } as any))
+        ...(({ 
+          isCaptionTrack: true,
+          captionSegments: captionSegments // Store segments in details for automatic loading
+        } as any))
       },
       metadata: {
         aiGenerated: true,
@@ -390,10 +403,56 @@ export function convertAIAssetsToEditorFormat(
 
 /**
  * Create caption segments with word-level timing (if available)
- * Mirrors the structure from caption-loader.ts and mock caption data
+ * NEW: Uses separate caption chunks instead of visual segments
  */
 function createCaptionSegments(aiAssets: AIGeneratedAssets) {
+  // NEW: Use separate caption chunks if available
+  if (aiAssets.caption_chunks?.chunks && aiAssets.caption_chunks.chunks.length > 0) {
+    console.log(`🎬 Using ${aiAssets.caption_chunks.chunks.length} separate caption chunks`);
+    
+    return aiAssets.caption_chunks.chunks.map(chunk => {
+      // Use word_timings from the chunk if available
+      const words = chunk.word_timings && chunk.word_timings.length > 0 
+        ? chunk.word_timings.map((wt: any) => ({
+            word: wt.word,
+            start: wt.start * 1000, // Convert to milliseconds
+            end: wt.end * 1000,
+            confidence: wt.confidence || 1.0
+          }))
+        : generateMockWordTimings(
+            chunk.display_text || chunk.text_content, 
+            chunk.start_time * 1000, 
+            chunk.end_time * 1000
+          );
+
+      return {
+        start: chunk.start_time * 1000, // Convert to milliseconds
+        end: chunk.end_time * 1000,
+        text: chunk.display_text || chunk.text_content,
+        words: words, // Word-level timing for highlighting
+        style: {
+          fontSize: 48,
+          activeColor: "#00FF88",    // Green for active word
+          appearedColor: "#FFFFFF",  // White for completed words
+          color: "#E0E0E0",          // Light gray for default
+          ...chunk.style_properties  // Apply custom styling if available
+        },
+        // Additional metadata from the caption chunk
+        metadata: {
+          chunk_index: chunk.chunk_index,
+          confidence_score: chunk.confidence_score,
+          quality_score: chunk.quality_score,
+          generation_method: chunk.generation_method,
+          primary_segment_id: chunk.primary_segment_id
+        }
+      };
+    });
+  }
+  
+  // FALLBACK: Use visual segments if no separate captions available (backward compatibility)
   if (!aiAssets.segments) return [];
+  
+  console.log(`📝 Fallback: Using ${aiAssets.segments.length} visual segments as captions`);
 
   return aiAssets.segments.map(segment => {
     // Try to get word timings from Whisper analysis

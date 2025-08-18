@@ -20,19 +20,26 @@ export async function realignSegmentsWithVoiceTiming(
   originalSegments: any[],
   whisperData: WhisperAnalysisResponse
 ): Promise<RealignedSegment[]> {
-  console.log('🔄 Realigning segments with actual voice timing...');
+  console.log('🔄 Enhancing segments with word-level timing (preserving segment boundaries)...');
   
   const realignedSegments: RealignedSegment[] = [];
+  
+  // IMPORTANT: We should preserve the original segment boundaries
+  // Only add word-level timing for caption synchronization
+  // The segments already have good start/end times from createStoryBasedSegments
   
   // Get all word timings from Whisper
   const allWordTimings = whisperData.segment_timings.flatMap(seg => seg.word_timings || []);
   
   if (!allWordTimings.length) {
-    console.warn('⚠️ No word timings available, using original segments');
-    return originalSegments;
+    console.warn('⚠️ No word timings available, using original segments with their existing timing');
+    return originalSegments.map(seg => ({
+      ...seg,
+      word_timings: []
+    }));
   }
   
-  // For each original segment, find its actual timing based on the words it contains
+  // For each original segment, ADD word timings but PRESERVE original boundaries
   for (const segment of originalSegments) {
     const segmentText = segment.text.toLowerCase().trim();
     const segmentWords = segmentText.split(/\s+/);
@@ -56,54 +63,26 @@ export async function realignSegmentsWithVoiceTiming(
       }
     }
     
+    // ALWAYS preserve original segment boundaries
+    // Only use word timings for caption synchronization
+    realignedSegments.push({
+      id: segment.id,
+      text: segment.text,
+      start_time: segment.start_time, // KEEP ORIGINAL
+      end_time: segment.end_time,     // KEEP ORIGINAL
+      duration: segment.duration || (segment.end_time - segment.start_time),
+      image_prompt: segment.image_prompt,
+      word_timings: matchedWords // Add word timings for captions
+    });
+    
     if (matchedWords.length > 0) {
-      // Calculate actual timing based on matched words
-      const startTime = Math.min(...matchedWords.map(w => w.start || w.start_time));
-      const endTime = Math.max(...matchedWords.map(w => w.end || w.end_time));
-      
-      realignedSegments.push({
-        id: segment.id,
-        text: segment.text,
-        start_time: startTime,
-        end_time: endTime,
-        duration: endTime - startTime,
-        image_prompt: segment.image_prompt,
-        word_timings: matchedWords
-      });
-      
-      console.log(`✅ Segment "${segment.text.substring(0, 30)}..." realigned: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (was ${segment.start_time.toFixed(2)}s - ${segment.end_time.toFixed(2)}s)`);
-    } else {
-      // Couldn't match words, keep original timing but log warning
-      console.warn(`⚠️ Could not match words for segment: "${segment.text.substring(0, 30)}..."`);
-      realignedSegments.push({
-        ...segment,
-        word_timings: []
-      });
+      console.log(`✅ Segment "${segment.text.substring(0, 30)}..." enhanced with ${matchedWords.length} word timings`);
+      console.log(`   Boundaries preserved: ${segment.start_time.toFixed(2)}s - ${segment.end_time.toFixed(2)}s`);
     }
   }
   
-  // Ensure segments don't overlap and fill gaps
-  for (let i = 0; i < realignedSegments.length - 1; i++) {
-    const currentSegment = realignedSegments[i];
-    const nextSegment = realignedSegments[i + 1];
-    
-    // If there's a gap, extend current segment to meet the next
-    if (currentSegment.end_time < nextSegment.start_time) {
-      const gap = nextSegment.start_time - currentSegment.end_time;
-      if (gap < 0.5) { // Small gap, just extend
-        currentSegment.end_time = nextSegment.start_time;
-        currentSegment.duration = currentSegment.end_time - currentSegment.start_time;
-      }
-    }
-    
-    // If there's overlap, trim current segment
-    if (currentSegment.end_time > nextSegment.start_time) {
-      currentSegment.end_time = nextSegment.start_time;
-      currentSegment.duration = currentSegment.end_time - currentSegment.start_time;
-    }
-  }
-  
-  console.log(`🎯 Realignment complete: ${realignedSegments.length} segments with accurate voice timing`);
+  // No need to adjust overlaps - we're preserving original boundaries
+  console.log(`🎯 Enhancement complete: ${realignedSegments.length} segments with preserved boundaries and word timings`);
   
   return realignedSegments;
 }

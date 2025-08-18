@@ -289,8 +289,46 @@ export async function generateScriptToVideo(
             credits_used: imageResults.length * 4
           };
         } catch (error) {
-          console.error('❌ Image generation failed:', error);
-          throw new Error(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
+          console.error('❌ Image generation failed completely:', error);
+          // Allow continuation with a warning instead of throwing
+          warnings.push(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
+          
+          // Set empty result to continue with other processing
+          imagesResult = {
+            success: false,
+            generated_images: [],
+            credits_used: 0,
+            total_generation_time_ms: 0,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+        
+        // Step 6.4: Redistribute Segments to Match Actual Audio Duration
+        const actualAudioDuration = whisperResult.total_duration;
+        const estimatedDuration = segmentAnalysis.total_duration;
+        
+        if (Math.abs(actualAudioDuration - estimatedDuration) > 2) {
+          console.log(`🎯 Redistributing segments: estimated ${estimatedDuration}s → actual ${actualAudioDuration}s`);
+          
+          // Redistribute segment timing proportionally
+          const scaleFactor = actualAudioDuration / estimatedDuration;
+          
+          mockSegments.forEach(segment => {
+            const originalStart = segment.start_time;
+            const originalEnd = segment.end_time;
+            
+            segment.start_time = originalStart * scaleFactor;
+            segment.end_time = originalEnd * scaleFactor;
+            segment.duration = segment.end_time - segment.start_time;
+          });
+          
+          // Update segment analysis
+          segmentAnalysis.total_duration = actualAudioDuration;
+          
+          console.log(`✅ Segments redistributed to match ${actualAudioDuration}s audio duration`);
+          optimization_applied.push('Audio-visual duration synchronization');
+        } else {
+          console.log(`✓ Audio duration matches estimated duration (${actualAudioDuration}s ≈ ${estimatedDuration}s)`);
         }
         
         // Step 6.5: Create Professional Caption Chunks
@@ -559,6 +597,49 @@ export async function generateScriptToVideo(
       } : null
     });
 
+    // Step 8.5: Store Caption Chunks in Separate Table
+    if (captionChunks && storeResult?.video_id) {
+      console.log('📝 Storing caption chunks in separate table...');
+      
+      const { storeCaptionChunks } = await import('../database/script-video-database');
+      
+      // Convert caption chunks to the format expected by storeCaptionChunks
+      const captionChunksToStore: any[] = [];
+      
+      captionChunks.segments.forEach((segment: any, segmentIndex: number) => {
+        segment.caption_chunks.forEach((chunk: any, chunkIndex: number) => {
+          captionChunksToStore.push({
+            text_content: chunk.text,
+            start_time: chunk.start_time,
+            end_time: chunk.end_time,
+            duration: chunk.duration,
+            chunk_index: captionChunksToStore.length, // Global chunk index
+            word_count: chunk.word_count,
+            confidence_score: chunk.confidence || 1.0,
+            word_timings: chunk.word_timings || null,
+            speaker_id: null,
+            language_code: 'en',
+            display_text: chunk.text,
+            style_properties: {},
+            generation_method: 'whisper_ai_chunking',
+            quality_score: 100,
+            primary_segment_id: null, // mockSegments use string IDs, not UUIDs
+            related_segment_ids: null // No related segment UUIDs available
+          });
+        });
+      });
+      
+      const captionStoreResult = await storeCaptionChunks(storeResult.video_id, captionChunksToStore);
+      
+      if (captionStoreResult.success) {
+        console.log(`✅ Stored ${captionChunksToStore.length} caption chunks in separate table`);
+        optimization_applied.push('Separate caption table storage for better performance');
+      } else {
+        console.warn('⚠️ Failed to store caption chunks:', captionStoreResult.error);
+        warnings.push('Caption chunks not stored in separate table');
+      }
+    }
+
     // Step 9: Record Analytics
     await recordGenerationMetrics({
       user_id: request.user_id,
@@ -715,15 +796,42 @@ async function generateImagesForAllSegments(segments: any[], aspectRatio: string
   const result = await generateImages(imageRequest);
   
   if (!result.success) {
-    throw new Error(`Image generation failed: ${result.error}`);
+    console.error(`❌ Image generation failed: ${result.error}`);
+    
+    // Log details about failed segments if any
+    if (result.failed_segments && result.failed_segments.length > 0) {
+      console.log('❌ Failed segments:');
+      result.failed_segments.forEach(failed => {
+        if (failed.error.includes('sensitive')) {
+          console.log(`   🚫 Segment ${failed.segment_id}: Content flagged as sensitive`);
+        } else {
+          console.log(`   ❌ Segment ${failed.segment_id}: ${failed.error}`);
+        }
+      });
+    }
+    
+    // Return empty array instead of throwing - let the orchestrator handle it
+    return [];
   }
 
   // Return in expected format
-  return result.generated_images!.map((img, index) => ({
+  const images = result.generated_images || [];
+  
+  // Log partial success if some images failed
+  if (result.partial_failure && result.failed_segments) {
+    console.log(`⚠️ Partial success: ${images.length} images generated, ${result.failed_segments.length} failed`);
+    result.failed_segments.forEach(failed => {
+      if (failed.error.includes('sensitive')) {
+        console.log(`   🚫 Segment ${failed.segment_id}: Content flagged as sensitive`);
+      }
+    });
+  }
+  
+  return images.map((img, index) => ({
     url: img.image_url,
     segment_index: index,
     prompt: img.prompt,
-    credits_used: result.credits_used / result.generated_images!.length
+    credits_used: images.length > 0 ? result.credits_used / images.length : 0
   }));
 }
 

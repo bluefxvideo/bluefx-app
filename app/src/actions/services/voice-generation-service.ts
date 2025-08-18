@@ -289,4 +289,80 @@ export async function estimateVoiceGenerationTime(textLength: number): Promise<n
   return Math.max(2000, textLength * 100); // Minimum 2 seconds
 }
 
+/**
+ * Generate voice for a simple script (used in step-by-step generator)
+ * Creates a single segment and generates voice for it
+ */
+export async function generateVoiceForScript(
+  script: string,
+  voice_settings: {
+    voice_id: 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah';
+    speed?: 'slower' | 'normal' | 'faster';
+    emotion?: 'neutral' | 'excited' | 'calm' | 'authoritative' | 'confident';
+  },
+  user_id: string
+): Promise<{ success: boolean; audio_url?: string; error?: string; credits_used: number }> {
+  const startTime = Date.now();
+  
+  try {
+    console.log(`🎤 Generating voice for script using ${voice_settings.voice_id}`);
+    
+    // Get the OpenAI voice name
+    const openAIVoice = VOICE_MAPPING[voice_settings.voice_id] || 'alloy';
+    const speedValue = SPEED_MAPPING[voice_settings.speed || 'normal'] || 1.0;
+    
+    console.log(`🔊 OpenAI TTS: voice=${openAIVoice}, speed=${speedValue}`);
+    
+    // Generate speech using OpenAI TTS
+    const response = await openai.audio.speech.create({
+      model: 'tts-1',
+      voice: openAIVoice as any,
+      input: script.trim(),
+      speed: speedValue,
+      response_format: 'mp3'
+    });
+
+    // Convert response to buffer
+    const audioBuffer = Buffer.from(await response.arrayBuffer());
+    
+    // Upload to Supabase Storage
+    const timestamp = Date.now();
+    const fileName = `${user_id}/voice/preview/script_${timestamp}.mp3`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('script-videos')
+      .upload(fileName, audioBuffer, {
+        contentType: 'audio/mpeg',
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      throw new Error(`Failed to upload audio: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('script-videos')
+      .getPublicUrl(fileName);
+
+    const generationTime = Date.now() - startTime;
+    console.log(`✅ Voice generated successfully in ${generationTime}ms: ${urlData.publicUrl}`);
+
+    return {
+      success: true,
+      audio_url: urlData.publicUrl,
+      credits_used: 3 // Cost for preview generation
+    };
+
+  } catch (error) {
+    console.error('Voice generation error:', error);
+    return {
+      success: false,
+      credits_used: 0,
+      error: error instanceof Error ? error.message : 'Voice generation failed'
+    };
+  }
+}
+
 // Validation logic moved inline to orchestrator to avoid server action constraints

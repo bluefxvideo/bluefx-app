@@ -12,6 +12,10 @@ export default function Audio({
 	const { fps } = options;
 	const { details } = item;
 	const playbackRate = item.playbackRate || 1;
+	
+	// Removed useEffect to prevent React Hooks order issues
+	// Audio preloading is now handled globally in the AI asset loader
+	
 	const children = (
 		<RemotionAudio
 			startFrom={(item.trim?.from! / 1000) * fps}

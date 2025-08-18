@@ -36,8 +36,14 @@ export interface ImageGenerationResponse {
     prediction_id: string;
     generation_time_ms: number;
   }>;
+  failed_segments?: Array<{
+    segment_id: string;
+    error: string;
+    prompt: string;
+  }>;
   credits_used: number;
   total_generation_time_ms: number;
+  partial_failure?: boolean;
   error?: string;
 }
 
@@ -116,19 +122,59 @@ export async function generateImagesForAllSegments(
       }
     });
 
-    // Wait for all images to complete
-    const results = await Promise.all(imagePromises);
-    generatedImages.push(...results);
-    totalCredits = results.length * getCreditsPerImage(request.style_settings.quality);
+    // Wait for all images to complete - use allSettled to handle partial failures
+    const results = await Promise.allSettled(imagePromises);
+    
+    const successfulImages: Array<{
+      segment_id: string;
+      image_url: string;
+      prompt: string;
+      prediction_id: string;
+      generation_time_ms: number;
+    }> = [];
+    
+    const failedSegments: Array<{
+      segment_id: string;
+      error: string;
+      prompt: string;
+    }> = [];
+    
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successfulImages.push(result.value);
+      } else {
+        const segment = request.segments[index];
+        const errorMessage = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        failedSegments.push({
+          segment_id: segment.id,
+          error: errorMessage,
+          prompt: segment.visual_description
+        });
+        console.error(`❌ Failed to generate image for segment ${segment.id}:`, errorMessage);
+      }
+    });
+    
+    generatedImages.push(...successfulImages);
+    totalCredits = successfulImages.length * getCreditsPerImage(request.style_settings.quality);
 
     const totalTime = Date.now() - startTime;
-    console.log(`✅ Generated ${generatedImages.length} images in ${totalTime}ms`);
+    
+    if (failedSegments.length > 0) {
+      console.log(`⚠️ Generated ${generatedImages.length} images successfully, ${failedSegments.length} failed in ${totalTime}ms`);
+      failedSegments.forEach(failed => {
+        console.log(`   ❌ Segment ${failed.segment_id}: ${failed.error}`);
+      });
+    } else {
+      console.log(`✅ Generated ${generatedImages.length} images in ${totalTime}ms`);
+    }
 
     return {
-      success: true,
+      success: generatedImages.length > 0, // Success if at least one image was generated
       generated_images: generatedImages,
+      failed_segments: failedSegments,
       credits_used: totalCredits,
-      total_generation_time_ms: totalTime
+      total_generation_time_ms: totalTime,
+      partial_failure: failedSegments.length > 0
     };
 
   } catch (error) {

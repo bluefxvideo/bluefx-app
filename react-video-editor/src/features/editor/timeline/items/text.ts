@@ -13,20 +13,16 @@ class Text extends Resizable {
 	declare id: string;
 	declare text: string;
 	declare details?: any;
+	private _isCaptionTrack?: boolean;
 
 
 	constructor(props: TextProps) {
 		super(props);
 		this.details = props.details;
 		
-		// Debug: Log what we receive
-		console.log('Timeline Text constructor - props:', props);
-		console.log('Timeline Text constructor - text content:', props.text);
-		
-		// Check if this is a caption track by identifying caption text patterns
-		const isCaptionTrack = props.text?.includes('CAPTIONS') || props.text?.includes('🎬');
-		console.log('Timeline Text constructor - isCaptionTrack (by text):', isCaptionTrack);
-		this.fill = isCaptionTrack ? "#6366f1" : "#305252"; // Purple-blue for captions, green for text
+		// Check if this is a caption track by identifying caption text patterns - cache result
+		this._isCaptionTrack = props.text?.includes('CAPTIONS') || props.text?.includes('🎬');
+		this.fill = this._isCaptionTrack ? "#6366f1" : "#305252"; // Purple-blue for captions, green for text
 		
 		this.id = props.id;
 		this.borderColor = "transparent";
@@ -43,8 +39,8 @@ class Text extends Resizable {
 	}
 
 	public drawTextIdentity(ctx: CanvasRenderingContext2D) {
-		const isCaptionTrack = this.text?.includes('CAPTIONS') || this.text?.includes('🎬');
-		console.log('Timeline Text drawTextIdentity - isCaptionTrack (by text):', isCaptionTrack, 'text:', this.text);
+		// Use cached value to avoid repeated checks
+		const isCaptionTrack = this._isCaptionTrack || false;
 		
 		ctx.save();
 		ctx.translate(-this.width / 2, -this.height / 2);

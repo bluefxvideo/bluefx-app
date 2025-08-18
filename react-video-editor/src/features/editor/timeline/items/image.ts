@@ -30,18 +30,51 @@ class Image extends Resizable {
 	}
 
 	public loadImage() {
-		util.loadImage(this.src).then((img) => {
-			const imgHeight = img.height;
-			const rectHeight = this.height;
-			const scaleY = rectHeight / imgHeight;
-			const pattern = new Pattern({
-				source: img,
-				repeat: "repeat-x",
-				patternTransform: [scaleY, 0, 0, scaleY, 0, 0],
+		util.loadImage(this.src)
+			.then((img) => {
+				// Validate image before using
+				if (!img || !img.width || !img.height) {
+					console.warn('Invalid image loaded:', this.src);
+					return;
+				}
+				
+				const imgWidth = img.width;
+				const imgHeight = img.height;
+				const rectWidth = this.width;
+				const rectHeight = this.height;
+				
+				// Calculate scale to fit image properly (cover mode)
+				const scaleX = rectWidth / imgWidth;
+				const scaleY = rectHeight / imgHeight;
+				const scale = Math.max(scaleX, scaleY); // Use larger scale for cover effect
+				
+				// Calculate centering offset
+				const scaledWidth = imgWidth * scale;
+				const scaledHeight = imgHeight * scale;
+				const offsetX = (rectWidth - scaledWidth) / 2;
+				const offsetY = (rectHeight - scaledHeight) / 2;
+				
+				try {
+					const pattern = new Pattern({
+						source: img,
+						repeat: "no-repeat", // No tiling - single centered image
+						patternTransform: [scale, 0, 0, scale, offsetX, offsetY],
+					});
+					this.set("fill", pattern);
+					this.canvas?.requestRenderAll();
+				} catch (error) {
+					console.error('Failed to create pattern for image:', this.src, error);
+					// Fallback to solid color
+					this.set("fill", "#cccccc");
+					this.canvas?.requestRenderAll();
+				}
+			})
+			.catch((error) => {
+				console.error('Failed to load image:', this.src, error);
+				// Fallback to solid color
+				this.set("fill", "#cccccc");
+				this.canvas?.requestRenderAll();
 			});
-			this.set("fill", pattern);
-			this.canvas?.requestRenderAll();
-		});
 	}
 
 	public setSrc(src: string) {
