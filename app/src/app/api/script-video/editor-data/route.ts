@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCaptionChunks } from '@/actions/database/script-video-database';
 
 // Initialize Supabase client with service role key
 const supabase = createClient(
@@ -95,6 +96,12 @@ export async function POST(request: NextRequest) {
     // Format data for external editor
     const processingLogs = videoData.processing_logs || {};
     
+    // Fetch caption chunks from the separate table
+    console.log('📝 Fetching caption chunks for video:', videoData.id);
+    const captionResult = await getCaptionChunks(videoData.id);
+    const captionChunks = captionResult.success ? captionResult.captions : [];
+    console.log(`✅ Retrieved ${captionChunks.length} caption chunks from database`);
+    
     // Fix segment timing if needed
     const segments = processingLogs.segments || [];
     let cumulativeTime = 0;
@@ -159,7 +166,7 @@ export async function POST(request: NextRequest) {
       // Caption and timing data
       captions: {
         data: videoData.caption_data,
-        chunks: processingLogs.caption_chunks || [],
+        chunks: captionChunks, // Use the fetched caption chunks from separate table
         wordTimings: processingLogs.word_timings || [],
       },
       
