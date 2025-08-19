@@ -418,7 +418,7 @@ function convertBlueFXDataToAIAssets(videoData: any) {
     ? Math.max(...segments.map(s => s.end_time || 0))
     : 0;
     
-  const totalDuration = calculatedDurationFromSegments || 
+  let totalDuration = calculatedDurationFromSegments || 
                         videoData.metadata?.totalDuration || 
                         Math.max(segments.length * 5, 30); // Fallback
   

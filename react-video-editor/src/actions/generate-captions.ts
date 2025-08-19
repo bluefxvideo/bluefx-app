@@ -14,22 +14,7 @@ import type {
  * with frame-accurate timing using direct Whisper word boundaries.
  */
 
-export interface GenerateCaptionsRequest {
-  // Audio source (one of these required)
-  audioUrl?: string;
-  
-  // Editor data (extract audio from timeline)
-  editorData?: {
-    trackItems?: any[];
-    currentAudioTrack?: any;
-  };
-  
-  // Existing Whisper data (for reuse/optimization)
-  existingWhisperData?: any;
-  
-  // Generation options
-  options?: CaptionGenerationOptions;
-}
+// Using imported GenerateCaptionsRequest from caption-types
 
 export interface GenerateCaptionsFormData {
   audioUrl: string;

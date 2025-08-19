@@ -161,7 +161,8 @@ export async function generateCaptionsForAudio(
     console.log(`🎵 Audio duration: ${audioDuration?.toFixed(2)}s (source: ${opts.audioDuration ? 'frontend' : 'whisper'})`);
 
     // Step 3: Generate Professional Caption Chunks
-    const captions = createProfessionalCaptionChunks(allWords, opts, audioDuration);
+    const requiredOpts = { ...opts } as Required<CaptionGenerationOptions>;
+    const captions = createProfessionalCaptionChunks(allWords, requiredOpts, audioDuration);
 
     // Step 4: Calculate Quality Metrics
     const qualityMetrics = calculateQualityMetrics(captions, whisperData, audioDuration);
