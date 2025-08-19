@@ -2,7 +2,7 @@ import useLayoutStore from "../store/use-layout-store";
 import { Texts } from "./texts";
 import { Audios } from "./audios";
 import { Elements } from "./elements";
-import { Images } from "./images";
+import { ImagesAI } from "./images-ai";
 import { Videos } from "./videos";
 import { VoiceOver } from "./voice-over";
 import { useIsLargeScreen } from "@/hooks/use-media-query";
@@ -28,7 +28,7 @@ const ActiveMenuItem = () => {
 	}
 
 	if (activeMenuItem === "images") {
-		return <Images />;
+		return <ImagesAI />;
 	}
 
 	if (activeMenuItem === "voiceOver") {
