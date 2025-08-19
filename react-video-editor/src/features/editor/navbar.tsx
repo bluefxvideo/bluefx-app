@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { dispatch } from "@designcombo/events";
 import { HISTORY_UNDO, HISTORY_REDO, DESIGN_RESIZE } from "@designcombo/state";
@@ -21,7 +21,9 @@ import {
 	Undo,
 	Redo,
 	Settings,
-	Sparkles
+	Sparkles,
+	Loader2,
+	Check
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -42,6 +44,7 @@ import {
 
 import { LogoIcons } from "@/components/shared/logos";
 import Link from "next/link";
+import { saveComposition, AutoSaveManager } from "./utils/save-composition";
 
 export default function Navbar({
 	user,
@@ -55,9 +58,86 @@ export default function Navbar({
 	projectName: string;
 }) {
 	const [title, setTitle] = useState(projectName);
+	const [isSaving, setIsSaving] = useState(false);
+	const [lastSaved, setLastSaved] = useState<Date | null>(null);
 	const isLargeScreen = useIsLargeScreen();
 	const isMediumScreen = useIsMediumScreen();
 	const isSmallScreen = useIsSmallScreen();
+	const autoSaveManagerRef = useRef<AutoSaveManager | null>(null);
+
+	// Get URL parameters for save functionality
+	const getUrlParams = () => {
+		const urlParams = new URLSearchParams(window.location.search);
+		return {
+			userId: urlParams.get('userId') || '',
+			videoId: urlParams.get('videoId') || '',
+			apiUrl: urlParams.get('apiUrl') || window.location.origin
+		};
+	};
+
+	const handleSave = async () => {
+		const { userId, videoId, apiUrl } = getUrlParams();
+		
+		if (!userId) {
+			console.error("Cannot save: No user ID found");
+			return;
+		}
+		
+		setIsSaving(true);
+		
+		try {
+			const result = await saveComposition(stateManager, {
+				userId,
+				videoId,
+				apiUrl,
+				metadata: {
+					projectName: title,
+					manual_save: true
+				}
+			});
+			
+			if (result.success) {
+				setLastSaved(new Date());
+				console.log("✅ Composition saved successfully");
+			} else {
+				throw new Error(result.error);
+			}
+		} catch (error) {
+			console.error("❌ Save failed:", error);
+		} finally {
+			setIsSaving(false);
+		}
+	};
+
+	// Initialize auto-save if we have user context
+	useEffect(() => {
+		const { userId, videoId, apiUrl } = getUrlParams();
+		
+		if (userId) {
+			// Create auto-save manager
+			autoSaveManagerRef.current = new AutoSaveManager(stateManager, {
+				userId,
+				videoId,
+				apiUrl,
+				metadata: {
+					projectName: title
+				}
+			});
+			
+			// Set up state change listener for auto-save
+			const handleStateChange = () => {
+				autoSaveManagerRef.current?.triggerAutoSave();
+			};
+			
+			// TODO: Add event listener for state changes
+			// stateManager.on('change', handleStateChange);
+			
+			return () => {
+				autoSaveManagerRef.current?.destroy();
+				// stateManager.off('change', handleStateChange);
+			};
+		}
+	}, [stateManager, title]);
 
 	const handleUndo = () => {
 		dispatch(HISTORY_UNDO);
@@ -165,9 +245,21 @@ export default function Navbar({
 				<Button
 					variant="ghost"
 					size="sm"
-					className="text-muted-foreground hover:text-foreground"
+					onClick={handleSave}
+					disabled={isSaving}
+					className={cn(
+						"text-muted-foreground hover:text-foreground",
+						lastSaved && "text-green-600 hover:text-green-700"
+					)}
+					title={lastSaved ? `Last saved: ${lastSaved.toLocaleTimeString()}` : "Save composition"}
 				>
-					<Save className="h-4 w-4" />
+					{isSaving ? (
+						<Loader2 className="h-4 w-4 animate-spin" />
+					) : lastSaved ? (
+						<Check className="h-4 w-4" />
+					) : (
+						<Save className="h-4 w-4" />
+					)}
 				</Button>
 				
 				<DownloadPopover stateManager={stateManager} />

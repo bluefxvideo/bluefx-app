@@ -283,6 +283,35 @@ async function loadAIAssetsFromBlueFX({
   console.log('🚀 Starting BlueFX asset loading:', { videoId, userId, apiUrl });
   
   try {
+    onProgress?.('Checking for saved composition...', 5);
+    
+    // FIRST: Check if there's a saved composition
+    console.log('🔍 Checking for saved composition first...');
+    const savedResponse = await fetch(`${apiUrl}/api/script-video/save-composition?user_id=${userId}&video_id=${videoId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (savedResponse.ok) {
+      const savedData = await savedResponse.json();
+      if (savedData.success && savedData.data) {
+        console.log('✅ Found saved composition! Loading that instead of AI assets.');
+        onProgress?.('Loading saved composition...', 50);
+        
+        // Load the saved composition directly
+        dispatch(DESIGN_LOAD, { 
+          payload: savedData.data.composition_data 
+        });
+        
+        onProgress?.('Complete!', 100);
+        onSuccess?.(videoId);
+        
+        console.log('🎉 Saved composition loaded successfully!');
+        return; // Exit early - we loaded the saved version
+      }
+    }
+    
+    console.log('📭 No saved composition found, loading AI assets...');
     onProgress?.('Connecting to BlueFX...', 10);
     
     console.log('🔗 Fetching video data from BlueFX API:', `${apiUrl}/api/script-video/editor-data`);
