@@ -184,34 +184,7 @@ export function convertAIAssetsToEditorFormat(
         },
         details: {
           src: img.url,
-          background: "transparent",
-          width: 1920,
-          height: 1080,
-          opacity: 100,
-          transform: "translate(0px, 0px) scale(1) rotate(0deg)",
-          border: "none",
-          borderRadius: 0,
-          boxShadow: {
-            color: "#000000",
-            x: 0,
-            y: 0,
-            blur: 0
-          },
-          top: "0px",
-          left: "0px",
-          transformOrigin: "center center",
-          crop: {
-            x: 0,
-            y: 0,
-            width: 1920,
-            height: 1080
-          },
-          blur: 0,
-          brightness: 100,
-          flipX: false,
-          flipY: false,
-          rotate: "0deg",
-          visibility: "visible"
+          // Let the editor handle positioning exactly like ADD_ITEMS does
         },
         metadata: {
           aiGenerated: true,

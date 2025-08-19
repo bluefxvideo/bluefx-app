@@ -244,6 +244,12 @@ export function captionsToTrackItems(
       textAlign: 'center',
       isCaptionTrack: true,
       
+      // Position captions towards bottom center
+      top: '75%', // 75% from top = towards bottom
+      left: '50%', // 50% from left = center horizontally
+      transform: 'translate(-50%, -50%)', // Center the text element itself
+      width: '80%', // Don't take full width
+      
       // Store caption segments in the format expected by CaptionSegmentManager
       captionSegments: captionSegments
     },

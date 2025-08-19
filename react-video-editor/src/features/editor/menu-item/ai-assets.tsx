@@ -2,20 +2,24 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wand2, Sparkles, Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Wand2, Sparkles, Upload, Loader2, CheckCircle, AlertCircle, AlignCenter } from "lucide-react";
 import { useState } from "react";
 import { loadAIGeneratedAssets, loadTestAIAssets, clearEditorForAIAssets } from "../utils/ai-asset-loader";
+import { fixAllAIAssetPositioning } from "../utils/ai-positioning-fix";
+import useStore from "../store/use-store";
 
 /**
  * AI Assets Menu Item - Load AI-generated content into the editor
  */
 export default function AIAssets() {
+  const { trackItemsMap } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>("");
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [videoId, setVideoId] = useState<string>("");
   const [lastLoadedVideoId, setLastLoadedVideoId] = useState<string>("");
   const [loadResult, setLoadResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [isFixingPositions, setIsFixingPositions] = useState(false);
 
   const handleLoadAIAssets = async () => {
     if (!videoId.trim()) {
@@ -90,6 +94,22 @@ export default function AIAssets() {
     clearEditorForAIAssets();
     setLoadResult(null);
     setLastLoadedVideoId("");
+  };
+
+  const handleFixPositioning = async () => {
+    setIsFixingPositions(true);
+    try {
+      console.log('🔧 Manual positioning fix requested');
+      fixAllAIAssetPositioning(trackItemsMap);
+      
+      // Show success feedback briefly
+      setTimeout(() => {
+        setIsFixingPositions(false);
+      }, 1000);
+    } catch (error) {
+      console.error('❌ Failed to fix positioning:', error);
+      setIsFixingPositions(false);
+    }
   };
 
   return (
@@ -230,14 +250,36 @@ export default function AIAssets() {
               </div>
             )}
             
-            <Button
-              onClick={handleClearEditor}
-              variant="outline"
-              size="sm"
-              className="w-full"
-            >
-              Clear Editor
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleFixPositioning}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                disabled={isFixingPositions}
+              >
+                {isFixingPositions ? (
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    Fixed!
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <AlignCenter className="h-3 w-3" />
+                    Fix Positions
+                  </div>
+                )}
+              </Button>
+              
+              <Button
+                onClick={handleClearEditor}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                Clear Editor
+              </Button>
+            </div>
           </div>
         </div>
       </Card>

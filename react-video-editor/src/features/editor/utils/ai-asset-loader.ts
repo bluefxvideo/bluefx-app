@@ -1,6 +1,7 @@
 import { dispatch } from "@designcombo/events";
-import { DESIGN_LOAD } from "@designcombo/state";
+import { DESIGN_LOAD, ADD_ITEMS } from "@designcombo/state";
 import { convertAIAssetsToEditorFormat, validateAIAssets, createMockAIComposition } from "./ai-asset-converter";
+import { fixAllAIAssetPositioning } from "./ai-positioning-fix";
 
 /**
  * AI Asset Loader
@@ -58,9 +59,44 @@ export async function loadAIGeneratedAssets(options: AIAssetLoadOptions = {}) {
     
     onProgress?.('Loading into editor...', 80);
     
-    // Load into the editor using DESIGN_LOAD
+    // Load audio/base composition with DESIGN_LOAD first
     console.log('📤 Dispatching DESIGN_LOAD from general loader...');
-    dispatch(DESIGN_LOAD, { payload: editorPayload });
+    
+    // Create base composition with just audio and structure
+    const basePayload = {
+      ...editorPayload,
+      trackItems: editorPayload.trackItems.filter(item => item.type === 'audio'),
+      trackItemsMap: Object.fromEntries(
+        Object.entries(editorPayload.trackItemsMap).filter(([_, item]) => item.type === 'audio')
+      ),
+      trackItemIds: editorPayload.trackItemIds.filter(id => editorPayload.trackItemsMap[id]?.type === 'audio'),
+      tracks: editorPayload.tracks.filter(track => track.type === 'audio')
+    };
+    
+    dispatch(DESIGN_LOAD, { payload: basePayload });
+    
+    // Add images individually using ADD_ITEMS (like sidebar does) for proper centering
+    setTimeout(() => {
+      const imageItems = editorPayload.trackItems.filter(item => item.type === 'image');
+      console.log(`📤 Adding ${imageItems.length} images individually via ADD_ITEMS...`);
+      
+      imageItems.forEach((imageItem, index) => {
+        setTimeout(() => {
+          console.log(`📤 Adding image ${index + 1}: ${imageItem.details.src}`);
+          dispatch(ADD_ITEMS, {
+            payload: {
+              trackItems: [{
+                ...imageItem,
+                details: {
+                  src: imageItem.details.src
+                  // Minimal details like sidebar images
+                }
+              }]
+            }
+          });
+        }, index * 100); // Stagger the additions
+      });
+    }, 200);
     
     onProgress?.('Complete!', 100);
     onSuccess?.(aiAssets.video_id || 'mock-video');
@@ -320,7 +356,42 @@ async function loadAIAssetsFromBlueFX({
     });
     
     console.log('📤 Dispatching DESIGN_LOAD from BlueFX loader...');
-    dispatch(DESIGN_LOAD, { payload: editorPayload });
+    
+    // Create base composition with just audio and structure
+    const basePayload = {
+      ...editorPayload,
+      trackItems: editorPayload.trackItems.filter(item => item.type === 'audio'),
+      trackItemsMap: Object.fromEntries(
+        Object.entries(editorPayload.trackItemsMap).filter(([_, item]) => item.type === 'audio')
+      ),
+      trackItemIds: editorPayload.trackItemIds.filter(id => editorPayload.trackItemsMap[id]?.type === 'audio'),
+      tracks: editorPayload.tracks.filter(track => track.type === 'audio')
+    };
+    
+    dispatch(DESIGN_LOAD, { payload: basePayload });
+    
+    // Add images individually using ADD_ITEMS (like sidebar does) for proper centering
+    setTimeout(() => {
+      const imageItems = editorPayload.trackItems.filter(item => item.type === 'image');
+      console.log(`📤 Adding ${imageItems.length} BlueFX images individually via ADD_ITEMS...`);
+      
+      imageItems.forEach((imageItem, index) => {
+        setTimeout(() => {
+          console.log(`📤 Adding BlueFX image ${index + 1}: ${imageItem.details.src}`);
+          dispatch(ADD_ITEMS, {
+            payload: {
+              trackItems: [{
+                ...imageItem,
+                details: {
+                  src: imageItem.details.src
+                  // Minimal details like sidebar images
+                }
+              }]
+            }
+          });
+        }, index * 100); // Stagger the additions
+      });
+    }, 200);
     
     onProgress?.('Complete!', 100);
     onSuccess?.(videoData.videoId);
