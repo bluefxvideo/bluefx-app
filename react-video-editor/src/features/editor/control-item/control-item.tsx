@@ -20,6 +20,7 @@ import { LassoSelect } from "lucide-react";
 const Container = ({ children }: { children: React.ReactNode }) => {
 	const { activeIds, trackItemsMap, transitionsMap } = useStore();
 	const [trackItem, setTrackItem] = useState<ITrackItem | null>(null);
+	const [multipleSelection, setMultipleSelection] = useState(false);
 	const { setTrackItem: setLayoutTrackItem } = useLayoutStore();
 
 	useEffect(() => {
@@ -29,10 +30,18 @@ const Container = ({ children }: { children: React.ReactNode }) => {
 			if (trackItem) {
 				setTrackItem(trackItem);
 				setLayoutTrackItem(trackItem);
+				setMultipleSelection(false);
 			} else console.log(transitionsMap[id]);
+		} else if (activeIds.length > 1) {
+			// Multiple selection - get first item for type reference
+			const firstItem = trackItemsMap[activeIds[0]];
+			setTrackItem(firstItem);
+			setLayoutTrackItem(firstItem);
+			setMultipleSelection(true);
 		} else {
 			setTrackItem(null);
 			setLayoutTrackItem(null);
+			setMultipleSelection(false);
 		}
 	}, [activeIds, trackItemsMap]);
 
@@ -40,6 +49,8 @@ const Container = ({ children }: { children: React.ReactNode }) => {
 		<div className="flex w-[272px] flex-none border-l border-border/80 bg-muted hidden lg:block">
 			{React.cloneElement(children as React.ReactElement<any>, {
 				trackItem,
+				multipleSelection,
+				selectedCount: activeIds.length,
 			})}
 		</div>
 	);
@@ -47,14 +58,33 @@ const Container = ({ children }: { children: React.ReactNode }) => {
 
 const ActiveControlItem = ({
 	trackItem,
+	multipleSelection,
+	selectedCount,
 }: {
 	trackItem?: ITrackItemAndDetails;
+	multipleSelection?: boolean;
+	selectedCount?: number;
 }) => {
 	if (!trackItem) {
 		return (
 			<div className="pb-32 flex flex-1 flex-col items-center justify-center gap-4 text-muted-foreground h-[calc(100vh-58px)]">
 				<LassoSelect />
 				<span className="text-zinc-500">No item selected</span>
+			</div>
+		);
+	}
+
+	// Show multi-selection controls for images and videos
+	if (multipleSelection && (trackItem.type === "image" || trackItem.type === "video")) {
+		return (
+			<div className="flex flex-1 flex-col">
+				<div className="text-text-primary flex h-12 flex-none items-center px-4 text-sm font-medium">
+					{selectedCount} {trackItem.type}s selected
+				</div>
+				<div className="px-4 py-4">
+					{trackItem.type === "image" && <BasicImage trackItem={trackItem as ITrackItem & IImage} />}
+					{trackItem.type === "video" && <BasicVideo trackItem={trackItem as ITrackItem & IVideo} />}
+				</div>
 			</div>
 		);
 	}

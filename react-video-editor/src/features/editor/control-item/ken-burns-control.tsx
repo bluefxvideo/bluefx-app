@@ -68,6 +68,13 @@ export function KenBurnsControl({ selectedItems, onApply }: KenBurnsControlProps
     });
   };
   
+  const handleSpeedChange = (value: number[]) => {
+    handleApplyEffect({
+      ...currentConfig,
+      speed: value[0]
+    });
+  };
+  
   const handleRemoveEffect = () => {
     handleApplyEffect(DEFAULT_KEN_BURNS_CONFIG);
   };
@@ -130,6 +137,23 @@ export function KenBurnsControl({ selectedItems, onApply }: KenBurnsControlProps
               />
             </div>
             
+            {/* Speed Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="ken-burns-speed" className="text-xs">Speed</Label>
+                <span className="text-xs text-muted-foreground">{currentConfig.speed}x</span>
+              </div>
+              <Slider
+                id="ken-burns-speed"
+                value={[currentConfig.speed]}
+                onValueChange={handleSpeedChange}
+                min={0.2}
+                max={3.0}
+                step={0.1}
+                className="w-full"
+              />
+            </div>
+            
             {/* Smoothness */}
             <div className="space-y-2">
               <Label htmlFor="ken-burns-smoothness" className="text-xs">Animation Style</Label>
@@ -166,7 +190,10 @@ export function KenBurnsControl({ selectedItems, onApply }: KenBurnsControlProps
       {/* Info Text */}
       <div className="text-xs text-muted-foreground">
         {isMultipleSelection ? (
-          <p>Effect will be applied to all selected images</p>
+          <p className="flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            Effect will be applied to {selectedItems.length} selected {selectedItems.length === 1 ? 'item' : 'items'}
+          </p>
         ) : (
           <p>Add smooth zoom and pan animations to your image</p>
         )}
