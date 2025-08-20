@@ -6,7 +6,7 @@ import Opacity from "./common/opacity";
 import Rounded from "./common/radius";
 import AspectRatio from "./common/aspect-ratio";
 import { Button } from "@/components/ui/button";
-import { Crop } from "lucide-react";
+import { Crop, Sparkles } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { dispatch } from "@designcombo/events";
 import { EDIT_OBJECT } from "@designcombo/state";
@@ -14,6 +14,8 @@ import Blur from "./common/blur";
 import Brightness from "./common/brightness";
 import useLayoutStore from "../store/use-layout-store";
 import { Label } from "@/components/ui/label";
+import { KenBurnsControl } from "./ken-burns-control";
+import useStore from "../store/use-store";
 
 const BasicImage = ({
 	trackItem,
@@ -176,6 +178,12 @@ const BasicImage = ({
 		});
 	};
 
+	// Get all selected items for Ken Burns bulk application
+	const { activeIds, trackItemsMap } = useStore();
+	const selectedMediaItems = activeIds
+		.map(id => trackItemsMap[id])
+		.filter(item => item && (item.type === "image" || item.type === "video")) as IImage[];
+
 	const components = [
 		{
 			key: "crop",
@@ -190,6 +198,18 @@ const BasicImage = ({
 					>
 						<Crop size={18} />
 					</Button>
+				</div>
+			),
+		},
+		{
+			key: "kenburns",
+			component: (
+				<div className="flex flex-col gap-2">
+					<Label className="font-sans text-xs font-semibold flex items-center gap-2">
+						<Sparkles className="w-4 h-4" />
+						Ken Burns Effect
+					</Label>
+					<KenBurnsControl selectedItems={selectedMediaItems} />
 				</div>
 			),
 		},

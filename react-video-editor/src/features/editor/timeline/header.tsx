@@ -102,6 +102,29 @@ const Header = () => {
 		});
 	};
 
+	const doSkipBackward = () => {
+		if (!playerRef?.current) return;
+		
+		// Get current frame and calculate skip amount (1 second worth of frames)
+		const skipFrames = fps; // Skip back 1 second
+		const newFrame = Math.max(0, currentFrame - skipFrames);
+		
+		// Seek to the new frame
+		playerRef.current.seekTo(newFrame);
+	};
+
+	const doSkipForward = () => {
+		if (!playerRef?.current) return;
+		
+		// Get current frame and calculate skip amount (1 second worth of frames)
+		const skipFrames = fps; // Skip forward 1 second
+		const maxFrames = Math.round((duration / 1000) * fps);
+		const newFrame = Math.min(maxFrames - 1, currentFrame + skipFrames);
+		
+		// Seek to the new frame
+		playerRef.current.seekTo(newFrame);
+	};
+
 	const changeScale = (scale: ITimelineScaleState) => {
 		dispatch(TIMELINE_SCALE_CHANGED, {
 			payload: {
@@ -202,9 +225,10 @@ const Header = () => {
 						<div>
 							<Button
 								className="hidden lg:inline-flex"
-								onClick={doActiveDelete}
+								onClick={doSkipBackward}
 								variant={"ghost"}
 								size={"icon"}
+								title="Skip backward 1 second"
 							>
 								<IconPlayerSkipBack size={14} />
 							</Button>
@@ -226,9 +250,10 @@ const Header = () => {
 							</Button>
 							<Button
 								className="hidden lg:inline-flex"
-								onClick={doActiveSplit}
+								onClick={doSkipForward}
 								variant={"ghost"}
 								size={"icon"}
+								title="Skip forward 1 second"
 							>
 								<IconPlayerSkipForward size={14} />
 							</Button>

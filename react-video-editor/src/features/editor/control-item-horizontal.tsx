@@ -16,11 +16,13 @@ import BasicText from "./control-item/basic-text";
 import BasicImage from "./control-item/basic-image";
 import BasicVideo from "./control-item/basic-video";
 import BasicAudio from "./control-item/basic-audio";
+import { KenBurnsControl } from "./control-item/ken-burns-control";
 import { motion, PanInfo, useAnimation } from "framer-motion";
 import ColorPicker from "@/components/color-picker";
 import { dispatch } from "@designcombo/events";
 import { EDIT_OBJECT } from "@designcombo/state";
 import { Label } from "@/components/ui/label";
+import { Sparkles } from "lucide-react";
 
 const ActiveControlItem = ({
 	trackItem,
@@ -271,7 +273,10 @@ const ControlItem = ({
 	trackItem?: ITrackItemAndDetails;
 	feature: string;
 }) => {
-	// First check if it's a custom feature (like strokeColor, color, shadowColor, backgroundColor)
+	// Get all selected items for bulk operations
+	const { activeIds, trackItemsMap } = useStore();
+	
+	// First check if it's a custom feature (like strokeColor, color, shadowColor, backgroundColor, kenburns)
 	if (feature === "strokeColor") {
 		return <StrokeColorPickerControl trackItem={trackItem} />;
 	}
@@ -286,6 +291,15 @@ const ControlItem = ({
 
 	if (feature === "backgroundColor") {
 		return <BackgroundColorPickerControl trackItem={trackItem} />;
+	}
+	
+	if (feature === "kenburns") {
+		// Get all selected image and video items for bulk application
+		const selectedMediaItems = activeIds
+			.map(id => trackItemsMap[id])
+			.filter(item => item && (item.type === "image" || item.type === "video")) as (IImage | IVideo)[];
+		
+		return <KenBurnsControl selectedItems={selectedMediaItems} />;
 	}
 
 	// Then check track item type for standard features
@@ -532,6 +546,7 @@ const ItemImage = ({
 		items={[
 			{ icon: Icons.crop, label: "Crop", id: "crop" },
 			{ icon: Icons.basic, label: "Basic", id: "basic" },
+			{ icon: Sparkles, label: "Ken Burns", id: "kenburns" },
 			{ icon: Icons.animation, label: "Animations", id: "animations" },
 			{ icon: Icons.outline, label: "Outline", id: "outline" },
 			{ icon: Icons.shadow, label: "Shadow", id: "shadow" },
@@ -549,6 +564,7 @@ const ItemVideo = ({
 		items={[
 			{ icon: Icons.crop, label: "Crop", id: "crop" },
 			{ icon: Icons.basic, label: "Basic", id: "basic" },
+			{ icon: Sparkles, label: "Ken Burns", id: "kenburns" },
 			{ icon: Icons.animation, label: "Animations", id: "animations" },
 			{ icon: Icons.outline, label: "Outline", id: "outline" },
 			{ icon: Icons.shadow, label: "Shadow", id: "shadow" },
