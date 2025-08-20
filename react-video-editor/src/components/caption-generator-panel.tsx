@@ -19,8 +19,9 @@ import {
 import { useState, useMemo } from "react";
 import { useCaptionGenerator, extractAudioFromTimeline, captionsToTrackItems } from "@/hooks/use-caption-generator";
 import type { CaptionGenerationOptions } from "@/types/caption-types";
-import { addCaptionTrackToEditor } from "@/features/editor/utils/caption-loader";
 import useStore from "@/features/editor/store/use-store";
+import { dispatch } from "@designcombo/events";
+import { ADD_TEXT } from "@designcombo/state";
 
 /**
  * AI Caption Generator Panel
@@ -136,8 +137,10 @@ export function CaptionGeneratorPanel({
             }
           };
           
-          // Add unified caption track to timeline
-          addCaptionTrackToEditor(captionTrack);
+          // Add unified caption track to timeline using ADD_TEXT dispatch
+          dispatch(ADD_TEXT, {
+            payload: captionTrack
+          });
           console.log(`🎉 Added AI-generated caption track with ${result.captions.length} segments to timeline`);
         }
       }
@@ -150,7 +153,9 @@ export function CaptionGeneratorPanel({
     if (state.lastResult?.captions) {
       const captionTrackItems = captionsToTrackItems(state.lastResult.captions);
       captionTrackItems.forEach(trackItem => {
-        addCaptionTrackToEditor(trackItem);
+        dispatch(ADD_TEXT, {
+          payload: trackItem
+        });
       });
     }
   };

@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Subtitles, FileText, Wand2, Play, Edit, Clock } from "lucide-react";
-import { loadMockCaptionData, addCaptionTrackToEditor } from "../utils/caption-loader";
 import { useState, useMemo } from "react";
 import useStore from "../store/use-store";
 import { CaptionGeneratorPanel } from "@/components/caption-generator-panel";
@@ -231,12 +230,10 @@ export default function Captions() {
   const handleLoadTestCaptions = async () => {
     setIsLoading(true);
     try {
-      const captionTrack = await loadMockCaptionData();
-      if (captionTrack) {
-        addCaptionTrackToEditor(captionTrack);
-        setCaptionAdded(true);
-        setTimeout(() => setCaptionAdded(false), 3000);
-      }
+      // Test caption loading functionality removed - use AI caption generator instead
+      console.log('Test caption loading deprecated - use AI caption generator');
+      setCaptionAdded(true);
+      setTimeout(() => setCaptionAdded(false), 3000);
     } catch (error) {
       console.error('Failed to load captions:', error);
     } finally {
@@ -277,10 +274,10 @@ export default function Captions() {
             variant="outline" 
             size="sm" 
             className="w-full text-xs"
-            onClick={handleLoadTestCaptions}
-            disabled={isLoading}
+            disabled={true}
+            title="Use AI Caption Generator instead"
           >
-            {isLoading ? "Loading..." : "Load More Test Data"}
+            Load More Test Data (Deprecated)
           </Button>
         </div>
       </div>
@@ -322,17 +319,12 @@ export default function Captions() {
             </p>
             <Button
               onClick={handleLoadTestCaptions}
-              disabled={isLoading}
-              variant={captionAdded ? "secondary" : "default"}
+              disabled={true}
+              variant="secondary"
               className="w-full"
+              title="Use AI Caption Generator instead"
             >
-              {isLoading ? (
-                "Loading..."
-              ) : captionAdded ? (
-                "✓ Captions Added"
-              ) : (
-                "Load Test Captions"
-              )}
+              Load Test Captions (Deprecated)
             </Button>
           </div>
 

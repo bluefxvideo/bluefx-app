@@ -7,16 +7,49 @@ import { useCurrentFrame } from "remotion";
 // Separate component for caption text to isolate hooks
 function CaptionText({ item, options }: { item: IText; options: SequenceItemOptions }) {
 	const { handleTextChange, onTextBlur, fps } = options;
-	const { id, details } = item as IText;
+	const { id, details, display } = item as IText;
 	const frame = useCurrentFrame();
 	const captionSegments = (details as any).captionSegments || [];
 
-	const currentTimeMs = (frame * 1000) / fps;
+	// Calculate relative time based on the text track's position in timeline
+	const trackStartMs = display?.from || 0;
+	const globalTimeMs = (frame * 1000) / fps;
+	const relativeTimeMs = globalTimeMs - trackStartMs;
+	
+	// Use relative time for caption segments
+	const currentTimeMs = relativeTimeMs;
 	
 	// Find active caption segment
 	const activeSegment = captionSegments.find((segment: any) => 
 		currentTimeMs >= segment.start && currentTimeMs < segment.end
 	);
+	
+	// Debug logging
+	if (frame % 30 === 0 && captionSegments.length > 0) {
+		console.log('Caption Text Debug:', {
+			currentTimeMs,
+			trackStartMs,
+			relativeTimeMs,
+			firstSegment: captionSegments[0],
+			activeSegment: activeSegment ? { text: activeSegment.text.substring(0, 20), start: activeSegment.start, end: activeSegment.end } : null
+		});
+		
+		// Debug word timing if we have an active segment
+		if (activeSegment && activeSegment.words?.length > 0) {
+			const firstWord = activeSegment.words[0];
+			const wordStartMs = firstWord.start * 1000;
+			const wordEndMs = firstWord.end * 1000;
+			console.log('Word Debug - Time:', currentTimeMs, 'First word:', JSON.stringify({
+				word: firstWord.word,
+				startSeconds: firstWord.start,
+				endSeconds: firstWord.end,
+				startMs: wordStartMs,
+				endMs: wordEndMs,
+				isActive: currentTimeMs >= wordStartMs && currentTimeMs < wordEndMs,
+				hasEnded: currentTimeMs >= wordEndMs
+			}));
+		}
+	}
 	
 	if (!activeSegment) {
 		// No active segment - hide caption completely (no background)
@@ -45,8 +78,9 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 	if (words.length > 0) {
 		// Create word-by-word highlighted content
 		const highlightedWords = words.map((word: any, index: number) => {
-			const wordStart = word.start;
-			const wordEnd = word.end;
+			// Convert word timing from seconds to milliseconds
+			const wordStart = word.start * 1000;
+			const wordEnd = word.end * 1000;
 			
 			let wordColor;
 			if (currentTimeMs >= wordEnd) {

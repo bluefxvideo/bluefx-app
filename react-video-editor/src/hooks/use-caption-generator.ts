@@ -200,7 +200,12 @@ export function captionsToTrackItems(
     start: Math.round(caption.start_time * 1000), // Convert to milliseconds
     end: Math.round(caption.end_time * 1000), // Use end_time directly (already calculated correctly)
     text: caption.text,
-    words: caption.word_boundaries || [],
+    // Convert word boundaries from seconds to milliseconds
+    words: (caption.word_boundaries || []).map(word => ({
+      ...word,
+      start: Math.round(word.start * 1000), // Convert to milliseconds
+      end: Math.round(word.end * 1000)       // Convert to milliseconds
+    })),
     confidence: caption.confidence,
     style: {
       fontSize: 24,
