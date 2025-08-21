@@ -1,8 +1,9 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-// import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
+import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
+import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 import { Json } from '@/types/database';
 
 // Request/Response types for the AI Cinematographer
@@ -161,18 +162,32 @@ async function handleVideoGeneration(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<CinematographerResponse> {
   try {
-    // Construct video generation prompt
-    // const videoPrompt = constructVideoPrompt(request, referenceImageUrl);
-    
     // Create video generation prediction
-    // const _prediction = await createVideoGenerationPrediction({
-    //   prompt: videoPrompt,
-    //   image: referenceImageUrl,
-    //   duration: request.duration || 4,
-    //   aspect_ratio: request.aspect_ratio || '16:9',
-    //   motion_scale: request.motion_scale || 1.0,
-    //   webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai` // For status updates
-    // });
+    const prediction = await createVideoGenerationPrediction({
+      prompt: request.prompt,
+      image: referenceImageUrl,
+      duration: request.duration || 4,
+      aspect_ratio: request.aspect_ratio || '16:9',
+      motion_scale: request.motion_scale || 1.0,
+      webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai` // For status updates
+    });
+
+    // Create prediction tracking record
+    await createPredictionRecord({
+      prediction_id: prediction.id,
+      user_id: request.user_id,
+      tool_id: 'ai-cinematographer',
+      service_id: 'replicate',
+      model_version: 'stable-video-diffusion',
+      status: 'starting',
+      input_data: {
+        prompt: request.prompt,
+        duration: request.duration || 4,
+        aspect_ratio: request.aspect_ratio || '16:9',
+        motion_scale: request.motion_scale || 1.0,
+        reference_image: referenceImageUrl
+      } as Json,
+    });
 
     // Create database record for tracking
     const { data: videoRecord, error: dbError } = await (await supabase)
@@ -184,6 +199,15 @@ async function handleVideoGeneration(
         video_concept: request.prompt,
         status: 'processing',
         style_preferences: { prompt: request.prompt } as Json,
+        metadata: {
+          prediction_id: prediction.id,
+          reference_image: referenceImageUrl,
+          generation_params: {
+            duration: request.duration || 4,
+            aspect_ratio: request.aspect_ratio || '16:9',
+            motion_scale: request.motion_scale || 1.0
+          }
+        } as Json,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -318,11 +342,19 @@ async function deductCredits(
   batchId: string,
   operation: string
 ) {
-  // Deduct from available credits
+  // Deduct from available credits (subtract amount from current credits)
+  const { data: currentCredits } = await supabase
+    .from('user_credits')
+    .select('available_credits')
+    .eq('user_id', userId)
+    .single();
+
+  const newCredits = Math.max(0, (currentCredits?.available_credits || 0) - amount);
+
   await supabase
     .from('user_credits')
     .update({
-      available_credits: amount,
+      available_credits: newCredits,
       updated_at: new Date().toISOString()
     })
     .eq('user_id', userId);

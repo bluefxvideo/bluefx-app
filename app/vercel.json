@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/hedra-polling",
+      "schedule": "*/30 * * * * *"
+    }
+  ]
+}

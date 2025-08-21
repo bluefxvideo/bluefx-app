@@ -5,6 +5,10 @@ import {
   storeThumbnailResults, 
   recordGenerationMetrics 
 } from '@/actions/database/thumbnail-database';
+import { updateCinematographerVideo } from '@/actions/database/cinematographer-database';
+import { storeLogoResults, recordLogoMetrics } from '@/actions/database/logo-database';
+import { updateMusicRecord } from '@/actions/database/music-database';
+import { updateScriptVideoRecord } from '@/actions/database/script-video-database';
 import type { Json } from '@/types/database';
 
 /**
@@ -33,6 +37,27 @@ interface ReplicateInput {
   seed?: number;
   reference_image?: string;
   style_type?: string;
+  // Logo Machine (Ideogram V3) properties
+  aspect_ratio?: string;
+  magic_prompt_option?: string;
+  image?: string; // For reference images
+  style_reference_images?: string[]; // For style references
+  // AI Cinematographer properties  
+  duration?: number;
+  motion_scale?: number;
+  // Music Machine properties
+  model_version?: string;
+  output_format?: string;
+  input_audio?: string;
+  continuation?: boolean;
+  normalization_strategy?: string;
+  temperature?: number;
+  top_k?: number;
+  top_p?: number;
+  classifier_free_guidance?: number;
+  // Script-to-Video properties
+  segments?: any[];
+  voice_settings?: any;
 }
 
 interface ReplicateWebhookPayload {
@@ -239,6 +264,37 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
     analysis.tool_type = 'title-generator';
     analysis.processing_strategy = 'text_processing';
     analysis.expected_outputs = payload.input?.title_count || 10;
+  } else if (payload.version?.includes('f8a8eb2c75d7d86ec58e3b8309cee63acb437fbab2695bc5004acf64d2de61a7') || // Ideogram V3 Turbo
+            (payload.input?.style_type && payload.input?.magic_prompt_option)) {
+    analysis.tool_type = 'logo-machine';
+    analysis.processing_strategy = 'batch_logos';
+    analysis.expected_outputs = 4; // Typical logo generation batch
+    analysis.requires_batch_processing = true;
+    analysis.requires_real_time_update = true;
+  } else if (payload.version?.includes('6ad9d07e53bf7e1f5ce9f58b11ad5d5fadc0e2e4b48fa35f47f55ff9b9db6de0') || // Meta MusicGen Stereo Melody
+            (payload.input?.model_version && payload.input?.output_format)) {
+    analysis.tool_type = 'music-machine';
+    analysis.processing_strategy = 'single_music_generation';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
+  } else if ((payload.metadata?.tool_id === 'script-to-video') ||
+            (payload.input?.segments && payload.input?.voice_settings)) {
+    analysis.tool_type = 'script-to-video';
+    analysis.processing_strategy = 'orchestrated_script_video';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
+  } else if ((payload.metadata?.tool_id === 'voice-over') ||
+            (payload.input?.script_text && payload.input?.voice_id && !payload.input?.avatar_image_url)) {
+    analysis.tool_type = 'voice-over';
+    analysis.processing_strategy = 'single_voice_generation';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
+  } else if (payload.version?.includes('dc91b71f6bafe90e311c8b6e03b9b5c1ce53f932b47e243c3a2ebf90d2d2a12d') || // Stable Video Diffusion
+            (payload.input?.duration && payload.input?.aspect_ratio)) {
+    analysis.tool_type = 'ai-cinematographer';
+    analysis.processing_strategy = 'single_video_generation';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
   }
 
   // AI Decision: Set workflow type based on complexity
@@ -275,6 +331,26 @@ async function handleSuccessfulGeneration(
       const singleResult = await processSingleResult(payload, analysis);
       results_processed = singleResult.count;
       credits_used = singleResult.credits;
+    } else if (analysis.processing_strategy === 'single_video_generation') {
+      const videoResult = await processVideoGeneration(payload, analysis);
+      results_processed = videoResult.count;
+      credits_used = videoResult.credits;
+    } else if (analysis.processing_strategy === 'batch_logos') {
+      const logoResult = await processBatchLogos(payload, analysis);
+      results_processed = logoResult.count;
+      credits_used = logoResult.credits;
+    } else if (analysis.processing_strategy === 'single_music_generation') {
+      const musicResult = await processMusicGeneration(payload, analysis);
+      results_processed = musicResult.count;
+      credits_used = musicResult.credits;
+    } else if (analysis.processing_strategy === 'orchestrated_script_video') {
+      const scriptVideoResult = await processScriptVideoGeneration(payload, analysis);
+      results_processed = scriptVideoResult.count;
+      credits_used = scriptVideoResult.credits;
+    } else if (analysis.processing_strategy === 'single_voice_generation') {
+      const voiceResult = await processVoiceOverGeneration(payload, analysis);
+      results_processed = voiceResult.count;
+      credits_used = voiceResult.credits;
     } else {
       console.warn(`⚠️ Unknown processing strategy: ${analysis.processing_strategy}`);
     }
@@ -511,4 +587,301 @@ function analyzeFailureType(error: string): string {
   if (error.includes('timeout')) return 'timeout';
   if (error.includes('GPU')) return 'resource_limit';
   return 'unknown';
+}
+
+/**
+ * Process video generation completion for AI Cinematographer
+ */
+async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const videoUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  if (!videoUrl) return { count: 0, credits: 0 };
+
+  console.log(`🎬 Video Processing: AI Cinematographer`);
+  
+  try {
+    // Download and upload video to our storage
+    const uploadResult = await downloadAndUploadImage(
+      videoUrl as string, 
+      'ai-cinematographer', 
+      `video_${payload.id}`
+    );
+    
+    if (uploadResult.success && uploadResult.url) {
+      // Find the cinematographer video record by prediction_id
+      // We need to query by metadata->prediction_id since we stored it there
+      const { createClient } = await import('@/app/supabase/server');
+      const supabase = await createClient();
+      
+      const { data: videoRecords } = await supabase
+        .from('cinematographer_videos')
+        .select('id')
+        .contains('metadata', { prediction_id: payload.id });
+      
+      if (videoRecords && videoRecords.length > 0) {
+        const videoId = videoRecords[0].id;
+        
+        // Update the video record with final URL and completed status
+        await updateCinematographerVideo(videoId, {
+          status: 'completed',
+          final_video_url: uploadResult.url,
+          total_duration_seconds: payload.input?.duration || 4,
+          progress_percentage: 100,
+          ai_director_notes: `Video generated successfully with ${payload.input?.motion_scale || 1.0} motion scale`,
+          updated_at: new Date().toISOString()
+        });
+        
+        console.log(`✅ Video Complete: Updated cinematographer record ${videoId}`);
+        return { count: 1, credits: 8 }; // Standard video generation cost
+      } else {
+        console.warn(`⚠️ No cinematographer video record found for prediction ${payload.id}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Video processing failed:', error);
+  }
+
+  return { count: 0, credits: 0 };
+}
+
+/**
+ * Process logo generation completion for Logo Machine
+ */
+async function processBatchLogos(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const outputs = Array.isArray(payload.output) ? payload.output : [payload.output];
+  console.log(`🏷️ Logo Processing: ${outputs.length} logos`);
+  
+  if (!outputs || outputs.length === 0) return { count: 0, credits: 0 };
+  
+  const batch_id = analysis.batch_id || crypto.randomUUID();
+  let total_credits = 0;
+  let processed_count = 0;
+
+  try {
+    // Process each logo variation
+    for (let i = 0; i < outputs.length; i++) {
+      const imageUrl = outputs[i];
+      if (!imageUrl) continue;
+
+      console.log(`🔄 Processing logo ${i + 1}/${outputs.length}`);
+      
+      try {
+        // Smart filename generation for logos
+        const filename = `logo_${batch_id}_v${i + 1}`;
+        const uploadResult = await downloadAndUploadImage(
+          imageUrl as string, 
+          'logo-machine', 
+          filename
+        );
+        
+        if (uploadResult.success && uploadResult.url) {
+          // Store logo result in database
+          const logoResult = {
+            user_id: analysis.user_id || 'unknown-user',
+            prompt: payload.input?.prompt || 'Generated logo',
+            image_urls: [uploadResult.url],
+            dimensions: '1024x1024',
+            height: 1024,
+            width: 1024,
+            model_name: 'ideogram-v3-turbo',
+            batch_id,
+            model_version: 'f8a8eb2c75d7d86ec58e3b8309cee63acb437fbab2695bc5004acf64d2de61a7',
+            generation_settings: {
+              style_type: payload.input?.style_type || 'Auto',
+              aspect_ratio: payload.input?.aspect_ratio || '1:1',
+              magic_prompt_option: payload.input?.magic_prompt_option || 'Auto',
+              ...payload.input
+            } as Json,
+          };
+          
+          await storeLogoResults(logoResult);
+          total_credits += 2; // Standard logo generation cost
+          processed_count++;
+        }
+      } catch (variationError) {
+        console.error(`❌ Failed to process logo ${i + 1}:`, variationError);
+      }
+    }
+    
+    // Record logo metrics
+    if (processed_count > 0) {
+      await recordLogoMetrics({
+        user_id: analysis.user_id || 'unknown-user',
+        batch_id,
+        model_version: 'ideogram-v3-turbo',
+        style_type: payload.input?.style_type || 'Auto',
+        num_variations: processed_count,
+        generation_time_ms: payload.metrics?.predict_time || 0,
+        total_credits_used: total_credits,
+        prompt_length: (payload.input?.prompt || '').length,
+        has_advanced_options: !!(payload.input?.seed || payload.input?.image || payload.input?.style_reference_images),
+      });
+      
+      console.log(`✅ Logo Batch Complete: ${processed_count} logos stored`);
+    }
+
+    return { count: processed_count, credits: total_credits };
+    
+  } catch (error) {
+    console.error('❌ Logo processing failed:', error);
+    return { count: 0, credits: 0 };
+  }
+}
+
+/**
+ * Process music generation completion for Music Machine
+ */
+async function processMusicGeneration(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const audioUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  if (!audioUrl) return { count: 0, credits: 0 };
+
+  console.log(`🎵 Music Processing: Music Machine`);
+  
+  try {
+    // Download and upload music to our storage
+    const uploadResult = await downloadAndUploadImage( // This function works for audio too
+      audioUrl as string, 
+      'music-machine', 
+      `music_${payload.id}`
+    );
+    
+    if (uploadResult.success && uploadResult.url) {
+      // Find the music record by prediction_id
+      const { createClient } = await import('@/app/supabase/server');
+      const supabase = await createClient();
+      
+      // Query music records created around the time this prediction was made
+      const { data: musicRecords } = await supabase
+        .from('music_generations')
+        .select('id, user_id')
+        .eq('user_id', analysis.user_id || 'unknown-user')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (musicRecords && musicRecords.length > 0) {
+        // Update the most recent music record (assuming it's the one for this prediction)
+        const musicId = musicRecords[0].id;
+        
+        await updateMusicRecord(musicId, {
+          status: 'completed',
+          final_audio_url: uploadResult.url,
+          duration_seconds: payload.input?.duration || 8,
+          model_version: payload.input?.model_version || 'stereo-melody-large',
+          generation_time_ms: payload.metrics?.predict_time || 0,
+          metadata: {
+            prediction_id: payload.id,
+            output_format: payload.input?.output_format || 'wav',
+            prompt: payload.input?.prompt || '',
+            generation_settings: payload.input
+          } as Json
+        });
+        
+        console.log(`✅ Music Complete: Updated music record ${musicId}`);
+        return { count: 1, credits: 6 }; // Standard music generation cost
+      } else {
+        console.warn(`⚠️ No music record found for user ${analysis.user_id}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Music processing failed:', error);
+  }
+
+  return { count: 0, credits: 0 };
+}
+
+/**
+ * Process script-to-video generation completion
+ */
+async function processScriptVideoGeneration(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const outputUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  if (!outputUrl) return { count: 0, credits: 0 };
+
+  console.log(`🎬 Script-Video Processing: Orchestrated Generation`);
+  
+  try {
+    // Download and upload content to our storage
+    const uploadResult = await downloadAndUploadImage(
+      outputUrl as string, 
+      'script-to-video', 
+      `script_video_${payload.id}`
+    );
+    
+    if (uploadResult.success && uploadResult.url) {
+      // Find the script-video record by prediction_id or user_id
+      const { createClient } = await import('@/app/supabase/server');
+      const supabase = await createClient();
+      
+      // Query script-video records
+      const { data: scriptVideoRecords } = await supabase
+        .from('script_to_video_history')
+        .select('id, user_id')
+        .eq('user_id', analysis.user_id || 'unknown-user')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (scriptVideoRecords && scriptVideoRecords.length > 0) {
+        // Update the most recent script-video record
+        const recordId = scriptVideoRecords[0].id;
+        
+        await updateScriptVideoRecord(recordId, {
+          status: 'completed',
+          video_url: uploadResult.url,
+          progress_percentage: 100,
+          metadata: {
+            prediction_id: payload.id,
+            webhook_processed: true,
+            generation_settings: payload.input
+          } as Json
+        });
+        
+        console.log(`✅ Script-Video Complete: Updated record ${recordId}`);
+        return { count: 1, credits: 12 }; // Estimated orchestrated generation cost
+      } else {
+        console.warn(`⚠️ No script-video record found for user ${analysis.user_id}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Script-video processing failed:', error);
+  }
+
+  return { count: 0, credits: 0 };
+}
+
+/**
+ * Process voice over generation completion
+ */
+async function processVoiceOverGeneration(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const audioUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  if (!audioUrl) return { count: 0, credits: 0 };
+
+  console.log(`🎙️ Voice Over Processing: Single Voice Generation`);
+  
+  try {
+    // Find the voice record by prediction_id or user_id
+    const { createClient } = await import('@/app/supabase/server');
+    const supabase = await createClient();
+    
+    // Query voice records (Note: Voice Over uses different table than predictions for storage)
+    const { data: voiceRecords } = await supabase
+      .from('generated_voices')
+      .select('id, user_id, batch_id')
+      .eq('user_id', analysis.user_id || 'unknown-user')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    if (voiceRecords && voiceRecords.length > 0) {
+      // For Voice Over, the webhook is called after completion, so just log
+      console.log(`✅ Voice Over Complete: Already processed ${voiceRecords[0].id}`);
+      
+      // Voice Over is processed synchronously, so this webhook is mainly for logging
+      // The actual processing was done in the voice-over.ts file
+      
+      return { count: 1, credits: 2 }; // Standard voice generation cost
+    } else {
+      console.warn(`⚠️ No voice record found for user ${analysis.user_id}`);
+    }
+  } catch (error) {
+    console.error('❌ Voice Over processing failed:', error);
+  }
+
+  return { count: 0, credits: 0 };
 }

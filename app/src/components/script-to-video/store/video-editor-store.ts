@@ -4,17 +4,21 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
-// Import orchestrator actions
-import {
-  analyzeSegmentAddition,
-  analyzeSegmentRemoval,
-  executeSegmentAddition,
-  executeSegmentRemoval,
-  regenerateSegmentAsset,
-  getOperationProgress,
-  type UserChoiceDialog,
-  type OperationProgress
-} from '../../../actions/tools/video-editor-actions';
+// REMOVED: Old built-in editor orchestrator actions (no longer used with standalone editor)
+// import {
+//   analyzeSegmentAddition,
+//   analyzeSegmentRemoval, 
+//   executeSegmentAddition,
+//   executeSegmentRemoval,
+//   regenerateSegmentAsset,
+//   getOperationProgress,
+//   type UserChoiceDialog,
+//   type OperationProgress
+// } from '../../../actions/tools/video-editor-actions';
+
+// Temporary types until we clean up the store
+type UserChoiceDialog = any;
+type OperationProgress = any;
 
 // Import types from our comprehensive schema
 interface VideoEditorState {

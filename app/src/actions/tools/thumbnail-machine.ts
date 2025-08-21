@@ -158,7 +158,7 @@ export async function generateThumbnails(
       output_quality: request.output_quality || 85,
       seed: request.seed,
       enable_safety_checker: true,
-      webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`,
+      webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai`,
     });
 
     // Update prediction record with actual Replicate ID

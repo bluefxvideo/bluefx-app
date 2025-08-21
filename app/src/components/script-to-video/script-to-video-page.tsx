@@ -7,6 +7,7 @@ import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { VideoPreview } from './panels/video-preview';
 import { ScriptPreviewPanel } from './components/script-preview-panel';
+import { ContextualOutput } from './output-panel/contextual-output';
 import { useScriptToVideo } from './hooks/use-script-to-video';
 import { useVideoEditorStore } from './store/video-editor-store';
 import { createClient } from '@/app/supabase/client';
@@ -141,8 +142,8 @@ export function ScriptToVideoPage() {
 
   // Render appropriate right panel content
   const renderRightPanel = () => {
-    // Show workflow checklist during all generation steps
-    if (activeTab === 'generate' && (multiStepState.currentStep <= 3 || multiStepState.isGeneratingScript || isGeneratingVideo)) {
+    // Show workflow checklist only when user has actually started the workflow
+    if (activeTab === 'generate' && (multiStepState.isGeneratingScript || isGeneratingVoice || isGeneratingVideo || multiStepState.generatedScript)) {
       return (
         <ScriptPreviewPanel
           currentStep={multiStepState.currentStep}
@@ -162,8 +163,17 @@ export function ScriptToVideoPage() {
       );
     }
 
-    // Default to video preview
-    return <VideoPreview />;
+    // Show contextual output for standard tool pattern (consistent with other tools)
+    return (
+      <ContextualOutput
+        activeTab={activeTab}
+        result={result}
+        isGenerating={isGenerating || isLocalGenerating}
+        isEditing={isEditing}
+        error={error}
+        onClearResults={clearResults}
+      />
+    );
   };
 
   return (

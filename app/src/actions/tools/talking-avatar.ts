@@ -3,6 +3,7 @@
 import { createClient } from '@/app/supabase/server';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
+import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 
 // Request/Response types for Talking Avatar
 export interface TalkingAvatarRequest {
@@ -235,12 +236,13 @@ async function handleVoiceGeneration(
     const wordCount = request.script_text.trim().split(/\s+/).length;
     const estimatedDuration = Math.ceil(wordCount / 2.5); // ~2.5 words per second
 
-    // Generate voice options (predefined for now)
+    // Complete OpenAI voice options - Updated November 2024 with all 11 voices
     const voiceOptions: VoiceOption[] = [
+      // Primary New Voices
       {
         id: 'alloy',
         name: 'Alloy',
-        gender: 'female',
+        gender: 'neutral',
         accent: 'neutral',
         description: 'Natural and versatile voice'
       },
@@ -252,18 +254,68 @@ async function handleVoiceGeneration(
         description: 'Deep and resonant voice'
       },
       {
+        id: 'ash',
+        name: 'Ash',
+        gender: 'female',
+        accent: 'neutral',
+        description: 'Expressive and dynamic voice'
+      },
+      {
+        id: 'ballad',
+        name: 'Ballad',
+        gender: 'female',
+        accent: 'neutral',
+        description: 'Warm and melodious voice'
+      },
+      {
+        id: 'coral',
+        name: 'Coral',
+        gender: 'female',
+        accent: 'neutral',
+        description: 'Friendly and approachable voice'
+      },
+      {
+        id: 'sage',
+        name: 'Sage',
+        gender: 'male',
+        accent: 'neutral',
+        description: 'Professional and authoritative voice'
+      },
+      {
+        id: 'shimmer',
+        name: 'Shimmer',
+        gender: 'female',
+        accent: 'neutral',
+        description: 'Bright and expressive voice'
+      },
+      {
+        id: 'verse',
+        name: 'Verse',
+        gender: 'female',
+        accent: 'neutral',
+        description: 'Creative and artistic voice'
+      },
+      // Legacy Voices (still supported)
+      {
         id: 'nova',
         name: 'Nova',
         gender: 'female',
         accent: 'neutral',
-        description: 'Warm and engaging voice'
+        description: 'Warm and engaging voice (legacy)'
       },
       {
         id: 'onyx',
         name: 'Onyx',
         gender: 'male',
         accent: 'neutral',
-        description: 'Professional and clear voice'
+        description: 'Professional and clear voice (legacy)'
+      },
+      {
+        id: 'fable',
+        name: 'Fable',
+        gender: 'neutral',
+        accent: 'neutral',
+        description: 'Versatile storytelling voice (legacy)'
       }
     ];
 
@@ -405,6 +457,24 @@ async function handleVideoGeneration(
             status: 'processing',
           })
           .eq('id', videoRecord.id);
+
+        // Create prediction tracking record for unified system
+        await createPredictionRecord({
+          prediction_id: hedraResult.generationId,
+          user_id: request.user_id,
+          tool_id: 'talking-avatar',
+          service_id: 'hedra',
+          model_version: 'hedra-video-1.0',
+          status: 'processing',
+          input_data: {
+            avatar_image_url: request.avatar_image_url,
+            script_text: request.script_text,
+            voice_id: request.voice_id,
+            avatar_template_id: request.avatar_template_id,
+            avatar_video_id: batch_id, // Reference to avatar_videos record
+            estimated_duration: Math.ceil(request.script_text.trim().split(/\s+/).length / 2.5)
+          } as any,
+        });
       }
 
       console.log('✅ Hedra generation started:', hedraResult.generationId);
@@ -476,7 +546,7 @@ async function generateVoiceAudio(scriptText: string, voiceId: string): Promise<
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'tts-1',
+        model: 'gpt-4o-mini-tts',
         input: scriptText,
         voice: voiceId,
         response_format: 'mp3'

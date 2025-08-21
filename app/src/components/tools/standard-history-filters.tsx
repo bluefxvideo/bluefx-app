@@ -142,6 +142,13 @@ export function StandardHistoryFilters({
           </Select>
         </div>
       </TabBody>
+
+      {/* Apply Filters Info */}
+      <div className="mt-6 pt-4 border-t">
+        <p className="text-xs text-muted-foreground text-center">
+          Filters are applied to the history display on the right panel
+        </p>
+      </div>
     </TabContentWrapper>
   );
 }

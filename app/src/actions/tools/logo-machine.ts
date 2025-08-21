@@ -148,7 +148,7 @@ export async function generateLogo(
       magic_prompt_option: 'Auto', // Let Ideogram enhance the prompt
       seed: request.seed,
       ...(referenceImageUrl && { image: referenceImageUrl }), // Use reference image if available
-      webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`,
+      webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai`,
     });
 
     // Update prediction record with actual Replicate ID

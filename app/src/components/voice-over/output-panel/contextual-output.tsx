@@ -92,17 +92,19 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
         status={state.isGenerating ? 'loading' : state.error ? 'error' : state.generatedAudios.length > 0 ? 'ready' : 'idle'}
         errorMessage={state.error}
         empty={
-          <UnifiedEmptyState
-            icon={Mic}
-            title="Ready to Generate"
-            description="Enter your script text and select voice settings to create professional voice overs powered by AI."
-          />
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={Mic}
+              title="Ready to Generate"
+              description="Enter your script text and select voice settings to create professional voice overs powered by AI."
+            />
+          </div>
         }
       >
-      <div className="h-full space-y-6 overflow-y-auto scrollbar-hover">
+      <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center">
         {/* Generation Status */}
         {state.isGenerating && (
-          <Card className="p-6">
+          <Card className="p-6 w-full max-w-2xl mx-auto">
             <div className="text-center space-y-4">
               <div className="w-12 h-12 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center">
                 <Mic className="w-6 h-6 text-blue-500 animate-pulse" />
@@ -120,7 +122,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
 
         {/* Generated Results */}
         {state.generatedAudios.length > 0 && (
-          <Card className="p-6">
+          <Card className="p-6 w-full max-w-2xl mx-auto">
             <div className="flex items-center gap-2 mb-4">
               <CheckCircle className="w-5 h-5 text-blue-600" />
               <h3 className="font-semibold">Generated Successfully!</h3>
@@ -185,11 +187,46 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
                       </p>
                     </div>
 
-                    {/* Audio Player */}
-                    <audio controls className="w-full">
-                      <source src={audio.audio_url} type={`audio/${audio.export_format}`} />
-                      Your browser does not support the audio element.
-                    </audio>
+                    {/* OpenAI-Style Waveform Audio Player */}
+                    <div className="relative w-full">
+                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleAudioPlayback(audio.id, audio.audio_url)}
+                            className="flex-shrink-0 w-10 h-10 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+                          >
+                            {playingAudioId === audio.id ? (
+                              <Square className="w-5 h-5" />
+                            ) : (
+                              <Play className="w-5 h-5" />
+                            )}
+                          </button>
+                          <div className="flex-1 h-12 bg-white dark:bg-gray-700 rounded-md flex items-center px-3">
+                            {/* Waveform visualization */}
+                            <div className="flex items-center justify-center w-full gap-1">
+                              {[...Array(60)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`bg-gray-300 dark:bg-gray-500 rounded-full transition-all duration-75 ${
+                                    playingAudioId === audio.id 
+                                      ? 'animate-pulse' 
+                                      : ''
+                                  }`}
+                                  style={{
+                                    width: '2px',
+                                    height: `${Math.random() * 30 + 8}px`,
+                                    animationDelay: `${i * 50}ms`
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-sm text-muted-foreground font-mono">
+                            {formatDuration(audio.duration_seconds)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -228,7 +265,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
         {/* Empty State handled by OutputPanelShell */}
 
         {/* Current Settings Preview */}
-        <Card className="p-4">
+        <Card className="p-4 w-full max-w-2xl mx-auto">
           <div className="flex items-center gap-2 mb-3">
             <Settings className="w-4 h-4" />
             <span className="font-medium text-sm">Current Settings</span>
@@ -263,7 +300,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
 
         {/* Error Display */}
         {state.error && (
-          <Card className="p-4 border-destructive bg-destructive/5">
+          <Card className="p-4 border-destructive bg-destructive/5 w-full max-w-2xl mx-auto">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-destructive" />
               <span className="font-medium text-sm">Generation Failed</span>

@@ -8,6 +8,7 @@ import {
   type MusicGenInput 
 } from '@/actions/models/meta-musicgen';
 import { createMusicRecord } from '@/actions/database/music-database';
+import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 import { uploadAudioToStorage } from '@/actions/supabase-storage';
 
 // Enhanced request/response interfaces following AI orchestrator pattern
@@ -170,7 +171,7 @@ export async function executeMusicMachine(
     }
 
     // Step 5: Create Prediction with Webhook
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/replicate-ai`;
+    const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai`;
     
     const predictionResult = await createMusicGenPrediction({
       input: musicGenInput,
@@ -191,6 +192,23 @@ export async function executeMusicMachine(
 
     const prediction = predictionResult.prediction;
     console.log('🎵 MusicGen prediction created:', prediction.id);
+
+    // Create prediction tracking record
+    await createPredictionRecord({
+      prediction_id: prediction.id,
+      user_id: request.user_id,
+      tool_id: 'music-machine',
+      service_id: 'replicate',
+      model_version: 'meta-musicgen-stereo-melody',
+      status: 'starting',
+      input_data: {
+        prompt: request.prompt,
+        duration: musicGenInput.duration,
+        model_version: musicGenInput.model_version,
+        output_format: musicGenInput.output_format,
+        ...musicGenInput
+      } as any,
+    });
 
     // Step 6: Database Record Creation
     const musicRecord = await createMusicRecord(user.id, optimizedPrompt, {

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 
 /**
  * Ebook Writer Zustand Store
@@ -96,6 +97,10 @@ interface EbookWriterState {
   title_options: TitleOptions | null;
   generation_progress: GenerationProgress;
   
+  // Document context
+  uploaded_documents: UploadedDocument[];
+  context_instructions: string;
+  
   // UI State
   active_tab: 'topic' | 'title' | 'outline' | 'content' | 'cover' | 'export' | 'history';
   sidebar_collapsed: boolean;
@@ -119,9 +124,14 @@ interface EbookWriterState {
   // Actions
   // Topic & Title Management
   setTopic: (topic: string) => void;
-  generateTitles: (topic: string) => Promise<void>;
+  generateTitles: (topic: string, documents?: UploadedDocument[]) => Promise<void>;
   selectTitle: (index: number) => void;
   setCustomTitle: (title: string) => void;
+  
+  // Document Management
+  setUploadedDocuments: (documents: UploadedDocument[]) => void;
+  setContextInstructions: (instructions: string) => void;
+  clearDocuments: () => void;
   
   // Outline Management
   generateOutline: (preferences: Partial<EbookOutline>) => Promise<void>;
@@ -176,6 +186,8 @@ const initialState = {
     is_generating: false,
     credits_used: 0,
   },
+  uploaded_documents: [],
+  context_instructions: '',
   active_tab: 'topic' as const,
   sidebar_collapsed: false,
   show_progress_panel: true,
@@ -225,7 +237,7 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           }));
         },
         
-        generateTitles: async (topic: string) => {
+        generateTitles: async (topic: string, documents?: UploadedDocument[]) => {
           set(state => ({
             generation_progress: {
               ...state.generation_progress,
@@ -235,8 +247,13 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           }));
           
           try {
-            // This would call the AI orchestrator
-            // const response = await ebookWriterOrchestrator({...});
+            // This would call the AI orchestrator with document context
+            // const response = await ebookWriterOrchestrator({
+            //   topic,
+            //   workflow_intent: 'title_only',
+            //   uploaded_documents: documents || state.uploaded_documents,
+            //   user_id: userId
+            // });
             
             // Mock implementation for now
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -617,6 +634,19 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               error_message: undefined,
             }
           }));
+        },
+        
+        // Document Management
+        setUploadedDocuments: (documents: UploadedDocument[]) => {
+          set({ uploaded_documents: documents });
+        },
+        
+        setContextInstructions: (instructions: string) => {
+          set({ context_instructions: instructions });
+        },
+        
+        clearDocuments: () => {
+          set({ uploaded_documents: [], context_instructions: '' });
         },
         
         // Placeholder implementations for remaining actions

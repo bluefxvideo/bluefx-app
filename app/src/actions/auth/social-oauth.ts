@@ -60,6 +60,17 @@ const OAUTH_CONFIGS = {
     clientId: process.env.YOUTUBE_CLIENT_ID,
     clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
   },
+  google_docs: {
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    scopes: [
+      'https://www.googleapis.com/auth/documents',
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/userinfo.profile'
+    ],
+    clientId: process.env.GOOGLE_DOCS_CLIENT_ID || process.env.YOUTUBE_CLIENT_ID, // Fallback to YouTube client
+    clientSecret: process.env.GOOGLE_DOCS_CLIENT_SECRET || process.env.YOUTUBE_CLIENT_SECRET,
+  },
 };
 
 /**

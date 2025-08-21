@@ -58,10 +58,16 @@ export async function GET(
       );
     }
 
-    // Success - redirect back to content multiplier with success message
-    return NextResponse.redirect(
-      new URL(`/dashboard/content-multiplier?success=connected&platform=${platform}`, request.url)
-    );
+    // Success - redirect based on platform
+    if (platform === 'google_docs') {
+      return NextResponse.redirect(
+        new URL(`/dashboard/ebook-writer/export?success=connected&platform=${platform}`, request.url)
+      );
+    } else {
+      return NextResponse.redirect(
+        new URL(`/dashboard/content-multiplier?success=connected&platform=${platform}`, request.url)
+      );
+    }
 
   } catch (error) {
     console.error('OAuth callback error:', error);

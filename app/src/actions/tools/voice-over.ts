@@ -2,6 +2,7 @@
 
 import { createClient } from '@/app/supabase/server';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
+import { createPredictionRecord, updatePredictionRecord } from '@/actions/database/thumbnail-database';
 
 // Request/Response types for Voice Over
 export interface VoiceOverRequest {
@@ -112,8 +113,28 @@ export async function executeVoiceOver(
       user_id: user.id,
     };
     
-    // Generate unique batch ID
+    // Generate unique batch ID and prediction ID
     const batch_id = `voice_over_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const prediction_id = `vo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create prediction tracking record
+    await createPredictionRecord({
+      prediction_id,
+      user_id: user.id,
+      tool_id: 'voice-over',
+      service_id: 'openai-tts',
+      model_version: authenticatedRequest.quality === 'hd' ? 'tts-1-hd' : 'gpt-4o-mini-tts',
+      status: 'starting',
+      input_data: {
+        script_text: authenticatedRequest.script_text,
+        voice_id: authenticatedRequest.voice_id,
+        voice_settings: authenticatedRequest.voice_settings,
+        export_format: authenticatedRequest.export_format || 'mp3',
+        quality: authenticatedRequest.quality || 'standard',
+        use_ssml: authenticatedRequest.use_ssml || false,
+        batch_id
+      } as any,
+    });
     
     // Calculate credit costs
     const creditCosts = calculateVoiceOverCreditCost(authenticatedRequest);
@@ -148,6 +169,11 @@ export async function executeVoiceOver(
 
     try {
       console.log(`🎙️ Generating voice for: ${voiceId}`);
+      
+      // Update prediction to processing status
+      await updatePredictionRecord(prediction_id, {
+        status: 'processing',
+      });
       
       // Generate audio with enhanced settings
       const audioUrl = await generateEnhancedVoiceAudio(
@@ -210,8 +236,41 @@ export async function executeVoiceOver(
 
       totalCreditsUsed = creditCosts.per_voice;
       
+      // Update prediction to completed status with output data
+      await updatePredictionRecord(prediction_id, {
+        status: 'succeeded',
+        output_data: {
+          audio_url: audioUrl,
+          voice_id: voiceId,
+          voice_name: voiceDetails.name,
+          duration_seconds: estimatedDuration,
+          file_size_mb: estimatedFileSize,
+          export_format: authenticatedRequest.export_format || 'mp3',
+        } as any,
+        completed_at: new Date().toISOString(),
+      });
+      
+      // Trigger webhook completion for consistency with other tools
+      setTimeout(async () => {
+        try {
+          await triggerVoiceOverWebhookCompletion(prediction_id, user.id, audioUrl, generatedAudio);
+        } catch (webhookError) {
+          console.warn('Voice Over webhook trigger failed:', webhookError);
+        }
+      }, 100); // Small delay to ensure response is sent first
+      
     } catch (error) {
       console.error(`Voice generation failed for ${voiceId}:`, error);
+      
+      // Update prediction to failed status
+      await updatePredictionRecord(prediction_id, {
+        status: 'failed',
+        output_data: {
+          error: error instanceof Error ? error.message : 'Voice generation failed'
+        } as any,
+        completed_at: new Date().toISOString(),
+      });
+      
       throw error;
     }
 
@@ -280,7 +339,7 @@ async function generateEnhancedVoiceAudio(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: quality === 'hd' ? 'tts-1-hd' : 'tts-1',
+        model: quality === 'hd' ? 'tts-1-hd' : 'gpt-4o-mini-tts',
         input: inputText,
         voice: voiceId,
         response_format: format,
@@ -320,69 +379,123 @@ async function generateEnhancedVoiceAudio(
 }
 
 /**
- * Get available voice options with enhanced details
+ * Get available voice options with enhanced details - Updated November 2024
+ * Complete set of 11 OpenAI TTS voices including legacy voices
+ * Model: GPT-4o-mini-TTS for enhanced quality
  */
 function getVoiceOptions(): VoiceOption[] {
   return [
+    // Primary New Voices (OpenAI's latest)
     {
       id: 'alloy',
       name: 'Alloy',
-      gender: 'female',
+      gender: 'neutral',
       accent: 'neutral',
-      description: 'Natural and versatile voice, great for narration',
+      description: 'Natural and versatile voice, great for narration and general use',
       category: 'natural',
       supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_01.mp3'
-    },
-    {
-      id: 'nova',
-      name: 'Nova',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Warm and engaging voice, perfect for presentations',
-      category: 'professional',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_2.mp3'
-    },
-    {
-      id: 'shimmer',
-      name: 'Shimmer',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Bright and expressive voice, ideal for storytelling',
-      category: 'expressive',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_3.mp3'
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/alloy.mp3'
     },
     {
       id: 'echo',
       name: 'Echo',
       gender: 'male',
       accent: 'neutral',
-      description: 'Deep and resonant voice, excellent for documentaries',
+      description: 'Deep and resonant voice, excellent for documentaries and professional content',
       category: 'professional',
       supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_1.mp3'
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/echo.mp3'
+    },
+    {
+      id: 'ash',
+      name: 'Ash',
+      gender: 'female',
+      accent: 'neutral',
+      description: 'Expressive and dynamic voice with enhanced emotional range',
+      category: 'expressive',
+      supports_ssml: true,
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ash.mp3'
+    },
+    {
+      id: 'ballad',
+      name: 'Ballad',
+      gender: 'female',
+      accent: 'neutral',
+      description: 'Warm and melodious voice, perfect for storytelling and creative content',
+      category: 'expressive',
+      supports_ssml: true,
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ballad.mp3'
+    },
+    {
+      id: 'coral',
+      name: 'Coral',
+      gender: 'female',
+      accent: 'neutral',
+      description: 'Friendly and approachable voice with excellent emotional control',
+      category: 'natural',
+      supports_ssml: true,
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/coral.mp3'
+    },
+    {
+      id: 'sage',
+      name: 'Sage',
+      gender: 'male',
+      accent: 'neutral',
+      description: 'Professional and authoritative voice, ideal for business and educational content',
+      category: 'professional',
+      supports_ssml: true,
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/sage.mp3'
+    },
+    {
+      id: 'shimmer',
+      name: 'Shimmer',
+      gender: 'female',
+      accent: 'neutral',
+      description: 'Bright and expressive voice, ideal for engaging presentations',
+      category: 'expressive',
+      supports_ssml: true,
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/shimmer.mp3'
+    },
+    {
+      id: 'verse',
+      name: 'Verse',
+      gender: 'female',
+      accent: 'neutral',
+      description: 'Creative and artistic voice, perfect for poetry and creative content',
+      category: 'character',
+      supports_ssml: true,
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/verse.mp3'
+    },
+    // Legacy Voices (still supported)
+    {
+      id: 'nova',
+      name: 'Nova',
+      gender: 'female',
+      accent: 'neutral',
+      description: 'Warm and engaging voice (legacy)',
+      category: 'natural',
+      supports_ssml: true,
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/nova.mp3'
     },
     {
       id: 'onyx',
       name: 'Onyx',
       gender: 'male',
       accent: 'neutral',
-      description: 'Professional and clear voice, perfect for business',
+      description: 'Professional and clear voice (legacy)',
       category: 'professional',
       supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_2.mp3'
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/onyx.mp3'
     },
     {
       id: 'fable',
       name: 'Fable',
       gender: 'neutral',
       accent: 'neutral',
-      description: 'Versatile storytelling voice with character',
+      description: 'Versatile storytelling voice with character (legacy)',
       category: 'character',
       supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/neutral_1.mp3'
+      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/fable.mp3'
     }
   ];
 }
@@ -459,14 +572,11 @@ async function deductCredits(
   batchId: string,
   operation: string
 ) {
-  // Deduct from available credits
-  await supabase
-    .from('user_credits')
-    .update({
-      available_credits: amount, // Note: Should be handled via RPC for atomic decrement
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', userId);
+  // Deduct from available credits (atomic decrement)
+  await supabase.rpc('deduct_user_credits', {
+    user_id: userId,
+    credits_to_deduct: amount
+  });
 
   // Log credit usage
   await supabase
@@ -479,4 +589,45 @@ async function deductCredits(
       service_type: 'voice_over',
       created_at: new Date().toISOString()
     } as any);
+}
+
+/**
+ * Trigger webhook completion for Voice Over (for consistency with async tools)
+ */
+async function triggerVoiceOverWebhookCompletion(
+  predictionId: string,
+  userId: string,
+  audioUrl: string,
+  generatedAudio: any
+): Promise<void> {
+  try {
+    const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/voice-over-ai`;
+    
+    const payload = {
+      prediction_id: predictionId,
+      user_id: userId,
+      status: 'succeeded',
+      output: audioUrl,
+      generated_audio: generatedAudio,
+      completed_at: new Date().toISOString(),
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook failed: ${response.status}`);
+    }
+
+    console.log(`🎙️ Voice Over webhook completion triggered: ${predictionId}`);
+    
+  } catch (error) {
+    console.error('Voice Over webhook trigger failed:', error);
+    // Don't throw - this is non-critical
+  }
 }

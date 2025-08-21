@@ -10,6 +10,8 @@ import { BookOpen, ArrowRight, Lightbulb } from 'lucide-react';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
+import { DocumentUpload } from '../components/document-upload';
+import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 
 interface TopicTabProps {
   currentTopic: string;
@@ -20,7 +22,8 @@ interface TopicTabProps {
 export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
   const [topic, setTopic] = useState(currentTopic);
   const [description, setDescription] = useState('');
-  const { setTopic: updateTopic, generateTitles, setActiveTab } = useEbookWriterStore();
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const { setTopic: updateTopic, generateTitles, setActiveTab, setUploadedDocuments: storeDocuments } = useEbookWriterStore();
 
   const handleSubmit = async () => {
     if (!topic.trim()) return;
@@ -28,11 +31,20 @@ export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
     // Update topic in store
     updateTopic(topic.trim());
     
+    // Store uploaded documents if any
+    if (uploadedDocuments.length > 0) {
+      storeDocuments(uploadedDocuments);
+    }
+    
     // Navigate to title tab
     setActiveTab('title');
     
-    // Automatically start generating titles
-    await generateTitles(topic.trim());
+    // Automatically start generating titles with document context
+    await generateTitles(topic.trim(), uploadedDocuments);
+  };
+
+  const handleDocumentsChange = (docs: UploadedDocument[]) => {
+    setUploadedDocuments(docs);
   };
 
   const topicSuggestions = [
@@ -99,6 +111,17 @@ export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
 
         <StandardStep
           stepNumber={2}
+          title="Upload Reference Materials (Optional)"
+          description="Provide context documents to enhance your ebook with specific information"
+        >
+          <DocumentUpload
+            onDocumentsChange={handleDocumentsChange}
+            existingDocuments={uploadedDocuments}
+          />
+        </StandardStep>
+
+        <StandardStep
+          stepNumber={3}
           title="Topic Ideas"
           description="Need inspiration? Try one of these popular topics"
         >

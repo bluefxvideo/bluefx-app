@@ -6,9 +6,8 @@ import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { GeneratorTab } from './tabs/generator-tab';
 import { HistoryTab } from './tabs/history-tab';
-import { SettingsTab } from './tabs/settings-tab';
 import { VoiceOverOutput } from './output-panel/voice-over-output';
-import { Mic, History, Settings } from 'lucide-react';
+import { Mic, History } from 'lucide-react';
 
 export function VoiceOverPage() {
   const voiceOverState = useVoiceOver();
@@ -27,12 +26,6 @@ export function VoiceOverPage() {
       label: 'History',
       icon: History,
       path: '/dashboard/voice-over/history'
-    },
-    {
-      id: 'settings',
-      label: 'Settings',
-      icon: Settings,
-      path: '/dashboard/voice-over/settings'
     }
   ];
 
@@ -41,8 +34,6 @@ export function VoiceOverPage() {
     switch (activeTab) {
       case 'history':
         return <HistoryTab voiceOverState={voiceOverState} />;
-      case 'settings':
-        return <SettingsTab voiceOverState={voiceOverState} />;
       default:
         return <GeneratorTab voiceOverState={voiceOverState} />;
     }

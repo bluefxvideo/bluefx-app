@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useVideoEditorStore } from "../store/video-editor-store";
-import { getCostPreview } from "../../../actions/tools/video-editor-actions";
+// REMOVED: getCostPreview from deleted video-editor-actions
+// import { getCostPreview } from "../../../actions/tools/video-editor-actions";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 

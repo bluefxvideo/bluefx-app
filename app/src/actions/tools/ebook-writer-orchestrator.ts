@@ -1,8 +1,12 @@
 'use server';
 
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { z } from 'zod';
+import { processDocumentsForContext } from '@/utils/document-processing';
+import { type UploadedDocument } from './ebook-document-handler';
+import { createIdeogramV3TurboPrediction, waitForIdeogramV3TurboCompletion } from '../models/ideogram-v3-turbo';
 import { 
   storeEbookResults, 
   // createEbookRecord - imported but unused in current implementation 
@@ -54,6 +58,12 @@ export interface EbookWriterRequest {
   
   // Workflow control
   workflow_intent: 'title_only' | 'outline_only' | 'full_content' | 'cover_only' | 'complete_ebook';
+  
+  // Document upload context (stored in Supabase)
+  uploaded_documents?: UploadedDocument[];
+  
+  // Context instructions for how to use uploaded documents
+  context_instructions?: string;
   
   // Generation context
   reference_materials?: string[];
@@ -210,14 +220,14 @@ export async function ebookWriterOrchestrator(
     // Workflow orchestration based on intent
     switch (request.workflow_intent) {
       case 'title_only':
-        response.generated_titles = await generateTitles(request.topic);
+        response.generated_titles = await generateTitles(request.topic, request.uploaded_documents);
         total_credits += 0; // Free operation
         workflow_completed.push('title_generation');
         break;
         
       case 'outline_only':
         if (!request.title) {
-          response.generated_titles = await generateTitles(request.topic);
+          response.generated_titles = await generateTitles(request.topic, request.uploaded_documents);
         }
         response.outline = await generateOutline(request);
         total_credits += 5;
@@ -239,7 +249,7 @@ export async function ebookWriterOrchestrator(
       case 'complete_ebook':
         // Full workflow orchestration
         if (!request.title) {
-          response.generated_titles = await generateTitles(request.topic);
+          response.generated_titles = await generateTitles(request.topic, request.uploaded_documents);
           workflow_completed.push('title_generation');
         }
         
@@ -312,14 +322,24 @@ export async function ebookWriterOrchestrator(
 
 /**
  * Generate 5 compelling titles based on topic
- * Replaces: ebook-title-generator edge function
+ * Using Gemini 2.0 Flash - 200x cheaper than O1 models!
  */
-async function generateTitles(topic: string): Promise<string[]> {
+async function generateTitles(topic: string, uploadedDocuments?: UploadedDocument[]): Promise<string[]> {
+  // Process uploaded documents for context
+  let documentContext = '';
+  if (uploadedDocuments && uploadedDocuments.length > 0) {
+    const { processedText } = processDocumentsForContext(uploadedDocuments, 50000); // 50K token limit for titles
+    documentContext = processedText;
+  }
+
+  // Gemini 2.0 Flash is dramatically cheaper: $0.075/1M tokens vs $15/1M for O1-preview
   const result = await generateObject({
-    model: openai('gpt-4o'), // Using GPT-4 for creative title generation
+    model: google('gemini-2.0-flash-exp'),
     schema: TitleGenerationSchema,
     prompt: `
       Generate 5 compelling, professional ebook titles for the topic: "${topic}"
+      
+      ${documentContext ? `Context from uploaded documents:\n${documentContext.slice(0, 10000)}\n\nUse this context to make titles more specific and valuable. Reference specific concepts, methodologies, or insights from the documents when relevant.\n\n` : ''}
       
       Requirements:
       - Each title should be unique and engaging
@@ -327,6 +347,7 @@ async function generateTitles(topic: string): Promise<string[]> {
       - Include variety: some direct, some benefit-focused, some curiosity-driven
       - Ensure titles are SEO-friendly and marketable
       - Length: 3-8 words each
+      ${documentContext ? '- Incorporate insights from the provided documents to add specificity and value' : ''}
       
       Consider these proven title patterns:
       - "The Complete Guide to [Topic]"
@@ -350,6 +371,17 @@ async function generateOutline(request: EbookWriterRequest): Promise<EbookOutlin
   const preferences = request.content_preferences || {};
   const title = request.title || `The Complete Guide to ${request.topic}`;
   
+  // Process uploaded documents for context
+  let documentContext = '';
+  if (request.uploaded_documents && request.uploaded_documents.length > 0) {
+    const { processedText, totalTokens, truncated } = processDocumentsForContext(request.uploaded_documents, 100000); // 100K token limit for outline
+    documentContext = processedText;
+    
+    if (truncated) {
+      console.log(`Document context truncated. Total tokens: ${totalTokens}`);
+    }
+  }
+  
   // Dynamic chapter count based on word count level
   const chapterCounts = {
     short: 5,
@@ -360,12 +392,17 @@ async function generateOutline(request: EbookWriterRequest): Promise<EbookOutlin
   const wordCountLevel = (preferences as any).word_count_level || 'medium';
   const targetChapters = chapterCounts[wordCountLevel as keyof typeof chapterCounts];
   
+  // Switch to Gemini 2.0 Flash - 200x cheaper than O1-preview!
+  // O1-preview: $15/1M input tokens
+  // Gemini 2.0 Flash: $0.075/1M input tokens
   const result = await generateObject({
-    model: openai('o1-preview'), // Using O1 for complex structural planning
+    model: google('gemini-2.0-flash-exp'),
     schema: OutlineGenerationSchema,
     prompt: `
       Create a comprehensive outline for an ebook titled: "${title}"
       Topic: ${request.topic}
+      
+      ${documentContext ? `Reference Context from Uploaded Documents:\n${documentContext}\n\nUse this reference material to:\n1. Structure the outline around the specific concepts and frameworks mentioned\n2. Ensure chapters build upon the knowledge from the documents\n3. Include specific methodologies, tools, or insights from the provided content\n4. Create a logical flow that enhances rather than duplicates the uploaded material\n\n` : ''}
       
       Content Requirements:
       - Target Chapters: ${targetChapters}
@@ -386,14 +423,16 @@ async function generateOutline(request: EbookWriterRequest): Promise<EbookOutlin
       3. Logical transitions between chapters
       4. Actionable content in each section
       5. Balance of theory and practical application
+      ${documentContext ? '6. Build upon and reference the uploaded context materials throughout' : ''}
       
       For each chapter:
       - Create compelling, descriptive title
       - Define 3-5 subsections with specific content hints
       - Include key learning objectives
       - Estimate word count (aim for 1,500-2,500 words per chapter)
+      ${documentContext ? '- Reference specific concepts from the uploaded documents where relevant' : ''}
       
-      Ensure the overall structure tells a complete story about ${request.topic} and provides genuine value to readers.
+      Ensure the overall structure tells a complete story about ${request.topic} and provides genuine value to readers${documentContext ? ', leveraging the insights from the uploaded materials' : ''}.
     `
   });
 
@@ -451,7 +490,8 @@ async function generateContent(request: EbookWriterRequest): Promise<{
             previous_sections: generatedContent.slice(-2), // Last 2 sections for context
             chapter_objectives: chapter.key_points || [],
             overall_audience: (preferences as any).target_audience || 'general readers'
-          }
+          },
+          uploadedDocuments: request.uploaded_documents
         });
 
         generatedContent.push({
@@ -483,10 +523,25 @@ async function generateSectionContent(params: {
     chapter_objectives: string[];
     overall_audience: string;
   };
+  uploadedDocuments?: UploadedDocument[]; // Reference content from uploaded documents
 }): Promise<{ content: string; word_count: number }> {
   
+  // Process uploaded documents for context
+  let documentContext = '';
+  if (params.uploadedDocuments && params.uploadedDocuments.length > 0) {
+    const { processedText, totalTokens, truncated } = processDocumentsForContext(params.uploadedDocuments, 200000); // 200K token limit for content generation
+    documentContext = processedText;
+    
+    if (truncated) {
+      console.log(`Document context truncated for content generation. Total tokens: ${totalTokens}`);
+    }
+  }
+  
+  // Gemini 2.0 Flash is 40x cheaper than O1-mini!
+  // O1-mini: $3/1M input, $12/1M output
+  // Gemini: $0.075/1M input, $0.30/1M output
   const result = await generateObject({
-    model: openai('o1-mini'), // Using O1-mini for cost-effective long-form content
+    model: google('gemini-2.0-flash-exp'),
     schema: ContentGenerationSchema,
     prompt: `
       Write comprehensive content for this ebook section:
@@ -494,6 +549,8 @@ async function generateSectionContent(params: {
       Ebook: "${params.ebook_title}"
       Chapter: "${params.chapter_title}"
       Section: "${params.section_title}"
+      
+      ${documentContext ? `Reference Material from Uploaded Documents:\n${documentContext}\n\nUse this reference material to:\n1. Support your content with specific examples, data, or insights from the documents\n2. Reference methodologies, frameworks, or best practices mentioned\n3. Provide concrete examples that build upon the uploaded material\n4. Ensure accuracy by grounding claims in the provided context\n5. Add depth and authority by citing specific points from the documents\n\n` : ''}
       
       Content Guidelines:
       - Topic Focus: ${params.topic}
@@ -509,6 +566,8 @@ async function generateSectionContent(params: {
       4. Use clear, engaging language appropriate to the tone
       5. End with key takeaways or transition to next concepts
       6. Ensure content flows naturally from previous sections
+      ${documentContext ? '7. Reference and build upon the uploaded context materials throughout the content' : ''}
+      ${documentContext ? '8. Cite specific examples, data points, or methodologies from the uploaded documents' : ''}
       
       ${params.context.previous_sections.length > 0 ? 
         `Previous Context: Build upon concepts from previous sections while introducing new material.` : ''}
@@ -517,7 +576,7 @@ async function generateSectionContent(params: {
         `Chapter Objectives to Address: ${params.context.chapter_objectives.join(', ')}` : ''}
       
       Write engaging, valuable content that genuinely helps readers understand and apply concepts related to ${params.topic}.
-      The content should be informative, well-structured, and maintain consistent quality throughout.
+      The content should be informative, well-structured, and maintain consistent quality throughout${documentContext ? ', with strong grounding in the provided reference materials' : ''}.
     `
   });
 
@@ -529,7 +588,7 @@ async function generateSectionContent(params: {
 }
 
 /**
- * Generate professional book cover
+ * Generate professional book cover using Ideogram V3 Turbo
  * Replaces: ebook-cover-generator edge function
  */
 async function generateCover(request: EbookWriterRequest): Promise<{ image_url: string; style_details: string }> {
@@ -540,38 +599,71 @@ async function generateCover(request: EbookWriterRequest): Promise<{ image_url: 
 
   const title = request.title || `The Complete Guide to ${request.topic}`;
   
-  // Create optimized prompt for cover generation
-  /*
-  const _coverPrompt = `
+  // Create optimized prompt for professional ebook cover generation
+  const coverPrompt = `
     Professional ebook cover design for "${title}"
     
-    Style: ${preferences.style}
-    Color Scheme: ${preferences.color_scheme}
-    Font Style: ${preferences.font_style}
+    Style: ${preferences.style} design
+    Color Scheme: ${preferences.color_scheme} colors
+    Typography: ${preferences.font_style} font style
     Author: ${preferences.author_name}
     ${preferences.subtitle ? `Subtitle: ${preferences.subtitle}` : ''}
     
     Topic: ${request.topic}
     
     Design Requirements:
-    - Clean, professional layout suitable for digital sales
-    - Title clearly readable at thumbnail size
-    - Appropriate imagery for the topic
-    - Modern, marketable design
+    - Clean, professional layout suitable for digital sales and Amazon KDP
+    - Title text clearly readable at thumbnail size (bold, prominent placement)
+    - Appropriate imagery and visual elements related to ${request.topic}
+    - Modern, marketable design that stands out on bookstore shelves
     - 2:3 aspect ratio (standard ebook proportions)
+    - High contrast text for readability
+    - Professional typography with proper text hierarchy
+    - Visual elements that convey expertise and value
+    - Target audience appeal for ${request.topic} learners
     
-    The cover should convey expertise and value, appealing to the target audience interested in ${request.topic}.
+    Create a visually striking cover that immediately communicates the book's value and professionalism.
   `;
-  */
 
-  // Note: In a real implementation, this would call Replicate's Ideogram or similar
-  // For now, we'll simulate the response
-  const mockCoverUrl = `https://via.placeholder.com/400x600/${preferences.color_scheme.replace('#', '')}/ffffff?text=${encodeURIComponent(title)}`;
+  try {
+    console.log(`🎨 Generating ebook cover for: "${title}"`);
+    
+    // Create prediction using Ideogram V3 Turbo - optimized for professional designs
+    const prediction = await createIdeogramV3TurboPrediction({
+      prompt: coverPrompt,
+      aspect_ratio: '2:3', // Standard ebook aspect ratio
+      style_type: 'Design', // Optimal for professional covers
+      magic_prompt_option: 'On', // Enhanced prompts for better results
+      resolution: '832x1216', // High quality for ebook covers
+    });
 
-  return {
-    image_url: mockCoverUrl,
-    style_details: `Generated ${preferences.style} cover with ${preferences.color_scheme} color scheme and ${preferences.font_style} typography`
-  };
+    // Wait for completion with 5-minute timeout
+    const result = await waitForIdeogramV3TurboCompletion(prediction.id);
+    
+    if (result.status === 'succeeded' && result.output && result.output.length > 0) {
+      const imageUrl = result.output[0]; // First generated image
+      console.log(`✅ Ebook cover generated successfully: ${imageUrl}`);
+      
+      return {
+        image_url: imageUrl,
+        style_details: `Generated ${preferences.style} ebook cover with ${preferences.color_scheme} color scheme and ${preferences.font_style} typography using Ideogram V3 Turbo`
+      };
+    } else {
+      console.error(`❌ Cover generation failed: ${result.error || 'Unknown error'}`);
+      throw new Error(`Cover generation failed: ${result.error || 'No output received'}`);
+    }
+    
+  } catch (error) {
+    console.error('Cover generation error:', error);
+    
+    // Fallback to placeholder if Ideogram fails
+    const fallbackUrl = `https://via.placeholder.com/400x600/${preferences.color_scheme.replace('#', '')}/ffffff?text=${encodeURIComponent(title)}`;
+    
+    return {
+      image_url: fallbackUrl,
+      style_details: `Fallback placeholder cover (Ideogram API unavailable) - ${preferences.style} style with ${preferences.color_scheme} colors`
+    };
+  }
 }
 
 /**

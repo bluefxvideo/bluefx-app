@@ -11,49 +11,87 @@ import { Play, Square, Mic } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 
-// Voice options with enhanced details
+// Complete OpenAI TTS voice options - Updated November 2024
+// All 11 voices including new and legacy voices with GPT-4o-mini-TTS model
 const VOICE_OPTIONS = [
+  // Primary New Voices
   {
     id: 'alloy',
     name: 'Alloy',
-    gender: 'female',
-    description: 'Natural and versatile voice',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_01.mp3'
-  },
-  {
-    id: 'nova',
-    name: 'Nova',
-    gender: 'female',
-    description: 'Warm and engaging voice',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_2.mp3'
-  },
-  {
-    id: 'shimmer',
-    name: 'Shimmer',
-    gender: 'female',
-    description: 'Bright and expressive voice',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_3.mp3'
+    gender: 'neutral',
+    description: 'Natural and versatile voice, great for narration',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/alloy.mp3'
   },
   {
     id: 'echo',
     name: 'Echo',
     gender: 'male',
-    description: 'Deep and resonant voice',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_1.mp3'
+    description: 'Deep and resonant voice, excellent for documentaries',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/echo.mp3'
+  },
+  {
+    id: 'ash',
+    name: 'Ash',
+    gender: 'female',
+    description: 'Expressive and dynamic with enhanced emotional range',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ash.mp3'
+  },
+  {
+    id: 'ballad',
+    name: 'Ballad',
+    gender: 'female',
+    description: 'Warm and melodious, perfect for storytelling',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ballad.mp3'
+  },
+  {
+    id: 'coral',
+    name: 'Coral',
+    gender: 'female',
+    description: 'Friendly and approachable with excellent emotional control',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/coral.mp3'
+  },
+  {
+    id: 'sage',
+    name: 'Sage',
+    gender: 'male',
+    description: 'Professional and authoritative, ideal for business content',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/sage.mp3'
+  },
+  {
+    id: 'shimmer',
+    name: 'Shimmer',
+    gender: 'female',
+    description: 'Bright and expressive, ideal for engaging presentations',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/shimmer.mp3'
+  },
+  {
+    id: 'verse',
+    name: 'Verse',
+    gender: 'female',
+    description: 'Creative and artistic voice, perfect for poetry',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/verse.mp3'
+  },
+  // Legacy Voices (still supported)
+  {
+    id: 'nova',
+    name: 'Nova',
+    gender: 'female',
+    description: 'Warm and engaging voice (legacy)',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/nova.mp3'
   },
   {
     id: 'onyx',
     name: 'Onyx',
     gender: 'male',
-    description: 'Professional and clear voice',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_2.mp3'
+    description: 'Professional and clear voice (legacy)',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/onyx.mp3'
   },
   {
     id: 'fable',
     name: 'Fable',
     gender: 'neutral',
-    description: 'Versatile storytelling voice',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/neutral_1.mp3'
+    description: 'Versatile storytelling voice with character (legacy)',
+    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/fable.mp3'
   }
 ];
 
