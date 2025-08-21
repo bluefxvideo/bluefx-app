@@ -7,6 +7,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 interface OutputPanelShellProps {
   title?: string;
   subtitle?: string;
+  icon?: React.ReactNode;
   status?: 'idle' | 'loading' | 'error' | 'ready';
   errorMessage?: string;
   actions?: React.ReactNode;
@@ -26,6 +27,7 @@ interface OutputPanelShellProps {
 export function OutputPanelShell({
   title,
   subtitle,
+  icon,
   status = 'idle',
   errorMessage,
   actions,
@@ -44,13 +46,20 @@ export function OutputPanelShell({
       {(title || actions) && (
         <div className="pb-4">
           <div className="flex items-center justify-between">
-            <div>
-              {title && (
-                <h3 className="text-xl font-semibold text-white">{title}</h3>
+            <div className="flex items-center gap-3">
+              {icon && (
+                <div className="flex-shrink-0">
+                  {icon}
+                </div>
               )}
-              {subtitle && (
-                <p className="text-sm text-zinc-400 mt-1">{subtitle}</p>
-              )}
+              <div>
+                {title && (
+                  <h3 className="text-xl font-semibold text-white">{title}</h3>
+                )}
+                {subtitle && (
+                  <p className="text-zinc-400 font-medium mt-1">{subtitle}</p>
+                )}
+              </div>
             </div>
             {actions && <div className="flex items-center gap-2">{actions}</div>}
           </div>

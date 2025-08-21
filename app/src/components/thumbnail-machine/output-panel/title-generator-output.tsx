@@ -94,21 +94,8 @@ export function TitleGeneratorOutput({
   if (titles && titles.length > 0) {
     return (
       <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-blue-600" />
-            <h3 className="font-medium">Generated Titles</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
-              {titles.length} titles
-            </Badge>
-          </div>
-        </div>
-
-        {/* Titles List */}
-        <div className="flex-1 space-y-3 overflow-y-auto scrollbar-hover">
+        {/* Clean Titles List - Header handled by OutputPanelShell */}
+        <div className="flex-1 space-y-3 overflow-y-auto scrollbar-hover py-4">
           {titles.map((title, index) => (
             <Card key={index} className="p-4 group hover:shadow-md transition-all">
               <div className="space-y-3">

@@ -182,17 +182,8 @@ export function GeneratorTab({
           className="w-full h-12 bg-primary hover:bg-primary/90 transition-all duration-300 font-medium"
           size="lg"
         >
-          {isGenerating ? (
-            <>
-              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <Wand2 className="w-4 h-4 mr-2" />
-              Generate Thumbnails ({estimatedCredits} credits)
-            </>
-          )}
+          <Wand2 className="w-4 h-4 mr-2" />
+          {isGenerating ? 'Generating...' : `Generate Thumbnails (${estimatedCredits} credits)`}
         </Button>
       </TabFooter>
     </TabContentWrapper>

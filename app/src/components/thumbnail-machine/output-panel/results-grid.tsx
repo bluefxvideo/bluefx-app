@@ -62,83 +62,64 @@ export function ResultsGrid({
 
   return (
     <div>
-      {/* Standard Result Card with Centered Image */}
-      <div className="flex justify-center mb-8">
-        <Card className="group overflow-hidden bg-gradient-to-br from-zinc-800/40 to-zinc-900/40 
-                         border border-zinc-700/50 backdrop-blur-sm shadow-2xl shadow-zinc-900/50 
-                         hover:shadow-blue-500/10 transition-all duration-500 w-full max-w-2xl">
-          <div className="p-8">
-            {/* Centered Image */}
-            <div className="relative aspect-video rounded-lg overflow-hidden 
-                            border border-zinc-700/50 shadow-xl mx-auto max-w-lg">
-              <Image
-                src={displayThumbnail?.url || displayFaceSwapped?.url || ''}
-                alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              />
-              
-              {/* Overlay Controls */}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 
-                             transition-all duration-300 flex items-center justify-center">
-                <div className="flex items-center gap-3">
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="bg-white/10 hover:bg-white/20 text-white border border-white/20 
-                              backdrop-blur-sm shadow-lg hover:scale-110 transition-all duration-300"
-                    onClick={() => setSelectedImage(primaryResult.url)}
-                  >
-                    <Eye className="w-5 h-5" />
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="bg-blue-500/80 hover:bg-blue-500 text-white border-0 
-                              shadow-lg hover:scale-110 transition-all duration-300"
-                    onClick={() => downloadImage(
-                      primaryResult.url, 
-                      displayThumbnail ? `thumbnail-${displayThumbnail.variation_index}.webp` : 'faceswap.webp'
-                    )}
-                  >
-                    <Download className="w-5 h-5" />
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="bg-white/10 hover:bg-white/20 text-white border border-white/20 
-                              backdrop-blur-sm shadow-lg hover:scale-110 transition-all duration-300"
-                    onClick={() => copyToClipboard(primaryResult.url)}
-                  >
-                    <Copy className="w-5 h-5" />
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Quality Badge */}
-              <div className="absolute top-3 right-3">
-                <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-lg">
-                  <span className="text-xs font-bold">
-                    {displayFaceSwapped ? "Face Swap" : "HD Quality"}
-                  </span>
-                </Badge>
-              </div>
-            </div>
-            
-            {/* Result Info */}
-            <div className="mt-6 pt-4 border-t border-zinc-700/30 text-center">
-              <p className="text-sm text-zinc-400 font-medium">
-                {displayFaceSwapped 
-                  ? "Enhanced with AI face swapping technology"
-                  : thumbnails.length > 1 
-                    ? `${thumbnails.length - 1} additional variation${thumbnails.length > 2 ? 's' : ''} generated`
-                    : "Click the image to view full size or download"
-                }
-              </p>
+      {/* Clean Image with Hover Controls - No Card Wrapper */}
+      <div className="flex justify-center">
+        <div className="group relative aspect-video rounded-lg overflow-hidden 
+                        border border-zinc-700/50 shadow-xl max-w-2xl w-full">
+          <Image
+            src={displayThumbnail?.url || displayFaceSwapped?.url || ''}
+            alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+          
+          {/* Overlay Controls */}
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 
+                         transition-all duration-300 flex items-center justify-center">
+            <div className="flex items-center gap-3">
+              <Button
+                size="lg"
+                variant="secondary"
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 
+                          backdrop-blur-sm shadow-lg hover:scale-110 transition-all duration-300"
+                onClick={() => setSelectedImage(primaryResult.url)}
+              >
+                <Eye className="w-5 h-5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="bg-blue-500/80 hover:bg-blue-500 text-white border-0 
+                          shadow-lg hover:scale-110 transition-all duration-300"
+                onClick={() => downloadImage(
+                  primaryResult.url, 
+                  displayThumbnail ? `thumbnail-${displayThumbnail.variation_index}.webp` : 'faceswap.webp'
+                )}
+              >
+                <Download className="w-5 h-5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 
+                          backdrop-blur-sm shadow-lg hover:scale-110 transition-all duration-300"
+                onClick={() => copyToClipboard(primaryResult.url)}
+              >
+                <Copy className="w-5 h-5" />
+              </Button>
             </div>
           </div>
-        </Card>
+          
+          {/* Quality Badge */}
+          <div className="absolute top-3 right-3">
+            <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-lg">
+              <span className="text-xs font-bold">
+                {displayFaceSwapped ? "Face Swap" : "HD Quality"}
+              </span>
+            </Badge>
+          </div>
+        </div>
       </div>
 
       {/* Image Preview Modal */}

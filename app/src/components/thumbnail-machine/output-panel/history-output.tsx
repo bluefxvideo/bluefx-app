@@ -1,75 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Clock, History } from 'lucide-react';
+import { Download, Eye, Clock, History, Loader2, AlertCircle } from 'lucide-react';
+import { fetchUserThumbnailHistory, ThumbnailHistoryItem } from '@/actions/tools/get-thumbnail-history';
+import Image from 'next/image';
+
+interface HistoryOutputProps {
+  refreshTrigger?: number; // Change this value to trigger a refresh
+}
 
 /**
  * History Output - Shows generation history in right panel
  * Displays past generations with actions and details
  */
-export function HistoryOutput() {
+export function HistoryOutput({ refreshTrigger }: HistoryOutputProps = {}) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
+  const [history, setHistory] = useState<ThumbnailHistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data - in real implementation, this would come from the database
-  const mockHistory = [
-    {
-      id: '1',
-      prompt: 'Epic gaming moment with shocked expression, bright colors, dramatic lighting',
-      type: 'thumbnail',
-      thumbnails: [
-        '/api/placeholder/400/225?text=Thumbnail+1',
-        '/api/placeholder/400/225?text=Thumbnail+2',
-        '/api/placeholder/400/225?text=Thumbnail+3',
-        '/api/placeholder/400/225?text=Thumbnail+4'
-      ],
-      createdAt: '2025-01-15T10:30:00Z',
-      credits: 8,
-      status: 'completed'
-    },
-    {
-      id: '2', 
-      prompt: 'Professional business presentation thumbnail',
-      type: 'face-swap',
-      thumbnails: [
-        '/api/placeholder/400/225?text=Face+Swap+1',
-        '/api/placeholder/400/225?text=Face+Swap+2'
-      ],
-      createdAt: '2025-01-14T15:45:00Z',
-      credits: 10,
-      status: 'completed'
-    },
-    {
-      id: '3',
-      prompt: 'Cooking tutorial chocolate cake recipe',
-      type: 'recreate',
-      thumbnails: [
-        '/api/placeholder/400/225?text=Recipe+1',
-        '/api/placeholder/400/225?text=Recipe+2',
-        '/api/placeholder/400/225?text=Recipe+3',
-        '/api/placeholder/400/225?text=Recipe+4'
-      ],
-      createdAt: '2025-01-14T12:20:00Z',
-      credits: 8,
-      status: 'completed'
-    },
-    {
-      id: '4',
-      prompt: 'Tech review iPhone 15 Pro Max',
-      type: 'titles',
-      titles: [
-        'iPhone 15 Pro Max Review: The TRUTH About Apple\'s Flagship!',
-        'I Used iPhone 15 Pro Max for 30 Days... Here\'s What Happened',
-        'iPhone 15 Pro Max vs Competition: Which Should You Buy?',
-        'The iPhone 15 Pro Max Feature Apple Doesn\'t Want You to Know'
-      ],
-      createdAt: '2025-01-13T09:15:00Z',
-      credits: 1,
-      status: 'completed'
+  // Fetch history on component mount and when refresh is triggered
+  useEffect(() => {
+    loadHistory();
+  }, [refreshTrigger]);
+
+  const loadHistory = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await fetchUserThumbnailHistory();
+      
+      if (result.success && result.history) {
+        setHistory(result.history);
+      } else {
+        setError(result.error || 'Failed to load history');
+      }
+    } catch (err) {
+      console.error('Error loading history:', err);
+      setError('Failed to load history');
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -94,12 +70,57 @@ export function HistoryOutput() {
     }
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Card className="p-6 max-w-sm text-center space-y-3">
+          <AlertCircle className="w-8 h-8 text-destructive mx-auto" />
+          <p className="text-destructive font-medium">Failed to load history</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button onClick={loadHistory} variant="outline" size="sm">
+            Try Again
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Empty state
+  if (history.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
+          <History className="w-12 h-12 text-muted-foreground mx-auto" />
+          <div>
+            <h3 className="font-medium mb-2">No History Yet</h3>
+            <p className="text-sm text-muted-foreground">
+              Your generated thumbnails and titles will appear here
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* History Grid */}
       <div className="flex-1 overflow-y-auto scrollbar-hover">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {mockHistory.map((item) => (
+          {history.map((item) => (
             <Card 
               key={item.id} 
               className={`p-3 bg-secondary transition-all duration-200 hover:shadow-md cursor-pointer ${
@@ -136,10 +157,24 @@ export function HistoryOutput() {
                 </div>
               ) : (
                 /* Single Thumbnail Preview */
-                <div className="aspect-video bg-muted rounded overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
-                    <span className="text-base text-muted-foreground">{item.thumbnails?.length || 0} images</span>
-                  </div>
+                <div className="aspect-video bg-muted rounded overflow-hidden relative">
+                  {item.thumbnails && item.thumbnails[0] ? (
+                    <Image
+                      src={item.thumbnails[0]}
+                      alt={item.prompt}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
+                      <span className="text-base text-muted-foreground">{item.thumbnails?.length || 0} images</span>
+                    </div>
+                  )}
+                  {item.thumbnails && item.thumbnails.length > 1 && (
+                    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                      +{item.thumbnails.length - 1} more
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -174,15 +209,19 @@ export function HistoryOutput() {
       <Card className="mt-4 p-3 bg-secondary">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-lg font-semibold text-primary">{mockHistory.length}</p>
+            <p className="text-lg font-semibold text-primary">{history.length}</p>
             <p className="text-sm text-muted-foreground">Generations</p>
           </div>
           <div>
-            <p className="text-lg font-semibold">{mockHistory.reduce((acc, item) => acc + item.credits, 0)}</p>
+            <p className="text-lg font-semibold">{history.reduce((acc, item) => acc + item.credits, 0)}</p>
             <p className="text-sm text-muted-foreground">Credits Used</p>
           </div>
           <div>
-            <p className="text-lg font-semibold">{mockHistory.reduce((acc, item) => acc + (item.thumbnails?.length || 0), 0)}</p>
+            <p className="text-lg font-semibold">
+              {history.reduce((acc, item) => 
+                acc + (item.thumbnails?.length || 0) + (item.titles?.length || 0), 0
+              )}
+            </p>
             <p className="text-sm text-muted-foreground">Assets Created</p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 import { Json } from '@/types/database';
 
 /**
@@ -245,7 +245,6 @@ export async function getThumbnailHistory(
       .from('generated_images')
       .select('*')
       .eq('user_id', userId)
-      .eq('type', 'thumbnail')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -353,13 +352,14 @@ export async function deductCredits(
   metadata?: Json
 ): Promise<{ success: boolean; remainingCredits?: number; error?: string }> {
   try {
-    const supabase = await createClient();
+    // Use admin client to bypass RLS for credit operations
+    const supabase = createAdminClient();
 
     // Start a transaction-like operation
     // First, check current balance
     const { data: currentCredits, error: fetchError } = await supabase
       .from('user_credits')
-      .select('available_credits')
+      .select('available_credits, used_credits')
       .eq('user_id', userId)
       .single();
 
@@ -382,7 +382,11 @@ export async function deductCredits(
     
     const { error: updateError } = await supabase
       .from('user_credits')
-      .update({ available_credits: newBalance })
+      .update({ 
+        available_credits: newBalance,
+        used_credits: (currentCredits.used_credits ?? 0) + amount,
+        updated_at: new Date().toISOString()
+      })
       .eq('user_id', userId);
 
     if (updateError) {
@@ -392,7 +396,27 @@ export async function deductCredits(
       };
     }
 
-    // Log credit usage
+    // Log credit transaction
+    const { error: transactionError } = await supabase
+      .from('credit_transactions')
+      .insert({
+        user_id: userId,
+        transaction_type: 'debit',
+        amount: amount,
+        balance_after: newBalance,
+        operation_type: operation,
+        description: `Used ${amount} credits for ${operation}`,
+        metadata,
+        status: 'completed',
+        created_at: new Date().toISOString(),
+      });
+
+    if (transactionError) {
+      console.warn('Failed to log credit transaction:', transactionError);
+      // Don't fail the operation if logging fails
+    }
+
+    // Also log to credit_usage table if it exists
     const { error: logError } = await supabase
       .from('credit_usage')
       .insert({
