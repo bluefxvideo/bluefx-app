@@ -55,22 +55,8 @@ export function ContentMultiplierPage() {
   }, [searchParams, router]);
 
   // Handle navigation when workflow tab changes
-  useEffect(() => {
-    if (activeWorkflowTab) {
-      const workflowTabPaths: Record<string, string> = {
-        content: '/dashboard/content-multiplier',
-        platforms: '/dashboard/content-multiplier/platforms',
-        review: '/dashboard/content-multiplier/review',
-      };
-      
-      const currentPath = window.location.pathname;
-      const targetPath = workflowTabPaths[activeWorkflowTab];
-      
-      if (targetPath && currentPath !== targetPath) {
-        router.push(targetPath);
-      }
-    }
-  }, [activeWorkflowTab, router]);
+  // NOTE: Removed automatic navigation to prevent infinite loop
+  // Individual page components (platforms, review) set their workflow tabs correctly
 
   // Handle navigation when platform tab changes
   useEffect(() => {

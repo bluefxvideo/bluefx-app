@@ -151,14 +151,11 @@ export function PlatformsTab() {
                         ) : (
                           <Badge 
                             variant="outline" 
-                            className="text-xs cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleConnectPlatform(platform.id);
-                            }}
+                            className="text-xs cursor-not-allowed opacity-60"
+                            title="Platform connections coming soon"
                           >
                             <WifiOff className="h-3 w-3 mr-1" />
-                            Connect
+                            Coming Soon
                           </Badge>
                         )}
                         
@@ -216,12 +213,12 @@ export function PlatformsTab() {
             </p>
           </div>
           
-          <div className="p-3 bg-blue-50 dark:bg-emerald-950/20 rounded-lg border border-blue-200 dark:border-emerald-800">
-            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">
-              🚀 Auto-Publishing
+          <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-300 mb-1">
+              🚀 Auto-Publishing (Coming Soon)
             </p>
-            <p className="text-xs text-blue-600 dark:text-emerald-400">
-              Connect your accounts to publish directly or schedule posts for later.
+            <p className="text-xs text-yellow-600 dark:text-yellow-400">
+              Platform connections and auto-publishing are coming soon. For now, generate content and copy/paste to your platforms.
             </p>
           </div>
 

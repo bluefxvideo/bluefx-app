@@ -6,15 +6,15 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { RotateCcw, Upload, ImageIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
+import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import Image from 'next/image';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 
 interface RecreateTabProps {
-  onGenerate: (request: ThumbnailMachineRequest) => void;
+  onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
   isGenerating: boolean;
-  credits: number;
+  credits: { available_credits: number } | null;
   error?: string;
 }
 
@@ -39,22 +39,24 @@ export function RecreateTab({
     setFormData(prev => ({ ...prev, referenceImage: file }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.referenceImage) return;
     
     const prompt = formData.prompt || 'Recreate this thumbnail with similar style and composition';
     
-    onGenerate({
-      prompt,
+    // Call unified orchestrator with recreation-only mode
+    await onGenerate({
+      operation_mode: 'recreation-only',
       reference_image: formData.referenceImage,
-      num_outputs: 4,
+      prompt,
+      recreation_style: formData.style,
       aspect_ratio: '16:9',
-      guidance_scale: 7, // Higher guidance for recreation
-      user_id: 'current-user',
+      style_type: 'Auto',
+      user_id: 'current-user', // This will be handled by the parent component
     });
   };
 
-  const estimatedCredits = 4 * 2; // 4 thumbnails
+  const estimatedCredits = 2; // Recreation operation
 
   return (
     <TabContentWrapper>
@@ -172,7 +174,7 @@ export function RecreateTab({
       <TabFooter>
         <Button
           onClick={handleSubmit}
-          disabled={!formData.referenceImage || isGenerating || credits < estimatedCredits}
+          disabled={!formData.referenceImage || isGenerating || (credits?.available_credits || 0) < estimatedCredits}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
@@ -184,7 +186,7 @@ export function RecreateTab({
           ) : (
             <>
               <RotateCcw className="w-4 h-4 mr-2" />
-              Recreate Thumbnail
+              Recreate Thumbnail ({estimatedCredits} credits)
             </>
           )}
         </Button>

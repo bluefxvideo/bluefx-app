@@ -29,12 +29,13 @@ export function GeneratorTab({
   const [formData, setFormData] = useState({
     prompt: '',
     selectedStyle: 'clickbait' as 'clickbait' | 'professional' | 'minimal',
-    num_outputs: 4,
-    aspect_ratio: '16:9' as '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3',
+    num_outputs: 1,
+    aspect_ratio: '16:9' as '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '16:10' | '10:16' | '3:1' | '1:3',
     reference_image: null as File | null,
-    guidance_scale: 3,
-    num_inference_steps: 28,
-    output_quality: 85,
+    // Ideogram V2a parameters (replacing old Flux parameters)
+    style_type: 'Auto' as 'None' | 'Auto' | 'General' | 'Realistic' | 'Design' | 'Render 3D' | 'Anime',
+    magic_prompt_option: 'On' as 'Auto' | 'On' | 'Off',
+    seed: undefined as number | undefined,
   });
 
   // Thumbnail styles from legacy implementation
@@ -104,9 +105,10 @@ export function GeneratorTab({
       num_outputs: formData.num_outputs,
       aspect_ratio: formData.aspect_ratio,
       reference_image: formData.reference_image || undefined,
-      guidance_scale: formData.guidance_scale,
-      num_inference_steps: formData.num_inference_steps,
-      output_quality: formData.output_quality,
+      // Ideogram V2a parameters (replacing old Flux parameters)
+      style_type: formData.style_type,
+      magic_prompt_option: formData.magic_prompt_option,
+      seed: formData.seed,
       user_id: 'current-user',
     });
   };

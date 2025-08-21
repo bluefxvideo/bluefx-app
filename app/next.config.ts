@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   },
   output: 'standalone',
   images: {
-    domains: ['trjkxgkbkyzthrgkbwfe.supabase.co', 'ihzcmpngyjxraxzmckiv.supabase.co', 'images.unsplash.com'],
+    domains: ['trjkxgkbkyzthrgkbwfe.supabase.co', 'ihzcmpngyjxraxzmckiv.supabase.co', 'images.unsplash.com', 'replicate.delivery'],
   },
   experimental: {
     serverActions: {

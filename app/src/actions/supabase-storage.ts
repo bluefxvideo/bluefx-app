@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 
 /**
  * Supabase Storage Operations for Thumbnail Machine
@@ -31,7 +31,8 @@ export async function uploadImageToStorage(
   options: UploadImageOptions = {}
 ): Promise<UploadImageResult> {
   try {
-    const supabase = await createClient();
+    // Use admin client for server-side uploads to bypass RLS policies
+    const supabase = createAdminClient();
     
     const {
       bucket = 'images',
@@ -169,7 +170,8 @@ export async function uploadAudioToStorage(
   options: UploadImageOptions = {}
 ): Promise<UploadImageResult> {
   try {
-    const supabase = await createClient();
+    // Use admin client for server-side uploads to bypass RLS policies
+    const supabase = createAdminClient();
     
     const {
       bucket = 'audio', // Use audio bucket for audio files

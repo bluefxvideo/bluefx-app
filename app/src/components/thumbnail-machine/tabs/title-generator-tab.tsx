@@ -8,14 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Type } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
+import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 
 interface TitleGeneratorTabProps {
-  onGenerate: (request: ThumbnailMachineRequest) => void;
+  onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
   isGenerating: boolean;
-  credits: number;
+  credits: { available_credits: number } | null;
   error?: string;
 }
 
@@ -32,23 +32,21 @@ export function TitleGeneratorTab({
   const [formData, setFormData] = useState({
     topic: '',
     style: 'engaging' as 'engaging' | 'emotional' | 'professional' | 'shocking' | 'educational',
-    titleCount: 10,
-    targetKeywords: '',
+    title_count: 10,
+    target_keywords: '',
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.topic.trim()) return;
     
-    // For title-only generation, we use a special prompt format
-    const prompt = `Generate YouTube titles for: ${formData.topic}. Keywords: ${formData.targetKeywords}`;
-    
-    onGenerate({
-      prompt,
-      generate_titles: true,
+    // Call unified orchestrator with titles-only mode
+    await onGenerate({
+      operation_mode: 'titles-only',
+      prompt: formData.topic,
       title_style: formData.style,
-      title_count: formData.titleCount,
-      num_outputs: 1, // Minimal thumbnail generation for title context
-      user_id: 'current-user',
+      title_count: formData.title_count,
+      target_keywords: formData.target_keywords,
+      user_id: 'current-user', // This will be handled by the parent component
     });
   };
 
@@ -90,8 +88,8 @@ export function TitleGeneratorTab({
             <Label className="text-base font-medium mb-2 block">Target Keywords (Optional)</Label>
             <Input
               placeholder="e.g., tutorial, beginner, 2024, how to, best..."
-              value={formData.targetKeywords}
-              onChange={(e) => setFormData(prev => ({ ...prev, targetKeywords: e.target.value }))}
+              value={formData.target_keywords}
+              onChange={(e) => setFormData(prev => ({ ...prev, target_keywords: e.target.value }))}
             />
             <p className="text-sm text-muted-foreground mt-1">
               Comma-separated keywords to include in titles
@@ -122,8 +120,8 @@ export function TitleGeneratorTab({
           <div>
             <Label className="text-base font-medium mb-2 block">Number of Titles</Label>
             <Select
-              value={formData.titleCount.toString()}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, titleCount: parseInt(value) }))}
+              value={formData.title_count.toString()}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, title_count: parseInt(value) }))}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -157,7 +155,7 @@ export function TitleGeneratorTab({
       <TabFooter>
         <Button
           onClick={handleSubmit}
-          disabled={!formData.topic.trim() || isGenerating || credits < estimatedCredits}
+          disabled={!formData.topic.trim() || isGenerating || (credits?.available_credits || 0) < estimatedCredits}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
@@ -169,7 +167,7 @@ export function TitleGeneratorTab({
           ) : (
             <>
               <Type className="w-4 h-4 mr-2" />
-              Generate {formData.titleCount} Titles
+              Generate {formData.title_count} Titles ({estimatedCredits} credit)
             </>
           )}
         </Button>

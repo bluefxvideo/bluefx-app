@@ -111,10 +111,13 @@ export function useThumbnailMachine() {
     
     const channel = supabase
       .channel(`user_${userId}_thumbnails`)
+      // DISABLED: Real-time thumbnail updates to prevent race conditions with orchestrator
+      // The orchestrator already returns complete results with stored Supabase URLs
+      /*
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'thumbnail_results',
+        table: 'generated_images', // Fixed: Use correct table name
         filter: `user_id=eq.${userId}`
       }, (payload) => {
         console.log('📨 Real-time update received:', payload);
@@ -127,10 +130,14 @@ export function useThumbnailMachine() {
             setResult(prev => {
               if (!prev) return prev;
               
+              // Extract URL from image_urls array (first URL)
+              const imageUrls = payload.new.image_urls as string[];
+              const imageUrl = imageUrls && imageUrls.length > 0 ? imageUrls[0] : '';
+              
               const newThumbnail = {
                 id: payload.new.id,
-                url: payload.new.image_url,
-                variation_index: payload.new.variation_index,
+                url: imageUrl, // Use URL from image_urls array
+                variation_index: payload.new.metadata?.variation_index || 1,
                 batch_id: payload.new.batch_id,
               };
               
@@ -144,6 +151,7 @@ export function useThumbnailMachine() {
         
         queryClient.invalidateQueries({ queryKey: ['thumbnail-results'] });
       })
+      */
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',

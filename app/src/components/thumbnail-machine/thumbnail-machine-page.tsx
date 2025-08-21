@@ -89,7 +89,7 @@ export function ThumbnailMachinePage() {
           <FaceSwapTab
             onGenerate={generate}
             isGenerating={isGenerating}
-            credits={credits?.available_credits ?? 0}
+            credits={credits}
             error={error}
           />
         );
@@ -98,7 +98,7 @@ export function ThumbnailMachinePage() {
           <RecreateTab
             onGenerate={generate}
             isGenerating={isGenerating}
-            credits={credits?.available_credits ?? 0}
+            credits={credits}
             error={error}
           />
         );
@@ -107,7 +107,7 @@ export function ThumbnailMachinePage() {
           <TitleGeneratorTab
             onGenerate={generate}
             isGenerating={isGenerating}
-            credits={credits?.available_credits ?? 0}
+            credits={credits}
             error={error}
           />
         );
