@@ -354,12 +354,8 @@ async function generateEnhancedVoiceAudio(
     // Get the audio blob
     const audioBlob = await response.blob();
     
-    // Upload to Supabase Storage
-    const audioFile = new File([audioBlob], `voice_${Date.now()}.${format}`, { 
-      type: format === 'mp3' ? 'audio/mpeg' : `audio/${format}` 
-    });
-    
-    const uploadResult = await uploadImageToStorage(audioFile, {
+    // Upload to Supabase Storage (use Blob instead of File for server-side compatibility)
+    const uploadResult = await uploadImageToStorage(audioBlob, {
       bucket: 'audio',
       folder: 'voice-overs',
       filename: `voice_over_${Date.now()}.${format}`,

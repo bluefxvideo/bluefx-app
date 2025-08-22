@@ -560,9 +560,8 @@ async function generateVoiceAudio(scriptText: string, voiceId: string): Promise<
     // Get the audio blob
     const audioBlob = await response.blob();
     
-    // Upload to Supabase Storage
-    const audioFile = new File([audioBlob], `voice_${Date.now()}.mp3`, { type: 'audio/mpeg' });
-    const uploadResult = await uploadImageToStorage(audioFile, {
+    // Upload to Supabase Storage (use Blob instead of File for server-side compatibility)
+    const uploadResult = await uploadImageToStorage(audioBlob, {
       bucket: 'audio',
       folder: 'voice-previews',
       filename: `voice_${Date.now()}.mp3`,

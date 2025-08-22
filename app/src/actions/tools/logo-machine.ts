@@ -369,6 +369,7 @@ export async function generateBasicLogo(
 
 /**
  * Logo recreation with reference image
+ * Server Action for logo recreation workflow
  */
 export async function recreateLogo(
   company_name: string,

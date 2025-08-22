@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { generateLogo, LogoMachineRequest, LogoMachineResponse } from '@/actions/tools/logo-machine';
+import { generateLogo, recreateLogo, LogoMachineRequest, LogoMachineResponse } from '@/actions/tools/logo-machine';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -48,11 +48,18 @@ export function useLogoMachine() {
       
       console.log('🎨 Calling Logo AI Orchestrator with request:', request);
       
-      // Call AI orchestrator
-      const response = await generateLogo({
-        ...request,
-        user_id: user.id
-      });
+      // Call appropriate AI orchestrator based on workflow
+      const response = request.workflow_intent === 'recreate' 
+        ? await recreateLogo(
+            request.company_name,
+            request.reference_image!,
+            user.id,
+            request.recreate_options
+          )
+        : await generateLogo({
+            ...request,
+            user_id: user.id
+          });
       
       console.log('✅ Logo AI Orchestrator response:', response);
       return response;

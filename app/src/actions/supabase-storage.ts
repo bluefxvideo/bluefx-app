@@ -81,8 +81,13 @@ export async function uploadImageToStorage(
     } else {
       // Handle File/Blob directly
       uploadData = imageData;
-      if (imageData instanceof File) {
+      
+      // Safer type checking for File objects (File might not be available in server env)
+      if (typeof File !== 'undefined' && imageData instanceof File) {
         finalContentType = imageData.type || contentType;
+      } else if (imageData && typeof imageData === 'object' && 'type' in imageData) {
+        // Handle File-like objects that have a type property
+        finalContentType = (imageData as any).type || contentType;
       }
     }
 
