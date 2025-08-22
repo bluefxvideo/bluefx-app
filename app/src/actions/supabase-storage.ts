@@ -31,6 +31,14 @@ export async function uploadImageToStorage(
   options: UploadImageOptions = {}
 ): Promise<UploadImageResult> {
   try {
+    // Validate environment variables first
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      throw new Error('NEXT_PUBLIC_SUPABASE_URL not configured');
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
+    }
+
     // Use admin client for server-side uploads to bypass RLS policies
     const supabase = createAdminClient();
     
@@ -78,10 +86,14 @@ export async function uploadImageToStorage(
       }
     }
 
-    console.log(`Uploading image to storage: ${bucket}/${filePath}`);
+    console.log(`Uploading image to storage: ${bucket}/${filePath}`, {
+      contentType: finalContentType,
+      dataSize: uploadData.size,
+      upsert
+    });
 
     // Upload to Supabase Storage
-    const { error } = await supabase.storage
+    const { error, data } = await supabase.storage
       .from(bucket)
       .upload(filePath, uploadData, {
         contentType: finalContentType,
@@ -89,12 +101,21 @@ export async function uploadImageToStorage(
       });
 
     if (error) {
-      console.error('Upload error:', error);
+      console.error('Supabase Storage upload error:', {
+        message: error.message,
+        bucket,
+        filePath,
+        contentType: finalContentType,
+        dataSize: uploadData.size,
+        error: error
+      });
       return {
         success: false,
-        error: `Upload failed: ${error.message}`,
+        error: `Upload failed: ${error.message} (bucket: ${bucket}, path: ${filePath})`,
       };
     }
+
+    console.log('Upload successful:', data);
 
     // Get public URL
     const { data: { publicUrl } } = supabase.storage

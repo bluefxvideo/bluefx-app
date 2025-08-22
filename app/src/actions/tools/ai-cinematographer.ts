@@ -104,26 +104,42 @@ export async function executeAICinematographer(
     // Upload reference image if provided
     if (request.reference_image) {
       try {
+        console.log('📸 Starting reference image upload:', {
+          fileName: request.reference_image.name,
+          fileSize: request.reference_image.size,
+          fileType: request.reference_image.type,
+          batch_id
+        });
+
+        // Ensure file extension handling is robust
+        const fileExtension = request.reference_image.name.split('.').pop() || 'jpg';
+        const safeFilename = `${batch_id}_reference.${fileExtension}`;
+
         const uploadResult = await uploadImageToStorage(
           request.reference_image,
           {
             bucket: 'images',
             folder: 'cinematographer',
-            filename: `${batch_id}_reference.${request.reference_image.name.split('.').pop()}`,
-            contentType: request.reference_image.type,
+            filename: safeFilename,
+            contentType: request.reference_image.type || 'image/jpeg',
           }
         );
         
+        console.log('📸 Upload result:', uploadResult);
+        
         if (!uploadResult.success) {
+          console.error('Upload failed with error:', uploadResult.error);
           throw new Error(uploadResult.error || 'Upload failed');
         }
         
         referenceImageUrl = uploadResult.url;
+        console.log('📸 Reference image uploaded successfully:', referenceImageUrl);
       } catch (error) {
         console.error('Reference image upload failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown upload error';
         return {
           success: false,
-          error: 'Failed to upload reference image',
+          error: `Failed to upload reference image: ${errorMessage}`,
           batch_id,
           generation_time_ms: Date.now() - startTime,
           credits_used: 0,

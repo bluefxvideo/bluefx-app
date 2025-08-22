@@ -114,15 +114,17 @@ export async function generateLogo(
       
       const uploadResult = await uploadImageToStorage(request.reference_image, {
         folder: 'logos/references',
-        filename: `ref_${batch_id}.png`
+        filename: `ref_${batch_id}.png`,
+        contentType: request.reference_image.type || 'image/png'
       });
 
       if (uploadResult.success && uploadResult.url) {
         referenceImageUrl = uploadResult.url;
         console.log(`✅ Reference image uploaded: ${referenceImageUrl}`);
       } else {
-        warnings.push('Reference image upload failed, proceeding with standard generation');
-        console.warn('⚠️ Reference image upload failed');
+        const errorDetail = uploadResult.error || 'Unknown upload error';
+        warnings.push(`Reference image upload failed: ${errorDetail}. Proceeding with standard generation.`);
+        console.warn('⚠️ Reference image upload failed:', errorDetail);
       }
     }
 
