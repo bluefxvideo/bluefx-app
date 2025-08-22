@@ -205,8 +205,8 @@ async function handleVideoGeneration(
       user_id: request.user_id,
       tool_id: 'ai-cinematographer',
       service_id: 'replicate',
-      model_version: 'stable-video-diffusion',
-      status: 'starting',
+      model_version: 'kling-v1.6-standard',
+      status: 'planning',
       input_data: {
         prompt: request.prompt,
         duration: request.duration || 4,
@@ -233,7 +233,7 @@ async function handleVideoGeneration(
           motion_scale: request.motion_scale || 1.0
         }
       } as Json,
-      status: 'processing'
+      status: 'shooting'
     });
 
     if (!storeResult.success) {
@@ -264,7 +264,7 @@ async function handleVideoGeneration(
     await recordCinematographerMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'stable-video-diffusion',
+      model_version: 'kling-v1.6-standard',
       video_concept: request.prompt,
       duration: request.duration || 4,
       aspect_ratio: request.aspect_ratio || '16:9',

@@ -340,7 +340,7 @@ export async function storeCinematographerResults(params: {
   duration?: number;
   aspect_ratio?: string;
   settings?: Json;
-  status: 'processing' | 'completed' | 'failed';
+  status: 'planning' | 'shooting' | 'editing' | 'completed' | 'failed';
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
