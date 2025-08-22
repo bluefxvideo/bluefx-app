@@ -189,13 +189,13 @@ async function handleVideoGeneration(
   creditCost: number
 ): Promise<CinematographerResponse> {
   try {
-    // Create video generation prediction
+    // Create video generation prediction using Kling v1.6 parameters
     const prediction = await createVideoGenerationPrediction({
       prompt: request.prompt,
-      image: referenceImageUrl,
-      duration: request.duration || 4,
+      start_image: referenceImageUrl, // Use start_image instead of image for Kling
+      duration: request.duration || 5, // Kling default is 5 seconds
       aspect_ratio: request.aspect_ratio || '16:9',
-      motion_scale: request.motion_scale || 1.0,
+      cfg_scale: 0.5, // Kling flexibility parameter
       webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates
     });
 

@@ -1,21 +1,20 @@
 'use server';
 
 /**
- * Generated from: Replicate Video Generation Model
+ * Generated from: Replicate Kling Video Generation Model v1.6
+ * Model: kwaivgi/kling-v1.6-standard
  * Base URL: https://api.replicate.com/v1
- * Description: Generate cinematic videos from prompts and reference images
+ * Description: Generate cinematic videos from prompts and reference images using Kling v1.6
  */
 
 interface VideoGenerationV1Input {
-  prompt: string;
-  image?: string; // Reference image URL or base64
-  duration?: number; // Video duration in seconds
-  fps?: number; // Frames per second (12, 24, or 30)
-  aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
-  motion_scale?: number; // 0-2, controls motion intensity
-  seed?: number;
-  guidance_scale?: number; // 1-10
-  num_inference_steps?: number; // 10-50
+  prompt: string; // Text prompt for video generation (required)
+  duration?: number; // Duration of the video in seconds (default: 5)
+  cfg_scale?: number; // Flexibility in video generation (default: 0.5)
+  start_image?: string; // First frame of the video (optional)
+  aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3' | '3:4'; // Aspect ratio (default: "16:9")
+  negative_prompt?: string; // Things you do not want to see in the video (optional)
+  reference_images?: string[]; // Reference images to use in video generation (optional)
 }
 
 interface VideoGenerationV1Output {
@@ -56,17 +55,15 @@ export async function createVideoGenerationPrediction(
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
       },
       body: JSON.stringify({
-        version: 'dc91b71f6bafe90e311c8b6e03b9b5c1ce53f932b47e243c3a2ebf90d2d2a12d', // Stable Video Diffusion
+        version: 'ad7e130132a2ae0c815fb3a5d31d897530cda5860e5f464f5eef48efd9ee8b4b', // Kling v1.6 Standard
         input: {
           prompt: params.prompt,
-          ...(params.image && { image: params.image }),
-          duration: params.duration || 4,
-          fps: params.fps || 24,
+          duration: params.duration || 5,
+          cfg_scale: params.cfg_scale || 0.5,
           aspect_ratio: params.aspect_ratio || '16:9',
-          motion_scale: params.motion_scale || 1.0,
-          guidance_scale: params.guidance_scale || 7.5,
-          num_inference_steps: params.num_inference_steps || 20,
-          ...(params.seed && { seed: params.seed }),
+          ...(params.start_image && { start_image: params.start_image }),
+          ...(params.negative_prompt && { negative_prompt: params.negative_prompt }),
+          ...(params.reference_images && { reference_images: params.reference_images }),
         },
         ...(params.webhook && { webhook: params.webhook }),
       }),
