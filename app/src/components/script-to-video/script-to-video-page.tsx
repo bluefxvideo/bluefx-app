@@ -106,21 +106,26 @@ export function ScriptToVideoPage() {
   // Monitor the exact moment when isGeneratingVideo changes from true to false
   const prevIsGeneratingVideo = useRef(isGeneratingVideo);
   useEffect(() => {
+    console.log('🔍 Step 3 monitoring:', { 
+      currentStep: multiStepState.currentStep,
+      prevGenerating: prevIsGeneratingVideo.current, 
+      nowGenerating: isGeneratingVideo,
+      videoGenerated: videoGenerated 
+    });
+    
     // Detect transition: was generating -> stopped generating
     if (prevIsGeneratingVideo.current === true && isGeneratingVideo === false) {
-      console.log('🔄 Generation transition detected:', { 
-        result: result, 
-        resultSuccess: result?.success,
-        resultVideoUrl: result?.video_url 
-      });
+      console.log('🔄 Generation transition detected - loader stopped!');
       
-      // This is the exact moment the loader stops - show checkmark if we have a result
-      // Check for either success flag OR presence of video content
-      if (result?.success || result?.video_url || result?.video_id) {
-        console.log('🎉 Generation finished! Loader stopped, showing checkmark');
+      // If we're on step 3 and the loader just stopped, show checkmark no matter what
+      if (multiStepState.currentStep >= 3) {
+        console.log('🎉 Step 3 loader stopped - showing checkmark for 1 second!');
         setVideoGenerated(true);
-      } else {
-        console.log('⚠️ Generation finished but no valid result found');
+        
+        // Optional: Hide checkmark after 1 second if you want
+        // setTimeout(() => {
+        //   setVideoGenerated(false);
+        // }, 1000);
       }
     }
     
@@ -129,9 +134,10 @@ export function ScriptToVideoPage() {
     
     // Reset when starting new generation
     if (isGeneratingVideo && !videoGenerated) {
+      console.log('🔄 Starting generation, resetting checkmark');
       setVideoGenerated(false);
     }
-  }, [isGeneratingVideo, result, videoGenerated]);
+  }, [isGeneratingVideo, result, videoGenerated, multiStepState.currentStep]);
 
   // Track if we were generating to distinguish from restored results
   const wasGeneratingVideo = useRef(false);
