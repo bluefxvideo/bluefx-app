@@ -26,10 +26,9 @@ export function AICinematographerPage() {
     videos,
     isLoadingHistory,
     clearResults,
-    loadHistory
-  } = useAICinematographer({ 
-    userId: 'demo-user' // TODO: Replace with actual user ID
-  });
+    loadHistory,
+    credits
+  } = useAICinematographer();
 
   // Determine active tab from URL
   const getActiveTab = () => {
@@ -71,7 +70,7 @@ export function AICinematographerPage() {
           <GeneratorTab
             onGenerate={generateVideo}
             isGenerating={isGenerating}
-            credits={100} // TODO: Connect to real credits
+            credits={credits} // Now using real credits!
             error={error}
           />
         );

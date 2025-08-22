@@ -45,7 +45,7 @@ export function GeneratorTab({
       duration: formData.duration,
       aspect_ratio: formData.aspect_ratio,
       workflow_intent: 'generate',
-      user_id: 'demo-user'
+      user_id: '' // Will be set by the hook with real user ID
     });
   };
 

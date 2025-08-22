@@ -1,9 +1,14 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
-import { createPredictionRecord } from '@/actions/database/thumbnail-database';
+import { 
+  getUserCredits,
+  deductCredits,
+  storeCinematographerResults,
+  recordCinematographerMetrics,
+  createPredictionRecord
+} from '@/actions/database/cinematographer-database';
 import { Json } from '@/types/database';
 
 // Request/Response types for the AI Cinematographer
@@ -62,31 +67,37 @@ export async function executeAICinematographer(
   const startTime = Date.now();
   
   try {
-    const supabase = await createClient();
-    
     // Generate unique batch ID for this operation
     const batch_id = `cinematographer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // Calculate credit costs based on workflow
     const creditCosts = calculateCinematographerCreditCost(request);
     
-    // Verify user has sufficient credits
-    const { data: userCredits } = await supabase
-      .from('user_credits')
-      .select('available_credits')
-      .eq('user_id', request.user_id)
-      .single();
-    
-    if (!userCredits || (userCredits.available_credits ?? 0) < creditCosts.total) {
+    // Step 1: Credit Validation (using proven pattern from Logo Machine)
+    const creditCheck = await getUserCredits(request.user_id);
+    if (!creditCheck.success) {
       return {
         success: false,
-        error: `Insufficient credits. Required: ${creditCosts.total}, Available: ${userCredits?.available_credits || 0}`,
+        error: 'Unable to verify credit balance',
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
-        remaining_credits: userCredits?.available_credits || 0,
+        remaining_credits: 0,
       };
     }
+
+    if ((creditCheck.credits || 0) < creditCosts.total) {
+      return {
+        success: false,
+        error: `Insufficient credits. Required: ${creditCosts.total}, Available: ${creditCheck.credits || 0}`,
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: creditCheck.credits || 0,
+      };
+    }
+
+    console.log(`💳 Credits validated: ${creditCheck.credits} available, ${creditCosts.total} required`);
 
     let referenceImageUrl: string | undefined;
     
@@ -123,9 +134,9 @@ export async function executeAICinematographer(
 
     // Handle different workflow intents
     if (request.workflow_intent === 'generate') {
-      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total, await supabase);
+      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total);
     } else if (request.workflow_intent === 'audio_add') {
-      return await handleAudioIntegration(request, batch_id, startTime, creditCosts.total, await supabase);
+      return await handleAudioIntegration(request, batch_id, startTime, creditCosts.total);
     }
 
     return {
@@ -158,8 +169,7 @@ async function handleVideoGeneration(
   batch_id: string,
   startTime: number,
   referenceImageUrl: string | undefined,
-  creditCost: number,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  creditCost: number
 ): Promise<CinematographerResponse> {
   try {
     // Create video generation prediction
@@ -189,36 +199,30 @@ async function handleVideoGeneration(
       } as Json,
     });
 
-    // Create database record for tracking
-    const { data: videoRecord, error: dbError } = await (await supabase)
-      .from('cinematographer_videos')
-      .insert({
-        id: batch_id,
-        user_id: request.user_id,
-        project_name: `Video Generation - ${new Date().toISOString()}`,
-        video_concept: request.prompt,
-        status: 'processing',
-        style_preferences: { prompt: request.prompt } as Json,
-        metadata: {
-          prediction_id: prediction.id,
-          reference_image: referenceImageUrl,
-          generation_params: {
-            duration: request.duration || 4,
-            aspect_ratio: request.aspect_ratio || '16:9',
-            motion_scale: request.motion_scale || 1.0
-          }
-        } as Json,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    // Store video record in database
+    const storeResult = await storeCinematographerResults({
+      user_id: request.user_id,
+      video_concept: request.prompt,
+      project_name: `Video Generation - ${new Date().toISOString()}`,
+      batch_id,
+      duration: request.duration || 4,
+      aspect_ratio: request.aspect_ratio || '16:9',
+      settings: {
+        prediction_id: prediction.id,
+        reference_image: referenceImageUrl,
+        generation_params: {
+          duration: request.duration || 4,
+          aspect_ratio: request.aspect_ratio || '16:9',
+          motion_scale: request.motion_scale || 1.0
+        }
+      } as Json,
+      status: 'processing'
+    });
 
-    if (dbError) {
-      console.error('Database insert error:', dbError);
+    if (!storeResult.success) {
       return {
         success: false,
-        error: 'Failed to save video generation record',
+        error: storeResult.error || 'Failed to save video generation record',
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -226,15 +230,32 @@ async function handleVideoGeneration(
       };
     }
 
-    // Deduct credits
-    await deductCredits(supabase, request.user_id, creditCost, batch_id, 'video_generation');
-    
-    // Get updated credits
-    const { data: updatedCredits } = await (await supabase)
-      .from('user_credits')
-      .select('available_credits')
-      .eq('user_id', request.user_id)
-      .single();
+    // Deduct credits using proven pattern
+    const creditDeduction = await deductCredits(
+      request.user_id,
+      creditCost,
+      'video-generation',
+      { batch_id, video_concept: request.prompt, workflow: 'generate' } as Json
+    );
+
+    if (!creditDeduction.success) {
+      console.warn('Credit deduction failed:', creditDeduction.error);
+      // Continue anyway - don't fail the generation
+    }
+
+    // Record metrics
+    await recordCinematographerMetrics({
+      user_id: request.user_id,
+      batch_id,
+      model_version: 'stable-video-diffusion',
+      video_concept: request.prompt,
+      duration: request.duration || 4,
+      aspect_ratio: request.aspect_ratio || '16:9',
+      generation_time_ms: Date.now() - startTime,
+      credits_used: creditCost,
+      workflow_type: 'generate',
+      has_reference_image: !!referenceImageUrl
+    });
 
     // Return response with job tracking info
     return {
@@ -246,12 +267,12 @@ async function handleVideoGeneration(
         duration: request.duration || 4,
         aspect_ratio: request.aspect_ratio || '16:9',
         prompt: request.prompt,
-        created_at: videoRecord.created_at || new Date().toISOString(),
+        created_at: new Date().toISOString(),
       },
       batch_id,
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,
-      remaining_credits: updatedCredits?.available_credits || 0,
+      remaining_credits: creditDeduction.remainingCredits || 0,
       warnings: referenceImageUrl ? undefined : ['No reference image provided - video will be generated from prompt only'],
     };
 
@@ -275,8 +296,7 @@ async function handleAudioIntegration(
   _request: CinematographerRequest,
   batch_id: string,
   startTime: number,
-  _creditCost: number,
-  _supabase: Awaited<ReturnType<typeof createClient>>
+  _creditCost: number
 ): Promise<CinematographerResponse> {
   // TODO: Implement audio integration
   return {
@@ -332,42 +352,4 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
   };
 }
 
-/**
- * Deduct credits from user account
- */
-async function deductCredits(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  amount: number,
-  batchId: string,
-  operation: string
-) {
-  // Deduct from available credits (subtract amount from current credits)
-  const { data: currentCredits } = await supabase
-    .from('user_credits')
-    .select('available_credits')
-    .eq('user_id', userId)
-    .single();
-
-  const newCredits = Math.max(0, (currentCredits?.available_credits || 0) - amount);
-
-  await supabase
-    .from('user_credits')
-    .update({
-      available_credits: newCredits,
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', userId);
-
-  // Log credit usage
-  await supabase
-    .from('credit_usage')
-    .insert({
-      user_id: userId,
-      credits_used: amount,
-      operation_type: operation,
-      service_type: 'cinematographer',
-      reference_id: batchId,
-      created_at: new Date().toISOString()
-    });
-}
+// Removed manual deductCredits - now using the proven pattern from cinematographer-database.ts

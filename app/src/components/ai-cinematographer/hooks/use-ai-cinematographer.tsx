@@ -2,38 +2,61 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/app/supabase/client';
+import { User } from '@supabase/supabase-js';
+import { useCredits } from '@/hooks/useCredits';
 import { executeAICinematographer, CinematographerRequest, CinematographerResponse } from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 
-interface UseAICinematographerProps {
-  userId: string;
-}
-
-export function useAICinematographer({ userId }: UseAICinematographerProps) {
+export function useAICinematographer() {
+  const { credits } = useCredits(); // Use real credits hook
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CinematographerResponse | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [videos, setVideos] = useState<CinematographerVideo[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   
   const supabase = createClient();
+
+  // Get current user
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription?.unsubscribe();
+  }, [supabase.auth]);
   
   // Load video history
   const loadHistory = useCallback(async () => {
+    if (!user?.id) return;
+    
     setIsLoadingHistory(true);
     try {
-      const { videos: historyVideos } = await getCinematographerVideos(userId);
+      const { videos: historyVideos } = await getCinematographerVideos(user.id);
       setVideos(historyVideos);
     } catch (err) {
       console.error('Failed to load video history:', err);
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [userId]);
+  }, [user?.id]);
 
   // Generate video
   const generateVideo = async (request: CinematographerRequest) => {
+    // Authentication check
+    if (!user?.id) {
+      setError('User must be authenticated to generate videos');
+      return;
+    }
+
     setIsGenerating(true);
     setError(undefined);
     setResult(undefined);
@@ -41,7 +64,7 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
     try {
       const response = await executeAICinematographer({
         ...request,
-        user_id: userId,
+        user_id: user.id,
       });
       
       setResult(response);
@@ -76,7 +99,7 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
 
   // Subscribe to real-time updates for video status
   useEffect(() => {
-    if (!userId || !result?.batch_id) return;
+    if (!user?.id || !result?.batch_id) return;
 
     const subscription = supabase
       .channel('cinematographer_videos')
@@ -86,7 +109,7 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
           event: 'UPDATE',
           schema: 'public',
           table: 'cinematographer_videos',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
           const updatedVideo = payload.new as CinematographerVideo;
@@ -114,14 +137,14 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [userId, result?.batch_id, supabase, result]);
+  }, [user?.id, result?.batch_id, supabase, result]);
 
   // Load initial history
   useEffect(() => {
-    if (userId) {
+    if (user?.id) {
       loadHistory();
     }
-  }, [userId, loadHistory]);
+  }, [user?.id, loadHistory]);
 
   return {
     // Generation state
@@ -132,6 +155,10 @@ export function useAICinematographer({ userId }: UseAICinematographerProps) {
     // History state
     videos,
     isLoadingHistory,
+    
+    // User and credits
+    user,
+    credits: credits?.available_credits || 0,
     
     // Actions
     generateVideo,
