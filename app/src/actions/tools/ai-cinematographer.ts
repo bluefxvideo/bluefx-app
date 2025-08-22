@@ -69,7 +69,7 @@ export async function executeAICinematographer(
   
   try {
     // Generate unique batch ID for this operation
-    const batch_id = `cinematographer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const batch_id = crypto.randomUUID();
     
     // Calculate credit costs based on workflow
     const creditCosts = calculateCinematographerCreditCost(request);
@@ -170,7 +170,7 @@ export async function executeAICinematographer(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
-      batch_id: `error_${Date.now()}`,
+      batch_id: crypto.randomUUID(),
       generation_time_ms: Date.now() - startTime,
       credits_used: 0,
       remaining_credits: 0,
