@@ -103,21 +103,26 @@ export function ScriptToVideoPage() {
     }
   }, [multiStepState.currentStep, multiStepState.generatedScript, multiStepState.finalScript]);
 
-  // Monitor video generation completion
-  // Only set videoGenerated to true for NEW generations, not restored results
+  // Monitor the exact moment when isGeneratingVideo changes from true to false
+  const prevIsGeneratingVideo = useRef(isGeneratingVideo);
   useEffect(() => {
-    if (result?.success && result.video_id && result.video_url) {
-      // Mark as generated ONLY when video_url is available (actual completion)
-      if (!videoGenerated && (isGeneratingVideo || wasGeneratingVideo.current)) {
-        console.log('🎉 Video assets completed! Setting videoGenerated = true, showing checkmark');
+    // Detect transition: was generating -> stopped generating
+    if (prevIsGeneratingVideo.current === true && isGeneratingVideo === false) {
+      // This is the exact moment the loader stops - show checkmark if we have a result
+      if (result?.success) {
+        console.log('🎉 Generation finished! Loader stopped, showing checkmark');
         setVideoGenerated(true);
-        wasGeneratingVideo.current = false; // Reset flag
       }
-    } else if (!result?.success || !result?.video_id) {
-      // Reset videoGenerated if there's no valid result
+    }
+    
+    // Update previous value for next comparison
+    prevIsGeneratingVideo.current = isGeneratingVideo;
+    
+    // Reset when starting new generation
+    if (isGeneratingVideo && !videoGenerated) {
       setVideoGenerated(false);
     }
-  }, [result, videoGenerated, isGeneratingVideo]);
+  }, [isGeneratingVideo, result, videoGenerated]);
 
   // Track if we were generating to distinguish from restored results
   const wasGeneratingVideo = useRef(false);
