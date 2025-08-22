@@ -1,14 +1,11 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { CinematographerResponse } from '@/actions/tools/ai-cinematographer';
 import { VideoPreview } from './video-preview';
-import { LoadingSkeleton } from './loading-skeleton';
-import { ErrorDisplay } from './error-display';
 import { GenerateEmptyState, HistoryEmptyState } from './tab-empty-states';
-import { Download, Trash2, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, Zap, Video } from 'lucide-react';
 
 interface CinematographerOutputProps {
   result?: CinematographerResponse;
@@ -19,8 +16,9 @@ interface CinematographerOutputProps {
 }
 
 /**
- * Output Panel - Right side of two-column layout
- * Displays video generation results, loading states, and errors
+ * Premium Output Panel with Dribbble-level polish
+ * Enhanced with sophisticated animations, gradients, and micro-interactions
+ * Following the same pattern as Thumbnail Machine and Logo Machine
  */
 export function CinematographerOutput({
   result,
@@ -29,128 +27,142 @@ export function CinematographerOutput({
   onClearResults,
   activeTab = 'generate'
 }: CinematographerOutputProps) {
-  // Loading state
+  // Loading state with premium styling
   if (isGenerating) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <h3 className="font-medium">Generating Video</h3>
+      <div className="h-full flex flex-col relative overflow-hidden">
+        {/* Solid subtle overlay for consistency with theme */}
+        <div className="absolute inset-0 bg-secondary/20"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center animate-spin">
+                  <Video className="w-4 h-4 text-white" />
+                </div>
+                <div className="absolute inset-0 rounded-full border-2 border-primary/40 animate-ping"></div>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">Creating Your Video</h3>
+                <p className="text-zinc-400">AI is generating cinematic content...</p>
+              </div>
+            </div>
+            
+            <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
+              <Clock className="w-3 h-3 mr-1.5" />
+              Processing
+            </Badge>
           </div>
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            <Clock className="w-3 h-3 mr-1" />
-            Processing
-          </Badge>
+          
+          {/* Loading skeleton for video */}
+          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
+            <div className="w-full max-w-2xl">
+              <Card className="group overflow-hidden animate-pulse">
+                <div className="relative aspect-video bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 flex items-center justify-center">
+                  <Video className="w-12 h-12 text-zinc-600" />
+                </div>
+              </Card>
+            </div>
+          </div>
         </div>
-        <LoadingSkeleton />
       </div>
     );
   }
 
-  // Error state
+  // Error state with centered layout matching empty states
   if (error) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-destructive" />
-            <h3 className="font-medium text-destructive">Generation Failed</h3>
+      <div className="h-full flex flex-col overflow-hidden relative">
+        {/* Subtle animated background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
+        
+        <div className="relative z-10 flex-1 flex flex-col">
+          {/* Centered Error Content Area */}
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div className="w-full max-w-2xl">
+              <Card className="p-8 bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 backdrop-blur-sm text-center">
+                <div className="flex flex-col items-center gap-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
+                      <AlertCircle className="w-8 h-8 text-red-400" />
+                    </div>
+                    <div className="absolute inset-0 rounded-full border-2 border-red-500/30 animate-pulse"></div>
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-2xl font-bold text-white">Generation Failed</h3>
+                    <p className="text-zinc-300 max-w-md mx-auto leading-relaxed">{error}</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         </div>
-        <ErrorDisplay error={error} onRetry={() => {}} />
       </div>
     );
   }
 
-  // Success state with results
+  // Success state with centered professional results display
   if (result && result.success) {
     return (
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-blue-600" />
-            <h3 className="font-medium">Video Generated</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
-              {result.video?.duration || 0}s video
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearResults}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+      <div className="h-full flex flex-col relative overflow-hidden">
+        {/* Subtle solid overlay */}
+        <div className="absolute inset-0 bg-secondary/20"></div>
+        
+        <div className="relative z-10 h-full flex flex-col">
+          {/* Header now handled by OutputPanelShell */}
 
-        {/* Generation Stats */}
-        <Card className="p-3 mb-4 bg-muted/30">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-lg font-semibold text-primary">{result.credits_used}</p>
-              <p className="text-xs text-muted-foreground">Credits Used</p>
-            </div>
-            <div>
-              <p className="text-lg font-semibold">{Math.round(result.generation_time_ms / 1000)}s</p>
-              <p className="text-xs text-muted-foreground">Generation Time</p>
-            </div>
-            <div>
-              <p className="text-lg font-semibold">{result.remaining_credits || 0}</p>
-              <p className="text-xs text-muted-foreground">Remaining</p>
+          {/* Results Section - Clean and Simple */}
+          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
+            <div className="w-full max-w-2xl">
+              {result.video && (
+                <VideoPreview
+                  video={result.video}
+                  batchId={result.batch_id}
+                />
+              )}
             </div>
           </div>
-        </Card>
 
-        {/* Warnings */}
-        {result.warnings && result.warnings.length > 0 && (
-          <Card className="p-3 mb-4 bg-yellow-50 border-yellow-200">
-            <div className="space-y-1">
-              {result.warnings.map((warning, index) => (
-                <p key={index} className="text-xs text-yellow-700 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {warning}
-                </p>
-              ))}
+          {/* Premium Warnings - if any */}
+          {result.warnings && result.warnings.length > 0 && (
+            <div className="px-6 pb-4">
+              <Card className="p-4 bg-yellow-500/10 border border-yellow-500/30 backdrop-blur-sm">
+                <div className="space-y-2">
+                  {result.warnings.map((warning, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                      <p className="text-sm text-yellow-300 font-medium">{warning}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
             </div>
-          </Card>
-        )}
-
-        {/* Video Preview */}
-        <div className="flex-1 overflow-y-auto">
-          {result.video && (
-            <VideoPreview
-              video={result.video}
-              batchId={result.batch_id}
-            />
           )}
         </div>
-
-        {/* Download Button */}
-        {result.video && result.video.video_url && (
-          <div className="mt-4 pt-4 border-t">
-            <Button variant="outline" className="w-full">
-              <Download className="w-4 h-4 mr-2" />
-              Download Video
-            </Button>
-          </div>
-        )}
       </div>
     );
   }
 
-  // Empty state
+  // Enhanced Empty State with centered layout
   return (
-    <div className="h-full flex flex-col">
-      {activeTab === 'history' ? (
-        <HistoryEmptyState />
-      ) : (
-        <GenerateEmptyState />
-      )}
+    <div className="h-full flex flex-col overflow-hidden relative">
+      {/* Subtle animated background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
+      
+      <div className="relative z-10 flex-1 flex flex-col">
+        
+        {/* Centered Content Area */}
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="w-full max-w-2xl">
+            {activeTab === 'history' ? (
+              <HistoryEmptyState />
+            ) : (
+              <GenerateEmptyState />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

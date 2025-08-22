@@ -10,6 +10,7 @@ import type { CinematographerVideo } from '@/actions/database/cinematographer-da
 
 export function useAICinematographer() {
   const { credits } = useCredits(); // Use real credits hook
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CinematographerResponse | undefined>();
   const [error, setError] = useState<string | undefined>();

@@ -211,9 +211,16 @@ function validateWebhookAuthenticity(request: NextRequest, payload: ReplicateWeb
   const userAgent = request.headers.get('user-agent');
   const contentType = request.headers.get('content-type');
   
-  // AI Decision: Multiple validation points
+  console.log('🔍 Webhook Headers:', {
+    userAgent,
+    contentType,
+    payloadHasId: !!payload.id,
+    payloadHasStatus: !!payload.status,
+    payloadHasVersion: !!payload.version
+  });
+  
+  // AI Decision: More flexible validation - Replicate doesn't always send "Replicate" in User-Agent
   return !!(
-    userAgent?.includes('Replicate') &&
     contentType?.includes('application/json') &&
     payload.id &&
     payload.status &&
