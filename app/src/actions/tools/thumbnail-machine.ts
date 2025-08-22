@@ -2,7 +2,7 @@
 
 import { createIdeogramV2aPrediction, waitForIdeogramV2aCompletion, generateMultipleThumbnails } from '../models/ideogram-v2-turbo';
 import { performFaceSwap } from '../models/face-swap-cdingram';
-import { generateYouTubeTitles } from '../models/openai-chat';
+import { generateYouTubeTitles, analyzeImageForRecreation } from '../models/openai-chat';
 import { uploadImageToStorage, downloadAndUploadImage } from '../supabase-storage';
 import { 
   storeThumbnailResults, 
@@ -753,20 +753,35 @@ async function executeRecreationOnlyWorkflow(
       referenceImageUrl = referenceUpload.url;
     }
 
-    // Create recreation prompt
-    let recreationPrompt = request.prompt || 'Recreate this thumbnail with similar style and composition';
+    // Step 1: Analyze the reference image using OpenAI Vision
+    console.log('🔍 Analyzing reference image with OpenAI Vision...');
+    const imageAnalysis = await analyzeImageForRecreation(
+      referenceImageUrl,
+      request.prompt,
+      request.recreation_style
+    );
+    
+    console.log('📝 Image analysis completed:', imageAnalysis.substring(0, 200) + '...');
+    
+    // Step 2: Create enhanced recreation prompt based on analysis
+    let recreationPrompt = `Create a high-quality YouTube thumbnail based on this analysis: ${imageAnalysis}`;
+    
+    // Add user modifications if provided
+    if (request.prompt) {
+      recreationPrompt += ` User requested modifications: ${request.prompt}.`;
+    }
     
     // Add style-specific instructions
     if (request.recreation_style) {
       const stylePrompts = {
-        similar: 'maintaining the same visual style, composition, and color scheme',
-        improved: 'enhancing the quality, clarity, and visual appeal while keeping the core concept',
-        'style-transfer': 'adapting the concept to a new artistic style while preserving the main elements'
+        similar: ' Maintain the exact same visual style, composition, and color scheme.',
+        improved: ' Enhance the quality, clarity, and visual appeal while keeping the core concept intact.',
+        'style-transfer': ' Adapt the concept to a modern, trendy style while preserving the main elements and message.'
       };
-      recreationPrompt += `, ${stylePrompts[request.recreation_style]}`;
+      recreationPrompt += stylePrompts[request.recreation_style];
     }
     
-    recreationPrompt += '. Create a high-quality thumbnail with sharp details, vibrant colors, and professional composition suitable for YouTube.';
+    recreationPrompt += ' Ensure professional quality with sharp details, vibrant colors, and optimal composition for YouTube thumbnails.';
 
     // Generate recreation using Ideogram V2a
     console.log('🎨 Creating recreation with Ideogram V2a');

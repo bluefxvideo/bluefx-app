@@ -54,9 +54,6 @@ export function TitleGeneratorTab({
 
   return (
     <TabContentWrapper>
-      {/* Error Display */}
-      {error && <TabError error={error} />}
-
       {/* Form Content */}
       <TabBody>
         {/* Step 1: Describe Your Video */}
@@ -161,7 +158,6 @@ export function TitleGeneratorTab({
         >
           {isGenerating ? (
             <>
-              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Generating Titles...
             </>
           ) : (

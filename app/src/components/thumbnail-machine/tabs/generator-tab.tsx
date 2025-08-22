@@ -121,9 +121,6 @@ export function GeneratorTab({
 
   return (
     <TabContentWrapper>
-      {/* Error Display */}
-      {error && <TabError error={error} />}
-
       {/* Form Content */}
       <TabBody>
         {/* Step 1: Choose Your Style */}
