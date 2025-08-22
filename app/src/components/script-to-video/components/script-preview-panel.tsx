@@ -94,7 +94,7 @@ export function ScriptPreviewPanel({
 
   return (
     <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className="w-16 h-16 mb-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
+      <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
         {getMainIcon()}
       </div>
       
@@ -110,8 +110,8 @@ export function ScriptPreviewPanel({
           return (
             <div key={step.number} className="text-center">
               <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center ${
-                step.active ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
-                step.complete ? 'bg-green-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500 opacity-50'
+                step.active ? 'bg-primary' :
+                step.complete ? 'bg-primary' : 'bg-muted border-2 border-muted-foreground/20'
               }`}>
                 {step.active ? (
                   <Loader2 className="w-6 h-6 text-white animate-spin" />
@@ -122,20 +122,20 @@ export function ScriptPreviewPanel({
                 )}
               </div>
               <div className={`text-lg font-bold mb-1 ${
-                step.active ? 'text-blue-500' :
-                step.complete ? 'text-green-400' : 'text-blue-500 opacity-50'
+                step.active ? 'text-primary' :
+                step.complete ? 'text-primary' : 'text-muted-foreground'
               }`}>
                 {step.number}
               </div>
               <p className={`text-sm font-medium ${
                 step.active ? 'text-white' :
-                step.complete ? 'text-green-300' : 'text-zinc-400'
+                step.complete ? 'text-foreground' : 'text-muted-foreground'
               }`}>
                 {step.title}
               </p>
               <p className={`text-xs ${
-                step.active ? 'text-zinc-300' :
-                step.complete ? 'text-green-400/70' : 'text-muted-foreground'
+                step.active ? 'text-muted-foreground' :
+                step.complete ? 'text-muted-foreground' : 'text-muted-foreground'
               }`}>
                 {step.description}
               </p>

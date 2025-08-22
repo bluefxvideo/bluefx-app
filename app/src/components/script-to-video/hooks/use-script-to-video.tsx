@@ -115,7 +115,7 @@ export function useScriptToVideo() {
         useVideoEditorStore.getState().loadGenerationResults(response);
         
         // Auto-switch to Editor tab after successful generation
-        router.push('/dashboard/script-to-video/editor');
+        window.location.href = 'https://editor.bluefx.net';
         
         // TODO: Invalidate queries for real-time updates
         // queryClient.invalidateQueries({ queryKey: ['script-video-results'] });
@@ -231,7 +231,7 @@ export function useScriptToVideo() {
         // Auto-redirect to editor tab 
         setTimeout(() => {
           if (typeof window !== 'undefined') {
-            window.location.href = '/dashboard/script-to-video/editor';
+            window.location.href = 'https://editor.bluefx.net';
           }
         }, 1000);
       } else {

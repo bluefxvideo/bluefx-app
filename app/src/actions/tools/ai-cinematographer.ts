@@ -193,6 +193,7 @@ async function handleVideoGeneration(
     // Create video generation prediction using Kling v1.6 parameters
     let prediction;
     try {
+      console.log('🎬 Attempting to create Replicate prediction...');
       prediction = await createVideoGenerationPrediction({
         prompt: request.prompt,
         start_image: referenceImageUrl, // Use start_image instead of image for Kling
@@ -201,8 +202,17 @@ async function handleVideoGeneration(
         cfg_scale: 0.5, // Kling flexibility parameter
         webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates
       });
+      
+      // Validate prediction response
+      if (!prediction || !prediction.id) {
+        throw new Error('Invalid prediction response: missing prediction ID');
+      }
+      
+      console.log('✅ Replicate prediction created successfully:', prediction.id);
     } catch (error) {
-      console.error('Error creating prediction record:', error);
+      console.error('❌ Replicate prediction creation failed:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
       
       // Handle content moderation failures (E005) and other Replicate errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown prediction error';
@@ -225,7 +235,20 @@ async function handleVideoGeneration(
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
-        remaining_credits: creditCheck.credits || 0,
+        remaining_credits: currentCredits,
+      };
+    }
+
+    // Ensure we have a valid prediction before proceeding
+    if (!prediction?.id) {
+      console.error('❌ No valid prediction available for database storage');
+      return {
+        success: false,
+        error: 'Prediction creation failed - no valid prediction ID',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: currentCredits,
       };
     }
 

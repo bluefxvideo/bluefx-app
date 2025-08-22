@@ -17,7 +17,7 @@ function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted
     <div className="text-center">
       <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center ${
         isCompleted 
-          ? 'bg-green-500' 
+          ? 'bg-primary' 
           : isActive 
             ? 'bg-primary' 
             : 'bg-muted border-2 border-muted-foreground/20'
@@ -30,7 +30,7 @@ function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted
       </div>
       <div className={`text-lg font-bold mb-1 ${
         isCompleted 
-          ? 'text-green-500' 
+          ? 'text-primary' 
           : isActive 
             ? 'text-primary' 
             : 'text-muted-foreground'
@@ -51,6 +51,8 @@ interface ReadyToCreatePanelProps {
   voiceSelected?: boolean;
   isGeneratingVideo?: boolean;
   showOrchestrationProgress?: boolean;
+  videoGenerated?: boolean;
+  isGeneratingScript?: boolean;
 }
 
 /**
@@ -62,7 +64,9 @@ export function ReadyToCreatePanel({
   scriptGenerated = false, 
   voiceSelected = false,
   isGeneratingVideo = false,
-  showOrchestrationProgress = false
+  showOrchestrationProgress = false,
+  videoGenerated = false,
+  isGeneratingScript = false
 }: ReadyToCreatePanelProps) {
   const [step3Completed, setStep3Completed] = useState(false);
   const [hideSteps, setHideSteps] = useState(false);
@@ -80,6 +84,17 @@ export function ReadyToCreatePanel({
     }
   }, [isGeneratingVideo, step3Completed]);
 
+  // Handle video generation completion - show step 3 checkmark briefly
+  useEffect(() => {
+    if (videoGenerated && !step3Completed) {
+      setStep3Completed(true);
+      // Keep the checkmark visible for 2 seconds
+      setTimeout(() => {
+        setStep3Completed(false);
+      }, 2000);
+    }
+  }, [videoGenerated, step3Completed]);
+
   // Reset states when not generating
   useEffect(() => {
     if (!isGeneratingVideo) {
@@ -95,8 +110,8 @@ export function ReadyToCreatePanel({
 
   return (
     <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
-        <Video className="w-8 h-8 text-white" />
+      <div className={`w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center ${(isGeneratingVideo || isGeneratingScript) ? 'animate-pulse' : ''}`}>
+        <Video className={`w-8 h-8 text-white ${(isGeneratingVideo || isGeneratingScript) ? 'animate-bounce' : ''}`} />
       </div>
       
       <h3 className="text-2xl font-bold mb-2">Ready to Create Magic ✨</h3>

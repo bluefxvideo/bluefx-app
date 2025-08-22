@@ -49,6 +49,7 @@ export function ScriptToVideoPage() {
   const [voiceSelected, setVoiceSelected] = useState(false);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoGenerated, setVideoGenerated] = useState(false);
 
   const {
     edit,
@@ -80,6 +81,17 @@ export function ScriptToVideoPage() {
 
     loadUser();
   }, [initializeUser, loadExistingResults, pathname]);
+
+  // Monitor video generation completion
+  useEffect(() => {
+    if (result?.success && result.video_id && !videoGenerated) {
+      setVideoGenerated(true);
+      // Reset after 3 seconds so user can see the checkmark
+      setTimeout(() => {
+        setVideoGenerated(false);
+      }, 3000);
+    }
+  }, [result, videoGenerated]);
 
   // Determine active tab from URL
   const getActiveTab = () => {
@@ -172,6 +184,8 @@ export function ScriptToVideoPage() {
           scriptGenerated={!!multiStepState.generatedScript || !!multiStepState.finalScript}
           voiceSelected={voiceSelected}
           isGeneratingVideo={isGeneratingVideo}
+          videoGenerated={videoGenerated}
+          isGeneratingScript={multiStepState.isGeneratingScript}
         />
       );
     }
