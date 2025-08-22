@@ -632,10 +632,15 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
       const { createClient } = await import('@/app/supabase/server');
       const supabase = await createClient();
       
-      const { data: videoRecords } = await supabase
+      const { data: videoRecords, error: queryError } = await supabase
         .from('cinematographer_videos')
         .select('id')
         .contains('metadata', { generation_settings: { prediction_id: payload.id } });
+      
+      console.log(`🔍 Cinematographer query: prediction_id=${payload.id}, found=${videoRecords?.length || 0} records`);
+      if (queryError) {
+        console.error('🔍 Cinematographer query error:', queryError);
+      }
       
       if (videoRecords && videoRecords.length > 0) {
         const videoId = videoRecords[0].id;

@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -61,6 +61,12 @@ export function ScriptToVideoPage() {
     clearResults
   } = useScriptToVideo();
 
+  // Wrapper to also reset video generated state
+  const handleClearResults = () => {
+    clearResults();
+    setVideoGenerated(false);
+  };
+
   // Initialize user in video editor store and load existing results
   useEffect(() => {
     const loadUser = async () => {
@@ -82,21 +88,43 @@ export function ScriptToVideoPage() {
     loadUser();
   }, [initializeUser, loadExistingResults, pathname]);
 
-  // Reset videoGenerated when starting new generation
+  // Reset videoGenerated when starting new generation or going back to step 1
   useEffect(() => {
     if (isGeneratingVideo) {
       setVideoGenerated(false);
     }
   }, [isGeneratingVideo]);
 
+  // Reset videoGenerated when user goes back to step 1 (Start Over)
+  useEffect(() => {
+    if (multiStepState.currentStep === 1 && !multiStepState.generatedScript && !multiStepState.finalScript) {
+      setVideoGenerated(false);
+    }
+  }, [multiStepState.currentStep, multiStepState.generatedScript, multiStepState.finalScript]);
+
   // Monitor video generation completion
+  // Only set videoGenerated to true for NEW generations, not restored results
   useEffect(() => {
     if (result?.success && result.video_id) {
-      setVideoGenerated(true);
-      // Keep the checkmark visible - don't reset it
-      // The page will redirect to editor anyway
+      // Only mark as generated if we just finished generating (isGeneratingVideo was true)
+      // Don't mark restored results from localStorage as "just generated"
+      if (!videoGenerated && (isGeneratingVideo || wasGeneratingVideo.current)) {
+        setVideoGenerated(true);
+        wasGeneratingVideo.current = false; // Reset flag
+      }
+    } else if (!result?.success || !result?.video_id) {
+      // Reset videoGenerated if there's no valid result
+      setVideoGenerated(false);
     }
-  }, [result]);
+  }, [result, videoGenerated, isGeneratingVideo]);
+
+  // Track if we were generating to distinguish from restored results
+  const wasGeneratingVideo = useRef(false);
+  useEffect(() => {
+    if (isGeneratingVideo) {
+      wasGeneratingVideo.current = true;
+    }
+  }, [isGeneratingVideo]);
 
   // Determine active tab from URL
   const getActiveTab = () => {
@@ -203,7 +231,7 @@ export function ScriptToVideoPage() {
         isGenerating={isGenerating || isLocalGenerating}
         isEditing={isEditing}
         error={error}
-        onClearResults={clearResults}
+        onClearResults={handleClearResults}
       />
     );
   };
