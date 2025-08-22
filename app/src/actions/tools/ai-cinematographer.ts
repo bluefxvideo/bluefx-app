@@ -144,14 +144,14 @@ export async function executeAICinematographer(
           batch_id,
           generation_time_ms: Date.now() - startTime,
           credits_used: 0,
-          remaining_credits: creditCheck.credits || 0,
+          remaining_credits: currentCredits,
         };
       }
     }
 
     // Handle different workflow intents
     if (request.workflow_intent === 'generate') {
-      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total);
+      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total, creditCheck.credits || 0);
     } else if (request.workflow_intent === 'audio_add') {
       return await handleAudioIntegration(request, batch_id, startTime, creditCosts.total);
     }
@@ -186,35 +186,70 @@ async function handleVideoGeneration(
   batch_id: string,
   startTime: number,
   referenceImageUrl: string | undefined,
-  creditCost: number
+  creditCost: number,
+  currentCredits: number
 ): Promise<CinematographerResponse> {
   try {
     // Create video generation prediction using Kling v1.6 parameters
-    const prediction = await createVideoGenerationPrediction({
-      prompt: request.prompt,
-      start_image: referenceImageUrl, // Use start_image instead of image for Kling
-      duration: request.duration && [5, 10].includes(request.duration) ? request.duration as (5 | 10) : 5, // Kling only accepts 5 or 10 seconds
-      aspect_ratio: request.aspect_ratio || '16:9',
-      cfg_scale: 0.5, // Kling flexibility parameter
-      webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates
-    });
+    let prediction;
+    try {
+      prediction = await createVideoGenerationPrediction({
+        prompt: request.prompt,
+        start_image: referenceImageUrl, // Use start_image instead of image for Kling
+        duration: request.duration && [5, 10].includes(request.duration) ? request.duration as (5 | 10) : 5, // Kling only accepts 5 or 10 seconds
+        aspect_ratio: request.aspect_ratio || '16:9',
+        cfg_scale: 0.5, // Kling flexibility parameter
+        webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates
+      });
+    } catch (error) {
+      console.error('Error creating prediction record:', error);
+      
+      // Handle content moderation failures (E005) and other Replicate errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown prediction error';
+      
+      // Check for common content moderation patterns
+      if (errorMessage.includes('flagged') || errorMessage.includes('sensitive') || errorMessage.includes('E005')) {
+        return {
+          success: false,
+          error: 'Content was flagged as sensitive. Please try with different prompts or images.',
+          batch_id,
+          generation_time_ms: Date.now() - startTime,
+          credits_used: 0,
+          remaining_credits: currentCredits,
+        };
+      }
+      
+      return {
+        success: false,
+        error: `Video generation failed: ${errorMessage}`,
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: creditCheck.credits || 0,
+      };
+    }
 
     // Create prediction tracking record
-    await createPredictionRecord({
-      prediction_id: prediction.id,
-      user_id: request.user_id,
-      tool_id: 'ai-cinematographer',
-      service_id: 'replicate',
-      model_version: 'kling-v1.6-standard',
-      status: 'planning',
-      input_data: {
-        prompt: request.prompt,
-        duration: request.duration || 4,
-        aspect_ratio: request.aspect_ratio || '16:9',
-        motion_scale: request.motion_scale || 1.0,
-        reference_image: referenceImageUrl
-      } as Json,
-    });
+    try {
+      await createPredictionRecord({
+        prediction_id: prediction.id,
+        user_id: request.user_id,
+        tool_id: 'ai-cinematographer',
+        service_id: 'replicate',
+        model_version: 'kling-v1.6-standard',
+        status: 'planning',
+        input_data: {
+          prompt: request.prompt,
+          duration: request.duration || 4,
+          aspect_ratio: request.aspect_ratio || '16:9',
+          motion_scale: request.motion_scale || 1.0,
+          reference_image: referenceImageUrl
+        } as Json,
+      });
+    } catch (error) {
+      console.error('Error creating prediction tracking record:', error);
+      // Continue anyway - the prediction was created successfully
+    }
 
     // Store video record in database
     const storeResult = await storeCinematographerResults({

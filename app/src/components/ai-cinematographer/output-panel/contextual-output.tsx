@@ -61,8 +61,8 @@ export function ContextualOutput({
     >
       <CinematographerOutput
         result={result}
-        isGenerating={false}
-        error={undefined}
+        isGenerating={isGenerating}
+        error={error}
         onClearResults={onClearResults}
         activeTab={activeTab}
       />

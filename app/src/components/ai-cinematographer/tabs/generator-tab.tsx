@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
+import Image from 'next/image';
 
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
@@ -94,24 +95,31 @@ export function GeneratorTab({
               id="reference-upload"
               disabled={isGenerating}
             />
-            <label htmlFor="reference-upload" className="cursor-pointer space-y-2 block">
+            <label htmlFor="reference-upload" className="cursor-pointer block">
               {formData.reference_image ? (
-                <div className="space-y-1">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg mx-auto flex items-center justify-center">
-                    <Upload className="w-4 h-4 text-blue-600" />
+                <div className="space-y-3">
+                  <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden bg-muted">
+                    <Image
+                      src={URL.createObjectURL(formData.reference_image)}
+                      alt="Reference style image"
+                      fill
+                      className="object-cover"
+                    />
                   </div>
-                  <p className="text-sm font-medium text-blue-600">
-                    {formData.reference_image.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Click to change</p>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-primary">
+                      {formData.reference_image.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Click to change style reference</p>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-1">
-                  <div className="w-8 h-8 bg-muted rounded-lg mx-auto flex items-center justify-center">
-                    <Upload className="w-4 h-4 text-muted-foreground" />
+                <div className="flex flex-col items-center gap-2 py-4">
+                  <Upload className="w-6 h-6 text-muted-foreground" />
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Drop image or click to upload</p>
+                    <p className="text-xs text-muted-foreground">Style reference for generation</p>
                   </div>
-                  <p className="text-sm">Drop image or click to upload</p>
-                  <p className="text-xs text-muted-foreground">Style reference for generation</p>
                 </div>
               )}
             </label>
