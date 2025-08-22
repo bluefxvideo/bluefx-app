@@ -15,9 +15,9 @@ import { Json } from '@/types/database';
 export interface CinematographerRequest {
   prompt: string;
   reference_image?: File | null;
-  duration?: number; // 2-8 seconds
+  duration?: 5 | 10; // Kling only accepts 5 or 10 seconds
   aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
-  motion_scale?: number; // 0-2
+  motion_scale?: number; // 0-2 (deprecated - use cfg_scale instead)
   workflow_intent: 'generate' | 'audio_add';
   audio_file?: File | null;
   user_id: string;
@@ -193,7 +193,7 @@ async function handleVideoGeneration(
     const prediction = await createVideoGenerationPrediction({
       prompt: request.prompt,
       start_image: referenceImageUrl, // Use start_image instead of image for Kling
-      duration: request.duration || 5, // Kling default is 5 seconds
+      duration: request.duration && [5, 10].includes(request.duration) ? request.duration as (5 | 10) : 5, // Kling only accepts 5 or 10 seconds
       aspect_ratio: request.aspect_ratio || '16:9',
       cfg_scale: 0.5, // Kling flexibility parameter
       webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates

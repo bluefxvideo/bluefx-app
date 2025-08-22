@@ -9,7 +9,7 @@
 
 interface VideoGenerationV1Input {
   prompt: string; // Text prompt for video generation (required)
-  duration?: number; // Duration of the video in seconds (default: 5)
+  duration?: 5 | 10; // Duration of the video in seconds (only 5 or 10 allowed)
   cfg_scale?: number; // Flexibility in video generation (default: 0.5)
   start_image?: string; // First frame of the video (optional)
   aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3' | '3:4'; // Aspect ratio (default: "16:9")
@@ -58,7 +58,7 @@ export async function createVideoGenerationPrediction(
         version: 'ad7e130132a2ae0c815fb3a5d31d897530cda5860e5f464f5eef48efd9ee8b4b', // Kling v1.6 Standard
         input: {
           prompt: params.prompt,
-          duration: params.duration || 5,
+          duration: params.duration && [5, 10].includes(params.duration) ? params.duration : 5, // Validate duration: only 5 or 10
           cfg_scale: params.cfg_scale || 0.5,
           aspect_ratio: params.aspect_ratio || '16:9',
           ...(params.start_image && { start_image: params.start_image }),
