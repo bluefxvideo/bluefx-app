@@ -108,10 +108,19 @@ export function ScriptToVideoPage() {
   useEffect(() => {
     // Detect transition: was generating -> stopped generating
     if (prevIsGeneratingVideo.current === true && isGeneratingVideo === false) {
+      console.log('🔄 Generation transition detected:', { 
+        result: result, 
+        resultSuccess: result?.success,
+        resultVideoUrl: result?.video_url 
+      });
+      
       // This is the exact moment the loader stops - show checkmark if we have a result
-      if (result?.success) {
+      // Check for either success flag OR presence of video content
+      if (result?.success || result?.video_url || result?.video_id) {
         console.log('🎉 Generation finished! Loader stopped, showing checkmark');
         setVideoGenerated(true);
+      } else {
+        console.log('⚠️ Generation finished but no valid result found');
       }
     }
     
