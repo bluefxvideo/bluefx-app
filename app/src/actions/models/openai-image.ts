@@ -216,7 +216,8 @@ export async function generateLogo(
 }
 
 /**
- * Helper function for logo recreation with optimized settings
+ * Helper function for logo recreation using OpenAI Image Edits API
+ * Based on legacy edge function implementation with gpt-image-1
  */
 export async function recreateLogo(
   referenceImageUrl: string,
@@ -224,27 +225,60 @@ export async function recreateLogo(
   modifications?: string,
   user?: string
 ): Promise<OpenAIImageOutput> {
-  // For recreation, we'll use a combination approach:
-  // 1. Use vision API to analyze the reference image
-  // 2. Generate a new logo based on the analysis
-  
-  let prompt = `Recreate this logo design for "${companyName}" company.`;
-  
-  if (modifications) {
-    prompt += ` Modifications requested: ${modifications}.`;
+  try {
+    console.log(`🎨 OpenAI Logo Recreation: Using Image Edits API for "${companyName}"`);
+    
+    // Build the prompt for recreation
+    const enhancedPrompt = modifications 
+      ? `Recreate this logo with improvements: ${modifications}. Make it professional, clean, and visually appealing.` 
+      : "Recreate this logo with professional quality, clean lines, and improved visual appeal.";
+    
+    console.log(`📝 Recreation prompt: ${enhancedPrompt}`);
+    
+    // First, download the reference image from Supabase
+    const imageResponse = await fetch(referenceImageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch reference image: ${imageResponse.statusText}`);
+    }
+    
+    const imageBlob = await imageResponse.blob();
+    console.log(`📥 Downloaded reference image: ${imageBlob.size} bytes, type: ${imageBlob.type}`);
+
+    // Prepare multipart form data for OpenAI Image Edits API (following legacy approach)
+    const formData = new FormData();
+    formData.append('image', imageBlob, 'image.png');
+    formData.append('model', 'gpt-image-1'); // Using gpt-image-1 like the legacy function
+    formData.append('prompt', enhancedPrompt);
+    formData.append('n', '1');
+    formData.append('size', '1024x1024');
+    
+    if (user) {
+      formData.append('user', user);
+    }
+    
+    console.log('🔄 Sending to OpenAI Image Edits API...');
+    
+    // Call OpenAI Image Edits API
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`OpenAI Image Edits API Error ${response.status}: ${response.statusText} - ${JSON.stringify(errorData)}`);
+    }
+
+    const result = await response.json();
+    console.log(`✅ Recreation completed - Generated ${result.data.length} image(s)`);
+    console.log('🔍 OpenAI response data structure:', JSON.stringify(result.data[0], null, 2));
+    
+    return result;
+  } catch (error) {
+    console.error('recreateLogo error:', error);
+    throw error;
   }
-  
-  prompt += ' Maintain the core visual identity while creating a fresh, high-quality version. Professional logo design with clear typography and scalable vector-style appearance.';
-  
-  // Use DALL-E 3 for high-quality recreation
-  return generateImage({
-    prompt,
-    model: 'dall-e-3',
-    size: '1024x1024',
-    n: 1,
-    quality: 'hd',
-    style: 'vivid',
-    response_format: 'url',
-    user,
-  });
 }

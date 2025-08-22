@@ -182,12 +182,24 @@ export async function generateLogo(
       input_data: request as unknown as Json,
     });
 
-    // Step 6: Process OpenAI Results
-    if (!openAIResult.data?.[0]?.url) {
-      throw new Error('No logo generated in OpenAI response');
+    // Step 6: Process OpenAI Results (handle both url and b64_json formats like legacy)
+    const imageData = openAIResult.data?.[0];
+    if (!imageData) {
+      throw new Error('No image data in OpenAI response');
     }
 
-    const openaiLogoUrl = openAIResult.data[0].url;
+    let openaiLogoUrl;
+    if (imageData.url) {
+      // Direct URL format
+      openaiLogoUrl = imageData.url;
+      console.log(`📥 Using direct URL from OpenAI: ${openaiLogoUrl}`);
+    } else if (imageData.b64_json) {
+      // Base64 format - convert to data URL temporarily for download
+      openaiLogoUrl = `data:image/png;base64,${imageData.b64_json}`;
+      console.log(`📥 Using base64 data from OpenAI (${imageData.b64_json.length} chars)`);
+    } else {
+      throw new Error('No valid image data (url or b64_json) in OpenAI response');
+    }
     console.log(`📥 Downloading and storing OpenAI logo in Supabase Storage`);
 
     // Step 7: Download and Store in Supabase Storage (same pattern as thumbnail machine)
