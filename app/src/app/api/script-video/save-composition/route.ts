@@ -167,7 +167,7 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 /**
- * GET handler to load saved composition
+ * GET handler to load saved composition or forward to editor-data endpoint
  */
 export async function GET(request: NextRequest) {
   try {
@@ -176,13 +176,42 @@ export async function GET(request: NextRequest) {
     const user_id = searchParams.get('user_id');
     const composition_id = searchParams.get('composition_id');
     
-    console.log('📥 Load Composition API:', { video_id, user_id, composition_id });
+    console.log('📥 Save Composition GET:', { video_id, user_id, composition_id });
+    
+    // If this looks like an editor data request (has user_id and video_id but no composition_id),
+    // forward to the editor-data endpoint
+    if (user_id && video_id && !composition_id) {
+      console.log('🔄 Forwarding to editor-data endpoint');
+      
+      try {
+        // Import the editor-data route handler
+        const editorDataModule = await import('../editor-data/route');
+        return await editorDataModule.GET(request);
+      } catch (error) {
+        console.error('❌ Error forwarding to editor-data:', error);
+        
+        const errorResponse = NextResponse.json({
+          success: false,
+          error: 'Failed to load video data',
+          details: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
+        
+        errorResponse.headers.set('Access-Control-Allow-Origin', 'https://editor.bluefx.net');
+        errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        
+        return errorResponse;
+      }
+    }
     
     if (!user_id) {
-      return NextResponse.json({ 
+      const errorResponse = NextResponse.json({ 
         success: false, 
         error: 'User ID is required' 
       }, { status: 400 });
+      
+      errorResponse.headers.set('Access-Control-Allow-Origin', 'https://editor.bluefx.net');
+      return errorResponse;
     }
     
     let query = supabase
@@ -208,11 +237,14 @@ export async function GET(request: NextRequest) {
     }
     
     if (!data) {
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         data: null,
         message: 'No saved composition found'
       });
+      
+      response.headers.set('Access-Control-Allow-Origin', 'https://editor.bluefx.net');
+      return response;
     }
     
     console.log('✅ Composition loaded successfully:', data.id);
