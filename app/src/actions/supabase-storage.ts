@@ -188,6 +188,140 @@ export async function downloadAndUploadImage(
 }
 
 /**
+ * Download and upload video to Supabase Storage
+ * Used for AI Cinematographer video results
+ */
+export async function downloadAndUploadVideo(
+  videoUrl: string,
+  toolType: string = 'ai-cinematographer',
+  uniqueId?: string,
+  options: UploadImageOptions = {}
+): Promise<UploadImageResult> {
+  try {
+    console.log(`Downloading video from: ${videoUrl}`);
+    
+    // Download video
+    const response = await fetch(videoUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download video: ${response.status} ${response.statusText}`);
+    }
+    const videoBlob = await response.blob();
+    
+    // Generate filename for video
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '');
+    const filename = uniqueId 
+      ? `${toolType}_${uniqueId}_${timestamp}.mp4`
+      : `${toolType}_${timestamp}.mp4`;
+    
+    // Upload to videos bucket
+    return await uploadVideoToStorage(videoBlob, {
+      ...options,
+      filename,
+      contentType: videoBlob.type || 'video/mp4',
+    });
+  } catch (error) {
+    console.error('downloadAndUploadVideo error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Video download/upload failed',
+    };
+  }
+}
+
+/**
+ * Upload video file to Supabase Storage and return public URL
+ * Used for AI Cinematographer and other video tools
+ */
+export async function uploadVideoToStorage(
+  videoData: string | File | Blob,
+  options: UploadImageOptions = {}
+): Promise<UploadImageResult> {
+  try {
+    // Use admin client for server-side uploads to bypass RLS policies
+    const supabase = createAdminClient();
+    
+    const {
+      bucket = 'videos',
+      folder = 'cinematographer',
+      filename,
+      contentType = 'video/mp4',
+      upsert = true
+    } = options;
+
+    // Generate filename if not provided
+    const finalFilename = filename || `video_${Date.now()}.mp4`;
+    const filePath = `${folder}/${finalFilename}`;
+
+    // Convert different input types to uploadable format
+    let uploadData: File | Blob;
+    let finalContentType = contentType;
+
+    if (typeof videoData === 'string') {
+      throw new Error('String video data not supported - provide File or Blob');
+    } else {
+      // Handle File/Blob directly
+      uploadData = videoData;
+      
+      // Safer type checking for File objects
+      if (typeof File !== 'undefined' && videoData instanceof File) {
+        finalContentType = videoData.type || contentType;
+      } else if (videoData && typeof videoData === 'object' && 'type' in videoData) {
+        finalContentType = (videoData as any).type || contentType;
+      }
+    }
+
+    console.log(`Uploading video to storage: ${bucket}/${filePath}`, {
+      contentType: finalContentType,
+      dataSize: uploadData.size,
+      upsert
+    });
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, uploadData, {
+        contentType: finalContentType,
+        upsert
+      });
+
+    if (error) {
+      console.error('Supabase Storage upload error:', {
+        message: error.message,
+        bucket,
+        filePath,
+        contentType: finalContentType,
+        dataSize: uploadData.size,
+        error
+      });
+      throw error;
+    }
+
+    console.log('Upload successful:', data);
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    const publicUrl = urlData.publicUrl;
+    console.log(`Video uploaded successfully: ${publicUrl}`);
+
+    return {
+      success: true,
+      url: publicUrl,
+      path: filePath,
+    };
+
+  } catch (error) {
+    console.error('uploadVideoToStorage error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Video upload failed',
+    };
+  }
+}
+
+/**
  * Upload audio file to Supabase Storage and return public URL
  * Used for music generation input audio conditioning
  */

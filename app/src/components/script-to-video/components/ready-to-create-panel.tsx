@@ -1,12 +1,64 @@
 'use client';
 
-import { FileText, Mic, Video } from 'lucide-react';
+import { FileText, Mic, Video, CheckCircle, LucideIcon } from 'lucide-react';
+
+interface StepIndicatorProps {
+  stepNumber: number;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  isCompleted: boolean;
+  isActive: boolean;
+}
+
+function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted, isActive }: StepIndicatorProps) {
+  return (
+    <div className="text-center">
+      <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center ${
+        isCompleted 
+          ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+          : isActive 
+            ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
+            : 'bg-muted border-2 border-muted-foreground/20'
+      }`}>
+        {isCompleted ? (
+          <CheckCircle className="w-6 h-6 text-white" />
+        ) : (
+          <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+        )}
+      </div>
+      <div className={`text-lg font-bold mb-1 ${
+        isCompleted 
+          ? 'text-green-500' 
+          : isActive 
+            ? 'text-blue-500' 
+            : 'text-muted-foreground'
+      }`}>
+        {stepNumber}
+      </div>
+      <p className={`text-sm font-medium ${isActive || isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+        {title}
+      </p>
+      <p className="text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+interface ReadyToCreatePanelProps {
+  currentStep?: number;
+  scriptGenerated?: boolean;
+  voiceSelected?: boolean;
+}
 
 /**
  * Ready to Create Panel - Welcome state for Script-to-Video
- * Matches the exact styling of Talking Avatar's welcome panel
+ * Shows dynamic step completion based on current progress
  */
-export function ReadyToCreatePanel() {
+export function ReadyToCreatePanel({ 
+  currentStep = 1, 
+  scriptGenerated = false, 
+  voiceSelected = false 
+}: ReadyToCreatePanelProps) {
   return (
     <div className="h-full flex flex-col items-center justify-center text-center p-8">
       <div className="w-16 h-16 mb-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
@@ -19,32 +71,32 @@ export function ReadyToCreatePanel() {
       </p>
 
       <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-            <FileText className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-lg font-bold text-blue-500 mb-1">1</div>
-          <p className="text-sm font-medium">Create Script</p>
-          <p className="text-xs text-muted-foreground">Generate from idea or write your own</p>
-        </div>
+        <StepIndicator
+          stepNumber={1}
+          title="Create Script"
+          description="Generate from idea or write your own"
+          icon={FileText}
+          isCompleted={scriptGenerated}
+          isActive={currentStep === 1 && !scriptGenerated}
+        />
         
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-            <Mic className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-lg font-bold text-blue-500 mb-1">2</div>
-          <p className="text-sm font-medium">Choose Voice</p>
-          <p className="text-xs text-muted-foreground">Select AI voice and speaking style</p>
-        </div>
+        <StepIndicator
+          stepNumber={2}
+          title="Choose Voice"
+          description="Select AI voice and speaking style"
+          icon={Mic}
+          isCompleted={voiceSelected}
+          isActive={currentStep === 2 || (currentStep === 3 && !voiceSelected)}
+        />
         
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-            <Video className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-lg font-bold text-blue-500 mb-1">3</div>
-          <p className="text-sm font-medium">Generate Assets</p>
-          <p className="text-xs text-muted-foreground">AI creates images and assembles video</p>
-        </div>
+        <StepIndicator
+          stepNumber={3}
+          title="Generate Assets"
+          description="AI creates images and assembles video"
+          icon={Video}
+          isCompleted={false}
+          isActive={currentStep === 3 && voiceSelected}
+        />
       </div>
     </div>
   );

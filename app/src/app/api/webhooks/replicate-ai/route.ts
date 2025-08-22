@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { downloadAndUploadImage } from '@/actions/supabase-storage';
+import { downloadAndUploadImage, downloadAndUploadVideo } from '@/actions/supabase-storage';
 import { 
   updatePredictionRecord, 
   storeThumbnailResults, 
@@ -149,12 +149,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log(`🧠 AI Analysis: Tool=${aiAnalysis.tool_type}, Strategy=${aiAnalysis.processing_strategy}`);
 
     // Update prediction record with enhanced tracking
-    await updatePredictionRecord(payload.id, {
-      status: payload.status,
-      output_data: payload.output as Json,
-      completed_at: payload.completed_at,
-      logs: payload.logs,
-    });
+    try {
+      await updatePredictionRecord(payload.id, {
+        status: payload.status,
+        output_data: payload.output as Json,
+        completed_at: payload.completed_at,
+        logs: payload.logs,
+      });
+    } catch (predictionError) {
+      console.error('Prediction update error:', predictionError);
+    }
 
     // AI Decision: Route to appropriate processing strategy
     if (payload.status === 'succeeded' && payload.output) {
@@ -606,8 +610,8 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
   console.log(`🎬 Video Processing: AI Cinematographer`);
   
   try {
-    // Download and upload video to our storage
-    const uploadResult = await downloadAndUploadImage(
+    // Download and upload video to our storage using proper video upload function
+    const uploadResult = await downloadAndUploadVideo(
       videoUrl as string, 
       'ai-cinematographer', 
       `video_${payload.id}`
@@ -622,7 +626,7 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
       const { data: videoRecords } = await supabase
         .from('cinematographer_videos')
         .select('id')
-        .contains('metadata', { prediction_id: payload.id });
+        .contains('settings', { prediction_id: payload.id });
       
       if (videoRecords && videoRecords.length > 0) {
         const videoId = videoRecords[0].id;

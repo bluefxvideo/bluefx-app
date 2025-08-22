@@ -166,7 +166,13 @@ export function ScriptToVideoPage() {
 
     // Show welcome panel for generate tab when idle
     if (activeTab === 'generate') {
-      return <ReadyToCreatePanel />;
+      return (
+        <ReadyToCreatePanel 
+          currentStep={multiStepState.currentStep}
+          scriptGenerated={!!multiStepState.generatedScript || !!multiStepState.finalScript}
+          voiceSelected={voiceSelected}
+        />
+      );
     }
 
     // Show contextual output for other tabs (editor, history)
