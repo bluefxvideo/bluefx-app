@@ -942,26 +942,7 @@ async function executeTitlesOnlyWorkflow(
       }
     );
 
-    // Store in database (simplified record for titles)
-    await storeThumbnailResults([{
-      user_id: request.user_id,
-      prompt: topic,
-      image_urls: [], // No images for titles-only
-      dimensions: 'square', // Use default value for non-image generation
-      height: 1, // Use positive value to satisfy constraint
-      width: 1, // Use positive value to satisfy constraint
-      model_name: 'gpt-4o-mini',
-      model_version: 'openai-chat',
-      batch_id,
-      generation_settings: request as unknown as Json,
-      metadata: {
-        type: 'titles-only',
-        titles,
-        title_count: titles.length,
-        title_style: request.title_style,
-        target_keywords: request.target_keywords
-      }
-    }]);
+    // Note: Titles-only operations are excluded from history as they don't generate images
 
     const generation_time_ms = Date.now() - startTime;
     console.log(`✅ Titles workflow completed in ${generation_time_ms}ms`);

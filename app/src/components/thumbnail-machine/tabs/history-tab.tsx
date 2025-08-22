@@ -14,8 +14,7 @@ export function HistoryTab({ onFiltersChange }: HistoryTabProps) {
   const thumbnailToolTypes = [
     { value: 'thumbnail', label: 'Thumbnail Generator' },
     { value: 'face-swap', label: 'Face Swap' },
-    { value: 'recreate', label: 'Recreate' },
-    { value: 'titles', label: 'Title Generator' }
+    { value: 'recreate', label: 'Recreate' }
   ];
 
   return (

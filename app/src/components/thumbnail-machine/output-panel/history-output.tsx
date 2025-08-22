@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Clock, History, Loader2, AlertCircle } from 'lucide-react';
-import { fetchUserThumbnailHistory, ThumbnailHistoryItem } from '@/actions/tools/get-thumbnail-history';
+import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2 } from 'lucide-react';
+import { fetchUserThumbnailHistory, deleteHistoryItem, ThumbnailHistoryItem } from '@/actions/tools/get-thumbnail-history';
 import Image from 'next/image';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
@@ -24,6 +24,7 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
   const [filteredHistory, setFilteredHistory] = useState<ThumbnailHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
 
   // Fetch history on component mount and when refresh is triggered
   useEffect(() => {
@@ -126,6 +127,34 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
     }
   };
 
+  const handleDelete = async (itemId: string) => {
+    setDeletingItems(prev => new Set([...prev, itemId]));
+    
+    try {
+      const result = await deleteHistoryItem(itemId);
+      
+      if (result.success) {
+        // Remove item from local state
+        setHistory(prev => prev.filter(item => item.id !== itemId));
+        // Close expanded view if this item was selected
+        if (selectedHistory === itemId) {
+          setSelectedHistory(null);
+        }
+      } else {
+        setError(result.error || 'Failed to delete item');
+      }
+    } catch (err) {
+      console.error('Error deleting item:', err);
+      setError('Failed to delete item');
+    } finally {
+      setDeletingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
+  };
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'thumbnail': return 'bg-blue-100 text-blue-600';
@@ -215,7 +244,7 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
     <div className="h-full flex flex-col">
       {/* History Grid */}
       <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
           {filteredHistory.map((item) => (
             <Card 
               key={item.id} 
@@ -291,6 +320,23 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
                     <Button variant="ghost" size="sm" className="h-6 px-2 justify-start">
                       <Download className="w-3 h-3 mr-1" />
                       <span className="text-sm">Download</span>
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 px-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item.id);
+                      }}
+                      disabled={deletingItems.has(item.id)}
+                    >
+                      {deletingItems.has(item.id) ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3 h-3 mr-1" />
+                      )}
+                      <span className="text-sm">Delete</span>
                     </Button>
                   </div>
                 </div>

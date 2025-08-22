@@ -1,6 +1,6 @@
 'use server';
 
-import { getThumbnailHistory } from '../database/thumbnail-database';
+import { getThumbnailHistory, deleteThumbnailResult } from '../database/thumbnail-database';
 import { createClient } from '@/app/supabase/server';
 
 export interface ThumbnailHistoryItem {
@@ -97,6 +97,48 @@ export async function fetchUserThumbnailHistory(): Promise<{
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch history',
+    };
+  }
+}
+
+/**
+ * Delete a thumbnail history item
+ */
+export async function deleteHistoryItem(itemId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    // Get authenticated user
+    const supabase = await createClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return {
+        success: false,
+        error: 'User not authenticated',
+      };
+    }
+
+    // Delete the item
+    const deleteResult = await deleteThumbnailResult(user.id, itemId);
+
+    if (!deleteResult.success) {
+      return {
+        success: false,
+        error: deleteResult.error || 'Failed to delete item',
+      };
+    }
+
+    return {
+      success: true,
+    };
+
+  } catch (error) {
+    console.error('deleteHistoryItem error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete item',
     };
   }
 }

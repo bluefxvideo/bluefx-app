@@ -62,6 +62,45 @@ interface GenerationMetrics {
 }
 
 /**
+ * Delete a thumbnail result from database
+ */
+export async function deleteThumbnailResult(
+  userId: string,
+  resultId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from('generated_images')
+      .delete()
+      .eq('id', resultId)
+      .eq('user_id', userId); // Ensure users can only delete their own results
+
+    if (error) {
+      console.error('Database delete error:', error);
+      return {
+        success: false,
+        error: `Failed to delete result: ${error.message}`,
+      };
+    }
+
+    console.log(`Deleted thumbnail result ${resultId} for user ${userId}`);
+    
+    return {
+      success: true,
+    };
+
+  } catch (error) {
+    console.error('deleteThumbnailResult error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Database deletion failed',
+    };
+  }
+}
+
+/**
  * Store generated thumbnail results in database
  */
 export async function storeThumbnailResults(
@@ -270,40 +309,6 @@ export async function getThumbnailHistory(
   }
 }
 
-/**
- * Delete thumbnail result
- */
-export async function deleteThumbnailResult(
-  imageId: string,
-  userId: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = await createClient();
-
-    const { error } = await supabase
-      .from('generated_images')
-      .delete()
-      .eq('id', imageId)
-      .eq('user_id', userId); // Ensure user can only delete their own images
-
-    if (error) {
-      console.error('Delete error:', error);
-      return {
-        success: false,
-        error: `Failed to delete thumbnail: ${error.message}`,
-      };
-    }
-
-    return { success: true };
-
-  } catch (error) {
-    console.error('deleteThumbnailResult error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Delete failed',
-    };
-  }
-}
 
 /**
  * Get user credit balance
