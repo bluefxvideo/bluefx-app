@@ -172,21 +172,36 @@ export async function OPTIONS(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const video_id = searchParams.get('video_id');
-    const user_id = searchParams.get('user_id');
+    const video_id = searchParams.get('video_id') || searchParams.get('videoId');
+    const user_id = searchParams.get('user_id') || searchParams.get('userId');
     const composition_id = searchParams.get('composition_id');
     
-    console.log('📥 Save Composition GET:', { video_id, user_id, composition_id });
+    console.log('📥 Save Composition GET:', { video_id, user_id, composition_id, allParams: Object.fromEntries(searchParams) });
     
     // If this looks like an editor data request (has user_id and video_id but no composition_id),
     // forward to the editor-data endpoint
     if (user_id && video_id && !composition_id) {
-      console.log('🔄 Forwarding to editor-data endpoint');
+      console.log('🔄 Forwarding to editor-data endpoint with params:', { user_id, video_id });
       
       try {
+        // Create a new URL with the correct parameter names for editor-data
+        const editorDataUrl = new URL(request.url);
+        editorDataUrl.pathname = '/api/script-video/editor-data';
+        editorDataUrl.searchParams.set('userId', user_id);
+        editorDataUrl.searchParams.set('videoId', video_id);
+        // Remove old parameter names
+        editorDataUrl.searchParams.delete('user_id');
+        editorDataUrl.searchParams.delete('video_id');
+        
+        // Create new request with corrected URL
+        const newRequest = new NextRequest(editorDataUrl, {
+          method: 'GET',
+          headers: request.headers,
+        });
+        
         // Import the editor-data route handler
         const editorDataModule = await import('../editor-data/route');
-        return await editorDataModule.GET(request);
+        return await editorDataModule.GET(newRequest);
       } catch (error) {
         console.error('❌ Error forwarding to editor-data:', error);
         
