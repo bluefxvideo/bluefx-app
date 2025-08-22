@@ -604,20 +604,47 @@ async function executeFaceSwapOnlyWorkflow(
       sourceImageUrl = sourceUpload.url;
     }
 
-    // Upload target image
+    // Handle target image with aspect ratio consideration
     let targetImageUrl: string;
-    if (typeof request.face_swap.target_image === 'string' && request.face_swap.target_image.startsWith('http')) {
-      targetImageUrl = request.face_swap.target_image;
-    } else {
-      const targetUpload = await uploadImageToStorage(request.face_swap.target_image, {
-        folder: 'face-swap/target',
-        filename: `target_${batch_id}.png`,
-        bucket: 'images'
+    
+    // If aspect ratio is specified and different from default, generate a new base image
+    if (request.aspect_ratio && request.aspect_ratio !== '16:9') {
+      console.log(`🎨 Generating base thumbnail with aspect ratio: ${request.aspect_ratio}`);
+      
+      // Create a base thumbnail with the desired aspect ratio
+      const baseThumbnailPrediction = await createIdeogramV2aPrediction({
+        prompt: 'professional headshot, clean background, high quality portrait',
+        aspect_ratio: request.aspect_ratio,
+        style_type: 'Realistic',
+        magic_prompt_option: 'On'
       });
-      if (!targetUpload.success || !targetUpload.url) {
-        throw new Error('Failed to upload target image');
+
+      if (!baseThumbnailPrediction.id) {
+        throw new Error('Failed to create base thumbnail prediction');
       }
-      targetImageUrl = targetUpload.url;
+
+      // Wait for completion
+      const completedBasePrediction = await waitForIdeogramV2aCompletion(baseThumbnailPrediction.id);
+      if (!completedBasePrediction.output || !completedBasePrediction.output[0]) {
+        throw new Error('Base thumbnail generation failed');
+      }
+
+      targetImageUrl = completedBasePrediction.output[0];
+    } else {
+      // Use the uploaded target image as-is
+      if (typeof request.face_swap.target_image === 'string' && request.face_swap.target_image.startsWith('http')) {
+        targetImageUrl = request.face_swap.target_image;
+      } else {
+        const targetUpload = await uploadImageToStorage(request.face_swap.target_image, {
+          folder: 'face-swap/target',
+          filename: `target_${batch_id}.png`,
+          bucket: 'images'
+        });
+        if (!targetUpload.success || !targetUpload.url) {
+          throw new Error('Failed to upload target image');
+        }
+        targetImageUrl = targetUpload.url;
+      }
     }
 
     // Perform face swap

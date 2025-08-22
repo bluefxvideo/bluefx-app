@@ -69,7 +69,7 @@ export function ResultsGrid({
           <Image
             src={displayThumbnail?.url || displayFaceSwapped?.url || ''}
             alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 bg-secondary/10"
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
