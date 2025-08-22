@@ -82,16 +82,21 @@ export function ScriptToVideoPage() {
     loadUser();
   }, [initializeUser, loadExistingResults, pathname]);
 
+  // Reset videoGenerated when starting new generation
+  useEffect(() => {
+    if (isGeneratingVideo) {
+      setVideoGenerated(false);
+    }
+  }, [isGeneratingVideo]);
+
   // Monitor video generation completion
   useEffect(() => {
-    if (result?.success && result.video_id && !videoGenerated) {
+    if (result?.success && result.video_id) {
       setVideoGenerated(true);
-      // Reset after 3 seconds so user can see the checkmark
-      setTimeout(() => {
-        setVideoGenerated(false);
-      }, 3000);
+      // Keep the checkmark visible - don't reset it
+      // The page will redirect to editor anyway
     }
-  }, [result, videoGenerated]);
+  }, [result]);
 
   // Determine active tab from URL
   const getActiveTab = () => {

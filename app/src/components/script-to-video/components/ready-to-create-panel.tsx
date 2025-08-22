@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Mic, Video, CheckCircle, LucideIcon, Clapperboard, Sparkles, Zap } from 'lucide-react';
+import { FileText, Mic, Video, CheckCircle, LucideIcon, Clapperboard, Sparkles, Zap, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface StepIndicatorProps {
@@ -10,9 +10,10 @@ interface StepIndicatorProps {
   icon: LucideIcon;
   isCompleted: boolean;
   isActive: boolean;
+  isLoading?: boolean;
 }
 
-function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted, isActive }: StepIndicatorProps) {
+function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted, isActive, isLoading }: StepIndicatorProps) {
   return (
     <div className="text-center">
       <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center ${
@@ -24,6 +25,8 @@ function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted
       }`}>
         {isCompleted ? (
           <CheckCircle className="w-6 h-6 text-white" />
+        ) : isLoading ? (
+          <Loader2 className="w-6 h-6 text-white animate-spin" />
         ) : (
           <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
         )}
@@ -73,35 +76,33 @@ export function ReadyToCreatePanel({
   
   // Handle step 3 completion and transition to orchestration
   useEffect(() => {
-    if (isGeneratingVideo && !step3Completed) {
-      // Mark step 3 as completed immediately
-      setStep3Completed(true);
+    if (isGeneratingVideo) {
+      // Don't mark as completed while still generating
+      setStep3Completed(false);
       
-      // After 2 seconds, hide the steps
+      // After 2 seconds, hide the steps to show orchestration progress
       setTimeout(() => {
         setHideSteps(true);
       }, 2000);
     }
-  }, [isGeneratingVideo, step3Completed]);
+  }, [isGeneratingVideo]);
 
-  // Handle video generation completion - show step 3 checkmark briefly
+  // Handle video generation completion
   useEffect(() => {
-    if (videoGenerated && !step3Completed) {
+    if (videoGenerated) {
+      // Mark step 3 as completed when video is done
       setStep3Completed(true);
-      // Keep the checkmark visible for 2 seconds
-      setTimeout(() => {
-        setStep3Completed(false);
-      }, 2000);
+      setHideSteps(false); // Show the steps with checkmark
     }
-  }, [videoGenerated, step3Completed]);
+  }, [videoGenerated]);
 
-  // Reset states when not generating
+  // Reset states when starting fresh
   useEffect(() => {
-    if (!isGeneratingVideo) {
+    if (!isGeneratingVideo && !videoGenerated) {
       setStep3Completed(false);
       setHideSteps(false);
     }
-  }, [isGeneratingVideo]);
+  }, [isGeneratingVideo, videoGenerated]);
 
   // Show orchestration progress
   if (showOrchestrationProgress || (isGeneratingVideo && hideSteps)) {
@@ -127,6 +128,7 @@ export function ReadyToCreatePanel({
           icon={FileText}
           isCompleted={scriptGenerated}
           isActive={currentStep === 1}
+          isLoading={isGeneratingScript && currentStep === 1}
         />
         
         <StepIndicator
@@ -136,6 +138,7 @@ export function ReadyToCreatePanel({
           icon={Mic}
           isCompleted={voiceSelected}
           isActive={currentStep === 2}
+          isLoading={false}
         />
         
         <StepIndicator
@@ -143,8 +146,9 @@ export function ReadyToCreatePanel({
           title="Generate Assets"
           description="AI creates images and assembles video"
           icon={Video}
-          isCompleted={step3Completed || (isGeneratingVideo && currentStep === 3)}
-          isActive={currentStep === 3 && !step3Completed}
+          isCompleted={step3Completed}
+          isActive={currentStep === 3}
+          isLoading={isGeneratingVideo && currentStep === 3 && !step3Completed}
         />
       </div>
     </div>

@@ -443,7 +443,7 @@ export async function createPredictionRecord(params: {
     const supabase = await createClient();
     
     const { error } = await supabase
-      .from('prediction_logs')
+      .from('ai_predictions')
       .insert({
         prediction_id: params.prediction_id,
         user_id: params.user_id,

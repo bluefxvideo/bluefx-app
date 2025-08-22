@@ -19,7 +19,7 @@ import {
  * State management + orchestrator integration with standardized credit system
  */
 export function useScriptToVideo() {
-  const { credits, refreshCredits } = useCredits(); // Use standardized hook
+  const { credits, refetch: refreshCredits } = useCredits(); // Use standardized hook
   const [user, setUser] = useState<any>(null);
   const [result, setResult] = useState<ScriptToVideoResponse | undefined>();
   const router = useRouter();

@@ -58,9 +58,7 @@ export function ScriptPreviewPanel({
   };
 
   const getMainIcon = () => {
-    if (isGeneratingScript || isGeneratingVoice || isGeneratingVideo) {
-      return <Loader2 className="w-8 h-8 text-white animate-spin" />;
-    }
+    // Never show loading spinner in main icon
     return <Video className="w-8 h-8 text-white" />;
   };
 
@@ -87,7 +85,7 @@ export function ScriptPreviewPanel({
       title: 'Generate Assets',
       description: 'AI creates images and assembles video',
       icon: Video,
-      complete: false, // Never mark as complete during generation
+      complete: false, // Will be marked complete when video is ready
       active: isGeneratingVideo
     }
   ];
