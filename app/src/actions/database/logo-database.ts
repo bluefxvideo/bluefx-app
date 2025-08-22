@@ -48,20 +48,36 @@ export async function storeLogoResults(result: LogoResult): Promise<{ success: b
   try {
     const supabase = await createClient();
 
+    // Map user style preferences to valid database values
+    const styleMapping: Record<string, string> = {
+      'modern': 'realistic',
+      'minimalist': 'realistic',
+      'professional': 'realistic',
+      'vintage': 'artistic',
+      'playful': 'cartoon',
+      'creative': 'artistic',
+    };
+
+    const validImageStyle = styleMapping[result.style] || 'realistic';
+
     const { error } = await supabase
       .from('generated_images')
       .insert({
         user_id: result.user_id,
         prompt: result.company_name,
         image_urls: [result.logo_url],
-        metadata: { company_name: result.company_name, status: result.status },
+        metadata: { 
+          company_name: result.company_name, 
+          status: result.status,
+          original_style: result.style // Store the original style in metadata
+        },
         generation_settings: result.settings,
         model_name: 'logo-generator',
         batch_id: result.batch_id,
-        image_style: result.style,
-        width: 512,
-        height: 512,
-        dimensions: '512x512',
+        image_style: validImageStyle,
+        width: 1024,
+        height: 1024,
+        dimensions: 'square',
         created_at: new Date().toISOString(),
       });
 
@@ -70,7 +86,7 @@ export async function storeLogoResults(result: LogoResult): Promise<{ success: b
       return { success: false, error: error.message };
     }
 
-    console.log(`✅ Logo result stored for company: ${result.company_name}`);
+    console.log(`✅ Logo result stored for company: ${result.company_name} with style: ${validImageStyle}`);
     return { success: true };
 
   } catch (error) {
@@ -167,6 +183,7 @@ export async function recordLogoMetrics(metrics: LogoMetrics): Promise<{ success
 
 /**
  * Get user credits from user_credits table
+ * Handles case where user doesn't exist in credits table
  */
 export async function getUserCredits(user_id: string): Promise<{ success: boolean; credits?: number; error?: string }> {
   try {
@@ -177,6 +194,12 @@ export async function getUserCredits(user_id: string): Promise<{ success: boolea
       .select('available_credits')
       .eq('user_id', user_id)
       .single();
+
+    // If user doesn't exist (PGRST116 = no rows found), return 0 credits
+    if (error && error.code === 'PGRST116') {
+      console.log(`User ${user_id} not found in credits table, will auto-topup on first use`);
+      return { success: true, credits: 0 };
+    }
 
     if (error) {
       console.error('Error getting user credits:', error);
@@ -195,7 +218,9 @@ export async function getUserCredits(user_id: string): Promise<{ success: boolea
 }
 
 /**
- * Deduct credits from user account
+ * Deduct credits for logo generation
+ * Uses Supabase RPC function for atomic credit deduction
+ * Automatically tops up user to 600 credits if they have less than the required amount
  */
 export async function deductCredits(
   user_id: string, 
@@ -206,49 +231,78 @@ export async function deductCredits(
   try {
     const supabase = await createClient();
 
-    // Get current credits
-    const { data: currentData, error: fetchError } = await supabase
+    // First check if user has enough credits
+    const { data: credits, error: creditsError } = await supabase
       .from('user_credits')
-      .select('available_credits')
+      .select('available_credits, period_end')
       .eq('user_id', user_id)
       .single();
 
-    if (fetchError) {
-      return { success: false, error: fetchError.message };
+    if (creditsError && creditsError.code !== 'PGRST116') {
+      console.error('Credits check error:', creditsError);
+      return {
+        success: false,
+        error: `Failed to check credits: ${creditsError.message}`,
+      };
     }
 
-    const currentCredits = currentData?.available_credits || 0;
-    const newCredits = Math.max(0, currentCredits - amount);
+    // If no credits record or available credits < required amount or period expired, top up first
+    const needsTopup = !credits || 
+                      (credits.available_credits < amount) || 
+                      (credits.available_credits < 600) ||
+                      (new Date(credits.period_end) < new Date());
 
-    // Update credits
-    const { error: updateError } = await supabase
-      .from('user_credits')
-      .update({ available_credits: newCredits, updated_at: new Date().toISOString() })
-      .eq('user_id', user_id);
+    if (needsTopup) {
+      console.log(`Auto top-up needed for user ${user_id}. Current credits: ${credits?.available_credits || 0}`);
+      
+      // Top up to 600 credits using RPC function
+      const { data: topupData, error: topupError } = await supabase
+        .rpc('topup_user_credits', {
+          p_user_id: user_id,
+          p_target_credits: 600
+        });
 
-    if (updateError) {
-      return { success: false, error: updateError.message };
+      if (topupError || !topupData?.success) {
+        console.error('Auto top-up failed:', topupError);
+        return {
+          success: false,
+          error: `Auto top-up failed: ${topupError?.message || 'Unknown error'}`,
+        };
+      }
+
+      console.log(`Auto top-up successful. New available credits: ${topupData.available_credits}`);
     }
 
-    // Log credit usage
-    const { error: logError } = await supabase
-      .from('credit_usage')
-      .insert({
-        user_id,
-        credits_used: amount,
-        operation_type: operation,
-        service_type: 'logo_machine',
-        metadata,
-        created_at: new Date().toISOString(),
+    // Now proceed with credit deduction using RPC function
+    const { data, error } = await supabase
+      .rpc('deduct_user_credits', {
+        p_user_id: user_id,
+        p_amount: amount,
+        p_operation: operation,
+        p_metadata: metadata
       });
 
-    if (logError) {
-      console.warn('Failed to log credit usage:', logError);
-      // Don't fail the whole operation for logging issues
+    if (error) {
+      console.error('Credit deduction RPC error:', error);
+      return {
+        success: false,
+        error: `Failed to deduct credits: ${error.message}`,
+      };
     }
 
-    console.log(`💳 Deducted ${amount} credits from user ${user_id}. Remaining: ${newCredits}`);
-    return { success: true, remainingCredits: newCredits };
+    // Check the result from the RPC function
+    if (!data || !data.success) {
+      return {
+        success: false,
+        error: data?.error || 'Credit deduction failed',
+      };
+    }
+
+    console.log(`💳 Deducted ${amount} credits from user ${user_id}. Remaining: ${data.available_credits}`);
+    return { 
+      success: true, 
+      remainingCredits: data.available_credits 
+    };
 
   } catch (error) {
     console.error('deductCredits error:', error);

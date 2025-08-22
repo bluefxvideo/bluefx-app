@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Wand2 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -8,6 +9,7 @@ import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { useLogoMachine } from './hooks/use-logo-machine';
 import { useCredits } from '@/hooks/useCredits';
+import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
 // Tab content components
 import { GeneratorTab } from './tabs/generator-tab';
@@ -22,6 +24,7 @@ import { Wand2 as GenerateIcon, RotateCcw, History } from 'lucide-react';
 export function LogoMachinePage() {
   const pathname = usePathname();
   const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
+  const [historyFilters, setHistoryFilters] = useState<HistoryFilters | undefined>();
   const {
     generate,
     isGenerating,
@@ -74,7 +77,7 @@ export function LogoMachinePage() {
           />
         );
       case 'history':
-        return <HistoryTab />;
+        return <HistoryTab onFiltersChange={setHistoryFilters} />;
       case 'generate':
       default:
         return (
@@ -110,6 +113,7 @@ export function LogoMachinePage() {
             isGenerating={isGenerating}
             error={error}
             onClearResults={clearResults}
+            historyFilters={historyFilters}
           />
         ]}
       </StandardToolLayout>

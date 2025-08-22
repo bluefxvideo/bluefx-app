@@ -64,9 +64,6 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
 
   return (
     <TabContentWrapper>
-      {/* Error Display */}
-      {error && <TabError error={error} />}
-
       {/* Form Sections */}
       <TabBody>
         {/* Step 1: Company Details */}
@@ -156,7 +153,6 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
         >
           {isGenerating ? (
             <>
-              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Recreating Logo...
             </>
           ) : (

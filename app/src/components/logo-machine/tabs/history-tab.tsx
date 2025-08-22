@@ -2,26 +2,25 @@
 
 import { StandardHistoryFilters, HistoryFilters } from '@/components/tools/standard-history-filters';
 
+interface HistoryTabProps {
+  onFiltersChange: (filters: HistoryFilters) => void;
+}
+
 /**
- * History Tab - Left-panel filters only (right panel is handled by ContextualOutput)
+ * History Tab - Uses standardized history filters for logo generation history
  */
-export function HistoryTab() {
+export function HistoryTab({ onFiltersChange }: HistoryTabProps) {
+  // Define logo-specific tool types
   const logoToolTypes = [
     { value: 'logo-design', label: 'Logo Design' },
-    { value: 'brand-kit', label: 'Brand Kit' },
-    { value: 'variations', label: 'Logo Variations' },
-    { value: 'export', label: 'Logo Export' }
+    { value: 'recreate', label: 'Recreate' }
   ];
-
-  const handleFiltersChange = (filters: HistoryFilters) => {
-    console.log('Logo filters changed:', filters);
-  };
 
   return (
     <StandardHistoryFilters
       toolName="Logo Machine"
       toolTypes={logoToolTypes}
-      onFiltersChange={handleFiltersChange}
+      onFiltersChange={onFiltersChange}
     />
   );
 }

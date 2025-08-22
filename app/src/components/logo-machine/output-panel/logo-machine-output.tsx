@@ -1,14 +1,11 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { LogoMachineResponse } from '@/actions/tools/logo-machine';
 import { ResultsGrid } from './results-grid';
-import { LoadingSkeleton } from './loading-skeleton';
-import { ErrorDisplay } from './error-display';
 import { GenerateEmptyState, RecreateEmptyState } from './tab-empty-states';
-import { Download, Trash2, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, Zap } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface LogoMachineOutputProps {
   result?: LogoMachineResponse;
@@ -19,8 +16,8 @@ interface LogoMachineOutputProps {
 }
 
 /**
- * Output Panel - Right side of two-column layout
- * Displays generation results, loading states, and errors
+ * Premium Output Panel with Dribbble-level polish
+ * Enhanced with sophisticated animations, gradients, and micro-interactions
  */
 export function LogoMachineOutput({
   result,
@@ -29,128 +26,146 @@ export function LogoMachineOutput({
   onClearResults,
   activeTab = 'generate'
 }: LogoMachineOutputProps) {
-  // Loading state
+  // Loading state with premium styling
   if (isGenerating) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            <h3 className="font-medium">Generating Logo</h3>
+      <div className="h-full flex flex-col relative overflow-hidden">
+        {/* Solid subtle overlay for consistency with theme */}
+        <div className="absolute inset-0 bg-secondary/20"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center animate-spin">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <div className="absolute inset-0 rounded-full border-2 border-primary/40 animate-ping"></div>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">Creating Your Logo</h3>
+                <p className="text-zinc-400">AI is crafting your brand identity...</p>
+              </div>
+            </div>
+            
+            <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
+              <Clock className="w-3 h-3 mr-1.5" />
+              Processing
+            </Badge>
           </div>
-          <Badge variant="outline" className="bg-primary/20 text-primary-foreground border-primary/30">
-            <Clock className="w-3 h-3 mr-1" />
-            Processing
-          </Badge>
+          
+          {/* Loading skeleton for logo */}
+          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
+            <div className="w-full max-w-2xl">
+              <div className="grid grid-cols-1 gap-3 max-w-md mx-auto">
+                <Card className="group overflow-hidden animate-pulse">
+                  <div className="relative aspect-square bg-gradient-to-br from-zinc-800/50 to-zinc-900/50"></div>
+                </Card>
+              </div>
+            </div>
+          </div>
         </div>
-        <LoadingSkeleton />
       </div>
     );
   }
 
-  // Error state
+  // Error state with centered layout matching empty states
   if (error) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-destructive" />
-            <h3 className="font-medium text-destructive">Generation Failed</h3>
+      <div className="h-full flex flex-col overflow-hidden relative">
+        {/* Subtle animated background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
+        
+        <div className="relative z-10 flex-1 flex flex-col">
+          {/* Centered Error Content Area */}
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div className="w-full max-w-2xl">
+              <Card className="p-8 bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 backdrop-blur-sm text-center">
+                <div className="flex flex-col items-center gap-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/25">
+                    <AlertCircle className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-red-300 mb-2">Generation Failed</h3>
+                    <p className="text-red-400/80 text-base mb-4">Something went wrong during processing</p>
+                    <div className="text-sm text-red-300/70 bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+                      {error}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         </div>
-        <ErrorDisplay error={error} onRetry={() => {}} />
       </div>
     );
   }
 
-  // Success state with results
+  // Success state with centered professional results display
   if (result && result.success) {
     return (
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-primary" />
-            <h3 className="font-medium">Generation Complete</h3>
+      <div className="h-full flex flex-col relative overflow-hidden">
+        {/* Subtle solid overlay */}
+        <div className="absolute inset-0 bg-secondary/20"></div>
+        
+        <div className="relative z-10 h-full flex flex-col">
+          {/* Header now handled by OutputPanelShell */}
+
+          {/* Results Section - Clean and Simple */}
+          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
+            <div className="w-full max-w-2xl">
+              <ResultsGrid
+                thumbnails={result.logo && result.logo.url ? [{ 
+                  id: result.logo.id,
+                  url: result.logo.url,
+                  variation_index: 0,
+                  batch_id: result.logo.batch_id 
+                }] : []}
+                faceSwappedThumbnails={[]}
+                titles={[]} // Remove company name from titles display
+                batchId={result.batch_id}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-primary/20 text-primary-foreground border-primary/30">
-              {result.logo ? 1 : 0} logos
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearResults}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
+
+          {/* Premium Warnings - if any */}
+          {result.warnings && result.warnings.length > 0 && (
+            <div className="px-6 pb-4">
+              <Card className="p-4 bg-yellow-500/10 border border-yellow-500/30 backdrop-blur-sm">
+                <div className="space-y-2">
+                  {result.warnings.map((warning, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                      <p className="text-sm text-yellow-300 font-medium">{warning}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
         </div>
-
-        {/* Generation Stats */}
-        <Card className="p-3 mb-4 bg-muted/30">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-lg font-semibold text-primary">{result.credits_used}</p>
-              <p className="text-xs text-muted-foreground">Credits Used</p>
-            </div>
-            <div>
-              <p className="text-lg font-semibold">{Math.round(result.generation_time_ms / 1000)}s</p>
-              <p className="text-xs text-muted-foreground">Generation Time</p>
-            </div>
-            <div>
-              <p className="text-lg font-semibold">{result.remaining_credits || 0}</p>
-              <p className="text-xs text-muted-foreground">Remaining</p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Warnings */}
-        {result.warnings && result.warnings.length > 0 && (
-          <Card className="p-3 mb-4 bg-yellow-50 border-yellow-200">
-            <div className="space-y-1">
-              {result.warnings.map((warning, index) => (
-                <p key={index} className="text-xs text-yellow-700 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {warning}
-                </p>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Results Grid */}
-        <div className="flex-1 overflow-y-auto">
-          <ResultsGrid
-            thumbnails={result.logo ? [{ ...result.logo, variation_index: 0 }] : []}
-            faceSwappedThumbnails={[]}
-            titles={result.logo ? [result.logo.company_name] : []}
-            batchId={result.batch_id}
-          />
-        </div>
-
-        {/* Download All Button */}
-        {result.logo && (
-          <div className="mt-4 pt-4 border-t">
-            <Button className="w-full bg-primary hover:bg-primary/90 text-white">
-              <Download className="w-4 h-4 mr-2" />
-              Download Logo
-            </Button>
-          </div>
-        )}
       </div>
     );
   }
 
-  // Empty state
+  // Enhanced Empty State with centered layout
   return (
-    <div className="h-full flex flex-col">
-      {activeTab === 'recreate' ? (
-        <RecreateEmptyState />
-      ) : (
-        <GenerateEmptyState />
-      )}
+    <div className="h-full flex flex-col overflow-hidden relative">
+      {/* Subtle animated background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
+      
+      <div className="relative z-10 flex-1 flex flex-col">
+        {/* Centered Content Area */}
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="w-full max-w-2xl">
+            {activeTab === 'recreate' ? (
+              <RecreateEmptyState />
+            ) : (
+              <GenerateEmptyState />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

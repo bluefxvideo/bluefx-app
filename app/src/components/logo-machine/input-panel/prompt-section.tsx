@@ -12,15 +12,9 @@ interface PromptSectionProps {
 export function PromptSection({ value, onChange }: PromptSectionProps) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <MessageSquare className="w-4 h-4 text-muted-foreground" />
-        <Label htmlFor="prompt" className="text-sm font-medium">
-          Prompt
-        </Label>
-      </div>
       <Textarea
         id="prompt"
-        placeholder="Describe your perfect YouTube thumbnail... (e.g., 'Epic gaming moment with shocked expression, bright colors, dramatic lighting')"
+        placeholder="Describe your perfect logo... (e.g., 'Modern tech logo with geometric shapes, clean lines, representing innovation and trust')"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="min-h-[100px] resize-none"

@@ -10,6 +10,7 @@ import { Palette } from 'lucide-react';
 import { LogoMachineRequest } from '@/actions/tools/logo-machine';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
+import { PromptSection } from '../input-panel/prompt-section';
 
 interface GeneratorTabProps {
   onGenerate: (request: LogoMachineRequest) => void;
@@ -25,11 +26,13 @@ interface GeneratorTabProps {
 export function GeneratorTab({ onGenerate, isGenerating, credits, error }: GeneratorTabProps) {
   const [formData, setFormData] = useState<{
     company_name: string;
+    description: string;
     style: string;
     color_scheme: string;
     industry: string;
   }>({
     company_name: '',
+    description: '',
     style: 'modern',
     color_scheme: '',
     industry: ''
@@ -42,6 +45,7 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
 
     const request: LogoMachineRequest = {
       company_name: formData.company_name.trim(),
+      custom_description: formData.description.trim() || undefined,
       style: formData.style as any,
       color_scheme: formData.color_scheme || undefined,
       industry: formData.industry || undefined,
@@ -56,9 +60,6 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
 
   return (
     <TabContentWrapper>
-      {/* Error Display */}
-      {error && <TabError error={error} />}
-
       <TabBody>
         {/* Step 1: Company Details */}
         <StandardStep
@@ -76,7 +77,7 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
                 placeholder="Enter your company name"
                 required
                 disabled={isGenerating}
-                className="bg-muted border-muted-foreground"
+                className="bg-transparent dark:bg-card-content border-input"
               />
             </div>
             
@@ -88,17 +89,29 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
                 onChange={(e) => setFormData(prev => ({ ...prev, industry: e.target.value }))}
                 placeholder="e.g., Technology, Healthcare, Finance"
                 disabled={isGenerating}
-                className="bg-muted border-muted-foreground"
+                className="bg-transparent dark:bg-card-content border-input"
               />
             </div>
           </div>
         </StandardStep>
 
-        {/* Step 2: Style Preferences */}
+        {/* Step 2: Describe Your Logo */}
         <StandardStep
           stepNumber={2}
+          title="Describe Your Logo"
+          description="Tell AI what kind of logo you want (optional)"
+        >
+          <PromptSection
+            value={formData.description}
+            onChange={(description) => setFormData(prev => ({ ...prev, description }))}
+          />
+        </StandardStep>
+
+        {/* Step 3: Style Preferences */}
+        <StandardStep
+          stepNumber={3}
           title="Style Preferences"
-          description="Choose your logo's visual style"
+          description="Choose your logo's visual style (optional)"
         >
           <div className="space-y-4">
             <div className="space-y-2">
@@ -108,7 +121,7 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
                 onValueChange={(value: string) => setFormData(prev => ({ ...prev, style: value }))}
                 disabled={isGenerating}
               >
-                <SelectTrigger className="bg-muted border-muted-foreground">
+                <SelectTrigger className="bg-transparent dark:bg-card-content border-input">
                   <SelectValue placeholder="Select logo style" />
                 </SelectTrigger>
                 <SelectContent>
@@ -130,7 +143,7 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
                 onChange={(e) => setFormData(prev => ({ ...prev, color_scheme: e.target.value }))}
                 placeholder="e.g., Blue and white, Warm colors, Monochrome"
                 disabled={isGenerating}
-                className="bg-muted border-muted-foreground"
+                className="bg-transparent dark:bg-card-content border-input"
               />
             </div>
           </div>
@@ -146,7 +159,6 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
         >
           {isGenerating ? (
             <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
               Generating Logo...
             </>
           ) : (

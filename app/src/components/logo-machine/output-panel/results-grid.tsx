@@ -58,24 +58,21 @@ export function ResultsGrid({
 
   return (
     <div className="space-y-6">
-      {/* Original Thumbnails */}
+      {/* Generated Logo */}
       {thumbnails.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h4 className="font-medium">Generated Thumbnails</h4>
-            <Badge variant="secondary">{thumbnails.length}</Badge>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 max-w-md mx-auto">
             {thumbnails.map((thumbnail) => (
               <Card key={thumbnail.id} className="group overflow-hidden">
-                <div className="relative aspect-video">
-                  <Image
-                    src={thumbnail.url}
-                    alt={`Thumbnail ${thumbnail.variation_index}`}
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative aspect-square">
+                  {thumbnail.url && (
+                    <Image
+                      src={thumbnail.url}
+                      alt="Generated Logo"
+                      fill
+                      className="object-contain p-4"
+                    />
+                  )}
                   
                   {/* Overlay Controls */}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -89,7 +86,7 @@ export function ResultsGrid({
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => downloadImage(thumbnail.url, `thumbnail-${thumbnail.variation_index}.webp`)}
+                      onClick={() => downloadImage(thumbnail.url, `logo-${Date.now()}.png`)}
                     >
                       <Download className="w-4 h-4" />
                     </Button>
@@ -101,13 +98,6 @@ export function ResultsGrid({
                       <Copy className="w-4 h-4" />
                     </Button>
                   </div>
-                  
-                  {/* Variation Badge */}
-                  <div className="absolute top-2 left-2">
-                    <Badge variant="secondary" className="text-xs">
-                      #{thumbnail.variation_index}
-                    </Badge>
-                  </div>
                 </div>
               </Card>
             ))}
@@ -115,91 +105,6 @@ export function ResultsGrid({
         </div>
       )}
 
-      {/* Face Swapped Thumbnails */}
-      {faceSwappedThumbnails.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h4 className="font-medium">Face Swapped</h4>
-            <Badge variant="secondary">{faceSwappedThumbnails.length}</Badge>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            {faceSwappedThumbnails.map((thumbnail, index) => (
-              <Card key={index} className="group overflow-hidden">
-                <div className="relative aspect-video">
-                  <Image
-                    src={thumbnail.url}
-                    alt={`Face swapped thumbnail ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                  
-                  {/* Overlay Controls */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setSelectedImage(thumbnail.url)}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => downloadImage(thumbnail.url, `faceswap-${index + 1}.webp`)}
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => copyToClipboard(thumbnail.url)}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  
-                  {/* Face Swap Badge */}
-                  <div className="absolute top-2 left-2">
-                    <Badge className="text-xs bg-blue-500">
-                      Face Swap
-                    </Badge>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Generated Titles */}
-      {titles.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h4 className="font-medium">YouTube Titles</h4>
-            <Badge variant="secondary">{titles.length}</Badge>
-          </div>
-          
-          <div className="space-y-2">
-            {titles.map((title, index) => (
-              <Card key={index} className="p-3 group">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm flex-1 mr-3">{title}</p>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(title)}
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Image Preview Modal */}
       {selectedImage && (

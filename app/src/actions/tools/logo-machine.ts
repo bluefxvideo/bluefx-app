@@ -1,7 +1,7 @@
 'use server';
 
-import { createIdeogramV3TurboPrediction, waitForIdeogramV3TurboCompletion } from '../models/ideogram-v3-turbo';
-import { uploadImageToStorage } from '../supabase-storage';
+import { generateLogo as generateOpenAILogo, recreateLogo as recreateOpenAILogo } from '../models/openai-image';
+import { uploadImageToStorage, downloadAndUploadImage } from '../supabase-storage';
 import { 
   storeLogoResults, 
   createPredictionRecord, 
@@ -22,6 +22,9 @@ export interface LogoMachineRequest {
   
   // Reference image upload (for recreate functionality)
   reference_image?: string | File; // base64, File object, or URL
+  
+  // Custom description (optional)
+  custom_description?: string; // User's descriptive text about their desired logo
   
   // Logo style and options
   style?: 'modern' | 'minimalist' | 'vintage' | 'playful' | 'professional' | 'creative';
@@ -134,47 +137,77 @@ export async function generateLogo(
       input_data: request as unknown as Json,
     });
 
-    // Step 4: AI Decision - Smart Prompt Construction
-    const logoPrompt = constructLogoPrompt(request, referenceImageUrl);
-    console.log(`📝 AI Prompt: ${logoPrompt}`);
+    // Step 4: AI Decision - OpenAI Logo Generation
+    console.log(`🎨 AI Decision: Generating logo with OpenAI ${request.workflow_intent === 'recreate' ? 'recreation' : 'generation'}`);
     
-    // Step 5: AI Decision - Logo Generation
-    console.log(`🎨 AI Decision: Generating logo with Ideogram V3 Turbo`);
-    
-    const prediction = await createIdeogramV3TurboPrediction({
-      prompt: logoPrompt,
-      aspect_ratio: request.aspect_ratio || '1:1',
-      style_type: 'Design', // Optimal for logo generation
-      magic_prompt_option: 'Auto', // Let Ideogram enhance the prompt
-      seed: request.seed,
-      ...(referenceImageUrl && { image: referenceImageUrl }), // Use reference image if available
-      webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai`,
-    });
+    let openAIResult;
+    const openAI_batch_id = crypto.randomUUID();
 
-    // Update prediction record with actual Replicate ID
+    if (request.workflow_intent === 'recreate' && referenceImageUrl) {
+      // Step 5: OpenAI Recreation Workflow
+      console.log(`🔄 OpenAI Recreation: Processing reference image for "${request.company_name}"`);
+      
+      openAIResult = await recreateOpenAILogo(
+        referenceImageUrl,
+        request.company_name,
+        request.recreate_options?.modifications,
+        request.user_id
+      );
+    } else {
+      // Step 5: OpenAI Generation Workflow
+      console.log(`✨ OpenAI Generation: Creating logo for "${request.company_name}"`);
+      
+      openAIResult = await generateOpenAILogo(
+        request.company_name,
+        {
+          customDescription: request.custom_description,
+          style: request.style,
+          industry: request.industry,
+          colorScheme: request.color_scheme,
+          model: 'dall-e-3',
+          size: mapAspectRatioToSize(request.aspect_ratio),
+          user: request.user_id,
+        }
+      );
+    }
+
+    // Update prediction record with OpenAI response
     await createPredictionRecord({
-      prediction_id: prediction.id,
+      prediction_id: openAI_batch_id,
       user_id: request.user_id,
       tool_id: 'logo-machine',
       service_id: request.workflow_intent || 'generate',
-      model_version: 'ideogram-v3-turbo',
+      model_version: 'dall-e-3',
       status: 'processing',
       input_data: request as unknown as Json,
     });
 
-    // Step 6: Wait for Completion
-    console.log(`⏳ Waiting for Ideogram completion: ${prediction.id}`);
-    const completed_prediction = await waitForIdeogramV3TurboCompletion(prediction.id);
-    
-    if (completed_prediction.status !== 'succeeded') {
-      throw new Error(`Logo generation failed: ${completed_prediction.error || 'Unknown error'}`);
+    // Step 6: Process OpenAI Results
+    if (!openAIResult.data?.[0]?.url) {
+      throw new Error('No logo generated in OpenAI response');
     }
 
-    // Step 7: Process Generated Logo
-    const logoUrl = completed_prediction.output?.[0];
-    if (!logoUrl) {
-      throw new Error('No logo generated in response');
+    const openaiLogoUrl = openAIResult.data[0].url;
+    console.log(`📥 Downloading and storing OpenAI logo in Supabase Storage`);
+
+    // Step 7: Download and Store in Supabase Storage (same pattern as thumbnail machine)
+    const storageResult = await downloadAndUploadImage(
+      openaiLogoUrl,
+      'logo-machine',
+      `${batch_id}_logo`,
+      {
+        folder: 'logos/generated',
+        bucket: 'images'
+      }
+    );
+
+    if (!storageResult.success || !storageResult.url) {
+      console.warn(`⚠️ Failed to store logo, using original OpenAI URL`);
+      // Fallback to original URL if storage fails
     }
+
+    const logoUrl = storageResult.success && storageResult.url ? storageResult.url : openaiLogoUrl;
+    console.log(`✅ Logo stored successfully: ${logoUrl}`);
 
     const logo = {
       id: `${batch_id}_logo`,
@@ -203,16 +236,29 @@ export async function generateLogo(
     await storeLogoResults({
       user_id: request.user_id,
       company_name: request.company_name,
-      logo_url: logo.url,
+      logo_url: logo.url, // This is now our Supabase Storage URL
       batch_id: logo.batch_id,
       style: logo.style,
       settings: {
-        prompt: logoPrompt,
+        model: 'dall-e-3',
+        custom_description: request.custom_description,
         style: request.style,
         color_scheme: request.color_scheme,
         industry: request.industry,
         workflow_intent: request.workflow_intent,
+        aspect_ratio: request.aspect_ratio,
         generation_parameters: request as unknown as Json,
+        openai_response: {
+          created: openAIResult.created,
+          usage: openAIResult.usage,
+          revised_prompt: openAIResult.data[0]?.revised_prompt,
+          original_url: openaiLogoUrl, // Keep the original OpenAI URL for reference
+        },
+        storage_info: {
+          stored_in_supabase: storageResult.success,
+          supabase_url: storageResult.url,
+          original_openai_url: openaiLogoUrl,
+        },
       } as unknown as Json,
       status: 'completed',
     });
@@ -221,7 +267,7 @@ export async function generateLogo(
     await recordLogoMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'ideogram-v3-turbo',
+      model_version: 'dall-e-3',
       company_name: request.company_name,
       style_type: request.style || 'modern',
       generation_time_ms: Date.now() - startTime,
@@ -237,7 +283,7 @@ export async function generateLogo(
     return {
       success: true,
       logo,
-      prediction_id: prediction.id,
+      prediction_id: openAI_batch_id,
       batch_id,
       credits_used: total_credits,
       remaining_credits: creditDeduction.remainingCredits,
@@ -268,63 +314,21 @@ function calculateEstimatedCredits(request: LogoMachineRequest): number {
   return request.workflow_intent === 'recreate' ? LOGO_RECREATION_CREDITS : LOGO_GENERATION_CREDITS;
 }
 
-// Smart prompt construction based on company name and style preferences
-function constructLogoPrompt(request: LogoMachineRequest, referenceImageUrl?: string): string {
-  const { company_name, style, color_scheme, industry, recreate_options } = request;
-  
-  let prompt = '';
-  
-  // Base prompt structure
-  if (request.workflow_intent === 'recreate' && referenceImageUrl && recreate_options) {
-    // Recreation prompt
-    prompt = `Professional logo recreation for "${company_name}" company. `;
-    if (recreate_options.modifications) {
-      prompt += `${recreate_options.modifications}. `;
-    }
-    if (recreate_options.maintain_style) {
-      prompt += `Maintain the original style and aesthetic. `;
-    }
-    if (recreate_options.maintain_concept) {
-      prompt += `Keep the core concept and symbolism. `;
-    }
-  } else {
-    // Standard generation prompt
-    prompt = `Professional logo design for "${company_name}" company. `;
+// Map aspect ratios to OpenAI image sizes
+function mapAspectRatioToSize(aspect_ratio?: string): '1024x1024' | '1792x1024' | '1024x1792' {
+  switch (aspect_ratio) {
+    case '16:9':
+    case '3:2':
+      return '1792x1024'; // Landscape
+    case '9:16':
+    case '2:3':
+      return '1024x1792'; // Portrait
+    case '1:1':
+    case '4:3':
+    case '3:4':
+    default:
+      return '1024x1024'; // Square - optimal for logos
   }
-  
-  // Add style preferences
-  if (style) {
-    const styleDescriptions = {
-      modern: 'Clean, contemporary design with sharp lines and modern typography',
-      minimalist: 'Simple, clean design with minimal elements and plenty of white space',
-      vintage: 'Classic, retro-inspired design with traditional elements',
-      playful: 'Fun, creative design with vibrant colors and dynamic elements',
-      professional: 'Sophisticated, business-appropriate design with elegant typography',
-      creative: 'Artistic, unique design with innovative visual elements'
-    };
-    prompt += `${styleDescriptions[style] || 'Modern and professional design'}. `;
-  }
-  
-  // Add color scheme
-  if (color_scheme) {
-    prompt += `Color scheme: ${color_scheme}. `;
-  }
-  
-  // Add industry context
-  if (industry) {
-    const industryContext = {
-      tech: 'Technology-focused with digital, innovative elements',
-      restaurant: 'Food service with appetizing, welcoming design',
-      fitness: 'Health and fitness with energetic, strong design',
-      creative: 'Creative agency with artistic, imaginative elements'
-    };
-    prompt += `${industryContext[industry as keyof typeof industryContext] || `${industry} industry appropriate design`}. `;
-  }
-  
-  // Add technical requirements
-  prompt += 'High-quality vector design, scalable, suitable for business use across digital and print media. Professional logo design with clear typography and iconic elements.';
-  
-  return prompt;
 }
 
 /**

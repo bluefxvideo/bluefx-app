@@ -68,7 +68,7 @@ export function TabHeader({
 export function TabBody({ children, className }: TabBodyProps) {
   return (
     <div className={cn(
-      "pl-1 flex-1 overflow-y-auto overflow-x-visible scrollbar-hover space-y-8",
+      "px-1 flex-1 overflow-y-auto overflow-x-visible scrollbar-hover space-y-8",
       className
     )}>
       {children}
