@@ -12,6 +12,7 @@ interface ScriptPreviewPanelProps {
   isGeneratingVoice?: boolean;
   isGeneratingVideo?: boolean;
   voiceSelected?: boolean;
+  videoGenerated?: boolean;
   onScriptEdit?: (script: string) => void;
   isEditable?: boolean;
 }
@@ -26,6 +27,7 @@ export function ScriptPreviewPanel({
   isGeneratingVoice = false,
   isGeneratingVideo = false,
   voiceSelected = false,
+  videoGenerated = false,
   onScriptEdit,
   isEditable = false
 }: ScriptPreviewPanelProps) {
@@ -85,7 +87,7 @@ export function ScriptPreviewPanel({
       title: 'Generate Assets',
       description: 'AI creates images and assembles video',
       icon: Video,
-      complete: false, // Will be marked complete when video is ready
+      complete: videoGenerated, // Marked complete when video generation finishes
       active: isGeneratingVideo
     }
   ];

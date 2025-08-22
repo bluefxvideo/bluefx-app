@@ -114,15 +114,17 @@ export function useScriptToVideo() {
         const { useVideoEditorStore } = require('../store/video-editor-store');
         useVideoEditorStore.getState().loadGenerationResults(response);
         
-        // Auto-switch to Editor tab after successful generation
-        if (response.video_id) {
-          const editorUrl = `https://editor.bluefx.net/?video_id=${response.video_id}`;
-          console.log('🚀 Redirecting to editor with video_id:', editorUrl);
-          window.location.href = editorUrl;
-        } else {
-          console.log('🚀 Redirecting to editor without video_id');
-          window.location.href = 'https://editor.bluefx.net';
-        }
+        // Auto-redirect to editor after successful generation
+        setTimeout(() => {
+          if (response.video_id && currentUserId) {
+            const editorUrl = `https://editor.bluefx.net/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=https://app.bluefx.net`;
+            console.log('🚀 Redirecting to editor with correct URL format:', editorUrl);
+            window.location.href = editorUrl;
+          } else {
+            console.log('🚀 Redirecting to editor without video_id');
+            window.location.href = 'https://editor.bluefx.net';
+          }
+        }, 1500); // Give 1.5 seconds to see the checkmark
         
         // TODO: Invalidate queries for real-time updates
         // queryClient.invalidateQueries({ queryKey: ['script-video-results'] });
@@ -235,14 +237,14 @@ export function useScriptToVideo() {
         const { useVideoEditorStore } = require('../store/video-editor-store');
         useVideoEditorStore.getState().loadGenerationResults(response);
         
-        // Auto-redirect to editor tab with video_id
+        // Auto-redirect to editor after successful generation
         setTimeout(() => {
-          if (typeof window !== 'undefined') {
-            const editorUrl = `https://editor.bluefx.net/?video_id=${response.video_id}`;
-            console.log('🚀 Redirecting to editor:', editorUrl);
+          if (typeof window !== 'undefined' && response.video_id && currentUserId) {
+            const editorUrl = `https://editor.bluefx.net/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=https://app.bluefx.net`;
+            console.log('🚀 Redirecting to editor with correct URL format:', editorUrl);
             window.location.href = editorUrl;
           }
-        }, 1000);
+        }, 1500); // Give 1.5 seconds to see the checkmark
       } else {
         throw new Error(response.error || 'Generation failed');
       }

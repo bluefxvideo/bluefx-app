@@ -106,26 +106,14 @@ export function ScriptToVideoPage() {
   // Monitor the exact moment when isGeneratingVideo changes from true to false
   const prevIsGeneratingVideo = useRef(isGeneratingVideo);
   useEffect(() => {
-    console.log('🔍 Step 3 monitoring:', { 
-      currentStep: multiStepState.currentStep,
-      prevGenerating: prevIsGeneratingVideo.current, 
-      nowGenerating: isGeneratingVideo,
-      videoGenerated: videoGenerated 
-    });
+    // Debug: Step 3 monitoring (can be removed in production)
+    // console.log('🔍 Step 3 monitoring:', { currentStep: multiStepState.currentStep, videoGenerated });
     
     // Detect transition: was generating -> stopped generating
     if (prevIsGeneratingVideo.current === true && isGeneratingVideo === false) {
-      console.log('🔄 Generation transition detected - loader stopped!');
-      
-      // If we're on step 3 and the loader just stopped, show checkmark no matter what
+      // If we're on step 3 and the loader just stopped, show checkmark
       if (multiStepState.currentStep >= 3) {
-        console.log('🎉 Step 3 loader stopped - showing checkmark for 1 second!');
         setVideoGenerated(true);
-        
-        // Optional: Hide checkmark after 1 second if you want
-        // setTimeout(() => {
-        //   setVideoGenerated(false);
-        // }, 1000);
       }
     }
     
@@ -134,7 +122,6 @@ export function ScriptToVideoPage() {
     
     // Reset when starting new generation
     if (isGeneratingVideo && !videoGenerated) {
-      console.log('🔄 Starting generation, resetting checkmark');
       setVideoGenerated(false);
     }
   }, [isGeneratingVideo, result, videoGenerated, multiStepState.currentStep]);
@@ -222,6 +209,7 @@ export function ScriptToVideoPage() {
           isGeneratingVoice={isGeneratingVoice}
           isGeneratingVideo={isGeneratingVideo}
           voiceSelected={voiceSelected}
+          videoGenerated={videoGenerated}
           isEditable={true}
           onScriptEdit={(script) => {
             setMultiStepState(prev => ({ ...prev, finalScript: script }));
