@@ -7,6 +7,7 @@ import { HistoryOutput } from './history-output';
 import { TitleGeneratorOutput } from './title-generator-output';
 import { CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
 interface ContextualOutputProps {
   activeTab: string;
@@ -15,6 +16,7 @@ interface ContextualOutputProps {
   error?: string;
   onClearResults: () => void;
   onFocusPrompt?: () => void;
+  historyFilters?: HistoryFilters;
 }
 
 /**
@@ -27,7 +29,8 @@ export function ContextualOutput({
   isGenerating,
   error,
   onClearResults,
-  onFocusPrompt
+  onFocusPrompt,
+  historyFilters
 }: ContextualOutputProps) {
   // Wrap all tab-specific outputs in the shared OutputPanelShell for consistency
   if (activeTab === 'history') {
@@ -36,9 +39,9 @@ export function ContextualOutput({
         title="History"
         status={isGenerating ? 'loading' : error ? 'error' : result ? 'ready' : 'idle'}
         errorMessage={error}
-        empty={<HistoryOutput />}
+        empty={<HistoryOutput filters={historyFilters} />}
       >
-        <HistoryOutput />
+        <HistoryOutput filters={historyFilters} />
       </OutputPanelShell>
     );
   }
@@ -85,17 +88,26 @@ export function ContextualOutput({
 
   // Default: generate / face-swap / recreate
   const getTitle = () => {
+    // If there's an error, show friendly error message
+    if (error) {
+      return 'Oops, something went wrong';
+    }
+    // If successful and not generating, show complete message
     if (result?.success && !isGenerating) {
       return activeTab === 'generate' ? 'Generation Complete!' 
            : activeTab === 'face-swap' ? 'Face Swap Complete!'
            : 'Recreation Complete!';
     }
+    // Default title
     return activeTab === 'generate' ? 'Thumbnail Results' 
          : activeTab === 'face-swap' ? 'Face Swap Results' 
          : 'Recreation Results';
   };
 
   const getSubtitle = () => {
+    // Don't show subtitle if there's an error
+    if (error) return undefined;
+    
     if (result?.success && !isGenerating) {
       return activeTab === 'generate' ? 'Your thumbnails are ready'
            : activeTab === 'face-swap' ? 'Your face swap is ready'
@@ -105,6 +117,9 @@ export function ContextualOutput({
   };
 
   const getIcon = () => {
+    // Don't show success icon if there's an error
+    if (error) return undefined;
+    
     if (result?.success && !isGenerating) {
       return (
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
@@ -116,6 +131,9 @@ export function ContextualOutput({
   };
 
   const getActions = () => {
+    // Don't show clear button if there's an error
+    if (error) return undefined;
+    
     if (result?.success && !isGenerating) {
       return (
         <Button

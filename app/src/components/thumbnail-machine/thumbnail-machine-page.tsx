@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Image as ImageIcon, Wand2, RotateCcw, FileText, History, UserCheck } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
@@ -15,6 +15,7 @@ import { FaceSwapTab } from './tabs/face-swap-tab';
 import { RecreateTab } from './tabs/recreate-tab';
 import { TitleGeneratorTab } from './tabs/title-generator-tab';
 import { HistoryTab } from './tabs/history-tab';
+import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
 /**
  * Thumbnail Machine - Complete AI-Orchestrated Tool with Tabs
@@ -23,6 +24,7 @@ import { HistoryTab } from './tabs/history-tab';
 export function ThumbnailMachinePage() {
   const pathname = usePathname();
   const promptInputRef = useRef<HTMLTextAreaElement>(null!);
+  const [historyFilters, setHistoryFilters] = useState<HistoryFilters | undefined>();
   const {
     generate,
     isGenerating,
@@ -112,7 +114,7 @@ export function ThumbnailMachinePage() {
           />
         );
       case 'history':
-        return <HistoryTab />;
+        return <HistoryTab onFiltersChange={setHistoryFilters} />;
       default:
         return (
           <GeneratorTab
@@ -146,6 +148,7 @@ export function ThumbnailMachinePage() {
           error={error}
           onClearResults={clearResults}
           onFocusPrompt={handleFocusPrompt}
+          historyFilters={historyFilters}
         />
       </StandardToolLayout>
     </StandardToolPage>

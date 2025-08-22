@@ -27,7 +27,7 @@ export async function upgradeTrialToPro(userId: string) {
       .from('user_subscriptions')
       .update({
         plan_type: 'pro',
-        credits_per_month: 1000,
+        credits_per_month: 600,
         max_concurrent_jobs: 3,
         updated_at: new Date().toISOString()
       })
@@ -41,7 +41,7 @@ export async function upgradeTrialToPro(userId: string) {
     const { error: creditsError } = await supabase
       .from('user_credits')
       .update({
-        total_credits: 1000,
+        total_credits: 600,
         updated_at: new Date().toISOString()
       })
       .eq('user_id', userId)

@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient, createAdminClient } from '@/app/supabase/server';
+import { createClient } from '@/app/supabase/server';
 import { Json } from '@/types/database';
 
 /**
@@ -344,6 +344,8 @@ export async function getUserCredits(
 
 /**
  * Deduct credits for thumbnail generation
+ * Uses Supabase RPC function for atomic credit deduction
+ * Automatically tops up user to 600 credits if they have less than the required amount
  */
 export async function deductCredits(
   userId: string,
@@ -352,90 +354,78 @@ export async function deductCredits(
   metadata?: Json
 ): Promise<{ success: boolean; remainingCredits?: number; error?: string }> {
   try {
-    // Use admin client to bypass RLS for credit operations
-    const supabase = createAdminClient();
+    const supabase = await createClient();
 
-    // Start a transaction-like operation
-    // First, check current balance
-    const { data: currentCredits, error: fetchError } = await supabase
+    // First check if user has enough credits
+    const { data: credits, error: creditsError } = await supabase
       .from('user_credits')
-      .select('available_credits, used_credits')
+      .select('available_credits, period_end')
       .eq('user_id', userId)
       .single();
 
-    if (fetchError || !currentCredits) {
+    if (creditsError && creditsError.code !== 'PGRST116') {
+      console.error('Credits check error:', creditsError);
       return {
         success: false,
-        error: 'Unable to fetch current credit balance',
+        error: `Failed to check credits: ${creditsError.message}`,
       };
     }
 
-    if ((currentCredits.available_credits ?? 0) < amount) {
-      return {
-        success: false,
-        error: 'Insufficient credits',
-      };
+    // If no credits record or available credits < required amount or period expired, top up first
+    const needsTopup = !credits || 
+                      (credits.available_credits < amount) || 
+                      (credits.available_credits < 600) ||
+                      (new Date(credits.period_end) < new Date());
+
+    if (needsTopup) {
+      console.log(`Auto top-up needed for user ${userId}. Current credits: ${credits?.available_credits || 0}`);
+      
+      // Top up to 600 credits using RPC function
+      const { data: topupData, error: topupError } = await supabase
+        .rpc('topup_user_credits', {
+          p_user_id: userId,
+          p_target_credits: 600
+        });
+
+      if (topupError || !topupData?.success) {
+        console.error('Auto top-up failed:', topupError);
+        return {
+          success: false,
+          error: `Auto top-up failed: ${topupError?.message || 'Unknown error'}`,
+        };
+      }
+
+      console.log(`Auto top-up successful. New available credits: ${topupData.available_credits}`);
     }
 
-    // Deduct credits
-    const newBalance = (currentCredits.available_credits ?? 0) - amount;
-    
-    const { error: updateError } = await supabase
-      .from('user_credits')
-      .update({ 
-        available_credits: newBalance,
-        used_credits: (currentCredits.used_credits ?? 0) + amount,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId);
-
-    if (updateError) {
-      return {
-        success: false,
-        error: `Failed to deduct credits: ${updateError.message}`,
-      };
-    }
-
-    // Log credit transaction
-    const { error: transactionError } = await supabase
-      .from('credit_transactions')
-      .insert({
-        user_id: userId,
-        transaction_type: 'debit',
-        amount: amount,
-        balance_after: newBalance,
-        operation_type: operation,
-        description: `Used ${amount} credits for ${operation}`,
-        metadata,
-        status: 'completed',
-        created_at: new Date().toISOString(),
+    // Now proceed with credit deduction
+    const { data, error } = await supabase
+      .rpc('deduct_user_credits', {
+        p_user_id: userId,
+        p_amount: amount,
+        p_operation: operation,
+        p_metadata: metadata
       });
 
-    if (transactionError) {
-      console.warn('Failed to log credit transaction:', transactionError);
-      // Don't fail the operation if logging fails
+    if (error) {
+      console.error('Credit deduction RPC error:', error);
+      return {
+        success: false,
+        error: `Failed to deduct credits: ${error.message}`,
+      };
     }
 
-    // Also log to credit_usage table if it exists
-    const { error: logError } = await supabase
-      .from('credit_usage')
-      .insert({
-        user_id: userId,
-        credits_used: amount,
-        operation_type: operation,
-        service_type: 'thumbnail_machine',
-        metadata,
-        created_at: new Date().toISOString(),
-      });
-
-    if (logError) {
-      console.warn('Failed to log credit usage:', logError);
-      // Don't fail the operation if logging fails
+    // Check the result from the RPC function
+    if (!data || !data.success) {
+      return {
+        success: false,
+        error: data?.error || 'Credit deduction failed',
+      };
     }
 
     return {
       success: true,
-      remainingCredits: newBalance,
+      remainingCredits: data.remaining_credits,
     };
 
   } catch (error) {

@@ -88,13 +88,14 @@ export function UserDashboardEnhanced() {
       const days = selectedDateRange === '7d' ? 7 : selectedDateRange === '30d' ? 30 : 90
       const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
-      const { data: creditUsage } = await supabase
-        .from('credit_usage')
-        .select('credits_used, created_at, service_type')
+      const { data: creditTransactions } = await supabase
+        .from('credit_transactions')
+        .select('amount, created_at, operation_type')
         .eq('user_id', user.id)
+        .eq('transaction_type', 'debit')
         .gte('created_at', startDate)
 
-      const totalCreditsUsed = creditUsage?.reduce((sum, usage) => sum + usage.credits_used, 0) || 0
+      const totalCreditsUsed = creditTransactions?.reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0) || 0
 
       // Get content creation stats
       const { data: contentStats } = await supabase
@@ -102,7 +103,7 @@ export function UserDashboardEnhanced() {
 
       // Get last activity
       const { data: lastActivity } = await supabase
-        .from('credit_usage')
+        .from('credit_transactions')
         .select('created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -113,7 +114,7 @@ export function UserDashboardEnhanced() {
         creditsAvailable: credits?.available_credits || 0,
         monthlyAllocation: credits?.total_credits || 0,
         contentCreated: Object.values(contentStats || {}).reduce((sum: number, count: unknown) => sum + ((count as number) || 0), 0),
-        toolsUsed: creditUsage?.length || 0,
+        toolsUsed: creditTransactions?.length || 0,
         lastActive: lastActivity?.[0]?.created_at || new Date().toISOString()
       } as UserDashboardStats
     },
@@ -132,25 +133,26 @@ export function UserDashboardEnhanced() {
       const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
       const { data } = await supabase
-        .from('credit_usage')
-        .select('service_type, credits_used, created_at')
+        .from('credit_transactions')
+        .select('operation_type, amount, created_at')
         .eq('user_id', user.id)
+        .eq('transaction_type', 'debit')
         .gte('created_at', startDate)
 
-      // Aggregate by service type
+      // Aggregate by operation type
       const toolMap = new Map()
-      data?.forEach(usage => {
-        const existing = toolMap.get(usage.service_type) || { 
-          tool_id: usage.service_type, 
+      data?.forEach(transaction => {
+        const existing = toolMap.get(transaction.operation_type) || { 
+          tool_id: transaction.operation_type, 
           usage_count: 0, 
           credits_used: 0, 
-          last_used: usage.created_at 
+          last_used: transaction.created_at 
         }
-        toolMap.set(usage.service_type, {
+        toolMap.set(transaction.operation_type, {
           ...existing,
           usage_count: existing.usage_count + 1,
-          credits_used: existing.credits_used + usage.credits_used,
-          last_used: (usage.created_at && usage.created_at > existing.last_used) ? usage.created_at : existing.last_used
+          credits_used: existing.credits_used + Math.abs(transaction.amount),
+          last_used: (transaction.created_at && transaction.created_at > existing.last_used) ? transaction.created_at : existing.last_used
         })
       })
 
@@ -166,25 +168,36 @@ export function UserDashboardEnhanced() {
       if (!user) return []
 
       const days = selectedDateRange === '7d' ? 7 : selectedDateRange === '30d' ? 30 : 90
-      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-
+      
+      // Generate all dates including today
+      const today = new Date()
+      const todayStr = today.toISOString().split('T')[0]
       const trends: UsageTrend[] = []
-      for (let i = 0; i < days; i++) {
-        const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000)
+      
+      // Start from (days-1) ago to include today
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
         const dateStr = date.toISOString().split('T')[0]
+        const nextDate = new Date(date.getTime() + 24 * 60 * 60 * 1000)
+        const nextDateStr = nextDate.toISOString().split('T')[0]
 
-        const { data: dailyUsage } = await supabase
-          .from('credit_usage')
-          .select('credits_used, service_type')
+        const { data: dailyTransactions } = await supabase
+          .from('credit_transactions')
+          .select('amount, operation_type')
           .eq('user_id', user.id)
-          .gte('created_at', dateStr)
-          .lt('created_at', new Date(date.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+          .eq('transaction_type', 'debit')
+          .gte('created_at', dateStr + 'T00:00:00Z')
+          .lt('created_at', nextDateStr + 'T00:00:00Z')
 
+        const creditsUsed = dailyTransactions?.reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0) || 0
+        const contentCreated = dailyTransactions?.length || 0
+        
         trends.push({
           date: dateStr,
-          credits_used: dailyUsage?.reduce((sum, usage) => sum + usage.credits_used, 0) || 0,
-          content_created: dailyUsage?.length || 0
+          credits_used: creditsUsed,
+          content_created: contentCreated
         })
+        
       }
 
       return trends
@@ -196,7 +209,7 @@ export function UserDashboardEnhanced() {
     const channel = supabase
       .channel('user-dashboard-updates')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'credit_usage' },
+        { event: '*', schema: 'public', table: 'credit_transactions' },
         () => {
           refetchStats()
         }

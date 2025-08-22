@@ -1,6 +1,6 @@
 'use server';
 
-import { createIdeogramV2aPrediction, waitForIdeogramV2aCompletion, generateMultipleThumbnails } from '../models/ideogram-v2a';
+import { createIdeogramV2aPrediction, waitForIdeogramV2aCompletion, generateMultipleThumbnails } from '../models/ideogram-v2-turbo';
 import { performFaceSwap } from '../models/face-swap-cdingram';
 import { generateYouTubeTitles } from '../models/openai-chat';
 import { uploadImageToStorage, downloadAndUploadImage } from '../supabase-storage';
@@ -168,7 +168,7 @@ export async function generateThumbnails(
       user_id: request.user_id,
       tool_id: 'thumbnail-machine',
       service_id: 'generate',
-      model_version: 'ideogram-v2a',
+      model_version: 'ideogram-v2-turbo',
       status: 'starting',
       input_data: request as unknown as Json,
     });
@@ -211,7 +211,7 @@ export async function generateThumbnails(
         user_id: request.user_id,
         tool_id: 'thumbnail-machine',
         service_id: 'generate',
-        model_version: 'ideogram-v2a',
+        model_version: 'ideogram-v2-turbo',
         status: 'processing',
         input_data: request as unknown as Json,
       });
@@ -394,8 +394,8 @@ export async function generateThumbnails(
       dimensions: 'landscape', // Use predefined value for 16:9 aspect ratio
       height: 1024,
       width: 1024,
-      model_name: 'ideogram-v2a',
-      model_version: 'ideogram-v2a',
+      model_name: 'ideogram-v2-turbo',
+      model_version: 'ideogram-v2-turbo',
       batch_id: thumb.batch_id,
       generation_settings: request as unknown as Json,
       metadata: {
@@ -413,7 +413,7 @@ export async function generateThumbnails(
     await recordGenerationMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'ideogram-v2a',
+      model_version: 'ideogram-v2-turbo',
       style_type: 'auto',
       num_variations: thumbnails.length,
       generation_time_ms: Date.now() - startTime,
@@ -757,7 +757,7 @@ async function executeRecreationOnlyWorkflow(
       user_id: request.user_id,
       tool_id: 'thumbnail-machine',
       service_id: 'recreation',
-      model_version: 'ideogram-v2a',
+      model_version: 'ideogram-v2-turbo',
       status: 'processing',
       input_data: request as unknown as Json
     });
@@ -806,8 +806,8 @@ async function executeRecreationOnlyWorkflow(
       dimensions: 'landscape', // Use predefined value for 16:9 aspect ratio
       height: 1024,
       width: 1024,
-      model_name: 'ideogram-v2a',
-      model_version: 'ideogram-v2a',
+      model_name: 'ideogram-v2-turbo',
+      model_version: 'ideogram-v2-turbo',
       batch_id,
       generation_settings: request as unknown as Json,
       metadata: {
@@ -822,7 +822,7 @@ async function executeRecreationOnlyWorkflow(
     await recordGenerationMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'ideogram-v2a',
+      model_version: 'ideogram-v2-turbo',
       style_type: request.recreation_style || 'similar',
       num_variations: 1,
       generation_time_ms: Date.now() - startTime,

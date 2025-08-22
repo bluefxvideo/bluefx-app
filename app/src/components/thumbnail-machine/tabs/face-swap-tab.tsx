@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
+import Image from 'next/image';
 
 interface FaceSwapTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
@@ -31,6 +32,10 @@ export function FaceSwapTab({
     sourceImage: null as File | null,
     targetImage: null as File | null,
   });
+  
+  // Create refs for both file inputs
+  const sourceInputRef = useRef<HTMLInputElement>(null);
+  const targetInputRef = useRef<HTMLInputElement>(null);
 
   const handleSourceUpload = (file: File) => {
     setFormData(prev => ({ ...prev, sourceImage: file }));
@@ -58,9 +63,6 @@ export function FaceSwapTab({
 
   return (
     <TabContentWrapper>
-      {/* Error Display */}
-      {error && <TabError error={error} />}
-
       {/* Form Content */}
       <TabBody>
         {/* Step 1: Upload Your Face */}
@@ -69,15 +71,23 @@ export function FaceSwapTab({
           title="Upload Your Face"
           description="Your face will be swapped into the thumbnails"
         >
-          <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
+          <Card 
+            className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
+            onClick={() => sourceInputRef.current?.click()}
+          >
             {formData.sourceImage ? (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <UserRound className="w-5 h-5 text-blue-600" />
+              <div className="space-y-3">
+                <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden bg-muted">
+                  <Image
+                    src={URL.createObjectURL(formData.sourceImage)}
+                    alt="Source face"
+                    fill
+                    className="object-cover"
+                  />
                 </div>
-                <div>
+                <div className="text-center">
                   <p className="text-base font-medium">{formData.sourceImage.name}</p>
-                  <p className="text-sm text-muted-foreground">Face to apply to thumbnails</p>
+                  <p className="text-sm text-muted-foreground">Click to change face image</p>
                 </div>
               </div>
             ) : (
@@ -89,16 +99,17 @@ export function FaceSwapTab({
                 </div>
               </div>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleSourceUpload(file);
-              }}
-            />
           </Card>
+          <input
+            ref={sourceInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleSourceUpload(file);
+            }}
+          />
         </StandardStep>
 
         {/* Step 2: Target Image */}
@@ -107,15 +118,23 @@ export function FaceSwapTab({
           title="Target Image"
           description="Image containing the face to be replaced"
         >
-          <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
+          <Card 
+            className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
+            onClick={() => targetInputRef.current?.click()}
+          >
             {formData.targetImage ? (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <UserRound className="w-5 h-5 text-blue-600" />
+              <div className="space-y-3">
+                <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden bg-muted">
+                  <Image
+                    src={URL.createObjectURL(formData.targetImage)}
+                    alt="Target image"
+                    fill
+                    className="object-cover"
+                  />
                 </div>
-                <div>
+                <div className="text-center">
                   <p className="text-base font-medium">{formData.targetImage.name}</p>
-                  <p className="text-sm text-muted-foreground">Face to be replaced</p>
+                  <p className="text-sm text-muted-foreground">Click to change target image</p>
                 </div>
               </div>
             ) : (
@@ -127,16 +146,17 @@ export function FaceSwapTab({
                 </div>
               </div>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleTargetUpload(file);
-              }}
-            />
           </Card>
+          <input
+            ref={targetInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleTargetUpload(file);
+            }}
+          />
         </StandardStep>
 
 
@@ -151,7 +171,6 @@ export function FaceSwapTab({
         >
           {isGenerating ? (
             <>
-              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Processing Face Swap...
             </>
           ) : (

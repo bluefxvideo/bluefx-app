@@ -1,9 +1,10 @@
 'use server';
 
 /**
- * Generated from: Ideogram V2a
+ * Generated from: Ideogram V2 Turbo
  * Base URL: https://api.replicate.com/v1
- * Description: Like Ideogram v2, but faster and cheaper - ideal for thumbnail generation
+ * Description: Fast, high-quality image generation with enhanced style options
+ * Model: ideogram-ai/ideogram-v2-turbo
  */
 
 interface IdeogramV2aInput {
@@ -13,6 +14,9 @@ interface IdeogramV2aInput {
   style_type?: 'None' | 'Auto' | 'General' | 'Realistic' | 'Design' | 'Render 3D' | 'Anime';
   aspect_ratio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '16:10' | '10:16' | '3:1' | '1:3';
   magic_prompt_option?: 'Auto' | 'On' | 'Off';
+  negative_prompt?: string; // Added in V2 Turbo
+  image?: string; // For inpainting (V2 Turbo feature)
+  mask?: string; // For inpainting (V2 Turbo feature)
 }
 
 interface IdeogramV2aOutput {
@@ -20,7 +24,7 @@ interface IdeogramV2aOutput {
   status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
   version: string;
   input: IdeogramV2aInput;
-  output?: string; // Single image URL (different from flux which returns array)
+  output?: string; // Single image URL (URI format)
   error?: string;
   logs?: string;
   created_at: string;
@@ -40,13 +44,13 @@ interface CreatePredictionParams extends IdeogramV2aInput {
 }
 
 /**
- * Create a new thumbnail generation prediction using Ideogram V2a
+ * Create a new thumbnail generation prediction using Ideogram V2 Turbo
  */
 export async function createIdeogramV2aPrediction(
   params: CreatePredictionParams
 ): Promise<IdeogramV2aOutput> {
   try {
-    console.log(`🎨 Creating Ideogram V2a prediction: "${params.prompt}"`);
+    console.log(`🎨 Creating Ideogram V2 Turbo prediction: "${params.prompt}"`);
     
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
@@ -55,7 +59,7 @@ export async function createIdeogramV2aPrediction(
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
       },
       body: JSON.stringify({
-        version: '1751e040eb5e766b3eea4f9e69160987e1854c28a87a08882c930ecc6cef0305',
+        version: '35eacd3dbd088d6421f7ee27646701b5e03ec5a9a0f68f43112fa228d6fc2522', // Ideogram V2 Turbo
         input: {
           prompt: params.prompt,
           ...(params.seed && { seed: params.seed }),
@@ -63,6 +67,9 @@ export async function createIdeogramV2aPrediction(
           style_type: params.style_type || 'Auto',
           aspect_ratio: params.aspect_ratio || '1:1',
           magic_prompt_option: params.magic_prompt_option || 'Auto',
+          ...(params.negative_prompt && { negative_prompt: params.negative_prompt }),
+          ...(params.image && { image: params.image }),
+          ...(params.mask && { mask: params.mask }),
         },
         ...(params.webhook && { webhook: params.webhook }),
       }),

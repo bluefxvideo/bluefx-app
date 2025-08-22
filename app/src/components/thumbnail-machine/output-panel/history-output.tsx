@@ -7,18 +7,21 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Eye, Clock, History, Loader2, AlertCircle } from 'lucide-react';
 import { fetchUserThumbnailHistory, ThumbnailHistoryItem } from '@/actions/tools/get-thumbnail-history';
 import Image from 'next/image';
+import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
 interface HistoryOutputProps {
   refreshTrigger?: number; // Change this value to trigger a refresh
+  filters?: HistoryFilters;
 }
 
 /**
  * History Output - Shows generation history in right panel
  * Displays past generations with actions and details
  */
-export function HistoryOutput({ refreshTrigger }: HistoryOutputProps = {}) {
+export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = {}) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [history, setHistory] = useState<ThumbnailHistoryItem[]>([]);
+  const [filteredHistory, setFilteredHistory] = useState<ThumbnailHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +29,82 @@ export function HistoryOutput({ refreshTrigger }: HistoryOutputProps = {}) {
   useEffect(() => {
     loadHistory();
   }, [refreshTrigger]);
+
+  // Apply filters when history or filters change
+  useEffect(() => {
+    if (!filters) {
+      setFilteredHistory(history);
+      return;
+    }
+
+    let filtered = [...history];
+
+    // Apply search filter
+    if (filters.searchTerm) {
+      const searchLower = filters.searchTerm.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.prompt.toLowerCase().includes(searchLower) ||
+        item.type.toLowerCase().includes(searchLower) ||
+        item.titles?.some(title => title.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply type filter
+    if (filters.filterType && filters.filterType !== 'all') {
+      filtered = filtered.filter(item => item.type === filters.filterType);
+    }
+
+    // Apply date range filter
+    if (filters.dateRange && filters.dateRange !== 'all') {
+      const now = new Date();
+      const cutoffDate = new Date();
+      
+      switch (filters.dateRange) {
+        case 'today':
+          cutoffDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          cutoffDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          cutoffDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'quarter':
+          cutoffDate.setMonth(now.getMonth() - 3);
+          break;
+        case 'year':
+          cutoffDate.setFullYear(now.getFullYear() - 1);
+          break;
+      }
+      
+      filtered = filtered.filter(item => 
+        new Date(item.createdAt) >= cutoffDate
+      );
+    }
+
+    // Apply sort order
+    if (filters.sortOrder) {
+      switch (filters.sortOrder) {
+        case 'oldest':
+          filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          break;
+        case 'newest':
+          filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          break;
+        case 'name':
+          filtered.sort((a, b) => a.prompt.localeCompare(b.prompt));
+          break;
+        case 'name_desc':
+          filtered.sort((a, b) => b.prompt.localeCompare(a.prompt));
+          break;
+        case 'type':
+          filtered.sort((a, b) => a.type.localeCompare(b.type));
+          break;
+      }
+    }
+
+    setFilteredHistory(filtered);
+  }, [history, filters]);
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -115,12 +194,29 @@ export function HistoryOutput({ refreshTrigger }: HistoryOutputProps = {}) {
     );
   }
 
+  // No results after filtering
+  if (filteredHistory.length === 0 && history.length > 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
+          <History className="w-12 h-12 text-muted-foreground mx-auto" />
+          <div>
+            <h3 className="font-medium mb-2">No Results Found</h3>
+            <p className="text-sm text-muted-foreground">
+              Try adjusting your filters to see more results
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* History Grid */}
       <div className="flex-1 overflow-y-auto scrollbar-hover">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {history.map((item) => (
+          {filteredHistory.map((item) => (
             <Card 
               key={item.id} 
               className={`p-3 bg-secondary transition-all duration-200 hover:shadow-md cursor-pointer ${
@@ -209,16 +305,18 @@ export function HistoryOutput({ refreshTrigger }: HistoryOutputProps = {}) {
       <Card className="mt-4 p-3 bg-secondary">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-lg font-semibold text-primary">{history.length}</p>
+            <p className="text-lg font-semibold text-primary">
+              {filteredHistory.length}{history.length !== filteredHistory.length && <span className="text-sm text-muted-foreground">/{history.length}</span>}
+            </p>
             <p className="text-sm text-muted-foreground">Generations</p>
           </div>
           <div>
-            <p className="text-lg font-semibold">{history.reduce((acc, item) => acc + item.credits, 0)}</p>
+            <p className="text-lg font-semibold">{filteredHistory.reduce((acc, item) => acc + item.credits, 0)}</p>
             <p className="text-sm text-muted-foreground">Credits Used</p>
           </div>
           <div>
             <p className="text-lg font-semibold">
-              {history.reduce((acc, item) => 
+              {filteredHistory.reduce((acc, item) => 
                 acc + (item.thumbnails?.length || 0) + (item.titles?.length || 0), 0
               )}
             </p>
