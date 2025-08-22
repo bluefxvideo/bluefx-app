@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { downloadAndUploadImage, downloadAndUploadVideo } from '@/actions/supabase-storage';
 import { 
   updatePredictionRecord, 
+  updatePredictionRecordAdmin,
   storeThumbnailResults, 
   recordGenerationMetrics 
 } from '@/actions/database/thumbnail-database';
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Update prediction record with enhanced tracking
     try {
-      await updatePredictionRecord(payload.id, {
+      await updatePredictionRecordAdmin(payload.id, {
         status: payload.status,
         output_data: payload.output as Json,
         completed_at: payload.completed_at,

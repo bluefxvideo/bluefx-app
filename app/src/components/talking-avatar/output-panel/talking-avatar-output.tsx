@@ -1,7 +1,52 @@
 'use client';
 
-import { CheckCircle, Loader2, Video, User, Mic } from 'lucide-react';
+import { CheckCircle, Loader2, Video, User, Mic, LucideIcon } from 'lucide-react';
 import { TalkingAvatarState } from '../hooks/use-talking-avatar';
+
+interface StepIndicatorProps {
+  stepNumber: number;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  isCompleted: boolean;
+  isActive: boolean;
+  isLoading?: boolean;
+}
+
+function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted, isActive, isLoading }: StepIndicatorProps) {
+  return (
+    <div className="text-center">
+      <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center ${
+        isCompleted 
+          ? 'bg-primary' 
+          : isActive 
+            ? 'bg-primary' 
+            : 'bg-muted border-2 border-muted-foreground/20'
+      }`}>
+        {isCompleted ? (
+          <CheckCircle className="w-6 h-6 text-white" />
+        ) : isLoading ? (
+          <Loader2 className="w-6 h-6 text-white animate-spin" />
+        ) : (
+          <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+        )}
+      </div>
+      <div className={`text-lg font-bold mb-1 ${
+        isCompleted 
+          ? 'text-primary' 
+          : isActive 
+            ? 'text-primary' 
+            : 'text-muted-foreground'
+      }`}>
+        {stepNumber}
+      </div>
+      <p className={`text-sm font-medium ${isActive || isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+        {title}
+      </p>
+      <p className="text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
 
 interface TalkingAvatarOutputProps {
   avatarState: { state: TalkingAvatarState };
@@ -13,47 +58,49 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
   // Check if we're in progress mode (any step > 1 or avatar selected)
   const isInProgress = state.currentStep > 1 || state.selectedAvatarTemplate || state.customAvatarImage;
   
-  // If generating video, show the same progress UI but with generating state for step 3
+  // If generating video, show progress with step 3 in loading state
   if (state.isGenerating) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-8">
-        <div className="w-16 h-16 mb-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-white animate-spin" />
+        <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
+          <Video className="w-8 h-8 text-white" />
         </div>
         
-        <h3 className="text-2xl font-bold mb-2">Generating Video ✨</h3>
+        <h3 className="text-2xl font-bold mb-2">Creating Magic ✨</h3>
         <p className="text-base text-muted-foreground mb-8 max-w-md">
-          Creating your AI-powered talking avatar video...
+          AI is generating your talking avatar video in 3 simple steps.
         </p>
 
-        {/* Progress steps with step 3 active */}
         <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-3 bg-green-500 rounded-lg flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-lg font-bold text-green-400 mb-1">1</div>
-            <p className="text-sm font-medium text-green-300">Choose Avatar</p>
-            <p className="text-xs text-green-400/70">Select template or upload custom</p>
-          </div>
+          <StepIndicator
+            stepNumber={1}
+            title="Choose Avatar"
+            description="Select template or upload custom"
+            icon={User}
+            isCompleted={true}
+            isActive={false}
+            isLoading={false}
+          />
           
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-3 bg-green-500 rounded-lg flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-lg font-bold text-green-400 mb-1">2</div>
-            <p className="text-sm font-medium text-green-300">Add Voice</p>
-            <p className="text-xs text-green-400/70">Enter script and select voice</p>
-          </div>
+          <StepIndicator
+            stepNumber={2}
+            title="Add Voice"
+            description="Enter script and select voice"
+            icon={Mic}
+            isCompleted={true}
+            isActive={false}
+            isLoading={false}
+          />
           
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-white animate-spin" />
-            </div>
-            <div className="text-lg font-bold text-blue-500 mb-1">3</div>
-            <p className="text-sm font-medium text-white">Generate Video</p>
-            <p className="text-xs text-zinc-300">Create professional avatar video</p>
-          </div>
+          <StepIndicator
+            stepNumber={3}
+            title="Generate Video"
+            description="Create professional avatar video"
+            icon={Video}
+            isCompleted={false}
+            isActive={true}
+            isLoading={true}
+          />
         </div>
       </div>
     );
@@ -81,36 +128,9 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
       return 'Setup in Progress ✨';
     };
 
-    const steps = [
-      {
-        number: 1,
-        title: 'Choose Avatar',
-        description: 'Select template or upload custom',
-        icon: User,
-        complete: !!(state.selectedAvatarTemplate || state.customAvatarImage),
-        active: false
-      },
-      {
-        number: 2,
-        title: 'Add Voice',
-        description: 'Enter script and select voice',
-        icon: Mic,
-        complete: !!(state.selectedVoiceId && state.voiceAudioUrl),
-        active: state.currentStep === 2
-      },
-      {
-        number: 3,
-        title: 'Generate Video',
-        description: 'Create professional avatar video',
-        icon: Video,
-        complete: false,
-        active: state.currentStep === 3
-      }
-    ];
-
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-8">
-        <div className="w-16 h-16 mb-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
+        <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
           <Video className="w-8 h-8 text-white" />
         </div>
         
@@ -119,45 +139,36 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
           {getCurrentMessage()}
         </p>
 
-        {/* Same 3-column grid as Script-to-Video with progress states */}
         <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
-          {steps.map((step) => {
-            const Icon = step.icon;
-            return (
-              <div key={step.number} className="text-center">
-                <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center ${
-                  step.active ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
-                  step.complete ? 'bg-green-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500 opacity-50'
-                }`}>
-                  {step.active ? (
-                    <Icon className="w-6 h-6 text-white" />
-                  ) : step.complete ? (
-                    <CheckCircle className="w-6 h-6 text-white" />
-                  ) : (
-                    <Icon className="w-6 h-6 text-white" />
-                  )}
-                </div>
-                <div className={`text-lg font-bold mb-1 ${
-                  step.active ? 'text-blue-500' :
-                  step.complete ? 'text-green-400' : 'text-blue-500 opacity-50'
-                }`}>
-                  {step.number}
-                </div>
-                <p className={`text-sm font-medium ${
-                  step.active ? 'text-white' :
-                  step.complete ? 'text-green-300' : 'text-zinc-400'
-                }`}>
-                  {step.title}
-                </p>
-                <p className={`text-xs ${
-                  step.active ? 'text-zinc-300' :
-                  step.complete ? 'text-green-400/70' : 'text-muted-foreground'
-                }`}>
-                  {step.description}
-                </p>
-              </div>
-            );
-          })}
+          <StepIndicator
+            stepNumber={1}
+            title="Choose Avatar"
+            description="Select template or upload custom"
+            icon={User}
+            isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarImage)}
+            isActive={state.currentStep === 1}
+            isLoading={state.isLoading && state.currentStep === 1}
+          />
+          
+          <StepIndicator
+            stepNumber={2}
+            title="Add Voice"
+            description="Enter script and select voice"
+            icon={Mic}
+            isCompleted={!!(state.selectedVoiceId && state.voiceAudioUrl)}
+            isActive={state.currentStep === 2}
+            isLoading={state.isLoading && state.currentStep === 2}
+          />
+          
+          <StepIndicator
+            stepNumber={3}
+            title="Generate Video"
+            description="Create professional avatar video"
+            icon={Video}
+            isCompleted={false}
+            isActive={state.currentStep === 3}
+            isLoading={state.isLoading && state.currentStep === 3}
+          />
         </div>
       </div>
     );
@@ -166,7 +177,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
   // Default: Welcome state
   return (
     <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className="w-16 h-16 mb-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
+      <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
         <Video className="w-8 h-8 text-white" />
       </div>
       
@@ -176,32 +187,35 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
       </p>
 
       <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-            <User className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-lg font-bold text-blue-500 mb-1">1</div>
-          <p className="text-sm font-medium">Choose Avatar</p>
-          <p className="text-xs text-muted-foreground">Select template or upload custom</p>
-        </div>
+        <StepIndicator
+          stepNumber={1}
+          title="Choose Avatar"
+          description="Select template or upload custom"
+          icon={User}
+          isCompleted={false}
+          isActive={state.currentStep === 1}
+          isLoading={false}
+        />
         
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-            <Mic className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-lg font-bold text-blue-500 mb-1">2</div>
-          <p className="text-sm font-medium">Add Voice</p>
-          <p className="text-xs text-muted-foreground">Enter script and select voice</p>
-        </div>
+        <StepIndicator
+          stepNumber={2}
+          title="Add Voice"
+          description="Enter script and select voice"
+          icon={Mic}
+          isCompleted={false}
+          isActive={false}
+          isLoading={false}
+        />
         
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-            <Video className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-lg font-bold text-blue-500 mb-1">3</div>
-          <p className="text-sm font-medium">Generate Video</p>
-          <p className="text-xs text-muted-foreground">Create professional avatar video</p>
-        </div>
+        <StepIndicator
+          stepNumber={3}
+          title="Generate Video"
+          description="Create professional avatar video"
+          icon={Video}
+          isCompleted={false}
+          isActive={false}
+          isLoading={false}
+        />
       </div>
     </div>
   );

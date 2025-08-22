@@ -446,7 +446,8 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
               variant="outline"
               onClick={() => goToStep(state.currentStep - 1)}
               disabled={state.isLoading || state.isGenerating}
-              className="flex-1"
+              className="flex-1 h-12"
+              size="lg"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -456,7 +457,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
           <Button
             onClick={handleStepAction}
             disabled={!canProceed() || state.isLoading || state.isGenerating}
-            className={`${state.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium`}
+            className={`${state.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 font-medium`}
             size="lg"
           >
             <Video className="w-4 h-4 mr-2" />

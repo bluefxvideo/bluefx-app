@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 import { Json } from '@/types/database';
 
 /**
@@ -210,6 +210,49 @@ export async function updatePredictionRecord(
 
   } catch (error) {
     console.error('updatePredictionRecord error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Prediction update failed',
+    };
+  }
+}
+
+/**
+ * Update prediction record using admin client (for webhooks)
+ * Uses admin client to bypass RLS policies
+ */
+export async function updatePredictionRecordAdmin(
+  predictionId: string,
+  updates: Partial<PredictionRecord>
+): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  try {
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase
+      .from('ai_predictions')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('prediction_id', predictionId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Prediction update error (admin):', error);
+      return {
+        success: false,
+        error: `Failed to update prediction: ${error.message}`,
+      };
+    }
+
+    return {
+      success: true,
+      data,
+    };
+
+  } catch (error) {
+    console.error('updatePredictionRecordAdmin error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Prediction update failed',
