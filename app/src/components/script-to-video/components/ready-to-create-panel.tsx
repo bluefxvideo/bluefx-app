@@ -73,6 +73,16 @@ export function ReadyToCreatePanel({
 }: ReadyToCreatePanelProps) {
   const [step3Completed, setStep3Completed] = useState(false);
   const [hideSteps, setHideSteps] = useState(false);
+
+  // Debug logging to see what props we're receiving
+  console.log('🔍 ReadyToCreatePanel props:', {
+    currentStep,
+    scriptGenerated,
+    voiceSelected,
+    isGeneratingVideo,
+    videoGenerated,
+    step3Completed
+  });
   
   // Handle step 3 completion and transition to orchestration
   useEffect(() => {

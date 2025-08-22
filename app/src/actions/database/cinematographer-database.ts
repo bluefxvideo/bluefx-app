@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 import { Json } from '@/types/database';
 
 export interface CinematographerVideo {
@@ -469,4 +469,32 @@ export async function createPredictionRecord(params: {
       error: error instanceof Error ? error.message : 'Failed to create prediction record' 
     };
   }
+}
+
+/**
+ * Update a cinematographer video by ID (Admin version for webhooks)
+ * Uses admin client to bypass RLS policies
+ */
+export async function updateCinematographerVideoAdmin(
+  videoId: string,
+  updates: Partial<CinematographerVideo>
+): Promise<CinematographerVideo> {
+  const supabase = createAdminClient();
+  
+  const { data: video, error } = await supabase
+    .from('cinematographer_videos')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', videoId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating cinematographer video (admin):', error);
+    throw new Error('Failed to update video');
+  }
+
+  return video;
 }

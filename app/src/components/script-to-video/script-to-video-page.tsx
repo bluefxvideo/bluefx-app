@@ -91,6 +91,7 @@ export function ScriptToVideoPage() {
   // Reset videoGenerated when starting new generation or going back to step 1
   useEffect(() => {
     if (isGeneratingVideo) {
+      console.log('🔄 Starting generation, setting videoGenerated = false');
       setVideoGenerated(false);
     }
   }, [isGeneratingVideo]);
@@ -106,9 +107,9 @@ export function ScriptToVideoPage() {
   // Only set videoGenerated to true for NEW generations, not restored results
   useEffect(() => {
     if (result?.success && result.video_id) {
-      // Only mark as generated if we just finished generating (isGeneratingVideo was true)
-      // Don't mark restored results from localStorage as "just generated"
+      // Mark as generated if we're currently generating or just finished
       if (!videoGenerated && (isGeneratingVideo || wasGeneratingVideo.current)) {
+        console.log('🎉 Setting videoGenerated = true, showing checkmark before redirect');
         setVideoGenerated(true);
         wasGeneratingVideo.current = false; // Reset flag
       }

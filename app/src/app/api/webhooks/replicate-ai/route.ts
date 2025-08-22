@@ -647,7 +647,8 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
         const videoId = videoRecords[0].id;
         
         // Update the video record with final URL and completed status
-        await updateCinematographerVideo(videoId, {
+        const { updateCinematographerVideoAdmin } = await import('@/actions/database/cinematographer-database');
+        await updateCinematographerVideoAdmin(videoId, {
           status: 'completed',
           final_video_url: uploadResult.url,
           total_duration_seconds: payload.input?.duration || 4,
