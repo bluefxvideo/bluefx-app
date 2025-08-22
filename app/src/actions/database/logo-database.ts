@@ -249,7 +249,6 @@ export async function deductCredits(
     // If no credits record or available credits < required amount or period expired, top up first
     const needsTopup = !credits || 
                       (credits.available_credits < amount) || 
-                      (credits.available_credits < 600) ||
                       (new Date(credits.period_end) < new Date());
 
     if (needsTopup) {
