@@ -258,7 +258,22 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
                      payload.input?.batch_id || null;
 
   // AI Decision: Determine tool type from multiple signals
-  if (payload.version?.includes('flux-thumbnails-v2') || payload.input?.prompt) {
+  // Check output type first - if it's a video file, it's likely AI Cinematographer
+  const outputUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  const isVideoOutput = outputUrl && (outputUrl.includes('.mp4') || outputUrl.includes('.mov') || outputUrl.includes('.webm'));
+  
+  // Check for AI Cinematographer first (more specific)
+  if (isVideoOutput ||
+      payload.version?.includes('dc91b71f6bafe90e311c8b6e03b9b5c1ce53f932b47e243c3a2ebf90d2d2a12d') || // Stable Video Diffusion
+      payload.version?.includes('kling') || // Kling model
+      (payload.input?.duration && payload.input?.aspect_ratio) ||
+      (payload.input?.prompt && (payload.input?.motion_scale || payload.input?.reference_image))) {
+    analysis.tool_type = 'ai-cinematographer';
+    analysis.processing_strategy = 'single_video_generation';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
+  } else if (payload.version?.includes('flux-thumbnails-v2') || 
+            (payload.input?.prompt && payload.input?.num_outputs && !payload.input?.duration)) {
     analysis.tool_type = 'thumbnail-machine';
     analysis.processing_strategy = 'batch_thumbnails';
     analysis.expected_outputs = payload.input?.num_outputs || 4;
@@ -298,12 +313,6 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
             (payload.input?.script_text && payload.input?.voice_id && !payload.input?.avatar_image_url)) {
     analysis.tool_type = 'voice-over';
     analysis.processing_strategy = 'single_voice_generation';
-    analysis.expected_outputs = 1;
-    analysis.requires_real_time_update = true;
-  } else if (payload.version?.includes('dc91b71f6bafe90e311c8b6e03b9b5c1ce53f932b47e243c3a2ebf90d2d2a12d') || // Stable Video Diffusion
-            (payload.input?.duration && payload.input?.aspect_ratio)) {
-    analysis.tool_type = 'ai-cinematographer';
-    analysis.processing_strategy = 'single_video_generation';
     analysis.expected_outputs = 1;
     analysis.requires_real_time_update = true;
   }

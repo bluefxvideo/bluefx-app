@@ -171,6 +171,7 @@ export function ScriptToVideoPage() {
           currentStep={multiStepState.currentStep}
           scriptGenerated={!!multiStepState.generatedScript || !!multiStepState.finalScript}
           voiceSelected={voiceSelected}
+          isGeneratingVideo={isGeneratingVideo}
         />
       );
     }

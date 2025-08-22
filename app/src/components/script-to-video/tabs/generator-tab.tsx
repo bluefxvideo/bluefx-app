@@ -71,6 +71,7 @@ export function GeneratorTab({
 
   // Local state for voice selection and generation
   const [selectedVoice, setSelectedVoice] = useState('anna');
+  const [hasUserSelectedVoice, setHasUserSelectedVoice] = useState(false);
   const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
@@ -325,10 +326,11 @@ export function GeneratorTab({
       isGeneratingScript: false,
     });
     setSelectedVoice('anna');
+    setHasUserSelectedVoice(false);
     setVoiceAudioUrl(null);
     setIsGeneratingVoice(false);
     setIsGeneratingVideo(false);
-    onVoiceSelected(false); // Reset voice selection state
+    onVoiceSelected?.(false); // Reset voice selection state
   };
 
   // Voice playback functionality
@@ -377,9 +379,9 @@ export function GeneratorTab({
         voice_id: selectedVoice
       }
     }));
-    // Notify parent that voice has been selected
-    onVoiceSelected?.(true);
-  }, [selectedVoice, onVoiceSelected]);
+    // Only mark voice as selected when user has explicitly chosen a voice
+    onVoiceSelected?.(hasUserSelectedVoice);
+  }, [selectedVoice, hasUserSelectedVoice, onVoiceSelected]);
 
   const estimatedCredits = Math.ceil(stepState.finalScript.length / 50) * 5 + 10;
 
@@ -570,7 +572,10 @@ Examples:
                         ? 'ring-2 ring-purple-500 bg-blue-100/10 shadow-lg' 
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => setSelectedVoice(voice.id)}
+                    onClick={() => {
+                      setSelectedVoice(voice.id);
+                      setHasUserSelectedVoice(true);
+                    }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
@@ -691,7 +696,8 @@ Examples:
               variant="outline"
               onClick={() => goToStep(stepState.currentStep - 1)}
               disabled={stepState.isGeneratingScript || isGeneratingVoice || isGeneratingVideo}
-              className="flex-1"
+              className="flex-1 h-12"
+              size="lg"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -706,7 +712,7 @@ Examples:
               isGeneratingVoice || 
               isGeneratingVideo
             }
-            className={`${stepState.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-[1.02] transition-all duration-300 font-medium`}
+            className={`${stepState.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium`}
             size="lg"
           >
             <Film className="w-4 h-4 mr-2" />
