@@ -171,7 +171,7 @@ export async function executeMusicMachine(
     }
 
     // Step 5: Create Prediction with Webhook
-    const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai`;
+    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`;
     
     const predictionResult = await createMusicGenPrediction({
       input: musicGenInput,

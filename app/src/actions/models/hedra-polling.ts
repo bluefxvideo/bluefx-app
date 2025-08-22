@@ -77,7 +77,7 @@ export async function pollHedraGenerations(): Promise<PollingResult> {
           console.log(`✅ Hedra generation completed: ${prediction.prediction_id}`);
           
           // Process completion via webhook endpoint
-          const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/hedra-ai`;
+          const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/hedra-ai`;
           const completionPayload = {
             generation_id: prediction.prediction_id,
             user_id: prediction.user_id,
@@ -248,7 +248,7 @@ export async function processManualCompletion(
   videoUrl: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/hedra-ai`;
+    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/hedra-ai`;
     
     const response = await fetch(webhookUrl, {
       method: 'POST',

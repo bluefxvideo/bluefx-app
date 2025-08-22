@@ -92,7 +92,7 @@ export async function initiateOAuthFlow(platform: SocialPlatform, userId: string
     // Build OAuth URL
     const params = new URLSearchParams({
       client_id: config.clientId,
-      redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback/${platform}`,
+      redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback/${platform}`,
       scope: config.scopes.join(' '),
       response_type: 'code',
       state: state,
@@ -332,7 +332,7 @@ async function exchangeCodeForTokens(platform: SocialPlatform, code: string) {
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback/${platform}`,
+      redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback/${platform}`,
     }),
   });
 

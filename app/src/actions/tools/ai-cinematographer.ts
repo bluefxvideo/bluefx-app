@@ -196,7 +196,7 @@ async function handleVideoGeneration(
       duration: request.duration || 4,
       aspect_ratio: request.aspect_ratio || '16:9',
       motion_scale: request.motion_scale || 1.0,
-      webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai` // For status updates
+      webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates
     });
 
     // Create prediction tracking record

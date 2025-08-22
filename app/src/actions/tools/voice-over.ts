@@ -597,7 +597,7 @@ async function triggerVoiceOverWebhookCompletion(
   generatedAudio: any
 ): Promise<void> {
   try {
-    const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/voice-over-ai`;
+    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/voice-over-ai`;
     
     const payload = {
       prediction_id: predictionId,
