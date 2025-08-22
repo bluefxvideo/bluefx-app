@@ -135,6 +135,11 @@ export function useAICinematographer() {
                 thumbnail_url: updatedVideo.preview_urls?.[0] || '',
               } : undefined
             } : prev);
+            
+            // Set isGenerating to false when video generation is complete
+            if (updatedVideo.status === 'completed' || updatedVideo.status === 'failed') {
+              setIsGenerating(false);
+            }
           }
           
           // Update videos list

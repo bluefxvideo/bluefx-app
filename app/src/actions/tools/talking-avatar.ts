@@ -4,6 +4,12 @@ import { createClient } from '@/app/supabase/server';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
+import { 
+  getUserCredits, 
+  deductCredits, 
+  storeTalkingAvatarResults, 
+  recordTalkingAvatarMetrics 
+} from '@/actions/database/talking-avatar-database';
 
 // Request/Response types for Talking Avatar
 export interface TalkingAvatarRequest {
@@ -14,6 +20,7 @@ export interface TalkingAvatarRequest {
   custom_avatar_image?: File | null;
   workflow_step: 'avatar_select' | 'voice_generate' | 'video_generate';
   user_id: string;
+  voice_audio_url?: string; // For video generation step
 }
 
 export interface TalkingAvatarResponse {
@@ -206,7 +213,7 @@ async function handleAvatarSelection(
       batch_id,
       generation_time_ms: Date.now() - startTime,
       credits_used: 0,
-      remaining_credits: await getUserCredits(supabase, request.user_id),
+      remaining_credits: (await getUserCredits(request.user_id)).credits || 0,
     };
 
   } catch (error) {
@@ -337,7 +344,7 @@ async function handleVoiceGeneration(
       batch_id,
       generation_time_ms: Date.now() - startTime,
       credits_used: 0,
-      remaining_credits: await getUserCredits(supabase, request.user_id),
+      remaining_credits: (await getUserCredits(request.user_id)).credits || 0,
     };
 
   } catch (error) {
@@ -366,8 +373,20 @@ async function handleVideoGeneration(
     // Calculate credit costs
     const creditCosts = calculateTalkingAvatarCreditCost(request);
     
-    // Verify user has sufficient credits
-    const userCredits = await getUserCredits(supabase, request.user_id);
+    // Verify user has sufficient credits using proper pattern
+    const userCreditsResult = await getUserCredits(request.user_id);
+    if (!userCreditsResult.success) {
+      return {
+        success: false,
+        error: userCreditsResult.error || 'Failed to check credits',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+    
+    const userCredits = userCreditsResult.credits || 0;
     if (userCredits < creditCosts.total) {
       return {
         success: false,
@@ -379,24 +398,18 @@ async function handleVideoGeneration(
       };
     }
 
-    // Create database record for tracking
-    const { data: videoRecord, error: dbError } = await supabase
-      .from('avatar_videos')
-      .insert({
-        id: batch_id,
-        user_id: request.user_id,
-        script_text: request.script_text,
-        avatar_template_id: request.avatar_template_id || 'custom',
-        app_voice_id: request.voice_id,
-        status: 'processing',
-        job_id: `hedra_${batch_id}`,
-        created_at: new Date().toISOString()
-      } as any)
-      .select()
-      .single();
+    // Store initial record using proper pattern
+    const storeResult = await storeTalkingAvatarResults({
+      user_id: request.user_id,
+      script_text: request.script_text,
+      avatar_template_id: request.avatar_template_id || 'custom',
+      batch_id: batch_id,
+      voice_audio_url: request.voice_audio_url,
+      status: 'processing'
+    });
 
-    if (dbError) {
-      console.error('Database insert error:', dbError);
+    if (!storeResult.success) {
+      console.error('Database insert error:', storeResult.error);
       return {
         success: false,
         error: 'Failed to save video generation record',
@@ -407,17 +420,49 @@ async function handleVideoGeneration(
       };
     }
 
-    // Deduct credits
-    await deductCredits(supabase, request.user_id, creditCosts.total, batch_id, 'avatar_video_generation');
+    // Deduct credits using proper RPC pattern
+    const deductResult = await deductCredits(
+      request.user_id, 
+      creditCosts.total, 
+      'talking_avatar_generation',
+      {
+        batch_id,
+        script_length: request.script_text.length,
+        estimated_duration: creditCosts.estimated_duration
+      }
+    );
+
+    if (!deductResult.success) {
+      console.error('Credit deduction failed:', deductResult.error);
+      return {
+        success: false,
+        error: deductResult.error || 'Failed to deduct credits',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: userCredits,
+      };
+    }
     
-    // Step 3: Generate video with Hedra API
+    // Step 3: Generate video with Hedra API following legacy pattern
     console.log('🎬 Starting Hedra video generation...');
+    
+    if (!request.voice_audio_url) {
+      return {
+        success: false,
+        error: 'Voice audio URL is required for video generation',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: deductResult.remainingCredits || 0,
+      };
+    }
     
     try {
       const hedraResult = await generateTalkingAvatarVideo(
         request.avatar_image_url || '',
-        '', // TODO: Get voice_audio_url from previous step or database
-        "A person talking at the camera with natural expressions",
+        request.voice_audio_url,
+        "A person talking at the camera with natural expressions and synchronized lip movements",
         {
           aspectRatio: '16:9',
           resolution: '720p',
@@ -428,15 +473,15 @@ async function handleVideoGeneration(
       if (!hedraResult.success) {
         console.error('Hedra generation failed:', hedraResult.error);
         
-        // Update record with error
-        await supabase
-          .from('avatar_videos')
-          .update({
-            status: 'failed',
-            error_message: hedraResult.error,
-            failed_at: new Date().toISOString(),
-          })
-          .eq('id', videoRecord.id);
+        // Update record with error using proper pattern
+        await storeTalkingAvatarResults({
+          user_id: request.user_id,
+          script_text: request.script_text,
+          avatar_template_id: request.avatar_template_id || 'custom',
+          batch_id: batch_id,
+          status: 'failed',
+          settings: { error_message: hedraResult.error }
+        });
 
         return {
           success: false,
@@ -448,15 +493,22 @@ async function handleVideoGeneration(
         };
       }
 
-      // Update record with Hedra generation ID
+      // Update record with Hedra generation ID following legacy pattern
       if (hedraResult.generationId) {
-        await supabase
-          .from('avatar_videos')
-          .update({
-            hedra_generation_id: hedraResult.generationId,
-            status: 'processing',
-          })
-          .eq('id', videoRecord.id);
+        await storeTalkingAvatarResults({
+          user_id: request.user_id,
+          script_text: request.script_text,
+          avatar_template_id: request.avatar_template_id || 'custom',
+          batch_id: batch_id,
+          hedra_generation_id: hedraResult.generationId,
+          voice_audio_url: request.voice_audio_url,
+          status: 'processing',
+          settings: {
+            aspectRatio: '16:9',
+            resolution: '720p',
+            model_version: 'hedra-video-1.0'
+          }
+        });
 
         // Create prediction tracking record for unified system
         await createPredictionRecord({
@@ -479,18 +531,34 @@ async function handleVideoGeneration(
 
       console.log('✅ Hedra generation started:', hedraResult.generationId);
 
+      // Record metrics for analytics
+      await recordTalkingAvatarMetrics({
+        user_id: request.user_id,
+        batch_id: batch_id,
+        model_version: 'hedra-video-1.0',
+        script_text: request.script_text,
+        duration: creditCosts.estimated_duration,
+        aspect_ratio: '16:9',
+        generation_time_ms: Date.now() - startTime,
+        credits_used: creditCosts.total,
+        workflow_type: 'generate',
+        has_custom_avatar: !!request.custom_avatar_image
+      });
+
     } catch (error) {
       console.error('Hedra API error:', error);
       
-      // Update record with error
-      await supabase
-        .from('avatar_videos')
-        .update({
-          status: 'failed',
-          error_message: error instanceof Error ? error.message : 'Hedra API error',
-          failed_at: new Date().toISOString(),
-        })
-        .eq('id', videoRecord.id);
+      // Update record with error following pattern
+      await storeTalkingAvatarResults({
+        user_id: request.user_id,
+        script_text: request.script_text,
+        avatar_template_id: request.avatar_template_id || 'custom',
+        batch_id: batch_id,
+        status: 'failed',
+        settings: { 
+          error_message: error instanceof Error ? error.message : 'Hedra API error' 
+        }
+      });
 
       return {
         success: false,
@@ -513,12 +581,12 @@ async function handleVideoGeneration(
         video_url: '', // Will be updated via webhook when complete
         script_text: request.script_text,
         avatar_image_url: request.avatar_image_url || '',
-        created_at: videoRecord.created_at || new Date().toISOString(),
+        created_at: new Date().toISOString(),
       },
       batch_id,
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCosts.total,
-      remaining_credits: userCredits - creditCosts.total,
+      remaining_credits: deductResult.remainingCredits || 0,
     };
 
   } catch (error) {
@@ -605,47 +673,3 @@ function calculateTalkingAvatarCreditCost(request: TalkingAvatarRequest) {
   };
 }
 
-/**
- * Get user's available credits
- */
-async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<number> {
-  const { data: userCredits } = await supabase
-    .from('user_credits')
-    .select('available_credits')
-    .eq('user_id', userId)
-    .single();
-  
-  return userCredits?.available_credits || 0;
-}
-
-/**
- * Deduct credits from user account
- */
-async function deductCredits(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  amount: number,
-  batchId: string,
-  operation: string
-) {
-  // Deduct from available credits
-  await supabase
-    .from('user_credits')
-    .update({
-      available_credits: amount, // Note: Should be handled via RPC for atomic decrement
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', userId);
-
-  // Log credit usage
-  await supabase
-    .from('credit_usage')
-    .insert({
-      user_id: userId,
-      credits_used: amount,
-      operation_type: operation,
-      reference_id: batchId,
-      service_type: 'talking_avatar',
-      created_at: new Date().toISOString()
-    } as any);
-}
