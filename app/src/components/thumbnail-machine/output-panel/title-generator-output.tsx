@@ -52,7 +52,7 @@ export function TitleGeneratorOutput({
         <div className="flex-1 space-y-3">
           {/* Title Loading Skeletons */}
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-            <Card key={i} className="p-3">
+            <Card key={i} className="p-3 bg-transparent dark:bg-card-content border-input">
               <div className="flex items-center justify-between">
                 <div className="flex-1 space-y-2">
                   <div className="h-4 bg-muted animate-pulse rounded" style={{ width: `${60 + Math.random() * 30}%` }} />
@@ -77,7 +77,7 @@ export function TitleGeneratorOutput({
   if (error) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Card className="p-6 max-w-md text-center space-y-4">
+        <Card className="p-6 max-w-md text-center space-y-4 bg-transparent dark:bg-card-content border-input">
           <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
             <Type className="w-6 h-6 text-destructive" />
           </div>
@@ -97,7 +97,7 @@ export function TitleGeneratorOutput({
         {/* Clean Titles List - Header handled by OutputPanelShell */}
         <div className="flex-1 space-y-3 overflow-y-auto scrollbar-hover py-4">
           {titles.map((title, index) => (
-            <Card key={index} className="p-4 group hover:shadow-md transition-all">
+            <Card key={index} className="p-4 group hover:shadow-md transition-all bg-transparent dark:bg-card-content border-input">
               <div className="space-y-3">
                 {/* Title Text */}
                 <div className="flex items-start justify-between gap-3">
@@ -185,7 +185,7 @@ export function TitleGeneratorOutput({
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center">
-        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed bg-secondary border-muted-foreground/20">
+        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed bg-transparent dark:bg-card-content border-input">
           <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
             <Type className="w-8 h-8 text-white" />
           </div>
