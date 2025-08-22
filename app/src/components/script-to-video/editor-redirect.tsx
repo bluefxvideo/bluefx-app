@@ -68,7 +68,9 @@ export function EditorRedirect() {
         
         // Redirect to external editor root with minimal data
         // External editor should fetch full data using the API endpoint
-        const externalEditorUrl = `http://localhost:3001/?videoId=${videoData.videoId}&userId=${videoData.userId}&apiUrl=http://localhost:3000`;
+        const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
+        const apiBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const externalEditorUrl = `${editorBaseUrl}/?videoId=${videoData.videoId}&userId=${videoData.userId}&apiUrl=${apiBaseUrl}`;
         
         // Use window.location for external redirect
         window.location.href = externalEditorUrl;

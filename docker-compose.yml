@@ -29,7 +29,7 @@ services:
       - PORT=3000
       - REMOTION_SERVICE_URL=http://remotion:3001
       - REACT_VIDEO_EDITOR_URL=http://react-video-editor:3002
-      - NEXT_PUBLIC_REACT_VIDEO_EDITOR_URL=http://react-video-editor:3002
+      - NEXT_PUBLIC_VIDEO_EDITOR_URL=${APP_NEXT_PUBLIC_VIDEO_EDITOR_URL:-http://localhost:3001}
       
       # Supabase Configuration
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${APP_NEXT_PUBLIC_SUPABASE_ANON_KEY}

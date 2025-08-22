@@ -96,6 +96,9 @@ export function AICinematographerPage() {
           isGenerating={isGenerating}
           error={error}
           onClearResults={clearResults}
+          videos={videos}
+          isLoadingHistory={isLoadingHistory}
+          onRefresh={loadHistory}
         />
       </StandardToolLayout>
     </StandardToolPage>

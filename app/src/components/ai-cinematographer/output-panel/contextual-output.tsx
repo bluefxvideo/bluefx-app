@@ -2,7 +2,9 @@
 
 import { CinematographerResponse } from '@/actions/tools/ai-cinematographer';
 import { CinematographerOutput } from './cinematographer-output';
+import { HistoryOutput } from './history-output';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
+import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 
 interface ContextualOutputProps {
   activeTab: string;
@@ -10,6 +12,9 @@ interface ContextualOutputProps {
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;
+  videos?: CinematographerVideo[];
+  isLoadingHistory?: boolean;
+  onRefresh?: () => void;
 }
 
 /**
@@ -22,22 +27,23 @@ export function ContextualOutput({
   isGenerating,
   error,
   onClearResults,
+  videos = [],
+  isLoadingHistory = false,
+  onRefresh
 }: ContextualOutputProps) {
   // History tab
   if (activeTab === 'history') {
     return (
       <OutputPanelShell
-        title="History"
-        status={isGenerating ? 'loading' : error ? 'error' : result ? 'ready' : 'idle'}
+        title="Video History"
+        status={isLoadingHistory ? 'loading' : error ? 'error' : videos.length > 0 ? 'ready' : 'idle'}
         errorMessage={error}
-        empty={<CinematographerOutput result={undefined} isGenerating={false} error={undefined} onClearResults={onClearResults} activeTab={activeTab} />}
+        empty={<HistoryOutput videos={[]} isLoading={false} onRefresh={onRefresh} />}
       >
-        <CinematographerOutput
-          result={result}
-          isGenerating={false}
-          error={undefined}
-          onClearResults={onClearResults}
-          activeTab={activeTab}
+        <HistoryOutput
+          videos={videos}
+          isLoading={isLoadingHistory}
+          onRefresh={onRefresh}
         />
       </OutputPanelShell>
     );

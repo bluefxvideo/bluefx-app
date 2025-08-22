@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     });
     
     // Add CORS headers for editor access
-    response.headers.set('Access-Control-Allow-Origin', 'http://localhost:3001');
+    response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
     response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     );
     
     // Add CORS headers to error response too
-    errorResponse.headers.set('Access-Control-Allow-Origin', 'http://localhost:3001');
+    errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
     errorResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     
@@ -158,8 +158,8 @@ export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': 'http://localhost:3001',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true',
     },
@@ -230,7 +230,7 @@ export async function GET(request: NextRequest) {
     });
     
     // Add CORS headers
-    response.headers.set('Access-Control-Allow-Origin', 'http://localhost:3001');
+    response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
     response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     
@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
     
-    errorResponse.headers.set('Access-Control-Allow-Origin', 'http://localhost:3001');
+    errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
     errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     

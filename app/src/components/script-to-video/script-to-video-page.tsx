@@ -106,10 +106,10 @@ export function ScriptToVideoPage() {
   // Monitor video generation completion
   // Only set videoGenerated to true for NEW generations, not restored results
   useEffect(() => {
-    if (result?.success && result.video_id) {
-      // Mark as generated if we're currently generating or just finished
+    if (result?.success && result.video_id && result.video_url) {
+      // Mark as generated ONLY when video_url is available (actual completion)
       if (!videoGenerated && (isGeneratingVideo || wasGeneratingVideo.current)) {
-        console.log('🎉 Setting videoGenerated = true, showing checkmark before redirect');
+        console.log('🎉 Video assets completed! Setting videoGenerated = true, showing checkmark');
         setVideoGenerated(true);
         wasGeneratingVideo.current = false; // Reset flag
       }

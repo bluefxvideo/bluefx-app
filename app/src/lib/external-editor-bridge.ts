@@ -42,7 +42,7 @@ export interface VideoEditorData {
  * Use this in your external editor to load video data
  */
 export async function fetchVideoEditorData(
-  bluefxApiUrl: string = 'http://localhost:3000',
+  bluefxApiUrl: string = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
   videoId?: string
 ): Promise<VideoEditorData | null> {
   try {

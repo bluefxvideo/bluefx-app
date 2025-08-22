@@ -194,8 +194,8 @@ export async function POST(request: NextRequest) {
     });
     
     // Add CORS headers
-    response.headers.set('Access-Control-Allow-Origin', 'http://localhost:3001');
-    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     
     return response;
@@ -211,10 +211,145 @@ export async function POST(request: NextRequest) {
     );
     
     // Add CORS headers to error response too
-    errorResponse.headers.set('Access-Control-Allow-Origin', 'http://localhost:3001');
-    errorResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+    errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     
+    return errorResponse;
+  }
+}
+
+/**
+ * GET handler for external editor to fetch video data using query parameters
+ * Usage: /api/script-video/editor-data?videoId=123&userId=456
+ */
+export async function GET(request: NextRequest) {
+  try {
+    console.log('🔍 Editor API (GET): Starting request');
+    const url = new URL(request.url);
+    const videoId = url.searchParams.get('videoId');
+    const userId = url.searchParams.get('userId');
+    
+    console.log('🔍 Editor API (GET): videoId =', videoId, 'userId =', userId);
+    
+    if (!userId) {
+      const errorResponse = NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
+      errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+      return errorResponse;
+    }
+
+    // Use the same logic as POST but with query parameters
+    let videoData;
+    
+    if (videoId) {
+      // Fetch specific video data
+      const { data: video } = await supabase
+        .from('script_to_video_history')
+        .select(`
+          id,
+          script_content,
+          video_url,
+          thumbnail_url,
+          processing_logs,
+          whisper_data,
+          caption_data,
+          storyboard_data,
+          created_at,
+          updated_at
+        `)
+        .eq('id', videoId)
+        .eq('user_id', userId)
+        .single();
+
+      if (!video) {
+        const errorResponse = NextResponse.json({ success: false, error: 'Video not found' }, { status: 404 });
+        errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+        return errorResponse;
+      }
+      
+      videoData = video;
+    } else {
+      // Fetch latest video data for user
+      const { data: video } = await supabase
+        .from('script_to_video_history')
+        .select(`
+          id,
+          script_content,
+          video_url,
+          thumbnail_url,
+          processing_logs,
+          whisper_data,
+          caption_data,
+          storyboard_data,
+          created_at,
+          updated_at
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!video) {
+        const errorResponse = NextResponse.json({ success: false, error: 'No video found for user' }, { status: 404 });
+        errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+        return errorResponse;
+      }
+      
+      videoData = video;
+    }
+
+    // Format the response using the same logic as POST
+    const response = NextResponse.json({
+      success: true,
+      data: {
+        videoId: videoData.id,
+        userId: userId,
+        script: videoData.script_content || '',
+        createdAt: videoData.created_at || new Date().toISOString(),
+        updatedAt: videoData.updated_at || new Date().toISOString(),
+        
+        voice: {
+          url: videoData.processing_logs?.voice_url || '',
+          whisperData: videoData.whisper_data || {}
+        },
+        
+        images: {
+          urls: videoData.storyboard_data?.image_urls || [],
+          segments: videoData.storyboard_data?.segments || []
+        },
+        
+        captions: {
+          data: videoData.caption_data || {},
+          wordTimings: videoData.whisper_data?.segments || []
+        },
+        
+        metadata: {
+          totalDuration: videoData.processing_logs?.total_duration || 0,
+          frameRate: 30,
+          wordCount: (videoData.script_content || '').split(' ').length,
+          speakingRate: 150
+        },
+        
+        apiEndpoint: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+      }
+    });
+
+    response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    
+    return response;
+
+  } catch (error) {
+    console.error('Error fetching editor data (GET):', error);
+    
+    const errorResponse = NextResponse.json(
+      { success: false, error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+    
+    errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
     return errorResponse;
   }
 }
@@ -226,8 +361,8 @@ export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': 'http://localhost:3001',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true',
     },
