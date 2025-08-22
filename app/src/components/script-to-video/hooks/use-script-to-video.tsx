@@ -115,7 +115,14 @@ export function useScriptToVideo() {
         useVideoEditorStore.getState().loadGenerationResults(response);
         
         // Auto-switch to Editor tab after successful generation
-        window.location.href = 'https://editor.bluefx.net';
+        if (response.video_id) {
+          const editorUrl = `https://editor.bluefx.net/?video_id=${response.video_id}`;
+          console.log('🚀 Redirecting to editor with video_id:', editorUrl);
+          window.location.href = editorUrl;
+        } else {
+          console.log('🚀 Redirecting to editor without video_id');
+          window.location.href = 'https://editor.bluefx.net';
+        }
         
         // TODO: Invalidate queries for real-time updates
         // queryClient.invalidateQueries({ queryKey: ['script-video-results'] });
@@ -228,10 +235,12 @@ export function useScriptToVideo() {
         const { useVideoEditorStore } = require('../store/video-editor-store');
         useVideoEditorStore.getState().loadGenerationResults(response);
         
-        // Auto-redirect to editor tab 
+        // Auto-redirect to editor tab with video_id
         setTimeout(() => {
           if (typeof window !== 'undefined') {
-            window.location.href = 'https://editor.bluefx.net';
+            const editorUrl = `https://editor.bluefx.net/?video_id=${response.video_id}`;
+            console.log('🚀 Redirecting to editor:', editorUrl);
+            window.location.href = editorUrl;
           }
         }, 1000);
       } else {
