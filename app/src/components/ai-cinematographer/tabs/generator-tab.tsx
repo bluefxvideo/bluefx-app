@@ -29,7 +29,7 @@ export function GeneratorTab({
   const [formData, setFormData] = useState({
     prompt: '',
     reference_image: null as File | null,
-    duration: 4,
+    duration: 5, // Kling default: 5 seconds
     aspect_ratio: '16:9' as '16:9' | '9:16' | '1:1'
   });
   // const [showAdvanced, setShowAdvanced] = useState(false);
@@ -51,7 +51,10 @@ export function GeneratorTab({
     setFormData(prev => ({ ...prev, reference_image: file }));
   };
 
-  const estimatedCredits = 8 + (formData.reference_image ? 2 : 0) + (formData.duration > 4 ? (formData.duration - 4) * 4 : 0);
+  // Calculate credits based on new Kling v1.6 pricing
+  const baseCost = formData.duration === 10 ? 15 : 8; // 15 credits for 10s, 8 credits for 5s
+  const imageCost = formData.reference_image ? 2 : 0;
+  const estimatedCredits = baseCost + imageCost;
 
   return (
     <TabContentWrapper>
@@ -135,10 +138,8 @@ export function GeneratorTab({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2">2 seconds</SelectItem>
-                  <SelectItem value="4">4 seconds</SelectItem>
-                  <SelectItem value="6">6 seconds</SelectItem>
-                  <SelectItem value="8">8 seconds</SelectItem>
+                  <SelectItem value="5">5 seconds (8 credits)</SelectItem>
+                  <SelectItem value="10">10 seconds (15 credits)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

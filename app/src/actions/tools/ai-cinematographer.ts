@@ -336,15 +336,17 @@ async function handleAudioIntegration(
  */
 function calculateCinematographerCreditCost(request: CinematographerRequest) {
   let baseCost = 0;
-  let durationMultiplier = 1;
   
   if (request.workflow_intent === 'generate') {
-    baseCost = 8; // Base cost for video generation
+    // Kling v1.6 pricing structure based on duration
+    const duration = request.duration || 5;
     
-    // Duration-based cost scaling
-    const duration = request.duration || 4;
-    if (duration > 4) {
-      durationMultiplier = 1 + ((duration - 4) * 0.5); // +50% cost per second over 4s
+    if (duration === 5) {
+      baseCost = 8; // Base cost for 5-second video
+    } else if (duration === 10) {
+      baseCost = 15; // Higher cost for 10-second video (almost 2x)
+    } else {
+      baseCost = 8; // Fallback to 5-second pricing
     }
     
     // Reference image complexity bonus
@@ -356,11 +358,11 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
     baseCost = 4; // Audio integration cost
   }
   
-  const total = Math.ceil(baseCost * durationMultiplier);
+  const total = baseCost;
   
   return {
     base: baseCost,
-    duration_multiplier: durationMultiplier,
+    duration_seconds: request.duration || 5,
     total,
     breakdown: {
       video_generation: request.workflow_intent === 'generate' ? total : 0,
