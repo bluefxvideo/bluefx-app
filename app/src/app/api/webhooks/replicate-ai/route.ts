@@ -629,8 +629,9 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
     if (uploadResult.success && uploadResult.url) {
       // Find the cinematographer video record by prediction_id
       // We need to query by metadata->generation_settings->prediction_id since we stored it there
-      const { createClient } = await import('@/app/supabase/server');
-      const supabase = await createClient();
+      // Use admin client to bypass RLS policies since webhooks don't have user context
+      const { createAdminClient } = await import('@/app/supabase/server');
+      const supabase = createAdminClient();
       
       const { data: videoRecords, error: queryError } = await supabase
         .from('cinematographer_videos')
