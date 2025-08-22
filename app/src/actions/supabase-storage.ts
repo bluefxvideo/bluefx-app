@@ -238,8 +238,13 @@ export async function uploadAudioToStorage(
     } else {
       // Handle File/Blob directly
       uploadData = audioData;
-      if (audioData instanceof File) {
+      
+      // Safer type checking for File objects (File might not be available in server env)
+      if (typeof File !== 'undefined' && audioData instanceof File) {
         finalContentType = audioData.type || contentType;
+      } else if (audioData && typeof audioData === 'object' && 'type' in audioData) {
+        // Handle File-like objects that have a type property
+        finalContentType = (audioData as any).type || contentType;
       }
     }
 
