@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useCredits } from '@/hooks/useCredits';
-import { executeAICinematographer, CinematographerRequest, CinematographerResponse } from '@/actions/tools/ai-cinematographer';
+import { executeAICinematographer, generateVideo, CinematographerRequest, CinematographerResponse } from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 
@@ -62,10 +62,20 @@ export function useAICinematographer() {
     setResult(undefined);
     
     try {
-      const response = await executeAICinematographer({
-        ...request,
-        user_id: user.id,
-      });
+      // Try primary export first, fallback to alternative export if server action fails
+      let response: CinematographerResponse;
+      try {
+        response = await executeAICinematographer({
+          ...request,
+          user_id: user.id,
+        });
+      } catch (serverActionError) {
+        console.warn('Primary server action failed, trying alternative:', serverActionError);
+        response = await generateVideo({
+          ...request,
+          user_id: user.id,
+        });
+      }
       
       setResult(response);
       

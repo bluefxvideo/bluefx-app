@@ -44,6 +44,7 @@ export interface CinematographerResponse {
 
 /**
  * AI Cinematographer - Single orchestrator replacing 7 legacy edge functions
+ * Server Action for video generation workflow
  * 
  * Replaces:
  * - cinematographer-generate-video
@@ -369,3 +370,8 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
 }
 
 // Removed manual deductCredits - now using the proven pattern from cinematographer-database.ts
+
+/**
+ * Alternative export for AI Cinematographer (helps with Server Action serialization)
+ */
+export { executeAICinematographer as generateVideo };
