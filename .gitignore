@@ -65,4 +65,7 @@ Score*.csv
 !remotion/README.md
 !react-video-editor/README.md
 
+# Exclude bluefx-ai directory from git
+bluefx-ai/
+
 # Deployment focus: app/, remotion/, and react-video-editor/ only
