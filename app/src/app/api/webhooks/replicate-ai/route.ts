@@ -628,14 +628,14 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
     
     if (uploadResult.success && uploadResult.url) {
       // Find the cinematographer video record by prediction_id
-      // We need to query by metadata->prediction_id since we stored it there
+      // We need to query by metadata->generation_settings->prediction_id since we stored it there
       const { createClient } = await import('@/app/supabase/server');
       const supabase = await createClient();
       
       const { data: videoRecords } = await supabase
         .from('cinematographer_videos')
         .select('id')
-        .contains('settings', { prediction_id: payload.id });
+        .contains('metadata', { generation_settings: { prediction_id: payload.id } });
       
       if (videoRecords && videoRecords.length > 0) {
         const videoId = videoRecords[0].id;

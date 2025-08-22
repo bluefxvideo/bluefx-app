@@ -110,8 +110,8 @@ export function ReadyToCreatePanel({
 
   return (
     <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className={`w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center ${(isGeneratingVideo || isGeneratingScript) ? 'animate-pulse' : ''}`}>
-        <Video className={`w-8 h-8 text-white ${(isGeneratingVideo || isGeneratingScript) ? 'animate-bounce' : ''}`} />
+      <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
+        <Video className="w-8 h-8 text-white" />
       </div>
       
       <h3 className="text-2xl font-bold mb-2">Ready to Create Magic ✨</h3>

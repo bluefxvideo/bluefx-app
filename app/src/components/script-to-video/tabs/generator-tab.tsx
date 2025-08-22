@@ -698,6 +698,7 @@ Examples:
               disabled={stepState.isGeneratingScript || isGeneratingVoice || isGeneratingVideo}
               className="flex-1 h-12"
               size="lg"
+              loading={false}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -715,7 +716,6 @@ Examples:
             className={`${stepState.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium`}
             size="lg"
           >
-            <Film className="w-4 h-4 mr-2" />
             {stepState.isGeneratingScript ? (
               <>
                 <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -732,10 +732,13 @@ Examples:
                 Generating Video...
               </>
             ) : (
-              stepState.currentStep === 3 ? `Generate Video (${estimatedCredits} credits)` :
-              stepState.currentStep === 2 ? 'Continue to Voice' :
-              stepState.useMyScript ? 'Continue with Script' : 
-              stepState.generatedScript ? 'Continue to Review' : 'Generate Script'
+              <>
+                <Film className="w-4 h-4 mr-2" />
+                {stepState.currentStep === 3 ? `Generate Video (${estimatedCredits} credits)` :
+                stepState.currentStep === 2 ? 'Continue to Voice' :
+                stepState.useMyScript ? 'Continue with Script' : 
+                stepState.generatedScript ? 'Continue to Review' : 'Generate Script'}
+              </>
             )}
             {stepState.currentStep < 3 && !stepState.isGeneratingScript && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>
