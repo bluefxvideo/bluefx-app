@@ -71,7 +71,6 @@ export function AICinematographerPage() {
             onGenerate={generateVideo}
             isGenerating={isGenerating}
             credits={credits} // Now using real credits!
-            error={error}
           />
         );
     }

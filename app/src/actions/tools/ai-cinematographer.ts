@@ -127,7 +127,7 @@ export async function executeAICinematographer(
           batch_id,
           generation_time_ms: Date.now() - startTime,
           credits_used: 0,
-          remaining_credits: userCredits.available_credits || 0,
+          remaining_credits: creditCheck.credits || 0,
         };
       }
     }

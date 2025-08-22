@@ -297,11 +297,8 @@ export async function generateScriptToVideo(
           };
     }
 
-    // Step 7: Video Assembly
-    console.log('🎞️ Assembling video...');
-    
-    const videoUrl = await executeVideoAssembly(generatedImages, audioUrl);
-    total_credits += 8; // Assembly credits
+    // Note: Video assembly happens in the React Video Editor with Remotion
+    // No video URL at this stage - just assets and composition data
 
     // Step 7: Deduct Credits
     const creditDeduction = await deductCredits(
@@ -478,7 +475,7 @@ export async function generateScriptToVideo(
     const storeResult = await storeScriptVideoResults({
       user_id: request.user_id,
       script_text: finalScript,
-      video_url: videoUrl,
+      video_url: null, // Video rendered later in editor
       audio_url: audioUrl,
       generated_images: generatedImages,
       segments: mockSegments,
@@ -552,7 +549,7 @@ export async function generateScriptToVideo(
       generation_metadata: generationMetadata,
       
       // Legacy response format (for backward compatibility)
-      video_url: videoUrl,
+      video_url: null, // Video rendered later in editor
       audio_url: audioUrl,
       generated_images: generatedImages,
       final_script: finalScript,
@@ -724,10 +721,7 @@ async function generateImagesForAllSegments(segments: any[], aspectRatio: string
 // If needed for editing scenarios, use the voice-generation-service directly
 
 
-async function executeVideoAssembly(_images: any[], _audioUrl: string | undefined): Promise<string> {
-  // Would integrate with Remotion for actual video generation
-  return `https://storage.example.com/videos/${crypto.randomUUID()}.mp4`;
-}
+// Video assembly removed - happens in React Video Editor with Remotion
 
 async function createStoryBasedSegments(script: string, _segmentAnalysis: { segment_count: number }, originalIdea?: string): Promise<{ segments: any[], storyContext: any }> {
   try {

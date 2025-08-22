@@ -12,6 +12,7 @@ import { useScriptToVideo } from './hooks/use-script-to-video';
 import { useVideoEditorStore } from './store/video-editor-store';
 import { createClient } from '@/app/supabase/client';
 import { FileText, Edit, History } from 'lucide-react';
+import { ReadyToCreatePanel } from './components/ready-to-create-panel';
 
 // Tab content components
 import { GeneratorTab, type MultiStepState } from './tabs/generator-tab';
@@ -142,7 +143,7 @@ export function ScriptToVideoPage() {
 
   // Render appropriate right panel content
   const renderRightPanel = () => {
-    // Show workflow checklist only when user has actually started the workflow
+    // Show workflow progress when user has started generation
     if (activeTab === 'generate' && (multiStepState.isGeneratingScript || isGeneratingVoice || isGeneratingVideo || multiStepState.generatedScript)) {
       return (
         <ScriptPreviewPanel
@@ -163,7 +164,12 @@ export function ScriptToVideoPage() {
       );
     }
 
-    // Show contextual output for standard tool pattern (consistent with other tools)
+    // Show welcome panel for generate tab when idle
+    if (activeTab === 'generate') {
+      return <ReadyToCreatePanel />;
+    }
+
+    // Show contextual output for other tabs (editor, history)
     return (
       <ContextualOutput
         activeTab={activeTab}

@@ -84,14 +84,16 @@ export function OutputPanelShell({
           errorContent ? (
             errorContent
           ) : (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-200">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 mt-0.5" />
-                <div>
-                  <p className="font-medium">Generation failed</p>
-                  {errorMessage && (
-                    <p className="text-sm text-red-200/80 mt-1">{errorMessage}</p>
-                  )}
+            <div className="h-full flex items-center justify-center">
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-red-200 max-w-md text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <AlertCircle className="h-8 w-8 text-red-400" />
+                  <div>
+                    <p className="font-medium text-lg">Generation failed</p>
+                    {errorMessage && (
+                      <p className="text-sm text-red-200/80 mt-2 leading-relaxed">{errorMessage}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

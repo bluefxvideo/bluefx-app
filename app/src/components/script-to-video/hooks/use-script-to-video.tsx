@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/app/supabase/client';
-import { getUserCredits } from '@/actions/database/script-video-database';
+import { useCredits } from '@/hooks/useCredits';
 import type { 
   ScriptToVideoRequest, 
   ScriptToVideoResponse 
@@ -16,10 +16,10 @@ import {
 
 /**
  * Script-to-Video Hook
- * State management + orchestrator integration with real user authentication
+ * State management + orchestrator integration with standardized credit system
  */
 export function useScriptToVideo() {
-  const [credits, setCredits] = useState(0);
+  const { credits, refreshCredits } = useCredits(); // Use standardized hook
   const [user, setUser] = useState<any>(null);
   const [result, setResult] = useState<ScriptToVideoResponse | undefined>();
   const router = useRouter();
@@ -47,11 +47,11 @@ export function useScriptToVideo() {
     }
   }, []);
 
-  // Load user and credits on mount
+  // Load user on mount
   useEffect(() => {
-    const loadUserAndCredits = async () => {
+    const loadUser = async () => {
       try {
-        console.log('🔄 Loading user and credits...');
+        console.log('🔄 Loading user...');
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
         if (userError) {
@@ -62,26 +62,15 @@ export function useScriptToVideo() {
         if (user) {
           console.log('✅ User loaded in useEffect:', user.id);
           setUser(user);
-          
-          const creditResult = await getUserCredits(user.id);
-          console.log('💰 Credit result:', creditResult);
-          
-          if (creditResult.success) {
-            const newCredits = creditResult.credits || 0;
-            console.log('💰 Setting credits from', credits, 'to', newCredits);
-            setCredits(newCredits);
-          } else {
-            console.error('❌ Failed to get credits:', creditResult.error);
-          }
         } else {
           console.log('❌ No user found in useEffect');
         }
       } catch (error) {
-        console.error('❌ Error loading user and credits:', error);
+        console.error('❌ Error loading user:', error);
       }
     };
 
-    loadUserAndCredits();
+    loadUser();
   }, [supabase]);
 
   // Main generation mutation
@@ -103,10 +92,10 @@ export function useScriptToVideo() {
         user_id: user.id
       });
     },
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       if (response.success) {
-        // Update credits optimistically
-        setCredits(prev => prev - response.credits_used);
+        // Refresh credits from server to get accurate count
+        await refreshCredits();
         setResult(response);
         
         // Save to localStorage immediately to prevent data loss
@@ -219,7 +208,8 @@ export function useScriptToVideo() {
           video_id: response.video_id
         });
         
-        setCredits(prev => prev - response.credits_used);
+        // Refresh credits from server
+        await refreshCredits();
         setResult(response);
         
         // Save to localStorage immediately
@@ -255,25 +245,7 @@ export function useScriptToVideo() {
     }
   };
 
-  // Reload credits function
-  const reloadCredits = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('🔍 Current logged in user:', user?.id);
-      if (user) {
-        const creditResult = await getUserCredits(user.id);
-        console.log('🔍 getUserCredits result:', creditResult);
-        if (creditResult.success) {
-          setCredits(creditResult.credits || 0);
-          console.log('🔄 Credits reloaded from', credits, 'to', creditResult.credits);
-        } else {
-          console.error('🔍 Failed to get credits:', creditResult.error);
-        }
-      }
-    } catch (error) {
-      console.error('Error reloading credits:', error);
-    }
-  };
+  // Use refreshCredits from the hook directly
 
   return {
     // Generation
@@ -296,7 +268,7 @@ export function useScriptToVideo() {
     
     // Actions
     clearResults: () => setResult(undefined),
-    reloadCredits,
+    reloadCredits: refreshCredits, // Use standardized refresh
     
     // Utilities
     calculateEstimatedCredits: (scriptText: string) => {

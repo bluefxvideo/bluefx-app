@@ -8,14 +8,13 @@ import { Card } from '@/components/ui/card';
 import { Upload, Video } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
-import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
   isGenerating: boolean;
   credits: number;
-  error?: string;
 }
 
 /**
@@ -25,8 +24,7 @@ interface GeneratorTabProps {
 export function GeneratorTab({
   onGenerate,
   isGenerating,
-  credits,
-  error
+  credits
 }: GeneratorTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -57,9 +55,6 @@ export function GeneratorTab({
 
   return (
     <TabContentWrapper>
-      {/* Error Display */}
-      {error && <TabError error={error} />}
-      
       {/* Form Sections */}
       <TabBody>
         {/* Step 1: Describe Your Video */}

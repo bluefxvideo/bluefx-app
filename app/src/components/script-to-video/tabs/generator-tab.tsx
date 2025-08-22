@@ -108,8 +108,16 @@ export function GeneratorTab({
 
   // Generate script from idea using AI
   const generateScript = async () => {
-    if (!stepState.ideaText.trim()) {
+    const trimmedIdea = stepState.ideaText.trim();
+    
+    // Client-side validation
+    if (!trimmedIdea) {
       showToast('Please enter your video idea', 'warning');
+      return;
+    }
+    
+    if (trimmedIdea.length < 10) {
+      showToast('Please provide a more detailed video idea (at least 10 characters)', 'warning');
       return;
     }
 
@@ -121,7 +129,7 @@ export function GeneratorTab({
       const { generateQuickScript } = await import('@/actions/services/script-generation-service');
       
       const result = await generateQuickScript(
-        stepState.ideaText, 
+        trimmedIdea, 
         project.user_id || '', 
         { 
           tone: formData.video_style.tone 
@@ -129,7 +137,11 @@ export function GeneratorTab({
       );
 
       if (!result.success) {
-        throw new Error(result.error || 'Script generation failed');
+        // Handle specific error messages from server more gracefully
+        const errorMessage = result.error || 'Script generation failed';
+        showToast(errorMessage, 'error');
+        setStepState({ ...stepState, isGeneratingScript: false });
+        return;
       }
 
       setStepState({
@@ -468,10 +480,17 @@ Examples:
                   value={stepState.ideaText}
                   onChange={(e) => setStepState({ ...stepState, ideaText: e.target.value })}
                   rows={6}
-                  className="resize-none"
+                  className={`resize-none ${stepState.ideaText.trim().length > 0 && stepState.ideaText.trim().length < 10 ? 'border-yellow-500 focus:border-yellow-500' : ''}`}
                 />
-                <div className="text-sm text-muted-foreground">
-                  {stepState.ideaText.length} characters • AI will generate a ~200-300 word script
+                <div className="text-sm space-y-1">
+                  <div className={`${stepState.ideaText.trim().length > 0 && stepState.ideaText.trim().length < 10 ? 'text-yellow-600' : 'text-muted-foreground'}`}>
+                    {stepState.ideaText.length} characters • AI will generate a ~200-300 word script
+                  </div>
+                  {stepState.ideaText.trim().length > 0 && stepState.ideaText.trim().length < 10 && (
+                    <div className="text-yellow-600 text-xs flex items-center gap-1">
+                      ⚠️ Please provide more details (minimum 10 characters)
+                    </div>
+                  )}
                 </div>
 
               </div>
