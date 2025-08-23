@@ -287,38 +287,57 @@ async function loadAIAssetsFromBlueFX({
     
     // FIRST: Check if there's a saved composition
     console.log('🔍 Checking for saved composition first...');
-    const savedResponse = await fetch(`${apiUrl}/api/script-video/save-composition?user_id=${userId}&video_id=${videoId}`, {
+    // Ensure no double slashes in URL construction
+    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    const savedUrl = `${cleanApiUrl}/api/script-video/save-composition?user_id=${userId}&video_id=${videoId}`;
+    console.log('🔗 Saved composition URL:', savedUrl);
+    const savedResponse = await fetch(savedUrl, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
     
     if (savedResponse.ok) {
       const savedData = await savedResponse.json();
-      if (savedData.success && savedData.data) {
+      console.log('🔍 Saved composition response:', savedData);
+      
+      if (savedData.success && savedData.data && savedData.data.composition_data) {
         console.log('✅ Found saved composition! Loading that instead of AI assets.');
-        onProgress?.('Loading saved composition...', 50);
-        
-        // Load the saved composition directly
-        dispatch(DESIGN_LOAD, { 
-          payload: savedData.data.composition_data 
+        console.log('🔍 Composition data structure:', {
+          hasCompositionData: !!savedData.data.composition_data,
+          hasTrackItemsMap: !!savedData.data.composition_data?.trackItemsMap,
+          keys: savedData.data.composition_data ? Object.keys(savedData.data.composition_data) : []
         });
         
-        onProgress?.('Complete!', 100);
-        onSuccess?.(videoId);
+        onProgress?.('Loading saved composition...', 50);
         
-        console.log('🎉 Saved composition loaded successfully!');
-        return; // Exit early - we loaded the saved version
+        // Validate composition data structure before loading
+        if (savedData.data.composition_data.trackItemsMap) {
+          // Load the saved composition directly
+          dispatch(DESIGN_LOAD, { 
+            payload: savedData.data.composition_data 
+          });
+          
+          onProgress?.('Complete!', 100);
+          onSuccess?.(videoId);
+          
+          console.log('🎉 Saved composition loaded successfully!');
+          return; // Exit early - we loaded the saved version
+        } else {
+          console.log('⚠️ Saved composition missing trackItemsMap, falling back to AI asset loading');
+        }
+      } else {
+        console.log('ℹ️ No saved composition found, proceeding with AI asset loading');
       }
     }
     
     console.log('📭 No saved composition found, loading AI assets...');
     onProgress?.('Connecting to BlueFX...', 10);
     
-    console.log('🔗 Fetching video data from BlueFX API:', `${apiUrl}/api/script-video/editor-data`);
+    console.log('🔗 Fetching video data from BlueFX API:', `${cleanApiUrl}/api/script-video/editor-data`);
     console.log('🔗 Request payload:', { user_id: userId, videoId: videoId });
     
     // Fetch video data from BlueFX API
-    const response = await fetch(`${apiUrl}/api/script-video/editor-data`, {
+    const response = await fetch(`${cleanApiUrl}/api/script-video/editor-data`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, videoId: videoId })

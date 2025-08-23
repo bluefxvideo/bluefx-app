@@ -117,12 +117,15 @@ export function useScriptToVideo() {
         // Auto-redirect to editor after successful generation
         setTimeout(() => {
           if (response.video_id && currentUserId) {
-            const editorUrl = `https://editor.bluefx.net/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=https://app.bluefx.net`;
-            console.log('🚀 Redirecting to editor with correct URL format:', editorUrl);
+            const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
+            const apiBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+            const editorUrl = `${editorBaseUrl}/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=${apiBaseUrl}`;
+            console.log('🚀 Redirecting to editor with environment-based URL:', editorUrl);
             window.location.href = editorUrl;
           } else {
+            const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
             console.log('🚀 Redirecting to editor without video_id');
-            window.location.href = 'https://editor.bluefx.net';
+            window.location.href = editorBaseUrl;
           }
         }, 1500); // Give 1.5 seconds to see the checkmark
         
@@ -240,8 +243,10 @@ export function useScriptToVideo() {
         // Auto-redirect to editor after successful generation
         setTimeout(() => {
           if (typeof window !== 'undefined' && response.video_id && currentUserId) {
-            const editorUrl = `https://editor.bluefx.net/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=https://app.bluefx.net`;
-            console.log('🚀 Redirecting to editor with correct URL format:', editorUrl);
+            const editorBaseUrl = (process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001').replace(/\/$/, '');
+            const apiBaseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+            const editorUrl = `${editorBaseUrl}/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=${apiBaseUrl}`;
+            console.log('🚀 Redirecting to editor with environment-based URL:', editorUrl);
             window.location.href = editorUrl;
           }
         }, 1500); // Give 1.5 seconds to see the checkmark

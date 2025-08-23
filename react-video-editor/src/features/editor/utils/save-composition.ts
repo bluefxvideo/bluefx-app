@@ -61,7 +61,9 @@ export async function saveComposition(
     });
     
     // Send to the API
-    const response = await fetch(`${apiUrl}/api/script-video/save-composition`, {
+    // Ensure no double slashes in URL construction
+    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    const response = await fetch(`${cleanApiUrl}/api/script-video/save-composition`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -118,7 +120,9 @@ export async function loadSavedComposition(options: {
       ...(compositionId && { composition_id: compositionId })
     });
     
-    const response = await fetch(`${apiUrl}/api/script-video/save-composition?${params}`, {
+    // Ensure no double slashes in URL construction
+    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    const response = await fetch(`${cleanApiUrl}/api/script-video/save-composition?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
