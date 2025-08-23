@@ -400,7 +400,18 @@ async function loadAIAssetsFromBlueFX({
     console.log('✅ Editor payload created:', {
       trackItems: editorPayload?.trackItems?.length || 0,
       duration: editorPayload?.duration || 0,
-      fps: editorPayload?.fps || 0
+      fps: editorPayload?.fps || 0,
+      audioItems: editorPayload?.trackItems?.filter(item => item.type === 'audio').length || 0,
+      imageItems: editorPayload?.trackItems?.filter(item => item.type === 'image').length || 0
+    });
+    
+    console.log('🔍 DEBUG: All track items by type:', {
+      audio: editorPayload?.trackItems?.filter(item => item.type === 'audio').map(item => ({
+        id: item.id,
+        src: item.details?.src,
+        duration: item.duration
+      })) || [],
+      image: editorPayload?.trackItems?.filter(item => item.type === 'image').length || 0
     });
     
     console.log('📤 Dispatching DESIGN_LOAD from BlueFX loader...');
@@ -417,6 +428,14 @@ async function loadAIAssetsFromBlueFX({
     };
     
     console.log(`📤 Loading base composition with ${basePayload.trackItems.length} audio items...`);
+    console.log('🔍 DEBUG: Base payload audio items:', basePayload.trackItems.map(item => ({
+      id: item.id,
+      type: item.type,
+      src: item.details?.src,
+      duration: item.duration
+    })));
+    console.log('🔍 DEBUG: Audio tracks:', basePayload.tracks);
+    
     dispatch(DESIGN_LOAD, { payload: basePayload });
     
     // Add images to separate tracks using ADD_ITEMS (but without complex timing)
