@@ -438,23 +438,28 @@ async function loadAIAssetsFromBlueFX({
     
     dispatch(DESIGN_LOAD, { payload: basePayload });
     
-    // Add images to separate tracks using ADD_ITEMS (but without complex timing)
+    // Add images to separate tracks using ADD_ITEMS (with small delay to avoid conflicts)
     const imageItems = editorPayload.trackItems.filter(item => item.type === 'image');
     console.log(`📤 Adding ${imageItems.length} images to separate tracks...`);
     
-    // Add all images at once instead of staggered timing
+    // Add images after base composition is loaded to avoid overriding audio
     if (imageItems.length > 0) {
-      dispatch(ADD_ITEMS, {
-        payload: {
-          trackItems: imageItems.map(imageItem => ({
-            ...imageItem,
-            details: {
-              src: imageItem.details.src
-              // Keep minimal details for proper track separation
-            }
-          }))
-        }
-      });
+      setTimeout(() => {
+        console.log('📤 Now adding images after audio is settled...');
+        console.log('🔍 DEBUG: About to dispatch ADD_ITEMS for images');
+        dispatch(ADD_ITEMS, {
+          payload: {
+            trackItems: imageItems.map(imageItem => ({
+              ...imageItem,
+              details: {
+                src: imageItem.details.src
+                // Keep minimal details for proper track separation
+              }
+            }))
+          }
+        });
+        console.log('✅ ADD_ITEMS dispatched for images');
+      }, 100); // Small delay to let audio settle
     }
     
     onProgress?.('Complete!', 100);
