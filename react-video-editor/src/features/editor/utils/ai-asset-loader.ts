@@ -1,5 +1,5 @@
 import { dispatch } from "@designcombo/events";
-import { DESIGN_LOAD } from "@designcombo/state";
+import { DESIGN_LOAD, ADD_ITEMS } from "@designcombo/state";
 import { convertAIAssetsToEditorFormat, validateAIAssets, createMockAIComposition } from "./ai-asset-converter";
 import { fixAllAIAssetPositioning } from "./ai-positioning-fix";
 
@@ -405,9 +405,38 @@ async function loadAIAssetsFromBlueFX({
     
     console.log('📤 Dispatching DESIGN_LOAD from BlueFX loader...');
     
-    // Load the complete composition all at once (more reliable than staggered loading)
-    console.log(`📤 Loading complete BlueFX composition with ${editorPayload.trackItems.length} items...`);
-    dispatch(DESIGN_LOAD, { payload: editorPayload });
+    // Load base composition with proper track structure (audio first, then add images to separate tracks)
+    const basePayload = {
+      ...editorPayload,
+      trackItems: editorPayload.trackItems.filter(item => item.type === 'audio'),
+      trackItemsMap: Object.fromEntries(
+        Object.entries(editorPayload.trackItemsMap).filter(([_, item]) => item.type === 'audio')
+      ),
+      trackItemIds: editorPayload.trackItemIds.filter(id => editorPayload.trackItemsMap[id]?.type === 'audio'),
+      tracks: editorPayload.tracks.filter(track => track.type === 'audio')
+    };
+    
+    console.log(`📤 Loading base composition with ${basePayload.trackItems.length} audio items...`);
+    dispatch(DESIGN_LOAD, { payload: basePayload });
+    
+    // Add images to separate tracks using ADD_ITEMS (but without complex timing)
+    const imageItems = editorPayload.trackItems.filter(item => item.type === 'image');
+    console.log(`📤 Adding ${imageItems.length} images to separate tracks...`);
+    
+    // Add all images at once instead of staggered timing
+    if (imageItems.length > 0) {
+      dispatch(ADD_ITEMS, {
+        payload: {
+          trackItems: imageItems.map(imageItem => ({
+            ...imageItem,
+            details: {
+              src: imageItem.details.src
+              // Keep minimal details for proper track separation
+            }
+          }))
+        }
+      });
+    }
     
     onProgress?.('Complete!', 100);
     onSuccess?.(videoData.videoId);
