@@ -1,5 +1,5 @@
 import { dispatch } from "@designcombo/events";
-import { DESIGN_LOAD, ADD_ITEMS } from "@designcombo/state";
+import { DESIGN_LOAD } from "@designcombo/state";
 import { convertAIAssetsToEditorFormat, validateAIAssets, createMockAIComposition } from "./ai-asset-converter";
 import { fixAllAIAssetPositioning } from "./ai-positioning-fix";
 
@@ -405,41 +405,9 @@ async function loadAIAssetsFromBlueFX({
     
     console.log('📤 Dispatching DESIGN_LOAD from BlueFX loader...');
     
-    // Create base composition with just audio and structure
-    const basePayload = {
-      ...editorPayload,
-      trackItems: editorPayload.trackItems.filter(item => item.type === 'audio'),
-      trackItemsMap: Object.fromEntries(
-        Object.entries(editorPayload.trackItemsMap).filter(([_, item]) => item.type === 'audio')
-      ),
-      trackItemIds: editorPayload.trackItemIds.filter(id => editorPayload.trackItemsMap[id]?.type === 'audio'),
-      tracks: editorPayload.tracks.filter(track => track.type === 'audio')
-    };
-    
-    dispatch(DESIGN_LOAD, { payload: basePayload });
-    
-    // Add images individually using ADD_ITEMS (like sidebar does) for proper centering
-    setTimeout(() => {
-      const imageItems = editorPayload.trackItems.filter(item => item.type === 'image');
-      console.log(`📤 Adding ${imageItems.length} BlueFX images individually via ADD_ITEMS...`);
-      
-      imageItems.forEach((imageItem, index) => {
-        setTimeout(() => {
-          console.log(`📤 Adding BlueFX image ${index + 1}: ${imageItem.details.src}`);
-          dispatch(ADD_ITEMS, {
-            payload: {
-              trackItems: [{
-                ...imageItem,
-                details: {
-                  src: imageItem.details.src
-                  // Minimal details like sidebar images
-                }
-              }]
-            }
-          });
-        }, index * 100); // Stagger the additions
-      });
-    }, 200);
+    // Load the complete composition all at once (more reliable than staggered loading)
+    console.log(`📤 Loading complete BlueFX composition with ${editorPayload.trackItems.length} items...`);
+    dispatch(DESIGN_LOAD, { payload: editorPayload });
     
     onProgress?.('Complete!', 100);
     onSuccess?.(videoData.videoId);
