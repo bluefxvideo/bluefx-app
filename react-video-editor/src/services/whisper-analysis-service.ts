@@ -69,14 +69,15 @@ export async function analyzeAudioWithWhisper(
       throw new Error(`Failed to download audio: ${audioResponse.statusText}`);
     }
 
-    // Convert to file format for Whisper (Node.js server compatible)
-    const audioBuffer = await audioResponse.arrayBuffer();
+    // Convert to file format for Whisper (server-side compatible)
+    const audioArrayBuffer = await audioResponse.arrayBuffer();
     
-    // OpenAI accepts Buffer directly in Node.js environment
-    const audioFile = Buffer.from(audioBuffer);
-    
-    // Add filename property for OpenAI API
-    Object.assign(audioFile, { name: 'audio.mp3' });
+    // Create a proper file object for OpenAI API in server environment
+    const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+    const audioFile = Object.assign(audioBlob, {
+      name: 'audio.mp3',
+      lastModified: Date.now()
+    });
 
     // Call OpenAI Whisper with word-level timestamps
     console.log('🔍 Calling OpenAI Whisper API with word timestamps...');
