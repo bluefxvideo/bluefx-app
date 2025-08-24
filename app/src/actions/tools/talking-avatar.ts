@@ -402,7 +402,7 @@ async function handleVideoGeneration(
     const storeResult = await storeTalkingAvatarResults({
       user_id: request.user_id,
       script_text: request.script_text,
-      avatar_template_id: request.avatar_template_id || 'custom',
+      avatar_template_id: request.avatar_template_id || null,
       batch_id: batch_id,
       voice_audio_url: request.voice_audio_url,
       status: 'processing'
@@ -477,7 +477,7 @@ async function handleVideoGeneration(
         await storeTalkingAvatarResults({
           user_id: request.user_id,
           script_text: request.script_text,
-          avatar_template_id: request.avatar_template_id || 'custom',
+          avatar_template_id: request.avatar_template_id || null,
           batch_id: batch_id,
           status: 'failed',
           settings: { error_message: hedraResult.error }
@@ -498,7 +498,7 @@ async function handleVideoGeneration(
         await storeTalkingAvatarResults({
           user_id: request.user_id,
           script_text: request.script_text,
-          avatar_template_id: request.avatar_template_id || 'custom',
+          avatar_template_id: request.avatar_template_id || null,
           batch_id: batch_id,
           hedra_generation_id: hedraResult.generationId,
           voice_audio_url: request.voice_audio_url,
@@ -552,7 +552,7 @@ async function handleVideoGeneration(
       await storeTalkingAvatarResults({
         user_id: request.user_id,
         script_text: request.script_text,
-        avatar_template_id: request.avatar_template_id || 'custom',
+        avatar_template_id: request.avatar_template_id || null,
         batch_id: batch_id,
         status: 'failed',
         settings: { 

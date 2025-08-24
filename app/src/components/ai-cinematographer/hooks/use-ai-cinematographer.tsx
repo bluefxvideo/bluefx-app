@@ -74,7 +74,26 @@ export function useAICinematographer() {
 
     setIsGenerating(true);
     setError(undefined);
-    setResult(undefined);
+    
+    // Create immediate placeholder result to show video preview
+    const batch_id = `cinematographer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const placeholderResult: CinematographerResponse = {
+      success: true,
+      batch_id,
+      generation_time_ms: 0,
+      credits_used: 0,
+      remaining_credits: 0,
+      video: {
+        id: batch_id,
+        video_url: '', // Empty until completed
+        thumbnail_url: '',
+        duration: 5, // Default duration
+        aspect_ratio: request.aspect_ratio || '16:9',
+        prompt: request.video_concept,
+        created_at: new Date().toISOString()
+      }
+    };
+    setResult(placeholderResult);
     
     try {
       // Try primary export first, fallback to alternative export if server action fails
@@ -288,7 +307,7 @@ export function useAICinematographer() {
                 duration: processingVideo.total_duration_seconds || 5,
                 aspect_ratio: processingVideo.aspect_ratio || '16:9',
                 prompt: processingVideo.video_concept,
-                created_at: processingVideo.created_at
+                created_at: processingVideo.created_at || new Date().toISOString()
               }
             });
             

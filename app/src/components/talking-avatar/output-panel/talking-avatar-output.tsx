@@ -112,6 +112,9 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
       if (state.currentStep === 2 && state.selectedAvatarTemplate) {
         return 'Avatar selected! Add your script and choose a voice.';
       }
+      if (state.currentStep === 2 && state.isLoading) {
+        return 'Preparing voice in the background...';
+      }
       if (state.currentStep === 3 && state.selectedVoiceId) {
         return 'Voice ready! Click generate to create your avatar video.';
       }
@@ -119,6 +122,9 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
     };
 
     const getCurrentTitle = () => {
+      if (state.currentStep === 2 && state.isLoading) {
+        return 'Preparing Video ✨';
+      }
       if (state.currentStep === 2) {
         return 'Configure Voice ✨';
       }
@@ -156,7 +162,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
             description="Enter script and select voice"
             icon={Mic}
             isCompleted={!!(state.selectedVoiceId && state.voiceAudioUrl)}
-            isActive={state.currentStep === 2}
+            isActive={state.currentStep === 2 && !state.isLoading}
             isLoading={state.isLoading && state.currentStep === 2}
           />
           

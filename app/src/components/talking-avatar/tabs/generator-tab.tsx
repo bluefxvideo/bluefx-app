@@ -109,16 +109,16 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
         goToStep(2);
       }
     } else if (state.currentStep === 2) {
-      // Step 2: Voice generation or proceed to video
-      if (!state.voiceAudioUrl) {
-        // Generate voice and stay in Step 2 to show preview
-        if (selectedVoice && localScriptText.trim()) {
+      // Step 2: Auto-prepare voice and proceed to video generation
+      if (selectedVoice && localScriptText.trim()) {
+        // First generate voice if not already generated
+        if (!state.voiceAudioUrl) {
           await handleVoiceGeneration(selectedVoice, localScriptText);
-          // Stay in Step 2 to show voice preview - don&apos;t auto-advance
         }
-      } else {
-        // Voice already generated, proceed to Step 3 for video generation
-        goToStep(3);
+        // Then proceed to Step 3 for video generation only if voice generation was successful
+        if (!state.error) {
+          goToStep(3);
+        }
       }
     } else if (state.currentStep === 3) {
       // Step 3: Video generation
@@ -130,12 +130,8 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
     if (state.currentStep === 1) {
       return selectedTemplate || customImage;
     } else if (state.currentStep === 2) {
-      // If no voice generated yet, need voice selection + script text
-      if (!state.voiceAudioUrl) {
-        return selectedVoice && localScriptText.trim();
-      }
-      // If voice already generated, can proceed to video step
-      return true;
+      // Need voice selection + script text (voice will be generated automatically)
+      return selectedVoice && localScriptText.trim();
     } else if (state.currentStep === 3) {
       return true;
     }
@@ -462,10 +458,10 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
           >
             <Video className="w-4 h-4 mr-2" />
             {state.isLoading || state.isGenerating ? (
-              state.currentStep === 3 ? 'Generating Video...' : 'Processing...'
+              state.currentStep === 3 ? 'Generating Video...' : state.currentStep === 2 ? 'Preparing Video...' : 'Processing...'
             ) : (
               state.currentStep === 3 ? 'Generate Video' : 
-              state.currentStep === 2 ? (state.voiceAudioUrl ? 'Prepare Video' : 'Prepare Voice') : 'Select Avatar'
+              state.currentStep === 2 ? 'Prepare Video' : 'Select Avatar'
             )}
             {state.currentStep < 3 && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>

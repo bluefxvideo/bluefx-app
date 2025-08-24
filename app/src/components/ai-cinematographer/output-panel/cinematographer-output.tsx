@@ -29,8 +29,68 @@ export function CinematographerOutput({
   activeTab = 'generate',
   isStateRestored = false
 }: CinematographerOutputProps) {
-  // Loading state with premium styling
+  // Loading state with premium styling - but show video placeholder if we have result data (state restoration)
   if (isGenerating) {
+    // If we have result data (from state restoration), show the video placeholder instead of just loading spinner
+    if (result && result.success && result.video) {
+      return (
+        <div className="h-full flex flex-col relative overflow-hidden">
+          {/* Solid subtle overlay for consistency with theme */}
+          <div className="absolute inset-0 bg-secondary/20"></div>
+          
+          <div className="relative z-10 h-full flex flex-col">
+            {/* Processing Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center animate-spin">
+                    <Video className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="absolute inset-0 rounded-full border-2 border-primary/40 animate-ping"></div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Creating Your Video</h3>
+                  <p className="text-zinc-400">
+                    {isStateRestored ? 'Continuing video generation...' : 'AI is generating cinematic content...'}
+                  </p>
+                </div>
+              </div>
+              
+              <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
+                <Clock className="w-3 h-3 mr-1.5" />
+                {isStateRestored ? 'Resumed' : 'Processing'}
+              </Badge>
+            </div>
+            
+            {/* State restored notification */}
+            {isStateRestored && (
+              <div className="px-6 pb-4">
+                <Card className="p-3 bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    <p className="text-sm text-blue-300 font-medium">
+                      Video generation resumed - your video was still processing in the background
+                    </p>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Show Video Placeholder */}
+            <div className="flex-1 min-h-0 flex items-center justify-center py-6">
+              <div className="w-full max-w-2xl">
+                <VideoPreview
+                  video={result.video}
+                  batchId={result.batch_id}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback loading state for initial generation (no result data yet)
     return (
       <div className="h-full flex flex-col relative overflow-hidden">
         {/* Solid subtle overlay for consistency with theme */}
@@ -47,31 +107,15 @@ export function CinematographerOutput({
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">Creating Your Video</h3>
-                <p className="text-zinc-400">
-                  {isStateRestored ? 'Continuing video generation...' : 'AI is generating cinematic content...'}
-                </p>
+                <p className="text-zinc-400">AI is generating cinematic content...</p>
               </div>
             </div>
             
             <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
               <Clock className="w-3 h-3 mr-1.5" />
-              {isStateRestored ? 'Resumed' : 'Processing'}
+              Processing
             </Badge>
           </div>
-          
-          {/* State restored notification */}
-          {isStateRestored && (
-            <div className="px-6 pb-4">
-              <Card className="p-3 bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <p className="text-sm text-blue-300 font-medium">
-                    Video generation resumed - your video was still processing in the background
-                  </p>
-                </div>
-              </Card>
-            </div>
-          )}
           
           {/* Loading skeleton for video */}
           <div className="flex-1 min-h-0 flex items-center justify-center py-6">

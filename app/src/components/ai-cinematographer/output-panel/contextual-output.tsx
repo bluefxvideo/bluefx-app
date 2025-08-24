@@ -60,16 +60,28 @@ export function ContextualOutput({
   return (
     <OutputPanelShell
       title={titleWithIndicator}
-      status={isGenerating ? 'loading' : error ? 'error' : (result?.success ? 'ready' : 'idle')}
+      status={isGenerating ? 'loading' : error ? 'error' : (result?.success || isStateRestored ? 'ready' : 'idle')}
       errorMessage={error}
       empty={
-        <CinematographerOutput
-          result={undefined}
-          isGenerating={false}
-          error={undefined}
-          onClearResults={onClearResults}
-          activeTab={activeTab}
-        />
+        // Don't show empty state if we have restored state or result data
+        (isStateRestored || result?.success) ? (
+          <CinematographerOutput
+            result={result}
+            isGenerating={isGenerating}
+            error={error}
+            onClearResults={onClearResults}
+            activeTab={activeTab}
+            isStateRestored={isStateRestored}
+          />
+        ) : (
+          <CinematographerOutput
+            result={undefined}
+            isGenerating={false}
+            error={undefined}
+            onClearResults={onClearResults}
+            activeTab={activeTab}
+          />
+        )
       }
     >
       <CinematographerOutput

@@ -8,7 +8,7 @@ export interface TalkingAvatarVideo {
   user_id: string;
   video_url: string | null;
   script_text: string;
-  avatar_template_id: string;
+  avatar_template_id: string | null;
   status: string;
   audio_url: string | null;
   thumbnail_url: string | null;
@@ -423,7 +423,7 @@ export async function deductCredits(
 export async function storeTalkingAvatarResults(params: {
   user_id: string;
   script_text: string;
-  avatar_template_id: string;
+  avatar_template_id: string | null;
   batch_id: string;
   video_url?: string;
   thumbnail_url?: string;
