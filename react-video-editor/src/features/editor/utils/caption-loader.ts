@@ -67,8 +67,11 @@ export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
   
   if (captionTrack.audioDuration) {
     // Use audio duration for track length (captions should span the entire audio)
-    duration = captionTrack.audioDuration * 1000; // Convert seconds to milliseconds
-    console.log('📊 Duration from audio duration:', duration, 'ms');
+    // Check if audioDuration is already in milliseconds (>1000) or seconds (<1000)
+    duration = captionTrack.audioDuration > 1000 
+      ? captionTrack.audioDuration  // Already in milliseconds
+      : captionTrack.audioDuration * 1000; // Convert seconds to milliseconds
+    console.log('📊 Duration from audio duration:', duration, 'ms', `(input was ${captionTrack.audioDuration})`);
   } else if (captionTrack.display?.to) {
     // Use provided display duration
     duration = captionTrack.display.to;

@@ -119,6 +119,7 @@ export function CaptionGeneratorPanel({
               sourceUrl: undefined,
               parentId: undefined
             },
+            audioDuration: audioInfo.duration // Pass audio duration for proper track length
           };
           
           // Add unified caption track to timeline using proper caption loader
