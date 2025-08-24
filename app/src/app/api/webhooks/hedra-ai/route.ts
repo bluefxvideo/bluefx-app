@@ -159,7 +159,12 @@ async function processHedraVideoComplete(payload: HedraWebhookPayload, videoUrl:
     const uploadResult = await downloadAndUploadImage(
       videoUrl,
       'talking-avatar',
-      `avatar_${payload.generation_id}`
+      `avatar_${payload.generation_id}`,
+      {
+        bucket: 'videos', // Use videos bucket instead of images
+        contentType: 'video/mp4', // Correct MIME type for MP4 videos
+        filename: `avatar_${payload.generation_id}.mp4` // Correct file extension
+      }
     );
     
     if (!uploadResult.success || !uploadResult.url) {

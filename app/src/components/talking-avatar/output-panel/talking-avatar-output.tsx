@@ -95,7 +95,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                 <Card className="overflow-hidden">
                   <div className="aspect-video bg-muted flex items-center justify-center">
                     <div className="text-center space-y-3">
-                      {state.showManualCheck ? (
+                      {(state.showManualCheck || state.showEarlyManualCheck) ? (
                         <RefreshCw className="w-8 h-8 mx-auto text-muted-foreground" />
                       ) : (
                         <Clock className="w-8 h-8 mx-auto text-muted-foreground" />
@@ -107,7 +107,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                             : 'Video processing...'
                           }
                         </p>
-                        {state.showManualCheck && checkStatusManually && (
+                        {(state.showManualCheck || state.showEarlyManualCheck) && checkStatusManually && (
                           <Button 
                             onClick={checkStatusManually}
                             disabled={state.isManuallyChecking}
@@ -155,7 +155,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                     <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
                       <div className="flex justify-between">
                         <span>Video ID:</span>
-                        <span className="font-mono">{state.generatedVideo.id.slice(-8)}</span>
+                        <span className="font-mono text-xs">{state.generatedVideo.id}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Generated:</span>
@@ -167,7 +167,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                           {state.showManualCheck 
                             ? 'Awaiting manual check' 
                             : state.isPolling 
-                              ? 'Processing with Hedra AI'
+                              ? 'Processing...'
                               : 'Generating video...'
                           }
                         </span>

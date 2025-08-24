@@ -369,6 +369,8 @@ async function handleVideoGeneration(
   startTime: number,
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<TalkingAvatarResponse> {
+  let hedraGenerationId: string | null = null;
+  
   try {
     // Calculate credit costs
     const creditCosts = calculateTalkingAvatarCreditCost(request);
@@ -500,6 +502,7 @@ async function handleVideoGeneration(
 
       // Update record with Hedra generation ID following legacy pattern
       if (hedraResult.generationId) {
+        hedraGenerationId = hedraResult.generationId;
         await storeTalkingAvatarResults({
           user_id: request.user_id,
           script_text: request.script_text,
@@ -590,6 +593,7 @@ async function handleVideoGeneration(
         created_at: new Date().toISOString(),
       },
       batch_id,
+      prediction_id: hedraGenerationId, // Add the Hedra generation ID for polling
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCosts.total,
       remaining_credits: deductResult.remainingCredits || 0,

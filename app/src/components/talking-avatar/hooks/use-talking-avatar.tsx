@@ -48,6 +48,7 @@ export interface TalkingAvatarState {
   pollingStartTime: number | null; // Track when polling started
   showManualCheck: boolean; // Show manual check button after timeout
   isManuallyChecking: boolean; // Track manual check state
+  showEarlyManualCheck: boolean; // Show manual check button after 1 minute (alongside polling)
 }
 
 export interface UseTalkingAvatarReturn {
@@ -73,6 +74,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const currentGenerationIdRef = useRef<string | null>(null);
   const generatedVideoRef = useRef<TalkingAvatarState['generatedVideo']>(null);
   const pollingStartTimeRef = useRef<number | null>(null);
+  const hasAttemptedRestorationRef = useRef<boolean>(false);
   
   const getActiveTabFromPath = useCallback(() => {
     if (pathname.includes('/history')) return 'history';
@@ -109,6 +111,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     pollingStartTime: null,
     showManualCheck: false,
     isManuallyChecking: false,
+    showEarlyManualCheck: false,
   });
 
   // Update active tab when pathname changes
@@ -331,11 +334,15 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           isPolling: true,
           pollingStartTime: Date.now(), // Track when polling started
           showManualCheck: false,
+          showEarlyManualCheck: false,
         }));
         
         // Start polling for video completion
         if (response.prediction_id) {
+          console.log('🚀 About to start polling for prediction:', response.prediction_id);
           startPolling(response.prediction_id);
+        } else {
+          console.error('❌ No prediction_id returned from API');
         }
         
         toast.success('Video generation started! Check your history for updates.');
@@ -397,6 +404,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       pollingStartTime: null,
       showManualCheck: false,
       isManuallyChecking: false,
+      showEarlyManualCheck: false,
     }));
     
     // Stop polling
@@ -489,6 +497,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             showManualCheck: false,
             isManuallyChecking: false,
             pollingStartTime: null,
+            showEarlyManualCheck: false,
             error: null,
           }));
           
@@ -501,6 +510,27 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           toast.success('Video generation completed!');
           await loadHistory();
           
+        } else if (result.status === 'complete' && !result.video_url) {
+          // Video is complete on Hedra but no URL (likely expired)
+          setState(prev => ({
+            ...prev,
+            error: 'Video generated successfully but has expired. Please try generating a new video.',
+            isPolling: false,
+            isGenerating: false,
+            currentGenerationId: null,
+            showManualCheck: false,
+            isManuallyChecking: false,
+            pollingStartTime: null,
+            showEarlyManualCheck: false,
+          }));
+          
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          
+          toast.error('Video generated successfully but has expired. Please try generating a new video.');
+          
         } else if (result.status === 'error') {
           setState(prev => ({
             ...prev,
@@ -511,6 +541,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             showManualCheck: false,
             isManuallyChecking: false,
             pollingStartTime: null,
+            showEarlyManualCheck: false,
           }));
           
           if (pollingIntervalRef.current) {
@@ -520,7 +551,12 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           
           toast.error('Video generation failed');
         } else {
-          setState(prev => ({ ...prev, isManuallyChecking: false }));
+          setState(prev => ({ 
+            ...prev, 
+            isManuallyChecking: false,
+            // Keep early manual check visible if we're still processing
+            showEarlyManualCheck: true
+          }));
           toast.info(`Video is still processing... Status: ${result.status}`);
         }
       } else {
@@ -539,24 +575,28 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
 
   // Start polling for video generation status
   const startPolling = useCallback((generationId: string) => {
-    console.log(`[TalkingAvatar] Starting polling for generation: ${generationId}`);
+    console.log(`🔄 [TalkingAvatar] Starting polling for generation: ${generationId}`);
+    console.log(`🔄 [TalkingAvatar] Current polling start time: ${pollingStartTimeRef.current}`);
     
     // Clear any existing polling
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
+      console.log(`🔄 [TalkingAvatar] Cleared existing polling interval`);
     }
 
     // Start polling every 5 seconds
     pollingIntervalRef.current = setInterval(async () => {
+      console.log(`⏰ [TalkingAvatar] POLLING TICK - Checking generation: ${generationId}`);
+      
       try {
         if (!user?.id) {
           console.error('[TalkingAvatar] No user found during polling');
           return;
         }
 
-        // Check if we should stop polling and show manual check (after 4 minutes)
+        // Check if we should stop polling and show manual check (after 2 minutes)
         const pollingDuration = Date.now() - (pollingStartTimeRef.current || 0);
-        const timeoutThreshold = 4 * 60 * 1000; // 4 minutes
+        const timeoutThreshold = 2 * 60 * 1000; // 2 minutes
         
         if (pollingDuration > timeoutThreshold) {
           console.log(`[TalkingAvatar] Polling timeout reached after ${Math.round(pollingDuration / 60000)} minutes`);
@@ -578,6 +618,22 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         }
 
         console.log(`[TalkingAvatar] Polling for generation: ${generationId} (${Math.round(pollingDuration / 1000)}s elapsed)`);
+        
+        // Show early manual check after 30 seconds (alongside polling)
+        const earlyManualThreshold = 30 * 1000; // 30 seconds
+        if (pollingDuration > earlyManualThreshold) {
+          console.log('⏰ Showing early manual check button');
+          setState(prev => {
+            if (!prev.showEarlyManualCheck) {
+              console.log('⏰ Actually updating showEarlyManualCheck to true');
+              return {
+                ...prev,
+                showEarlyManualCheck: true,
+              };
+            }
+            return prev;
+          });
+        }
         
         // Check avatar_videos table for completed video
         const { data: videos, error } = await supabase
@@ -655,12 +711,60 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         console.error('[TalkingAvatar] Polling error:', pollingError);
       }
     }, 5000); // Poll every 5 seconds (matching AI cinematographer pattern)
-  }, [user?.id, supabase, loadHistory]);
+  }, [user?.id, supabase, loadHistory, state.currentGenerationId, state.isPolling]);
+
+  // Alternative polling approach using useEffect to avoid stale closure issues
+  useEffect(() => {
+    if (!state.isPolling || !state.currentGenerationId || !user?.id) {
+      return;
+    }
+
+    console.log('🔄 [Alternative] Starting effect-based polling for:', state.currentGenerationId);
+    
+    const pollInterval = setInterval(async () => {
+      console.log('⏰ [Alternative] EFFECT POLLING TICK');
+      
+      // Check timeout for manual check button
+      const pollingDuration = Date.now() - (state.pollingStartTime || 0);
+      const earlyManualThreshold = 30 * 1000; // 30 seconds
+      const timeoutThreshold = 2 * 60 * 1000; // 2 minutes
+      
+      if (pollingDuration > timeoutThreshold && !state.showManualCheck) {
+        console.log('⏰ [Alternative] Timeout reached - stopping polling');
+        setState(prev => ({
+          ...prev,
+          isPolling: false,
+          showManualCheck: true,
+        }));
+      } else if (pollingDuration > earlyManualThreshold && !state.showEarlyManualCheck) {
+        console.log('⏰ [Alternative] Early manual check threshold reached');
+        setState(prev => ({
+          ...prev,
+          showEarlyManualCheck: true,
+        }));
+      }
+      
+    }, 5000); // Poll every 5 seconds
+
+    return () => {
+      console.log('🔄 [Alternative] Cleaning up effect-based polling');
+      clearInterval(pollInterval);
+    };
+  }, [state.isPolling, state.currentGenerationId, user?.id, state.pollingStartTime, state.showManualCheck, state.showEarlyManualCheck]);
 
   // Load initial history and restore any ongoing generations
   useEffect(() => {
     if (user?.id) {
       loadHistory();
+      
+      // Only attempt restoration once per session
+      if (hasAttemptedRestorationRef.current) {
+        console.log('🚫 Skipping restoration - already attempted this session');
+        return;
+      }
+      
+      hasAttemptedRestorationRef.current = true;
+      console.log('🔍 Checking for ongoing generations (first time this session)');
       
       // Check for ongoing video generations and restore state
       const checkOngoingGenerations = async () => {
@@ -683,56 +787,53 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             video_url: !!v.video_url 
           })));
           
-          // Only consider recent videos (within last 30 minutes) to avoid old stuck records
+          // Only consider very recent videos (within last 2 minutes) since Hedra videos expire quickly
           // Also require hedra_generation_id to be present for valid resumption
-          const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+          const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
           const processingVideo = videos?.find(v => {
             const isProcessingStatus = v.status === 'processing' || v.status === 'pending';
-            const isRecent = new Date(v.created_at || '') > thirtyMinutesAgo;
+            const isRecent = new Date(v.created_at || '') > twoMinutesAgo;
             const hasValidGenerationId = v.hedra_generation_id && v.hedra_generation_id.trim();
             
-            // On localhost, don't resume processing videos since webhooks won't work
-            const isLocalhost = typeof window !== 'undefined' && (
-              window.location.hostname === 'localhost' || 
-              window.location.hostname === '127.0.0.1' ||
-              window.location.hostname.includes('gitpod') ||
-              window.location.hostname.includes('codespaces')
-            );
-            
-            if (isLocalhost && isProcessingStatus) {
-              console.log('🚫 Skipping state restoration on localhost environment');
-              return false;
-            }
+            // Resume processing videos with frontend polling (works in all environments)
             
             return isProcessingStatus && isRecent && hasValidGenerationId;
           });
           
           if (processingVideo) {
-            console.log('🔄 Restoring processing state for video:', processingVideo.id, 'status:', processingVideo.status);
+            console.log('🔄 Found processing video:', processingVideo.id, 'status:', processingVideo.status);
             
-            // Restore processing state - estimate how long it's been processing
-            const videoCreatedAt = new Date(processingVideo.created_at || '').getTime();
-            const estimatedPollingStartTime = videoCreatedAt || Date.now();
-            
-            setState(prev => ({
-              ...prev,
-              isGenerating: true,
-              error: null,
-              generatedVideo: {
-                id: processingVideo.id,
-                video_url: processingVideo.video_url || '', // Empty until completed
-                thumbnail_url: processingVideo.thumbnail_url || '',
-                script_text: processingVideo.script_text || '',
-                avatar_image_url: processingVideo.avatar_image_url || '',
-                created_at: processingVideo.created_at || new Date().toISOString()
-              },
-              currentGenerationId: processingVideo.hedra_generation_id || null,
-              isPolling: true,
-              isStateRestored: true,
-              currentStep: 3,
-              pollingStartTime: estimatedPollingStartTime,
-              showManualCheck: false,
-            }));
+            // Only restore if we're not already in a generating state (true restoration)
+            if (!state.isGenerating && !state.currentGenerationId) {
+              console.log('🔄 Restoring processing state for video:', processingVideo.id);
+              
+              // Restore processing state - estimate how long it's been processing
+              const videoCreatedAt = new Date(processingVideo.created_at || '').getTime();
+              const estimatedPollingStartTime = videoCreatedAt || Date.now();
+              
+              setState(prev => ({
+                ...prev,
+                isGenerating: true,
+                error: null,
+                generatedVideo: {
+                  id: processingVideo.id,
+                  video_url: processingVideo.video_url || '', // Empty until completed
+                  thumbnail_url: processingVideo.thumbnail_url || '',
+                  script_text: processingVideo.script_text || '',
+                  avatar_image_url: processingVideo.avatar_image_url || '',
+                  created_at: processingVideo.created_at || new Date().toISOString()
+                },
+                currentGenerationId: processingVideo.hedra_generation_id || null,
+                isPolling: true,
+                isStateRestored: true, // Only set when truly restoring
+                currentStep: 3,
+                pollingStartTime: estimatedPollingStartTime,
+                showManualCheck: false,
+                showEarlyManualCheck: estimatedPollingStartTime < Date.now() - 60000, // Show if > 1 minute old
+              }));
+            } else {
+              console.log('🚫 Skipping restoration - already in generating state');
+            }
             
             // Start polling if we have a generation ID
             if (processingVideo.hedra_generation_id) {
@@ -790,7 +891,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       
       checkOngoingGenerations();
     }
-  }, [user?.id, loadHistory, supabase, startPolling]);
+  }, [user?.id, loadHistory, supabase]);
 
   // Subscribe to real-time updates for video status (matching AI cinematographer pattern)
   useEffect(() => {
@@ -863,6 +964,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 pollingStartTime: null,
                 showManualCheck: false,
                 isManuallyChecking: false,
+                showEarlyManualCheck: false,
               }));
               
               // Clear any existing error if the video succeeded

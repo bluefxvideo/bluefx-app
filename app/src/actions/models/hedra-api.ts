@@ -24,7 +24,8 @@ interface HedraModel {
 interface HedraGeneration {
   id: string;
   status: 'pending' | 'processing' | 'complete' | 'error';
-  generated_video_url?: string;
+  url?: string; // Hedra API returns video URL in 'url' field, not 'generated_video_url'
+  generated_video_url?: string; // Keep for backward compatibility
   error_message?: string;
 }
 
@@ -311,7 +312,7 @@ export class HedraAPI {
         return {
           success: true,
           generationId,
-          videoUrl: status.generated_video_url,
+          videoUrl: status.url || status.generated_video_url, // Try both fields
           status: 'complete',
         };
       } else if (status.status === 'error') {

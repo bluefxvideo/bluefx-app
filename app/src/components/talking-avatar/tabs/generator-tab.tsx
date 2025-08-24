@@ -441,12 +441,6 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
             )}
           </div>
         )}
-
-        {state.error && (
-          <Card className="p-4 border-destructive">
-            <p className="text-sm text-destructive">{state.error}</p>
-          </Card>
-        )}
       </TabBody>
 
       {/* Footer Button - Outside scrollable area */}
