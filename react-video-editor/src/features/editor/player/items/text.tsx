@@ -78,9 +78,9 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 	if (words.length > 0) {
 		// Create word-by-word highlighted content
 		const highlightedWords = words.map((word: any, index: number) => {
-			// Convert word timing from seconds to milliseconds
-			const wordStart = word.start * 1000;
-			const wordEnd = word.end * 1000;
+			// Word timing is already in milliseconds from caption generator
+			const wordStart = word.start;
+			const wordEnd = word.end;
 			
 			let wordColor;
 			if (currentTimeMs >= wordEnd) {
