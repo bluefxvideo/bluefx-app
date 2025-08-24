@@ -650,7 +650,8 @@ async function generateVoiceForAllSegments(
 
   return {
     audio_url: result.audio_url!,
-    credits_used: result.credits_used
+    credits_used: result.credits_used,
+    metadata: result.metadata // Pass through metadata including actual_duration
   };
 }
 

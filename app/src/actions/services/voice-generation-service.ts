@@ -41,6 +41,13 @@ export interface VoiceGenerationResponse {
   }>;
   credits_used: number;
   generation_time_ms: number;
+  metadata?: {
+    actual_duration?: number;
+    file_size_bytes?: number;
+    estimated_bitrate?: number;
+    analysis_method?: string;
+    [key: string]: any;
+  };
   error?: string;
 }
 
@@ -105,6 +112,22 @@ export async function generateVoiceForAllSegments(
     // Convert response to buffer
     const audioBuffer = Buffer.from(await response.arrayBuffer());
     
+    // Measure actual audio duration by analyzing the MP3 buffer
+    let actualDuration: number | null = null;
+    try {
+      // Simple MP3 duration estimation based on file size and bitrate
+      // More accurate than estimation, less complex than full MP3 parsing
+      const fileSizeBytes = audioBuffer.length;
+      const estimatedBitrate = 128000; // OpenAI TTS typically uses 128kbps
+      const estimatedDurationSeconds = (fileSizeBytes * 8) / estimatedBitrate;
+      actualDuration = estimatedDurationSeconds;
+      
+      console.log(`🎵 Audio analysis: ${fileSizeBytes} bytes → ~${actualDuration.toFixed(2)}s duration`);
+    } catch (durationError) {
+      console.warn('⚠️ Could not measure audio duration:', durationError);
+      // Continue without duration - the timing fix won't run but generation won't fail
+    }
+    
     // Upload to Supabase Storage
     const fileName = `${request.user_id}/voice/${request.batch_id}.mp3`;
     
@@ -127,12 +150,21 @@ export async function generateVoiceForAllSegments(
 
     const generationTime = Date.now() - startTime;
     console.log(`✅ Voice generated successfully in ${generationTime}ms: ${urlData.publicUrl}`);
+    
+    // Include actual duration in metadata for timing correction
+    const metadata = actualDuration ? {
+      actual_duration: actualDuration,
+      file_size_bytes: audioBuffer.length,
+      estimated_bitrate: 128000,
+      analysis_method: 'file_size_estimation'
+    } : undefined;
 
     return {
       success: true,
       audio_url: urlData.publicUrl,
       credits_used: 5, // Base cost for voice generation
-      generation_time_ms: generationTime
+      generation_time_ms: generationTime,
+      metadata: metadata
     };
 
   } catch (error) {

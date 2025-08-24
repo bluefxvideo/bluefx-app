@@ -20,8 +20,7 @@ import { useState, useMemo } from "react";
 import { useCaptionGenerator, extractAudioFromTimeline, captionsToTrackItems } from "@/hooks/use-caption-generator";
 import type { CaptionGenerationOptions } from "@/types/caption-types";
 import useStore from "@/features/editor/store/use-store";
-import { dispatch } from "@designcombo/events";
-import { ADD_TEXT } from "@designcombo/state";
+import { addCaptionTrackToEditor } from "@/features/editor/utils/caption-loader";
 
 /**
  * AI Caption Generator Panel
@@ -109,38 +108,21 @@ export function CaptionGeneratorPanel({
         const captionTrackItems = captionsToTrackItems(result.captions, 'ai-generated-captions');
         
         if (captionTrackItems.length > 0) {
-          // Create the caption track structure expected by addCaptionTrackToEditor
-          // captionTrackItems[0].duration is in frames, convert to milliseconds correctly
-          const durationInMs = (captionTrackItems[0].duration / 30) * 1000;
-          
+          // Create the caption track structure for addCaptionTrackToEditor
           const captionTrack = {
             id: captionTrackItems[0].id,
             type: 'caption' as const,
             name: 'AI Generated Captions',
-            display: {
-              from: 0,
-              to: durationInMs,
-            },
-            metadata: {
-              resourceId: '',
-              duration: durationInMs,
-            },
-            cut: {
-              from: 0,
-              to: durationInMs,
-            },
             details: captionTrackItems[0].details,
             caption_metadata: {
               segments: captionTrackItems[0].details.captionSegments,
               sourceUrl: undefined,
               parentId: undefined
-            }
+            },
           };
           
-          // Add unified caption track to timeline using ADD_TEXT dispatch
-          dispatch(ADD_TEXT, {
-            payload: captionTrack
-          });
+          // Add unified caption track to timeline using proper caption loader
+          addCaptionTrackToEditor(captionTrack);
           console.log(`🎉 Added AI-generated caption track with ${result.captions.length} segments to timeline`);
         }
       }
@@ -152,11 +134,24 @@ export function CaptionGeneratorPanel({
   const handleAddToTimeline = () => {
     if (state.lastResult?.captions) {
       const captionTrackItems = captionsToTrackItems(state.lastResult.captions);
-      captionTrackItems.forEach(trackItem => {
-        dispatch(ADD_TEXT, {
-          payload: trackItem
-        });
-      });
+      if (captionTrackItems.length > 0) {
+        // Create the caption track structure for addCaptionTrackToEditor
+        const captionTrack = {
+          id: captionTrackItems[0].id,
+          type: 'caption' as const,
+          name: 'AI Generated Captions',
+          details: captionTrackItems[0].details,
+          caption_metadata: {
+            segments: captionTrackItems[0].details.captionSegments,
+            sourceUrl: undefined,
+            parentId: undefined
+          },
+          audioDuration: audioInfo.duration // Pass audio duration for proper track length
+        };
+        
+        // Add unified caption track to timeline using proper caption loader
+        addCaptionTrackToEditor(captionTrack);
+      }
     }
   };
 
