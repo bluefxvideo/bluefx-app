@@ -15,6 +15,8 @@ interface ContextualOutputProps {
   videos?: CinematographerVideo[];
   isLoadingHistory?: boolean;
   onRefresh?: () => void;
+  isStateRestored?: boolean;
+  onDeleteVideo?: (videoId: string) => Promise<boolean>;
 }
 
 /**
@@ -29,7 +31,9 @@ export function ContextualOutput({
   onClearResults,
   videos = [],
   isLoadingHistory = false,
-  onRefresh
+  onRefresh,
+  isStateRestored = false,
+  onDeleteVideo
 }: ContextualOutputProps) {
   // History tab
   if (activeTab === 'history') {
@@ -38,21 +42,24 @@ export function ContextualOutput({
         title="Video History"
         status={isLoadingHistory ? 'loading' : error ? 'error' : videos.length > 0 ? 'ready' : 'idle'}
         errorMessage={error}
-        empty={<HistoryOutput videos={[]} isLoading={false} onRefresh={onRefresh} />}
+        empty={<HistoryOutput videos={[]} isLoading={false} onRefresh={onRefresh} onDeleteVideo={onDeleteVideo} />}
       >
         <HistoryOutput
           videos={videos}
           isLoading={isLoadingHistory}
           onRefresh={onRefresh}
+          onDeleteVideo={onDeleteVideo}
         />
       </OutputPanelShell>
     );
   }
 
   // Default: generate
+  const titleWithIndicator = isStateRestored ? "Video Results (Resumed)" : "Video Results";
+  
   return (
     <OutputPanelShell
-      title="Video Results"
+      title={titleWithIndicator}
       status={isGenerating ? 'loading' : error ? 'error' : (result?.success ? 'ready' : 'idle')}
       errorMessage={error}
       empty={
@@ -71,6 +78,7 @@ export function ContextualOutput({
         error={error}
         onClearResults={onClearResults}
         activeTab={activeTab}
+        isStateRestored={isStateRestored}
       />
     </OutputPanelShell>
   );

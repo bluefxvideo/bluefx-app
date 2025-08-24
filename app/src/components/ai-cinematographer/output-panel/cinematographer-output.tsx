@@ -13,6 +13,7 @@ interface CinematographerOutputProps {
   error?: string;
   onClearResults: () => void;
   activeTab?: string;
+  isStateRestored?: boolean;
 }
 
 /**
@@ -25,7 +26,8 @@ export function CinematographerOutput({
   isGenerating,
   error,
   onClearResults,
-  activeTab = 'generate'
+  activeTab = 'generate',
+  isStateRestored = false
 }: CinematographerOutputProps) {
   // Loading state with premium styling
   if (isGenerating) {
@@ -45,15 +47,31 @@ export function CinematographerOutput({
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">Creating Your Video</h3>
-                <p className="text-zinc-400">AI is generating cinematic content...</p>
+                <p className="text-zinc-400">
+                  {isStateRestored ? 'Continuing video generation...' : 'AI is generating cinematic content...'}
+                </p>
               </div>
             </div>
             
             <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
               <Clock className="w-3 h-3 mr-1.5" />
-              Processing
+              {isStateRestored ? 'Resumed' : 'Processing'}
             </Badge>
           </div>
+          
+          {/* State restored notification */}
+          {isStateRestored && (
+            <div className="px-6 pb-4">
+              <Card className="p-3 bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <p className="text-sm text-blue-300 font-medium">
+                    Video generation resumed - your video was still processing in the background
+                  </p>
+                </div>
+              </Card>
+            </div>
+          )}
           
           {/* Loading skeleton for video */}
           <div className="flex-1 min-h-0 flex items-center justify-center py-6">

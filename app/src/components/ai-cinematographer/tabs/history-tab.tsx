@@ -7,12 +7,13 @@ interface HistoryTabProps {
   videos: CinematographerVideo[];
   isLoading: boolean;
   onRefresh: () => void;
+  onDeleteVideo?: (videoId: string) => Promise<boolean>;
 }
 
 /**
  * History Tab - Left-panel filters only (right panel is handled by ContextualOutput)
  */
-export function HistoryTab({ videos: _videos, isLoading: _isLoading, onRefresh: _onRefresh }: HistoryTabProps) {
+export function HistoryTab({ videos: _videos, isLoading: _isLoading, onRefresh: _onRefresh, onDeleteVideo: _onDeleteVideo }: HistoryTabProps) {
   const cinematographerToolTypes = [
     { value: 'completed', label: 'Completed' },
     { value: 'processing', label: 'Processing' },

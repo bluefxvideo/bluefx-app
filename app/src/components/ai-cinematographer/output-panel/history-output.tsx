@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ interface HistoryOutputProps {
   refreshTrigger?: number; // Change this value to trigger a refresh
   filters?: HistoryFilters;
   onRefresh?: () => void;
+  onDeleteVideo?: (videoId: string) => Promise<boolean>;
 }
 
 /**
@@ -25,10 +26,13 @@ export function HistoryOutput({
   isLoading, 
   refreshTrigger, 
   filters,
-  onRefresh 
+  onRefresh,
+  onDeleteVideo
 }: HistoryOutputProps) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
+  const [hoveredVideo, setHoveredVideo] = useState<string | null>(null);
+  const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
   // Apply filters when videos or filters change
   const filteredVideos = videos.filter(video => {
@@ -115,6 +119,57 @@ export function HistoryOutput({
     }
   };
 
+  // Video hover handlers
+  const handleVideoHover = async (videoId: string, shouldPlay: boolean) => {
+    const videoElement = videoRefs.current[videoId];
+    if (!videoElement) return;
+
+    if (shouldPlay) {
+      setHoveredVideo(videoId);
+      try {
+        // Reset video to start and play
+        videoElement.currentTime = 0;
+        await videoElement.play();
+      } catch (error) {
+        console.log('Video autoplay prevented:', error);
+      }
+    } else {
+      setHoveredVideo(null);
+      videoElement.pause();
+      videoElement.currentTime = 0; // Reset to beginning
+    }
+  };
+
+  // Handle video deletion
+  const handleDeleteVideo = async (videoId: string) => {
+    if (!onDeleteVideo) return;
+    
+    // Confirm deletion
+    if (!window.confirm('Are you sure you want to delete this video? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingItems(prev => new Set(prev).add(videoId));
+    
+    try {
+      const success = await onDeleteVideo(videoId);
+      if (success) {
+        // Remove from selected history if it was selected
+        if (selectedHistory === videoId) {
+          setSelectedHistory(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting video:', error);
+    } finally {
+      setDeletingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(videoId);
+        return newSet;
+      });
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -195,21 +250,27 @@ export function HistoryOutput({
                 </div>
 
                 {/* Video Preview */}
-                <div className="aspect-video bg-muted rounded overflow-hidden relative">
+                <div 
+                  className="aspect-video bg-muted rounded overflow-hidden relative group"
+                  onMouseEnter={() => video.final_video_url && handleVideoHover(video.id, true)}
+                  onMouseLeave={() => video.final_video_url && handleVideoHover(video.id, false)}
+                >
                   {video.final_video_url ? (
                     <video
+                      ref={(el) => videoRefs.current[video.id] = el}
                       src={video.final_video_url}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                       poster={video.preview_urls?.[0] || undefined}
                       preload="metadata"
                       controls={false}
                       muted
+                      loop
                     />
                   ) : video.preview_urls && video.preview_urls.length > 0 ? (
                     <img
                       src={video.preview_urls[0]}
                       alt={video.video_concept || 'Video preview'}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
@@ -282,6 +343,27 @@ export function HistoryOutput({
                         >
                           <Loader2 className="w-3 h-3 mr-1" />
                           <span className="text-sm">Refresh</span>
+                        </Button>
+                      )}
+                      {onDeleteVideo && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 px-2 justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteVideo(video.id);
+                          }}
+                          disabled={deletingItems.has(video.id)}
+                        >
+                          {deletingItems.has(video.id) ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3 h-3 mr-1" />
+                          )}
+                          <span className="text-sm">
+                            {deletingItems.has(video.id) ? 'Deleting...' : 'Delete'}
+                          </span>
                         </Button>
                       )}
                     </div>

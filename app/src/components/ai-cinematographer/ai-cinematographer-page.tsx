@@ -27,7 +27,9 @@ export function AICinematographerPage() {
     isLoadingHistory,
     clearResults,
     loadHistory,
-    credits
+    credits,
+    isStateRestored,
+    deleteVideo
   } = useAICinematographer();
 
   // Determine active tab from URL
@@ -63,6 +65,7 @@ export function AICinematographerPage() {
             videos={videos}
             isLoading={isLoadingHistory}
             onRefresh={loadHistory}
+            onDeleteVideo={deleteVideo}
           />
         );
       default:
@@ -99,6 +102,8 @@ export function AICinematographerPage() {
           videos={videos}
           isLoadingHistory={isLoadingHistory}
           onRefresh={loadHistory}
+          isStateRestored={isStateRestored}
+          onDeleteVideo={deleteVideo}
         />
       </StandardToolLayout>
     </StandardToolPage>
