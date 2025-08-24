@@ -431,6 +431,7 @@ export async function storeTalkingAvatarResults(params: {
   hedra_generation_id?: string;
   hedra_asset_id?: string;
   voice_audio_url?: string;
+  avatar_image_url?: string;
   settings?: Json;
   status: 'pending' | 'processing' | 'completed' | 'failed';
 }): Promise<{ success: boolean; error?: string }> {
@@ -439,7 +440,7 @@ export async function storeTalkingAvatarResults(params: {
     
     const { error } = await supabase
       .from('avatar_videos')
-      .insert({
+      .upsert({
         id: params.batch_id,
         user_id: params.user_id,
         script_text: params.script_text,
@@ -449,11 +450,14 @@ export async function storeTalkingAvatarResults(params: {
         duration_seconds: params.duration,
         hedra_generation_id: params.hedra_generation_id,
         hedra_asset_id: params.hedra_asset_id,
+        avatar_image_url: params.avatar_image_url,
         audio_url: params.voice_audio_url,
         video_settings: params.settings || {},
         status: params.status,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id'
       });
 
     if (error) {

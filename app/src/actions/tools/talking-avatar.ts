@@ -127,8 +127,8 @@ export async function executeTalkingAvatar(
       user_id: user.id,
     };
     
-    // Generate unique batch ID for this operation
-    const batch_id = `talking_avatar_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Generate unique batch ID for this operation using proper UUID format
+    const batch_id = crypto.randomUUID();
     
     // Handle different workflow steps
     switch (authenticatedRequest.workflow_step) {
@@ -459,6 +459,10 @@ async function handleVideoGeneration(
     }
     
     try {
+      // Calculate estimated duration from script (Hedra requires it)
+      const wordCount = request.script_text.trim().split(/\s+/).filter(Boolean).length;
+      const estimatedDurationSeconds = Math.max(3, Math.ceil(wordCount / 2.5)); // At least 3 seconds
+
       const hedraResult = await generateTalkingAvatarVideo(
         request.avatar_image_url || '',
         request.voice_audio_url,
@@ -466,6 +470,7 @@ async function handleVideoGeneration(
         {
           aspectRatio: '16:9',
           resolution: '720p',
+          duration: estimatedDurationSeconds, // Hedra requires duration despite docs saying optional
           waitForCompletion: false, // Use webhook for async processing
         }
       );
@@ -502,6 +507,7 @@ async function handleVideoGeneration(
           batch_id: batch_id,
           hedra_generation_id: hedraResult.generationId,
           voice_audio_url: request.voice_audio_url,
+          avatar_image_url: request.avatar_image_url,
           status: 'processing',
           settings: {
             aspectRatio: '16:9',
@@ -632,7 +638,7 @@ async function generateVoiceAudio(scriptText: string, voiceId: string): Promise<
     const uploadResult = await uploadImageToStorage(audioBlob, {
       bucket: 'audio',
       folder: 'voice-previews',
-      filename: `voice_${Date.now()}.mp3`,
+      filename: `voice_${crypto.randomUUID()}.mp3`,
       contentType: 'audio/mpeg',
     });
 

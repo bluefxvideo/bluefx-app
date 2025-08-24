@@ -111,17 +111,31 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
     } else if (state.currentStep === 2) {
       // Step 2: Auto-prepare voice and proceed to video generation
       if (selectedVoice && localScriptText.trim()) {
-        // First generate voice if not already generated
-        if (!state.voiceAudioUrl) {
-          await handleVoiceGeneration(selectedVoice, localScriptText);
-        }
-        // Then proceed to Step 3 for video generation only if voice generation was successful
-        if (!state.error) {
-          goToStep(3);
+        try {
+          let voiceGenerated = false;
+          
+          // First generate voice if not already generated
+          if (!state.voiceAudioUrl) {
+            const result = await handleVoiceGeneration(selectedVoice, localScriptText);
+            voiceGenerated = result.success;
+          } else {
+            voiceGenerated = true;
+          }
+          
+          // Only proceed to Step 3 if voice generation was successful
+          if (voiceGenerated && !state.error) {
+            goToStep(3);
+          }
+        } catch (error) {
+          console.error('Voice generation failed:', error);
         }
       }
     } else if (state.currentStep === 3) {
-      // Step 3: Video generation
+      // Step 3: Video generation - verify we have voice URL
+      if (!state.voiceAudioUrl) {
+        console.error('Cannot generate video: Voice audio URL is missing');
+        return;
+      }
       await handleVideoGeneration();
     }
   };
@@ -133,7 +147,8 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
       // Need voice selection + script text (voice will be generated automatically)
       return selectedVoice && localScriptText.trim();
     } else if (state.currentStep === 3) {
-      return true;
+      // For video generation, we need to have the voice audio URL ready
+      return state.voiceAudioUrl && !state.isLoading;
     }
     return false;
   };

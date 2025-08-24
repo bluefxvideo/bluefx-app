@@ -61,7 +61,7 @@ export class HedraAPI {
     const response = await fetch(`${this.baseUrl}/models`, {
       method: 'GET',
       headers: {
-        'x-api-key': this.apiKey,
+        'X-API-Key': this.apiKey,
         'Content-Type': 'application/json',
       },
     });
@@ -80,7 +80,7 @@ export class HedraAPI {
     const response = await fetch(`${this.baseUrl}/assets`, {
       method: 'POST',
       headers: {
-        'x-api-key': this.apiKey,
+        'X-API-Key': this.apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -116,7 +116,7 @@ export class HedraAPI {
     const response = await fetch(`${this.baseUrl}/assets/${assetId}/upload`, {
       method: 'POST',
       headers: {
-        'x-api-key': this.apiKey,
+        'X-API-Key': this.apiKey,
       },
       body: formData,
     });
@@ -151,25 +151,41 @@ export class HedraAPI {
       },
     };
 
-    if (duration) {
-      (requestBody.generated_video_inputs as { duration?: number }).duration = duration;
+    // Add duration_ms as required by Hedra API (despite docs saying it's optional)
+    if (duration && duration > 0) {
+      const durationMs = Math.round(duration * 1000); // Convert seconds to milliseconds
+      (requestBody.generated_video_inputs as { duration_ms?: number }).duration_ms = durationMs;
+      console.log('Adding duration_ms to Hedra request:', durationMs, 'ms (', duration, 'seconds)');
+    } else {
+      console.log('No duration provided - this will likely fail');
     }
 
     if (seed) {
       (requestBody.generated_video_inputs as { seed?: number }).seed = seed;
     }
 
+    // Debug: Log the exact request body being sent to Hedra
+    console.log('📋 Full Hedra request body:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch(`${this.baseUrl}/generations`, {
       method: 'POST',
       headers: {
-        'x-api-key': this.apiKey,
+        'X-API-Key': this.apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create generation: ${response.statusText}`);
+      let errorDetails = response.statusText;
+      try {
+        const errorData = await response.json();
+        console.error('Hedra API error details:', errorData);
+        errorDetails = errorData.error || errorData.message || response.statusText;
+      } catch (e) {
+        console.error('Could not parse error response:', e);
+      }
+      throw new Error(`Failed to create generation: ${errorDetails}`);
     }
 
     const result = await response.json();
@@ -183,7 +199,7 @@ export class HedraAPI {
     const response = await fetch(`${this.baseUrl}/generations/${generationId}/status`, {
       method: 'GET',
       headers: {
-        'x-api-key': this.apiKey,
+        'X-API-Key': this.apiKey,
         'Content-Type': 'application/json',
       },
     });
@@ -242,6 +258,16 @@ export class HedraAPI {
 
       // Step 3: Create audio asset  
       const audioAsset = await this.createAsset('voice_audio.mp3', 'audio');
+      
+      // Debug: Check if audio URL is accessible
+      console.log('🔍 Checking audio URL accessibility:', request.voiceAudioUrl);
+      try {
+        const audioCheckResponse = await fetch(request.voiceAudioUrl, { method: 'HEAD' });
+        console.log('🔍 Audio URL check:', audioCheckResponse.status, audioCheckResponse.headers.get('content-length'), 'bytes');
+      } catch (e) {
+        console.error('❌ Audio URL not accessible:', e);
+      }
+      
       await this.uploadAsset(audioAsset.id, request.voiceAudioUrl);
       console.log('🎵 Voice audio uploaded');
 
