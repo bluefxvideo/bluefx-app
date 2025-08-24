@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/supabase/server';
 import { createHedraAPI } from '@/actions/models/hedra-api';
-import { updatePredictionRecord } from '@/actions/database/thumbnail-database';
+import { updatePredictionRecord, createPredictionRecord } from '@/actions/database/thumbnail-database';
 import { downloadAndUploadImage } from '@/actions/supabase-storage';
 import type { Json } from '@/types/database';
 
@@ -93,12 +93,29 @@ async function checkHedraGenerationStatus(payload: HedraWebhookPayload): Promise
     
     console.log(`🎬 Hedra Status: ${payload.generation_id} → ${statusResult.status}`);
     
-    // Update prediction record
-    await updatePredictionRecord(payload.generation_id, {
+    // Update prediction record (create if doesn't exist)
+    const updateResult = await updatePredictionRecord(payload.generation_id, {
       status: statusResult.status === 'complete' ? 'succeeded' : 
               statusResult.status === 'error' ? 'failed' : 'processing',
       output_data: statusResult.videoUrl ? { video_url: statusResult.videoUrl } as Json : null,
     });
+    
+    // If prediction record doesn't exist, create it
+    if (!updateResult.success && updateResult.error?.includes('0 rows')) {
+      console.log(`📝 Creating missing prediction record for ${payload.generation_id}`);
+      await createPredictionRecord({
+        prediction_id: payload.generation_id,
+        user_id: payload.user_id,
+        tool_id: 'talking-avatar',
+        service_id: 'hedra',
+        model_version: 'hedra-1.0',
+        status: statusResult.status === 'complete' ? 'succeeded' : 
+                statusResult.status === 'error' ? 'failed' : 'processing',
+        output_data: statusResult.videoUrl ? { video_url: statusResult.videoUrl } as Json : null,
+        input_data: null,
+        created_at: new Date().toISOString(),
+      });
+    }
 
     // If complete, process the completion
     if (statusResult.status === 'complete' && statusResult.videoUrl) {
@@ -174,34 +191,61 @@ async function processHedraVideoComplete(payload: HedraWebhookPayload, videoUrl:
     console.log(`🎬 Video uploaded: ${uploadResult.url}`);
 
     // Update avatar_videos record
-    if (payload.avatar_video_id) {
+    let avatarVideoId = payload.avatar_video_id;
+    
+    // If no avatar_video_id provided, find it by hedra_generation_id
+    if (!avatarVideoId) {
+      const { data: avatarVideo } = await supabase
+        .from('avatar_videos')
+        .select('id')
+        .eq('hedra_generation_id', payload.generation_id)
+        .eq('user_id', payload.user_id)
+        .single();
+      
+      avatarVideoId = avatarVideo?.id;
+    }
+    
+    if (avatarVideoId) {
       const { error: updateError } = await supabase
         .from('avatar_videos')
         .update({
           status: 'completed',
           video_url: uploadResult.url,
-          completed_at: new Date().toISOString(),
-          metadata: {
-            hedra_generation_id: payload.generation_id,
-            original_video_url: videoUrl,
-            processed_at: new Date().toISOString(),
-          } as Json
         })
-        .eq('id', payload.avatar_video_id);
+        .eq('id', avatarVideoId);
 
       if (updateError) {
         console.error('Failed to update avatar_videos record:', updateError);
       } else {
-        console.log(`✅ Updated avatar_videos record: ${payload.avatar_video_id}`);
+        console.log(`✅ Updated avatar_videos record: ${avatarVideoId}`);
       }
+    } else {
+      console.warn(`⚠️ Could not find avatar_videos record for generation ${payload.generation_id}`);
     }
 
-    // Update prediction record
-    await updatePredictionRecord(payload.generation_id, {
+    // Update prediction record (create if doesn't exist)
+    const updateResult = await updatePredictionRecord(payload.generation_id, {
       status: 'succeeded',
       output_data: { video_url: uploadResult.url } as Json,
       completed_at: new Date().toISOString(),
     });
+    
+    // If prediction record doesn't exist, create it
+    if (!updateResult.success && updateResult.error?.includes('0 rows')) {
+      console.log(`📝 Creating missing prediction record for completion ${payload.generation_id}`);
+      await createPredictionRecord({
+        prediction_id: payload.generation_id,
+        user_id: payload.user_id,
+        tool_id: 'talking-avatar',
+        service_id: 'hedra',
+        model_version: 'hedra-1.0',
+        status: 'succeeded',
+        output_data: { video_url: uploadResult.url } as Json,
+        input_data: null,
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      });
+    }
 
     // TODO: Broadcast to user via real-time channel
     console.log(`📡 Broadcasting completion to user: ${payload.user_id}`);
@@ -216,11 +260,28 @@ async function processHedraVideoComplete(payload: HedraWebhookPayload, videoUrl:
   } catch (error) {
     console.error('Hedra completion processing failed:', error);
     
-    // Update prediction with error
-    await updatePredictionRecord(payload.generation_id, {
+    // Update prediction with error (create if doesn't exist)
+    const updateResult = await updatePredictionRecord(payload.generation_id, {
       status: 'failed',
       output_data: { error: error instanceof Error ? error.message : 'Processing failed' } as Json,
     });
+    
+    // If prediction record doesn't exist, create it
+    if (!updateResult.success && updateResult.error?.includes('0 rows')) {
+      console.log(`📝 Creating missing prediction record for error ${payload.generation_id}`);
+      await createPredictionRecord({
+        prediction_id: payload.generation_id,
+        user_id: payload.user_id,
+        tool_id: 'talking-avatar',
+        service_id: 'hedra',
+        model_version: 'hedra-1.0',
+        status: 'failed',
+        output_data: { error: error instanceof Error ? error.message : 'Processing failed' } as Json,
+        input_data: null,
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      });
+    }
 
     return {
       success: false,

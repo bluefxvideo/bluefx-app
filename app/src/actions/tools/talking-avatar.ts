@@ -468,7 +468,7 @@ async function handleVideoGeneration(
       const hedraResult = await generateTalkingAvatarVideo(
         request.avatar_image_url || '',
         request.voice_audio_url,
-        "A person talking at the camera with natural expressions and synchronized lip movements",
+        "A person talking at the camera", // Simplified to match successful curl test
         {
           aspectRatio: '16:9',
           resolution: '720p',

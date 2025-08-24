@@ -84,15 +84,17 @@ export async function uploadImageToStorage(
       
       // Safer type checking for File objects (File might not be available in server env)
       if (typeof File !== 'undefined' && imageData instanceof File) {
-        finalContentType = imageData.type || contentType;
+        finalContentType = contentType || imageData.type;
       } else if (imageData && typeof imageData === 'object' && 'type' in imageData) {
         // Handle File-like objects that have a type property
-        finalContentType = (imageData as any).type || contentType;
+        finalContentType = contentType || (imageData as any).type;
       }
     }
 
     console.log(`Uploading image to storage: ${bucket}/${filePath}`, {
       contentType: finalContentType,
+      providedContentType: contentType,
+      blobType: (uploadData as any).type,
       dataSize: uploadData.size,
       upsert
     });
@@ -165,17 +167,24 @@ export async function downloadAndUploadImage(
 
     const imageBlob = await response.blob();
     
-    // Generate filename based on legacy pattern
+    // Generate filename based on legacy pattern, but respect options.filename if provided
     const timestamp = new Date().toISOString().replace(/[:.]/g, '');
-    const filename = uniqueId 
+    const defaultFilename = uniqueId 
       ? `${toolType}_${uniqueId}_${timestamp}.png`
       : `${toolType}_${timestamp}.jpg`;
 
+    // Create a new blob with correct MIME type if contentType is provided
+    let finalBlob = imageBlob;
+    if (options.contentType && imageBlob.type !== options.contentType) {
+      console.log(`🔧 Overriding blob type from ${imageBlob.type} to ${options.contentType}`);
+      finalBlob = new Blob([imageBlob], { type: options.contentType });
+    }
+    
     // Upload using existing function
-    return await uploadImageToStorage(imageBlob, {
+    return await uploadImageToStorage(finalBlob, {
       ...options,
-      filename,
-      contentType: imageBlob.type || 'image/png',
+      filename: options.filename || defaultFilename, // Use provided filename or default
+      contentType: options.contentType || 'image/png', // Always use provided contentType, don't fallback to blob type
     });
 
   } catch (error) {

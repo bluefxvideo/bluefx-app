@@ -65,6 +65,59 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
   // Check if we're in progress mode (any step > 1 or avatar selected)
   const isInProgress = state.currentStep > 1 || state.selectedAvatarTemplate || state.customAvatarImage;
   
+  // Show completed video first if available (must have actual video URL, not empty placeholder)
+  if (state.generatedVideo && state.generatedVideo.video_url && state.generatedVideo.video_url.trim() && !state.isGenerating && !state.isPolling) {
+    return (
+      <div className="h-full flex flex-col p-6">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="w-full max-w-md">
+            <div className="aspect-video rounded-lg overflow-hidden bg-muted mb-4">
+              <video 
+                src={state.generatedVideo.video_url}
+                controls
+                className="w-full h-full object-cover"
+                poster={state.generatedVideo.thumbnail_url}
+              />
+            </div>
+            
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold">Video Generated Successfully! 🎉</h3>
+              <p className="text-sm text-muted-foreground">
+                Your talking avatar video is ready
+              </p>
+              
+              <div className="flex gap-2 justify-center mt-4">
+                <a 
+                  href={state.generatedVideo.video_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors"
+                >
+                  View Full Size
+                </a>
+                <a 
+                  href={state.generatedVideo.video_url} 
+                  download={`talking-avatar-${Date.now()}.mp4`}
+                  className="px-4 py-2 border border-input rounded-md text-sm hover:bg-accent transition-colors"
+                >
+                  Download
+                </a>
+                {clearResults && (
+                  <button 
+                    onClick={clearResults}
+                    className="px-4 py-2 border border-input rounded-md text-sm hover:bg-accent transition-colors"
+                  >
+                    Create New
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   // If generating video or polling for completion, show placeholder card (EXACT AI cinematographer pattern)
   if ((state.isGenerating || state.isPolling || state.showManualCheck) && state.generatedVideo) {
     return (
@@ -257,58 +310,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
     );
   }
 
-  // Show completed video if available (must have actual video URL, not empty placeholder)
-  if (state.generatedVideo && state.generatedVideo.video_url && state.generatedVideo.video_url.trim() && !state.isGenerating && !state.isPolling) {
-    return (
-      <div className="h-full flex flex-col p-6">
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="w-full max-w-md">
-            <div className="aspect-video rounded-lg overflow-hidden bg-muted mb-4">
-              <video 
-                src={state.generatedVideo.video_url}
-                controls
-                className="w-full h-full object-cover"
-                poster={state.generatedVideo.thumbnail_url}
-              />
-            </div>
-            
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-semibold">Video Generated Successfully! 🎉</h3>
-              <p className="text-sm text-muted-foreground">
-                Your talking avatar video is ready
-              </p>
-              
-              <div className="flex gap-2 justify-center mt-4">
-                <a 
-                  href={state.generatedVideo.video_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors"
-                >
-                  View Full Size
-                </a>
-                <a 
-                  href={state.generatedVideo.video_url} 
-                  download={`talking-avatar-${Date.now()}.mp4`}
-                  className="px-4 py-2 border border-input rounded-md text-sm hover:bg-accent transition-colors"
-                >
-                  Download
-                </a>
-                {clearResults && (
-                  <button 
-                    onClick={clearResults}
-                    className="px-4 py-2 border border-input rounded-md text-sm hover:bg-accent transition-colors"
-                  >
-                    Create New
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Duplicate check removed - video display is now at the top of the component
 
   // Default: Welcome state
   return (

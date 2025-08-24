@@ -18,13 +18,14 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
         title="Avatar History"
         status={avatarState.state.isLoadingHistory ? 'loading' : avatarState.state.error ? 'error' : avatarState.state.videos.length > 0 ? 'ready' : 'idle'}
         errorMessage={avatarState.state.error || undefined}
-        empty={<HistoryOutput videos={[]} isLoading={false} onRefresh={avatarState.loadHistory} onDeleteVideo={avatarState.deleteVideo} />}
+        empty={<HistoryOutput videos={[]} isLoading={false} onRefresh={avatarState.loadHistory} onDeleteVideo={avatarState.deleteVideo} onCheckStatus={avatarState.checkHistoryItemStatus} />}
       >
         <HistoryOutput
           videos={avatarState.state.videos}
           isLoading={avatarState.state.isLoadingHistory}
           onRefresh={avatarState.loadHistory}
           onDeleteVideo={avatarState.deleteVideo}
+          onCheckStatus={avatarState.checkHistoryItemStatus}
         />
       </OutputPanelShell>
     );

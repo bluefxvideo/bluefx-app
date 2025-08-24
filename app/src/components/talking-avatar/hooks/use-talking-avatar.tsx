@@ -46,9 +46,6 @@ export interface TalkingAvatarState {
   isPolling: boolean;
   isStateRestored: boolean; // New: indicates if state was restored from ongoing generation
   pollingStartTime: number | null; // Track when polling started
-  showManualCheck: boolean; // Show manual check button after timeout
-  isManuallyChecking: boolean; // Track manual check state
-  showEarlyManualCheck: boolean; // Show manual check button after 1 minute (alongside polling)
 }
 
 export interface UseTalkingAvatarReturn {
@@ -65,7 +62,7 @@ export interface UseTalkingAvatarReturn {
   clearResults: () => void;
   loadHistory: () => Promise<void>;
   deleteVideo: (videoId: string) => Promise<boolean>;
-  checkStatusManually: () => Promise<void>;
+  checkHistoryItemStatus: (generationId: string) => Promise<void>;
 }
 
 export function useTalkingAvatar(): UseTalkingAvatarReturn {
@@ -109,9 +106,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     isPolling: false,
     isStateRestored: false,
     pollingStartTime: null,
-    showManualCheck: false,
-    isManuallyChecking: false,
-    showEarlyManualCheck: false,
   });
 
   // Update active tab when pathname changes
@@ -252,6 +246,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         script_text: scriptText,
         voice_id: voiceId,
         avatar_image_url: state.customAvatarUrl || state.selectedAvatarTemplate?.thumbnail_url,
+        avatar_template_id: state.selectedAvatarTemplate?.id,
         workflow_step: 'voice_generate',
         user_id: user.id,
       };
@@ -319,6 +314,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         voice_id: state.selectedVoiceId,
         voice_audio_url: state.voiceAudioUrl,
         avatar_image_url: state.customAvatarUrl || state.selectedAvatarTemplate?.thumbnail_url,
+        avatar_template_id: state.selectedAvatarTemplate?.id,
         workflow_step: 'video_generate',
         user_id: user.id,
       };
@@ -333,8 +329,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           currentGenerationId: response.prediction_id || null,
           isPolling: true,
           pollingStartTime: Date.now(), // Track when polling started
-          showManualCheck: false,
-          showEarlyManualCheck: false,
         }));
         
         // Start polling for video completion
@@ -402,9 +396,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       currentGenerationId: null,
       isPolling: false,
       pollingStartTime: null,
-      showManualCheck: false,
-      isManuallyChecking: false,
-      showEarlyManualCheck: false,
     }));
     
     // Stop polling
@@ -494,8 +485,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             isPolling: false,
             isGenerating: false,
             currentGenerationId: null,
-            showManualCheck: false,
-            isManuallyChecking: false,
             pollingStartTime: null,
             showEarlyManualCheck: false,
             error: null,
@@ -518,8 +507,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             isPolling: false,
             isGenerating: false,
             currentGenerationId: null,
-            showManualCheck: false,
-            isManuallyChecking: false,
             pollingStartTime: null,
             showEarlyManualCheck: false,
           }));
@@ -538,8 +525,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             isPolling: false,
             isGenerating: false,
             currentGenerationId: null,
-            showManualCheck: false,
-            isManuallyChecking: false,
             pollingStartTime: null,
             showEarlyManualCheck: false,
           }));
@@ -594,14 +579,14 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           return;
         }
 
-        // Check if we should stop polling and show manual check (after 2 minutes)
+        // Check if we should stop polling after timeout (5 minutes)
         const pollingDuration = Date.now() - (pollingStartTimeRef.current || 0);
-        const timeoutThreshold = 2 * 60 * 1000; // 2 minutes
+        const timeoutThreshold = 5 * 60 * 1000; // 5 minutes
         
         if (pollingDuration > timeoutThreshold) {
           console.log(`[TalkingAvatar] Polling timeout reached after ${Math.round(pollingDuration / 60000)} minutes`);
           
-          // Stop polling and show manual check option
+          // Stop polling after timeout
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
@@ -610,30 +595,14 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           setState(prev => ({
             ...prev,
             isPolling: false,
-            showManualCheck: true,
+            error: 'Video generation timed out. Please try again.',
           }));
           
-          toast.info('Video is taking longer than expected. You can manually check the status.');
+          toast.error('Video generation timed out. Please try again.');
           return;
         }
 
         console.log(`[TalkingAvatar] Polling for generation: ${generationId} (${Math.round(pollingDuration / 1000)}s elapsed)`);
-        
-        // Show early manual check after 30 seconds (alongside polling)
-        const earlyManualThreshold = 30 * 1000; // 30 seconds
-        if (pollingDuration > earlyManualThreshold) {
-          console.log('⏰ Showing early manual check button');
-          setState(prev => {
-            if (!prev.showEarlyManualCheck) {
-              console.log('⏰ Actually updating showEarlyManualCheck to true');
-              return {
-                ...prev,
-                showEarlyManualCheck: true,
-              };
-            }
-            return prev;
-          });
-        }
         
         // Check avatar_videos table for completed video
         const { data: videos, error } = await supabase
@@ -649,13 +618,54 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           return;
         }
 
-        const video = videos?.[0];
+        let video = videos?.[0];
         if (!video) {
           console.log('[TalkingAvatar] No video record found yet, continuing polling...');
           return;
         }
 
         console.log('[TalkingAvatar] Video status:', video.status);
+
+        // If still processing, check Hedra API directly
+        if (video.status === 'processing') {
+          console.log('[TalkingAvatar] Still processing, checking Hedra API directly...');
+          
+          // Call the webhook endpoint to check Hedra status
+          try {
+            const response = await fetch(`/api/webhooks/hedra-ai`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                generation_id: generationId,
+                user_id: user.id,
+                avatar_video_id: video.id,
+                action: 'check_status'
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              console.log('[TalkingAvatar] Hedra API check result:', result);
+              
+              // Re-fetch from database after webhook update
+              const { data: updatedVideo } = await supabase
+                .from('avatar_videos')
+                .select('*')
+                .eq('hedra_generation_id', generationId)
+                .eq('user_id', user.id)
+                .single();
+                
+              if (updatedVideo) {
+                video = updatedVideo;
+                console.log('[TalkingAvatar] Updated video status after Hedra check:', video.status);
+              }
+            }
+          } catch (error) {
+            console.error('[TalkingAvatar] Failed to check Hedra API:', error);
+          }
+        }
 
         // Check if video is completed
         if (video.status === 'completed' && video.video_url) {
@@ -679,7 +689,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
               created_at: video.created_at || new Date().toISOString(),
             },
             isPolling: false,
+            isGenerating: false, // Important: stop the loading state
             currentGenerationId: null,
+            currentStep: 3, // Keep UI on step 3 to show the completed video
+            error: null, // Clear any errors
           }));
 
           // Refresh history to show the new video
@@ -713,44 +726,8 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }, 5000); // Poll every 5 seconds (matching AI cinematographer pattern)
   }, [user?.id, supabase, loadHistory, state.currentGenerationId, state.isPolling]);
 
-  // Alternative polling approach using useEffect to avoid stale closure issues
-  useEffect(() => {
-    if (!state.isPolling || !state.currentGenerationId || !user?.id) {
-      return;
-    }
-
-    console.log('🔄 [Alternative] Starting effect-based polling for:', state.currentGenerationId);
-    
-    const pollInterval = setInterval(async () => {
-      console.log('⏰ [Alternative] EFFECT POLLING TICK');
-      
-      // Check timeout for manual check button
-      const pollingDuration = Date.now() - (state.pollingStartTime || 0);
-      const earlyManualThreshold = 30 * 1000; // 30 seconds
-      const timeoutThreshold = 2 * 60 * 1000; // 2 minutes
-      
-      if (pollingDuration > timeoutThreshold && !state.showManualCheck) {
-        console.log('⏰ [Alternative] Timeout reached - stopping polling');
-        setState(prev => ({
-          ...prev,
-          isPolling: false,
-          showManualCheck: true,
-        }));
-      } else if (pollingDuration > earlyManualThreshold && !state.showEarlyManualCheck) {
-        console.log('⏰ [Alternative] Early manual check threshold reached');
-        setState(prev => ({
-          ...prev,
-          showEarlyManualCheck: true,
-        }));
-      }
-      
-    }, 5000); // Poll every 5 seconds
-
-    return () => {
-      console.log('🔄 [Alternative] Cleaning up effect-based polling');
-      clearInterval(pollInterval);
-    };
-  }, [state.isPolling, state.currentGenerationId, user?.id, state.pollingStartTime, state.showManualCheck, state.showEarlyManualCheck]);
+  // Removed duplicate effect-based polling - all polling handled by startPolling function
+  // This was causing conflicts and could stop polling prematurely
 
   // Load initial history and restore any ongoing generations
   useEffect(() => {
@@ -828,8 +805,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 isStateRestored: true, // Only set when truly restoring
                 currentStep: 3,
                 pollingStartTime: estimatedPollingStartTime,
-                showManualCheck: false,
-                showEarlyManualCheck: estimatedPollingStartTime < Date.now() - 60000, // Show if > 1 minute old
               }));
             } else {
               console.log('🚫 Skipping restoration - already in generating state');
@@ -962,9 +937,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 isStateRestored: false, // Clear restored state flag
                 currentGenerationId: null,
                 pollingStartTime: null,
-                showManualCheck: false,
-                isManuallyChecking: false,
-                showEarlyManualCheck: false,
               }));
               
               // Clear any existing error if the video succeeded
@@ -1004,6 +976,29 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     };
   }, [user?.id, supabase]); // Use refs to avoid re-subscription
 
+  // Check status for a specific history item
+  const checkHistoryItemStatus = useCallback(async (generationId: string) => {
+    if (!generationId) return;
+
+    console.log(`🔍 Checking status for history item: ${generationId}`);
+    
+    try {
+      const response = await fetch(`/api/webhooks/hedra-ai?generation_id=${generationId}&user_id=${user?.id}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('Status checked successfully');
+        // Refresh history to show updated status
+        await loadHistory();
+      } else {
+        toast.error(result.error || 'Failed to check status');
+      }
+    } catch (error) {
+      console.error('Error checking history item status:', error);
+      toast.error('Failed to check status');
+    }
+  }, [user?.id, loadHistory]);
+
   return {
     activeTab,
     setActiveTab,
@@ -1018,6 +1013,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     clearResults,
     loadHistory,
     deleteVideo,
-    checkStatusManually,
+    checkHistoryItemStatus,
   };
 }

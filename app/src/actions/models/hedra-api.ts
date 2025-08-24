@@ -152,14 +152,9 @@ export class HedraAPI {
       },
     };
 
-    // Add duration_ms as required by Hedra API (despite docs saying it's optional)
-    if (duration && duration > 0) {
-      const durationMs = Math.round(duration * 1000); // Convert seconds to milliseconds
-      (requestBody.generated_video_inputs as { duration_ms?: number }).duration_ms = durationMs;
-      console.log('Adding duration_ms to Hedra request:', durationMs, 'ms (', duration, 'seconds)');
-    } else {
-      console.log('No duration provided - this will likely fail');
-    }
+    // DO NOT add duration_ms - Let Hedra calculate it from the uploaded audio file
+    // This matches our successful curl test where we uploaded the audio and Hedra figured out duration
+    console.log('Not adding duration_ms - Hedra will calculate from uploaded audio file');
 
     if (seed) {
       (requestBody.generated_video_inputs as { seed?: number }).seed = seed;
@@ -244,21 +239,32 @@ export class HedraAPI {
 
       // Step 1: Get available models
       const models = await this.getModels();
-      const videoModel = models.find(m => m.type === 'video') || models[0];
+      // Use the EXACT model ID that worked in our curl test
+      const WORKING_MODEL_ID = 'd1dd37a3-e39a-4854-a298-6510289f9cf2';
+      let videoModel = models.find(m => m.id === WORKING_MODEL_ID);
+      
+      if (!videoModel) {
+        console.log('⚠️ Exact model not found, trying Character-3 by name');
+        videoModel = models.find(m => m.name === 'Character-3') || models.find(m => m.type === 'video') || models[0];
+      }
       
       if (!videoModel) {
         throw new Error('No video models available');
       }
 
-      console.log(`📋 Using model: ${videoModel.name}`);
+      console.log(`📋 Using model: ${videoModel.name} (${videoModel.id})`);
 
-      // Step 2: Create image asset
-      const imageAsset = await this.createAsset('avatar_image.jpg', 'image');
+      // Step 2: Create image asset with unique name
+      const timestamp = Date.now();
+      const imageAssetName = `avatar_image_${timestamp}.jpg`;
+      const imageAsset = await this.createAsset(imageAssetName, 'image');
+      console.log('🖼️ Uploading avatar image:', imageAssetName, 'from URL:', request.avatarImageUrl);
       await this.uploadAsset(imageAsset.id, request.avatarImageUrl);
-      console.log('🖼️ Avatar image uploaded');
+      console.log('🖼️ Avatar image uploaded successfully:', imageAssetName);
 
-      // Step 3: Create audio asset  
-      const audioAsset = await this.createAsset('voice_audio.mp3', 'audio');
+      // Step 3: Create audio asset with unique name
+      const audioAssetName = `voice_audio_${timestamp}.mp3`;
+      const audioAsset = await this.createAsset(audioAssetName, 'audio');
       
       // Debug: Check if audio URL is accessible
       console.log('🔍 Checking audio URL accessibility:', request.voiceAudioUrl);
@@ -269,10 +275,24 @@ export class HedraAPI {
         console.error('❌ Audio URL not accessible:', e);
       }
       
+      console.log('🎵 Uploading voice audio:', audioAssetName, 'from URL:', request.voiceAudioUrl);
       await this.uploadAsset(audioAsset.id, request.voiceAudioUrl);
-      console.log('🎵 Voice audio uploaded');
+      console.log('🎵 Voice audio uploaded successfully:', audioAssetName);
+      
+      // Add a longer delay to ensure Hedra fully processes the audio file and calculates duration
+      // This is critical - without this, Hedra might not have duration_ms ready
+      console.log('⏳ Waiting 5 seconds for Hedra to fully process audio asset and calculate duration...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       // Step 4: Create generation request
+      console.log('🎬 Creating generation with assets:', {
+        imageAssetId: imageAsset.id,
+        audioAssetId: audioAsset.id,
+        textPrompt: request.textPrompt,
+        aspectRatio: request.aspectRatio || '16:9',
+        resolution: request.resolution || '720p'
+      });
+      
       const generationId = await this.createGeneration(
         videoModel.id,
         imageAsset.id,

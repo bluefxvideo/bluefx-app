@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2, Video } from 'lucide-react';
+import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2, Video, RefreshCw } from 'lucide-react';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 
 interface HistoryOutputProps {
@@ -13,6 +13,7 @@ interface HistoryOutputProps {
   refreshTrigger?: number; // Change this value to trigger a refresh
   onRefresh?: () => void;
   onDeleteVideo?: (videoId: string) => Promise<boolean>;
+  onCheckStatus?: (generationId: string) => Promise<void>;
 }
 
 /**
@@ -24,10 +25,12 @@ export function HistoryOutput({
   isLoading, 
   refreshTrigger, 
   onRefresh,
-  onDeleteVideo
+  onDeleteVideo,
+  onCheckStatus
 }: HistoryOutputProps) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
+  const [checkingItems, setCheckingItems] = useState<Set<string>>(new Set());
   const [hoveredVideo, setHoveredVideo] = useState<string | null>(null);
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
@@ -72,6 +75,25 @@ export function HistoryOutput({
       setHoveredVideo(null);
       videoElement.pause();
       videoElement.currentTime = 0; // Reset to beginning
+    }
+  };
+
+  // Handle manual status check
+  const handleCheckStatus = async (video: TalkingAvatarVideo) => {
+    if (!onCheckStatus || !video.hedra_generation_id) return;
+    
+    setCheckingItems(prev => new Set(prev).add(video.id));
+    
+    try {
+      await onCheckStatus(video.hedra_generation_id);
+    } catch (error) {
+      console.error('Error checking video status:', error);
+    } finally {
+      setCheckingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(video.id);
+        return newSet;
+      });
     }
   };
 
@@ -181,7 +203,6 @@ export function HistoryOutput({
                       poster={video.thumbnail_url || undefined}
                       preload="metadata"
                       controls={false}
-                      muted
                       loop
                     />
                   ) : video.thumbnail_url ? (
@@ -247,6 +268,27 @@ export function HistoryOutput({
                         >
                           <Download className="w-3 h-3 mr-1" />
                           <span className="text-sm">Download</span>
+                        </Button>
+                      )}
+                      {(video.status === 'processing' || video.status === 'pending') && onCheckStatus && video.hedra_generation_id && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 px-2 justify-start"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCheckStatus(video);
+                          }}
+                          disabled={checkingItems.has(video.id)}
+                        >
+                          {checkingItems.has(video.id) ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                          )}
+                          <span className="text-sm">
+                            {checkingItems.has(video.id) ? 'Checking...' : 'Check Status'}
+                          </span>
                         </Button>
                       )}
                       {onRefresh && (
