@@ -21,6 +21,7 @@ export interface TalkingAvatarRequest {
   workflow_step: 'avatar_select' | 'voice_generate' | 'video_generate';
   user_id: string;
   voice_audio_url?: string; // For video generation step
+  aspect_ratio?: '16:9' | '9:16'; // Video orientation
 }
 
 export interface TalkingAvatarResponse {
@@ -470,7 +471,7 @@ async function handleVideoGeneration(
         request.voice_audio_url,
         "A person talking at the camera", // Simplified to match successful curl test
         {
-          aspectRatio: '16:9',
+          aspectRatio: request.aspect_ratio || '16:9',
           resolution: '720p',
           duration: estimatedDurationSeconds, // Hedra requires duration despite docs saying optional
           waitForCompletion: false, // Use webhook for async processing

@@ -55,7 +55,7 @@ export interface UseTalkingAvatarReturn {
   loadAvatarTemplates: () => Promise<void>;
   handleAvatarSelection: (template: AvatarTemplate | null, customFile?: File) => Promise<void>;
   handleVoiceGeneration: (voiceId: string, scriptText: string) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
-  handleVideoGeneration: () => Promise<void>;
+  handleVideoGeneration: (aspectRatio?: '16:9' | '9:16') => Promise<void>;
   resetWizard: () => void;
   goToStep: (step: number) => void;
   clearVoice: () => void;
@@ -182,7 +182,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         isLoading: false 
       }));
     } catch (error) {
-      console.error('Failed to load avatar templates:', error);
+      // Avatar template loading failed silently
       setState(prev => ({ 
         ...prev, 
         error: 'Failed to load avatar templates',
@@ -225,7 +225,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         throw new Error(response.error || 'Avatar selection failed');
       }
     } catch (error) {
-      console.error('Avatar selection error:', error);
+      // Avatar selection failed silently
       setState(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Avatar selection failed',
@@ -274,7 +274,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         throw new Error(response.error || 'Voice generation failed');
       }
     } catch (error) {
-      console.error('Voice generation error:', error);
+      // Voice generation failed silently
       setState(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Voice generation failed',
@@ -286,7 +286,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [user, state.customAvatarUrl, state.selectedAvatarTemplate]);
 
   // Step 3: Handle video generation
-  const handleVideoGeneration = useCallback(async () => {
+  const handleVideoGeneration = useCallback(async (aspectRatio: '16:9' | '9:16' = '16:9') => {
     if (!user || !state.selectedVoiceId || !state.scriptText) return;
     
     setState(prev => ({ ...prev, isGenerating: true, error: null }));
@@ -317,6 +317,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         avatar_template_id: state.selectedAvatarTemplate?.id,
         workflow_step: 'video_generate',
         user_id: user.id,
+        aspect_ratio: aspectRatio,
       };
 
       const response = await executeTalkingAvatar(request);
@@ -333,10 +334,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         
         // Start polling for video completion
         if (response.prediction_id) {
-          console.log('🚀 About to start polling for prediction:', response.prediction_id);
+          // Starting polling for prediction
           startPolling(response.prediction_id);
         } else {
-          console.error('❌ No prediction_id returned from API');
+          // No prediction_id returned from API
         }
         
         toast.success('Video generation started! Check your history for updates.');
@@ -344,7 +345,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         throw new Error(response.error || 'Video generation failed');
       }
     } catch (error) {
-      console.error('Video generation error:', error);
+      // Video generation failed silently
       setState(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Video generation failed',
@@ -414,7 +415,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       const { videos: historyVideos } = await getTalkingAvatarVideos(user.id);
       setState(prev => ({ ...prev, videos: historyVideos, isLoadingHistory: false }));
     } catch (err) {
-      console.error('Failed to load video history:', err);
+      // Video history loading failed silently
       setState(prev => ({ ...prev, isLoadingHistory: false }));
     }
   }, [user?.id]);
@@ -436,7 +437,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           videos: prev.videos.filter(video => video.id !== videoId)
         }));
         
-        console.log(`✅ Successfully deleted video: ${videoId}`);
+        // Video deleted successfully
         return true;
       } else {
         setState(prev => ({ ...prev, error: 'Failed to delete video' }));
@@ -449,133 +450,25 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }
   }, [user?.id]);
 
-  // Manual status check function
-  const checkStatusManually = useCallback(async () => {
-    if (!state.currentGenerationId || !user?.id) return;
-    
-    setState(prev => ({ ...prev, isManuallyChecking: true }));
-    
-    try {
-      console.log(`[TalkingAvatar] Manual status check for generation: ${state.currentGenerationId}`);
-      
-      // Call the webhook endpoint directly for status check
-      const response = await fetch(`/api/webhooks/hedra-ai?generation_id=${state.currentGenerationId}&user_id=${user.id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('[TalkingAvatar] Manual status check result:', result);
-        
-        if (result.status === 'complete' && result.video_url) {
-          // Update state with completed video
-          setState(prev => ({
-            ...prev,
-            generatedVideo: {
-              id: prev.generatedVideo?.id || state.currentGenerationId!,
-              video_url: result.video_url,
-              thumbnail_url: '',
-              script_text: prev.generatedVideo?.script_text || '',
-              avatar_image_url: prev.generatedVideo?.avatar_image_url || '',
-              created_at: prev.generatedVideo?.created_at || new Date().toISOString(),
-            },
-            isPolling: false,
-            isGenerating: false,
-            currentGenerationId: null,
-            pollingStartTime: null,
-            showEarlyManualCheck: false,
-            error: null,
-          }));
-          
-          // Stop any existing polling
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          
-          toast.success('Video generation completed!');
-          await loadHistory();
-          
-        } else if (result.status === 'complete' && !result.video_url) {
-          // Video is complete on Hedra but no URL (likely expired)
-          setState(prev => ({
-            ...prev,
-            error: 'Video generated successfully but has expired. Please try generating a new video.',
-            isPolling: false,
-            isGenerating: false,
-            currentGenerationId: null,
-            pollingStartTime: null,
-            showEarlyManualCheck: false,
-          }));
-          
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          
-          toast.error('Video generated successfully but has expired. Please try generating a new video.');
-          
-        } else if (result.status === 'error') {
-          setState(prev => ({
-            ...prev,
-            error: result.error || 'Video generation failed',
-            isPolling: false,
-            isGenerating: false,
-            currentGenerationId: null,
-            pollingStartTime: null,
-            showEarlyManualCheck: false,
-          }));
-          
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          
-          toast.error('Video generation failed');
-        } else {
-          setState(prev => ({ 
-            ...prev, 
-            isManuallyChecking: false,
-            // Keep early manual check visible if we're still processing
-            showEarlyManualCheck: true
-          }));
-          toast.info(`Video is still processing... Status: ${result.status}`);
-        }
-      } else {
-        throw new Error(`Status check failed: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('[TalkingAvatar] Manual status check failed:', error);
-      setState(prev => ({ 
-        ...prev, 
-        isManuallyChecking: false,
-        error: 'Manual status check failed'
-      }));
-      toast.error('Manual status check failed');
-    }
-  }, [state.currentGenerationId, user?.id, loadHistory]);
 
   // Start polling for video generation status
   const startPolling = useCallback((generationId: string) => {
-    console.log(`🔄 [TalkingAvatar] Starting polling for generation: ${generationId}`);
-    console.log(`🔄 [TalkingAvatar] Current polling start time: ${pollingStartTimeRef.current}`);
+    // Starting polling for generation
+    // Polling start time set
     
     // Clear any existing polling
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
-      console.log(`🔄 [TalkingAvatar] Cleared existing polling interval`);
+      // Cleared existing polling interval
     }
 
     // Start polling every 5 seconds
     pollingIntervalRef.current = setInterval(async () => {
-      console.log(`⏰ [TalkingAvatar] POLLING TICK - Checking generation: ${generationId}`);
+      // Polling tick - checking generation status
       
       try {
         if (!user?.id) {
-          console.error('[TalkingAvatar] No user found during polling');
+          // No user found during polling
           return;
         }
 
@@ -584,7 +477,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         const timeoutThreshold = 5 * 60 * 1000; // 5 minutes
         
         if (pollingDuration > timeoutThreshold) {
-          console.log(`[TalkingAvatar] Polling timeout reached after ${Math.round(pollingDuration / 60000)} minutes`);
+          // Polling timeout reached
           
           // Stop polling after timeout
           if (pollingIntervalRef.current) {
@@ -602,7 +495,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           return;
         }
 
-        console.log(`[TalkingAvatar] Polling for generation: ${generationId} (${Math.round(pollingDuration / 1000)}s elapsed)`);
+        // Polling in progress
         
         // Check avatar_videos table for completed video
         const { data: videos, error } = await supabase
@@ -614,21 +507,21 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           .limit(1);
 
         if (error) {
-          console.error('[TalkingAvatar] Error during polling:', error);
+          // Polling error occurred
           return;
         }
 
         let video = videos?.[0];
         if (!video) {
-          console.log('[TalkingAvatar] No video record found yet, continuing polling...');
+          // No video record found yet, continuing polling
           return;
         }
 
-        console.log('[TalkingAvatar] Video status:', video.status);
+        // Video status checked
 
         // If still processing, check Hedra API directly
         if (video.status === 'processing') {
-          console.log('[TalkingAvatar] Still processing, checking Hedra API directly...');
+          // Still processing, checking Hedra API
           
           // Call the webhook endpoint to check Hedra status
           try {
@@ -647,7 +540,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             
             if (response.ok) {
               const result = await response.json();
-              console.log('[TalkingAvatar] Hedra API check result:', result);
+              // Hedra API check completed
               
               // Re-fetch from database after webhook update
               const { data: updatedVideo } = await supabase
@@ -659,17 +552,17 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 
               if (updatedVideo) {
                 video = updatedVideo;
-                console.log('[TalkingAvatar] Updated video status after Hedra check:', video.status);
+                // Updated video status after Hedra check
               }
             }
           } catch (error) {
-            console.error('[TalkingAvatar] Failed to check Hedra API:', error);
+            // Failed to check Hedra API
           }
         }
 
         // Check if video is completed
         if (video.status === 'completed' && video.video_url) {
-          console.log('[TalkingAvatar] Video completed!', video.video_url);
+          // Video completed successfully
           
           // Stop polling
           if (pollingIntervalRef.current) {
@@ -701,7 +594,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           toast.success('Video generation completed!');
           
         } else if (video.status === 'failed') {
-          console.log('[TalkingAvatar] Video generation failed');
+          // Video generation failed
           
           // Stop polling
           if (pollingIntervalRef.current) {
@@ -721,7 +614,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         // Otherwise continue polling
         
       } catch (pollingError) {
-        console.error('[TalkingAvatar] Polling error:', pollingError);
+        // Polling error occurred
       }
     }, 5000); // Poll every 5 seconds (matching AI cinematographer pattern)
   }, [user?.id, supabase, loadHistory, state.currentGenerationId, state.isPolling]);
@@ -736,12 +629,12 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       
       // Only attempt restoration once per session
       if (hasAttemptedRestorationRef.current) {
-        console.log('🚫 Skipping restoration - already attempted this session');
+        // Skipping restoration - already attempted
         return;
       }
       
       hasAttemptedRestorationRef.current = true;
-      console.log('🔍 Checking for ongoing generations (first time this session)');
+      // Checking for ongoing generations
       
       // Check for ongoing video generations and restore state
       const checkOngoingGenerations = async () => {
@@ -753,16 +646,11 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             .order('created_at', { ascending: false });
 
           if (error) {
-            console.error('Error checking ongoing generations:', error);
+            // Error checking ongoing generations
             return;
           }
 
-          console.log('🔍 All videos from database:', videos?.map(v => ({ 
-            id: v.id, 
-            status: v.status, 
-            created: v.created_at,
-            video_url: !!v.video_url 
-          })));
+          // Retrieved videos from database
           
           // Only consider very recent videos (within last 2 minutes) since Hedra videos expire quickly
           // Also require hedra_generation_id to be present for valid resumption
@@ -778,11 +666,11 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           });
           
           if (processingVideo) {
-            console.log('🔄 Found processing video:', processingVideo.id, 'status:', processingVideo.status);
+            // Found processing video
             
             // Only restore if we're not already in a generating state (true restoration)
             if (!state.isGenerating && !state.currentGenerationId) {
-              console.log('🔄 Restoring processing state for video:', processingVideo.id);
+              // Restoring processing state for video
               
               // Restore processing state - estimate how long it's been processing
               const videoCreatedAt = new Date(processingVideo.created_at || '').getTime();
@@ -807,7 +695,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 pollingStartTime: estimatedPollingStartTime,
               }));
             } else {
-              console.log('🚫 Skipping restoration - already in generating state');
+              // Skipping restoration - already generating
             }
             
             // Start polling if we have a generation ID
@@ -815,9 +703,9 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
               startPolling(processingVideo.hedra_generation_id);
             }
             
-            console.log('✅ Processing state restored - user will see "Video processing..." until completion');
+            // Processing state restored
           } else {
-            console.log('💡 No ongoing generations found - user is in normal state');
+            // No ongoing generations found
             
             // Clean up any stuck processing records without hedra_generation_id
             const stuckRecords = videos?.filter(v => {
@@ -827,8 +715,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             });
             
             if (stuckRecords && stuckRecords.length > 0) {
-              console.log('🧹 Found stuck processing records without generation ID, marking as failed:', 
-                stuckRecords.map(r => r.id));
+              // Found stuck processing records
               
               // Mark stuck records as failed in the background
               stuckRecords.forEach(async (record) => {
@@ -837,9 +724,9 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                     .from('avatar_videos')
                     .update({ status: 'failed' })
                     .eq('id', record.id);
-                  console.log('✅ Marked stuck record as failed:', record.id);
+                  // Marked stuck record as failed
                 } catch (error) {
-                  console.error('❌ Failed to update stuck record:', error);
+                  // Failed to update stuck record
                 }
               });
             }
@@ -847,7 +734,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             // Ensure we're not in a stuck generating state
             setState(prev => {
               if (prev.isGenerating && !prev.currentGenerationId) {
-                console.log('🛠️ Clearing stuck generating state');
+                // Clearing stuck generating state
                 return {
                   ...prev,
                   isGenerating: false,
@@ -860,7 +747,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             });
           }
         } catch (error) {
-          console.error('Error checking ongoing generations:', error);
+          // Error checking ongoing generations
         }
       };
       
@@ -872,7 +759,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔔 Setting up real-time subscription for user:', user.id);
+    // Setting up real-time subscription
 
     const subscription = supabase
       .channel(`avatar_videos_${user.id}`)
@@ -885,11 +772,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('🔔 Real-time update received:', {
-            event: payload.eventType,
-            old: payload.old,
-            new: payload.new
-          });
+          // Real-time update received
 
           const updatedVideo = payload.new as TalkingAvatarVideo;
           
@@ -898,11 +781,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           const currentVideo = generatedVideoRef.current;
           
           if (currentGenerationId && updatedVideo?.hedra_generation_id === currentGenerationId) {
-            console.log('📺 Updating current video result:', {
-              generation_id: currentGenerationId,
-              status: updatedVideo.status,
-              video_url: updatedVideo.video_url
-            });
+            // Updating current video result
 
             setState(prev => ({
               ...prev,
@@ -922,7 +801,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             
             // CRITICAL: Set isGenerating to false when video generation is complete
             if (updatedVideo.status === 'completed' || updatedVideo.status === 'failed') {
-              console.log('✅ Video generation completed, stopping loading state');
+              // Video generation completed
               
               // Stop polling
               if (pollingIntervalRef.current) {
@@ -967,11 +846,11 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         }
       )
       .subscribe((status) => {
-        console.log('🔔 Subscription status:', status);
+        // Subscription status changed
       });
 
     return () => {
-      console.log('🔔 Unsubscribing from real-time updates');
+      // Unsubscribing from real-time updates
       subscription.unsubscribe();
     };
   }, [user?.id, supabase]); // Use refs to avoid re-subscription
@@ -980,7 +859,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const checkHistoryItemStatus = useCallback(async (generationId: string) => {
     if (!generationId) return;
 
-    console.log(`🔍 Checking status for history item: ${generationId}`);
+    // Checking status for history item
     
     try {
       const response = await fetch(`/api/webhooks/hedra-ai?generation_id=${generationId}&user_id=${user?.id}`);
@@ -994,7 +873,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         toast.error(result.error || 'Failed to check status');
       }
     } catch (error) {
-      console.error('Error checking history item status:', error);
+      // Error checking history item status
       toast.error('Failed to check status');
     }
   }, [user?.id, loadHistory]);

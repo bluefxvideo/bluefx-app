@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2, Video, RefreshCw } from 'lucide-react';
+import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2, Video, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 
 interface HistoryOutputProps {
@@ -32,6 +32,7 @@ export function HistoryOutput({
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
   const [checkingItems, setCheckingItems] = useState<Set<string>>(new Set());
   const [hoveredVideo, setHoveredVideo] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(true); // Start with muted videos
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
   const getStatusColor = (status: string) => {
@@ -65,17 +66,31 @@ export function HistoryOutput({
     if (shouldPlay) {
       setHoveredVideo(videoId);
       try {
-        // Reset video to start and play
+        // Set mute state and reset video to start
+        videoElement.muted = isMuted;
         videoElement.currentTime = 0;
         await videoElement.play();
       } catch (error) {
-        console.log('Video autoplay prevented:', error);
+        // Video autoplay prevented - silent failure
       }
     } else {
       setHoveredVideo(null);
       videoElement.pause();
       videoElement.currentTime = 0; // Reset to beginning
     }
+  };
+
+  // Toggle mute for all videos
+  const toggleMute = () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    
+    // Update all video elements
+    Object.values(videoRefs.current).forEach(videoElement => {
+      if (videoElement) {
+        videoElement.muted = newMutedState;
+      }
+    });
   };
 
   // Handle manual status check
@@ -158,6 +173,37 @@ export function HistoryOutput({
 
   return (
     <div className="h-full flex flex-col">
+      {/* Header with Controls */}
+      <div className="flex items-center justify-between px-1 pb-4">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {videos.length} video{videos.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {onRefresh && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              className="h-7 px-2"
+            >
+              <RefreshCw className="w-3 h-3" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleMute}
+            className="h-7 px-2"
+            title={isMuted ? 'Unmute video previews' : 'Mute video previews'}
+          >
+            {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+          </Button>
+        </div>
+      </div>
+
       {/* Videos Grid */}
       <div className="flex-1 overflow-y-auto scrollbar-hover">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
@@ -204,6 +250,7 @@ export function HistoryOutput({
                       preload="metadata"
                       controls={false}
                       loop
+                      muted={isMuted}
                     />
                   ) : video.thumbnail_url ? (
                     <img

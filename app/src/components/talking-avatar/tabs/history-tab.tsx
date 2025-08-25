@@ -14,7 +14,7 @@ export function HistoryTab() {
   ];
 
   const handleFiltersChange = (filters: HistoryFilters) => {
-    console.log('Talking Avatar filters changed:', filters);
+    // Filters changed
   };
 
   return (

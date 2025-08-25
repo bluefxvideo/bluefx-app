@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle, Loader2, Video, User, Mic, LucideIcon, Clock, Zap, RefreshCw, Download, ExternalLink } from 'lucide-react';
+import { CheckCircle, Loader2, Video, User, Mic, LucideIcon, Clock, Zap, Download, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,12 +56,11 @@ interface TalkingAvatarOutputProps {
   avatarState: { 
     state: TalkingAvatarState;
     clearResults?: () => void;
-    checkStatusManually?: () => Promise<void>;
   };
 }
 
 export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
-  const { state, clearResults, checkStatusManually } = avatarState;
+  const { state, clearResults } = avatarState;
   const [showStep3Complete, setShowStep3Complete] = React.useState(false);
   
   // Watch for when generation starts to show brief checkmark

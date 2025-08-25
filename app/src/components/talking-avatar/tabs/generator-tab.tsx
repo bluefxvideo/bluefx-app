@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Video, User, Mic, Upload, Play, Square, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Video, User, Mic, Upload, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
 import { AvatarTemplate } from '@/actions/tools/talking-avatar';
@@ -33,6 +33,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
   const [customImage, setCustomImage] = useState<File | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
 
   // Load templates on mount
   useEffect(() => {
@@ -136,7 +137,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
         console.error('Cannot generate video: Voice audio URL is missing');
         return;
       }
-      await handleVideoGeneration();
+      await handleVideoGeneration(aspectRatio);
     }
   };
 
@@ -378,6 +379,72 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
         {/* Step 3: Video Generation */}
         {state.currentStep === 3 && (
           <div className="space-y-3">
+            {/* Video Format Selection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Choose Video Format</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Landscape 16:9 */}
+                <Card 
+                  className={`p-4 cursor-pointer transition-all duration-300 ${
+                    aspectRatio === '16:9'
+                      ? 'border-primary bg-primary/10 shadow-lg' 
+                      : 'border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-secondary/50'
+                  }`}
+                  onClick={() => setAspectRatio('16:9')}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`w-12 h-8 rounded border-2 flex items-center justify-center ${
+                      aspectRatio === '16:9'
+                        ? 'border-primary bg-primary/20' 
+                        : 'border-muted-foreground/40'
+                    }`}>
+                      <Monitor className={`w-4 h-4 ${
+                        aspectRatio === '16:9' ? 'text-primary' : 'text-muted-foreground'
+                      }`} />
+                    </div>
+                    <div className="text-center">
+                      <p className={`text-sm font-medium ${
+                        aspectRatio === '16:9' ? 'text-primary' : 'text-foreground'
+                      }`}>
+                        Landscape
+                      </p>
+                      <p className="text-xs text-muted-foreground">16:9 • YouTube</p>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Portrait 9:16 */}
+                <Card 
+                  className={`p-4 cursor-pointer transition-all duration-300 ${
+                    aspectRatio === '9:16'
+                      ? 'border-primary bg-primary/10 shadow-lg' 
+                      : 'border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-secondary/50'
+                  }`}
+                  onClick={() => setAspectRatio('9:16')}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`w-8 h-12 rounded border-2 flex items-center justify-center ${
+                      aspectRatio === '9:16'
+                        ? 'border-primary bg-primary/20' 
+                        : 'border-muted-foreground/40'
+                    }`}>
+                      <Smartphone className={`w-4 h-4 ${
+                        aspectRatio === '9:16' ? 'text-primary' : 'text-muted-foreground'
+                      }`} />
+                    </div>
+                    <div className="text-center">
+                      <p className={`text-sm font-medium ${
+                        aspectRatio === '9:16' ? 'text-primary' : 'text-foreground'
+                      }`}>
+                        Portrait
+                      </p>
+                      <p className="text-xs text-muted-foreground">9:16 • Vertical</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+
             {/* Voice Preview in Step 3 */}
             {state.voiceAudioUrl && (
               <Card className="p-4 bg-white dark:bg-gray-800/40">
@@ -419,6 +486,12 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
                   <span>Avatar:</span>
                   <span className="text-muted-foreground">
                     {state.selectedAvatarTemplate?.name || 'Custom Upload'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Video Format:</span>
+                  <span className="text-muted-foreground">
+                    {aspectRatio === '16:9' ? 'Landscape (16:9)' : 'Portrait (9:16)'}
                   </span>
                 </div>
                 <div className="flex justify-between">
