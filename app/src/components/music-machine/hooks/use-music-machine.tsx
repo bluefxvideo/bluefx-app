@@ -15,7 +15,10 @@ export interface MusicMachineState {
   genre: string;
   mood: string;
   duration: number;
-  model_version: 'stereo-large' | 'stereo-melody-large' | 'large';
+  model_provider: 'musicgen' | 'lyria-2';
+  model_version: 'stereo-large' | 'stereo-melody-large' | 'large'; // For MusicGen
+  negative_prompt: string; // For Lyria-2
+  seed: number | null; // For Lyria-2
   
   // Generated results
   generatedMusic: GeneratedMusic[];
@@ -78,7 +81,10 @@ export function useMusicMachine() {
     genre: 'pop',
     mood: 'energetic',
     duration: 30,
+    model_provider: 'lyria-2', // Default to newer Lyria-2 model
     model_version: 'stereo-melody-large',
+    negative_prompt: '',
+    seed: null,
     generatedMusic: [],
     currentGeneration: null,
     musicHistory: [],
@@ -157,27 +163,35 @@ export function useMusicMachine() {
   // Update estimated credits based on settings
   useEffect(() => {
     const calculateEstimatedCredits = () => {
-      let baseCost = 5; // Base cost for music generation
-      
-      // Duration multiplier
-      if (state.duration > 60) baseCost *= 1.5;
-      if (state.duration > 120) baseCost *= 2.0;
-      
-      // Model multiplier
-      if (state.model_version === 'stereo-melody-large') {
-        baseCost *= 1.5;
-      } else if (state.model_version === 'stereo-large') {
-        baseCost *= 1.2;
+      if (state.model_provider === 'lyria-2') {
+        // Lyria-2 has fixed cost per generation
+        const baseCost = 3;
+        const promptComplexity = state.prompt.split(' ').length > 20 ? 1 : 0;
+        return baseCost + promptComplexity;
+      } else {
+        // MusicGen cost calculation
+        let baseCost = 5;
+        
+        // Duration multiplier
+        if (state.duration > 60) baseCost *= 1.5;
+        if (state.duration > 120) baseCost *= 2.0;
+        
+        // Model multiplier
+        if (state.model_version === 'stereo-melody-large') {
+          baseCost *= 1.5;
+        } else if (state.model_version === 'stereo-large') {
+          baseCost *= 1.2;
+        }
+        
+        return Math.ceil(baseCost);
       }
-      
-      return Math.ceil(baseCost);
     };
 
     setState(prev => ({
       ...prev,
       estimatedCredits: calculateEstimatedCredits(),
     }));
-  }, [state.duration, state.model_version]);
+  }, [state.duration, state.model_provider, state.model_version, state.prompt]);
 
   // Generate music
   const generateMusic = useCallback(async () => {
@@ -190,8 +204,11 @@ export function useMusicMachine() {
         prompt: state.prompt,
         genre: state.genre,
         mood: state.mood,
-        duration: state.duration,
-        model_version: state.model_version,
+        model_provider: state.model_provider,
+        duration: state.model_provider === 'musicgen' ? state.duration : undefined,
+        model_version: state.model_provider === 'musicgen' ? state.model_version : undefined,
+        negative_prompt: state.model_provider === 'lyria-2' ? state.negative_prompt : undefined,
+        seed: state.model_provider === 'lyria-2' ? state.seed : undefined,
         user_id: user.id,
       };
 
@@ -216,9 +233,9 @@ export function useMusicMachine() {
         
         toast.success('Music generation started! Processing may take 1-2 minutes.');
         
-        // Start polling for completion
-        if (response.generated_music?.id) {
-          startPolling(response.generated_music.id);
+        // Start polling for completion using the prediction_id
+        if (response.prediction_id) {
+          startPolling(response.prediction_id);
         }
       } else {
         throw new Error(response.error || 'Music generation failed');
@@ -232,7 +249,7 @@ export function useMusicMachine() {
       }));
       toast.error('Music generation failed');
     }
-  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model_version]); // startPolling removed to avoid circular dep
+  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model_provider, state.model_version, state.negative_prompt, state.seed]); // startPolling removed to avoid circular dep
 
   // Start polling for music completion
   const startPolling = useCallback((predictionId: string) => {
@@ -242,24 +259,30 @@ export function useMusicMachine() {
         await loadMusicHistory();
         
         // Check if current generation is completed
-        const history = await getMusicHistory(user?.id || '', 1);
+        // Look for the music record with matching prediction_id in generation_settings
+        const history = await getMusicHistory(user?.id || '', 10);
         if (history.success && history.data && history.data.length > 0) {
-          const latestMusic = history.data[0];
-          if (latestMusic.id === predictionId && latestMusic.status === 'completed') {
-            clearInterval(pollInterval);
-            setState(prev => ({ ...prev, isGenerating: false }));
-            toast.success('Music generated successfully!');
-            
-            // Auto-switch to history tab
-            setActiveTab('history');
-          } else if (latestMusic.id === predictionId && latestMusic.status === 'failed') {
-            clearInterval(pollInterval);
-            setState(prev => ({ 
-              ...prev, 
-              isGenerating: false,
-              error: 'Music generation failed'
-            }));
-            toast.error('Music generation failed');
+          const matchingMusic = history.data.find((music: any) => 
+            music.generation_settings?.prediction_id === predictionId
+          );
+          
+          if (matchingMusic) {
+            if (matchingMusic.status === 'completed') {
+              clearInterval(pollInterval);
+              setState(prev => ({ ...prev, isGenerating: false }));
+              toast.success('Music generated successfully!');
+              
+              // Auto-switch to history tab
+              setActiveTab('history');
+            } else if (matchingMusic.status === 'failed') {
+              clearInterval(pollInterval);
+              setState(prev => ({ 
+                ...prev, 
+                isGenerating: false,
+                error: 'Music generation failed'
+              }));
+              toast.error('Music generation failed');
+            }
           }
         }
       } catch (error) {
@@ -349,7 +372,7 @@ export function useMusicMachine() {
   }, []);
 
   // Update settings
-  const updateSettings = useCallback((settings: Partial<Pick<MusicMachineState, 'genre' | 'mood' | 'duration' | 'model_version'>>) => {
+  const updateSettings = useCallback((settings: Partial<Pick<MusicMachineState, 'genre' | 'mood' | 'duration' | 'model_provider' | 'model_version' | 'negative_prompt' | 'seed'>>) => {
     setState(prev => ({ ...prev, ...settings }));
   }, []);
 

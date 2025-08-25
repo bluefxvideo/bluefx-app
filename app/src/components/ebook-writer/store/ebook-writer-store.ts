@@ -238,6 +238,8 @@ export const useEbookWriterStore = create<EbookWriterState>()(
         },
         
         generateTitles: async (topic: string, documents?: UploadedDocument[]) => {
+          console.log('🚀 Starting title generation for topic:', topic, 'with documents:', documents?.length || 0);
+          
           set(state => ({
             generation_progress: {
               ...state.generation_progress,
@@ -247,28 +249,26 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           }));
           
           try {
-            // This would call the AI orchestrator with document context
-            // const response = await ebookWriterOrchestrator({
-            //   topic,
-            //   workflow_intent: 'title_only',
-            //   uploaded_documents: documents || state.uploaded_documents,
-            //   user_id: userId
-            // });
+            // Call the server action for title generation
+            const { generateEbookTitles } = await import('@/actions/tools/ebook-title-generator');
             
-            // Mock implementation for now
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log('📞 Calling generateEbookTitles server action...');
+            const response = await generateEbookTitles({
+              topic,
+              uploaded_documents: documents || get().uploaded_documents,
+            });
             
-            const mockTitles = [
-              `The Complete Guide to ${topic}`,
-              `Mastering ${topic}: A Comprehensive Handbook`,
-              `${topic} Secrets: What Experts Don't Tell You`,
-              `From Beginner to Pro: ${topic} Mastery`,
-              `The Ultimate ${topic} Blueprint`
-            ];
+            console.log('📝 Title generation response:', response);
             
+            if (!response.success) {
+              console.error('❌ Title generation failed:', response.error);
+              throw new Error(response.error || 'Title generation failed');
+            }
+            
+            console.log('✅ Generated titles:', response.generated_titles);
             set(state => ({
               title_options: {
-                options: mockTitles,
+                options: response.generated_titles || [],
                 generated_at: new Date().toISOString(),
               },
               generation_progress: {

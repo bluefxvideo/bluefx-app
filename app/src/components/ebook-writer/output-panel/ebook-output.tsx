@@ -15,7 +15,6 @@ import {
   Trash2
 } from 'lucide-react';
 import type { EbookMetadata } from '../store/ebook-writer-store';
-import { TabEmptyStates } from './tab-empty-states';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
@@ -35,22 +34,74 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
   };
 
   const renderEmpty = () => {
-    if (activeTab === 'topic') {
-      return (
-        <UnifiedEmptyState
-          icon={BookOpen}
-          title="Choose Your Topic"
-          description="Start by selecting what your ebook will be about to begin the creation process."
-        />
-      );
+    switch (activeTab) {
+      case 'topic':
+        return (
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={BookOpen}
+              title="Choose Your Topic"
+              description="Start by selecting what your ebook will be about to begin the creation process."
+            />
+          </div>
+        );
+      case 'outline':
+        return (
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={BookOpen}
+              title="No Outline Ready"
+              description="Create a topic and title first to generate your ebook outline."
+            />
+          </div>
+        );
+      case 'content':
+        return (
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={FileText}
+              title="No Content Generated"
+              description="Complete the outline step to start generating ebook content."
+            />
+          </div>
+        );
+      case 'cover':
+        return (
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={Image}
+              title="No Cover Created"
+              description="Generate content first before creating your ebook cover."
+            />
+          </div>
+        );
+      case 'export':
+        return (
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={Download}
+              title="Ready to Export"
+              description="Complete your ebook to export in various formats."
+            />
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={BookOpen}
+              title="Choose Your Topic"
+              description="Start by selecting what your ebook will be about to begin the creation process."
+            />
+          </div>
+        );
     }
-    
-    return <TabEmptyStates activeTab={activeTab} />;
   };
 
   if (!ebook) {
     return (
       <OutputPanelShell
+        title="Ebook Results"
         status={getStatus()}
         errorMessage={error}
         empty={renderEmpty()}
@@ -222,6 +273,7 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
 
   return (
     <OutputPanelShell
+      title="Ebook Results"
       status={getStatus()}
       errorMessage={error}
       empty={renderEmpty()}

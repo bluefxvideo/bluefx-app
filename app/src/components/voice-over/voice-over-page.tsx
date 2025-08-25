@@ -65,7 +65,10 @@ export function VoiceOverPage() {
           // Right Panel - Output
           <VoiceOverOutput
             key="output"
-            voiceOverState={voiceOverState}
+            voiceOverState={{
+              ...voiceOverState,
+              deleteVoice: voiceOverState.deleteVoice
+            }}
           />
         ]}
       </StandardToolLayout>

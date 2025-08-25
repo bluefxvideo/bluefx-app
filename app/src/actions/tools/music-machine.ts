@@ -7,6 +7,13 @@ import {
   getMusicGenModelInfo,
   type MusicGenInput 
 } from '@/actions/models/meta-musicgen';
+import {
+  createLyria2Prediction,
+  calculateLyria2Credits,
+  getLyria2ModelInfo,
+  optimizeLyria2Prompt,
+  type Lyria2Input
+} from '@/actions/models/google-lyria-2';
 import { createMusicRecord } from '@/actions/database/music-database';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 import { uploadAudioToStorage } from '@/actions/supabase-storage';
@@ -17,20 +24,25 @@ export interface MusicMachineRequest {
   prompt: string;
   duration?: number; // 1-300 seconds
   
-  // Model configuration
-  model_version?: 'stereo-melody-large' | 'stereo-large' | 'melody-large' | 'large';
+  // Model configuration (UPDATED to support both MusicGen and Lyria-2)
+  model_provider?: 'musicgen' | 'lyria-2';
+  model_version?: 'stereo-melody-large' | 'stereo-large' | 'melody-large' | 'large'; // For MusicGen
   output_format?: 'wav' | 'mp3';
   
   // Audio conditioning (optional)
   input_audio?: string | File; // Reference audio for style conditioning
   continuation?: boolean; // Continue from input audio vs influence style
   
-  // Advanced parameters
+  // Advanced parameters (MusicGen specific)
   temperature?: number; // 0.0-2.0, creativity control
   top_k?: number; // Token sampling limit
   top_p?: number; // Cumulative probability sampling
   classifier_free_guidance?: number; // 1.0-10.0, prompt adherence
   normalization_strategy?: 'loudness' | 'clip' | 'peak' | 'rms';
+  
+  // Lyria-2 specific parameters
+  negative_prompt?: string; // What to exclude from generation
+  seed?: number; // Reproducibility control
   
   // Legacy compatibility fields
   genre?: string; // Integrated into prompt optimization
@@ -130,32 +142,51 @@ export async function executeMusicMachine(
       }
     }
 
-    // Step 2: Prompt Optimization with AI Intelligence
-    const optimizedPrompt = optimizePromptForMusic(
-      authenticatedRequest.prompt,
-      authenticatedRequest.genre,
-      authenticatedRequest.mood
-    );
+    // Step 2: Determine Model Provider and Optimize Prompt
+    const modelProvider = authenticatedRequest.model_provider || 'lyria-2';
+    let optimizedPrompt: string;
+    let modelInput: MusicGenInput | Lyria2Input;
+    
+    if (modelProvider === 'lyria-2') {
+      optimizedPrompt = await optimizeLyria2Prompt(
+        authenticatedRequest.prompt,
+        authenticatedRequest.genre,
+        authenticatedRequest.mood
+      );
+      
+      modelInput = {
+        prompt: optimizedPrompt,
+        ...(authenticatedRequest.seed && { seed: authenticatedRequest.seed }),
+        ...(authenticatedRequest.negative_prompt && { negative_prompt: authenticatedRequest.negative_prompt }),
+      } as Lyria2Input;
+    } else {
+      optimizedPrompt = optimizePromptForMusic(
+        authenticatedRequest.prompt,
+        authenticatedRequest.genre,
+        authenticatedRequest.mood
+      );
+      
+      modelInput = {
+        prompt: optimizedPrompt,
+        duration: Math.min(Math.max(authenticatedRequest.duration || 30, 1), 300),
+        input_audio: inputAudioUrl,
+        model_version: authenticatedRequest.model_version || 'stereo-melody-large',
+        continuation: authenticatedRequest.continuation || false,
+        output_format: authenticatedRequest.output_format || 'mp3',
+        normalization_strategy: authenticatedRequest.normalization_strategy || 'loudness',
+        temperature: authenticatedRequest.temperature || 1.0,
+        top_k: authenticatedRequest.top_k || 250,
+        top_p: authenticatedRequest.top_p || 0.0,
+        classifier_free_guidance: authenticatedRequest.classifier_free_guidance || 3.0,
+      } as MusicGenInput;
+    }
 
-    console.log('🎵 Optimized prompt:', optimizedPrompt);
+    console.log(`🎵 Using ${modelProvider} with optimized prompt:`, optimizedPrompt);
 
-    // Step 3: Prepare MusicGen Input Parameters
-    const musicGenInput: MusicGenInput = {
-      prompt: optimizedPrompt,
-      duration: Math.min(Math.max(authenticatedRequest.duration || 30, 1), 300),
-      input_audio: inputAudioUrl,
-      model_version: authenticatedRequest.model_version || 'stereo-melody-large',
-      continuation: authenticatedRequest.continuation || false,
-      output_format: authenticatedRequest.output_format || 'mp3',
-      normalization_strategy: authenticatedRequest.normalization_strategy || 'loudness',
-      temperature: authenticatedRequest.temperature || 1.0,
-      top_k: authenticatedRequest.top_k || 250,
-      top_p: authenticatedRequest.top_p || 0.0,
-      classifier_free_guidance: authenticatedRequest.classifier_free_guidance || 3.0,
-    };
-
-    // Step 4: Credit Calculation and Validation
-    total_credits = await calculateMusicGenCredits(musicGenInput);
+    // Step 3: Credit Calculation and Validation
+    total_credits = modelProvider === 'lyria-2' 
+      ? await calculateLyria2Credits(modelInput as Lyria2Input)
+      : await calculateMusicGenCredits(modelInput as MusicGenInput);
     
     const userCredits = await getUserCredits(supabase, user.id);
     if (userCredits < total_credits) {
@@ -170,28 +201,46 @@ export async function executeMusicMachine(
       };
     }
 
-    // Step 5: Create Prediction with Webhook
-    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`;
+    // Step 4: Create Prediction with Webhook
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL;
+    const webhookUrl = baseUrl?.startsWith('https://') 
+      ? `${baseUrl}/api/webhooks/replicate-ai`
+      : undefined; // Don't use webhook if not HTTPS
     
-    const predictionResult = await createMusicGenPrediction({
-      input: musicGenInput,
-      webhook: webhookUrl
-    });
-
-    if (!predictionResult.success || !predictionResult.prediction) {
-      return {
-        success: false,
-        error: predictionResult.error || 'Music generation request failed',
-        prediction_id: '',
-        batch_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: userCredits,
-      };
+    if (!webhookUrl) {
+      console.log('⚠️ No valid HTTPS webhook URL available, prediction will run without webhook');
+    } else {
+      console.log('🔗 Using webhook URL:', webhookUrl);
     }
-
-    const prediction = predictionResult.prediction;
-    console.log('🎵 MusicGen prediction created:', prediction.id);
+    
+    let prediction: any;
+    
+    if (modelProvider === 'lyria-2') {
+      prediction = await createLyria2Prediction({
+        ...(modelInput as Lyria2Input),
+        ...(webhookUrl && { webhook: webhookUrl })
+      });
+    } else {
+      const musicGenResult = await createMusicGenPrediction({
+        input: modelInput as MusicGenInput,
+        ...(webhookUrl && { webhook: webhookUrl })
+      });
+      
+      if (!musicGenResult.success || !musicGenResult.prediction) {
+        return {
+          success: false,
+          error: musicGenResult.error || 'Music generation request failed',
+          prediction_id: '',
+          batch_id,
+          generation_time_ms: Date.now() - startTime,
+          credits_used: 0,
+          remaining_credits: userCredits,
+        };
+      }
+      
+      prediction = musicGenResult.prediction;
+    }
+    console.log(`🎵 ${modelProvider === 'lyria-2' ? 'Lyria-2' : 'MusicGen'} prediction created:`, prediction.id);
 
     // Create prediction tracking record
     await createPredictionRecord({
@@ -199,25 +248,29 @@ export async function executeMusicMachine(
       user_id: request.user_id,
       tool_id: 'music-machine',
       service_id: 'replicate',
-      model_version: 'meta-musicgen-stereo-melody',
+      model_version: modelProvider === 'lyria-2' ? 'google-lyria-2' : 'meta-musicgen-stereo-melody',
       status: 'starting',
       input_data: {
         prompt: request.prompt,
-        duration: musicGenInput.duration,
-        model_version: musicGenInput.model_version,
-        output_format: musicGenInput.output_format,
-        ...musicGenInput
+        model_provider: modelProvider,
+        duration: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).duration : undefined,
+        model_version: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).model_version : undefined,
+        output_format: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).output_format : undefined,
+        seed: modelProvider === 'lyria-2' ? (modelInput as Lyria2Input).seed : undefined,
+        negative_prompt: modelProvider === 'lyria-2' ? (modelInput as Lyria2Input).negative_prompt : undefined,
+        ...modelInput
       } as any,
     });
 
     // Step 6: Database Record Creation
     const musicRecord = await createMusicRecord(user.id, optimizedPrompt, {
-      duration: musicGenInput.duration,
+      duration: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).duration : undefined,
       prediction_id: prediction.id,
       batch_id,
       credits_used: total_credits,
       genre: authenticatedRequest.genre,
       mood: authenticatedRequest.mood,
+      model_provider: modelProvider,
     });
 
     if (!musicRecord.success) {
@@ -234,13 +287,15 @@ export async function executeMusicMachine(
         id: musicRecord.data?.id || `temp_${Date.now()}`,
         prediction_id: prediction.id,
         prompt: optimizedPrompt,
-        duration: musicGenInput.duration || 10,
-        model_version: musicGenInput.model_version || 'musicgen-medium',
-        output_format: musicGenInput.output_format || 'mp3',
+        duration: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).duration || 10 : undefined,
+        model_version: modelProvider === 'musicgen' 
+          ? (modelInput as MusicGenInput).model_version || 'musicgen-medium'
+          : 'lyria-2',
+        output_format: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).output_format || 'mp3' : 'audio',
         status: prediction.status,
         created_at: prediction.created_at,
       },
-      model_info: getMusicGenModelInfo(),
+      model_info: modelProvider === 'lyria-2' ? await getLyria2ModelInfo() : getMusicGenModelInfo(),
       prediction_id: prediction.id,
       batch_id,
       credits_used: total_credits,

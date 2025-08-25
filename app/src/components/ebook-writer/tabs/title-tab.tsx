@@ -15,10 +15,11 @@ interface TitleTabProps {
   topic: string;
   titleOptions: TitleOptions | null;
   isGenerating: boolean;
-  error?: string;
 }
 
-export function TitleTab({ topic, titleOptions, isGenerating, error }: TitleTabProps) {
+export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
+  console.log('📋 TitleTab received:', { topic, titleOptions, isGenerating, titleCount: titleOptions?.options?.length });
+  
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [customTitle, setCustomTitle] = useState('');
   const [useCustom, setUseCustom] = useState(false);
@@ -51,30 +52,21 @@ export function TitleTab({ topic, titleOptions, isGenerating, error }: TitleTabP
     return (
       <TabContentWrapper>
         <TabBody>
-          <StandardStep
-            stepNumber={1}
-            title="No Topic Selected"
-            description="Please go back and select a topic first"
-          >
-            <div className="h-full flex items-center justify-center">
-              <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
-                <CardContent className="pt-6">
-                  <Type className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="font-medium mb-2">No Topic Selected</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Please go back and select a topic first.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setActiveTab('topic')}
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Topic
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </StandardStep>
+          <div className="h-full flex items-center justify-center">
+            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
+              <CardContent className="pt-6">
+                <Type className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-medium mb-2">No Topic Selected</h3>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab('topic')}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Topic
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabBody>
       </TabContentWrapper>
     );
@@ -188,12 +180,6 @@ export function TitleTab({ topic, titleOptions, isGenerating, error }: TitleTabP
                 />
               </div>
 
-            </div>
-          )}
-          
-          {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {error}
             </div>
           )}
         </CardContent>

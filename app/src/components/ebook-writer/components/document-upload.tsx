@@ -223,16 +223,6 @@ export function DocumentUpload({
           </div>
         )}
 
-        {/* Context info */}
-        {documents.length > 0 && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
-            <p className="text-xs text-blue-600 dark:text-blue-400">
-              <strong>💡 Using Gemini 2.0 Flash:</strong> With {formatTokenCount(totalTokens)} of context, 
-              your ebook will be enriched with information from these documents. 
-              Gemini can handle up to 1M tokens (vs 128K for GPT-4).
-            </p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

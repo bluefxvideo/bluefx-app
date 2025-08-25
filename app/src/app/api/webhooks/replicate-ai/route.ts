@@ -299,7 +299,9 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
     analysis.requires_batch_processing = true;
     analysis.requires_real_time_update = true;
   } else if (payload.version?.includes('6ad9d07e53bf7e1f5ce9f58b11ad5d5fadc0e2e4b48fa35f47f55ff9b9db6de0') || // Meta MusicGen Stereo Melody
-            (payload.input?.model_version && payload.input?.output_format)) {
+            payload.version?.includes('a7e8d3fd87b875af2897e25dbde07888be1621bf18915b40a1a82543f5c0ab01') || // Google Lyria-2
+            (payload.input?.model_version && payload.input?.output_format) ||
+            (payload.input?.prompt && (payload.input?.seed !== undefined || payload.input?.negative_prompt))) { // Lyria-2 specific params
     analysis.tool_type = 'music-machine';
     analysis.processing_strategy = 'single_music_generation';
     analysis.expected_outputs = 1;
@@ -779,7 +781,7 @@ async function processMusicGeneration(payload: ReplicateWebhookPayload, analysis
       
       // Query music records created around the time this prediction was made
       const { data: musicRecords } = await supabase
-        .from('music_generations')
+        .from('music_history')
         .select('id, user_id')
         .eq('user_id', analysis.user_id || 'unknown-user')
         .order('created_at', { ascending: false })
@@ -789,22 +791,32 @@ async function processMusicGeneration(payload: ReplicateWebhookPayload, analysis
         // Update the most recent music record (assuming it's the one for this prediction)
         const musicId = musicRecords[0].id;
         
+        // Determine if this is Lyria-2 or MusicGen based on version
+        const isLyria2 = payload.version?.includes('a7e8d3fd87b875af2897e25dbde07888be1621bf18915b40a1a82543f5c0ab01');
+        const modelProvider = isLyria2 ? 'lyria-2' : 'musicgen';
+        const modelVersion = isLyria2 ? 'google-lyria-2' : (payload.input?.model_version || 'stereo-melody-large');
+        const estimatedCredits = isLyria2 ? 3 : 6; // Lyria-2 is cheaper but no duration control
+        
         await updateMusicRecord(musicId, {
           status: 'completed',
           final_audio_url: uploadResult.url,
-          duration_seconds: payload.input?.duration || 8,
-          model_version: payload.input?.model_version || 'stereo-melody-large',
+          duration_seconds: payload.input?.duration || (isLyria2 ? 30 : 8), // Lyria-2 generates ~30s, MusicGen respects duration
+          model_version: modelVersion,
+          model_provider: modelProvider,
           generation_time_ms: payload.metrics?.predict_time || 0,
           metadata: {
             prediction_id: payload.id,
-            output_format: payload.input?.output_format || 'wav',
+            output_format: payload.input?.output_format || (isLyria2 ? 'audio' : 'wav'),
             prompt: payload.input?.prompt || '',
+            model_provider: modelProvider,
+            seed: payload.input?.seed || null,
+            negative_prompt: payload.input?.negative_prompt || null,
             generation_settings: payload.input
           } as Json
         });
         
-        console.log(`✅ Music Complete: Updated music record ${musicId}`);
-        return { count: 1, credits: 6 }; // Standard music generation cost
+        console.log(`✅ Music Complete: Updated music record ${musicId} (${modelProvider})`);
+        return { count: 1, credits: estimatedCredits };
       } else {
         console.warn(`⚠️ No music record found for user ${analysis.user_id}`);
       }

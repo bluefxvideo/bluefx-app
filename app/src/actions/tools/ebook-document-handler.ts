@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 import { getFileType } from '@/utils/document-processing';
 
 /**
@@ -28,7 +28,19 @@ export async function uploadEbookDocument(
   file: File,
   userId: string
 ): Promise<{ success: boolean; document?: UploadedDocument; error?: string }> {
+  // Verify user authentication first
   const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user || user.id !== userId) {
+    return {
+      success: false,
+      error: 'Authentication required or user mismatch'
+    };
+  }
+
+  // Use admin client for storage and database operations to bypass RLS
+  const adminClient = createAdminClient();
   
   try {
     // Validate file type
@@ -54,8 +66,8 @@ export async function uploadEbookDocument(
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const storagePath = `ebook-documents/${userId}/${timestamp}_${sanitizedName}`;
 
-    // Upload to Supabase storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Upload to Supabase storage using admin client
+    const { data: uploadData, error: uploadError } = await adminClient.storage
       .from('documents')
       .upload(storagePath, file, {
         cacheControl: '3600',
@@ -79,7 +91,7 @@ export async function uploadEbookDocument(
 
     if (!extractedContent.success) {
       // Clean up uploaded file if extraction fails
-      await supabase.storage
+      await adminClient.storage
         .from('documents')
         .remove([storagePath]);
       
@@ -92,8 +104,8 @@ export async function uploadEbookDocument(
     // Calculate token count (rough estimate: 1 token ≈ 4 characters)
     const tokenCount = Math.ceil(extractedContent.text.length / 4);
 
-    // Store document metadata in database
-    const { data: docRecord, error: dbError } = await supabase
+    // Store document metadata in database using admin client
+    const { data: docRecord, error: dbError } = await adminClient
       .from('ebook_documents')
       .insert({
         user_id: userId,
@@ -115,7 +127,7 @@ export async function uploadEbookDocument(
     if (dbError) {
       console.error('Database error:', dbError);
       // Clean up storage if database insert fails
-      await supabase.storage
+      await adminClient.storage
         .from('documents')
         .remove([storagePath]);
       
@@ -160,19 +172,25 @@ async function extractTextContent(
     switch (fileType) {
       case 'pdf':
         try {
-          // Dynamic import for pdf-parse to avoid build issues
-          const pdfParse = (await import('pdf-parse')).default;
-          const pdfData = await pdfParse(buffer);
+          // Use UnPDF - designed for serverless and AI applications
+          const { extractText } = await import('unpdf');
+          
+          // Extract text from PDF with merged pages
+          const { text } = await extractText(new Uint8Array(buffer), { 
+            mergePages: true 
+          });
+          
           return {
             success: true,
-            text: pdfData.text,
-            method: 'pdf-parse'
+            text: text || '',
+            method: 'unpdf'
           };
         } catch (error) {
+          console.error('PDF parsing error:', error);
           return {
             success: false,
             text: '',
-            method: 'pdf-parse',
+            method: 'unpdf',
             error: 'Failed to parse PDF: ' + (error instanceof Error ? error.message : 'Unknown error')
           };
         }
@@ -180,14 +198,15 @@ async function extractTextContent(
       case 'docx':
         try {
           // Dynamic import for mammoth to avoid build issues
-          const mammoth = (await import('mammoth')).default;
+          const { default: mammoth } = await import('mammoth');
           const result = await mammoth.extractRawText({ buffer });
           return {
             success: true,
-            text: result.value,
+            text: result.value || '',
             method: 'mammoth'
           };
         } catch (error) {
+          console.error('DOCX parsing error:', error);
           return {
             success: false,
             text: '',
@@ -232,10 +251,22 @@ export async function getUserEbookDocuments(
   userId: string,
   ebookId?: string
 ): Promise<{ success: boolean; documents?: UploadedDocument[]; error?: string }> {
+  // Verify user authentication first
   const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user || user.id !== userId) {
+    return {
+      success: false,
+      error: 'Authentication required or user mismatch'
+    };
+  }
+
+  // Use admin client to bypass RLS
+  const adminClient = createAdminClient();
   
   try {
-    let query = supabase
+    let query = adminClient
       .from('ebook_documents')
       .select('*')
       .eq('user_id', userId)
@@ -284,11 +315,23 @@ export async function deleteEbookDocument(
   documentId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
+  // Verify user authentication first
   const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user || user.id !== userId) {
+    return {
+      success: false,
+      error: 'Authentication required or user mismatch'
+    };
+  }
+
+  // Use admin client to bypass RLS
+  const adminClient = createAdminClient();
   
   try {
     // Get document details first
-    const { data: doc, error: fetchError } = await supabase
+    const { data: doc, error: fetchError } = await adminClient
       .from('ebook_documents')
       .select('storage_path')
       .eq('id', documentId)
@@ -303,7 +346,7 @@ export async function deleteEbookDocument(
     }
 
     // Delete from storage
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await adminClient.storage
       .from('documents')
       .remove([doc.storage_path]);
 
@@ -312,7 +355,7 @@ export async function deleteEbookDocument(
     }
 
     // Delete from database
-    const { error: dbError } = await supabase
+    const { error: dbError } = await adminClient
       .from('ebook_documents')
       .delete()
       .eq('id', documentId)

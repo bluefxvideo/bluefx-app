@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { storeScriptVideoResults } from '@/actions/database/script-video-database';
 
 // REMOVED: Old built-in editor orchestrator actions (no longer used with standalone editor)
 // import {
@@ -2178,7 +2179,66 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             }
           }
 
-          // Complete export
+          // Complete export and save to database
+          const state = get();
+          const videoUrl = `https://example.com/exports/${jobId}.${format}`;
+          
+          // Prepare complete editor state for re-editing capability
+          const editorState = {
+            project: state.project,
+            segments: state.segments,
+            timeline: state.timeline,
+            settings: state.settings,
+            assets: state.assets,
+            export_settings: state.export.settings
+          };
+
+          // Save to database with full editor state
+          try {
+            await storeScriptVideoResults({
+              user_id: state.project.user_id || 'current-user', // Get actual user ID
+              script_text: state.project.original_script,
+              video_url: videoUrl,
+              audio_url: state.assets.audio_url,
+              generated_images: state.segments.map(s => s.media?.image_url).filter(Boolean),
+              segments: state.segments as any,
+              batch_id: jobId,
+              model_version: '1.0.0',
+              generation_parameters: {
+                format,
+                resolution: state.project.resolution,
+                frame_rate: state.project.frame_rate,
+                aspect_ratio: state.project.aspect_ratio
+              },
+              credits_used: Math.ceil(state.project.duration / 10),
+              
+              // Store complete editor state for re-editing
+              editor_data: editorState,
+              remotion_composition: state.getRemotionConfig(),
+              
+              // Store metadata for history display
+              storyboard_data: {
+                narrative_analysis: state.project.generation_settings,
+                characters: [],
+                scene_orchestration: state.segments.map(s => ({
+                  id: s.id,
+                  text: s.text,
+                  duration: s.duration,
+                  media: s.media
+                })),
+                original_context: {
+                  script: state.project.original_script,
+                  created_at: state.project.created_at
+                }
+              }
+            });
+
+            get().showToast('Video exported and saved to history!', 'success');
+          } catch (error) {
+            console.error('Failed to save to database:', error);
+            get().showToast('Video exported but failed to save to history', 'warning');
+          }
+
           set((state) => {
             if (state.export.current_job) {
               state.export.current_job.status = 'completed';
@@ -2186,21 +2246,19 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
             }
             state.ui.loading.export = false;
 
-            // Add to history
+            // Add to local history
             state.export.history.unshift({
               id: jobId,
               project_id: state.project.id,
               settings: state.export.settings,
               status: 'completed',
-              file_url: `https://example.com/exports/${jobId}.${format}`,
+              file_url: videoUrl,
               file_size: 15728640, // ~15MB
               duration: state.project.duration,
               created_at: new Date().toISOString(),
               credits_used: Math.ceil(state.project.duration / 10)
             });
           });
-
-          get().showToast('Video exported successfully!', 'success');
         },
 
         cancelExport: () => {

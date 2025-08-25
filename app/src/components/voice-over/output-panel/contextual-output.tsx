@@ -16,7 +16,8 @@ import {
   AlertCircle,
   Users,
   Settings,
-  History
+  History,
+  Trash2
 } from 'lucide-react';
 import { useState } from 'react';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
@@ -29,11 +30,12 @@ interface ContextualOutputProps {
   voiceOverState: {
     activeTab: string;
     state: VoiceOverState;
+    deleteVoice: (voiceId: string) => void;
   };
 }
 
 export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
-  const { activeTab, state } = voiceOverState;
+  const { activeTab, state, deleteVoice } = voiceOverState;
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [audioElements, setAudioElements] = useState<Map<string, HTMLAudioElement>>(new Map());
 
@@ -130,7 +132,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
             
             <div className="space-y-4">
               {state.generatedAudios.map((audio: GeneratedVoice) => (
-                <Card key={audio.id} className="p-4 border border-blue-200 bg-blue-50/50">
+                <Card key={audio.id} className="p-4 bg-card border-border">
                   <div className="space-y-3">
                     {/* Header */}
                     <div className="flex items-center justify-between">
@@ -139,7 +141,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
                           {audio.voice_name}
                         </Badge>
                         <Badge variant="secondary" className="text-xs">
-                          {audio.export_format.toUpperCase()}
+                          {audio.export_format?.toUpperCase() || 'MP3'}
                         </Badge>
                       </div>
                       <div className="flex gap-2">
@@ -168,32 +170,32 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span>{formatDuration(audio.duration_seconds)}</span>
+                        <span>{formatDuration(audio.duration_seconds || 0)}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <FileAudio className="w-4 h-4 text-muted-foreground" />
-                        <span>{formatFileSize(audio.file_size_mb)}</span>
+                        <span>{formatFileSize(audio.file_size_mb || 0)}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Zap className="w-4 h-4 text-muted-foreground" />
-                        <span>{state.estimatedCredits} credits</span>
+                        <span>{audio.credits_used || state.estimatedCredits} credits</span>
                       </div>
                     </div>
 
                     {/* Script Preview */}
-                    <div className="bg-white/50 rounded-lg p-3">
+                    <div className="bg-muted/50 rounded-lg p-3">
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {audio.script_text}
                       </p>
                     </div>
 
-                    {/* OpenAI-Style Waveform Audio Player */}
+                    {/* Consistent Audio Player */}
                     <div className="relative w-full">
-                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+                      <div className="bg-muted/30 rounded-lg p-4">
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => handleAudioPlayback(audio.id, audio.audio_url)}
-                            className="flex-shrink-0 w-10 h-10 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+                            className="flex-shrink-0 w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:scale-105 transition-transform"
                           >
                             {playingAudioId === audio.id ? (
                               <Square className="w-5 h-5" />
@@ -201,15 +203,15 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
                               <Play className="w-5 h-5" />
                             )}
                           </button>
-                          <div className="flex-1 h-12 bg-white dark:bg-gray-700 rounded-md flex items-center px-3">
+                          <div className="flex-1 h-12 bg-muted/50 rounded-md flex items-center px-3">
                             {/* Waveform visualization */}
                             <div className="flex items-center justify-center w-full gap-1">
                               {[...Array(60)].map((_, i) => (
                                 <div
                                   key={i}
-                                  className={`bg-gray-300 dark:bg-gray-500 rounded-full transition-all duration-75 ${
+                                  className={`bg-muted-foreground/30 rounded-full transition-all duration-75 ${
                                     playingAudioId === audio.id 
-                                      ? 'animate-pulse' 
+                                      ? 'animate-pulse bg-primary/50' 
                                       : ''
                                   }`}
                                   style={{
@@ -222,7 +224,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
                             </div>
                           </div>
                           <div className="flex-shrink-0 text-sm text-muted-foreground font-mono">
-                            {formatDuration(audio.duration_seconds)}
+                            {formatDuration(audio.duration_seconds || 0)}
                           </div>
                         </div>
                       </div>
@@ -233,7 +235,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
 
               {/* Batch Summary */}
               {state.generatedAudios.length > 1 && (
-                <Card className="p-4 bg-blue-50/50 border-blue-200">
+                <Card className="p-4 bg-card border-border">
                   <div className="flex items-center gap-2 mb-2">
                     <Users className="w-4 h-4 text-blue-500" />
                     <span className="font-medium text-sm">Batch Generation Complete</span>
@@ -316,15 +318,93 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
   // History Tab Output
   if (activeTab === 'history') {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 flex items-center justify-center mb-4">
-          <FileAudio className="w-8 h-8 text-white" />
+      <OutputPanelShell
+        title="Voice History"
+        status={state.isLoading ? 'loading' : state.error ? 'error' : state.voiceHistory.length > 0 ? 'ready' : 'idle'}
+        errorMessage={state.error}
+        empty={
+          <div className="flex items-center justify-center h-full">
+            <UnifiedEmptyState
+              icon={History}
+              title="No Voice History"
+              description="Your generated voices will appear here. Create your first voice over to see it in your history."
+            />
+          </div>
+        }
+      >
+        <div className="h-full overflow-y-auto scrollbar-hover p-4">
+          {state.voiceHistory.length > 0 ? (
+            <div className="space-y-4">
+              {state.voiceHistory.map((voice: GeneratedVoice) => (
+                <Card key={voice.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">
+                            {voice.voice_name}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {voice.export_format?.toUpperCase() || 'MP3'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(voice.created_at || '').toLocaleDateString()} • {formatDuration(voice.duration_seconds || 0)} • {formatFileSize(voice.file_size_mb || 0)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAudioPlayback(voice.id, voice.audio_url || '')}
+                        >
+                          {playingAudioId === voice.id ? (
+                            <Square className="w-3 h-3" />
+                          ) : (
+                            <Play className="w-3 h-3" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(voice.audio_url, '_blank')}
+                        >
+                          <Download className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteVoice(voice.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-sm line-clamp-2">
+                        {voice.script_text || voice.text_content}
+                      </p>
+                    </div>
+                    
+                    <audio controls className="w-full">
+                      <source src={voice.audio_url || ''} type={`audio/${voice.export_format || 'mp3'}`} />
+                    </audio>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <FileAudio className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">No voices in history yet</p>
+              </div>
+            </div>
+          )}
         </div>
-        <h3 className="text-2xl font-bold mb-2">Ready to Create Magic ✨</h3>
-        <p className="text-base text-muted-foreground max-w-md">
-          View and manage your generated voices from the History tab.
-        </p>
-      </div>
+      </OutputPanelShell>
     );
   }
 

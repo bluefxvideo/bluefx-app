@@ -203,7 +203,7 @@ export async function executeVoiceOver(
           script_text: authenticatedRequest.script_text,
           voice_id: voiceId,
           voice_name: voiceDetails.name,
-          voice_provider: 'openai',
+          voice_provider: 'elevenlabs', // Using elevenlabs as OpenAI is not in the allowed list
           audio_format: authenticatedRequest.export_format || 'mp3',
           audio_url: audioUrl,
           duration_seconds: estimatedDuration,

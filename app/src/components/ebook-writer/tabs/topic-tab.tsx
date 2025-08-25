@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,14 +17,20 @@ import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 interface TopicTabProps {
   currentTopic: string;
   isGenerating: boolean;
-  error?: string;
 }
 
-export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
+export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
+  const router = useRouter();
   const [topic, setTopic] = useState(currentTopic);
   const [description, setDescription] = useState('');
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const { setTopic: updateTopic, generateTitles, setActiveTab, setUploadedDocuments: storeDocuments } = useEbookWriterStore();
+  
+  // Update store when topic changes for live preview
+  const handleTopicChange = (value: string) => {
+    setTopic(value);
+    updateTopic(value); // Update store immediately for live preview
+  };
 
   const handleSubmit = async () => {
     if (!topic.trim()) return;
@@ -36,8 +43,9 @@ export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
       storeDocuments(uploadedDocuments);
     }
     
-    // Navigate to title tab
+    // Navigate to title tab (both store and URL)
     setActiveTab('title');
+    router.push('/dashboard/ebook-writer/title');
     
     // Automatically start generating titles with document context
     await generateTitles(topic.trim(), uploadedDocuments);
@@ -45,6 +53,7 @@ export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
 
   const handleDocumentsChange = (docs: UploadedDocument[]) => {
     setUploadedDocuments(docs);
+    storeDocuments(docs); // Update store immediately for live preview
   };
 
   const topicSuggestions = [
@@ -66,47 +75,30 @@ export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
           title="Choose Your Topic"
           description="Start by defining what your ebook will be about"
         >
-          <Card className="bg-gray-50 dark:bg-gray-800/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-emerald-500" />
-                Choose Your Ebook Topic
-              </CardTitle>
-              <CardDescription>
-                What would you like to write about? Be specific to get better results.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="topic">Main Topic</Label>
-                <Input
-                  id="topic"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="e.g., Digital Marketing for Small Businesses"
-                  className="text-base"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Additional Context (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide any specific focus areas, target audience, or requirements..."
-                  rows={3}
-                  className="text-sm resize-y"
-                />
-              </div>
-              
-              {error && (
-                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-                  {error}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="topic">Main Topic</Label>
+              <Input
+                id="topic"
+                value={topic}
+                onChange={(e) => handleTopicChange(e.target.value)}
+                placeholder="e.g., Digital Marketing for Small Businesses"
+                className="text-base"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Additional Context (Optional)</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Provide any specific focus areas, target audience, or requirements..."
+                rows={3}
+                className="text-sm resize-y"
+              />
+            </div>
+          </div>
         </StandardStep>
 
         <StandardStep
@@ -120,39 +112,6 @@ export function TopicTab({ currentTopic, isGenerating, error }: TopicTabProps) {
           />
         </StandardStep>
 
-        <StandardStep
-          stepNumber={3}
-          title="Topic Ideas"
-          description="Need inspiration? Try one of these popular topics"
-        >
-          <Card className="bg-gray-50 dark:bg-gray-800/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Lightbulb className="h-5 w-5 text-yellow-500" />
-                Topic Ideas
-              </CardTitle>
-              <CardDescription>
-                Need inspiration? Try one of these popular topics:
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-2">
-                {topicSuggestions.map((suggestion, index) => (
-                  <Button
-                    key={index}
-                    variant="ghost"
-                    className="justify-start text-left h-auto p-3 hover:bg-muted"
-                    onClick={() => setTopic(suggestion)}
-                  >
-                    <div>
-                      <div className="font-medium">{suggestion}</div>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </StandardStep>
       </TabBody>
       
       <TabFooter>

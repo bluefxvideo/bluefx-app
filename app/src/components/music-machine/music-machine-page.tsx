@@ -23,13 +23,13 @@ export function MusicMachinePage() {
       id: 'generate',
       label: 'Generate',
       icon: Music,
-      path: '/dashboard/music-machine'
+      path: '/dashboard/music-maker'
     },
     {
       id: 'history',
       label: 'History',
       icon: History,
-      path: '/dashboard/music-machine/history'
+      path: '/dashboard/music-maker/history'
     }
   ];
 
@@ -37,7 +37,7 @@ export function MusicMachinePage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'history':
-        return <HistoryTab musicMachineState={musicMachineState} />;
+        return <HistoryTab />;
       default:
         return <GeneratorTab musicMachineState={musicMachineState} />;
     }
@@ -48,7 +48,7 @@ export function MusicMachinePage() {
     <StandardToolTabs 
       tabs={musicTabs}
       activeTab={activeTab} 
-      basePath="/dashboard/music-machine"
+      basePath="/dashboard/music-maker"
     />
   );
 

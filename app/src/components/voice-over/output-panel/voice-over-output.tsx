@@ -7,6 +7,7 @@ interface VoiceOverOutputProps {
   voiceOverState: {
     activeTab: string;
     state: VoiceOverState;
+    deleteVoice: (voiceId: string) => void;
   };
 }
 

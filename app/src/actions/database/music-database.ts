@@ -95,6 +95,7 @@ export async function createMusicRecord(
     prediction_id?: string;
     batch_id?: string;
     credits_used?: number;
+    model_provider?: string;
   }
 ): Promise<MusicDatabaseResponse<GeneratedMusic>> {
   try {
@@ -117,7 +118,10 @@ export async function createMusicRecord(
         genre: settings.genre || 'electronic',
         mood: settings.mood || 'upbeat',
         duration_seconds: settings.duration || 30,
-        generation_settings: settings,
+        generation_settings: {
+          ...settings,
+          model_provider: settings.model_provider || 'lyria-2'
+        },
         status: 'pending',
         description: prompt
       })
@@ -154,17 +158,30 @@ export async function updateMusicRecord(
   updateData: {
     status?: string;
     audio_url?: string | null;
+    final_audio_url?: string | null;
     progress_percentage?: number | null;
     quality_rating?: number | null;
+    duration_seconds?: number;
+    model_version?: string;
+    model_provider?: string;
+    generation_time_ms?: number;
+    metadata?: Json;
   }
 ): Promise<MusicDatabaseResponse<GeneratedMusic>> {
   try {
     const supabase = await createClient();
 
+    // Map final_audio_url to audio_url for the database
+    const dbUpdateData = { ...updateData };
+    if (updateData.final_audio_url) {
+      dbUpdateData.audio_url = updateData.final_audio_url;
+      delete dbUpdateData.final_audio_url;
+    }
+
     const { data, error } = await supabase
       .from('music_history')
       .update({
-        ...updateData,
+        ...dbUpdateData,
         updated_at: new Date().toISOString()
       })
       .eq('id', musicId)

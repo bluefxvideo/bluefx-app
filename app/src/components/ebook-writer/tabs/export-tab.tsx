@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, FileText, Book } from 'lucide-react';
+import { Download, FileText, Book, ArrowLeft } from 'lucide-react';
 import type { EbookMetadata } from '../store/ebook-writer-store';
+import { useEbookWriterStore } from '../store/ebook-writer-store';
 import { GoogleDocsConnection } from '../components/google-docs-connection';
 import { TabContentWrapper, TabBody } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
@@ -17,6 +18,107 @@ interface ExportTabProps {
 
 export function ExportTab({ ebook, isGenerating, error }: ExportTabProps) {
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'epub' | 'docx' | null>(null);
+  const { setActiveTab } = useEbookWriterStore();
+
+  // Check what step we need to go back to
+  if (!ebook?.topic) {
+    return (
+      <TabContentWrapper>
+        <TabBody>
+          <div className="h-full flex items-center justify-center">
+            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
+              <CardContent className="pt-6">
+                <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-medium mb-2">No Topic Selected</h3>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab('topic')}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Topic
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabBody>
+      </TabContentWrapper>
+    );
+  }
+
+  if (!ebook?.title) {
+    return (
+      <TabContentWrapper>
+        <TabBody>
+          <div className="h-full flex items-center justify-center">
+            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
+              <CardContent className="pt-6">
+                <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-medium mb-2">No Title Selected</h3>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab('title')}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Title
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabBody>
+      </TabContentWrapper>
+    );
+  }
+
+  if (!ebook?.outline) {
+    return (
+      <TabContentWrapper>
+        <TabBody>
+          <div className="h-full flex items-center justify-center">
+            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
+              <CardContent className="pt-6">
+                <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-medium mb-2">No Outline Created</h3>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab('outline')}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Outline
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabBody>
+      </TabContentWrapper>
+    );
+  }
+
+  // Check if content is generated
+  const hasContent = ebook?.outline?.chapters?.some(chapter => chapter.content && chapter.content.trim() !== '');
+  
+  if (!hasContent) {
+    return (
+      <TabContentWrapper>
+        <TabBody>
+          <div className="h-full flex items-center justify-center">
+            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
+              <CardContent className="pt-6">
+                <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-medium mb-2">No Content Generated</h3>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab('content')}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Content
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabBody>
+      </TabContentWrapper>
+    );
+  }
   
   // Convert ebook format for Google Docs export
   const convertedEbook = ebook && ebook.outline ? {
@@ -133,18 +235,6 @@ export function ExportTab({ ebook, isGenerating, error }: ExportTabProps) {
           </Card>
         )}
 
-        {/* Status Display */}
-        {!ebook && !isGenerating && (
-          <Card className="p-4 bg-blue-50 dark:bg-blue-950/20">
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-              <Book className="w-4 h-4" />
-              <span className="font-medium text-sm">Complete Your Ebook First</span>
-            </div>
-            <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
-              Generate your ebook content from the previous tabs to enable export options.
-            </p>
-          </Card>
-        )}
       </TabBody>
     </TabContentWrapper>
   );

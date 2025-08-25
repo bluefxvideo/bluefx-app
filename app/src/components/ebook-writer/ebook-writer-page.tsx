@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { BookOpen, FileText, Type, Image as ImageIcon, Download, History } from 'lucide-react';
@@ -27,9 +28,10 @@ export function EbookWriterPage() {
   const {
     current_ebook,
     title_options,
-    generation_progress,
     active_tab,
     setActiveTab,
+    generation_progress,
+    uploaded_documents,
   } = useEbookWriterStore();
 
   // Determine active tab from URL
@@ -46,9 +48,11 @@ export function EbookWriterPage() {
   const currentTab = getActiveTab();
 
   // Update store if URL tab differs from store tab
-  if (currentTab !== active_tab) {
-    setActiveTab(currentTab);
-  }
+  useEffect(() => {
+    if (currentTab !== active_tab) {
+      setActiveTab(currentTab);
+    }
+  }, [currentTab, active_tab, setActiveTab]);
 
   // Render appropriate tab content
   const renderTabContent = () => {
@@ -58,40 +62,39 @@ export function EbookWriterPage() {
           <TitleTab
             topic={current_ebook?.topic || ''}
             titleOptions={title_options}
-            isGenerating={generation_progress.is_generating && generation_progress.current_step === 'title'}
-            error={generation_progress.error_message}
+            isGenerating={false}
           />
         );
       case 'outline':
         return (
           <OutlineTab
             ebook={current_ebook}
-            isGenerating={generation_progress.is_generating && generation_progress.current_step === 'outline'}
-            error={generation_progress.error_message}
+            isGenerating={false}
+            error={undefined}
           />
         );
       case 'content':
         return (
           <ContentTab
             ebook={current_ebook}
-            isGenerating={generation_progress.is_generating && generation_progress.current_step === 'content'}
-            error={generation_progress.error_message}
+            isGenerating={false}
+            error={undefined}
           />
         );
       case 'cover':
         return (
           <CoverTab
             ebook={current_ebook}
-            isGenerating={generation_progress.is_generating && generation_progress.current_step === 'cover'}
-            error={generation_progress.error_message}
+            isGenerating={false}
+            error={undefined}
           />
         );
       case 'export':
         return (
           <ExportTab
             ebook={current_ebook}
-            isGenerating={generation_progress.is_generating && generation_progress.current_step === 'export'}
-            error={generation_progress.error_message}
+            isGenerating={false}
+            error={undefined}
           />
         );
       case 'history':
@@ -100,8 +103,8 @@ export function EbookWriterPage() {
         return (
           <TopicTab
             currentTopic={current_ebook?.topic || ''}
-            isGenerating={generation_progress.is_generating}
-            error={generation_progress.error_message}
+            isGenerating={false}
+            error={undefined}
           />
         );
     }
@@ -176,9 +179,9 @@ export function EbookWriterPage() {
             activeTab={currentTab}
             ebook={current_ebook}
             titleOptions={title_options}
-            isGenerating={generation_progress.is_generating}
-            error={generation_progress.error_message}
-            progress={generation_progress}
+            isGenerating={generation_progress.is_generating && generation_progress.current_step === 'title'}
+            topic={current_ebook?.topic || ''}
+            uploadedDocuments={uploaded_documents}
           />
         ]}
       </StandardToolLayout>

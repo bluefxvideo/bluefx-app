@@ -140,84 +140,47 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
 
         <StandardStep
           stepNumber={3}
-          title="Set Duration"
-          description="Choose how long you want your music to be"
+          title="Advanced Options"
+          description="Optional settings to customize your music generation"
         >
-          <div className="space-y-2">
-            <Label>Duration</Label>
-            <div className="grid grid-cols-2 gap-2 p-1">
-              {durations.map((duration: DurationOption) => (
-                <Card
-                  key={duration.value}
-                  className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
-                    state.duration === duration.value
-                      ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => updateSettings({ duration: duration.value })}
-                >
-                  <div className="text-center">
-                    <p className="text-sm font-medium">{duration.label}</p>
-                    <Badge variant="outline" className="text-xs mt-1">
-                      {duration.value}s
-                    </Badge>
-                  </div>
-                </Card>
-              ))}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Negative Prompt (Optional)</Label>
+              <Textarea
+                value={state.negative_prompt}
+                onChange={(e) => updateSettings({ negative_prompt: e.target.value })}
+                placeholder="What to exclude from the music (e.g., 'no drums, no vocals')"
+                className="min-h-[80px] resize-y"
+                disabled={state.isGenerating}
+              />
+              <p className="text-xs text-muted-foreground">
+                Describe elements you don't want in your music
+              </p>
             </div>
-          </div>
-        </StandardStep>
-
-        <StandardStep
-          stepNumber={4}
-          title="Select Quality"
-          description="Choose the model quality for generation"
-        >
-          <div className="space-y-2">
-            <Label>Model Quality</Label>
-            <div className="space-y-2 p-1">
-              {[
-                {
-                  id: 'stereo-melody-large',
-                  name: 'Stereo Melody Large',
-                  description: 'Best quality (Recommended)',
-                  recommended: true
-                },
-                {
-                  id: 'stereo-large',
-                  name: 'Stereo Large', 
-                  description: 'High quality stereo',
-                  recommended: false
-                },
-                {
-                  id: 'large',
-                  name: 'Large',
-                  description: 'Standard mono (Fastest)',
-                  recommended: false
-                }
-              ].map((model) => (
-                <Card
-                  key={model.id}
-                  className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
-                    state.model_version === model.id
-                      ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => updateSettings({ model_version: model.id as 'stereo-large' | 'stereo-melody-large' | 'large' })}
+            
+            <div className="space-y-2">
+              <Label>Seed (Optional)</Label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={state.seed || ''}
+                  onChange={(e) => updateSettings({ seed: e.target.value ? parseInt(e.target.value) : null })}
+                  placeholder="Random seed for reproducibility"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={state.isGenerating}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => updateSettings({ seed: Math.floor(Math.random() * 1000000) })}
+                  disabled={state.isGenerating}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{model.name}</p>
-                      <p className="text-xs text-muted-foreground">{model.description}</p>
-                    </div>
-                    {model.recommended && (
-                      <Badge variant="secondary" className="text-xs">
-                        Recommended
-                      </Badge>
-                    )}
-                  </div>
-                </Card>
-              ))}
+                  Random
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave empty for random results, or use same seed for consistent outputs
+              </p>
             </div>
           </div>
         </StandardStep>
@@ -235,11 +198,6 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
           </Card>
         )}
 
-        {state.error && (
-          <Card className="p-4 border-destructive bg-white dark:bg-gray-800/40">
-            <p className="text-sm text-destructive">{state.error}</p>
-          </Card>
-        )}
       </TabBody>
 
       <TabFooter>

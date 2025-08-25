@@ -2,69 +2,48 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Type, Sparkles, Clock } from 'lucide-react';
+import { Type, Clock } from 'lucide-react';
+import { OutputPanelShell } from '@/components/tools/output-panel-shell';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import type { TitleOptions } from '../store/ebook-writer-store';
 
 interface TitleOutputProps {
   titleOptions: TitleOptions | null;
   isGenerating: boolean;
-  error?: string;
 }
 
-export function TitleOutput({ titleOptions, isGenerating, error }: TitleOutputProps) {
-  if (isGenerating) {
-    return (
-      <Card className="bg-white dark:bg-gray-800/40">
-        <CardContent className="pt-6 text-center">
-          <div className="animate-spin mb-4">
-            <Sparkles className="h-8 w-8 text-blue-500 mx-auto" />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            AI is generating compelling title options...
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+export function TitleOutput({ titleOptions, isGenerating }: TitleOutputProps) {
+  console.log('🎯 TitleOutput received:', { titleOptions, isGenerating, titleCount: titleOptions?.options?.length });
+  
+  const getStatus = () => {
+    if (isGenerating) return 'loading';
+    if (!titleOptions || titleOptions.options.length === 0) return 'idle';
+    return 'ready';
+  };
 
-  if (error) {
-    return (
-      <Card className="border-destructive bg-white dark:bg-gray-800/40">
-        <CardContent className="pt-6">
-          <div className="text-sm text-destructive text-center">
-            {error}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const renderEmpty = () => (
+    <div className="flex items-center justify-center h-full">
+      <UnifiedEmptyState
+        icon={Type}
+        title="No Titles Generated"
+        description="Generate title options for your ebook by providing a topic first."
+      />
+    </div>
+  );
 
-  if (!titleOptions) {
-    return (
-      <Card className="border-dashed bg-white dark:bg-gray-800/40">
-        <CardContent className="pt-6 text-center">
-          <Type className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">
-            Generate title options to see them here
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
+  const renderContent = () => (
     <Card className="bg-white dark:bg-gray-800/40">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Type className="h-4 w-4 text-blue-500" />
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Type className="h-5 w-5 text-blue-500" />
           Generated Titles
           <Badge variant="secondary" className="text-xs">
-            {titleOptions.options.length} options
+            {titleOptions?.options.length} options
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {titleOptions.options.map((title, index) => (
+        {titleOptions?.options.map((title, index) => (
           <div 
             key={index}
             className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -76,9 +55,14 @@ export function TitleOutput({ titleOptions, isGenerating, error }: TitleOutputPr
                 </span>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium leading-relaxed">
-                  {title}
-                </p>
+                <h4 className="font-medium text-sm leading-snug">
+                  {title.title}
+                </h4>
+                {title.subtitle && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {title.subtitle}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -87,10 +71,20 @@ export function TitleOutput({ titleOptions, isGenerating, error }: TitleOutputPr
         <div className="pt-2 border-t">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            Generated {new Date(titleOptions.generated_at).toLocaleTimeString()}
+            Generated {titleOptions ? new Date(titleOptions.generated_at).toLocaleTimeString() : ''}
           </div>
         </div>
       </CardContent>
     </Card>
+  );
+
+  return (
+    <OutputPanelShell
+      title="Title Options"
+      status={getStatus()}
+      empty={renderEmpty()}
+    >
+      {titleOptions && titleOptions.options.length > 0 && renderContent()}
+    </OutputPanelShell>
   );
 }
