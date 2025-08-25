@@ -171,7 +171,7 @@ interface EbookWriterState {
   // Utility Actions
   calculateCreditsEstimate: () => void;
   autoSave: (userId: string) => Promise<void>;
-  clearCurrentProject: () => void;
+  clearCurrentProject: (userId: string) => Promise<void>;
   loadSession: (userId: string) => Promise<void>;
   saveSession: (userId: string) => Promise<void>;
   
@@ -224,18 +224,18 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               ...state.current_ebook,
               id: state.current_ebook?.id || `ebook_${Date.now()}`,
               topic,
-              title: '',
+              title: state.current_ebook?.title || '', // Preserve existing title
               status: 'draft',
               created_at: state.current_ebook?.created_at || new Date().toISOString(),
               updated_at: new Date().toISOString(),
-              word_count_preference: 'medium',
-              complexity: 'intermediate',
-              writing_tone: 'professional',
-              include_images: true,
-              include_ctas: true,
-              target_audience: 'General audience',
+              word_count_preference: state.current_ebook?.word_count_preference || 'medium',
+              complexity: state.current_ebook?.complexity || 'intermediate',
+              writing_tone: state.current_ebook?.writing_tone || 'professional',
+              include_images: state.current_ebook?.include_images ?? true,
+              include_ctas: state.current_ebook?.include_ctas ?? true,
+              target_audience: state.current_ebook?.target_audience || 'General audience',
             } as EbookMetadata,
-            title_options: null,
+            // Don't clear title_options here - preserve them!
             generation_progress: {
               ...state.generation_progress,
               current_step: 'title',
@@ -285,6 +285,8 @@ export const useEbookWriterStore = create<EbookWriterState>()(
                 step_progress: 100,
               }
             }));
+            
+            console.log('🔄 Title options updated in store, auto-save should trigger shortly...');
             
           } catch (error) {
             set(state => ({
@@ -602,7 +604,22 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           await state.saveSession(userId);
         },
         
-        clearCurrentProject: () => {
+        clearCurrentProject: async (userId: string) => {
+          try {
+            // First clear the database session
+            const { clearEbookSession } = await import('@/actions/database/ebook-writer-database');
+            const result = await clearEbookSession(userId);
+            
+            if (!result.success) {
+              console.warn('Failed to clear database session:', result.error);
+            } else {
+              console.log('✅ Database session cleared successfully');
+            }
+          } catch (error) {
+            console.error('Error clearing database session:', error);
+          }
+          
+          // Then clear the local state
           set({
             current_ebook: null,
             title_options: null,
@@ -688,6 +705,12 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               current_step: state.active_tab,
               generation_progress: state.generation_progress.total_progress,
             };
+            
+            console.log('💾 Saving session data:', {
+              ...sessionData,
+              title_options_count: sessionData.title_options?.options?.length || 0,
+              has_title_options: !!sessionData.title_options
+            });
 
             const result = await saveEbookSession(userId, sessionData, state.current_session_id);
             

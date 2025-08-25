@@ -9,6 +9,7 @@ import { BookOpen, FileText, Type, Image as ImageIcon, Download, History } from 
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { useEbookWriterStore } from './store/ebook-writer-store';
+import { useAutoSave } from './hooks/use-auto-save';
 
 // Tab content components
 import { TopicTab } from './tabs/topic-tab';
@@ -50,19 +51,30 @@ export function EbookWriterPage() {
   };
 
   const currentTab = getActiveTab();
+  
+  // Enable auto-save
+  useAutoSave();
 
-  // Get current user and load session on mount
+  // Get current user and load session on mount (but not if we already have fresh content)
   useEffect(() => {
     const getCurrentUser = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
-        await loadSession(user.id);
+        // Only load session if we don't already have fresh content
+        // This prevents overwriting newly generated titles
+        if (!current_ebook?.topic && !title_options) {
+          console.log('🔄 Loading session from database (no existing content)');
+          await loadSession(user.id);
+        } else {
+          console.log('⚠️ Skipping session load - fresh content exists');
+        }
       }
     };
     getCurrentUser();
-  }, [loadSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Update store if URL tab differs from store tab
   useEffect(() => {
@@ -80,6 +92,7 @@ export function EbookWriterPage() {
             topic={current_ebook?.topic || ''}
             titleOptions={title_options}
             isGenerating={false}
+            isLoadingSession={is_loading_session}
           />
         );
       case 'outline':
@@ -121,7 +134,6 @@ export function EbookWriterPage() {
           <TopicTab
             currentTopic={current_ebook?.topic || ''}
             isGenerating={false}
-            error={undefined}
           />
         );
     }

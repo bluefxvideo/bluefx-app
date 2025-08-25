@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,21 +16,50 @@ interface TitleTabProps {
   topic: string;
   titleOptions: TitleOptions | null;
   isGenerating: boolean;
+  isLoadingSession?: boolean;
 }
 
-export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
-  console.log('📋 TitleTab received:', { topic, titleOptions, isGenerating, titleCount: titleOptions?.options?.length });
+export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession = false }: TitleTabProps) {
+  console.log('📋 TitleTab received:', { 
+    topic, 
+    titleOptions, 
+    isGenerating, 
+    titleCount: titleOptions?.options?.length,
+    hasOptions: !!titleOptions?.options?.length 
+  });
   
+  const router = useRouter();
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [customTitle, setCustomTitle] = useState('');
   const [useCustom, setUseCustom] = useState(false);
-  
+
   const { 
+    current_ebook,
     generateTitles, 
     selectTitle, 
     setCustomTitle: updateCustomTitle,
     setActiveTab 
   } = useEbookWriterStore();
+
+  // Sync local state with loaded session data
+  useEffect(() => {
+    if (titleOptions && titleOptions.options.length > 0) {
+      // If there's a selected title, try to match it
+      if (current_ebook?.title) {
+        const selectedIndex = titleOptions.options.findIndex(option => option === current_ebook.title);
+        if (selectedIndex !== -1) {
+          setSelectedOption(selectedIndex.toString());
+          setUseCustom(false);
+        } else {
+          // It's a custom title
+          setCustomTitle(current_ebook.title);
+          setUseCustom(true);
+        }
+      }
+      // If no title is selected yet, just ensure the UI shows the generated options
+      // (no need to pre-select anything)
+    }
+  }, [titleOptions, current_ebook?.title]);
 
   const handleGenerateTitles = async () => {
     if (!topic) return;
@@ -38,6 +68,12 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
 
   const handleContinue = () => {
     setActiveTab('outline');
+    router.push('/dashboard/ebook-writer/outline');
+  };
+
+  const handleBack = () => {
+    setActiveTab('topic');
+    router.push('/dashboard/ebook-writer');
   };
 
   const canContinue = (useCustom && customTitle.trim()) || (!useCustom && selectedOption);
@@ -75,7 +111,7 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
           description={`Topic: ${topic}`}
         >
           <div className="space-y-4">
-          {!titleOptions && (
+          {!titleOptions && !isLoadingSession && (
             <>
               <p className="text-sm text-muted-foreground">
                 Generate AI-powered title suggestions or create your own custom title.
@@ -96,6 +132,7 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
               </Button>
             </>
           )}
+
 
           {titleOptions && (
             <div className="space-y-4">
@@ -176,7 +213,7 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            onClick={() => setActiveTab('topic')}
+            onClick={handleBack}
             className="flex-1"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />

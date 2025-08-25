@@ -24,31 +24,42 @@ export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
   const [topic, setTopic] = useState(currentTopic);
   const [description, setDescription] = useState('');
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [isGeneratingTitles, setIsGeneratingTitles] = useState(false);
   const { setTopic: updateTopic, generateTitles, setActiveTab, setUploadedDocuments: storeDocuments } = useEbookWriterStore();
   
-  // Update store when topic changes for live preview
+  // Update local state immediately, but only update store on blur/submit
   const handleTopicChange = (value: string) => {
     setTopic(value);
-    updateTopic(value); // Update store immediately for live preview
+    // Don't update store immediately to prevent clearing title_options on keystroke
   };
 
   const handleSubmit = async () => {
     if (!topic.trim()) return;
     
-    // Update topic in store
-    updateTopic(topic.trim());
+    setIsGeneratingTitles(true);
     
-    // Store uploaded documents if any
-    if (uploadedDocuments.length > 0) {
-      storeDocuments(uploadedDocuments);
+    try {
+      // Update topic in store
+      updateTopic(topic.trim());
+      
+      // Store uploaded documents if any
+      if (uploadedDocuments.length > 0) {
+        storeDocuments(uploadedDocuments);
+      }
+      
+      // Generate titles BEFORE navigation to avoid race condition
+      console.log('🚀 Starting title generation before navigation...');
+      await generateTitles(topic.trim(), uploadedDocuments);
+      console.log('✅ Title generation completed, now navigating...');
+      
+      // Navigate to title tab (both store and URL) AFTER titles are generated
+      setActiveTab('title');
+      router.push('/dashboard/ebook-writer/title');
+    } catch (error) {
+      console.error('❌ Error generating titles:', error);
+    } finally {
+      setIsGeneratingTitles(false);
     }
-    
-    // Navigate to title tab (both store and URL)
-    setActiveTab('title');
-    router.push('/dashboard/ebook-writer/title');
-    
-    // Automatically start generating titles with document context
-    await generateTitles(topic.trim(), uploadedDocuments);
   };
 
   const handleDocumentsChange = (docs: UploadedDocument[]) => {
@@ -82,6 +93,7 @@ export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
                 id="topic"
                 value={topic}
                 onChange={(e) => handleTopicChange(e.target.value)}
+                onBlur={(e) => updateTopic(e.target.value)} // Update store when user finishes editing
                 placeholder="e.g., Digital Marketing for Small Businesses"
                 className="text-base"
               />
@@ -117,10 +129,12 @@ export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
       <TabFooter>
         <Button 
           onClick={handleSubmit}
-          disabled={!topic.trim() || isGenerating}
+          disabled={!topic.trim() || isGenerating || isGeneratingTitles}
           className="w-full bg-primary hover:from-blue-600 hover:to-cyan-600"
         >
-          {isGenerating ? (
+          {isGeneratingTitles ? (
+            'Generating Titles...'
+          ) : isGenerating ? (
             'Processing...'
           ) : (
             <>

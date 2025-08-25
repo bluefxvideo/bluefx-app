@@ -48,6 +48,7 @@ export function ContextualOutput({
           isGenerating={isGenerating}
           topic={topic}
           ebook={ebook}
+          uploadedDocuments={uploadedDocuments}
         />
       );
     
