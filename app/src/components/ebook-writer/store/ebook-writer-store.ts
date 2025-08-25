@@ -14,6 +14,7 @@ import { saveEbookSession, loadEbookSession } from '@/actions/database/ebook-wri
 export interface EbookChapter {
   id: string;
   title: string;
+  description?: string;
   subsections: EbookSubsection[];
   content?: string;
   word_count?: number;
@@ -104,6 +105,7 @@ interface EbookWriterState {
   
   // UI State
   active_tab: 'topic' | 'title' | 'outline' | 'content' | 'cover' | 'export' | 'history';
+  selected_chapter_id?: string;
   sidebar_collapsed: boolean;
   show_progress_panel: boolean;
   
@@ -137,16 +139,19 @@ interface EbookWriterState {
   clearDocuments: () => void;
   
   // Outline Management
-  generateOutline: (preferences: Partial<EbookOutline>) => Promise<void>;
+  generateOutline: (preferences: any) => Promise<void>;
   updateChapter: (chapterId: string, updates: Partial<EbookChapter>) => void;
   addChapter: (afterChapterId?: string) => void;
   removeChapter: (chapterId: string) => void;
   reorderChapters: (fromIndex: number, toIndex: number) => void;
+  addSubsection: (chapterId: string) => void;
+  removeSubsection: (chapterId: string, subsectionId: string) => void;
   
   // Content Generation
   generateChapterContent: (chapterId: string) => Promise<void>;
   generateSectionContent: (chapterId: string, sectionId: string) => Promise<void>;
   generateAllContent: () => Promise<void>;
+  updateChapterContent: (chapterId: string, content: string) => void;
   updateSectionContent: (chapterId: string, sectionId: string, content: string) => void;
   
   // Cover Generation
@@ -161,6 +166,7 @@ interface EbookWriterState {
   
   // UI State Management
   setActiveTab: (tab: EbookWriterState['active_tab']) => void;
+  setSelectedChapter: (chapterId: string) => void;
   toggleSidebar: () => void;
   toggleProgressPanel: () => void;
   
@@ -347,7 +353,7 @@ export const useEbookWriterStore = create<EbookWriterState>()(
         },
         
         // Outline Management
-        generateOutline: async (preferences: Partial<EbookOutline>) => {
+        generateOutline: async (preferences: any) => {
           const state = get();
           if (!state.current_ebook) return;
           
@@ -360,37 +366,40 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           }));
           
           try {
-            // This would call the AI orchestrator for outline generation
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            const { ebookWriterOrchestrator } = await import('@/actions/tools/ebook-writer-orchestrator');
             
-            // Mock outline generation
-            const mockOutline: EbookOutline = {
-              id: `outline_${Date.now()}`,
-              chapters: Array.from({ length: 7 }, (_, i) => ({
-                id: `chapter_${i + 1}`,
-                title: `Chapter ${i + 1}: Key Concepts`,
-                subsections: Array.from({ length: 3 }, (_, j) => ({
-                  id: `section_${i + 1}_${j + 1}`,
-                  title: `Subsection ${j + 1}`,
-                  hint: `Content hint for section ${j + 1}`,
-                  status: 'pending' as const,
-                })),
-                status: 'pending' as const,
-              })),
-              total_chapters: 7,
-              estimated_word_count: 15000,
-              complexity_level: preferences.complexity_level || 'intermediate',
-              writing_tone: preferences.writing_tone || 'professional',
-              target_audience: preferences.target_audience || 'General audience',
-              include_images: preferences.include_images ?? true,
-              include_ctas: preferences.include_ctas ?? true,
-              generated_at: new Date().toISOString(),
-            };
+            console.log('📞 Calling ebookWriterOrchestrator for outline generation...');
+            const response = await ebookWriterOrchestrator({
+              topic: state.current_ebook?.topic || '',
+              title: state.current_ebook?.title || '',
+              uploaded_documents: state.uploaded_documents,
+              workflow_intent: 'outline_only',
+              content_preferences: {
+                word_count_level: preferences.word_count_preference || 'medium',
+                complexity: preferences.complexity_level || 'intermediate',
+                writing_tone: preferences.writing_tone || 'professional',
+                include_images: preferences.include_images ?? true,
+                include_ctas: preferences.include_ctas ?? true,
+                target_audience: preferences.target_audience || 'General audience',
+              }
+            });
             
+            console.log('📝 Outline generation response:', response);
+            
+            if (!response.success) {
+              console.error('❌ Outline generation failed:', response.error);
+              throw new Error(response.error || 'Outline generation failed');
+            }
+            
+            if (!response.outline) {
+              throw new Error('No outline generated');
+            }
+            
+            console.log('✅ Generated outline:', response.outline);
             set(state => ({
               current_ebook: {
                 ...state.current_ebook!,
-                outline: mockOutline,
+                outline: response.outline!,
                 updated_at: new Date().toISOString(),
               },
               generation_progress: {
@@ -421,15 +430,17 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           const chapterIndex = state.current_ebook.outline.chapters.findIndex(c => c.id === chapterId);
           if (chapterIndex === -1) return;
           
+          const chapter = state.current_ebook.outline.chapters[chapterIndex];
+          
           set(state => ({
             current_ebook: {
               ...state.current_ebook!,
               outline: {
                 ...state.current_ebook!.outline!,
-                chapters: state.current_ebook!.outline!.chapters.map(chapter =>
-                  chapter.id === chapterId
-                    ? { ...chapter, status: 'generating' as const }
-                    : chapter
+                chapters: state.current_ebook!.outline!.chapters.map(ch =>
+                  ch.id === chapterId
+                    ? { ...ch, status: 'generating' as const }
+                    : ch
                 )
               }
             },
@@ -441,32 +452,51 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           }));
           
           try {
-            // Mock content generation
-            await new Promise(resolve => setTimeout(resolve, 4000));
+            // Import the server action
+            const { generateEbookChapterContent } = await import('@/actions/tools/ebook-writer-orchestrator');
             
-            set(state => ({
-              current_ebook: {
-                ...state.current_ebook!,
-                outline: {
-                  ...state.current_ebook!.outline!,
-                  chapters: state.current_ebook!.outline!.chapters.map(chapter =>
-                    chapter.id === chapterId
-                      ? {
-                          ...chapter,
-                          status: 'completed' as const,
-                          content: `Generated content for ${chapter.title}...`,
-                          word_count: Math.floor(Math.random() * 2000) + 1000,
-                        }
-                      : chapter
-                  )
+            // Call the server action with chapter details
+            const result = await generateEbookChapterContent(
+              chapter.title,
+              chapter.description || '',
+              chapter.subsections || [],
+              state.current_ebook.title || '',
+              state.current_ebook.topic || '',
+              2000, // target word count
+              'engaging', // writing tone
+              state.uploaded_documents
+            );
+            
+            if (result.success && result.content) {
+              // Calculate actual word count
+              const wordCount = result.content.split(/\s+/).length;
+              
+              set(state => ({
+                current_ebook: {
+                  ...state.current_ebook!,
+                  outline: {
+                    ...state.current_ebook!.outline!,
+                    chapters: state.current_ebook!.outline!.chapters.map(ch =>
+                      ch.id === chapterId
+                        ? {
+                            ...ch,
+                            status: 'completed' as const,
+                            content: result.content,
+                            word_count: wordCount,
+                          }
+                        : ch
+                    )
+                  }
+                },
+                generation_progress: {
+                  ...state.generation_progress,
+                  is_generating: false,
+                  credits_used: state.generation_progress.credits_used + 8,
                 }
-              },
-              generation_progress: {
-                ...state.generation_progress,
-                is_generating: false,
-                credits_used: state.generation_progress.credits_used + 8,
-              }
-            }));
+              }));
+            } else {
+              throw new Error(result.error || 'Failed to generate content');
+            }
             
           } catch (error) {
             set(state => ({
@@ -546,6 +576,10 @@ export const useEbookWriterStore = create<EbookWriterState>()(
         // UI State Management
         setActiveTab: (tab) => {
           set({ active_tab: tab });
+        },
+        
+        setSelectedChapter: (chapterId) => {
+          set({ selected_chapter_id: chapterId });
         },
         
         toggleSidebar: () => {
@@ -757,21 +791,151 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           set({ uploaded_documents: [], context_instructions: '' });
         },
         
-        // Placeholder implementations for remaining actions
-        updateChapter: (_chapterId: string, _updates: Partial<EbookChapter>) => {
-          // Implementation would update chapter in the outline
+        // Outline manipulation actions
+        updateChapter: (chapterId: string, updates: Partial<EbookChapter>) => {
+          set(state => {
+            if (!state.current_ebook?.outline) return state;
+            
+            return {
+              current_ebook: {
+                ...state.current_ebook,
+                outline: {
+                  ...state.current_ebook.outline,
+                  chapters: state.current_ebook.outline.chapters.map(chapter =>
+                    chapter.id === chapterId ? { ...chapter, ...updates } : chapter
+                  )
+                }
+              }
+            };
+          });
         },
         
-        addChapter: (_afterChapterId?: string) => {
-          // Implementation would add new chapter to outline
+        addChapter: (afterChapterId?: string) => {
+          set(state => {
+            if (!state.current_ebook?.outline) return state;
+            
+            const newChapter: EbookChapter = {
+              id: `chapter_${Date.now()}`,
+              title: 'New Chapter',
+              description: 'Chapter description',
+              subsections: [],
+              status: 'pending'
+            };
+            
+            let chapters = [...state.current_ebook.outline.chapters];
+            if (afterChapterId) {
+              const index = chapters.findIndex(c => c.id === afterChapterId);
+              if (index !== -1) {
+                chapters.splice(index + 1, 0, newChapter);
+              } else {
+                chapters.push(newChapter);
+              }
+            } else {
+              chapters.push(newChapter);
+            }
+            
+            return {
+              current_ebook: {
+                ...state.current_ebook,
+                outline: {
+                  ...state.current_ebook.outline,
+                  chapters,
+                  total_chapters: chapters.length
+                }
+              }
+            };
+          });
         },
         
-        removeChapter: (_chapterId: string) => {
-          // Implementation would remove chapter from outline
+        removeChapter: (chapterId: string) => {
+          set(state => {
+            if (!state.current_ebook?.outline) return state;
+            
+            return {
+              current_ebook: {
+                ...state.current_ebook,
+                outline: {
+                  ...state.current_ebook.outline,
+                  chapters: state.current_ebook.outline.chapters.filter(c => c.id !== chapterId),
+                  total_chapters: state.current_ebook.outline.chapters.length - 1
+                }
+              }
+            };
+          });
         },
         
-        reorderChapters: (_fromIndex: number, _toIndex: number) => {
-          // Implementation would reorder chapters in outline
+        reorderChapters: (fromIndex: number, toIndex: number) => {
+          set(state => {
+            if (!state.current_ebook?.outline) return state;
+            
+            const chapters = [...state.current_ebook.outline.chapters];
+            const [movedChapter] = chapters.splice(fromIndex, 1);
+            chapters.splice(toIndex, 0, movedChapter);
+            
+            return {
+              current_ebook: {
+                ...state.current_ebook,
+                outline: {
+                  ...state.current_ebook.outline,
+                  chapters
+                }
+              }
+            };
+          });
+        },
+        
+        addSubsection: (chapterId: string) => {
+          set(state => {
+            if (!state.current_ebook?.outline) return state;
+            
+            return {
+              current_ebook: {
+                ...state.current_ebook,
+                outline: {
+                  ...state.current_ebook.outline,
+                  chapters: state.current_ebook.outline.chapters.map(chapter =>
+                    chapter.id === chapterId
+                      ? {
+                          ...chapter,
+                          subsections: [
+                            ...chapter.subsections,
+                            {
+                              id: `subsection_${Date.now()}`,
+                              title: 'New Subsection',
+                              hint: 'Subsection content hint',
+                              status: 'pending'
+                            }
+                          ]
+                        }
+                      : chapter
+                  )
+                }
+              }
+            };
+          });
+        },
+        
+        removeSubsection: (chapterId: string, subsectionId: string) => {
+          set(state => {
+            if (!state.current_ebook?.outline) return state;
+            
+            return {
+              current_ebook: {
+                ...state.current_ebook,
+                outline: {
+                  ...state.current_ebook.outline,
+                  chapters: state.current_ebook.outline.chapters.map(chapter =>
+                    chapter.id === chapterId
+                      ? {
+                          ...chapter,
+                          subsections: chapter.subsections.filter(s => s.id !== subsectionId)
+                        }
+                      : chapter
+                  )
+                }
+              }
+            };
+          });
         },
         
         generateSectionContent: async (_chapterId: string, _sectionId: string) => {
@@ -780,6 +944,26 @@ export const useEbookWriterStore = create<EbookWriterState>()(
         
         generateAllContent: async () => {
           // Implementation would generate content for all chapters
+        },
+        
+        updateChapterContent: (chapterId: string, content: string) => {
+          set(state => {
+            if (!state.current_ebook?.outline) return state;
+            
+            return {
+              current_ebook: {
+                ...state.current_ebook,
+                outline: {
+                  ...state.current_ebook.outline,
+                  chapters: state.current_ebook.outline.chapters.map(chapter =>
+                    chapter.id === chapterId 
+                      ? { ...chapter, content, status: content ? 'completed' as const : 'pending' as const }
+                      : chapter
+                  )
+                }
+              }
+            };
+          });
         },
         
         updateSectionContent: (_chapterId: string, _sectionId: string, _content: string) => {
@@ -847,6 +1031,8 @@ export const useEbookUI = () => {
     sidebarCollapsed: state.sidebar_collapsed,
     showProgressPanel: state.show_progress_panel,
     setActiveTab: state.setActiveTab,
+    setSelectedChapter: state.setSelectedChapter,
+    selected_chapter_id: state.selected_chapter_id,
     toggleSidebar: state.toggleSidebar,
     toggleProgressPanel: state.toggleProgressPanel,
   }));

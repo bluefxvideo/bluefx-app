@@ -4,6 +4,8 @@ import { EbookOutput } from './ebook-output';
 import { TitleOutput } from './title-output';
 import { HistoryOutput } from './history-output';
 import { TopicPreview } from './topic-preview';
+import { OutlineOutput } from './outline-output';
+import { ContentOutput } from './content-output';
 import type { EbookMetadata, TitleOptions } from '../store/ebook-writer-store';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 
@@ -53,7 +55,20 @@ export function ContextualOutput({
       );
     
     case 'outline':
+      return (
+        <OutlineOutput
+          ebook={ebook}
+          uploadedDocuments={uploadedDocuments}
+        />
+      );
+    
     case 'content':
+      return (
+        <ContentOutput
+          ebook={ebook}
+        />
+      );
+    
     case 'cover':
     case 'export':
     default:

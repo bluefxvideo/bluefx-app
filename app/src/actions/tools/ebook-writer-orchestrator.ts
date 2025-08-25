@@ -15,6 +15,7 @@ import {
   deductCredits 
 } from '../database/ebook-writer-database';
 import { Json } from '@/types/database';
+import { createClient } from '@/app/supabase/server';
 
 /**
  * Ebook Writer AI Orchestrator
@@ -72,8 +73,8 @@ export interface EbookWriterRequest {
     current_chapter_index: number;
   };
   
-  // User context
-  user_id: string;
+  // User context (optional - will be fetched from auth if not provided)
+  user_id?: string;
 }
 
 export interface EbookWriterResponse {
@@ -193,8 +194,29 @@ export async function ebookWriterOrchestrator(
   const workflow_completed: string[] = [];
 
   try {
+    // Get current user if not provided
+    let userId = request.user_id;
+    if (!userId) {
+      const supabase = await createClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        return {
+          success: false,
+          prediction_id: '',
+          batch_id,
+          credits_used: 0,
+          generation_time_ms: Date.now() - startTime,
+          workflow_completed: [],
+          error: 'User not authenticated'
+        };
+      }
+      userId = user.id;
+    }
+    
     // Validate user credits
-    const userCredits = await getUserCredits(request.user_id);
+    const creditResult = await getUserCredits(userId);
+    const userCredits = creditResult.credits;
     const estimatedCredits = calculateEstimatedCredits(request);
     
     if (userCredits < estimatedCredits) {
@@ -271,12 +293,21 @@ export async function ebookWriterOrchestrator(
 
     // Deduct credits
     if (total_credits > 0) {
-      await deductCredits(request.user_id, total_credits);
+      await deductCredits(
+        userId, 
+        total_credits,
+        'ebook_generation',
+        { 
+          workflow_type: request.workflow_intent,
+          batch_id,
+          topic: request.topic 
+        } as Json
+      );
     }
 
     // Store results
     await storeEbookResults({
-      user_id: request.user_id,
+      user_id: userId,
       topic: request.topic,
       title: request.title || response.generated_titles?.[0] || 'Untitled',
       outline: response.outline as unknown as Json,
@@ -288,7 +319,7 @@ export async function ebookWriterOrchestrator(
 
     // Record metrics
     await recordEbookMetrics({
-      user_id: request.user_id,
+      user_id: userId,
       workflow_type: request.workflow_intent,
       credits_used: total_credits,
       generation_time_ms: Date.now() - startTime,
@@ -439,21 +470,27 @@ async function generateOutline(request: EbookWriterRequest): Promise<EbookOutlin
   const outline = result.object as OutlineGenerationType;
   
   return {
+    id: `outline_${Date.now()}`,
     chapters: outline.chapters.map((chapter, index) => ({
       id: `chapter_${index + 1}`,
       title: chapter.title,
+      description: chapter.key_learning_objectives.join(' • '), // Use learning objectives as description
       subsections: chapter.subsections.map((section, sIndex) => ({
         id: `section_${index + 1}_${sIndex + 1}`,
         title: section.title,
         hint: section.content_hint,
-        estimated_word_count: section.estimated_words
+        status: 'pending' as const
       })),
-      estimated_word_count: chapter.estimated_words,
-      key_points: chapter.key_learning_objectives
+      status: 'pending' as const
     })),
     total_chapters: outline.chapters.length,
     estimated_word_count: outline.estimated_total_words,
-    content_strategy: outline.content_strategy
+    complexity_level: (preferences as any).complexity || 'intermediate',
+    writing_tone: (preferences as any).writing_tone || 'professional',
+    target_audience: (preferences as any).target_audience || 'General audience',
+    include_images: (preferences as any).include_images ?? true,
+    include_ctas: (preferences as any).include_ctas ?? true,
+    generated_at: new Date().toISOString()
   };
 }
 
@@ -707,6 +744,76 @@ function calculateContentCredits(request: EbookWriterRequest): number {
   const wordLevel = (preferences as any).word_count_level || 'medium';
   const chapters = wordCountMultipliers[wordLevel as keyof typeof wordCountMultipliers];
   return chapters * 8; // 8 credits per chapter (matching analysis)
+}
+
+/**
+ * Generate content for a specific chapter
+ * Uses AI to create detailed chapter content based on outline
+ */
+export async function generateEbookChapterContent(
+  chapterTitle: string,
+  chapterDescription: string,
+  subsections: { id: string; title: string; description?: string }[],
+  ebookTitle: string,
+  ebookTopic: string,
+  targetWordCount: number = 2000,
+  writingTone: string = 'engaging',
+  uploadedDocuments?: UploadedDocument[]
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  
+  try {
+    // Process any uploaded documents for context
+    const documentContext = uploadedDocuments?.length 
+      ? await processDocumentsForContext(uploadedDocuments)
+      : null;
+    
+    // Build the prompt with chapter context
+    const prompt = `You are writing Chapter "${chapterTitle}" for the ebook titled "${ebookTitle}".
+
+Topic: ${ebookTopic}
+Chapter Description: ${chapterDescription}
+Target Word Count: ${targetWordCount} words
+Writing Tone: ${writingTone}
+
+${subsections.length > 0 ? `
+This chapter should cover the following sections:
+${subsections.map((s, i) => `${i+1}. ${s.title}${s.description ? ` - ${s.description}` : ''}`).join('\n')}
+` : ''}
+
+${documentContext ? `
+Reference Materials:
+${documentContext}
+` : ''}
+
+Write comprehensive, engaging content for this chapter. Include:
+- An engaging introduction that hooks the reader
+- Clear explanations with real-world examples
+- Actionable insights and practical advice
+- Smooth transitions between sections
+- A compelling conclusion that summarizes key points
+
+Format the content with proper paragraphs and sections. IMPORTANT: Do not include the chapter title "${chapterTitle}" in your response - start directly with the content.`;
+
+    // Generate the chapter content
+    const { text } = await generateText({
+      model: openai('gpt-4o-mini'),
+      prompt,
+      maxTokens: 4000,
+      temperature: 0.7,
+    });
+
+    return {
+      success: true,
+      content: text
+    };
+    
+  } catch (error) {
+    console.error('Chapter content generation error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate chapter content'
+    };
+  }
 }
 
 /**

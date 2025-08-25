@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
+import { Card } from '@/components/ui/card';
 import { BookOpen, FileText, Type, Image as ImageIcon, Download, History } from 'lucide-react';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
