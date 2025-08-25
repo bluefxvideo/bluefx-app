@@ -46,6 +46,8 @@ export function ContextualOutput({
         <TitleOutput
           titleOptions={titleOptions}
           isGenerating={isGenerating}
+          topic={topic}
+          ebook={ebook}
         />
       );
     

@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
+import { saveEbookSession, loadEbookSession } from '@/actions/database/ebook-writer-database';
 
 /**
  * Ebook Writer Zustand Store
@@ -110,6 +111,8 @@ interface EbookWriterState {
   saved_ebooks: EbookMetadata[];
   auto_save_enabled: boolean;
   last_save_timestamp?: string;
+  current_session_id?: string;
+  is_loading_session: boolean;
   
   // Credits and limits
   available_credits: number;
@@ -167,8 +170,10 @@ interface EbookWriterState {
   
   // Utility Actions
   calculateCreditsEstimate: () => void;
-  autoSave: () => Promise<void>;
+  autoSave: (userId: string) => Promise<void>;
   clearCurrentProject: () => void;
+  loadSession: (userId: string) => Promise<void>;
+  saveSession: (userId: string) => Promise<void>;
   
   // Error Handling
   setError: (error: string) => void;
@@ -193,6 +198,8 @@ const initialState = {
   show_progress_panel: true,
   saved_ebooks: [],
   auto_save_enabled: true,
+  current_session_id: undefined,
+  is_loading_session: false,
   available_credits: 0,
   credits_estimate: {
     title_generation: 0,
@@ -588,18 +595,11 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           });
         },
         
-        autoSave: async () => {
+        autoSave: async (userId: string) => {
           const state = get();
-          if (!state.auto_save_enabled || !state.current_ebook) return;
+          if (!state.auto_save_enabled || !state.current_ebook || !userId) return;
           
-          try {
-            // This would save to the database
-            set({
-              last_save_timestamp: new Date().toISOString(),
-            });
-          } catch (error) {
-            console.error('Auto-save failed:', error);
-          }
+          await state.saveSession(userId);
         },
         
         clearCurrentProject: () => {
@@ -614,7 +614,92 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               credits_used: 0,
             },
             active_tab: 'topic',
+            current_session_id: undefined,
           });
+        },
+
+        // Session Management
+        loadSession: async (userId: string) => {
+          set({ is_loading_session: true });
+          
+          try {
+            if (!userId) {
+              console.warn('No userId provided for session loading');
+              set({ is_loading_session: false });
+              return;
+            }
+
+            const result = await loadEbookSession(userId);
+            
+            if (result.success && result.session) {
+              const session = result.session;
+              
+              set({
+                current_ebook: {
+                  id: session.ebook_id,
+                  topic: session.topic || '',
+                  title: session.title || '',
+                  status: 'draft',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  outline: session.outline as EbookOutline,
+                  content: session.content,
+                  cover: null
+                },
+                title_options: session.title_options as TitleOptions,
+                uploaded_documents: (session.uploaded_documents as UploadedDocument[]) || [],
+                active_tab: (session.current_step as any) || 'topic',
+                generation_progress: {
+                  current_step: (session.current_step as any) || 'topic',
+                  total_progress: session.generation_progress || 0,
+                  step_progress: 0,
+                  is_generating: false,
+                  credits_used: 0,
+                },
+                current_session_id: session.ebook_id,
+                is_loading_session: false,
+              });
+            } else {
+              set({ is_loading_session: false });
+            }
+          } catch (error) {
+            console.error('Failed to load session:', error);
+            set({ is_loading_session: false });
+          }
+        },
+
+        saveSession: async (userId: string) => {
+          const state = get();
+          
+          try {
+            if (!userId) {
+              console.warn('No userId provided for session saving');
+              return;
+            }
+
+            const sessionData = {
+              topic: state.current_ebook?.topic,
+              title: state.current_ebook?.title,
+              title_options: state.title_options,
+              outline: state.current_ebook?.outline,
+              content: state.current_ebook?.content,
+              cover_url: state.current_ebook?.cover?.image_url,
+              uploaded_documents: state.uploaded_documents,
+              current_step: state.active_tab,
+              generation_progress: state.generation_progress.total_progress,
+            };
+
+            const result = await saveEbookSession(userId, sessionData, state.current_session_id);
+            
+            if (result.success && result.ebook_id) {
+              set({
+                current_session_id: result.ebook_id,
+                last_save_timestamp: new Date().toISOString(),
+              });
+            }
+          } catch (error) {
+            console.error('Failed to save session:', error);
+          }
         },
         
         // Error Handling

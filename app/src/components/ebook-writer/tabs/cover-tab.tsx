@@ -1,9 +1,10 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Image, ArrowLeft } from 'lucide-react';
 import { TabContentWrapper, TabBody } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
 import type { EbookMetadata } from '../store/ebook-writer-store';
 
@@ -119,24 +120,17 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
   return (
     <TabContentWrapper>
       <TabBody>
-        <div className="h-full overflow-y-auto scrollbar-hover space-y-6">
-          <Card className="bg-gray-50 dark:bg-gray-800/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Image className="h-5 w-5 text-pink-500" />
-                Design Cover
-              </CardTitle>
-              <CardDescription>
-                Create a professional book cover
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Cover generation functionality will be implemented here.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <StandardStep
+          stepNumber={1}
+          title="Design Cover"
+          description="Create a professional book cover"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Cover generation functionality will be implemented here.
+            </p>
+          </div>
+        </StandardStep>
       </TabBody>
     </TabContentWrapper>
   );

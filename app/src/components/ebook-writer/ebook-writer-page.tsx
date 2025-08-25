@@ -1,7 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/app/supabase/client';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { BookOpen, FileText, Type, Image as ImageIcon, Download, History } from 'lucide-react';
@@ -25,6 +26,7 @@ import { HistoryTab } from './tabs/history-tab';
  */
 export function EbookWriterPage() {
   const pathname = usePathname();
+  const [userId, setUserId] = useState<string | null>(null);
   const {
     current_ebook,
     title_options,
@@ -32,6 +34,8 @@ export function EbookWriterPage() {
     setActiveTab,
     generation_progress,
     uploaded_documents,
+    is_loading_session,
+    loadSession,
   } = useEbookWriterStore();
 
   // Determine active tab from URL
@@ -46,6 +50,19 @@ export function EbookWriterPage() {
   };
 
   const currentTab = getActiveTab();
+
+  // Get current user and load session on mount
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        await loadSession(user.id);
+      }
+    };
+    getCurrentUser();
+  }, [loadSession]);
 
   // Update store if URL tab differs from store tab
   useEffect(() => {

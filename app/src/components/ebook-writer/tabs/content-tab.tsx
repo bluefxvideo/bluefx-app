@@ -1,9 +1,10 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, ArrowLeft } from 'lucide-react';
 import { TabContentWrapper, TabBody } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
 import type { EbookMetadata } from '../store/ebook-writer-store';
 
@@ -92,24 +93,17 @@ export function ContentTab({ ebook, isGenerating: _isGenerating, error: _error }
   return (
     <TabContentWrapper>
       <TabBody>
-        <div className="h-full overflow-y-auto scrollbar-hover space-y-6">
-          <Card className="bg-gray-50 dark:bg-gray-800/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-orange-500" />
-                Generate Content
-              </CardTitle>
-              <CardDescription>
-                Create detailed content for each chapter
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Content generation functionality will be implemented here.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <StandardStep
+          stepNumber={1}
+          title="Generate Content"
+          description="Create detailed content for each chapter"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Content generation functionality will be implemented here.
+            </p>
+          </div>
+        </StandardStep>
       </TabBody>
     </TabContentWrapper>
   );

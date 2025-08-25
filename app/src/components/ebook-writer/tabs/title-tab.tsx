@@ -37,12 +37,6 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
   };
 
   const handleContinue = () => {
-    if (useCustom && customTitle.trim()) {
-      updateCustomTitle(customTitle.trim());
-    } else if (selectedOption) {
-      const index = parseInt(selectedOption);
-      selectTitle(index);
-    }
     setActiveTab('outline');
   };
 
@@ -80,17 +74,7 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
           title="Choose Your Ebook Title"
           description={`Topic: ${topic}`}
         >
-          <Card className="bg-gray-50 dark:bg-gray-800/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Type className="h-5 w-5 text-blue-500" />
-            Choose Your Ebook Title
-          </CardTitle>
-          <CardDescription>
-            Topic: <span className="font-medium">{topic}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          <div className="space-y-4">
           {!titleOptions && (
             <>
               <p className="text-sm text-muted-foreground">
@@ -129,6 +113,7 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
                       onClick={() => {
                         setSelectedOption(index.toString());
                         setUseCustom(false);
+                        selectTitle(index); // Immediately update the store
                       }}
                     >
                       <div className="flex items-start gap-3">
@@ -173,6 +158,7 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
                     if (e.target.value.trim()) {
                       setUseCustom(true);
                       setSelectedOption('');
+                      updateCustomTitle(e.target.value.trim()); // Immediately update the store
                     }
                   }}
                   placeholder="Enter your own title..."
@@ -182,8 +168,7 @@ export function TitleTab({ topic, titleOptions, isGenerating }: TitleTabProps) {
 
             </div>
           )}
-        </CardContent>
-          </Card>
+          </div>
         </StandardStep>
       </TabBody>
       

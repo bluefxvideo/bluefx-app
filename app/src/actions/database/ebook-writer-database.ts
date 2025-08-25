@@ -451,6 +451,203 @@ export async function recordEbookMetrics(data: EbookMetricsData): Promise<{ succ
 }
 
 /**
+ * Save current ebook session (auto-save)
+ */
+export async function saveEbookSession(
+  userId: string,
+  sessionData: {
+    topic?: string;
+    title?: string;
+    title_options?: Json;
+    outline?: Json;
+    content?: Json;
+    cover_url?: string;
+    uploaded_documents?: Json;
+    current_step?: string;
+    generation_progress?: number;
+  },
+  ebookId?: string
+): Promise<{ success: boolean; ebook_id?: string; error?: string }> {
+  try {
+    const supabase = await createClient();
+    
+    // If ebookId provided, update existing record
+    if (ebookId) {
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString()
+      };
+      
+      // Map session data to database fields
+      if (sessionData.title) updateData.title = sessionData.title;
+      if (sessionData.topic) updateData.description = sessionData.topic;
+      if (sessionData.outline) updateData.content_structure = JSON.stringify(sessionData.outline);
+      if (sessionData.content) updateData.generated_content = JSON.stringify(sessionData.content);
+      if (sessionData.cover_url) updateData.cover_image_url = sessionData.cover_url;
+      if (sessionData.generation_progress !== undefined) updateData.generation_progress = sessionData.generation_progress;
+      
+      // Store session-specific data in metadata
+      const metadata = {
+        current_step: sessionData.current_step,
+        title_options: sessionData.title_options,
+        uploaded_documents: sessionData.uploaded_documents,
+        last_saved: new Date().toISOString()
+      };
+      updateData.metadata = JSON.stringify(metadata);
+      
+      const { error } = await supabase
+        .from('ebook_history')
+        .update(updateData)
+        .eq('id', ebookId)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error updating ebook session:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, ebook_id: ebookId };
+    } 
+    
+    // Create new session record
+    const ebookData = {
+      user_id: userId,
+      title: sessionData.title || 'Untitled Ebook',
+      description: sessionData.topic || null,
+      chapter_count: 0,
+      total_word_count: 0,
+      status: 'in_progress',
+      generation_progress: sessionData.generation_progress || 0,
+      content_structure: sessionData.outline ? JSON.stringify(sessionData.outline) : null,
+      generated_content: sessionData.content ? JSON.stringify(sessionData.content) : null,
+      cover_image_url: sessionData.cover_url || null,
+      metadata: JSON.stringify({
+        current_step: sessionData.current_step || 'topic',
+        title_options: sessionData.title_options,
+        uploaded_documents: sessionData.uploaded_documents,
+        created_via: 'ebook_writer_session',
+        last_saved: new Date().toISOString()
+      }),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: result, error } = await supabase
+      .from('ebook_history')
+      .insert(ebookData)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Error creating ebook session:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, ebook_id: result.id };
+    
+  } catch (error) {
+    console.error('Database error:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to save ebook session' 
+    };
+  }
+}
+
+/**
+ * Load user's current ebook session (most recent in-progress)
+ */
+export async function loadEbookSession(userId: string): Promise<{ 
+  success: boolean; 
+  session?: {
+    ebook_id: string;
+    topic?: string;
+    title?: string;
+    title_options?: Json;
+    outline?: Json;
+    content?: Json;
+    cover_url?: string;
+    uploaded_documents?: Json;
+    current_step?: string;
+    generation_progress?: number;
+  }; 
+  error?: string 
+}> {
+  try {
+    const supabase = await createClient();
+    
+    const { data: ebook, error } = await supabase
+      .from('ebook_history')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'in_progress')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error loading ebook session:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!ebook) {
+      return { success: true, session: undefined };
+    }
+
+    // Parse metadata
+    let metadata = {};
+    if (ebook.metadata && typeof ebook.metadata === 'string') {
+      try {
+        metadata = JSON.parse(ebook.metadata);
+      } catch {
+        console.warn('Failed to parse session metadata JSON');
+      }
+    }
+
+    // Parse content structure
+    let outline = null;
+    if (ebook.content_structure && typeof ebook.content_structure === 'string') {
+      try {
+        outline = JSON.parse(ebook.content_structure);
+      } catch {
+        console.warn('Failed to parse content_structure JSON');
+      }
+    }
+
+    // Parse generated content
+    let content = null;
+    if (ebook.generated_content && typeof ebook.generated_content === 'string') {
+      try {
+        content = JSON.parse(ebook.generated_content);
+      } catch {
+        console.warn('Failed to parse generated_content JSON');
+      }
+    }
+
+    const session = {
+      ebook_id: ebook.id,
+      topic: ebook.description,
+      title: ebook.title,
+      title_options: (metadata as any).title_options,
+      outline,
+      content,
+      cover_url: ebook.cover_image_url,
+      uploaded_documents: (metadata as any).uploaded_documents,
+      current_step: (metadata as any).current_step || 'topic',
+      generation_progress: ebook.generation_progress || 0
+    };
+
+    return { success: true, session };
+    
+  } catch (error) {
+    console.error('Database error:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to load ebook session' 
+    };
+  }
+}
+
+/**
  * Get user credits
  */
 export async function getUserCredits(userId: string): Promise<number> {
