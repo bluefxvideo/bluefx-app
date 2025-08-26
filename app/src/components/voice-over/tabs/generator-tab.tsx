@@ -176,7 +176,7 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
             {VOICE_OPTIONS.map((voice) => (
               <Card
                 key={voice.id}
-                className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-white dark:bg-gray-800/40 ${
+                className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-card ${
                   state.selectedVoice === voice.id
                     ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
                     : 'hover:bg-muted/50'
@@ -301,7 +301,7 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
         </StandardStep>
 
         {state.error && (
-          <Card className="p-4 border-destructive bg-white dark:bg-gray-800/40">
+          <Card className="p-4 border-destructive">
             <p className="text-sm text-destructive">{state.error}</p>
           </Card>
         )}

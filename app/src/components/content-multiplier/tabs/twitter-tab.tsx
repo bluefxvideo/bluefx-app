@@ -60,7 +60,7 @@ export function TwitterTab() {
   if (!current_variant) {
     return (
       <div className="h-full flex items-center justify-center p-4">
-        <Card className="max-w-md text-center bg-white dark:bg-gray-800/40">
+        <Card className="max-w-md text-center">
           <CardContent className="pt-6">
             <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-medium mb-2">No Content Generated</h3>
@@ -83,7 +83,7 @@ export function TwitterTab() {
   if (!twitterContent) {
     return (
       <div className="h-full flex items-center justify-center p-4">
-        <Card className="max-w-md text-center bg-white dark:bg-gray-800/40">
+        <Card className="max-w-md text-center">
           <CardContent className="pt-6">
             <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-medium mb-2">Twitter Not Selected</h3>
@@ -106,7 +106,7 @@ export function TwitterTab() {
   return (
     <div className="h-full overflow-y-auto scrollbar-hover p-4 space-y-6">
       {/* Connection Status */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-sky-500" />
@@ -130,7 +130,7 @@ export function TwitterTab() {
       </Card>
 
       {/* Content Preview */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle className="text-lg">Content Preview</CardTitle>
           <CardDescription>
@@ -273,7 +273,7 @@ export function TwitterTab() {
       </Card>
 
       {/* Platform Insights */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle className="text-lg">Twitter Optimization</CardTitle>
           <CardDescription>

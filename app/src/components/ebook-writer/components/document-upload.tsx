@@ -193,7 +193,7 @@ export function DocumentUpload({
             {documents.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border"
+                className="flex items-center justify-between p-3 bg-card rounded-lg border"
               >
                 <div className="flex items-center gap-3 flex-1">
                   <span className="text-2xl">{getFileIcon(doc.file_type)}</span>

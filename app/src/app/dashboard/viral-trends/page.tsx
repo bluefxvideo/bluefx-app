@@ -285,7 +285,7 @@ export default function ViralTrendsPage() {
                   ) : (
                     <div className="space-y-3">
                       {trends.map((trend) => (
-                        <Card key={trend.id} className="p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800/40">
+                        <Card key={trend.id} className="p-4 hover:shadow-md transition-shadow">
                           <div className="space-y-3">
                             {/* Header */}
                             <div className="flex items-start justify-between">

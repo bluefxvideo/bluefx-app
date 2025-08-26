@@ -84,7 +84,7 @@ export function ContentMultiplierLayout({ children }: ContentMultiplierLayoutPro
 
         {/* Right Panel - Output & Previews */}
         <div className="flex-1">
-          <Card className="h-full p-6 shadow-lg bg-white dark:bg-gray-800/40">
+          <Card className="h-full p-6 shadow-lg">
             <ContentMultiplierOutput activeTab={active_tab} />
           </Card>
         </div>

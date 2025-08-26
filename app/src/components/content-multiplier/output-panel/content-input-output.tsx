@@ -77,7 +77,7 @@ export function ContentInputOutput() {
   return (
     <div className="h-full overflow-y-auto scrollbar-hover p-6 space-y-6">
       {/* Progress Indicator */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle className="text-lg">Getting Started</CardTitle>
           <CardDescription>Follow these steps to multiply your content</CardDescription>
@@ -153,7 +153,7 @@ export function ContentInputOutput() {
 
       {/* Selected Platforms Overview */}
       {selected_platforms.length > 0 && (
-        <Card className="bg-white dark:bg-gray-800/40">
+        <Card >
           <CardHeader>
             <CardTitle className="text-lg">Selected Platforms</CardTitle>
             <CardDescription>

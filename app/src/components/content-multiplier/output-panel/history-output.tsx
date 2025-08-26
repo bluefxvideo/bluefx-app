@@ -14,7 +14,7 @@ export function HistoryOutput() {
         </p>
       </div>
 
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle>Coming Soon</CardTitle>
         </CardHeader>

@@ -683,7 +683,7 @@ Examples:
             )}
 
             {/* Generation Summary */}
-            <Card className="p-4 bg-white dark:bg-gray-800/40">
+            <Card className="p-4">
               <h3 className="font-semibold mb-3">Generation Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">

@@ -260,7 +260,7 @@ export default function TrendingKeywordsPage() {
             ) : (
               <div className="space-y-3">
                 {keywords.map((keyword) => (
-                  <Card key={keyword.id} className="p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800/40">
+                  <Card key={keyword.id} className="p-4 hover:shadow-md transition-shadow">
                     <div className="space-y-3">
                       {/* Keyword Header */}
                       <div className="flex items-start justify-between">

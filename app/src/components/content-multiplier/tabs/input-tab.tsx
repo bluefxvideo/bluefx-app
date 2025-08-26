@@ -129,7 +129,7 @@ export function InputTab() {
   return (
     <div className="h-full overflow-y-auto scrollbar-hover space-y-6">
       {/* Content Input Section */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5 text-blue-600" />
@@ -208,7 +208,7 @@ export function InputTab() {
       </Card>
 
       {/* Platform Selection */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-emerald-500" />

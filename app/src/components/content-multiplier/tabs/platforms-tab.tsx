@@ -80,7 +80,7 @@ export function PlatformsTab() {
   return (
     <div className="h-full overflow-y-auto scrollbar-hover space-y-6">
       {/* Platform Selection Overview */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-emerald-500" />
@@ -196,7 +196,7 @@ export function PlatformsTab() {
       </Card>
 
       {/* Platform Tips */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Info className="h-4 w-4 text-blue-500" />

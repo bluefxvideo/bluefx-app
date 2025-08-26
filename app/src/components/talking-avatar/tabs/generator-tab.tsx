@@ -241,7 +241,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
             {/* Custom Upload Option */}
             <div className={`border-2 border-dashed rounded-lg p-3 transition-all duration-200 ${
               customImage 
-                ? 'border-blue-500 bg-blue-100/10' 
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50' 
                 : 'border-muted hover:border-blue-300'
             }`}>
               <div className="text-center">

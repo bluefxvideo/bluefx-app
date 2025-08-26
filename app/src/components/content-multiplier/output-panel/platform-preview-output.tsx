@@ -89,7 +89,7 @@ export function PlatformPreviewOutput({ platform }: PlatformPreviewOutputProps) 
         </div>
 
         {/* Platform Info */}
-        <Card className={`bg-white dark:bg-gray-800/40 ${info.borderColor}`}>
+        <Card className={`${info.borderColor}`}>
           <CardHeader>
             <CardTitle className="text-lg">Platform Features</CardTitle>
           </CardHeader>
@@ -124,7 +124,7 @@ export function PlatformPreviewOutput({ platform }: PlatformPreviewOutputProps) 
       </div>
 
       {/* Content Analysis */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle className="text-lg">Content Analysis</CardTitle>
         </CardHeader>
@@ -169,7 +169,7 @@ export function PlatformPreviewOutput({ platform }: PlatformPreviewOutputProps) 
 
       {/* Optimization Notes */}
       {platformContent.optimization_notes && platformContent.optimization_notes.length > 0 && (
-        <Card className="bg-white dark:bg-gray-800/40">
+        <Card >
           <CardHeader>
             <CardTitle className="text-lg">Optimization Insights</CardTitle>
           </CardHeader>
@@ -185,7 +185,7 @@ export function PlatformPreviewOutput({ platform }: PlatformPreviewOutputProps) 
       )}
 
       {/* Content Preview */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle className="text-lg">Full Content</CardTitle>
         </CardHeader>

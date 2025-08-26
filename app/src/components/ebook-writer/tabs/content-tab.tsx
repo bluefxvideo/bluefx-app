@@ -322,7 +322,7 @@ export function ContentTab({ ebook }: ContentTabProps) {
                     <CardContent className="pt-0">
                       {hasContent ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <div className="text-sm text-muted-foreground line-clamp-3 bg-white dark:bg-gray-900 p-3 rounded border">
+                          <div className="text-sm text-muted-foreground line-clamp-3 bg-card p-3 rounded border">
                             {chapter.content.substring(0, 200)}...
                           </div>
                           <p className="text-xs text-muted-foreground mt-2">

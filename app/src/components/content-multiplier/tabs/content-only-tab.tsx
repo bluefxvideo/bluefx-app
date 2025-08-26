@@ -118,7 +118,7 @@ export function ContentOnlyTab() {
           description="Enter your content to multiply across social media platforms"
         >
         {/* Content Input Section */}
-        <Card className="bg-white dark:bg-gray-800/40">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5 text-blue-600" />
@@ -202,7 +202,7 @@ export function ContentOnlyTab() {
         </Card>
 
         {selected_platforms.length === 0 && (
-          <Card className="bg-white dark:bg-gray-800/40">
+          <Card>
             <CardContent className="p-4 text-center">
               <div className="text-sm text-muted-foreground mb-2">
                 No platforms selected

@@ -11,7 +11,7 @@ export function TikTokTab() {
   if (!current_variant) {
     return (
       <div className="h-full flex items-center justify-center p-4">
-        <Card className="max-w-md text-center bg-white dark:bg-gray-800/40">
+        <Card className="max-w-md text-center">
           <CardContent className="pt-6">
             <Music className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-medium mb-2">No Content Generated</h3>
@@ -30,7 +30,7 @@ export function TikTokTab() {
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hover p-4">
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Music className="h-5 w-5 text-slate-900" />

@@ -48,7 +48,7 @@ export function ProgressPanel({ progress }: ProgressPanelProps) {
   };
 
   return (
-    <Card className="w-full bg-white dark:bg-gray-800/40">
+    <Card className="w-full">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center justify-between text-base">
           <span className="flex items-center gap-2">

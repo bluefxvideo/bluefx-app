@@ -128,7 +128,7 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
   const renderContent = () => (
     <>
       {/* Main Ebook Card */}
-      <Card className="bg-white dark:bg-gray-800/40">
+      <Card >
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -244,7 +244,7 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
 
       {/* Error Display */}
       {error && (
-        <Card className="border-destructive bg-white dark:bg-gray-800/40">
+        <Card className="border-destructive">
           <CardContent className="pt-6">
             <div className="text-sm text-destructive">
               {error}
