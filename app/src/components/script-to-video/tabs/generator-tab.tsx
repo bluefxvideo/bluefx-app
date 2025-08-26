@@ -6,10 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { Film, Mic, Zap, ArrowRight, ArrowLeft, FileText, Play, Square, CheckCircle } from 'lucide-react';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
 import { useScriptToVideo } from '../hooks/use-script-to-video';
+import { OPENAI_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
 
 interface GeneratorTabProps {
   credits: number;
@@ -70,7 +72,8 @@ export function GeneratorTab({
   };
 
   // Local state for voice selection and generation
-  const [selectedVoice, setSelectedVoice] = useState('anna');
+  const [selectedVoice, setSelectedVoice] = useState('alloy');
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
   const [hasUserSelectedVoice, setHasUserSelectedVoice] = useState(false);
   const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
@@ -194,9 +197,11 @@ export function GeneratorTab({
       const result = await generateVoiceForScript(
         stepState.finalScript,
         {
-          voice_id: selectedVoice as 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah',
-          speed: formData.voice_settings.speed || 'normal',
-          emotion: formData.voice_settings.emotion || 'neutral'
+          voice_id: selectedVoice,
+          speed: voiceSettings.speed,
+          pitch: voiceSettings.pitch,
+          volume: voiceSettings.volume,
+          emphasis: voiceSettings.emphasis
         },
         currentUserId
       );
@@ -249,8 +254,11 @@ export function GeneratorTab({
         aspect_ratio: '9:16',
         video_style: formData.video_style,
         voice_settings: {
-          ...formData.voice_settings,
-          voice_id: selectedVoice as "anna" | "eric" | "felix" | "oscar" | "nina" | "sarah"
+          voice_id: selectedVoice,
+          speed: voiceSettings.speed,
+          pitch: voiceSettings.pitch,
+          volume: voiceSettings.volume,
+          emphasis: voiceSettings.emphasis
         },
         // Mark if script was generated from idea
         was_script_generated: !stepState.useMyScript && stepState.generatedScript.length > 0,
@@ -539,38 +547,13 @@ Examples:
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                {[
-                  { 
-                    id: 'alloy', 
-                    name: 'Alloy', 
-                    description: 'Natural female voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_01.mp3'
-                  },
-                  { 
-                    id: 'nova', 
-                    name: 'Nova', 
-                    description: 'Warm female voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_2.mp3'
-                  },
-                  { 
-                    id: 'echo', 
-                    name: 'Echo', 
-                    description: 'Deep male voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_1.mp3'
-                  },
-                  { 
-                    id: 'onyx', 
-                    name: 'Onyx', 
-                    description: 'Professional male voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_2.mp3'
-                  }
-                ].map((voice) => (
+                {OPENAI_VOICE_OPTIONS.map((voice) => (
                   <Card
                     key={voice.id}
-                    className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md bg-white dark:bg-gray-800/40 ${
+                    className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
                       selectedVoice === voice.id 
-                        ? 'ring-2 ring-purple-500 bg-blue-100/10 shadow-lg' 
-                        : 'hover:bg-muted/50'
+                        ? 'ring-2 ring-purple-500 bg-blue-50 dark:bg-blue-950/50 shadow-lg' 
+                        : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={() => {
                       setSelectedVoice(voice.id);
@@ -579,7 +562,17 @@ Examples:
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{voice.name}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium">{voice.name}</p>
+                          <Badge variant="outline" className="text-xs">
+                            {voice.gender}
+                          </Badge>
+                          {voice.isNew && (
+                            <Badge variant="default" className="text-xs bg-blue-500">
+                              New
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{voice.description}</p>
                       </div>
                       <Button
@@ -588,7 +581,7 @@ Examples:
                         className="shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleVoicePlayback(voice.id, voice.sampleUrl);
+                          handleVoicePlayback(voice.id, voice.preview_url);
                         }}
                       >
                         {playingVoiceId === voice.id ? (
@@ -600,6 +593,36 @@ Examples:
                     </div>
                   </Card>
                 ))}
+              </div>
+            </div>
+
+            {/* Voice Settings */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Voice Settings</Label>
+              
+              <div className="grid grid-cols-1 gap-4">
+                {/* Speed Control */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Speed: {voiceSettings.speed}x</Label>
+                  <input
+                    type="range"
+                    min={0.25}
+                    max={4.0}
+                    step={0.25}
+                    value={voiceSettings.speed}
+                    onChange={(e) => {
+                      const speed = parseFloat(e.target.value);
+                      setVoiceSettings(prev => ({ ...prev, speed }));
+                    }}
+                    disabled={isGeneratingVoice || isGeneratingVideo}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0.25x</span>
+                    <span>Normal</span>
+                    <span>4.0x</span>
+                  </div>
+                </div>
               </div>
             </div>
 

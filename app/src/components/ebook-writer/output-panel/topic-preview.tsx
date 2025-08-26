@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { BookOpen, FileText, Sparkles, ArrowRight, MoreVertical, RotateCcw } from 'lucide-react';
+import { BookOpen, FileText, Sparkles, ArrowRight, MoreVertical, RotateCcw, TrendingUp } from 'lucide-react';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
@@ -20,9 +20,61 @@ interface TopicPreviewProps {
   documents: UploadedDocument[];
 }
 
+// Popular affiliate marketing topics
+const popularTopics = [
+  {
+    title: 'Passive Income with Affiliate Marketing',
+    description: 'Learn how to build sustainable passive income streams through affiliate marketing',
+    icon: TrendingUp,
+    gradient: 'from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20',
+    borderColor: 'border-green-200 dark:border-green-800',
+    iconColor: 'text-green-500'
+  },
+  {
+    title: 'Content Creation Mastery for Affiliates',
+    description: 'Master the art of creating engaging content that converts',
+    icon: FileText,
+    gradient: 'from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20',
+    borderColor: 'border-blue-200 dark:border-blue-800',
+    iconColor: 'text-blue-500'
+  },
+  {
+    title: 'Social Media Affiliate Domination',
+    description: 'Leverage social media platforms to maximize your affiliate earnings',
+    icon: Sparkles,
+    gradient: 'from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20',
+    borderColor: 'border-purple-200 dark:border-purple-800',
+    iconColor: 'text-purple-500'
+  },
+  {
+    title: 'Email Marketing for Affiliate Success',
+    description: 'Build and monetize your email list for affiliate marketing success',
+    icon: ArrowRight,
+    gradient: 'from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20',
+    borderColor: 'border-orange-200 dark:border-orange-800',
+    iconColor: 'text-orange-500'
+  },
+  {
+    title: 'YouTube Affiliate Mastery',
+    description: 'Create profitable YouTube content that drives affiliate sales',
+    icon: BookOpen,
+    gradient: 'from-red-50 to-pink-50 dark:from-red-950/20 dark:to-pink-950/20',
+    borderColor: 'border-red-200 dark:border-red-800',
+    iconColor: 'text-red-500'
+  },
+  {
+    title: 'Affiliate SEO Blueprint',
+    description: 'Master SEO strategies to rank your affiliate content',
+    icon: TrendingUp,
+    gradient: 'from-indigo-50 to-blue-50 dark:from-indigo-950/20 dark:to-blue-950/20',
+    borderColor: 'border-indigo-200 dark:border-indigo-800',
+    iconColor: 'text-indigo-500'
+  }
+];
+
 export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) {
   const hasContent = topic && topic.trim().length > 0;
-  const { setActiveTab, clearCurrentProject } = useEbookWriterStore();
+  const { setActiveTab, clearCurrentProject, setTopic, generateTitles } = useEbookWriterStore();
 
   const handleStartOver = async () => {
     if (confirm('Are you sure you want to start over? This will clear all progress and delete your session.')) {
@@ -45,6 +97,22 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
     }
   };
 
+  const handleTopicSelect = async (topicTitle: string) => {
+    // Update topic in store
+    setTopic(topicTitle);
+    
+    // Generate titles automatically after selecting popular topic
+    try {
+      await generateTitles(topicTitle);
+      setActiveTab('title');
+      
+      // Navigate to title tab
+      window.location.href = '/dashboard/ebook-writer/title';
+    } catch (error) {
+      console.error('Error generating titles:', error);
+    }
+  };
+
   // Three-dot menu for actions
   const actionsMenu = hasContent ? (
     <DropdownMenu>
@@ -62,22 +130,52 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
     </DropdownMenu>
   ) : null;
   
-  // Show empty state when no topic
+  // Show popular topics when no topic selected
   if (!hasContent) {
     return (
       <OutputPanelShell 
-        title="Ebook Preview" 
+        title="Popular Topics" 
         status="idle"
-        empty={
-          <div className="flex items-center justify-center h-full">
-            <UnifiedEmptyState
-              icon={BookOpen}
-              title="No Topic Yet"
-              description="Enter a topic to start creating your ebook"
-            />
+      >
+        <div className="p-4 space-y-3">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Start with a Popular Topic
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Click any topic to automatically generate titles and get started
+            </p>
           </div>
-        }
-      />
+          
+          <div className="space-y-3">
+            {popularTopics.map((topic, index) => {
+              const IconComponent = topic.icon;
+              return (
+                <Card 
+                  key={index}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] bg-gradient-to-br ${topic.gradient} ${topic.borderColor}`}
+                  onClick={() => handleTopicSelect(topic.title)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <IconComponent className={`h-5 w-5 ${topic.iconColor} flex-shrink-0 mt-0.5`} />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1 leading-tight">
+                          {topic.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                          {topic.description}
+                        </p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </OutputPanelShell>
     );
   }
   
@@ -107,18 +205,6 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
           </CardContent>
         </Card>
 
-        {/* Placeholder cards for future steps */}
-        <Card className="opacity-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg text-gray-400">
-              <Sparkles className="h-5 w-5" />
-              Title
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-400 italic">Not selected yet</p>
-          </CardContent>
-        </Card>
 
       </div>
     </OutputPanelShell>

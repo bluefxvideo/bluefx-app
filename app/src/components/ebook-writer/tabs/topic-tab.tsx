@@ -67,16 +67,6 @@ export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
     storeDocuments(docs); // Update store immediately for live preview
   };
 
-  const topicSuggestions = [
-    'Digital Marketing for Beginners',
-    'Personal Finance and Investing',
-    'Healthy Cooking on a Budget',
-    'Remote Work Productivity',
-    'Starting an Online Business',
-    'Mindfulness and Mental Health',
-    'Web Development Fundamentals',
-    'Sustainable Living Guide',
-  ];
 
   return (
     <TabContentWrapper>

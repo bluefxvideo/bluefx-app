@@ -23,9 +23,12 @@ export interface VoiceGenerationRequest {
     duration: number;
   }>;
   voice_settings: {
-    voice_id: 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah';
-    speed: 'slower' | 'normal' | 'faster';
-    emotion: 'neutral' | 'excited' | 'calm' | 'authoritative' | 'confident';
+    voice_id: string; // Any OpenAI TTS voice ID
+    speed: number | 'slower' | 'normal' | 'faster'; // Support both new number format and legacy strings
+    emotion?: 'neutral' | 'excited' | 'calm' | 'authoritative' | 'confident';
+    pitch?: number; // -20 to 20 semitones
+    volume?: number; // 0.0 to 1.0
+    emphasis?: 'strong' | 'moderate' | 'none';
   };
   user_id: string;
   batch_id: string;
@@ -72,10 +75,81 @@ const VOICE_MAPPING: Record<string, string> = {
 
 // Map speed settings to OpenAI speed values
 const SPEED_MAPPING = {
-  'slower': 0.85,
+  'slower': 0.75,
   'normal': 1.0,
   'faster': 1.25
 } as const;
+
+// Convert speed setting to numeric value
+const convertSpeed = (speed: number | 'slower' | 'normal' | 'faster'): number => {
+  if (typeof speed === 'number') {
+    // Clamp between 0.25 and 4.0 as per OpenAI TTS limits
+    return Math.max(0.25, Math.min(4.0, speed));
+  }
+  return SPEED_MAPPING[speed] || 1.0;
+};
+
+/**
+ * Generate voice for a simple script (for script-to-video and talking avatar)
+ * Simplified interface for single text generation
+ */
+export async function generateVoiceForScript(
+  script: string,
+  voice_settings: {
+    voice_id: string;
+    speed?: number;
+    pitch?: number;
+    volume?: number;
+    emphasis?: 'strong' | 'moderate' | 'none';
+  },
+  user_id: string
+): Promise<{
+  success: boolean;
+  audio_url?: string;
+  credits_used: number;
+  error?: string;
+}> {
+  try {
+    // Convert to segments format for compatibility
+    const segments = [{
+      id: 'single',
+      text: script,
+      start_time: 0,
+      end_time: 0,
+      duration: 0
+    }];
+
+    const request: VoiceGenerationRequest = {
+      segments,
+      voice_settings: {
+        voice_id: voice_settings.voice_id,
+        speed: voice_settings.speed || 1.0,
+        emotion: 'neutral',
+        pitch: voice_settings.pitch,
+        volume: voice_settings.volume,
+        emphasis: voice_settings.emphasis
+      },
+      user_id,
+      batch_id: crypto.randomUUID()
+    };
+
+    const result = await generateVoiceForAllSegments(request);
+    
+    return {
+      success: result.success,
+      audio_url: result.audio_url,
+      credits_used: result.credits_used,
+      error: result.error
+    };
+  } catch (error) {
+    console.error('❌ Voice generation for script failed:', error);
+    return {
+      success: false,
+      credits_used: 0,
+      error: error instanceof Error ? error.message : 'Voice generation failed'
+    };
+  }
+}
 
 /**
  * Generate voice for all segments as one continuous audio file
@@ -94,9 +168,9 @@ export async function generateVoiceForAllSegments(
       .map(segment => segment.text.trim())
       .join('... '); // Add pause between segments
 
-    // Get the OpenAI voice name
-    const openAIVoice = VOICE_MAPPING[request.voice_settings.voice_id] || 'alloy';
-    const speedValue = SPEED_MAPPING[request.voice_settings.speed] || 1.0;
+    // Get the OpenAI voice name - support direct OpenAI voice IDs
+    const openAIVoice = VOICE_MAPPING[request.voice_settings.voice_id] || request.voice_settings.voice_id || 'alloy';
+    const speedValue = convertSpeed(request.voice_settings.speed);
     
     console.log(`🔊 OpenAI TTS: voice=${openAIVoice}, speed=${speedValue}`);
     
@@ -321,80 +395,5 @@ export async function estimateVoiceGenerationTime(textLength: number): Promise<n
   return Math.max(2000, textLength * 100); // Minimum 2 seconds
 }
 
-/**
- * Generate voice for a simple script (used in step-by-step generator)
- * Creates a single segment and generates voice for it
- */
-export async function generateVoiceForScript(
-  script: string,
-  voice_settings: {
-    voice_id: 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah';
-    speed?: 'slower' | 'normal' | 'faster';
-    emotion?: 'neutral' | 'excited' | 'calm' | 'authoritative' | 'confident';
-  },
-  user_id: string
-): Promise<{ success: boolean; audio_url?: string; error?: string; credits_used: number }> {
-  const startTime = Date.now();
-  
-  try {
-    console.log(`🎤 Generating voice for script using ${voice_settings.voice_id}`);
-    
-    // Get the OpenAI voice name
-    const openAIVoice = VOICE_MAPPING[voice_settings.voice_id] || 'alloy';
-    const speedValue = SPEED_MAPPING[voice_settings.speed || 'normal'] || 1.0;
-    
-    console.log(`🔊 OpenAI TTS: voice=${openAIVoice}, speed=${speedValue}`);
-    
-    // Generate speech using OpenAI TTS
-    const response = await openai.audio.speech.create({
-      model: 'tts-1',
-      voice: openAIVoice as any,
-      input: script.trim(),
-      speed: speedValue,
-      response_format: 'mp3'
-    });
-
-    // Convert response to buffer
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
-    
-    // Upload to Supabase Storage
-    const timestamp = Date.now();
-    const fileName = `${user_id}/voice/preview/script_${timestamp}.mp3`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('script-videos')
-      .upload(fileName, audioBuffer, {
-        contentType: 'audio/mpeg',
-        upsert: true
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw new Error(`Failed to upload audio: ${uploadError.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('script-videos')
-      .getPublicUrl(fileName);
-
-    const generationTime = Date.now() - startTime;
-    console.log(`✅ Voice generated successfully in ${generationTime}ms: ${urlData.publicUrl}`);
-
-    return {
-      success: true,
-      audio_url: urlData.publicUrl,
-      credits_used: 3 // Cost for preview generation
-    };
-
-  } catch (error) {
-    console.error('Voice generation error:', error);
-    return {
-      success: false,
-      credits_used: 0,
-      error: error instanceof Error ? error.message : 'Voice generation failed'
-    };
-  }
-}
 
 // Validation logic moved inline to orchestrator to avoid server action constraints

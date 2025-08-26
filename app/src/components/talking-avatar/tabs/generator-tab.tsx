@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Video, User, Mic, Upload, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
 import { AvatarTemplate } from '@/actions/tools/talking-avatar';
+import { OPENAI_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
 
 interface GeneratorTabProps {
   avatarState: UseTalkingAvatarReturn;
@@ -29,7 +31,8 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
 
   const [localScriptText, setLocalScriptText] = useState(state.scriptText);
   const [selectedTemplate, setSelectedTemplate] = useState<AvatarTemplate | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [selectedVoice, setSelectedVoice] = useState<string>('alloy');
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
   const [customImage, setCustomImage] = useState<File | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -197,10 +200,10 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
                 {state.avatarTemplates.map((template: AvatarTemplate) => (
                   <Card
                     key={template.id}
-                    className={`p-2 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] bg-white dark:bg-gray-800/40 ${
+                    className={`p-2 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
                       selectedTemplate?.id === template.id 
-                        ? 'ring-2 ring-blue-500 bg-blue-100/10 shadow-lg scale-[1.02]' 
-                        : 'hover:bg-muted/50'
+                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/50 shadow-lg scale-[1.02]' 
+                        : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={async () => {
                       setSelectedTemplate(template);
@@ -300,56 +303,29 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
             <div className="space-y-2">
               <Label>Voice Selection</Label>
               <div className="grid grid-cols-1 gap-2">
-                {[
-                  { 
-                    id: 'alloy', 
-                    name: 'Alloy', 
-                    description: 'Natural female voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_01.mp3'
-                  },
-                  { 
-                    id: 'nova', 
-                    name: 'Nova', 
-                    description: 'Warm female voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_2.mp3'
-                  },
-                  { 
-                    id: 'shimmer', 
-                    name: 'Shimmer', 
-                    description: 'Bright female voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/female_3.mp3'
-                  },
-                  { 
-                    id: 'echo', 
-                    name: 'Echo', 
-                    description: 'Deep male voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_1.mp3'
-                  },
-                  { 
-                    id: 'onyx', 
-                    name: 'Onyx', 
-                    description: 'Professional male voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/male_2.mp3'
-                  },
-                  { 
-                    id: 'fable', 
-                    name: 'Fable', 
-                    description: 'Neutral storytelling voice',
-                    sampleUrl: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/neutral_1.mp3'
-                  }
-                ].map((voice) => (
+                {OPENAI_VOICE_OPTIONS.map((voice) => (
                   <Card
                     key={voice.id}
-                    className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md bg-white dark:bg-gray-800/40 ${
+                    className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
                       selectedVoice === voice.id 
-                        ? 'ring-2 ring-purple-500 bg-blue-100/10 shadow-lg' 
-                        : 'hover:bg-muted/50'
+                        ? 'ring-2 ring-purple-500 bg-blue-50 dark:bg-blue-950/50 shadow-lg' 
+                        : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={() => setSelectedVoice(voice.id)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{voice.name}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium">{voice.name}</p>
+                          <Badge variant="outline" className="text-xs">
+                            {voice.gender}
+                          </Badge>
+                          {voice.isNew && (
+                            <Badge variant="default" className="text-xs bg-blue-500">
+                              New
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{voice.description}</p>
                       </div>
                       <Button
@@ -358,7 +334,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
                         className="shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleVoicePlayback(voice.id, voice.sampleUrl);
+                          handleVoicePlayback(voice.id, voice.preview_url);
                         }}
                       >
                         {playingVoiceId === voice.id ? (
@@ -370,6 +346,36 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
                     </div>
                   </Card>
                 ))}
+              </div>
+            </div>
+
+            {/* Voice Settings */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Voice Settings</Label>
+              
+              <div className="grid grid-cols-1 gap-4">
+                {/* Speed Control */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Speed: {voiceSettings.speed}x</Label>
+                  <input
+                    type="range"
+                    min={0.25}
+                    max={4.0}
+                    step={0.25}
+                    value={voiceSettings.speed}
+                    onChange={(e) => {
+                      const speed = parseFloat(e.target.value);
+                      setVoiceSettings(prev => ({ ...prev, speed }));
+                    }}
+                    disabled={state.isGenerating}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0.25x</span>
+                    <span>Normal</span>
+                    <span>4.0x</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -447,7 +453,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
 
             {/* Voice Preview in Step 3 */}
             {state.voiceAudioUrl && (
-              <Card className="p-4 bg-white dark:bg-gray-800/40">
+              <Card className="p-4">
                 <h3 className="font-semibold mb-3">Generated Voice</h3>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -479,7 +485,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
               </Card>
             )}
 
-            <Card className="p-4 bg-white dark:bg-gray-800/40">
+            <Card className="p-4">
               <h3 className="font-semibold mb-3">Generation Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -504,7 +510,7 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
             </Card>
 
             {state.generatedVideo && (
-              <Card className="p-4 bg-white dark:bg-gray-800/40">
+              <Card className="p-4">
                 <h3 className="font-semibold mb-2">Video Generated!</h3>
                 <p className="text-sm text-muted-foreground">
                   Your talking avatar video has been submitted for processing. 
