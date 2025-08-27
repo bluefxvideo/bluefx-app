@@ -115,7 +115,39 @@ export function ScriptToVideoOutput({
             >
               <Edit3 className="w-4 h-4" />
             </Button>
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              onClick={async () => {
+                if (!result.video_url) return;
+                
+                try {
+                  // Fetch the video blob
+                  const response = await fetch(result.video_url);
+                  
+                  if (!response.ok) {
+                    throw new Error(`Failed to fetch video: ${response.status}`);
+                  }
+                  
+                  const blob = await response.blob();
+                  
+                  // Create blob URL and download
+                  const blobUrl = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = blobUrl;
+                  a.download = `script-video-${result.video_id || Date.now()}.mp4`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  
+                  // Clean up blob URL
+                  URL.revokeObjectURL(blobUrl);
+                } catch (error) {
+                  console.error('Download failed:', error);
+                  // Fallback to opening in new tab
+                  window.open(result.video_url, '_blank');
+                }
+              }}
+            >
               <Download className="w-4 h-4" />
             </Button>
             <Button variant="outline">

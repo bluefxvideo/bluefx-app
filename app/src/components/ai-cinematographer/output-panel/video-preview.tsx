@@ -22,12 +22,34 @@ interface VideoPreviewProps {
  * Video preview component with playback controls
  */
 export function VideoPreview({ video, batchId }: VideoPreviewProps) {
-  const handleDownload = () => {
-    if (video.video_url) {
+  const handleDownload = async () => {
+    if (!video.video_url) return;
+    
+    try {
+      // Fetch the video blob
+      const response = await fetch(video.video_url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch video: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Create blob URL and download
+      const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = video.video_url;
-      a.download = `cinematographer-${batchId}.mp4`;
+      a.href = blobUrl;
+      a.download = `cinematographer-${batchId}-${Date.now()}.mp4`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+      
+      // Clean up blob URL
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback to opening in new tab
+      window.open(video.video_url, '_blank');
     }
   };
 

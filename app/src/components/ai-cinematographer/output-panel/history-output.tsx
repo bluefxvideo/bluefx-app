@@ -319,12 +319,37 @@ export function HistoryOutput({
                           variant="ghost" 
                           size="sm" 
                           className="h-6 px-2 justify-start"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            const a = document.createElement('a');
-                            a.href = video.final_video_url!;
-                            a.download = `cinematographer-${video.id}.mp4`;
-                            a.click();
+                            
+                            if (!video.final_video_url) return;
+                            
+                            try {
+                              // Fetch the video blob
+                              const response = await fetch(video.final_video_url);
+                              
+                              if (!response.ok) {
+                                throw new Error(`Failed to fetch video: ${response.status}`);
+                              }
+                              
+                              const blob = await response.blob();
+                              
+                              // Create blob URL and download
+                              const blobUrl = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = blobUrl;
+                              a.download = `cinematographer-${video.id}-${Date.now()}.mp4`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              
+                              // Clean up blob URL
+                              URL.revokeObjectURL(blobUrl);
+                            } catch (error) {
+                              console.error('Download failed:', error);
+                              // Fallback to opening in new tab
+                              window.open(video.final_video_url, '_blank');
+                            }
                           }}
                         >
                           <Download className="w-3 h-3 mr-1" />

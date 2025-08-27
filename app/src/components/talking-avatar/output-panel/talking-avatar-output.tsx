@@ -80,12 +80,34 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
   
   // Show completed video first if available (must have actual video URL, not empty placeholder)
   if (state.generatedVideo && state.generatedVideo.video_url && state.generatedVideo.video_url.trim() && !state.isGenerating && !state.isPolling) {
-    const handleDownload = () => {
-      if (state.generatedVideo) {
+    const handleDownload = async () => {
+      if (!state.generatedVideo?.video_url) return;
+      
+      try {
+        // Fetch the video blob
+        const response = await fetch(state.generatedVideo.video_url);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch video: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        
+        // Create blob URL and download
+        const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = state.generatedVideo.video_url;
+        a.href = blobUrl;
         a.download = `talking-avatar-${state.generatedVideo.id || Date.now()}.mp4`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+        
+        // Clean up blob URL
+        URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        console.error('Download failed:', error);
+        // Fallback to opening in new tab
+        window.open(state.generatedVideo.video_url, '_blank');
       }
     };
 
