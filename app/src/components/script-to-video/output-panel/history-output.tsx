@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,8 @@ export function HistoryOutput() {
   const [videos, setVideos] = useState<ScriptVideoHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [hoveredVideo, setHoveredVideo] = useState<string | null>(null);
+  const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
   const supabase = createClient();
 
   // Fetch video history
@@ -96,6 +98,26 @@ export function HistoryOutput() {
     }
   };
 
+  // Video hover handlers
+  const handleVideoHover = async (videoId: string, shouldPlay: boolean) => {
+    const videoElement = videoRefs.current[videoId];
+    if (!videoElement) return;
+
+    if (shouldPlay) {
+      setHoveredVideo(videoId);
+      try {
+        videoElement.currentTime = 0;
+        await videoElement.play();
+      } catch (error) {
+        // Video autoplay prevented - silent failure
+      }
+    } else {
+      setHoveredVideo(null);
+      videoElement.pause();
+      videoElement.currentTime = 0;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -158,19 +180,22 @@ export function HistoryOutput() {
               onClick={() => setSelectedVideo(selectedVideo === video.id ? null : video.id)}
             >
               {/* Video Preview */}
-              <div className="aspect-video bg-muted rounded overflow-hidden">
+              <div 
+                className="aspect-video bg-muted rounded overflow-hidden relative group"
+                onMouseEnter={() => video.video_url && handleVideoHover(video.id, true)}
+                onMouseLeave={() => video.video_url && handleVideoHover(video.id, false)}
+              >
                 {video.video_url ? (
-                  <div className="relative w-full h-full group">
-                    <video
-                      src={video.video_url}
-                      className="w-full h-full object-cover"
-                      poster={video.video_url}
-                      muted
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Play className="w-12 h-12 text-white" />
-                    </div>
-                  </div>
+                  <video
+                    ref={(el) => videoRefs.current[video.id] = el}
+                    src={video.video_url}
+                    className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                    poster={video.video_url}
+                    preload="metadata"
+                    controls={hoveredVideo === video.id}
+                    muted
+                    loop
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Video className="w-8 h-8 text-muted-foreground" />

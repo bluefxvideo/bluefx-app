@@ -262,7 +262,7 @@ export function HistoryOutput({
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                       poster={video.preview_urls?.[0] || undefined}
                       preload="metadata"
-                      controls={false}
+                      controls={hoveredVideo === video.id}
                       muted
                       loop
                     />

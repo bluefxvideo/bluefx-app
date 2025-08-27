@@ -248,7 +248,7 @@ export function HistoryOutput({
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                       poster={video.thumbnail_url || undefined}
                       preload="metadata"
-                      controls={false}
+                      controls={hoveredVideo === video.id}
                       loop
                       muted={isMuted}
                     />
