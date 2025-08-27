@@ -1,40 +1,47 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { Wand2, Sparkles } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 
 /**
  * Empty state when no results are available
+ * Shows a single logo placeholder example
  */
 export function EmptyState() {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto">
-          <Wand2 className="w-8 h-8 text-white" />
+    <div className="flex-1 flex items-center justify-center p-8">
+      <div className="space-y-6 text-center max-w-2xl w-full">
+        {/* Single Logo Placeholder */}
+        <div className="relative aspect-square rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 p-8 flex items-center justify-center max-w-md mx-auto">
+          <div className="relative w-full h-full">
+            <Image
+              src="https://trjkxgkbkyzthrgkbwfe.supabase.co/storage/v1/object/public/images/placeholders/placeholder-logo-1.png"
+              alt="Logo example"
+              width={400}
+              height={400}
+              className="w-full h-full object-contain"
+            />
+          </div>
+          {/* Badge in Top Right */}
+          <div className="absolute top-3 right-3">
+            <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 shadow-lg">
+              <span className="text-xs font-bold">Example</span>
+            </Badge>
+          </div>
         </div>
         
-        <div>
-          <h3 className="font-medium mb-2 flex items-center justify-center gap-2">
-            Ready to Create Magic
-            <Sparkles className="w-4 h-4 text-yellow-500" />
-          </h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Enter a detailed prompt and customize your settings to generate amazing YouTube thumbnails powered by AI.
+        <div className="space-y-2">
+          <h3 className="text-lg font-medium">Generate Professional Logos</h3>
+          <p className="text-sm text-muted-foreground">
+            Create stunning logo designs powered by AI. Enter your company name and describe your ideal logo.
           </p>
         </div>
 
-        <div className="space-y-2 pt-2">
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p className="font-medium">💡 Pro Tips:</p>
-            <ul className="text-left space-y-1">
-              <li>• Be specific about emotions and colors</li>
-              <li>• Mention style preferences</li>
-              <li>• Include lighting and composition details</li>
-            </ul>
-          </div>
-        </div>
-      </Card>
+        {/* Sample Prompt Text */}
+        <p className="text-xs text-zinc-500">
+          Sample: "Modern tech startup logo, clean minimalist design with blue gradient"
+        </p>
+      </div>
     </div>
   );
 }

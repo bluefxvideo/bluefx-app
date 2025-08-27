@@ -42,14 +42,14 @@ const thumbnailData = [
     title: "Epic Boss Battle Victory",
     description: "Dramatic action with bold typography",
     prompt: "Epic gaming moment with shocked expression, bright colors, dramatic lighting",
-    src: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&h=450&fit=crop&crop=entropy&auto=format",
+    src: "https://trjkxgkbkyzthrgkbwfe.supabase.co/storage/v1/object/public/images/placeholders/placeholder-thumbnail-gaming-1.jpg",
   },
   {
     category: "Tech Review", 
     title: "iPhone 15 Pro Max Review",
     description: "Clean product showcase",
     prompt: "Professional tech review thumbnail with latest iPhone, clean minimal design",
-    src: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&h=450&fit=crop&crop=entropy&auto=format",
+    src: "https://trjkxgkbkyzthrgkbwfe.supabase.co/storage/v1/object/public/images/placeholders/placeholder-thumbnail-tech-1.jpg",
   },
   {
     category: "Lifestyle",
@@ -63,6 +63,6 @@ const thumbnailData = [
     title: "How to Code Like a Pro",
     description: "Clear step-by-step visuals",
     prompt: "Coding tutorial with laptop screen, professional developer workspace",
-    src: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=450&fit=crop&crop=entropy&auto=format",
+    src: "https://trjkxgkbkyzthrgkbwfe.supabase.co/storage/v1/object/public/images/placeholders/placeholder-thumbnail-tutorial-1.jpg",
   }
 ];
