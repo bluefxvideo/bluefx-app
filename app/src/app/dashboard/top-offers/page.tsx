@@ -1,19 +1,17 @@
 'use client';
 
-import { DollarSign, TrendingUp, ExternalLink, Award, Percent, Users, ArrowUp, BarChart3 } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, ExternalLink, ArrowUp, ArrowDown, RefreshCw, Search, Info, BarChart3, Filter } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { StandardToolPage } from '@/components/tools/standard-tool-page';
-import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
-import { TabContentWrapper, TabHeader, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
-import { LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip, CartesianGrid } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { getTopOffers, searchOffers, getOfferCategories } from '@/actions/research/top-offers';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface ClickBankOffer {
   id: string;
@@ -49,52 +47,58 @@ export default function TopOffersPage() {
   const [offers, setOffers] = useState<ClickBankOffer[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [filterType, setFilterType] = useState<string>('All Offers');
   const [sortBy, setSortBy] = useState<string>('gravity_score');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [totalCount, setTotalCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const [chartTimeframe, setChartTimeframe] = useState<'current' | 'weekly' | 'monthly'>('current');
-  const PAGE_SIZE = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(15);
+  const [selectedOffer, setSelectedOffer] = useState<ClickBankOffer | null>(null);
+  const [offerHistory, setOfferHistory] = useState<any>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const loadOffers = useCallback(async (reset = true) => {
-    if (reset) {
-      setIsLoading(true);
-      setCurrentPage(0);
-      setOffers([]);
-    } else {
-      setIsLoadingMore(true);
-    }
+  const loadOffers = useCallback(async (forceRefresh = false) => {
+    setIsLoading(true);
     
     try {
-      const page = reset ? 0 : currentPage + 1;
+      const offset = (currentPage - 1) * pageSize;
       const result = await getTopOffers({
-        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        category: selectedCategory === 'All' ? undefined : selectedCategory,
         sort_by: sortBy as 'gravity_score' | 'commission_rate' | 'average_dollar_per_sale',
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE
+        limit: pageSize,
+        offset: offset
       });
       
       if (result.success) {
-        const newOffers = result.data || [];
+        let filteredOffers = result.data || [];
+        
+        // Apply filter type
+        switch (filterType) {
+          case 'High Gravity':
+            filteredOffers = filteredOffers.filter(o => o.gravity_score >= 100);
+            break;
+          case 'High Converting':
+            filteredOffers = filteredOffers.filter(o => (o.commission_rate || 0) >= 0.5);
+            break;
+          case 'Recurring Revenue':
+            filteredOffers = filteredOffers.filter(o => o.has_recurring_products);
+            break;
+          case 'Trending Up':
+            filteredOffers = filteredOffers.filter(o => 
+              o.clickbank_history?.[0]?.gravity_change && o.clickbank_history[0].gravity_change > 0
+            );
+            break;
+          case 'Trending Down':
+            filteredOffers = filteredOffers.filter(o => 
+              o.clickbank_history?.[0]?.gravity_change && o.clickbank_history[0].gravity_change < 0
+            );
+            break;
+        }
+        
+        setOffers(filteredOffers);
         setTotalCount(result.total_count || 0);
-        
-        if (reset) {
-          setOffers(newOffers);
-        } else {
-          setOffers(prev => [...prev, ...newOffers]);
-        }
-        
-        setCurrentPage(page);
-        setHasMore(newOffers.length === PAGE_SIZE && ((page + 1) * PAGE_SIZE) < (result.total_count || 0));
-        
-        // Show scroll-to-top after first batch is loaded
-        if (!reset && page > 0) {
-          setShowScrollTop(true);
-        }
       } else {
         toast.error(result.error || 'Failed to load offers');
       }
@@ -102,46 +106,33 @@ export default function TopOffersPage() {
       toast.error('Failed to load top offers');
     } finally {
       setIsLoading(false);
-      setIsLoadingMore(false);
     }
-  }, [selectedCategory, sortBy, currentPage]);
-
-  useEffect(() => {
-    loadOffers(true);
-    loadCategories();
-  }, [selectedCategory, sortBy, loadOffers]);
-
-  // Infinite scroll effect
-  useEffect(() => {
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (target.scrollTop + target.clientHeight >= target.scrollHeight - 100) {
-        if (!isLoadingMore && hasMore) {
-          loadOffers(false);
-        }
-      }
-    };
-
-    const scrollContainer = document.querySelector('.offers-scroll-container');
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
-      return () => scrollContainer.removeEventListener('scroll', handleScroll);
-    }
-  }, [isLoadingMore, hasMore, loadOffers]);
+  }, [selectedCategory, sortBy, currentPage, pageSize, filterType]);
 
   const loadCategories = async () => {
     try {
       const result = await getOfferCategories();
       if (result.success) {
-        setCategories(result.data || []);
+        setCategories(['All', ...(result.data || [])]);
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
     }
   };
 
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    loadOffers();
+  }, [currentPage, pageSize, sortBy, sortDirection, filterType, loadOffers]);
+
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim()) {
+      loadOffers(true);
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -149,7 +140,8 @@ export default function TopOffersPage() {
       
       if (result.success) {
         setOffers(result.data || []);
-        toast.success(`Found ${result.data?.length || 0} offers`);
+        setTotalCount(result.data?.length || 0);
+        setCurrentPage(1);
       } else {
         toast.error(result.error || 'Search failed');
       }
@@ -160,18 +152,33 @@ export default function TopOffersPage() {
     }
   };
 
-  const getGravityColor = (score: number) => {
-    if (score >= 100) return 'bg-red-500';
-    if (score >= 50) return 'bg-orange-500';
-    if (score >= 20) return 'bg-yellow-500';
-    return 'bg-green-500';
+  const handleSortChange = (newSortBy: string) => {
+    if (sortBy === newSortBy) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(newSortBy);
+      setSortDirection('desc');
+    }
+    setCurrentPage(1);
   };
 
-  const getGravityLabel = (score: number) => {
-    if (score >= 100) return 'Hot';
-    if (score >= 50) return 'Popular';
-    if (score >= 20) return 'Active';
-    return 'New';
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSelectedCategory('All');
+    setFilterType('All Offers');
+    setSortBy('gravity_score');
+    setSortDirection('desc');
+    setCurrentPage(1);
+  };
+
+  const handleOfferSelect = (offer: ClickBankOffer) => {
+    setSelectedOffer(offer);
+    // Load offer history if needed
+  };
+
+  const closeOfferDetail = () => {
+    setSelectedOffer(null);
+    setOfferHistory(null);
   };
 
   const formatCurrency = (amount: number | null) => {
@@ -184,672 +191,595 @@ export default function TopOffersPage() {
     return `${(rate * 100).toFixed(0)}%`;
   };
 
-  const getChartData = (offer: ClickBankOffer, timeframe: 'current' | 'weekly' | 'monthly') => {
-    const hist = offer.clickbank_history?.[0];
-    if (!hist) return { data: [], stats: null };
-
-    // Use real daily data if available
-    if (hist.daily_data) {
-      try {
-        let dailyData = hist.daily_data;
-        while (typeof dailyData === 'string') {
-          dailyData = JSON.parse(dailyData);
-        }
-        
-        if (Array.isArray(dailyData) && dailyData.length > 0) {
-          const allData = dailyData
-            .filter(point => point.gravity_score && point.recorded_at)
-            .sort((a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
-          
-          let selectedData = [];
-          
-          if (timeframe === 'current') {
-            // Last 7 days (not 30)
-            selectedData = allData.slice(-7);
-            // Take 3 points: start, middle, end of last 7 days
-            if (selectedData.length >= 3) {
-              selectedData = [
-                selectedData[0],
-                selectedData[Math.floor(selectedData.length / 2)],
-                selectedData[selectedData.length - 1]
-              ];
-            }
-          } else if (timeframe === 'weekly') {
-            // Group by weeks, take 4 points over last 4 weeks
-            const weeksToShow = 4;
-            const dataPerWeek = Math.floor(allData.length / weeksToShow);
-            
-            for (let i = 0; i < weeksToShow; i++) {
-              const weekIndex = i * dataPerWeek;
-              if (weekIndex < allData.length) {
-                selectedData.push(allData[weekIndex]);
-              }
-            }
-          } else {
-            // Monthly: 3 points over 3 months
-            const monthsToShow = 3;
-            const dataPerMonth = Math.floor(allData.length / monthsToShow);
-            
-            for (let i = 0; i < monthsToShow; i++) {
-              const monthIndex = i * dataPerMonth;
-              if (monthIndex < allData.length) {
-                selectedData.push(allData[monthIndex]);
-              }
-            }
-          }
-          
-          if (selectedData.length > 0) {
-            const chartData = selectedData.map(point => ({ value: point.gravity_score, date: point.recorded_at }));
-            
-            // Calculate stats for this timeframe
-            const values = selectedData.map(p => p.gravity_score);
-            const maxValue = Math.max(...values);
-            const minValue = Math.min(...values);
-            const firstValue = values[0];
-            const lastValue = values[values.length - 1];
-            const change = lastValue - firstValue;
-            
-            return {
-              data: chartData,
-              stats: {
-                dataPoints: selectedData.length,
-                maxGravity: maxValue,
-                minGravity: minValue,
-                gravityChange: change,
-                isPositive: change >= 0
-              }
-            };
-          }
-        }
-      } catch {
-        // Silent fallback
-      }
+  const getTrendIndicator = (change?: number) => {
+    if (!change && change !== 0) return null;
+    
+    if (change > 0) {
+      return (
+        <span className="flex items-center text-green-600">
+          <TrendingUp className="h-4 w-4 mr-1" />
+          <span>+{change.toFixed(1)}</span>
+        </span>
+      );
+    } else if (change < 0) {
+      return (
+        <span className="flex items-center text-red-600">
+          <TrendingDown className="h-4 w-4 mr-1" />
+          <span>{change.toFixed(1)}</span>
+        </span>
+      );
+    } else {
+      return (
+        <span className="flex items-center text-gray-600">
+          <span>No change</span>
+        </span>
+      );
     }
-    
-    // Fallback to interpolated data
-    const gravityChange = hist.gravity_change || 0;
-    const minGrav = hist.min_gravity || offer.gravity_score;
-    const maxGrav = hist.max_gravity || offer.gravity_score;
-    
-    const points = [];
-    const numPoints = timeframe === 'current' ? 3 : timeframe === 'weekly' ? 4 : 3;
-    
-    for (let i = 0; i < numPoints; i++) {
-      const progress = i / (numPoints - 1);
-      const baseValue = gravityChange > 0 
-        ? minGrav + (maxGrav - minGrav) * progress
-        : gravityChange < -10 
-          ? maxGrav - (maxGrav - minGrav) * progress
-          : offer.gravity_score;
-      
-      const variation = (Math.sin(i * 0.5) + Math.cos(i * 0.3)) * baseValue * 0.02;
-      points.push({ value: Math.max(0, baseValue + variation), date: `Point ${i + 1}` });
-    }
-    
-    return {
-      data: points,
-      stats: {
-        dataPoints: hist.data_points,
-        maxGravity: hist.max_gravity,
-        minGravity: hist.min_gravity,
-        gravityChange: gravityChange,
-        isPositive: gravityChange >= 0
-      }
-    };
   };
 
+  const totalPages = Math.ceil(totalCount / pageSize);
+
   return (
-    <>
-      <StandardToolPage
-        icon={DollarSign}
-        title="Top Offers"
-        description="Find high-converting ClickBank affiliate offers"
-        iconGradient="bg-gradient-to-r from-blue-500 to-cyan-500"
-      >
-        <StandardToolLayout>
-          {/* Left Panel - Search & Filters */}
-          <TabContentWrapper>
-            <TabHeader
-              icon={DollarSign}
-              title="Offer Research"
-              description="Search and filter affiliate offers"
-            />
-            
-            <TabBody>
-              {/* Search Input */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Search Offers</label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      placeholder="Search offers..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <Button 
-                  onClick={handleSearch} 
-                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                >
-                  <DollarSign className="w-4 h-4 mr-2" />
-                  Search Offers
-                </Button>
-              </div>
+    <div className="p-6 h-screen flex flex-col bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-2">
+          <DollarSign className="text-blue-500 h-6 w-6 flex-shrink-0" />
+          <h1 className="text-2xl md:text-3xl font-bold">Top Offers</h1>
+        </div>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Find the best affiliate offers and promotions in your niche
+        </p>
+      </div>
 
-              {/* Filters */}
-              <div className="space-y-4">
-                <h3 className="font-medium">Filters</h3>
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-2 block">Category</label>
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {categories.map(category => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-2 block">Sort By</label>
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sort by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gravity_score">Gravity Score</SelectItem>
-                        <SelectItem value="commission_rate">Commission Rate</SelectItem>
-                        <SelectItem value="average_dollar_per_sale">Average Sale</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+      {/* Search and Filter Section */}
+      <Card className="p-6 mb-6">
+        <div className="space-y-4">
+          {/* Search Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Search by product name or description..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
               </div>
-
-              {/* Performance Insights */}
-              <div className="space-y-4">
-                <h3 className="font-medium">Performance</h3>
-                <div className="space-y-3">
-                  <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/50">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <div>
-                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">High Performers</p>
-                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                          {offers.filter(o => o.gravity_score >= 50).length}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-3 bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-800/50">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                      <div>
-                        <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">Recurring</p>
-                        <p className="text-lg font-bold text-cyan-600 dark:text-cyan-400">
-                          {offers.filter(o => o.has_recurring_products).length}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="space-y-4">
-                <h3 className="font-medium">Quick Stats</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Card className="p-3 bg-secondary/30 border-border/50">
-                    <div className="flex items-center gap-2">
-                      <Award className="w-4 h-4 text-blue-500" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Total</p>
-                        <p className="text-lg font-bold">{totalCount.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-3 bg-secondary/30 border-border/50">
-                    <div className="flex items-center gap-2">
-                      <Percent className="w-4 h-4 text-cyan-500" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Avg Com</p>
-                        <p className="text-lg font-bold">
-                          {offers.length > 0 ? 
-                            Math.round((offers.reduce((sum, o) => sum + (o.commission_rate || 0), 0) / offers.length) * 100) : 0}%
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-            </TabBody>
-
-            <TabFooter>
-              <Button 
-                onClick={() => loadOffers(true)} 
-                className="w-full"
-                variant="outline"
-              >
-                Refresh Offers
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSearch} className="flex-1">
+                <Search className="w-4 h-4 mr-2" />
+                Search
               </Button>
-            </TabFooter>
-          </TabContentWrapper>
-          
-          {/* Right Panel - Results */}
-          <div className="h-full overflow-y-auto scrollbar-hover offers-scroll-container">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-yellow-500" />
-                <h2 className="text-lg font-semibold">ClickBank Offers</h2>
-                <Badge variant="outline">{totalCount.toLocaleString()} total • {offers.length} loaded</Badge>
-              </div>
-              
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[...Array(8)].map((_, i) => (
-                    <Card key={i} className="p-4 animate-pulse">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
-                      <div className="flex gap-2">
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              ) : offers.length === 0 ? (
-                <div className="text-center py-12">
-                  <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Offers Found</h3>
-                  <p className="text-muted-foreground">
-                    Search for offers to discover top products
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {offers.map((offer) => (
-                    <Card key={offer.id} className="p-4 hover:shadow-md transition-shadow">
-                      <div className="space-y-3">
-                        {/* Header */}
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-semibold text-sm line-clamp-2">
-                              {offer.title}
-                            </h3>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              by {offer.vendor_name}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge 
-                              className={`${getGravityColor(offer.gravity_score)} text-white text-xs`}
-                            >
-                              {getGravityLabel(offer.gravity_score)}
-                            </Badge>
-                          </div>
-                        </div>
-                        
-                        {/* Description */}
-                        {offer.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {offer.description}
-                          </p>
-                        )}
-                        
-                        {/* Metrics Grid + Chart Section */}
-                        <div className="flex gap-4">
-                          {/* Metrics Grid - 70% */}
-                          <div className="flex-[0.7]">
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div>
-                                <span className="text-muted-foreground">Gravity:</span>
-                                <span className="font-medium ml-2">
-                                  {offer.gravity_score.toFixed(1)}
-                                </span>
-                              </div>
-                              
-                              <div>
-                                <span className="text-muted-foreground">Commission:</span>
-                                <span className="font-medium ml-2">
-                                  {formatPercentage(offer.commission_rate)}
-                                </span>
-                              </div>
-                              
-                              <div>
-                                <span className="text-muted-foreground">Avg Sale:</span>
-                                <span className="font-medium ml-2">
-                                  {formatCurrency(offer.average_dollar_per_sale)}
-                                </span>
-                              </div>
-                              
-                              <div>
-                                <span className="text-muted-foreground">Refund:</span>
-                                <span className="font-medium ml-2">
-                                  {formatPercentage(offer.refund_rate)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Trend Chart Card - 30% */}
-                          <div className="flex-[0.3]">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <div className="h-16 flex items-center cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-700/30 transition-colors relative group rounded-lg p-1">
-                                  {/* Hover chart icon */}
-                                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <BarChart3 className="w-3 h-3 text-muted-foreground" />
-                                  </div>
-                                  <div className="w-full h-20 mt-6">
-                                    {offer.clickbank_history?.[0] ? (
-                                      (() => {
-                                        const miniChartResult = getChartData(offer, 'current');
-                                        const isPositive = miniChartResult.stats?.isPositive ?? false;
-                                        
-                                        return (
-                                          <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={miniChartResult.data} style={{ cursor: 'pointer' }}>
-                                              <CartesianGrid 
-                                                strokeDasharray="0" 
-                                                stroke="#374151" 
-                                                strokeWidth={0.5}
-                                                vertical={true}
-                                                horizontal={false}
-                                              />
-                                              <XAxis 
-                                                axisLine={{ stroke: '#374151', strokeWidth: 0.5 }}
-                                                tickLine={false}
-                                                tick={false}
-                                              />
-                                              <YAxis 
-                                                domain={['dataMin', 'dataMax']} 
-                                                width={30}
-                                                tick={{ fontSize: 8, fill: '#9ca3af' }}
-                                                axisLine={{ stroke: '#374151', strokeWidth: 0.5 }}
-                                                tickLine={false}
-                                                tickCount={2}
-                                              />
-                                              <Tooltip 
-                                                content={({ active, payload }) => {
-                                                  if (active && payload && payload.length) {
-                                                    return (
-                                                      <div className="bg-black/80 text-white px-2 py-1 rounded text-xs font-medium">
-                                                        {payload[0].value?.toFixed(1)}
-                                                      </div>
-                                                    );
-                                                  }
-                                                  return null;
-                                                }}
-                                              />
-                                              <Line 
-                                                type="linear" 
-                                                dataKey="value" 
-                                                stroke={isPositive ? '#10b981' : '#ef4444'}
-                                                strokeWidth={2}
-                                                dot={{ fill: isPositive ? '#10b981' : '#ef4444', strokeWidth: 0, r: 3 }}
-                                                activeDot={false}
-                                                fill={isPositive ? '#10b981' : '#ef4444'}
-                                                fillOpacity={0.1}
-                                              />
-                                            </LineChart>
-                                          </ResponsiveContainer>
-                                        );
-                                      })()
-                                    ) : (
-                                      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-                                        No trend data
-                                      </div>
-                                    )}
-                                  </div>
-                                  
-                                </div>
-                              </DialogTrigger>
-                              
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader>
-                                  <DialogTitle className="flex items-center gap-2">
-                                    <BarChart3 className="w-5 h-5" />
-                                    {offer.title} - Gravity Trend Analysis
-                                  </DialogTitle>
-                                </DialogHeader>
-                                
-                                {/* Time Period Controls & Links */}
-                                <div className="flex items-center justify-between mb-4">
-                                  <div className="flex gap-2">
-                                  <Button
-                                    variant={chartTimeframe === 'current' ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setChartTimeframe('current')}
-                                  >
-                                    Current (7d)
-                                  </Button>
-                                  <Button
-                                    variant={chartTimeframe === 'weekly' ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setChartTimeframe('weekly')}
-                                  >
-                                    Weekly
-                                  </Button>
-                                    <Button
-                                      variant={chartTimeframe === 'monthly' ? 'default' : 'outline'}
-                                      size="sm"
-                                      onClick={() => setChartTimeframe('monthly')}
-                                    >
-                                      Monthly
-                                    </Button>
-                                  </div>
-                                  
-                                  <div className="flex gap-2">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => {
-                                        const affiliateUrl = `https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`;
-                                        navigator.clipboard.writeText(affiliateUrl);
-                                        toast.success('Affiliate link copied to clipboard!');
-                                      }}
-                                    >
-                                      Get Link
-                                    </Button>
-                                    {(offer.sales_page_url || offer.affiliate_page_url) && (
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                        onClick={() => {
-                                          const url = offer.sales_page_url || offer.affiliate_page_url;
-                                          if (url) {
-                                            window.open(url, '_blank', 'noopener,noreferrer');
-                                          }
-                                        }}
-                                      >
-                                        <ExternalLink className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                {/* Expanded Chart */}
-                                <div className="h-80 w-full">
-                                  {(() => {
-                                    const chartResult = getChartData(offer, chartTimeframe);
-                                    const isPositive = chartResult.stats?.isPositive ?? false;
-                                    
-                                    return (
-                                      <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={chartResult.data}>
-                                          <YAxis domain={['dataMin', 'dataMax']} />
-                                          <Line 
-                                            type="linear" 
-                                            dataKey="value" 
-                                            stroke={isPositive ? '#10b981' : '#ef4444'}
-                                            strokeWidth={3}
-                                            dot={{ fill: isPositive ? '#10b981' : '#ef4444', strokeWidth: 0, r: 4 }}
-                                            fill={isPositive ? '#10b981' : '#ef4444'}
-                                            fillOpacity={0.1}
-                                            label={{ 
-                                              fontSize: 12, 
-                                              fill: '#ffffff', 
-                                              offset: 15,
-                                              style: { 
-                                                textShadow: '0 0 4px rgba(0,0,0,0.9)',
-                                                fontWeight: '600'
-                                              }
-                                            }}
-                                          />
-                                        </LineChart>
-                                      </ResponsiveContainer>
-                                    );
-                                  })()}
-                                </div>
-                                
-                                {/* Chart Stats */}
-                                <div className="grid grid-cols-4 gap-4 pt-4 border-t">
-                                  {(() => {
-                                    const chartResult = getChartData(offer, chartTimeframe);
-                                    const stats = chartResult.stats;
-                                    
-                                    return (
-                                      <>
-                                        <div className="text-center">
-                                          <p className="text-sm text-muted-foreground">Data Points</p>
-                                          <p className="text-lg font-semibold">{stats?.dataPoints || 0}</p>
-                                        </div>
-                                        <div className="text-center">
-                                          <p className="text-sm text-muted-foreground">Max Gravity</p>
-                                          <p className="text-lg font-semibold">{stats?.maxGravity?.toFixed(1) || 'N/A'}</p>
-                                        </div>
-                                        <div className="text-center">
-                                          <p className="text-sm text-muted-foreground">Min Gravity</p>
-                                          <p className="text-lg font-semibold">{stats?.minGravity?.toFixed(1) || 'N/A'}</p>
-                                        </div>
-                                        <div className="text-center">
-                                          <p className="text-sm text-muted-foreground">Change</p>
-                                          <p className={`text-lg font-semibold ${stats?.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                            {stats?.isPositive ? '+' : ''}{stats?.gravityChange?.toFixed(1) || 'N/A'}
-                                          </p>
-                                        </div>
-                                      </>
-                                    );
-                                  })()}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </div>
-                        </div>
-                        
-                        {/* Features & Actions */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-wrap gap-1">
-                            {offer.has_recurring_products && (
-                              <Badge variant="secondary" className="text-xs">
-                                Recurring
-                              </Badge>
-                            )}
-                            {offer.mobile_optimized && (
-                              <Badge variant="secondary" className="text-xs">
-                                Mobile
-                              </Badge>
-                            )}
-                            <Badge variant="outline" className="text-xs">
-                              {offer.category}
-                            </Badge>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                const affiliateUrl = `https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`;
-                                navigator.clipboard.writeText(affiliateUrl);
-                                toast.success('Affiliate link copied to clipboard!');
-                              }}
-                            >
-                              Get Link
-                            </Button>
-                            {(offer.sales_page_url || offer.affiliate_page_url) && (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  const url = offer.sales_page_url || offer.affiliate_page_url;
-                                  if (url) {
-                                    window.open(url, '_blank', 'noopener,noreferrer');
-                                  }
-                                }}
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                  
-                  {/* Load More Section */}
-                  {hasMore && (
-                    <div className="flex justify-center pt-4">
-                      <Button 
-                        onClick={() => loadOffers(false)}
-                        disabled={isLoadingMore}
-                        variant="outline"
-                        className="w-full"
-                      >
-                        {isLoadingMore ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mr-2" />
-                            Loading more...
-                          </>
-                        ) : (
-                          <>
-                            <TrendingUp className="w-4 h-4 mr-2" />
-                            Load More Offers ({totalCount - offers.length} remaining)
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {!hasMore && offers.length > 0 && (
-                    <div className="text-center py-4 text-sm text-muted-foreground">
-                      ✨ All {totalCount.toLocaleString()} offers loaded
-                    </div>
-                  )}
-                </div>
-              )}
+              <Button onClick={handleClearSearch} variant="outline">
+                Clear
+              </Button>
             </div>
           </div>
-        </StandardToolLayout>
-      </StandardToolPage>
-      
-      {/* Floating Scroll to Top Button */}
-      {showScrollTop && (
-        <Button
-          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:scale-110 transition-all duration-300 shadow-lg z-50"
-          onClick={() => {
-            const scrollContainer = document.querySelector('.offers-scroll-container');
-            if (scrollContainer) {
-              scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-          }}
-        >
-          <ArrowUp className="w-5 h-5" />
-        </Button>
+
+          {/* Filter Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={(value) => { setSortBy(value); setCurrentPage(1); }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gravity_score">Gravity Score</SelectItem>
+                <SelectItem value="commission_rate">Commission Rate</SelectItem>
+                <SelectItem value="average_dollar_per_sale">Average Sale</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={pageSize.toString()} disabled>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="15">15 per page</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button onClick={() => loadOffers(true)} variant="outline" className="w-full">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+
+          {/* Quick Filters */}
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => { setFilterType('All Offers'); setCurrentPage(1); }}
+              variant={filterType === 'All Offers' ? 'default' : 'outline'}
+              size="sm"
+            >
+              All Offers
+            </Button>
+            <Button 
+              onClick={() => { setFilterType('High Gravity'); setCurrentPage(1); }}
+              variant={filterType === 'High Gravity' ? 'default' : 'outline'}
+              size="sm"
+            >
+              High Gravity
+            </Button>
+            <Button 
+              onClick={() => { setFilterType('Trending Up'); setCurrentPage(1); }}
+              variant={filterType === 'Trending Up' ? 'default' : 'outline'}
+              size="sm"
+            >
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Trending Up
+            </Button>
+            <Button 
+              onClick={() => { setFilterType('Trending Down'); setCurrentPage(1); }}
+              variant={filterType === 'Trending Down' ? 'default' : 'outline'}
+              size="sm"
+            >
+              <TrendingDown className="w-3 h-3 mr-1" />
+              Trending Down
+            </Button>
+            <Button 
+              onClick={() => { setFilterType('Recurring Revenue'); setCurrentPage(1); }}
+              variant={filterType === 'Recurring Revenue' ? 'default' : 'outline'}
+              size="sm"
+            >
+              Recurring
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Results Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xl font-bold">Results ({totalCount})</h2>
+        {filterType !== 'All Offers' && (
+          <Badge variant="secondary">Filtered: {filterType}</Badge>
+        )}
+      </div>
+
+      {/* Table View */}
+      <div className="flex-1 overflow-hidden">
+        <Card className="h-full flex flex-col">
+          {isLoading ? (
+            <div className="flex-1 flex justify-center items-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 overflow-auto">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted/50 sticky top-0">
+                    <tr>
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
+                        onClick={() => handleSortChange('title')}
+                      >
+                        <div className="flex items-center">
+                          Product
+                          {sortBy === 'title' && (
+                            sortDirection === 'asc' ? 
+                              <ArrowUp className="ml-1 h-4 w-4" /> : 
+                              <ArrowDown className="ml-1 h-4 w-4" />
+                          )}
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
+                        onClick={() => handleSortChange('gravity_score')}
+                      >
+                        <div className="flex items-center">
+                          Gravity
+                          {sortBy === 'gravity_score' && (
+                            sortDirection === 'asc' ? 
+                              <ArrowUp className="ml-1 h-4 w-4" /> : 
+                              <ArrowDown className="ml-1 h-4 w-4" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
+                        onClick={() => handleSortChange('commission_rate')}
+                      >
+                        <div className="flex items-center">
+                          Commission
+                          {sortBy === 'commission_rate' && (
+                            sortDirection === 'asc' ? 
+                              <ArrowUp className="ml-1 h-4 w-4" /> : 
+                              <ArrowDown className="ml-1 h-4 w-4" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
+                        onClick={() => handleSortChange('average_dollar_per_sale')}
+                      >
+                        <div className="flex items-center">
+                          Average $
+                          {sortBy === 'average_dollar_per_sale' && (
+                            sortDirection === 'asc' ? 
+                              <ArrowUp className="ml-1 h-4 w-4" /> : 
+                              <ArrowDown className="ml-1 h-4 w-4" />
+                          )}
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        Trend
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-card divide-y divide-border">
+                    {offers.map((offer) => (
+                      <tr 
+                        key={offer.id}
+                        className="hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => handleOfferSelect(offer)}
+                      >
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium line-clamp-1">
+                              {offer.title}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              by {offer.vendor_name}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <Badge variant="outline" className="text-xs">
+                            {offer.category}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium">
+                            {offer.gravity_score?.toFixed(1) || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm">
+                            {formatPercentage(offer.commission_rate)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-green-600">
+                            {formatCurrency(offer.average_dollar_per_sale)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {offer.clickbank_history?.[0] ? (
+                            <div className="w-24 h-8">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={[
+                                  { value: offer.clickbank_history[0].min_gravity || 0 },
+                                  { value: offer.gravity_score || 0 }
+                                ]}>
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="value" 
+                                    stroke={offer.clickbank_history[0].gravity_change >= 0 ? '#10b981' : '#ef4444'}
+                                    strokeWidth={2}
+                                    dot={false}
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No data</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
+                          <div className="flex items-center justify-end space-x-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const url = offer.affiliate_page_url || offer.sales_page_url;
+                                if (url) window.open(url, '_blank');
+                              }}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(`https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`);
+                                toast.success('Link copied!');
+                              }}
+                            >
+                              Copy
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOfferSelect(offer);
+                              }}
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="border-t p-4 flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      </div>
+
+      {/* Offer Detail Modal */}
+      {selectedOffer && (
+        <Dialog open={!!selectedOffer} onOpenChange={() => closeOfferDetail()}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{selectedOffer.title}</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <Badge>{selectedOffer.category}</Badge>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = selectedOffer.affiliate_page_url || selectedOffer.sales_page_url;
+                        if (url) window.open(url, '_blank');
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Visit Page
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://hop.clickbank.net/?affiliate=${selectedOffer.clickbank_id}`);
+                        toast.success('Link copied!');
+                      }}
+                    >
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+                
+                {selectedOffer.description && (
+                  <p className="text-muted-foreground mb-4">
+                    {selectedOffer.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Performance Metrics */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Gravity Score</div>
+                    <div className="text-2xl font-bold">
+                      {selectedOffer.gravity_score?.toFixed(1) || 'N/A'}
+                    </div>
+                  </Card>
+                  
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Commission</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatPercentage(selectedOffer.commission_rate)}
+                    </div>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Avg Sale</div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {formatCurrency(selectedOffer.average_dollar_per_sale)}
+                    </div>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Refund Rate</div>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {formatPercentage(selectedOffer.refund_rate)}
+                    </div>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Trend Data with Chart */}
+              {selectedOffer.clickbank_history?.[0] && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Gravity Score History</h3>
+                  
+                  {/* Main Chart */}
+                  <Card className="p-4 mb-4">
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={(() => {
+                            const hist = selectedOffer.clickbank_history[0];
+                            // Try to use daily data if available
+                            if (hist.daily_data) {
+                              try {
+                                let dailyData = hist.daily_data;
+                                while (typeof dailyData === 'string') {
+                                  dailyData = JSON.parse(dailyData);
+                                }
+                                
+                                if (Array.isArray(dailyData) && dailyData.length > 0) {
+                                  return dailyData
+                                    .filter((point: any) => point.gravity_score && point.recorded_at)
+                                    .map((point: any) => ({
+                                      date: format(new Date(point.recorded_at), 'MMM d'),
+                                      gravity: point.gravity_score
+                                    }))
+                                    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                                }
+                              } catch {
+                                // Fall through to default data
+                              }
+                            }
+                            
+                            // Fallback to interpolated data
+                            const points = [];
+                            const numPoints = 7; // Show 7 data points
+                            const minGrav = hist.min_gravity || selectedOffer.gravity_score;
+                            const maxGrav = hist.max_gravity || selectedOffer.gravity_score;
+                            const gravityChange = hist.gravity_change || 0;
+                            
+                            for (let i = 0; i < numPoints; i++) {
+                              const progress = i / (numPoints - 1);
+                              const baseValue = gravityChange > 0 
+                                ? minGrav + (maxGrav - minGrav) * progress
+                                : gravityChange < 0
+                                  ? maxGrav - (maxGrav - minGrav) * progress
+                                  : selectedOffer.gravity_score;
+                              
+                              const daysAgo = numPoints - i - 1;
+                              const date = new Date();
+                              date.setDate(date.getDate() - daysAgo);
+                              
+                              points.push({
+                                date: format(date, 'MMM d'),
+                                gravity: Math.max(0, baseValue)
+                              });
+                            }
+                            
+                            return points;
+                          })()}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                          <XAxis 
+                            dataKey="date"
+                            stroke="#9ca3af"
+                            tick={{ fill: '#9ca3af', fontSize: 12 }}
+                          />
+                          <YAxis 
+                            stroke="#9ca3af"
+                            tick={{ fill: '#9ca3af', fontSize: 12 }}
+                            domain={['dataMin', 'dataMax']}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(0, 0, 0, 0.8)', 
+                              border: 'none',
+                              borderRadius: '8px',
+                              color: '#ffffff'
+                            }}
+                            formatter={(value: any) => [`${value?.toFixed(1)}`, 'Gravity']}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="gravity" 
+                            stroke="#3b82f6"
+                            strokeWidth={3}
+                            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
+
+                  {/* Statistics */}
+                  <Card className="p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Data Points</div>
+                        <div className="font-medium">{selectedOffer.clickbank_history[0].data_points}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Min Gravity</div>
+                        <div className="font-medium">{selectedOffer.clickbank_history[0].min_gravity?.toFixed(1)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Max Gravity</div>
+                        <div className="font-medium">{selectedOffer.clickbank_history[0].max_gravity?.toFixed(1)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Change</div>
+                        <div className="font-medium">
+                          {getTrendIndicator(selectedOffer.clickbank_history[0].gravity_change)}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {/* Features */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Features</h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedOffer.has_recurring_products && (
+                    <Badge variant="secondary">Recurring Revenue</Badge>
+                  )}
+                  {selectedOffer.mobile_optimized && (
+                    <Badge variant="secondary">Mobile Optimized</Badge>
+                  )}
+                  <Badge variant="outline">{selectedOffer.vendor_name}</Badge>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
-    </>
+    </div>
   );
 }
