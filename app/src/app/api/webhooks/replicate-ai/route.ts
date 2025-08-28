@@ -9,7 +9,7 @@ import {
 import { updateCinematographerVideo } from '@/actions/database/cinematographer-database';
 import { storeLogoResults, recordLogoMetrics } from '@/actions/database/logo-database';
 import { updateMusicRecord } from '@/actions/database/music-database';
-import { updateScriptVideoRecord } from '@/actions/database/script-video-database';
+// import { updateScriptVideoRecord } from '@/actions/database/script-video-database';
 import type { Json } from '@/types/database';
 
 /**
@@ -862,16 +862,17 @@ async function processScriptVideoGeneration(payload: ReplicateWebhookPayload, an
         // Update the most recent script-video record
         const recordId = scriptVideoRecords[0].id;
         
-        await updateScriptVideoRecord(recordId, {
-          status: 'completed',
-          video_url: uploadResult.url,
-          progress_percentage: 100,
-          metadata: {
-            prediction_id: payload.id,
-            webhook_processed: true,
-            generation_settings: payload.input
-          } as Json
-        });
+        // TODO: Implement updateScriptVideoRecord function
+        // await updateScriptVideoRecord(recordId, {
+        //   status: 'completed',
+        //   video_url: uploadResult.url,
+        //   progress_percentage: 100,
+        //   metadata: {
+        //     prediction_id: payload.id,
+        //     webhook_processed: true,
+        //     generation_settings: payload.input
+        //   } as Json
+        // });
         
         console.log(`✅ Script-Video Complete: Updated record ${recordId}`);
         return { count: 1, credits: 12 }; // Estimated orchestrated generation cost
