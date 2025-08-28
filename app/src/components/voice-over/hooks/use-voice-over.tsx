@@ -160,9 +160,6 @@ export function useVoiceOver() {
       // Quality multiplier
       if (state.quality === 'hd') baseCost *= 1.5;
       
-      // Format multiplier
-      if (state.exportFormat === 'wav') baseCost *= 1.2;
-      
       // Length multiplier
       if (wordCount > 500) {
         baseCost *= (1 + ((wordCount - 500) * 0.001));
@@ -175,7 +172,7 @@ export function useVoiceOver() {
       ...prev,
       estimatedCredits: calculateEstimatedCredits(),
     }));
-  }, [state.scriptText, state.quality, state.exportFormat]);
+  }, [state.scriptText, state.quality]);
 
   // Handle voice preview playback
   const handleVoicePlayback = useCallback((voiceId: string, sampleUrl: string) => {

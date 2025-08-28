@@ -211,8 +211,9 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
   }
   
   // If generating video or polling for completion, show placeholder card (EXACT AI cinematographer pattern)
+  // Show this for both initial generation AND resumed generation
   // But skip during the brief step 3 complete animation
-  if ((state.isGenerating || state.isPolling) && state.generatedVideo && !showStep3Complete) {
+  if ((state.isGenerating || state.isPolling || (state.isStateRestored && state.generatedVideo)) && state.generatedVideo && !showStep3Complete) {
     return (
       <div className="h-full flex flex-col relative overflow-hidden">
         {/* Solid subtle overlay for consistency with theme */}
@@ -226,7 +227,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <p className="text-sm text-blue-300 font-medium">
-                    Video generation resumed - your avatar was still processing in the background
+                    {state.isPolling && !state.isGenerating ? 'Video generation complete - preparing your avatar video' : 'Video generation resumed - your avatar was still processing in the background'}
                   </p>
                 </div>
               </Card>
@@ -351,7 +352,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
           
           <StepIndicator
             stepNumber={2}
-            title="Add Voice"
+            title={!!(state.selectedVoiceId && state.voiceAudioUrl) ? "Prepared Voice" : "Add Voice"}
             description="Enter script and select voice"
             icon={Mic}
             isCompleted={!!(state.selectedVoiceId && state.voiceAudioUrl)}

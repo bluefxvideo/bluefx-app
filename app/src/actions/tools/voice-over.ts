@@ -320,15 +320,10 @@ async function generateEnhancedVoiceAudio(
       inputText = `<speak>${scriptText}</speak>`;
     }
 
-    // Apply voice settings through SSML
-    if (settings.speed && settings.speed !== 1.0) {
-      inputText = `<prosody rate="${settings.speed}">${inputText}</prosody>`;
-    }
-    if (settings.pitch && settings.pitch !== 0) {
-      const pitchValue = settings.pitch > 0 ? `+${settings.pitch}st` : `${settings.pitch}st`;
-      inputText = `<prosody pitch="${pitchValue}">${inputText}</prosody>`;
-    }
-    if (settings.emphasis && settings.emphasis !== 'none') {
+    // Apply voice settings through SSML (only for supported parameters)
+    // Note: OpenAI TTS doesn't support pitch adjustment via SSML or API parameters
+    // Speed is handled directly in the API call, not via SSML
+    if (settings.emphasis && settings.emphasis !== 'none' && useSSML) {
       inputText = `<emphasis level="${settings.emphasis}">${inputText}</emphasis>`;
     }
 
@@ -339,10 +334,10 @@ async function generateEnhancedVoiceAudio(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: quality === 'hd' ? 'tts-1-hd' : 'gpt-4o-mini-tts',
+        model: quality === 'hd' ? 'tts-1-hd' : 'tts-1',
         input: inputText,
         voice: voiceId,
-        response_format: format,
+        response_format: 'mp3', // Always use MP3 for consistency
         speed: settings.speed || 1.0,
       }),
     });
@@ -358,8 +353,8 @@ async function generateEnhancedVoiceAudio(
     const uploadResult = await uploadImageToStorage(audioBlob, {
       bucket: 'audio',
       folder: 'voice-overs',
-      filename: `voice_over_${Date.now()}.${format}`,
-      contentType: format === 'mp3' ? 'audio/mpeg' : `audio/${format}`,
+      filename: `voice_over_${Date.now()}.mp3`,
+      contentType: 'audio/mpeg',
     });
 
     if (!uploadResult.success) {

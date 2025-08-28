@@ -54,7 +54,7 @@ export function SettingsTab({ voiceOverState }: SettingsTabProps) {
         <div className="space-y-4">
           <Label>Voice Parameters</Label>
           
-          {/* Speed */}
+          {/* Speed - Only supported parameter */}
           <div className="space-y-2">
             <Label className="text-xs">Speed: {state.voiceSettings.speed}x</Label>
             <input
@@ -71,158 +71,33 @@ export function SettingsTab({ voiceOverState }: SettingsTabProps) {
               <span>4.0x (Fast)</span>
             </div>
           </div>
-
-          {/* Pitch */}
-          <div className="space-y-2">
-            <Label className="text-xs">Pitch: {state.voiceSettings.pitch > 0 ? '+' : ''}{state.voiceSettings.pitch}st</Label>
-            <input
-              type="range"
-              min={-20}
-              max={20}
-              step={1}
-              value={state.voiceSettings.pitch}
-              onChange={(e) => updateVoiceSettings({ pitch: parseInt(e.target.value) })}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>-20st (Lower)</span>
-              <span>+20st (Higher)</span>
-            </div>
-          </div>
-
-          {/* Volume */}
-          <div className="space-y-2">
-            <Label className="text-xs">Volume: {Math.round(state.voiceSettings.volume * 100)}%</Label>
-            <input
-              type="range"
-              min={0.1}
-              max={1.0}
-              step={0.1}
-              value={state.voiceSettings.volume}
-              onChange={(e) => updateVoiceSettings({ volume: parseFloat(e.target.value) })}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>10% (Quiet)</span>
-              <span>100% (Loud)</span>
-            </div>
-          </div>
-
-          {/* Emphasis */}
-          <div className="space-y-2">
-            <Label className="text-xs">Emphasis</Label>
-            <Select
-              value={state.voiceSettings.emphasis}
-              onValueChange={(emphasis: 'strong' | 'moderate' | 'none') => updateVoiceSettings({ emphasis })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="moderate">Moderate</SelectItem>
-                <SelectItem value="strong">Strong</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Controls the overall expressiveness in speech
-            </p>
-          </div>
         </div>
 
         {/* Export Settings */}
         <div className="space-y-4">
           <Label>Export Settings</Label>
           
-          <div className="grid grid-cols-2 gap-4">
-            {/* Format */}
-            <div className="space-y-2">
-              <Label className="text-xs">Audio Format</Label>
-              <Select
-                value={state.exportFormat}
-                onValueChange={(format: 'mp3' | 'wav' | 'ogg') => setState((prev: VoiceOverState) => ({ ...prev, exportFormat: format }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mp3">MP3 (Compressed)</SelectItem>
-                  <SelectItem value="wav">WAV (Uncompressed)</SelectItem>
-                  <SelectItem value="ogg">OGG (Open Source)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Quality */}
-            <div className="space-y-2">
-              <Label className="text-xs">Quality</Label>
-              <Select
-                value={state.quality}
-                onValueChange={(quality: 'standard' | 'hd') => setState((prev: VoiceOverState) => ({ ...prev, quality }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="hd">HD (+50% cost)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p><strong>MP3:</strong> Best for most use cases, smaller file size</p>
-            <p><strong>WAV:</strong> Highest quality, larger file size (+20% cost)</p>
-            <p><strong>OGG:</strong> Good quality, open source format</p>
+          {/* Quality - Only keep this as it's supported */}
+          <div className="space-y-2">
+            <Label className="text-xs">Quality</Label>
+            <Select
+              value={state.quality}
+              onValueChange={(quality: 'standard' | 'hd') => setState((prev: VoiceOverState) => ({ ...prev, quality }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">Standard (tts-1)</SelectItem>
+                <SelectItem value="hd">HD (tts-1-hd) - Higher quality</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              HD quality provides better audio fidelity with higher computational cost
+            </p>
           </div>
         </div>
 
-        {/* Advanced Options */}
-        <div className="space-y-4">
-          <Label>Advanced Options</Label>
-          
-          {/* SSML */}
-          <div className="flex items-start gap-3">
-            <Checkbox
-              checked={state.useSSML}
-              onCheckedChange={(useSSML) => setState((prev: VoiceOverState) => ({ ...prev, useSSML: Boolean(useSSML) }))}
-              id="ssml-advanced"
-            />
-            <div className="space-y-1">
-              <Label htmlFor="ssml-advanced" className="text-xs cursor-pointer">
-                Enable SSML Support
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Speech Synthesis Markup Language for fine-grained control
-              </p>
-            </div>
-          </div>
-
-          {/* SSML Examples */}
-          {state.useSSML && (
-            <Card className="p-3 bg-muted/50">
-              <div className="flex items-center gap-2 mb-2">
-                <Info className="w-4 h-4 text-blue-500" />
-                <span className="text-xs font-medium">SSML Examples</span>
-              </div>
-              <div className="space-y-2 text-xs font-mono">
-                <div>
-                  <code>&lt;speak&gt;Hello &lt;break time=&quot;1s&quot;/&gt; world!&lt;/speak&gt;</code>
-                  <p className="text-muted-foreground mt-1">Add pauses</p>
-                </div>
-                <div>
-                  <code>&lt;emphasis level=&quot;strong&quot;&gt;Important!&lt;/emphasis&gt;</code>
-                  <p className="text-muted-foreground mt-1">Emphasize words</p>
-                </div>
-                <div>
-                  <code>&lt;prosody rate=&quot;slow&quot;&gt;Speak slowly&lt;/prosody&gt;</code>
-                  <p className="text-muted-foreground mt-1">Control speed</p>
-                </div>
-              </div>
-            </Card>
-          )}
-        </div>
 
         {/* Credit Information */}
         <Card className="p-4">
@@ -235,10 +110,6 @@ export function SettingsTab({ voiceOverState }: SettingsTabProps) {
             <div className="flex justify-between">
               <span>HD quality multiplier:</span>
               <span>+50%</span>
-            </div>
-            <div className="flex justify-between">
-              <span>WAV format multiplier:</span>
-              <span>+20%</span>
             </div>
             <div className="flex justify-between">
               <span>Long content (500+ words):</span>
