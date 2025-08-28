@@ -2,6 +2,7 @@
 
 import { UserRound, RotateCcw } from 'lucide-react';
 import { ThumbnailExample } from './thumbnail-example';
+import { ThumbnailFaceSwapExample } from './thumbnail-faceswap-example';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 interface EmptyStateProps {
@@ -21,14 +22,11 @@ export function GenerateEmptyState({}: EmptyStateProps) {
   );
 }
 
-export function FaceSwapEmptyState({ onFocusPrompt }: EmptyStateProps) {
+export function FaceSwapEmptyState({}: EmptyStateProps) {
   return (
-    <UnifiedEmptyState
-      icon={UserRound}
-      title="Ready for Face Swap"
-      description="Upload your face image and target image, then add optional modification instructions to generate personalized thumbnails."
-      onFocusPrompt={onFocusPrompt}
-    />
+    <div className="flex-1 overflow-hidden">
+      <ThumbnailFaceSwapExample />
+    </div>
   );
 }
 

@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
+import { LiveChatButton } from '@/components/dashboard/live-chat-button';
 import { ToolsGridSkeleton, CreditBalanceSkeleton, TutorialsSkeleton } from '@/components/dashboard/dashboard-skeletons';
 import type { Tables } from '@/types/database';
 import type { User } from '@supabase/supabase-js';
@@ -341,16 +342,21 @@ export default function DashboardPage() {
             <p className="text-foreground mb-4">
               Get support, share your creations, and collaborate with other users in our active Facebook community.
             </p>
-            <a 
-              href="https://web.facebook.com/groups/1920880798699387" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="block"
-            >
-              <Button variant="outline" className="w-full">
-                View Community
-              </Button>
-            </a>
+            <div className="space-y-3">
+              <a 
+                href="https://web.facebook.com/groups/1920880798699387" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="block"
+              >
+                <Button variant="outline" className="w-full">
+                  View Community
+                </Button>
+              </a>
+              <div className="flex justify-center">
+                <LiveChatButton />
+              </div>
+            </div>
             </CardContent>
           </Card>
         </div>
