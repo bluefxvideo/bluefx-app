@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TalkingAvatarState } from '../hooks/use-talking-avatar';
+import { AvatarExample } from './avatar-example';
 
 interface StepIndicatorProps {
   stepNumber: number;
@@ -374,48 +375,15 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
   // Duplicate check removed - video display is now at the top of the component
 
-  // Default: Welcome state
+  // Default: Welcome state with example
   return (
-    <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
-        <Video className="w-8 h-8 text-white" />
-      </div>
-      
-      <h3 className="text-2xl font-bold mb-2">Ready to Create</h3>
-      <p className="text-base text-muted-foreground mb-8 max-w-md">
-        Transform text into engaging videos with AI-powered talking avatars in 3 simple steps.
-      </p>
-
-      <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
-        <StepIndicator
-          stepNumber={1}
-          title="Choose Avatar"
-          description="Select template or upload custom"
-          icon={User}
-          isCompleted={false}
-          isActive={state.currentStep === 1}
-          isLoading={false}
-        />
-        
-        <StepIndicator
-          stepNumber={2}
-          title="Add Voice"
-          description="Enter script and select voice"
-          icon={Mic}
-          isCompleted={false}
-          isActive={false}
-          isLoading={false}
-        />
-        
-        <StepIndicator
-          stepNumber={3}
-          title="Generate Video"
-          description="Create professional avatar video"
-          icon={Video}
-          isCompleted={false}
-          isActive={false}
-          isLoading={false}
-        />
+    <div className="h-full flex flex-col relative overflow-hidden">
+      <div className="relative z-10 flex-1 flex flex-col">
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="w-full max-w-2xl">
+            <AvatarExample />
+          </div>
+        </div>
       </div>
     </div>
   );

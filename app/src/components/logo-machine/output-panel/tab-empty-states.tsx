@@ -1,6 +1,7 @@
 'use client';
 
 import { Palette, RotateCcw } from 'lucide-react';
+import { LogoExample } from './logo-example';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 /**
@@ -9,12 +10,8 @@ import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 export function GenerateEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full">
-      <UnifiedEmptyState
-        icon={Palette}
-        title="Ready to Generate"
-        description="Enter your company name and style preferences to generate professional logos powered by AI."
-      />
+    <div className="flex-1 overflow-hidden">
+      <LogoExample />
     </div>
   );
 }

@@ -3,8 +3,8 @@
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 
-export function ThumbnailExamplesCarousel() {
-  // Show only the mountain/lifestyle image
+export function ThumbnailExample() {
+  // Show only the mountain/lifestyle image as an example
   const featuredThumbnail = thumbnailData[2]; // The mountain image
 
   return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { Video, History } from 'lucide-react';
+import { CinematographerExample } from './cinematographer-example';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 /**
@@ -9,12 +10,8 @@ import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 export function GenerateEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full">
-      <UnifiedEmptyState
-        icon={Video}
-        title="Ready to Generate"
-        description="Enter a detailed prompt and customize your settings to generate amazing cinematic videos powered by AI."
-      />
+    <div className="flex-1 overflow-hidden">
+      <CinematographerExample />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { UserRound, RotateCcw } from 'lucide-react';
-import { ThumbnailExamplesCarousel } from './thumbnail-examples-carousel';
+import { ThumbnailExample } from './thumbnail-example';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 interface EmptyStateProps {
@@ -16,7 +16,7 @@ interface EmptyStateProps {
 export function GenerateEmptyState({}: EmptyStateProps) {
   return (
     <div className="flex-1 overflow-hidden">
-      <ThumbnailExamplesCarousel />
+      <ThumbnailExample />
     </div>
   );
 }

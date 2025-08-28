@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card';
 import { ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { ResultsGrid } from './results-grid';
 import { LoadingSkeleton } from './loading-skeleton';
-import { ErrorDisplay } from './error-display';
 import { GenerateEmptyState, FaceSwapEmptyState, RecreateEmptyState } from './tab-empty-states';
 import { Download, Trash2, Clock, CheckCircle, AlertCircle, Sparkles, Zap } from 'lucide-react';
 
