@@ -2,7 +2,8 @@
 
 import { createIdeogramV2aPrediction, waitForIdeogramV2aCompletion, generateMultipleThumbnails } from '../models/ideogram-v2-turbo';
 import { performFaceSwap } from '../models/face-swap-cdingram';
-import { generateYouTubeTitles, analyzeImageForRecreation } from '../models/openai-chat';
+import { generateYouTubeTitles, analyzeImageForRecreation, createChatCompletion } from '../models/openai-chat';
+import { recreateLogo as recreateWithOpenAI } from '../models/openai-image';
 import { uploadImageToStorage, downloadAndUploadImage } from '../supabase-storage';
 import { 
   storeThumbnailResults, 
@@ -12,6 +13,99 @@ import {
   deductCredits 
 } from '../database/thumbnail-database';
 import { Json } from '@/types/database';
+
+// Style-based system prompts from legacy thumbnail system
+const THUMBNAIL_STYLES = {
+  clickbait: {
+    name: "Clickbait",
+    description: "Eye-catching and attention-grabbing design",
+    systemPrompt: `Create an attention-grabbing, clickbait-style thumbnail that demands attention. Focus on:
+- Bold, vibrant colors
+- Dramatic lighting and effects
+- Exaggerated expressions or elements
+- High contrast and energy
+- Dynamic composition with action elements`
+  },
+  professional: {
+    name: "Professional", 
+    description: "Clean, corporate, and trustworthy design",
+    systemPrompt: `Create a professional and polished thumbnail that exudes credibility and expertise. Focus on:
+- Clean, minimalist composition
+- Professional color schemes (blues, grays, whites)
+- High-quality, corporate-friendly imagery
+- Clear typography space
+- Balanced and structured layout`
+  },
+  minimal: {
+    name: "Minimal",
+    description: "Simple, elegant, and modern design", 
+    systemPrompt: `Create a minimalist and elegant thumbnail that emphasizes simplicity. Focus on:
+- Generous white space
+- Limited color palette
+- Simple geometric shapes
+- Essential elements only
+- Subtle typography space`
+  }
+};
+
+/**
+ * AI Prompt Enhancement using OpenAI Chat API (based on legacy system)
+ * Enhances prompts for better thumbnail generation results
+ */
+async function enhanceThumbnailPrompt(combinedPrompt: string, userId: string): Promise<string> {
+  try {
+    console.log('🔍 Enhancing prompt with OpenAI...');
+    
+    const completion = await createChatCompletion({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a thumbnail generation prompt expert. Enhance the given prompt to create more visually appealing and effective thumbnails. Focus on composition, visual elements, and style.
+
+You MUST return a JSON object that exactly matches this schema, with no additional properties:
+{
+  "enhancedPrompt": "Your enhanced version of the prompt that includes detailed visual descriptions, composition, and style elements"
+}
+
+Example response:
+{
+  "enhancedPrompt": "A majestic robot android, rendered in a modern 3D style with dramatic lighting, positioned against a dark gradient background. Sharp focus on the metallic details, with subtle blue accent lighting highlighting key features. Composition optimized for thumbnail visibility with the robot centered and facing slightly to the right. High contrast and cinematic atmosphere."
+}`
+        },
+        {
+          role: 'user',
+          content: combinedPrompt
+        }
+      ],
+      temperature: 0.8,
+      max_tokens: 300,
+      n: 1
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      console.warn('No response from OpenAI, using original prompt');
+      return combinedPrompt;
+    }
+
+    try {
+      const parsed = JSON.parse(response);
+      if (parsed.enhancedPrompt) {
+        console.log('✅ Prompt enhanced successfully');
+        return parsed.enhancedPrompt;
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse OpenAI response, using original prompt:', parseError);
+    }
+
+    return combinedPrompt;
+  } catch (error) {
+    console.error('Prompt enhancement failed:', error);
+    // Return original prompt if enhancement fails
+    return combinedPrompt;
+  }
+}
 
 /**
  * Unified Thumbnail Machine Server Action
@@ -24,6 +118,7 @@ export interface ThumbnailMachineRequest {
   
   // Core generation (used for 'generate' and 'recreation-only' modes)
   prompt?: string; // Optional for some modes
+  thumbnail_style?: 'clickbait' | 'professional' | 'minimal'; // Style-based system prompts
   
   // Reference image upload (used for 'recreation-only' mode)
   reference_image?: string | File; // base64, File object, or URL
@@ -177,11 +272,23 @@ export async function generateThumbnails(
     const numOutputs = request.num_outputs || 1;
     console.log(`🎨 AI Decision: Generating ${numOutputs} thumbnail(s) using Ideogram V2a`);
     
+    // Step 1: Apply style-based system prompt (Local Enhancement)
+    const selectedStyle = request.thumbnail_style || 'clickbait'; // Default to clickbait style
+    const styleConfig = THUMBNAIL_STYLES[selectedStyle];
+    let combinedPrompt = `${styleConfig.systemPrompt}\n\nUser's request: ${request.prompt}`;
+    
+    console.log(`🎨 Using ${selectedStyle} style for thumbnail generation`);
+    
+    // Step 2: AI Enhancement using OpenAI (like legacy system)
+    const enhancedPrompt = await enhanceThumbnailPrompt(combinedPrompt, request.user_id);
+    
+    console.log('📝 Final enhanced prompt:', enhancedPrompt.substring(0, 200) + '...');
+
     // For single thumbnail generation, use direct function instead of multiple
     let predictions;
     if (numOutputs === 1) {
       const singlePrediction = await createIdeogramV2aPrediction({
-        prompt: request.prompt,
+        prompt: enhancedPrompt, // Use the enhanced prompt instead of raw user prompt
         aspect_ratio: request.aspect_ratio || '16:9',
         style_type: request.style_type || 'Auto',
         magic_prompt_option: request.magic_prompt_option || 'On',
@@ -193,7 +300,7 @@ export async function generateThumbnails(
     } else {
       // Fallback for multiple thumbnails (if needed in future)
       predictions = await generateMultipleThumbnails(
-        request.prompt,
+        enhancedPrompt, // Use enhanced prompt here too
         numOutputs,
         {
           aspectRatio: request.aspect_ratio || '16:9',
@@ -389,7 +496,7 @@ export async function generateThumbnails(
     // Step 10: Store Results in Database
     const thumbnailRecords = thumbnails.map((thumb) => ({
       user_id: request.user_id,
-      prompt: request.prompt,
+      prompt: request.prompt, // Store original user prompt
       image_urls: [thumb.url], // Supabase Storage URL
       dimensions: 'landscape', // Use predefined value for 16:9 aspect ratio
       height: 1024,
@@ -402,6 +509,8 @@ export async function generateThumbnails(
         variation_index: thumb.variation_index,
         total_variations: thumbnails.length,
         type: 'thumbnail',
+        thumbnail_style: selectedStyle,
+        enhanced_prompt: enhancedPrompt, // Store enhanced prompt for reference
         replicate_url: thumb.replicate_url, // Keep original URL for reference
         stored_in_supabase: true
       },
@@ -414,11 +523,11 @@ export async function generateThumbnails(
       user_id: request.user_id,
       batch_id,
       model_version: 'ideogram-v2-turbo',
-      style_type: 'auto',
+      style_type: selectedStyle, // Use the selected style instead of 'auto'
       num_variations: thumbnails.length,
       generation_time_ms: Date.now() - startTime,
       total_credits_used: total_credits,
-      prompt_length: request.prompt.length,
+      prompt_length: enhancedPrompt.length, // Use enhanced prompt length for analytics
       has_advanced_options: hasAdvancedOptions(request),
     });
 
@@ -513,6 +622,7 @@ function hasAdvancedOptions(request: ThumbnailMachineRequest): boolean {
     request.style_type && request.style_type !== 'Auto' ||
     request.magic_prompt_option && request.magic_prompt_option !== 'On' ||
     request.aspect_ratio && request.aspect_ratio !== '16:9' ||
+    request.thumbnail_style && request.thumbnail_style !== 'clickbait' || // Custom thumbnail style
     request.reference_image ||
     request.face_swap ||
     request.generate_titles
@@ -753,22 +863,12 @@ async function executeRecreationOnlyWorkflow(
       referenceImageUrl = referenceUpload.url;
     }
 
-    // Step 1: Analyze the reference image using OpenAI Vision
-    console.log('🔍 Analyzing reference image with OpenAI Vision...');
-    const imageAnalysis = await analyzeImageForRecreation(
-      referenceImageUrl,
-      request.prompt,
-      request.recreation_style
-    );
-    
-    console.log('📝 Image analysis completed:', imageAnalysis.substring(0, 200) + '...');
-    
-    // Step 2: Create enhanced recreation prompt based on analysis
-    let recreationPrompt = `Create a high-quality YouTube thumbnail based on this analysis: ${imageAnalysis}`;
+    // Step 1: Build recreation prompt
+    let recreationPrompt = 'Create a high-quality YouTube thumbnail';
     
     // Add user modifications if provided
     if (request.prompt) {
-      recreationPrompt += ` User requested modifications: ${request.prompt}.`;
+      recreationPrompt = `${request.prompt}`;
     }
     
     // Add style-specific instructions
@@ -781,40 +881,43 @@ async function executeRecreationOnlyWorkflow(
       recreationPrompt += stylePrompts[request.recreation_style];
     }
     
-    recreationPrompt += ' Ensure professional quality with sharp details, vibrant colors, and optimal composition for YouTube thumbnails.';
+    recreationPrompt += ' Professional quality YouTube thumbnail with sharp details, vibrant colors, and optimal composition.';
 
-    // Generate recreation using Ideogram V2a
-    console.log('🎨 Creating recreation with Ideogram V2a');
-    const prediction = await createIdeogramV2aPrediction({
-      prompt: recreationPrompt,
-      aspect_ratio: request.aspect_ratio || '16:9',
-      style_type: request.style_type || 'Auto',
-      magic_prompt_option: 'On',
-      seed: request.seed
-    });
+    // Step 2: Generate recreation using OpenAI Image Edits API (gpt-image-1)
+    console.log('🎨 Creating recreation with OpenAI gpt-image-1 model');
+    
+    const openAIResult = await recreateWithOpenAI(
+      referenceImageUrl,
+      'YouTube Thumbnail Recreation', // Company name parameter (required by function signature)
+      recreationPrompt,
+      request.user_id
+    );
+
+    if (!openAIResult.data || openAIResult.data.length === 0) {
+      throw new Error('OpenAI recreation failed: No images generated');
+    }
 
     // Record in database
     await createPredictionRecord({
-      prediction_id: prediction.id,
+      prediction_id: batch_id,
       user_id: request.user_id,
       tool_id: 'thumbnail-machine',
       service_id: 'recreation',
-      model_version: 'ideogram-v2-turbo',
+      model_version: 'gpt-image-1',
       status: 'processing',
       input_data: request as unknown as Json
     });
 
-    // Wait for completion
-    console.log(`⏳ Waiting for recreation completion: ${prediction.id}`);
-    const completedPrediction = await waitForIdeogramV2aCompletion(prediction.id);
-
-    if (completedPrediction.status !== 'succeeded' || !completedPrediction.output) {
-      throw new Error(`Recreation failed: ${completedPrediction.error || completedPrediction.status}`);
+    // Get the generated image URL
+    const generatedImageUrl = openAIResult.data[0].url || openAIResult.data[0].b64_json;
+    
+    if (!generatedImageUrl) {
+      throw new Error('No image URL returned from OpenAI');
     }
 
     // Download and store result
     const storageResult = await downloadAndUploadImage(
-      completedPrediction.output as string,
+      generatedImageUrl.startsWith('data:') ? generatedImageUrl : generatedImageUrl,
       'recreation-result',
       `recreation_${batch_id}`,
       {
@@ -825,7 +928,7 @@ async function executeRecreationOnlyWorkflow(
 
     const finalImageUrl = storageResult.success && storageResult.url 
       ? storageResult.url 
-      : completedPrediction.output as string;
+      : generatedImageUrl;
 
     // Deduct credits
     const creditDeduction = await deductCredits(
@@ -848,8 +951,8 @@ async function executeRecreationOnlyWorkflow(
       dimensions: 'landscape', // Use predefined value for 16:9 aspect ratio
       height: 1024,
       width: 1024,
-      model_name: 'ideogram-v2-turbo',
-      model_version: 'ideogram-v2-turbo',
+      model_name: 'gpt-image-1',
+      model_version: 'gpt-image-1',
       batch_id,
       generation_settings: request as unknown as Json,
       metadata: {
@@ -864,7 +967,7 @@ async function executeRecreationOnlyWorkflow(
     await recordGenerationMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'ideogram-v2-turbo',
+      model_version: 'gpt-image-1',
       style_type: request.recreation_style || 'similar',
       num_variations: 1,
       generation_time_ms: Date.now() - startTime,

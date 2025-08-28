@@ -661,26 +661,28 @@ async function generateVoiceAudio(scriptText: string, voiceId: string): Promise<
 
 /**
  * Calculate credit costs for talking avatar operations
+ * Simple proportional scaling: 6 credits per 30 seconds
  */
 function calculateTalkingAvatarCreditCost(request: TalkingAvatarRequest) {
   const wordCount = request.script_text.trim().split(/\s+/).length;
-  const baseCost = 6; // Base cost for avatar video generation
   
-  // Duration-based cost scaling
-  const estimatedDuration = Math.ceil(wordCount / 2.5);
-  let durationMultiplier = 1;
-  if (estimatedDuration > 30) {
-    durationMultiplier = 1 + ((estimatedDuration - 30) * 0.1); // +10% cost per second over 30s
-  }
+  // Duration-based cost scaling - simple proportional
+  const estimatedDuration = Math.ceil(wordCount / 2.5); // ~2.5 words per second
   
-  const total = Math.ceil(baseCost * durationMultiplier);
+  // Simple calculation: 6 credits per 30 seconds, scaled proportionally
+  // 30s = 6 credits, 60s = 12 credits, 90s = 18 credits, etc.
+  const creditsPerSecond = 6 / 30; // 0.2 credits per second
+  const total = Math.max(6, Math.ceil(estimatedDuration * creditsPerSecond));
   
   return {
-    base: baseCost,
-    duration_multiplier: durationMultiplier,
+    base: 6,
+    tier1_cost: 0,
+    tier2_cost: 0,
+    tier3_cost: 0,
     total,
     word_count: wordCount,
-    estimated_duration: estimatedDuration
+    estimated_duration: estimatedDuration,
+    duration_formatted: `${Math.floor(estimatedDuration / 60)}:${(estimatedDuration % 60).toString().padStart(2, '0')}`
   };
 }
 

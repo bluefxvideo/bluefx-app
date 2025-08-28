@@ -24,7 +24,6 @@ interface RecreateTabProps {
  */
 export function RecreateTab({ onGenerate, isGenerating, credits, error }: RecreateTabProps) {
   const [formData, setFormData] = useState({
-    company_name: '',
     reference_image: null as File | null,
     modifications: '',
     maintain_style: true,
@@ -41,12 +40,12 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.company_name.trim() || !formData.reference_image) {
+    if (!formData.reference_image) {
       return;
     }
 
     const request: LogoMachineRequest = {
-      company_name: formData.company_name.trim(),
+      company_name: 'Logo Recreation', // Default name for recreated logos
       reference_image: formData.reference_image,
       workflow_intent: 'recreate',
       recreate_options: {
@@ -66,28 +65,9 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
     <TabContentWrapper>
       {/* Form Sections */}
       <TabBody>
-        {/* Step 1: Company Details */}
+        {/* Step 1: Upload Reference Image */}
         <StandardStep
           stepNumber={1}
-          title="Company Details"
-          description="Tell us about your company"
-        >
-          <div className="space-y-2">
-            <Label htmlFor="company_name">Company Name *</Label>
-            <Input
-              id="company_name"
-              value={formData.company_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
-              placeholder="Enter your company name"
-              required
-              disabled={isGenerating}
-            />
-          </div>
-        </StandardStep>
-
-        {/* Step 2: Upload Reference Image */}
-        <StandardStep
-          stepNumber={2}
           title="Upload Reference Image"
           description="Upload the logo you want to recreate"
         >
@@ -124,9 +104,9 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
           </Card>
         </StandardStep>
 
-        {/* Step 3: Modification Instructions */}
+        {/* Step 2: Modification Instructions */}
         <StandardStep
-          stepNumber={3}
+          stepNumber={2}
           title="Modification Instructions"
           description="Specify changes you want to make (optional)"
         >
@@ -147,7 +127,7 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
       <TabFooter>
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || credits < estimatedCredits || !formData.company_name.trim() || !formData.reference_image}
+          disabled={isGenerating || credits < estimatedCredits || !formData.reference_image}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
