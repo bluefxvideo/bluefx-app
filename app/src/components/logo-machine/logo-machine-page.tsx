@@ -96,6 +96,7 @@ export function LogoMachinePage() {
       icon={Wand2}
       title="Logo Machine"
       iconGradient="bg-primary"
+      toolName="Logo Machine"
       tabs={<StandardToolTabs tabs={logoTabs} activeTab={activeTab} basePath="/dashboard/logo-generator" />}
     >
       <StandardToolLayout>

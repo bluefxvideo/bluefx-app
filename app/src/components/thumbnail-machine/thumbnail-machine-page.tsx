@@ -134,6 +134,7 @@ export function ThumbnailMachinePage() {
       title="Thumbnail Machine"
       description=""
       iconGradient="bg-primary"
+      toolName="Thumbnail Machine"
       tabs={<StandardToolTabs tabs={thumbnailTabs} activeTab={activeTab} basePath="/dashboard/thumbnail-machine" />}
     >
       <StandardToolLayout>

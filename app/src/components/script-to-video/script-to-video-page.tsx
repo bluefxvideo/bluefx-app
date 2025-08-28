@@ -251,6 +251,7 @@ export function ScriptToVideoPage() {
       title="Script to Video"
       description="Transform scripts into professional video content"
       iconGradient="bg-primary"
+      toolName="Script to Video"
       tabs={<StandardToolTabs tabs={scriptToVideoTabs} activeTab={activeTab} basePath="/dashboard/script-to-video" />}
     >
       <StandardToolLayout>

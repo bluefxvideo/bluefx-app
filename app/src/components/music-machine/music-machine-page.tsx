@@ -57,6 +57,7 @@ export function MusicMachinePage() {
       icon={Music}
       title="Music Maker"
       iconGradient="bg-primary"
+      toolName="Music Maker"
       tabs={tabsComponent}
     >
       <StandardToolLayout>

@@ -53,6 +53,7 @@ export function TalkingAvatarPage() {
       title="Talking Avatar"
       description="Create AI-powered talking avatar videos"
       iconGradient="bg-primary"
+      toolName="Talking Avatar"
       tabs={tabsComponent}
     >
       <StandardToolLayout>

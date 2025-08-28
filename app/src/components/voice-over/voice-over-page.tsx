@@ -53,6 +53,7 @@ export function VoiceOverPage() {
       icon={Mic}
       title="Voice Over Studio"
       iconGradient="bg-primary"
+      toolName="Voice Over Studio"
       tabs={tabsComponent}
     >
       <StandardToolLayout>

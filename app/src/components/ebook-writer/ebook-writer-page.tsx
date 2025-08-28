@@ -194,6 +194,7 @@ export function EbookWriterPage() {
       icon={BookOpen}
       title="Ebook Writer"
       iconGradient="bg-primary"
+      toolName="Ebook Writer"
       tabs={tabsComponent}
     >
       <StandardToolLayout>

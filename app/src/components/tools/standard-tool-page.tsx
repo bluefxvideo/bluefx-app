@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { LucideIcon, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { TutorialDialog } from '@/components/ui/tutorial-dialog';
 import { cn } from '@/lib/utils';
 
 interface StandardToolPageProps {
@@ -13,6 +14,7 @@ interface StandardToolPageProps {
   tabs?: ReactNode;
   children: ReactNode;
   className?: string;
+  toolName?: string; // For fetching the correct tutorial
 }
 
 export function StandardToolPage({ 
@@ -22,7 +24,8 @@ export function StandardToolPage({
   iconGradient = "bg-primary",
   tabs,
   children, 
-  className 
+  className,
+  toolName
 }: StandardToolPageProps) {
   return (
     <div className={cn("h-full bg-background", className)}>
@@ -47,17 +50,16 @@ export function StandardToolPage({
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
-              onClick={() => {
-                console.log("Open tutorial");
-              }}
-            >
-              <BookOpen className="w-4 h-4" />
-              Tutorial
-            </Button>
+            <TutorialDialog toolName={toolName || title}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
+              >
+                <BookOpen className="w-4 h-4" />
+                Tutorial
+              </Button>
+            </TutorialDialog>
           </div>
 
           {/* Tool-specific Tab Navigation */}

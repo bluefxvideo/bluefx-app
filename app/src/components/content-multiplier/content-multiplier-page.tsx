@@ -152,6 +152,7 @@ export function ContentMultiplierPage() {
       icon={Zap}
       title="Content Multiplier"
       iconGradient="bg-primary"
+      toolName="Content Multiplier"
       tabs={tabsComponent}
     >
       <StandardToolLayout>
