@@ -32,7 +32,7 @@ import {
 import useStore from '../store/use-store';
 import { ITrackItem } from '@designcombo/types';
 import { dispatch } from '@designcombo/events';
-import { UPDATE_TRACK_ITEM } from '@designcombo/state';
+import { EDIT_OBJECT } from '@designcombo/state';
 
 interface AIImageGeneratorPanelProps {
   trackItem: ITrackItem | null;
@@ -121,7 +121,7 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
         setProgress(90);
         
         // Update the image in the timeline
-        dispatch(UPDATE_TRACK_ITEM, {
+        dispatch(EDIT_OBJECT, {
           payload: {
             id: selectedAIImage.id,
             details: {

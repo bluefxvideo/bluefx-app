@@ -1,5 +1,5 @@
 import { dispatch } from "@designcombo/events";
-import { UPDATE_TRACK_ITEM } from "@designcombo/state";
+import { EDIT_OBJECT } from "@designcombo/state";
 import { ITrackItem } from "@designcombo/types";
 
 /**
@@ -62,7 +62,7 @@ export function fixAIImagePositioning(trackItemsMap: Record<string, ITrackItem>)
       });
       
       // Dispatch update to fix the positioning
-      dispatch(UPDATE_TRACK_ITEM, {
+      dispatch(EDIT_OBJECT, {
         payload: {
           id: item.id,
           details: fixedDetails
