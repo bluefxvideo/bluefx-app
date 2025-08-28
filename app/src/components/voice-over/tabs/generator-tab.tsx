@@ -218,14 +218,13 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
         {/* Step 3: Voice Settings */}
         <StandardStep
           stepNumber={3}
-          title="Customize Settings"
-          description="Fine-tune voice parameters and export options"
+          title="Voice Settings"
+          description="Adjust playback speed and quality"
         >
-          <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            {/* Speed */}
+            {/* Speed Control */}
             <div className="space-y-2">
-              <Label className="text-xs">Speed: {state.voiceSettings.speed}x</Label>
+              <Label className="text-sm">Speed: {state.voiceSettings.speed}x</Label>
               <input
                 type="range"
                 min={0.25}
@@ -242,50 +241,13 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
               </div>
             </div>
 
-            {/* Pitch */}
+            {/* Quality Control */}
             <div className="space-y-2">
-              <Label className="text-xs">Pitch: {state.voiceSettings.pitch > 0 ? '+' : ''}{state.voiceSettings.pitch}st</Label>
-              <input
-                type="range"
-                min={-20}
-                max={20}
-                step={1}
-                value={state.voiceSettings.pitch}
-                onChange={(e) => updateVoiceSettings({ pitch: parseInt(e.target.value) })}
-                disabled={state.isGenerating}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>-20st</span>
-                <span>+20st</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Export Options */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-xs">Format</Label>
-              <Select
-                value={state.exportFormat}
-                onValueChange={(format: 'mp3' | 'wav' | 'ogg') => setState((prev) => ({ ...prev, exportFormat: format }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mp3">MP3</SelectItem>
-                  <SelectItem value="wav">WAV</SelectItem>
-                  <SelectItem value="ogg">OGG</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs">Quality</Label>
+              <Label className="text-sm">Quality</Label>
               <Select
                 value={state.quality}
                 onValueChange={(quality: 'standard' | 'hd') => setState((prev) => ({ ...prev, quality }))}
+                disabled={state.isGenerating}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -295,8 +257,10 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
                   <SelectItem value="hd">HD</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                HD provides higher audio quality
+              </p>
             </div>
-          </div>
           </div>
         </StandardStep>
 
@@ -322,7 +286,7 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
         ) : (
           <>
             <Mic className="w-4 h-4 mr-2" />
-            Generate Voice ({state.estimatedCredits} credits)
+            Generate Voice (2 credits)
           </>
         )}
         </Button>
