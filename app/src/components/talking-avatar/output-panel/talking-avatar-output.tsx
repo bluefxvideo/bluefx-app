@@ -121,7 +121,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
     return (
       <div className="h-full flex flex-col p-6">
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-full max-w-2xl space-y-4">
+          <div className="w-full space-y-4">
             {/* Video Player */}
             <Card className="overflow-hidden">
               <div className="relative aspect-video bg-black">
@@ -235,7 +235,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
           {/* Show Avatar Video Placeholder - EXACT VideoPreview pattern */}
           <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full max-w-2xl">
+            <div className="w-full">
               <div className="space-y-4">
                 {/* Video Player - EXACT match */}
                 <Card className="overflow-hidden">
@@ -380,7 +380,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
     <div className="h-full flex flex-col relative overflow-hidden">
       <div className="relative z-10 flex-1 flex flex-col">
         <div className="flex-1 flex items-center justify-center px-6">
-          <div className="w-full max-w-2xl">
+          <div className="w-full">
             <AvatarExample />
           </div>
         </div>

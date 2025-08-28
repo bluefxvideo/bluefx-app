@@ -15,8 +15,8 @@ export function CinematographerExample() {
   };
 
   return (
-    <div className="flex justify-center">
-      <div className="space-y-3 max-w-2xl w-full">
+    <div className="w-full">
+      <div className="space-y-3">
         {/* Video Player - Matching Generated Style */}
         <div 
           className="relative aspect-video rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl bg-black group"
@@ -30,7 +30,10 @@ export function CinematographerExample() {
             muted
             playsInline
             controls={showControls}
+            preload="metadata"
+            loading="lazy"
             className="w-full h-full object-cover"
+            onLoadStart={() => console.log('Loading cinematographer example video')}
           />
           {/* Badge in Top Right - Matching Generated Position */}
           <div className="absolute top-3 right-3">

@@ -13,8 +13,8 @@ export function LogoExample() {
   };
 
   return (
-    <div className="flex justify-center">
-      <div className="space-y-3 max-w-2xl w-full">
+    <div className="w-full">
+      <div className="space-y-3">
         {/* Clean Image Placeholder - Matching Generated Style */}
         <div className="relative aspect-video rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl">
           <Image
@@ -22,7 +22,12 @@ export function LogoExample() {
             alt={featuredLogo.title}
             width={800}
             height={450}
+            priority
+            quality={85}
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
             className="w-full h-full object-cover"
+            onLoad={() => console.log('Logo example loaded successfully')}
           />
           {/* Badge in Top Right - Matching Generated Position */}
           <div className="absolute top-3 right-3">

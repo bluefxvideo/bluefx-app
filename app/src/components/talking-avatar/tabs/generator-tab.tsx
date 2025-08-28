@@ -218,7 +218,12 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
                           src={template.thumbnail_url} 
                           alt={template.name}
                           fill
-                          className="object-cover"
+                          priority={false}
+                          quality={75}
+                          placeholder="blur"
+                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+                          className="object-cover transition-opacity duration-300"
+                          onLoad={() => console.log(`Avatar template ${template.name} loaded`)}
                           onError={(e) => {
                             console.log('Image failed to load:', template.thumbnail_url);
                             e.currentTarget.style.display = 'none';

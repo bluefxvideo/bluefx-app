@@ -78,7 +78,7 @@ export function CinematographerOutput({
 
             {/* Show Video Placeholder */}
             <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-              <div className="w-full max-w-2xl">
+              <div className="w-full">
                 <VideoPreview
                   video={result.video}
                   batchId={result.batch_id}
@@ -119,7 +119,7 @@ export function CinematographerOutput({
           
           {/* Loading skeleton for video */}
           <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full max-w-2xl">
+            <div className="w-full">
               <Card className="group overflow-hidden animate-pulse">
                 <div className="relative aspect-video bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 flex items-center justify-center">
                   <Video className="w-12 h-12 text-zinc-600" />
@@ -142,7 +142,7 @@ export function CinematographerOutput({
         <div className="relative z-10 flex-1 flex flex-col">
           {/* Centered Error Content Area */}
           <div className="flex-1 flex items-center justify-center px-6">
-            <div className="w-full max-w-2xl">
+            <div className="w-full">
               <Card className="p-8 bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 backdrop-blur-sm text-center">
                 <div className="flex flex-col items-center gap-6">
                   <div className="relative">
@@ -176,7 +176,7 @@ export function CinematographerOutput({
 
           {/* Results Section - Clean and Simple */}
           <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full max-w-2xl">
+            <div className="w-full">
               {result.video && (
                 <VideoPreview
                   video={result.video}
@@ -216,7 +216,7 @@ export function CinematographerOutput({
         
         {/* Centered Content Area */}
         <div className="flex-1 flex items-center justify-center px-6">
-          <div className="w-full max-w-2xl">
+          <div className="w-full">
             {activeTab === 'history' ? (
               <HistoryEmptyState />
             ) : (

@@ -65,7 +65,7 @@ export function ResultsGrid({
       {/* Clean Image with Hover Controls - No Card Wrapper */}
       <div className="flex justify-center">
         <div className="group relative aspect-video rounded-lg overflow-hidden 
-                        border border-zinc-700/50 shadow-xl max-w-2xl w-full">
+                        border border-zinc-700/50 shadow-xl w-full w-full">
           <Image
             src={displayThumbnail?.url || displayFaceSwapped?.url || ''}
             alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}

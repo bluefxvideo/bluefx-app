@@ -74,7 +74,7 @@ export function ThumbnailMachineOutput({
         <div className="relative z-10 flex-1 flex flex-col">
           {/* Centered Error Content Area */}
           <div className="flex-1 flex items-center justify-center px-6">
-            <div className="w-full max-w-2xl">
+            <div className="w-full">
               <Card className="p-8 bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 backdrop-blur-sm text-center">
                 <div className="flex flex-col items-center gap-6">
                   <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/25">
@@ -107,7 +107,7 @@ export function ThumbnailMachineOutput({
 
           {/* Results Section - Clean and Simple */}
           <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full max-w-2xl">
+            <div className="w-full">
               <ResultsGrid
                 thumbnails={result.thumbnails || []}
                 faceSwappedThumbnails={result.face_swapped_thumbnails || []}
@@ -147,7 +147,7 @@ export function ThumbnailMachineOutput({
         
         {/* Centered Content Area */}
         <div className="flex-1 flex items-center justify-center px-6">
-          <div className="w-full max-w-2xl">
+          <div className="w-full">
             {activeTab === 'face-swap' ? (
               <FaceSwapEmptyState onFocusPrompt={onFocusPrompt} />
             ) : activeTab === 'recreate' ? (
