@@ -4,13 +4,12 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card } from '@/components/ui/card';
-import { Upload, Video } from 'lucide-react';
+import { Video } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
-import Image from 'next/image';
+import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
@@ -86,44 +85,15 @@ export function GeneratorTab({
           title="Reference Image"
           description="Upload an optional style reference (optional)"
         >
-          <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
-              className="hidden"
-              id="reference-upload"
-              disabled={isGenerating}
-            />
-            <label htmlFor="reference-upload" className="cursor-pointer block">
-              {formData.reference_image ? (
-                <div className="space-y-3">
-                  <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden bg-muted">
-                    <Image
-                      src={URL.createObjectURL(formData.reference_image)}
-                      alt="Reference style image"
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-primary">
-                      {formData.reference_image.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Click to change style reference</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 py-4">
-                  <Upload className="w-6 h-6 text-muted-foreground" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium">Drop image or click to upload</p>
-                    <p className="text-xs text-muted-foreground">Style reference for generation</p>
-                  </div>
-                </div>
-              )}
-            </label>
-          </Card>
+          <UnifiedDragDrop
+            fileType="reference"
+            selectedFile={formData.reference_image}
+            onFileSelect={handleImageUpload}
+            disabled={isGenerating}
+            title="Drop style reference or click to upload"
+            description="Optional style reference for video generation"
+            previewSize="medium"
+          />
         </StandardStep>
 
         {/* Step 3: Video Settings */}

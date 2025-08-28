@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';  
-import { RotateCcw, Upload, Image as ImageIcon } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { LogoMachineRequest } from '@/actions/tools/logo-machine';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
+import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 
 interface RecreateTabProps {
   onGenerate: (request: LogoMachineRequest) => void;
@@ -30,11 +30,8 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
     maintain_concept: true
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, reference_image: file }));
-    }
+  const handleImageUpload = (file: File) => {
+    setFormData(prev => ({ ...prev, reference_image: file }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -71,37 +68,15 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
           title="Upload Reference Image"
           description="Upload the logo you want to recreate"
         >
-          <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
-            <input
-              type="file"
-              id="reference_image"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-              disabled={isGenerating}
-            />
-            <label htmlFor="reference_image" className="cursor-pointer space-y-2 block">
-              {formData.reference_image ? (
-                <div className="space-y-2">
-                  <ImageIcon className="w-8 h-8 mx-auto text-blue-600" />
-                  <p className="text-sm font-medium text-blue-600">
-                    {formData.reference_image.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Click to change image
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                  <p className="text-sm font-medium">Upload Reference Logo</p>
-                  <p className="text-xs text-muted-foreground">
-                    PNG, JPG, or SVG up to 10MB
-                  </p>
-                </div>
-              )}
-            </label>
-          </Card>
+          <UnifiedDragDrop
+            fileType="reference"
+            selectedFile={formData.reference_image}
+            onFileSelect={handleImageUpload}
+            disabled={isGenerating}
+            title="Drop logo image or click to upload"
+            description="Upload the logo you want to recreate"
+            previewSize="medium"
+          />
         </StandardStep>
 
         {/* Step 2: Modification Instructions */}

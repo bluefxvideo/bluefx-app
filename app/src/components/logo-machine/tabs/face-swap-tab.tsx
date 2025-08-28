@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { UserRound, Upload, Wand2 } from 'lucide-react';
+import { UserRound, Wand2 } from 'lucide-react';
 import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
+import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 
 interface FaceSwapTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => void;
@@ -95,62 +96,27 @@ export function FaceSwapTab({
         {/* Source Face Upload */}
         <div>
           <Label className="text-sm font-medium mb-2 block">Your Face Image</Label>
-          <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
-            {formData.sourceImage ? (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <UserRound className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{formData.sourceImage.name}</p>
-                  <p className="text-xs text-muted-foreground">Face to apply to thumbnails</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <Upload className="w-6 h-6 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-sm font-medium">Upload your face image</p>
-                  <p className="text-xs text-muted-foreground">Clear photo with visible face</p>
-                </div>
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleSourceUpload(file);
-              }}
-            />
-          </Card>
+          <UnifiedDragDrop
+            fileType="face"
+            selectedFile={formData.sourceImage}
+            onFileSelect={handleSourceUpload}
+            disabled={isGenerating}
+            previewSize="medium"
+          />
         </div>
 
         {/* Target Image (Optional) */}
         <div>
           <Label className="text-sm font-medium mb-2 block">Target Image (Optional)</Label>
-          <Card className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
-            {formData.targetImage ? (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <UserRound className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{formData.targetImage.name}</p>
-                  <p className="text-xs text-muted-foreground">Target face to replace</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <Upload className="w-6 h-6 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-sm font-medium">Target face (optional)</p>
-                  <p className="text-xs text-muted-foreground">Specific face to replace in generated images</p>
-                </div>
-              </div>
-            )}
-          </Card>
+          <UnifiedDragDrop
+            fileType="reference"
+            selectedFile={formData.targetImage}
+            onFileSelect={handleTargetUpload}
+            disabled={isGenerating}
+            title="Drop target face or click to upload"
+            description="Specific face to replace in generated images"
+            previewSize="medium"
+          />
         </div>
 
         {/* Options */}

@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Video, User, Mic, Upload, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone } from 'lucide-react';
+import { Video, User, Mic, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
 import { AvatarTemplate } from '@/actions/tools/talking-avatar';
 import { OPENAI_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
@@ -244,47 +245,20 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
             </div>
 
             {/* Custom Upload Option */}
-            <div className={`border-2 border-dashed rounded-lg p-3 transition-all duration-200 ${
-              customImage 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50' 
-                : 'border-muted hover:border-blue-300'
-            }`}>
-              <div className="text-center">
-                <Upload className={`w-5 h-5 mx-auto mb-1 ${
-                  customImage ? 'text-blue-600' : 'text-muted-foreground'
-                }`} />
-                <p className="text-xs font-medium mb-1">Upload Custom Avatar</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleCustomImageUpload}
-                  className="hidden"
-                  id="custom-avatar-upload"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className={`text-xs ${customImage 
-                    ? 'border-blue-500 text-blue-600 bg-blue-50' 
-                    : 'hover:border-blue-300'
-                  }`}
-                >
-                  <label htmlFor="custom-avatar-upload" className="cursor-pointer">
-                    {customImage ? (
-                      <span>
-                        {customImage.name.length > 15 
-                          ? customImage.name.substring(0, 15) + '...' 
-                          : customImage.name
-                        }
-                      </span>
-                    ) : (
-                      'Choose File'
-                    )}
-                  </label>
-                </Button>
-              </div>
-            </div>
+            <UnifiedDragDrop
+              fileType="avatar"
+              selectedFile={customImage}
+              onFileSelect={(file) => {
+                setCustomImage(file);
+                setSelectedTemplate(null);
+                // Update the main state and right panel with custom image
+                handleAvatarSelection(null, file);
+              }}
+              disabled={state.isLoading}
+              previewSize="medium"
+              title="Drop custom avatar or click to upload"
+              description="Use your own image as avatar"
+            />
           </div>
         )}
 

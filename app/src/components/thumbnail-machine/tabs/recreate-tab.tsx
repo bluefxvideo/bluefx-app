@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { RotateCcw, Upload, ImageIcon } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
-import Image from 'next/image';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
+import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 
 interface RecreateTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
@@ -33,8 +33,6 @@ export function RecreateTab({
     prompt: '',
     style: 'similar' as 'similar' | 'improved' | 'style-transfer',
   });
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleImageUpload = (file: File) => {
     setFormData(prev => ({ ...prev, referenceImage: file }));
   };
@@ -67,45 +65,14 @@ export function RecreateTab({
           title="Upload Reference Image"
           description="Upload a thumbnail to recreate with variations"
         >
-          <Card 
-            className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {formData.referenceImage ? (
-              <div className="space-y-3">
-                <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                  <Image
-                    src={URL.createObjectURL(formData.referenceImage)}
-                    alt="Reference thumbnail"
-                    width={400}
-                    height={225}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-base font-medium">{formData.referenceImage.name}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <Upload className="w-6 h-6 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-base font-medium">Drop image or click to upload</p>
-                  <p className="text-sm text-muted-foreground">Style reference for generation</p>
-                </div>
-              </div>
-            )}
-          </Card>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleImageUpload(file);
-            }}
+          <UnifiedDragDrop
+            fileType="reference"
+            selectedFile={formData.referenceImage}
+            onFileSelect={handleImageUpload}
+            disabled={isGenerating}
+            title="Drop thumbnail or click to upload"
+            description="Style reference for generation"
+            previewSize="large"
           />
         </StandardStep>
 

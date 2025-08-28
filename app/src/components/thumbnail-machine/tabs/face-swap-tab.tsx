@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { UserRound, Upload, Wand2, Monitor, Smartphone } from 'lucide-react';
+import { UserRound, Wand2, Monitor, Smartphone } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
-import Image from 'next/image';
+import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 
 interface FaceSwapTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
@@ -33,10 +33,6 @@ export function FaceSwapTab({
     targetImage: null as File | null,
     aspect_ratio: '16:9' as '16:9' | '9:16',
   });
-  
-  // Create refs for both file inputs
-  const sourceInputRef = useRef<HTMLInputElement>(null);
-  const targetInputRef = useRef<HTMLInputElement>(null);
 
   const handleSourceUpload = (file: File) => {
     setFormData(prev => ({ ...prev, sourceImage: file }));
@@ -73,44 +69,12 @@ export function FaceSwapTab({
           title="Upload Your Face"
           description="Your face will be swapped into the thumbnails"
         >
-          <Card 
-            className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
-            onClick={() => sourceInputRef.current?.click()}
-          >
-            {formData.sourceImage ? (
-              <div className="space-y-3">
-                <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden bg-muted">
-                  <Image
-                    src={URL.createObjectURL(formData.sourceImage)}
-                    alt="Source face"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-base font-medium">{formData.sourceImage.name}</p>
-                  <p className="text-sm text-muted-foreground">Click to change face image</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <Upload className="w-6 h-6 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-base font-medium">Upload your face image</p>
-                  <p className="text-sm text-muted-foreground">Clear photo with visible face</p>
-                </div>
-              </div>
-            )}
-          </Card>
-          <input
-            ref={sourceInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleSourceUpload(file);
-            }}
+          <UnifiedDragDrop
+            fileType="face"
+            selectedFile={formData.sourceImage}
+            onFileSelect={handleSourceUpload}
+            disabled={isGenerating}
+            previewSize="medium"
           />
         </StandardStep>
 
@@ -120,44 +84,14 @@ export function FaceSwapTab({
           title="Target Image"
           description="Image containing the face to be replaced"
         >
-          <Card 
-            className="p-4 border-2 border-dashed rounded-lg border-muted-foreground/40 bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
-            onClick={() => targetInputRef.current?.click()}
-          >
-            {formData.targetImage ? (
-              <div className="space-y-3">
-                <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden bg-muted">
-                  <Image
-                    src={URL.createObjectURL(formData.targetImage)}
-                    alt="Target image"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-base font-medium">{formData.targetImage.name}</p>
-                  <p className="text-sm text-muted-foreground">Click to change target image</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <Upload className="w-6 h-6 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-base font-medium">Upload target image</p>
-                  <p className="text-sm text-muted-foreground">Image containing face to replace</p>
-                </div>
-              </div>
-            )}
-          </Card>
-          <input
-            ref={targetInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleTargetUpload(file);
-            }}
+          <UnifiedDragDrop
+            fileType="reference"
+            selectedFile={formData.targetImage}
+            onFileSelect={handleTargetUpload}
+            disabled={isGenerating}
+            title="Drop target image or click to upload"
+            description="Image containing face to replace"
+            previewSize="medium"
           />
         </StandardStep>
 
