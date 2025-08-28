@@ -106,13 +106,14 @@ interface GeneratorTabProps {
     handleVoicePlayback: (voiceId: string, url: string) => void;
     setState: (updater: (prev: VoiceOverState) => VoiceOverState) => void;
   };
+  credits: number;
 }
 
 /**
  * Generator Tab - Main voice over generation interface
  * Following exact BlueFX style guide patterns
  */
-export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
+export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
   const {
     state,
     generateVoice,
@@ -141,7 +142,8 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
     setState((prev) => ({ ...prev, selectedVoice: voiceId }));
   };
 
-  const canGenerate = localScriptText.trim().length > 0 && state.selectedVoice;
+  const estimatedCredits = 2; // Fixed cost for voice over
+  const canGenerate = localScriptText.trim().length > 0 && state.selectedVoice && credits >= estimatedCredits;
 
   return (
     <TabContentWrapper>
@@ -290,6 +292,11 @@ export function GeneratorTab({ voiceOverState }: GeneratorTabProps) {
           </>
         )}
         </Button>
+        {credits < estimatedCredits && localScriptText.trim().length > 0 && state.selectedVoice && (
+          <p className="text-xs text-destructive text-center mt-2">
+            Insufficient credits. You need {estimatedCredits} credits.
+          </p>
+        )}
       </TabFooter>
     </TabContentWrapper>
   );

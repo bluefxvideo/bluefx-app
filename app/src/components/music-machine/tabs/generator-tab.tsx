@@ -19,13 +19,14 @@ interface DurationOption {
 
 interface GeneratorTabProps {
   musicMachineState: UseMusicMachineReturn;
+  credits: number;
 }
 
 /**
  * Generator Tab - Main music generation interface
  * Following exact BlueFX style guide patterns
  */
-export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
+export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) {
   const {
     state,
     generateMusic,
@@ -48,7 +49,7 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
     return () => clearTimeout(timer);
   }, [localPrompt, updatePrompt]);
 
-  const canGenerate = localPrompt.trim().length > 0;
+  const canGenerate = localPrompt.trim().length > 0 && credits >= state.estimatedCredits;
 
   // Default genres and moods (model info doesn't contain these UI constants)
   const genres = [
@@ -219,6 +220,11 @@ export function GeneratorTab({ musicMachineState }: GeneratorTabProps) {
             </>
           )}
         </Button>
+        {credits < state.estimatedCredits && localPrompt.trim().length > 0 && (
+          <p className="text-xs text-destructive text-center mt-2">
+            Insufficient credits. You need {state.estimatedCredits} credits.
+          </p>
+        )}
       </TabFooter>
     </TabContentWrapper>
   );

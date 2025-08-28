@@ -1,6 +1,7 @@
 'use client';
 
 import { useVoiceOver } from './hooks/use-voice-over';
+import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -11,6 +12,7 @@ import { Mic, History } from 'lucide-react';
 
 export function VoiceOverPage() {
   const voiceOverState = useVoiceOver();
+  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
   const { activeTab } = voiceOverState;
 
   // Define tabs for StandardToolTabs
@@ -35,7 +37,7 @@ export function VoiceOverPage() {
       case 'history':
         return <HistoryTab voiceOverState={voiceOverState} />;
       default:
-        return <GeneratorTab voiceOverState={voiceOverState} />;
+        return <GeneratorTab voiceOverState={voiceOverState} credits={userCredits?.available_credits || 0} />;
     }
   };
 

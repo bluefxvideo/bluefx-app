@@ -16,9 +16,10 @@ import { OPENAI_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from
 
 interface GeneratorTabProps {
   avatarState: UseTalkingAvatarReturn;
+  credits: number;
 }
 
-export function GeneratorTab({ avatarState }: GeneratorTabProps) {
+export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
   const {
     state,
     loadAvatarTemplates,
@@ -145,6 +146,9 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
     }
   };
 
+  // Calculate estimated credits based on video length
+  const estimatedCredits = localScriptText ? Math.ceil(localScriptText.length / 100) * 5 : 10; // ~5 credits per 100 characters, minimum 10
+
   const canProceed = () => {
     if (state.currentStep === 1) {
       return selectedTemplate || customImage;
@@ -152,8 +156,8 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
       // Need voice selection + script text (voice will be generated automatically)
       return selectedVoice && localScriptText.trim();
     } else if (state.currentStep === 3) {
-      // For video generation, we need to have the voice audio URL ready
-      return state.voiceAudioUrl && !state.isLoading;
+      // For video generation, we need to have the voice audio URL ready AND sufficient credits
+      return state.voiceAudioUrl && !state.isLoading && credits >= estimatedCredits;
     }
     return false;
   };
@@ -527,12 +531,17 @@ export function GeneratorTab({ avatarState }: GeneratorTabProps) {
             {state.isLoading || state.isGenerating ? (
               state.currentStep === 3 ? 'Generating Video...' : state.currentStep === 2 ? 'Preparing Video...' : 'Processing...'
             ) : (
-              state.currentStep === 3 ? 'Generate Video' : 
+              state.currentStep === 3 ? `Generate Video (${estimatedCredits} credits)` : 
               state.currentStep === 2 ? 'Prepare Video' : 'Select Avatar'
             )}
             {state.currentStep < 3 && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>
         </div>
+        {state.currentStep === 3 && credits < estimatedCredits && (
+          <p className="text-xs text-destructive text-center mt-2">
+            Insufficient credits. You need {estimatedCredits} credits.
+          </p>
+        )}
       </div>
     </TabContentWrapper>
   );

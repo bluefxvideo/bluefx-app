@@ -6,11 +6,13 @@ import { GeneratorTab } from './tabs/generator-tab';
 import { HistoryTab } from './tabs/history-tab';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { useTalkingAvatar } from './hooks/use-talking-avatar';
+import { useCredits } from '@/hooks/useCredits';
 import { Video, History } from 'lucide-react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 
 export function TalkingAvatarPage() {
   const avatarState = useTalkingAvatar();
+  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
 
   // Render appropriate tab content
   const renderTabContent = () => {
@@ -18,7 +20,7 @@ export function TalkingAvatarPage() {
       case 'history':
         return <HistoryTab />;
       default:
-        return <GeneratorTab avatarState={avatarState} />;
+        return <GeneratorTab avatarState={avatarState} credits={userCredits?.available_credits || 0} />;
     }
   };
 

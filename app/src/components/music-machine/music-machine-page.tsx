@@ -1,6 +1,7 @@
 'use client';
 
 import { useMusicMachine } from './hooks/use-music-machine';
+import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -15,6 +16,7 @@ import { Music, History } from 'lucide-react';
  */
 export function MusicMachinePage() {
   const musicMachineState = useMusicMachine();
+  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
   const { activeTab, setActiveTab: _setActiveTab } = musicMachineState;
 
   // Define tabs for StandardToolTabs
@@ -39,7 +41,7 @@ export function MusicMachinePage() {
       case 'history':
         return <HistoryTab />;
       default:
-        return <GeneratorTab musicMachineState={musicMachineState} />;
+        return <GeneratorTab musicMachineState={musicMachineState} credits={userCredits?.available_credits || 0} />;
     }
   };
 

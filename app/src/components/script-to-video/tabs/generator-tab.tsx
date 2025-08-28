@@ -733,7 +733,8 @@ Examples:
               !canProceedFromStep(stepState.currentStep) || 
               stepState.isGeneratingScript || 
               isGeneratingVoice || 
-              isGeneratingVideo
+              isGeneratingVideo ||
+              (stepState.currentStep === 3 && credits < estimatedCredits)
             }
             className={`${stepState.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium`}
             size="lg"
@@ -749,6 +750,11 @@ Examples:
             {stepState.currentStep < 3 && !stepState.isGeneratingScript && !isGeneratingVoice && !isGeneratingVideo && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>
         </div>
+        {stepState.currentStep === 3 && credits < estimatedCredits && (
+          <p className="text-xs text-destructive text-center mt-2">
+            Insufficient credits. You need {estimatedCredits} credits.
+          </p>
+        )}
       </div>
     </TabContentWrapper>
   );
