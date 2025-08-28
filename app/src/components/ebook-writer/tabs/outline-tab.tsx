@@ -16,6 +16,7 @@ interface OutlineTabProps {
   ebook: EbookMetadata | null;
   isGenerating: boolean;
   error?: string;
+  credits: number;
 }
 
 const wordCountOptions = [
@@ -38,7 +39,7 @@ const writingToneOptions = [
   { id: 'engaging', name: 'Engaging', description: 'Dynamic tone' }
 ];
 
-export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error }: OutlineTabProps) {
+export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, credits }: OutlineTabProps) {
   const router = useRouter();
   const { 
     setActiveTab, 
@@ -67,7 +68,10 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error }
     }
   }, []); // Only run once on mount
   
+  const estimatedCredits = 10; // Fixed cost for outline generation
+  
   const handleGenerateOutline = async () => {
+    if (credits < estimatedCredits) return;
     await generateOutline(preferences);
   };
   
@@ -121,7 +125,7 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error }
             <div>
               <Button
                 onClick={handleGenerateOutline}
-                disabled={generation_progress.is_generating}
+                disabled={generation_progress.is_generating || credits < estimatedCredits}
                 className="w-full"
                 size="lg"
               >
@@ -131,11 +135,16 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error }
                     Generating Outline...
                   </>
                 ) : current_ebook?.outline ? (
-                  'Regenerate Outline'
+                  `Regenerate Outline (${estimatedCredits} credits)`
                 ) : (
-                  'Generate Chapter Outline'
+                  `Generate Chapter Outline (${estimatedCredits} credits)`
                 )}
               </Button>
+              {credits < estimatedCredits && !generation_progress.is_generating && (
+                <p className="text-xs text-destructive text-center mt-2">
+                  Insufficient credits. You need {estimatedCredits} credits.
+                </p>
+              )}
             </div>
             
             {/* Add Chapter Button */}

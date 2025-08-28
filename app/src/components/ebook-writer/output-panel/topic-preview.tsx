@@ -69,12 +69,53 @@ const popularTopics = [
     gradient: 'from-indigo-50 to-blue-50 dark:from-indigo-950/20 dark:to-blue-950/20',
     borderColor: 'border-indigo-200 dark:border-indigo-800',
     iconColor: 'text-indigo-500'
+  },
+  {
+    title: 'Amazon Affiliate Marketing Guide',
+    description: 'Complete guide to earning with Amazon Associates program',
+    icon: Sparkles,
+    gradient: 'from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20',
+    borderColor: 'border-yellow-200 dark:border-yellow-800',
+    iconColor: 'text-yellow-500'
+  },
+  {
+    title: 'High-Ticket Affiliate Marketing',
+    description: 'Promote premium products for maximum commission earnings',
+    icon: TrendingUp,
+    gradient: 'from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20',
+    borderColor: 'border-emerald-200 dark:border-emerald-800',
+    iconColor: 'text-emerald-500'
+  },
+  {
+    title: 'Affiliate Marketing for Beginners',
+    description: 'Step-by-step guide to start your affiliate marketing journey',
+    icon: BookOpen,
+    gradient: 'from-slate-50 to-gray-50 dark:from-slate-950/20 dark:to-gray-950/20',
+    borderColor: 'border-slate-200 dark:border-slate-800',
+    iconColor: 'text-slate-500'
+  },
+  {
+    title: 'Conversion Rate Optimization for Affiliates',
+    description: 'Maximize your affiliate earnings through better conversions',
+    icon: ArrowRight,
+    gradient: 'from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20',
+    borderColor: 'border-rose-200 dark:border-rose-800',
+    iconColor: 'text-rose-500'
   }
 ];
 
 export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) {
   const hasContent = topic && topic.trim().length > 0;
   const { setActiveTab, clearCurrentProject, setTopic, generateTitles } = useEbookWriterStore();
+  
+  // Debug logging
+  console.log('TopicPreview Debug:', { 
+    topic, 
+    topicLength: topic?.length, 
+    trimmedLength: topic?.trim().length, 
+    hasContent,
+    typeof: typeof topic
+  });
 
   const handleStartOver = async () => {
     if (confirm('Are you sure you want to start over? This will clear all progress and delete your session.')) {
@@ -97,20 +138,15 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
     }
   };
 
-  const handleTopicSelect = async (topicTitle: string) => {
+  const handleTopicSelect = (topicTitle: string) => {
     // Update topic in store
     setTopic(topicTitle);
     
-    // Generate titles automatically after selecting popular topic
-    try {
-      await generateTitles(topicTitle);
-      setActiveTab('title');
-      
-      // Navigate to title tab
-      window.location.href = '/dashboard/ebook-writer/title';
-    } catch (error) {
-      console.error('Error generating titles:', error);
-    }
+    // Navigate immediately to title tab
+    setActiveTab('title');
+    window.location.href = '/dashboard/ebook-writer/title';
+    
+    // Titles will be generated automatically when title tab loads
   };
 
   // Three-dot menu for actions
@@ -131,48 +167,33 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
   ) : null;
   
   // Show popular topics when no topic selected
+  console.log('Showing popular topics check:', !hasContent, 'hasContent:', hasContent);
   if (!hasContent) {
     return (
       <OutputPanelShell 
         title="Popular Topics" 
-        status="idle"
+        status="ready"
       >
-        <div className="p-4 space-y-3">
-          <div className="text-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Start with a Popular Topic
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Click any topic to automatically generate titles and get started
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-            {popularTopics.map((topic, index) => {
-              const IconComponent = topic.icon;
-              return (
-                <Card 
-                  key={index}
-                  className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] bg-gradient-to-br ${topic.gradient} ${topic.borderColor}`}
-                  onClick={() => handleTopicSelect(topic.title)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <IconComponent className={`h-5 w-5 ${topic.iconColor} flex-shrink-0 mt-0.5`} />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1 leading-tight">
-                          {topic.title}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                          {topic.description}
-                        </p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+        <div className="p-4 space-y-2">
+          <div className="space-y-2">
+            {popularTopics.map((topic, index) => (
+              <div 
+                key={index} 
+                className="p-4 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 border-border"
+                onClick={() => handleTopicSelect(topic.title)}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 border-gray-300">
+                    {/* Empty radio button - could add selected state logic later */}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm leading-relaxed font-medium">
+                      {topic.title}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </OutputPanelShell>

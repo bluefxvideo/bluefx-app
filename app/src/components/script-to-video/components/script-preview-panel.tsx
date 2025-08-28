@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle, Loader2, FileText, Mic, Video } from 'lucide-react';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 interface ScriptPreviewPanelProps {
   currentStep: number;
@@ -93,18 +94,17 @@ export function ScriptPreviewPanel({
   ];
 
   return (
-    <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
-        {getMainIcon()}
-      </div>
-      
-      <h3 className="text-2xl font-bold mb-2">{getCurrentTitle()}</h3>
-      <p className="text-base text-muted-foreground mb-8 max-w-md">
-        {getCurrentMessage()}
-      </p>
-
-      {/* Same 3-column grid as welcome panel but with progress states */}
-      <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-8">
+          <UnifiedEmptyState
+            icon={Video}
+            title={getCurrentTitle()}
+            description={getCurrentMessage()}
+          />
+          
+          {/* Same 3-column grid as welcome panel but with progress states */}
+          <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
         {steps.map((step) => {
           const Icon = step.icon;
           return (
@@ -142,6 +142,8 @@ export function ScriptPreviewPanel({
             </div>
           );
         })}
+          </div>
+        </div>
       </div>
     </div>
   );

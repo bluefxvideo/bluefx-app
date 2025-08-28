@@ -26,9 +26,10 @@ interface ContentTabProps {
   ebook: EbookMetadata | null;
   isGenerating: boolean;
   error?: string;
+  credits: number;
 }
 
-export function ContentTab({ ebook }: ContentTabProps) {
+export function ContentTab({ ebook, credits }: ContentTabProps) {
   const router = useRouter();
   const { 
     setActiveTab,
@@ -110,8 +111,12 @@ export function ContentTab({ ebook }: ContentTabProps) {
     setExpandedChapters(prev => new Set(prev).add(chapter.id));
   };
 
+  const estimatedCreditsPerChapter = 15; // Cost per chapter
+  
   // Handle content generation for a single chapter
   const handleGenerateChapter = async (chapter: EbookChapter) => {
+    if (credits < estimatedCreditsPerChapter) return;
+    
     setGeneratingChapters(prev => new Set(prev).add(chapter.id));
     try {
       await generateChapterContent(chapter.id);
@@ -134,8 +139,12 @@ export function ContentTab({ ebook }: ContentTabProps) {
 
   // Generate all content
   const handleGenerateAll = async () => {
-    setIsGeneratingAll(true);
     const chaptersToGenerate = chapters.filter(ch => !ch.content || ch.content === '');
+    const totalCreditsNeeded = chaptersToGenerate.length * estimatedCreditsPerChapter;
+    
+    if (credits < totalCreditsNeeded) return;
+    
+    setIsGeneratingAll(true);
     
     for (const chapter of chaptersToGenerate) {
       if (chapter.content !== '<!SKIPPED!>') {
@@ -147,10 +156,14 @@ export function ContentTab({ ebook }: ContentTabProps) {
 
   // Generate remaining (non-skipped, non-generated)
   const handleGenerateRemaining = async () => {
-    setIsGeneratingAll(true);
     const chaptersToGenerate = chapters.filter(ch => 
       (!ch.content || ch.content === '') && ch.content !== '<!SKIPPED!>'
     );
+    const totalCreditsNeeded = chaptersToGenerate.length * estimatedCreditsPerChapter;
+    
+    if (credits < totalCreditsNeeded) return;
+    
+    setIsGeneratingAll(true);
     
     for (const chapter of chaptersToGenerate) {
       await handleGenerateChapter(chapter);
@@ -188,7 +201,7 @@ export function ContentTab({ ebook }: ContentTabProps) {
               <div className="flex gap-2 flex-wrap">
                 <Button 
                   onClick={handleGenerateAll}
-                  disabled={isGeneratingAll || completedChapters === totalChapters}
+                  disabled={isGeneratingAll || completedChapters === totalChapters || credits < (chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter)}
                   size="sm"
                 >
                   {isGeneratingAll ? (
@@ -199,21 +212,27 @@ export function ContentTab({ ebook }: ContentTabProps) {
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Generate All
+                      Generate All ({chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter} credits)
                     </>
                   )}
                 </Button>
                 
                 <Button 
                   onClick={handleGenerateRemaining}
-                  disabled={isGeneratingAll || (completedChapters + skippedChapters) === totalChapters}
+                  disabled={isGeneratingAll || (completedChapters + skippedChapters) === totalChapters || credits < (chapters.filter(ch => (!ch.content || ch.content === '') && ch.content !== '<!SKIPPED!>').length * estimatedCreditsPerChapter)}
                   variant="outline"
                   size="sm"
                 >
                   <Play className="mr-2 h-4 w-4" />
-                  Generate Remaining
+                  Generate Remaining ({chapters.filter(ch => (!ch.content || ch.content === '') && ch.content !== '<!SKIPPED!>').length * estimatedCreditsPerChapter} credits)
                 </Button>
               </div>
+              {/* Credit warnings */}
+              {chapters.length > 0 && credits < (chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter) && (
+                <p className="text-xs text-destructive text-center">
+                  Insufficient credits. Generate All needs {chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter} credits.
+                </p>
+              )}
             </div>
           </Card>
 
@@ -289,14 +308,14 @@ export function ContentTab({ ebook }: ContentTabProps) {
                           <Button
                             size="sm"
                             onClick={() => handleGenerateChapter(chapter)}
-                            disabled={isGenerating || isGeneratingAll}
+                            disabled={isGenerating || isGeneratingAll || credits < estimatedCreditsPerChapter}
                           >
                             {isGenerating ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <>
                                 <Sparkles className="h-4 w-4 mr-1" />
-                                Generate
+                                Generate ({estimatedCreditsPerChapter})
                               </>
                             )}
                           </Button>

@@ -124,18 +124,7 @@ export function DocumentUpload({
   const totalTokens = documents.reduce((sum, doc) => sum + doc.token_count, 0);
 
   return (
-    <Card className="bg-gray-50 dark:bg-gray-800/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-blue-500" />
-          Upload Reference Materials
-        </CardTitle>
-        <CardDescription>
-          Add PDFs, Word docs, or text files to provide context for your ebook. 
-          Maximum 50MB per file.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
         {/* Dropzone */}
         <div
           {...getRootProps()}
@@ -223,7 +212,6 @@ export function DocumentUpload({
           </div>
         )}
 
-      </CardContent>
-    </Card>
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Type, Wand2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Type, ArrowRight, ArrowLeft } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
@@ -17,9 +17,10 @@ interface TitleTabProps {
   titleOptions: TitleOptions | null;
   isGenerating: boolean;
   isLoadingSession?: boolean;
+  credits: number;
 }
 
-export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession = false }: TitleTabProps) {
+export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession = false, credits }: TitleTabProps) {
   console.log('📋 TitleTab received:', { 
     topic, 
     titleOptions, 
@@ -32,6 +33,7 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [customTitle, setCustomTitle] = useState('');
   const [useCustom, setUseCustom] = useState(false);
+  const [hasTriggeredGeneration, setHasTriggeredGeneration] = useState(false);
 
   const { 
     current_ebook,
@@ -40,6 +42,15 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
     setCustomTitle: updateCustomTitle,
     setActiveTab 
   } = useEbookWriterStore();
+
+  // Auto-generate titles when component loads if we have a topic but no titles yet
+  useEffect(() => {
+    if (topic && !titleOptions && !hasTriggeredGeneration && !isLoadingSession) {
+      console.log('🚀 Auto-generating titles for topic:', topic);
+      setHasTriggeredGeneration(true);
+      generateTitles(topic);
+    }
+  }, [topic, titleOptions, hasTriggeredGeneration, isLoadingSession, generateTitles]);
 
   // Sync local state with loaded session data
   useEffect(() => {
@@ -60,11 +71,6 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
       // (no need to pre-select anything)
     }
   }, [titleOptions, current_ebook?.title]);
-
-  const handleGenerateTitles = async () => {
-    if (!topic) return;
-    await generateTitles(topic);
-  };
 
   const handleContinue = () => {
     setActiveTab('outline');
@@ -105,108 +111,22 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
   return (
     <TabContentWrapper>
       <TabBody>
-        <StandardStep
-          stepNumber={1}
-          title="Choose Your Ebook Title"
-          description={`Topic: ${topic}`}
-        >
-          <div className="space-y-4">
-          {!titleOptions && !isLoadingSession && (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Generate AI-powered title suggestions or create your own custom title.
+        <div className="space-y-6">
+          {/* Selected Topic Display - This is ALL we want in the left panel */}
+          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Type className="h-5 w-5 text-blue-500" />
+                Selected Topic
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                {topic}
               </p>
-              <Button 
-                onClick={handleGenerateTitles}
-                disabled={isGenerating}
-                className="w-full bg-primary"
-              >
-                {isGenerating ? (
-                  'Generating Titles...'
-                ) : (
-                  <>
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    Generate Title Options
-                  </>
-                )}
-              </Button>
-            </>
-          )}
-
-
-          {titleOptions && (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <Label className="text-base font-medium">AI-Generated Options:</Label>
-                <div className="space-y-2">
-                  {titleOptions.options.map((title, index) => (
-                    <div 
-                      key={index} 
-                      className={`p-3 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 ${
-                        !useCustom && selectedOption === index.toString() 
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
-                          : 'border-border'
-                      }`}
-                      onClick={() => {
-                        setSelectedOption(index.toString());
-                        setUseCustom(false);
-                        selectTitle(index); // Immediately update the store
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                          !useCustom && selectedOption === index.toString()
-                            ? 'border-blue-500 bg-blue-500'
-                            : 'border-gray-300'
-                        }`}>
-                          {!useCustom && selectedOption === index.toString() && (
-                            <div className="w-2 h-2 bg-white rounded-full" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm leading-relaxed font-medium">
-                            {title}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">or</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="custom-title" className="text-base font-medium">
-                  Custom Title:
-                </Label>
-                <Input
-                  id="custom-title"
-                  value={customTitle}
-                  onChange={(e) => {
-                    setCustomTitle(e.target.value);
-                    if (e.target.value.trim()) {
-                      setUseCustom(true);
-                      setSelectedOption('');
-                      updateCustomTitle(e.target.value.trim()); // Immediately update the store
-                    }
-                  }}
-                  placeholder="Enter your own title..."
-                  className="text-base"
-                />
-              </div>
-
-            </div>
-          )}
-          </div>
-        </StandardStep>
+            </CardContent>
+          </Card>
+        </div>
       </TabBody>
       
       <TabFooter>

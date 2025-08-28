@@ -25,7 +25,7 @@ interface TitleOutputProps {
 }
 
 export function TitleOutput({ titleOptions, isGenerating, topic = '', ebook, uploadedDocuments = [] }: TitleOutputProps) {
-  const { setActiveTab, clearCurrentProject } = useEbookWriterStore();
+  const { setActiveTab, clearCurrentProject, selectTitle, setCustomTitle } = useEbookWriterStore();
 
   const handleStartOver = async () => {
     if (confirm('Are you sure you want to start over? This will clear all progress and delete your session.')) {
@@ -64,94 +64,89 @@ export function TitleOutput({ titleOptions, isGenerating, topic = '', ebook, upl
       </DropdownMenuContent>
     </DropdownMenu>
   );
-  
-  // Show empty state when no topic
-  if (!topic || !topic.trim()) {
+  const handleTitleSelect = (titleIndex: number) => {
+    selectTitle(titleIndex);
+    // Could navigate to next step here
+  };
+
+  // Show generating state
+  if (isGenerating) {
     return (
       <OutputPanelShell 
-        title="Ebook Preview" 
-        status="idle"
-        empty={
-          <div className="flex items-center justify-center h-full">
+        title="Title Options" 
+        status="loading"
+      >
+        <div className="p-4">
+          <div className="text-center">
             <UnifiedEmptyState
               icon={Type}
-              title="No Topic Selected"
-              description="Choose a topic first to generate title options"
-              action={
-                <Button 
-                  variant="outline" 
-                  onClick={() => setActiveTab('topic')}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Topic
-                </Button>
-              }
+              title="Generating Titles..."
+              description="AI is creating engaging title options for your ebook"
             />
           </div>
-        }
-      />
+        </div>
+      </OutputPanelShell>
     );
   }
-  
-  return (
-    <OutputPanelShell title="Ebook Preview" status="ready" actions={actionsMenu}>
-      <div className="space-y-4 p-4">
-        {/* Topic Card */}
-        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <BookOpen className="h-5 w-5 text-blue-500" />
-              Topic
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              {topic}
-            </p>
-            {uploadedDocuments.length > 0 && (
-              <div className="mt-3 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {uploadedDocuments.length} reference document{uploadedDocuments.length > 1 ? 's' : ''} uploaded
-                </span>
+
+  // Show title options in the same format as popular topics
+  if (titleOptions && titleOptions.options && titleOptions.options.length > 0) {
+    return (
+      <OutputPanelShell 
+        title="Title Options" 
+        status="ready"
+        actions={actionsMenu}
+      >
+        <div className="p-4 space-y-2">
+          <div className="space-y-2">
+            {titleOptions.options.map((title, index) => (
+              <div 
+                key={index} 
+                className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 ${
+                  ebook?.title === title 
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
+                    : 'border-border'
+                }`}
+                onClick={() => handleTitleSelect(index)}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                    ebook?.title === title
+                      ? 'border-blue-500 bg-blue-500'
+                      : 'border-gray-300'
+                  }`}>
+                    {ebook?.title === title && (
+                      <div className="w-2 h-2 bg-white rounded-full" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm leading-relaxed font-medium">
+                      {title}
+                    </p>
+                  </div>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        </div>
+      </OutputPanelShell>
+    );
+  }
 
-        {/* Title Card */}
-        <Card className={ebook?.title ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800" : ""}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Type className="h-5 w-5 text-green-500" />
-              Title
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {ebook?.title ? (
-              <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {ebook.title}
-              </p>
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400 italic">
-                {isGenerating ? 'Generating titles...' : 'Select a title from the options'}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Placeholder for Outline */}
-        <Card className="opacity-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg text-gray-400">
-              <Sparkles className="h-5 w-5" />
-              Outline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-400 italic">Not created yet</p>
-          </CardContent>
-        </Card>
+  // Show empty state when no titles generated yet
+  return (
+    <OutputPanelShell 
+      title="Title Options" 
+      status="idle"
+    >
+      <div className="p-4">
+        <div className="flex items-center justify-center h-full">
+          <UnifiedEmptyState
+            icon={Type}
+            title="Ready to Generate Titles"
+            description="Click generate in the left panel to create title options for your ebook"
+          />
+        </div>
       </div>
     </OutputPanelShell>
   );

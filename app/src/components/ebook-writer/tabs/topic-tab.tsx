@@ -33,40 +33,28 @@ export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
     // Don't update store immediately to prevent clearing title_options on keystroke
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!topic.trim()) return;
     
-    setIsGeneratingTitles(true);
+    // Update topic in store
+    updateTopic(topic.trim());
     
-    try {
-      // Update topic in store
-      updateTopic(topic.trim());
-      
-      // Store uploaded documents if any
-      if (uploadedDocuments.length > 0) {
-        storeDocuments(uploadedDocuments);
-      }
-      
-      // Generate titles BEFORE navigation to avoid race condition
-      console.log('🚀 Starting title generation before navigation...');
-      await generateTitles(topic.trim(), uploadedDocuments);
-      console.log('✅ Title generation completed, now navigating...');
-      
-      // Navigate to title tab (both store and URL) AFTER titles are generated
-      setActiveTab('title');
-      router.push('/dashboard/ebook-writer/title');
-    } catch (error) {
-      console.error('❌ Error generating titles:', error);
-    } finally {
-      setIsGeneratingTitles(false);
+    // Store uploaded documents if any
+    if (uploadedDocuments.length > 0) {
+      storeDocuments(uploadedDocuments);
     }
+    
+    // Navigate immediately to title tab
+    setActiveTab('title');
+    router.push('/dashboard/ebook-writer/title');
+    
+    // Titles will be generated automatically when title tab loads
   };
 
   const handleDocumentsChange = (docs: UploadedDocument[]) => {
     setUploadedDocuments(docs);
     storeDocuments(docs); // Update store immediately for live preview
   };
-
 
   return (
     <TabContentWrapper>
@@ -106,7 +94,7 @@ export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
         <StandardStep
           stepNumber={2}
           title="Upload Reference Materials (Optional)"
-          description="Provide context documents to enhance your ebook with specific information"
+          description="Add PDFs, Word docs, or text files to provide context for your ebook"
         >
           <DocumentUpload
             onDocumentsChange={handleDocumentsChange}

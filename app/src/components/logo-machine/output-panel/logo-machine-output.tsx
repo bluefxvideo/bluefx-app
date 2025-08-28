@@ -5,6 +5,7 @@ import { LogoMachineResponse } from '@/actions/tools/logo-machine';
 import { ResultsGrid } from './results-grid';
 import { GenerateEmptyState, RecreateEmptyState } from './tab-empty-states';
 import { Clock, CheckCircle, AlertCircle, Zap } from 'lucide-react';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { Badge } from '@/components/ui/badge';
 
 interface LogoMachineOutputProps {
@@ -82,16 +83,11 @@ export function LogoMachineOutput({
             <div className="w-full w-full">
               <Card className="p-8 bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 backdrop-blur-sm text-center">
                 <div className="flex flex-col items-center gap-6">
-                  <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/25">
-                    <AlertCircle className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-red-300 mb-2">Generation Failed</h3>
-                    <p className="text-red-400/80 text-base mb-4">Something went wrong during processing</p>
-                    <div className="text-sm text-red-300/70 bg-red-500/5 border border-red-500/20 rounded-lg p-3">
-                      {error}
-                    </div>
-                  </div>
+                  <UnifiedEmptyState
+                    icon={AlertCircle}
+                    title="Generation Failed"
+                    description={`Something went wrong during processing: ${error}`}
+                  />
                 </div>
               </Card>
             </div>

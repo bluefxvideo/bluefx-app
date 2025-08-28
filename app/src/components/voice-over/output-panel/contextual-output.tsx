@@ -411,14 +411,12 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
   // Settings Tab Output
   if (activeTab === 'settings') {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center mb-4">
-          <Settings className="w-8 h-8 text-white" />
-        </div>
-        <h3 className="text-2xl font-bold mb-2">Ready to Create Magic ✨</h3>
-        <p className="text-base text-muted-foreground max-w-md">
-          Fine-tune your voice generation parameters for the perfect sound.
-        </p>
+      <div className="flex flex-col items-center justify-center h-full">
+        <UnifiedEmptyState
+          icon={Settings}
+          title="Ready to Create Magic ✨"
+          description="Fine-tune your voice generation parameters for the perfect sound."
+        />
       </div>
     );
   }

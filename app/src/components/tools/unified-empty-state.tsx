@@ -24,16 +24,16 @@ export function UnifiedEmptyState({
   return (
     <div className="flex-1 flex items-center justify-center">
       <Card 
-        className="p-8 max-w-sm text-center space-y-4 border-dashed bg-secondary/30 border-muted-foreground/10 cursor-pointer hover:bg-secondary/50 transition-colors"
+        className="p-8 max-w-sm text-center space-y-4 border-dashed bg-transparent dark:bg-card-content border-input cursor-pointer hover:bg-secondary/30 transition-colors"
         onClick={onFocusPrompt}
       >
-        <div className="w-16 h-16 bg-muted/60 rounded-xl flex items-center justify-center mx-auto border border-border/30">
-          <Icon className="w-7 h-7 text-muted-foreground" />
+        <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
+          <Icon className="w-8 h-8 text-white" />
         </div>
         
         <div>
-          <h3 className="font-medium mb-2 text-foreground/80">{title}</h3>
-          <p className="text-sm text-muted-foreground/70 leading-relaxed">
+          <h3 className="font-medium mb-2">{title}</h3>
+          <p className="text-base text-muted-foreground leading-relaxed">
             {description}
           </p>
         </div>

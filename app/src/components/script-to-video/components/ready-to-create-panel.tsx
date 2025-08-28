@@ -1,6 +1,7 @@
 'use client';
 
 import { FileText, Mic, Video, CheckCircle, LucideIcon, Clapperboard, Sparkles, Zap, Loader2 } from 'lucide-react';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { useState, useEffect } from 'react';
 
 interface StepIndicatorProps {
@@ -120,17 +121,16 @@ export function ReadyToCreatePanel({
   }
 
   return (
-    <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
-        <Video className="w-8 h-8 text-white" />
-      </div>
-      
-      <h3 className="text-2xl font-bold mb-2">Ready to Create Magic ✨</h3>
-      <p className="text-base text-muted-foreground mb-8 max-w-md">
-        Transform scripts into engaging videos with AI orchestration in 3 simple steps.
-      </p>
-
-      <div className={`grid grid-cols-3 gap-6 w-full max-w-lg transition-all duration-500 ${hideSteps ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-8">
+          <UnifiedEmptyState
+            icon={Video}
+            title="Ready to Create Magic ✨"
+            description="Transform scripts into engaging videos with AI orchestration in 3 simple steps."
+          />
+          
+          <div className={`grid grid-cols-3 gap-6 w-full max-w-lg transition-all duration-500 ${hideSteps ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
         <StepIndicator
           stepNumber={1}
           title="Create Script"
@@ -160,6 +160,8 @@ export function ReadyToCreatePanel({
           isActive={currentStep === 3}
           isLoading={isGeneratingVideo && currentStep === 3 && !step3Completed}
         />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -188,31 +190,32 @@ function OrchestrationProgress() {
   const Icon = currentPhaseData.icon;
 
   return (
-    <div className="h-full flex flex-col items-center justify-center text-center p-8">
-      <div className="w-20 h-20 mb-6 bg-primary rounded-2xl flex items-center justify-center animate-pulse">
-        <Icon className="w-10 h-10 text-white animate-bounce" />
-      </div>
-      
-      <h3 className="text-2xl font-bold mb-2">{currentPhaseData.title}</h3>
-      <p className="text-base text-muted-foreground mb-8 max-w-md">
-        {currentPhaseData.description}
-      </p>
-
-      {/* Progress indicator */}
-      <div className="flex gap-2 mb-4">
-        {phases.map((_, index) => (
-          <div
-            key={index}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              index <= currentPhase ? 'bg-primary' : 'bg-muted'
-            }`}
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-8">
+          <UnifiedEmptyState
+            icon={Icon}
+            title={currentPhaseData.title}
+            description={currentPhaseData.description}
           />
-        ))}
+          
+          {/* Progress indicator */}
+          <div className="flex gap-2 mb-4">
+            {phases.map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  index <= currentPhase ? 'bg-primary' : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+          
+          <p className="text-sm text-muted-foreground">
+            This may take 1-2 minutes...
+          </p>
+        </div>
       </div>
-      
-      <p className="text-sm text-muted-foreground">
-        This may take 1-2 minutes...
-      </p>
     </div>
   );
 }

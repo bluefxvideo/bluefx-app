@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { CheckCircle, Loader2, Video, User, Mic, LucideIcon, Clock, Zap, Download, ExternalLink } from 'lucide-react';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -329,46 +330,47 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
     };
 
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center p-8">
-        <div className="w-16 h-16 mb-6 bg-primary rounded-2xl flex items-center justify-center">
-          <Video className="w-8 h-8 text-white" />
-        </div>
-        
-        <h3 className="text-2xl font-bold mb-2">{getCurrentTitle()}</h3>
-        <p className="text-base text-muted-foreground mb-8 max-w-md">
-          {getCurrentMessage()}
-        </p>
-
-        <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
-          <StepIndicator
-            stepNumber={1}
-            title="Choose Avatar"
-            description="Select template or upload custom"
-            icon={User}
-            isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarImage)}
-            isActive={state.currentStep === 1}
-            isLoading={state.isLoading && state.currentStep === 1}
-          />
-          
-          <StepIndicator
-            stepNumber={2}
-            title={!!(state.selectedVoiceId && state.voiceAudioUrl) ? "Prepared Voice" : "Add Voice"}
-            description="Enter script and select voice"
-            icon={Mic}
-            isCompleted={!!(state.selectedVoiceId && state.voiceAudioUrl)}
-            isActive={state.currentStep === 2 && !state.isLoading}
-            isLoading={state.isLoading && state.currentStep === 2}
-          />
-          
-          <StepIndicator
-            stepNumber={3}
-            title="Generate Video"
-            description="Create professional avatar video"
-            icon={Video}
-            isCompleted={showStep3Complete || !!state.generatedVideo}
-            isActive={false}
-            isLoading={state.isGenerating && !showStep3Complete}
-          />
+      <div className="h-full flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-8">
+            <UnifiedEmptyState
+              icon={Video}
+              title={getCurrentTitle()}
+              description={getCurrentMessage()}
+            />
+            
+            <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
+              <StepIndicator
+                stepNumber={1}
+                title="Choose Avatar"
+                description="Select template or upload custom"
+                icon={User}
+                isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarImage)}
+                isActive={state.currentStep === 1}
+                isLoading={state.isLoading && state.currentStep === 1}
+              />
+              
+              <StepIndicator
+                stepNumber={2}
+                title={!!(state.selectedVoiceId && state.voiceAudioUrl) ? "Prepared Voice" : "Add Voice"}
+                description="Enter script and select voice"
+                icon={Mic}
+                isCompleted={!!(state.selectedVoiceId && state.voiceAudioUrl)}
+                isActive={state.currentStep === 2 && !state.isLoading}
+                isLoading={state.isLoading && state.currentStep === 2}
+              />
+              
+              <StepIndicator
+                stepNumber={3}
+                title="Generate Video"
+                description="Create professional avatar video"
+                icon={Video}
+                isCompleted={showStep3Complete || !!state.generatedVideo}
+                isActive={false}
+                isLoading={state.isGenerating && !showStep3Complete}
+              />
+            </div>
+          </div>
         </div>
       </div>
     );

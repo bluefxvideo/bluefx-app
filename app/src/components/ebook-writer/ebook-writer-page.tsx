@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/app/supabase/client';
+import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { Card } from '@/components/ui/card';
@@ -29,6 +30,7 @@ import { HistoryTab } from './tabs/history-tab';
 export function EbookWriterPage() {
   const pathname = usePathname();
   const [userId, setUserId] = useState<string | null>(null);
+  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
   const {
     current_ebook,
     title_options,
@@ -94,6 +96,7 @@ export function EbookWriterPage() {
             titleOptions={title_options}
             isGenerating={false}
             isLoadingSession={is_loading_session}
+            credits={userCredits?.available_credits || 0}
           />
         );
       case 'outline':
@@ -102,6 +105,7 @@ export function EbookWriterPage() {
             ebook={current_ebook}
             isGenerating={false}
             error={undefined}
+            credits={userCredits?.available_credits || 0}
           />
         );
       case 'content':
@@ -110,6 +114,7 @@ export function EbookWriterPage() {
             ebook={current_ebook}
             isGenerating={false}
             error={undefined}
+            credits={userCredits?.available_credits || 0}
           />
         );
       case 'cover':

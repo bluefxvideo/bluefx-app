@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Copy, CheckCircle, Type, Trash2 } from 'lucide-react';
+import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 // import { LoadingSkeleton } from './loading-skeleton';
 // import { EmptyState } from './empty-state';
 
@@ -185,17 +186,11 @@ export function TitleGeneratorOutput({
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 flex items-center justify-center">
-        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed bg-transparent dark:bg-card-content border-input">
-          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
-            <Type className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h3 className="font-medium mb-2">Ready to Generate Titles</h3>
-            <p className="text-base text-muted-foreground leading-relaxed">
-              Enter a video topic in the Title Generator tab to create engaging YouTube titles optimized for clicks and SEO.
-            </p>
-          </div>
-        </Card>
+        <UnifiedEmptyState
+          icon={Type}
+          title="Ready to Generate Titles"
+          description="Enter a video topic in the Title Generator tab to create engaging YouTube titles optimized for clicks and SEO."
+        />
       </div>
     </div>
   );
