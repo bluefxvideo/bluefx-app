@@ -22,13 +22,20 @@ function isValidUrl(url: string): boolean {
 interface HistoryOutputProps {
   refreshTrigger?: number; // Change this value to trigger a refresh
   filters?: HistoryFilters;
+  // Current generation in progress (to show as processing item)
+  currentGeneration?: {
+    prompt: string;
+    type: string;
+    isGenerating: boolean;
+    batch_id?: string;
+  };
 }
 
 /**
  * History Output - Shows generation history in right panel
  * Displays past generations with actions and details
  */
-export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = {}) {
+export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: HistoryOutputProps = {}) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [history, setHistory] = useState<ThumbnailHistoryItem[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<ThumbnailHistoryItem[]>([]);
@@ -41,14 +48,32 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
     loadHistory();
   }, [refreshTrigger]);
 
-  // Apply filters when history or filters change
+  // Apply filters when history, filters, or currentGeneration change
   useEffect(() => {
+    let baseHistory = [...history];
+    
+    // Add current generation at the top if it's active
+    if (currentGeneration && currentGeneration.isGenerating) {
+      const currentItem = {
+        id: `current-${Date.now()}`, // Temporary ID for current generation
+        prompt: currentGeneration.prompt,
+        type: currentGeneration.type,
+        createdAt: new Date().toISOString(),
+        credits: 0, // Don't charge until complete
+        batch_id: currentGeneration.batch_id || `temp-${Date.now()}`,
+        thumbnails: [],
+        titles: [],
+        isProcessing: true // Flag to identify processing item
+      };
+      baseHistory.unshift(currentItem as any);
+    }
+    
     if (!filters) {
-      setFilteredHistory(history);
+      setFilteredHistory(baseHistory);
       return;
     }
 
-    let filtered = [...history];
+    let filtered = [...baseHistory];
 
     // Apply search filter
     if (filters.searchTerm) {
@@ -115,7 +140,7 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
     }
 
     setFilteredHistory(filtered);
-  }, [history, filters]);
+  }, [history, filters, currentGeneration]);
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -282,7 +307,15 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
               </div>
 
               {/* Content Preview */}
-              {item.type === 'titles' ? (
+              {(item as any).isProcessing ? (
+                /* Processing State */
+                <div className="aspect-video bg-muted/50 rounded overflow-hidden relative flex items-center justify-center">
+                  <div className="text-center space-y-2">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                    <span className="text-sm text-muted-foreground">Processing...</span>
+                  </div>
+                </div>
+              ) : item.type === 'titles' ? (
                 /* Title Preview - Single Title */
                 <div className="bg-muted/50 p-2 rounded">
                   <p className="text-base line-clamp-2">{item.titles?.[0]}</p>
@@ -313,8 +346,8 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
                 </div>
               )}
 
-              {/* Expanded Actions */}
-              {selectedHistory === item.id && (
+              {/* Expanded Actions - only for completed items */}
+              {selectedHistory === item.id && !(item as any).isProcessing && (
                 <div className="pt-2 border-t space-y-2">
                   <div className="text-sm text-muted-foreground">
                     {item.type === 'titles' 

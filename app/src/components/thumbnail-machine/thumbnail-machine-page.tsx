@@ -48,6 +48,16 @@ export function ThumbnailMachinePage() {
     cancelGeneration
   } = useThumbnailMachine();
 
+  // Debug logging for generation state
+  useEffect(() => {
+    console.log('🎭 ThumbnailMachinePage state change:', {
+      isGenerating,
+      hasResult: !!result,
+      resultBatchId: result?.batch_id,
+      resultPrompt: result?.prompt?.substring(0, 50) + '...'
+    });
+  }, [isGenerating, result]);
+
   const handleFocusPrompt = () => {
     promptInputRef.current?.focus();
   };

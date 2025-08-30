@@ -81,14 +81,66 @@ export function ContextualOutput({
   };
   // Wrap all tab-specific outputs in the shared OutputPanelShell for consistency
   if (activeTab === 'history') {
+    // Create current generation object to show in history if generating
+    // Determine type by checking which type of results we expect or have
+    const determineGenerationType = () => {
+      // Check if we have a stored generation type from restoration
+      const storedType = (result as any)?.generationType;
+      if (storedType) {
+        return storedType;
+      }
+      
+      // For active (non-restored) generations, use the current tab as context
+      if (isGenerating) {
+        // Check which tab user is currently viewing as context
+        if (activeTab === 'face-swap') {
+          return 'face-swap';
+        }
+        if (activeTab === 'recreate') {
+          return 'recreate';
+        }
+        if (activeTab === 'titles') {
+          return 'titles';
+        }
+      }
+      
+      // Check if we have face swap results or in progress
+      if (result?.face_swapped_thumbnails && result.face_swapped_thumbnails.length > 0) {
+        return 'face-swap';
+      }
+      // Check batch_id patterns from the generation process
+      if (result?.batch_id?.includes('face')) {
+        return 'face-swap';
+      }
+      if (result?.batch_id?.includes('recreate')) {
+        return 'recreate';
+      }
+      if (result?.batch_id?.includes('title')) {
+        return 'titles';
+      }
+      // Check if it's title generation based on results
+      if (result?.titles && result.titles.length > 0) {
+        return 'titles';
+      }
+      // Default to thumbnail generation
+      return 'thumbnail';
+    };
+    
+    const currentGeneration = isGenerating && prompt ? {
+      prompt: prompt,
+      type: determineGenerationType(),
+      isGenerating: true,
+      batch_id: result?.batch_id
+    } : undefined;
+    
     return (
       <OutputPanelShell
         title="History"
-        status={isGenerating ? 'loading' : error ? 'error' : result ? 'ready' : 'idle'}
-        errorMessage={getCleanErrorMessage(error)}
-        empty={<HistoryOutput filters={historyFilters} />}
+        status={'ready'} // History should always be accessible, regardless of generation state
+        errorMessage={undefined} // History has its own error handling
+        empty={<HistoryOutput filters={historyFilters} currentGeneration={currentGeneration} />}
       >
-        <HistoryOutput filters={historyFilters} />
+        <HistoryOutput filters={historyFilters} currentGeneration={currentGeneration} />
       </OutputPanelShell>
     );
   }

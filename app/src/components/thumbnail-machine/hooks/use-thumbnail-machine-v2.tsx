@@ -8,6 +8,8 @@ import { useCredits } from '@/hooks/useCredits';
 import { updatePredictionRecord } from '@/actions/database/thumbnail-database';
 import { getIdeogramV2aPrediction } from '@/actions/models/ideogram-v2-turbo';
 import { getFaceSwapPrediction } from '@/actions/models/face-swap-cdingram';
+import { getActivePredictions } from '@/actions/database/restore-active-predictions';
+import { createPartialResultFromPrediction } from '@/utils/prediction-restoration';
 
 /**
  * Simplified Thumbnail Machine Hook with Robust Polling Fallback
@@ -26,6 +28,7 @@ export function useThumbnailMachine() {
   const [result, setResult] = useState<ThumbnailMachineResponse | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [user, setUser] = useState<User | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false); // Silent restoration by default
   
   // Polling state
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -35,20 +38,106 @@ export function useThumbnailMachine() {
   
   const supabase = createClient();
 
-  // Get current user
+  // Get current user and restore any active generation state
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    const initializeUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        
+        // Try to restore active generation state silently in background
+        if (user) {
+          console.log('🔄 User found, silently checking for active generations...', {
+            userId: user.id,
+            userEmail: user.email
+          });
+          await restoreActiveGeneration(user.id);
+        } else {
+          console.log('ℹ️ No user found, skipping restoration');
+        }
+      } catch (error) {
+        console.error('❌ Error during user initialization:', error);
+      }
+      console.log('✅ User initialization and restoration complete');
     };
-    getUser();
+    
+    initializeUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const newUser = session?.user || null;
+      setUser(newUser);
+      
+      // If user just logged in, try to restore their active generations silently
+      if (newUser && event === 'SIGNED_IN') {
+        try {
+          console.log('🔄 User signed in, checking for active generations...');
+          await restoreActiveGeneration(newUser.id);
+        } catch (error) {
+          console.error('❌ Error restoring on sign in:', error);
+        }
+      }
     });
 
     return () => subscription?.unsubscribe();
   }, [supabase.auth]);
+
+  /**
+   * Restore active generation state from database after page refresh
+   */
+  const restoreActiveGeneration = async (userId: string) => {
+    try {
+      console.log('🔄 Attempting to restore active generation state for user:', userId);
+      
+      const activePredictionsResult = await getActivePredictions(userId);
+      
+      if (!activePredictionsResult.success) {
+        console.log('❌ Failed to fetch active predictions:', activePredictionsResult.error);
+        return;
+      }
+      
+      if (!activePredictionsResult.predictions?.length) {
+        console.log('ℹ️ No active predictions to restore');
+        return;
+      }
+
+      // Get the most recent active prediction
+      const activePrediction = activePredictionsResult.predictions[0];
+      console.log('🔄 Restoring active prediction:', {
+        id: activePrediction.predictionId,
+        type: activePrediction.type,
+        prompt: activePrediction.prompt.substring(0, 50) + '...',
+        status: activePrediction.status
+      });
+
+      // Set generating state FIRST
+      setIsGenerating(true);
+      setError(undefined);
+      
+      // Create partial result for UI display
+      const partialResult = createPartialResultFromPrediction(activePrediction);
+      console.log('🔄 Setting partial result:', {
+        success: partialResult.success,
+        batch_id: partialResult.batch_id,
+        prompt: partialResult.prompt,
+        generationType: (partialResult as any).generationType
+      });
+      setResult(partialResult);
+      
+      // Store current batch ID and prediction IDs for polling
+      currentBatchIdRef.current = activePrediction.batchId;
+      predictionIdsRef.current = [activePrediction.predictionId];
+      
+      // Start polling immediately for the restored prediction
+      console.log('🔄 Starting polling for restored prediction:', activePrediction.predictionId);
+      startPolling(activePrediction.predictionId);
+      
+      console.log('✅ Active generation state restored successfully');
+      
+    } catch (error) {
+      console.error('❌ Error restoring active generation:', error);
+      // Don't set error state for restoration failures, just log them
+    }
+  };
 
   /**
    * Start polling for prediction results

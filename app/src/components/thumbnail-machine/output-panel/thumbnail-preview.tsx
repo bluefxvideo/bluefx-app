@@ -137,13 +137,14 @@ export function ThumbnailPreview({
     
     if (!selected) return null;
     
-    // Face swap results use 'image_url', thumbnails use 'url' - normalize to 'url'
-    const normalizedUrl = selected.image_url || selected.url || '';
+    // Face swap results use 'image_url', thumbnails use 'image_urls' array or 'url' - normalize to 'url'
+    const normalizedUrl = selected.image_url || selected.url || (selected.image_urls && selected.image_urls[0]) || '';
     console.log('🖼️ Primary result URL mapping:', {
       activeTab,
-      selectedType: selected.image_url ? 'face-swap' : 'thumbnail',
+      selectedType: selected.image_url ? 'face-swap' : selected.image_urls ? 'thumbnail-array' : 'thumbnail',
       originalImageUrl: selected.image_url,
-      originalUrl: selected.url, 
+      originalUrl: selected.url,
+      originalImageUrls: selected.image_urls,
       normalizedUrl,
       isValid: isValidUrl(normalizedUrl)
     });
