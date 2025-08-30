@@ -59,6 +59,10 @@ interface ReplicateInput {
   // Script-to-Video properties
   segments?: any[];
   voice_settings?: any;
+  // Voice Over properties
+  script_text?: string;
+  voice_id?: string;
+  avatar_image_url?: string;
 }
 
 interface ReplicateWebhookPayload {
@@ -137,7 +141,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // Parse and validate webhook payload
     const payload: ReplicateWebhookPayload = await request.json();
-    console.log(`🤖 AI Decision: Processing ${payload.id} - Status: ${payload.status}`);
+    console.log(`🤖 AI Decision: Processing ${payload.id} - Status: ${payload.status}`, {
+      model_version: payload.version,
+      has_output: !!payload.output,
+      input_keys: payload.input ? Object.keys(payload.input) : 'none'
+    });
 
     // Enhanced security validation
     if (!validateWebhookAuthenticity(request, payload)) {
@@ -147,19 +155,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // AI Decision: Determine processing strategy based on payload
     const aiAnalysis = await analyzeWebhookPayload(payload);
-    console.log(`🧠 AI Analysis: Tool=${aiAnalysis.tool_type}, Strategy=${aiAnalysis.processing_strategy}`);
+    console.log(`🧠 AI Analysis: Tool=${aiAnalysis.tool_type}, Strategy=${aiAnalysis.processing_strategy}`, {
+      batch_id: aiAnalysis.batch_id,
+      user_id: aiAnalysis.user_id,
+      expected_outputs: aiAnalysis.expected_outputs
+    });
 
-    // Update prediction record with enhanced tracking
-    try {
-      await updatePredictionRecordAdmin(payload.id, {
-        status: payload.status,
-        output_data: payload.output as Json,
-        completed_at: payload.completed_at,
-        logs: payload.logs,
-      });
-    } catch (predictionError) {
-      console.error('Prediction update error:', predictionError);
-    }
+    // Note: Prediction record is now updated by individual result handlers (AI Cinematographer pattern)
 
     // AI Decision: Route to appropriate processing strategy
     if (payload.status === 'succeeded' && payload.output) {
@@ -178,6 +180,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await broadcastToUser(aiAnalysis.user_id, {
         type: 'webhook_processed',
         prediction_id: payload.id,
+        batch_id: aiAnalysis.batch_id, // Include batch_id for face swap matching
         status: payload.status,
         tool_type: aiAnalysis.tool_type,
         results: processingResult,
@@ -256,7 +259,8 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
                     payload.input?.metadata?.user_id || null;
 
   analysis.batch_id = payload.metadata?.batch_id || 
-                     payload.input?.batch_id || null;
+                     payload.input?.batch_id || 
+                     payload.input?.metadata?.batch_id || null;
 
   // AI Decision: Determine tool type from multiple signals
   // Check output type first - if it's a video file, it's likely AI Cinematographer
@@ -274,13 +278,15 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
     analysis.expected_outputs = 1;
     analysis.requires_real_time_update = true;
   } else if (payload.version?.includes('flux-thumbnails-v2') || 
-            (payload.input?.prompt && payload.input?.num_outputs && !payload.input?.duration)) {
+            payload.version?.includes('35eacd3dbd088d6421f7ee27646701b5e03ec5a9a0f68f43112fa228d6fc2522') || // Ideogram V2 Turbo
+            (payload.input?.prompt && payload.input?.style_type && !payload.input?.duration)) {
     analysis.tool_type = 'thumbnail-machine';
     analysis.processing_strategy = 'batch_thumbnails';
-    analysis.expected_outputs = payload.input?.num_outputs || 4;
+    analysis.expected_outputs = payload.input?.num_outputs || 1;
     analysis.requires_batch_processing = true;
     analysis.requires_real_time_update = true;
-  } else if (payload.version?.includes('face-swap') || 
+  } else if (payload.version?.includes('d1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111') || // Face Swap CDingram
+            payload.version?.includes('face-swap') || 
             (payload.input?.swap_image && payload.input?.input_image)) {
     analysis.tool_type = 'face-swap';
     analysis.processing_strategy = 'single_face_swap';
@@ -447,9 +453,25 @@ async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis
     }
   }
   
-  // Store results and record metrics
-  if (thumbnailResults.length > 0) {
-    await storeThumbnailResults(thumbnailResults);
+  // Store results in prediction record (AI Cinematographer pattern)
+  if (thumbnailResults.length > 0 && analysis.batch_id) {
+    // Update prediction record with results - no separate table needed
+    await updatePredictionRecordAdmin(analysis.batch_id, {
+      status: payload.status,
+      output_data: {
+        thumbnails: thumbnailResults,
+        generation_metadata: {
+          model_version: determineModelVersion(payload),
+          style_type: determineStyleType(payload.input),
+          generation_time_ms: payload.metrics?.predict_time || 0,
+          prompt_length: (payload.input.prompt || '').length,
+          has_advanced_options: hasAdvancedOptions(payload.input),
+        }
+      } as Json,
+      completed_at: payload.completed_at,
+      logs: payload.logs,
+      external_id: payload.id,
+    });
     
     // AI Decision: Rich analytics recording
     await recordGenerationMetrics({
@@ -464,7 +486,7 @@ async function processBatchThumbnails(payload: ReplicateWebhookPayload, analysis
       has_advanced_options: hasAdvancedOptions(payload.input),
     });
     
-    console.log(`✅ Batch Complete: ${thumbnailResults.length} thumbnails stored`);
+    console.log(`✅ Batch Complete: ${thumbnailResults.length} thumbnails stored in prediction record`);
   }
 
   return { count: thumbnailResults.length, credits: credits_used };
@@ -479,6 +501,7 @@ async function processSingleResult(payload: ReplicateWebhookPayload, analysis: P
 
   console.log(`🎯 Single Processing: ${analysis.tool_type}`);
   
+  // Use the original batch_id from request or generate a new UUID
   const batch_id = analysis.batch_id || crypto.randomUUID();
   let credits_used = 0;
 
@@ -490,23 +513,41 @@ async function processSingleResult(payload: ReplicateWebhookPayload, analysis: P
     );
     
     if (uploadResult.success && uploadResult.url) {
-      const result: ThumbnailResult = {
-        user_id: analysis.user_id || 'unknown-user',
-        prompt: payload.input?.prompt || 'Generated content',
-        image_urls: [uploadResult.url],
-        dimensions: '1024x1024',
-        height: 1024,
-        width: 1024,
-        model_name: 'replicate-ai',
-        batch_id,
-        model_version: determineModelVersion(payload),
-        generation_settings: payload.input as Json,
-      };
-      
-      await storeThumbnailResults([result]);
-      credits_used = analysis.tool_type === 'face-swap' ? 3 : 2;
-      
-      console.log(`✅ Single Result: Stored ${analysis.tool_type}`);
+      // Store result in prediction record (AI Cinematographer pattern)
+      if (analysis.batch_id) {
+        console.log(`📝 Updating prediction record for ${analysis.tool_type}, batch_id: ${analysis.batch_id}`);
+        
+        const resultData = {
+          type: analysis.tool_type === 'face-swap' ? 'face-swap' : 'thumbnail',
+          image_url: uploadResult.url,
+          prompt: payload.input?.prompt || (analysis.tool_type === 'face-swap' ? 'Face Swap Result' : 'Generated content'),
+          model_version: determineModelVersion(payload),
+          generation_settings: payload.input,
+          ...(analysis.tool_type === 'face-swap' && {
+            input_image: payload.input?.input_image,
+            swap_image: payload.input?.swap_image,
+          })
+        };
+
+        // Update prediction record with results - no separate table needed
+        const updateResult = await updatePredictionRecordAdmin(analysis.batch_id, {
+          status: payload.status,
+          output_data: {
+            [analysis.tool_type === 'face-swap' ? 'face_swapped_thumbnails' : 'thumbnails']: [{
+              ...resultData,
+              image_url: uploadResult.url // Ensure we have image_url for face swap results
+            }]
+          } as unknown as Json,
+          completed_at: payload.completed_at,
+          logs: payload.logs,
+          external_id: payload.id,
+        });
+        
+        console.log(`📝 Update result:`, updateResult);
+        
+        credits_used = analysis.tool_type === 'face-swap' ? 3 : 2;
+        console.log(`✅ Single Result: Stored ${analysis.tool_type} in prediction record with batch_id: ${analysis.batch_id}`);
+      }
       return { count: 1, credits: credits_used };
     }
   } catch (error) {
@@ -558,20 +599,21 @@ async function handleProcessingUpdate(payload: ReplicateWebhookPayload, analysis
  */
 async function broadcastToUser(userId: string, message: Record<string, unknown>) {
   try {
-    // const _supabase = createClient();
+    // Import and create admin client for broadcasting
+    const { createAdminClient } = await import('@/app/supabase/server');
+    const supabase = await createAdminClient();
     
     // AI Decision: Broadcast through Supabase Realtime
     const channel = `user_${userId}_updates`;
     
-    // Note: In a real implementation, you'd use Supabase Realtime channels
     console.log(`📡 Broadcasting: ${channel}`, message);
     
-    // Example of how you'd implement this:
-    // await supabase.channel(channel).send({
-    //   type: 'broadcast',
-    //   event: 'webhook_update',
-    //   payload: message
-    // });
+    // Broadcast the webhook update to the user's channel
+    await supabase.channel(channel).send({
+      type: 'broadcast',
+      event: 'webhook_update',
+      payload: message
+    });
     
   } catch (error) {
     console.error('Broadcasting error:', error);
@@ -584,6 +626,8 @@ async function broadcastToUser(userId: string, message: Record<string, unknown>)
 
 function determineModelVersion(payload: ReplicateWebhookPayload): string {
   if (payload.version?.includes('flux-thumbnails-v2')) return 'flux-thumbnails-v2';
+  if (payload.version?.includes('35eacd3dbd088d6421f7ee27646701b5e03ec5a9a0f68f43112fa228d6fc2522')) return 'ideogram-v2-turbo';
+  if (payload.version?.includes('d1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111')) return 'cdingram-face-swap';
   if (payload.version?.includes('face-swap')) return 'face-swap';
   return payload.version || 'unknown';
 }

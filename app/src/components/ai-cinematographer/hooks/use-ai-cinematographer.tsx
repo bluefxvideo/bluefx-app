@@ -203,7 +203,21 @@ export function useAICinematographer() {
           
           // Update current result if it matches the current generation
           const currentResult = resultRef.current;
-          if (currentResult && currentResult.batch_id && updatedVideo?.id === currentResult.batch_id) {
+          const isCurrentGeneration = currentResult && currentResult.batch_id && 
+            (updatedVideo?.id === currentResult.batch_id || 
+             currentResult.video?.id === updatedVideo?.id);
+
+          console.log('🔍 Real-time matching check:', {
+            hasCurrentResult: !!currentResult,
+            currentBatchId: currentResult?.batch_id,
+            currentVideoId: currentResult?.video?.id,
+            updatedVideoId: updatedVideo?.id,
+            updatedVideoStatus: updatedVideo?.status,
+            isMatch: isCurrentGeneration,
+            isGenerating: isGeneratingRef.current
+          });
+
+          if (isCurrentGeneration) {
             console.log('📺 Updating current video result:', {
               batch_id: currentResult.batch_id,
               status: updatedVideo.status,
@@ -333,106 +347,9 @@ export function useAICinematographer() {
     }
   }, [user?.id, loadHistory]);
 
-  // Primary polling mechanism when generating (like talking avatar)
-  useEffect(() => {
-    if (!isGenerating || !result?.batch_id || !user?.id) return;
-
-    console.log('🔄 Starting primary polling for video completion');
-    
-    const pollInterval = setInterval(async () => {
-      try {
-        const { videos: updatedVideos } = await getCinematographerVideos(user.id);
-        const currentVideo = updatedVideos.find(v => v.id === result.batch_id);
-        
-        if (currentVideo) {
-          console.log('🔍 Polling found video:', { 
-            id: currentVideo.id, 
-            status: currentVideo.status,
-            has_video_url: !!currentVideo.final_video_url 
-          });
-          
-          // If still processing, call webhook to check RunwayML status (like talking avatar calls Hedra)
-          if (currentVideo.status === 'processing') {
-            console.log('🔄 Still processing, checking RunwayML API directly...');
-            
-            try {
-              const response = await fetch(`/api/webhooks/runway-ai`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  id: result.batch_id,
-                  user_id: user.id,
-                  action: 'check_status'
-                })
-              });
-              
-              if (response.ok) {
-                console.log('✅ Webhook status check completed');
-                // Re-fetch after webhook update
-                const { videos: refreshedVideos } = await getCinematographerVideos(user.id);
-                const refreshedVideo = refreshedVideos.find(v => v.id === result.batch_id);
-                if (refreshedVideo) {
-                  currentVideo.status = refreshedVideo.status;
-                  currentVideo.final_video_url = refreshedVideo.final_video_url;
-                  currentVideo.preview_urls = refreshedVideo.preview_urls;
-                }
-              }
-            } catch (webhookError) {
-              console.warn('⚠️ Webhook check failed:', webhookError);
-            }
-          }
-          
-          // Check if video is completed
-          if (currentVideo.status === 'completed' && currentVideo.final_video_url) {
-            console.log('✅ Video completed successfully with URL:', !!currentVideo.final_video_url);
-            
-            // Update result with completed video (CRITICAL: set video_url)
-            setResult(prev => prev ? {
-              ...prev,
-              video: {
-                id: currentVideo.id,
-                video_url: currentVideo.final_video_url, // CRITICAL: This must be set
-                thumbnail_url: currentVideo.preview_urls?.[0] || '',
-                duration: currentVideo.total_duration_seconds || 5,
-                aspect_ratio: currentVideo.aspect_ratio || '16:9',
-                prompt: currentVideo.video_concept,
-                created_at: currentVideo.created_at
-              }
-            } : prev);
-            
-            // CRITICAL: Stop generating state to show completed video
-            setIsGenerating(false);
-            setIsStateRestored(false);
-            setError(undefined);
-            
-            // Update videos list
-            setVideos(prev => prev.map(video => 
-              video.id === currentVideo.id ? currentVideo : video
-            ));
-            
-            clearInterval(pollInterval);
-            console.log('🎉 Video generation completed and state updated!');
-            
-          } else if (currentVideo.status === 'failed') {
-            console.log('❌ Video generation failed');
-            setError('Video generation failed');
-            setIsGenerating(false);
-            setIsStateRestored(false);
-            clearInterval(pollInterval);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Polling error:', error);
-      }
-    }, 5000); // Poll every 5 seconds
-
-    return () => {
-      console.log('🔄 Stopping primary polling');
-      clearInterval(pollInterval);
-    };
-  }, [isGenerating, result?.batch_id, user?.id]);
+  // Pure real-time approach - NO POLLING!
+  // Real-time subscription handles all updates instantly via webhook -> database -> real-time
+  // This is the cleanest, most efficient approach
 
   return {
     // Generation state

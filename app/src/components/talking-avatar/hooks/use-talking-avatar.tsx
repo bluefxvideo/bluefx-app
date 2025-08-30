@@ -41,11 +41,9 @@ export interface TalkingAvatarState {
   videos: TalkingAvatarVideo[];
   isLoadingHistory: boolean;
   
-  // Polling state
+  // Generation state
   currentGenerationId: string | null;
-  isPolling: boolean;
   isStateRestored: boolean; // New: indicates if state was restored from ongoing generation
-  pollingStartTime: number | null; // Track when polling started
 }
 
 export interface UseTalkingAvatarReturn {
@@ -67,11 +65,13 @@ export interface UseTalkingAvatarReturn {
 
 export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const pathname = usePathname();
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentGenerationIdRef = useRef<string | null>(null);
   const generatedVideoRef = useRef<TalkingAvatarState['generatedVideo']>(null);
-  const pollingStartTimeRef = useRef<number | null>(null);
   const hasAttemptedRestorationRef = useRef<boolean>(false);
+  
+  // Frontend polling refs for Hedra completion detection
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const getActiveTabFromPath = useCallback(() => {
     if (pathname.includes('/history')) return 'history';
@@ -103,9 +103,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     videos: [],
     isLoadingHistory: false,
     currentGenerationId: null,
-    isPolling: false,
     isStateRestored: false,
-    pollingStartTime: null,
   });
 
   // Update active tab when pathname changes
@@ -121,20 +119,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   useEffect(() => {
     generatedVideoRef.current = state.generatedVideo;
   }, [state.generatedVideo]);
-
-  useEffect(() => {
-    pollingStartTimeRef.current = state.pollingStartTime;
-  }, [state.pollingStartTime]);
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, []);
 
   // Get current user
   useEffect(() => {
@@ -320,25 +304,47 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         aspect_ratio: aspectRatio,
       };
 
+      // Create immediate placeholder result to show processing UI
+      const placeholderVideo = {
+        id: `talking_avatar_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        video_url: '', // Empty until completed
+        thumbnail_url: '',
+        script_text: state.scriptText,
+        avatar_image_url: state.selectedAvatarTemplate?.thumbnail_url || state.customAvatarUrl || '',
+        created_at: new Date().toISOString()
+      };
+
+      setState(prev => ({
+        ...prev,
+        generatedVideo: placeholderVideo,
+        isGenerating: true,
+        error: null
+      }));
+
       const response = await executeTalkingAvatar(request);
       
       if (response.success) {
+        // Update the placeholder with real data
         setState(prev => ({
           ...prev,
-          generatedVideo: response.video || placeholderVideo,
+          generatedVideo: {
+            ...placeholderVideo,
+            id: response.video?.id || placeholderVideo.id,
+            video_url: response.video?.video_url || '', // Still empty until real-time update
+            thumbnail_url: response.video?.thumbnail_url || placeholderVideo.thumbnail_url,
+            script_text: response.video?.script_text || placeholderVideo.script_text,
+            avatar_image_url: response.video?.avatar_image_url || placeholderVideo.avatar_image_url,
+            created_at: response.video?.created_at || placeholderVideo.created_at
+          },
           credits: response.remaining_credits,
           currentGenerationId: response.prediction_id || null,
-          isPolling: true,
-          pollingStartTime: Date.now(), // Track when polling started
         }));
         
-        // Start polling for video completion
-        if (response.prediction_id) {
-          // Starting polling for prediction
-          startPolling(response.prediction_id);
-        } else {
-          // No prediction_id returned from API
-        }
+        // Start frontend polling after 30 seconds for Hedra completion detection
+        // Since Hedra doesn't have webhooks, we need to poll their API
+        setTimeout(() => {
+          startHedraPolling(response.prediction_id || placeholderVideo.id);
+        }, 30000); // Wait 30 seconds before starting to poll
         
         toast.success('Video generation started! Check your history for updates.');
       } else {
@@ -386,8 +392,23 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }));
   }, []);
 
+  // Frontend polling functions for Hedra completion detection
+  const stopHedraPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
+    }
+  }, []);
+
   // Clear results
   const clearResults = useCallback(() => {
+    // Stop any ongoing polling
+    stopHedraPolling();
+    
     setState(prev => ({
       ...prev,
       generatedVideo: null,
@@ -395,16 +416,91 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       isStateRestored: false,
       isGenerating: false,
       currentGenerationId: null,
-      isPolling: false,
-      pollingStartTime: null,
     }));
+  }, [stopHedraPolling]);
+
+  const startHedraPolling = useCallback((generationId: string) => {
+    if (!user?.id) return;
     
-    // Stop polling
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-  }, []);
+    console.log(`🔄 Starting Hedra polling for generation: ${generationId}`);
+    
+    // Stop any existing polling
+    stopHedraPolling();
+    
+    const pollHedraStatus = async () => {
+      try {
+        console.log(`🔍 Polling Hedra status for: ${generationId}`);
+        
+        const response = await fetch(`/api/webhooks/hedra-ai?generation_id=${generationId}&user_id=${user.id}`);
+        const result = await response.json();
+        
+        console.log(`📊 Hedra polling result:`, result);
+        
+        if (result.success && result.status === 'complete' && result.video_url) {
+          console.log(`✅ Hedra generation completed: ${generationId}`);
+          
+          // Update the current video with the completed video URL
+          setState(prev => {
+            if (prev.generatedVideo && prev.generatedVideo.id === generationId) {
+              return {
+                ...prev,
+                generatedVideo: {
+                  ...prev.generatedVideo,
+                  video_url: result.video_url,
+                },
+                isGenerating: false,
+              };
+            }
+            return prev;
+          });
+          
+          // Stop polling when complete
+          stopHedraPolling();
+          toast.success('Avatar video completed!');
+          
+        } else if (result.success && result.status === 'error') {
+          console.error(`❌ Hedra generation failed: ${generationId} - ${result.error}`);
+          
+          setState(prev => ({
+            ...prev,
+            error: result.error || 'Video generation failed',
+            isGenerating: false,
+          }));
+          
+          stopHedraPolling();
+          toast.error('Avatar video generation failed');
+          
+        } else {
+          console.log(`⏳ Hedra still processing: ${generationId} - ${result.status || 'processing'}`);
+        }
+        
+      } catch (error) {
+        console.error('Hedra polling error:', error);
+        // Don't stop polling on network errors - keep trying
+      }
+    };
+    
+    // Start polling every 5 seconds
+    pollingIntervalRef.current = setInterval(pollHedraStatus, 5000);
+    
+    // Run first poll immediately
+    pollHedraStatus();
+    
+    // Set a timeout to stop polling after 10 minutes (Hedra usually completes in 2-5 minutes)
+    pollingTimeoutRef.current = setTimeout(() => {
+      console.log(`⏰ Hedra polling timeout for: ${generationId}`);
+      stopHedraPolling();
+      
+      setState(prev => ({
+        ...prev,
+        error: 'Video generation timed out. Please check your history later.',
+        isGenerating: false,
+      }));
+      
+      toast.error('Video generation is taking longer than expected. Check your history later.');
+    }, 10 * 60 * 1000); // 10 minutes timeout
+    
+  }, [user?.id, stopHedraPolling]);
 
   // Load video history
   const loadHistory = useCallback(async () => {
@@ -451,176 +547,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [user?.id]);
 
 
-  // Start polling for video generation status
-  const startPolling = useCallback((generationId: string) => {
-    // Starting polling for generation
-    // Polling start time set
-    
-    // Clear any existing polling
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      // Cleared existing polling interval
-    }
-
-    // Start polling every 5 seconds
-    pollingIntervalRef.current = setInterval(async () => {
-      // Polling tick - checking generation status
-      
-      try {
-        if (!user?.id) {
-          // No user found during polling
-          return;
-        }
-
-        // Check if we should stop polling after timeout (5 minutes)
-        const pollingDuration = Date.now() - (pollingStartTimeRef.current || 0);
-        const timeoutThreshold = 5 * 60 * 1000; // 5 minutes
-        
-        if (pollingDuration > timeoutThreshold) {
-          // Polling timeout reached
-          
-          // Stop polling after timeout
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          
-          setState(prev => ({
-            ...prev,
-            isPolling: false,
-            error: 'Video generation timed out. Please try again.',
-          }));
-          
-          toast.error('Video generation timed out. Please try again.');
-          return;
-        }
-
-        // Polling in progress
-        
-        // Check avatar_videos table for completed video
-        const { data: videos, error } = await supabase
-          .from('avatar_videos')
-          .select('*')
-          .eq('hedra_generation_id', generationId)
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(1);
-
-        if (error) {
-          // Polling error occurred
-          return;
-        }
-
-        let video = videos?.[0];
-        if (!video) {
-          // No video record found yet, continuing polling
-          return;
-        }
-
-        // Video status checked
-
-        // If still processing, check Hedra API directly
-        if (video.status === 'processing') {
-          // Still processing, checking Hedra API
-          
-          // Call the webhook endpoint to check Hedra status
-          try {
-            const response = await fetch(`/api/webhooks/hedra-ai`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                generation_id: generationId,
-                user_id: user.id,
-                avatar_video_id: video.id,
-                action: 'check_status'
-              })
-            });
-            
-            if (response.ok) {
-              const result = await response.json();
-              // Hedra API check completed
-              
-              // Re-fetch from database after webhook update
-              const { data: updatedVideo } = await supabase
-                .from('avatar_videos')
-                .select('*')
-                .eq('hedra_generation_id', generationId)
-                .eq('user_id', user.id)
-                .single();
-                
-              if (updatedVideo) {
-                video = updatedVideo;
-                // Updated video status after Hedra check
-              }
-            }
-          } catch (error) {
-            // Failed to check Hedra API
-          }
-        }
-
-        // Check if video is completed
-        if (video.status === 'completed' && video.video_url) {
-          // Video completed successfully
-          
-          // Stop polling
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-
-          // Update state with completed video
-          setState(prev => ({
-            ...prev,
-            generatedVideo: {
-              id: video.id,
-              video_url: video.video_url,
-              thumbnail_url: video.thumbnail_url,
-              script_text: video.script_text,
-              avatar_image_url: video.avatar_image_url || '',
-              created_at: video.created_at || new Date().toISOString(),
-            },
-            isPolling: false,
-            isGenerating: false, // Important: stop the loading state
-            currentGenerationId: null,
-            currentStep: 3, // Keep UI on step 3 to show the completed video
-            error: null, // Clear any errors
-          }));
-
-          // Refresh history to show the new video
-          await loadHistory();
-          
-          toast.success('Video generation completed!');
-          
-        } else if (video.status === 'failed') {
-          // Video generation failed
-          
-          // Stop polling
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-
-          setState(prev => ({
-            ...prev,
-            error: 'Video generation failed',
-            isPolling: false,
-            currentGenerationId: null,
-          }));
-
-          toast.error('Video generation failed');
-        }
-        // Otherwise continue polling
-        
-      } catch (pollingError) {
-        // Polling error occurred
-      }
-    }, 5000); // Poll every 5 seconds (matching AI cinematographer pattern)
-  }, [user?.id, supabase, loadHistory, state.currentGenerationId, state.isPolling]);
-
-  // Removed duplicate effect-based polling - all polling handled by startPolling function
-  // This was causing conflicts and could stop polling prematurely
+  // Pure real-time architecture - no polling needed
 
   // Load initial history and restore any ongoing generations
   useEffect(() => {
@@ -660,7 +587,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             const isRecent = new Date(v.created_at || '') > twoMinutesAgo;
             const hasValidGenerationId = v.hedra_generation_id && v.hedra_generation_id.trim();
             
-            // Resume processing videos with frontend polling (works in all environments)
+            // Resume processing videos with real-time updates
             
             return isProcessingStatus && isRecent && hasValidGenerationId;
           });
@@ -689,19 +616,22 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                   created_at: processingVideo.created_at || new Date().toISOString()
                 },
                 currentGenerationId: processingVideo.hedra_generation_id || null,
-                isPolling: true,
                 isStateRestored: true, // Only set when truly restoring
                 currentStep: 3,
-                pollingStartTime: estimatedPollingStartTime,
               }));
+              
+              // Resume polling for the restored generation (without initial 30s delay since generation is already in progress)
+              if (processingVideo.hedra_generation_id) {
+                console.log('🔄 Resuming Hedra polling for restored generation:', processingVideo.hedra_generation_id);
+                setTimeout(() => {
+                  startHedraPolling(processingVideo.hedra_generation_id);
+                }, 2000); // Short delay to let UI update first
+              }
             } else {
               // Skipping restoration - already generating
             }
             
-            // Start polling if we have a generation ID
-            if (processingVideo.hedra_generation_id) {
-              startPolling(processingVideo.hedra_generation_id);
-            }
+            // Pure real-time updates will handle completion automatically
             
             // Processing state restored
           } else {
@@ -740,7 +670,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                   isGenerating: false,
                   generatedVideo: null,
                   isStateRestored: false,
-                  isPolling: false,
                 };
               }
               return prev;
@@ -759,7 +688,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Setting up real-time subscription
+    console.log('🔔 Setting up Talking Avatar real-time subscription for user:', user.id);
 
     const subscription = supabase
       .channel(`avatar_videos_${user.id}`)
@@ -772,16 +701,33 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          // Real-time update received
+          console.log('🎬 Talking Avatar real-time update received:', {
+            event: payload.eventType,
+            old: payload.old,
+            new: payload.new
+          });
 
           const updatedVideo = payload.new as TalkingAvatarVideo;
           
           // Update current result if it matches the current generation
           const currentGenerationId = currentGenerationIdRef.current;
           const currentVideo = generatedVideoRef.current;
+          const isCurrentGeneration = currentGenerationId && updatedVideo?.hedra_generation_id === currentGenerationId;
+
+          console.log('🔍 Talking Avatar real-time matching check:', {
+            hasCurrentGenerationId: !!currentGenerationId,
+            currentGenerationId,
+            updatedVideoGenerationId: updatedVideo?.hedra_generation_id,
+            updatedVideoStatus: updatedVideo?.status,
+            isMatch: isCurrentGeneration
+          });
           
-          if (currentGenerationId && updatedVideo?.hedra_generation_id === currentGenerationId) {
-            // Updating current video result
+          if (isCurrentGeneration) {
+            console.log('📺 Updating current talking avatar result:', {
+              generation_id: currentGenerationId,
+              status: updatedVideo.status,
+              video_url: updatedVideo.video_url
+            });
 
             setState(prev => ({
               ...prev,
@@ -801,21 +747,16 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             
             // CRITICAL: Set isGenerating to false when video generation is complete
             if (updatedVideo.status === 'completed' || updatedVideo.status === 'failed') {
-              // Video generation completed
+              console.log('✅ Talking Avatar generation completed, stopping loading state and polling');
               
-              // Stop polling
-              if (pollingIntervalRef.current) {
-                clearInterval(pollingIntervalRef.current);
-                pollingIntervalRef.current = null;
-              }
+              // Stop frontend polling since real-time completed successfully
+              stopHedraPolling();
               
               setState(prev => ({
                 ...prev,
                 isGenerating: false,
-                isPolling: false,
                 isStateRestored: false, // Clear restored state flag
                 currentGenerationId: null,
-                pollingStartTime: null,
               }));
               
               // Clear any existing error if the video succeeded
@@ -846,14 +787,22 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         }
       )
       .subscribe((status) => {
-        // Subscription status changed
+        console.log('🔔 Talking Avatar subscription status:', status);
       });
 
     return () => {
-      // Unsubscribing from real-time updates
+      console.log('🔔 Unsubscribing from Talking Avatar real-time updates');
       subscription.unsubscribe();
     };
   }, [user?.id, supabase]); // Use refs to avoid re-subscription
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Cleaning up Hedra polling timers');
+      stopHedraPolling();
+    };
+  }, [stopHedraPolling]);
 
   // Check status for a specific history item
   const checkHistoryItemStatus = useCallback(async (generationId: string) => {

@@ -17,6 +17,7 @@ interface ContextualOutputProps {
   onClearResults: () => void;
   onFocusPrompt?: () => void;
   historyFilters?: HistoryFilters;
+  prompt?: string; // Add prompt prop
 }
 
 /**
@@ -30,8 +31,17 @@ export function ContextualOutput({
   error,
   onClearResults,
   onFocusPrompt,
-  historyFilters
+  historyFilters,
+  prompt
 }: ContextualOutputProps) {
+  // Debug logging
+  console.log('🎭 ContextualOutput render:', {
+    activeTab,
+    isGenerating,
+    hasResult: !!result,
+    hasFaceSwap: !!result?.face_swapped_thumbnails,
+    faceSwapCount: result?.face_swapped_thumbnails?.length || 0
+  });
   // Wrap all tab-specific outputs in the shared OutputPanelShell for consistency
   if (activeTab === 'history') {
     return (
@@ -92,8 +102,12 @@ export function ContextualOutput({
     if (error) {
       return 'Oops, something went wrong';
     }
-    // If successful and not generating, show complete message
-    if (result?.success && !isGenerating) {
+    // If we have actual thumbnails and not generating, show complete message
+    const hasResults = activeTab === 'face-swap' 
+      ? (result?.face_swapped_thumbnails && result?.face_swapped_thumbnails.length > 0)
+      : (result?.thumbnails && result?.thumbnails.length > 0);
+    
+    if (result?.success && !isGenerating && hasResults) {
       return activeTab === 'generate' ? 'Generation Complete!' 
            : activeTab === 'face-swap' ? 'Face Swap Complete!'
            : 'Recreation Complete!';
@@ -108,7 +122,11 @@ export function ContextualOutput({
     // Don't show subtitle if there's an error
     if (error) return undefined;
     
-    if (result?.success && !isGenerating) {
+    const hasResults = activeTab === 'face-swap' 
+      ? (result?.face_swapped_thumbnails && result?.face_swapped_thumbnails.length > 0)
+      : (result?.thumbnails && result?.thumbnails.length > 0);
+    
+    if (result?.success && !isGenerating && hasResults) {
       return activeTab === 'generate' ? 'Your thumbnails are ready'
            : activeTab === 'face-swap' ? 'Your face swap is ready'
            : 'Your recreation is ready';
@@ -120,7 +138,11 @@ export function ContextualOutput({
     // Don't show success icon if there's an error
     if (error) return undefined;
     
-    if (result?.success && !isGenerating) {
+    const hasResults = activeTab === 'face-swap' 
+      ? (result?.face_swapped_thumbnails && result?.face_swapped_thumbnails.length > 0)
+      : (result?.thumbnails && result?.thumbnails.length > 0);
+    
+    if (result?.success && !isGenerating && hasResults) {
       return (
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
           <CheckCircle className="w-5 h-5 text-white" />
@@ -134,7 +156,7 @@ export function ContextualOutput({
     // Don't show clear button if there's an error
     if (error) return undefined;
     
-    if (result?.success && !isGenerating) {
+    if (result?.success && !isGenerating && result?.thumbnails && result?.thumbnails.length > 0) {
       return (
         <Button
           variant="ghost"
@@ -155,27 +177,41 @@ export function ContextualOutput({
       title={getTitle()}
       subtitle={getSubtitle()}
       icon={getIcon()}
-      status={isGenerating ? 'loading' : error ? 'error' : (result?.success ? 'ready' : 'idle')}
+      status={isGenerating ? 'loading' : error ? 'error' : (result?.success && (result?.thumbnails?.length || 0) > 0 ? 'ready' : 'idle')}
       errorMessage={error}
       actions={getActions()}
-      empty={
+      loading={
+        // Custom loading component to show our processing card instead of simple spinner
         <ThumbnailMachineOutput
-          result={undefined}
-          isGenerating={false}
-          error={undefined}
+          result={result}
+          isGenerating={isGenerating}
+          error={error}
           onClearResults={onClearResults}
           activeTab={activeTab}
           onFocusPrompt={onFocusPrompt}
+          prompt={prompt}
+        />
+      }
+      empty={
+        <ThumbnailMachineOutput
+          result={undefined}
+          isGenerating={isGenerating}
+          error={error}
+          onClearResults={onClearResults}
+          activeTab={activeTab}
+          onFocusPrompt={onFocusPrompt}
+          prompt={prompt}
         />
       }
     >
       <ThumbnailMachineOutput
         result={result}
-        isGenerating={false}
-        error={undefined}
+        isGenerating={isGenerating}
+        error={error}
         onClearResults={onClearResults}
         activeTab={activeTab}
         onFocusPrompt={onFocusPrompt}
+        prompt={prompt}
       />
     </OutputPanelShell>
   );

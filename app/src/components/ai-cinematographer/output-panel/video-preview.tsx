@@ -2,8 +2,7 @@
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Download, ExternalLink, Clock } from 'lucide-react';
+import { Download, Clock, Loader2, Video } from 'lucide-react';
 
 interface VideoPreviewProps {
   video: {
@@ -53,16 +52,11 @@ export function VideoPreview({ video, batchId }: VideoPreviewProps) {
     }
   };
 
-  const handleOpenInNewTab = () => {
-    if (video.video_url) {
-      window.open(video.video_url, '_blank');
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      {/* Video Player */}
-      <Card className="overflow-hidden">
+    <div className="w-full h-auto">
+      {/* Auto-height Video Card */}
+      <Card className="overflow-hidden h-auto">
+        {/* Video Player - Natural aspect ratio */}
         {video.video_url ? (
           <div className="relative aspect-video bg-black">
             <video
@@ -74,78 +68,60 @@ export function VideoPreview({ video, batchId }: VideoPreviewProps) {
             />
           </div>
         ) : (
-          <div className="aspect-video bg-muted flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <Clock className="w-8 h-8 mx-auto text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Video processing...
-              </p>
-            </div>
+          // Processing Card using aspect-video without footer
+          <div className="relative aspect-video bg-muted flex items-center justify-center p-8">
+            <Card className="p-8 max-w-sm text-center space-y-4 border-dashed bg-transparent dark:bg-card-content border-input">
+              {/* Blue Square with Spinning Icon */}
+              <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+              </div>
+              
+              {/* Processing Text */}
+              <div>
+                <h3 className="font-medium mb-2">Processing...</h3>
+                <p className="text-sm text-muted-foreground">
+                  {video.prompt}
+                </p>
+                <p className="text-xs text-yellow-500 mt-2">
+                  ~{video.duration === 5 ? '2-3' : video.duration === 10 ? '3-4' : '2-4'} minutes
+                </p>
+              </div>
+            </Card>
           </div>
         )}
-      </Card>
 
-      {/* Video Info */}
-      <Card className="p-4">
-        <div className="space-y-3">
-          {/* Video Details */}
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium mb-1">Generated Video</h4>
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {video.prompt}
-              </p>
-            </div>
-            <div className="flex gap-2 ml-4">
-              <Badge variant="outline">
-                {video.duration}s
-              </Badge>
-              <Badge variant="outline">
-                {video.aspect_ratio}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          {video.video_url && (
-            <div className="flex gap-2 pt-2 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenInNewTab}
-                className="flex-1"
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Open
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-                className="flex-1"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download
-              </Button>
-            </div>
-          )}
-
-          {/* Metadata */}
-          <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
-            <div className="flex justify-between">
-              <span>Video ID:</span>
-              <span className="font-mono">{video.id.slice(-8)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Generated:</span>
-              <span>{new Date(video.created_at).toLocaleString()}</span>
-            </div>
-            {video.thumbnail_url && (
-              <div className="flex justify-between">
-                <span>Thumbnail:</span>
-                <span>Available</span>
+        {/* Compact Footer - always visible */}
+        <div className="p-4 bg-card border-t">
+          <div className="flex items-center justify-between text-sm">
+            {video.video_url ? (
+              // Completed state - show prompt
+              <div className="flex-1 min-w-0 mr-2">
+                <p className="text-muted-foreground truncate">{video.prompt}</p>
+              </div>
+            ) : (
+              // Processing state - show less info to match compact design
+              <div className="flex-1 min-w-0 mr-2">
+                <p className="text-xs text-muted-foreground truncate">Processing video...</p>
               </div>
             )}
+            <div className="flex gap-1 items-center shrink-0">
+              <span className="text-muted-foreground">{video.duration}s</span>
+              <span className="text-muted-foreground">•</span>
+              <span className="font-mono text-muted-foreground">{video.id.slice(-8)}</span>
+              <span className={video.video_url ? 'text-green-500' : 'text-yellow-500'}>
+                {video.video_url ? '✓' : '⋯'}
+              </span>
+              {video.video_url && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDownload}
+                  className="h-4 w-4 p-0 ml-1"
+                >
+                  <Download className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </Card>

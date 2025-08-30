@@ -34,18 +34,30 @@ interface FaceSwapPrediction {
 
 interface CreatePredictionInput {
   version?: string;
-  input: FaceSwapInput;
+  input: FaceSwapInput & {
+    user_id?: string; // For webhook processing
+    batch_id?: string; // For webhook processing
+  };
   webhook?: string;
 }
 
 /**
  * Create a new face swap prediction
  */
-export async function createFaceSwapPrediction(params: FaceSwapInput, webhook?: string): Promise<FaceSwapPrediction> {
+export async function createFaceSwapPrediction(
+  params: FaceSwapInput, 
+  webhook?: string, 
+  user_id?: string, 
+  batch_id?: string
+): Promise<FaceSwapPrediction> {
   try {
     const requestBody: CreatePredictionInput = {
       version: 'd1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111',
-      input: params,
+      input: {
+        ...params,
+        ...(user_id && { user_id }),
+        ...(batch_id && { batch_id }),
+      },
     };
 
     if (webhook) {
@@ -152,19 +164,23 @@ export async function waitForFaceSwapCompletion(
 export async function performFaceSwap(
   inputImage: string,
   swapImage: string,
-  webhook?: string
+  webhook?: string,
+  user_id?: string,
+  batch_id?: string
 ): Promise<string> {
   try {
     // Create the prediction
     const prediction = await createFaceSwapPrediction({
       input_image: inputImage,
       swap_image: swapImage
-    }, webhook);
+    }, webhook, user_id, batch_id);
 
     console.log(`Face swap prediction created: ${prediction.id}`);
+    console.log(`🔗 Webhook provided: ${webhook ? 'YES' : 'NO'} - ${webhook}`);
 
     // If webhook is provided, return prediction ID for async handling
     if (webhook) {
+      console.log(`🚀 Face swap: Returning prediction ID for webhook processing: ${prediction.id}`);
       return prediction.id;
     }
 

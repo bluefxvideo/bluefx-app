@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Image as ImageIcon, Wand2, RotateCcw, FileText, History, UserCheck } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
@@ -25,6 +25,15 @@ export function ThumbnailMachinePage() {
   const pathname = usePathname();
   const promptInputRef = useRef<HTMLTextAreaElement>(null!);
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters | undefined>();
+  
+  // Debug mounting/unmounting
+  useEffect(() => {
+    console.log('📍 ThumbnailMachinePage mounted, pathname:', pathname);
+    return () => {
+      console.log('📍 ThumbnailMachinePage unmounted');
+    };
+  }, [pathname]);
+  
   const {
     generate,
     isGenerating,
@@ -91,7 +100,7 @@ export function ThumbnailMachinePage() {
           <FaceSwapTab
             onGenerate={generate}
             isGenerating={isGenerating}
-            credits={credits}
+            credits={credits ? { available_credits: credits.available_credits } : null}
             error={error}
           />
         );
@@ -100,7 +109,7 @@ export function ThumbnailMachinePage() {
           <RecreateTab
             onGenerate={generate}
             isGenerating={isGenerating}
-            credits={credits}
+            credits={credits ? { available_credits: credits.available_credits } : null}
             error={error}
           />
         );
@@ -109,7 +118,7 @@ export function ThumbnailMachinePage() {
           <TitleGeneratorTab
             onGenerate={generate}
             isGenerating={isGenerating}
-            credits={credits}
+            credits={credits ? { available_credits: credits.available_credits } : null}
             error={error}
           />
         );
@@ -150,6 +159,7 @@ export function ThumbnailMachinePage() {
           onClearResults={clearResults}
           onFocusPrompt={handleFocusPrompt}
           historyFilters={historyFilters}
+          prompt={''}
         />
       </StandardToolLayout>
     </StandardToolPage>

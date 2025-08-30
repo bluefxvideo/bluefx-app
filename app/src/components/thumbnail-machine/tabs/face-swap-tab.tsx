@@ -42,8 +42,16 @@ export function FaceSwapTab({
     setFormData(prev => ({ ...prev, targetImage: file }));
   };
 
-  const handleSubmit = async () => {
-    if (!formData.sourceImage || !formData.targetImage) return;
+  const handleSubmit = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent any default behavior
+    e.stopPropagation(); // Stop event bubbling
+    
+    if (!formData.sourceImage || !formData.targetImage || isGenerating) {
+      console.log('❌ Face swap blocked - missing data or already generating');
+      return;
+    }
+    
+    console.log('🚀 Starting face swap generation...');
     
     // Call unified orchestrator with face-swap-only mode
     await onGenerate({
@@ -168,6 +176,7 @@ export function FaceSwapTab({
 
       <TabFooter>
         <Button
+          type="button"
           onClick={handleSubmit}
           disabled={!formData.sourceImage || !formData.targetImage || isGenerating || (credits?.available_credits || 0) < estimatedCredits}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"

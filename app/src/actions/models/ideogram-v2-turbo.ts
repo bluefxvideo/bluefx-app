@@ -41,6 +41,8 @@ interface IdeogramV2aOutput {
 
 interface CreatePredictionParams extends IdeogramV2aInput {
   webhook?: string;
+  user_id?: string; // For webhook processing
+  batch_id?: string; // For webhook processing
 }
 
 /**
@@ -70,6 +72,8 @@ export async function createIdeogramV2aPrediction(
           ...(params.negative_prompt && { negative_prompt: params.negative_prompt }),
           ...(params.image && { image: params.image }),
           ...(params.mask && { mask: params.mask }),
+          ...(params.user_id && { user_id: params.user_id }), // Add user_id to input for webhook
+          ...(params.batch_id && { batch_id: params.batch_id }), // Add batch_id to input for webhook
         },
         ...(params.webhook && { webhook: params.webhook }),
       }),

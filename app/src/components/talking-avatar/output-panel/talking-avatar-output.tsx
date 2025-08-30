@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle, Loader2, Video, User, Mic, LucideIcon, Clock, Zap, Download, ExternalLink } from 'lucide-react';
+import { CheckCircle, Loader2, Video, User, Mic, LucideIcon, Zap } from 'lucide-react';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TalkingAvatarState } from '../hooks/use-talking-avatar';
 import { AvatarExample } from './avatar-example';
+import { AvatarVideoPreview } from './avatar-video-preview';
 
 interface StepIndicatorProps {
   stepNumber: number;
@@ -58,30 +59,27 @@ interface TalkingAvatarOutputProps {
   avatarState: { 
     state: TalkingAvatarState;
     clearResults?: () => void;
+    resetWizard?: () => void;
   };
 }
 
 export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
-  const { state, clearResults } = avatarState;
-  const [showStep3Complete, setShowStep3Complete] = React.useState(false);
+  const { state, clearResults, resetWizard } = avatarState;
   
-  // Watch for when generation starts to show brief checkmark
-  React.useEffect(() => {
-    if (state.isGenerating && !showStep3Complete) {
-      setShowStep3Complete(true);
-      // Show checkmark for 1 second then transition to video placeholder
-      const timer = setTimeout(() => {
-        setShowStep3Complete(false);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [state.isGenerating, showStep3Complete]);
+  // Debug logging to help troubleshoot
+  console.log('🎬 TalkingAvatarOutput render:', {
+    isGenerating: state.isGenerating,
+    hasGeneratedVideo: !!state.generatedVideo,
+    videoUrl: state.generatedVideo?.video_url,
+    isStateRestored: state.isStateRestored,
+    currentStep: state.currentStep
+  });
   
   // Check if we're in progress mode (any step > 1 or avatar selected)
   const isInProgress = state.currentStep > 1 || state.selectedAvatarTemplate || state.customAvatarImage;
   
   // Show completed video first if available (must have actual video URL, not empty placeholder)
-  if (state.generatedVideo && state.generatedVideo.video_url && state.generatedVideo.video_url.trim() && !state.isGenerating && !state.isPolling) {
+  if (state.generatedVideo && state.generatedVideo.video_url && state.generatedVideo.video_url.trim() && !state.isGenerating) {
     const handleDownload = async () => {
       if (!state.generatedVideo?.video_url) return;
       
@@ -120,181 +118,47 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
     };
 
     return (
-      <div className="h-full flex flex-col p-6">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-full space-y-4">
-            {/* Video Player */}
-            <Card className="overflow-hidden">
-              <div className="relative aspect-video bg-black">
-                <video
-                  src={state.generatedVideo.video_url}
-                  className="w-full h-full object-contain"
-                  controls
-                  preload="metadata"
-                  poster={state.generatedVideo.thumbnail_url}
-                />
-              </div>
-            </Card>
-
-            {/* Video Info */}
-            <Card className="p-4">
-              <div className="space-y-3">
-                {/* Video Details */}
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium mb-1">Generated Talking Avatar</h4>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {state.generatedVideo.script_text || 'Avatar video generated successfully'}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 ml-4">
-                    <Badge variant="outline">
-                      Avatar Video
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-2 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleOpenInNewTab}
-                    className="flex-1"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownload}
-                    className="flex-1"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </Button>
-                  {clearResults && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearResults}
-                      className="flex-1"
-                    >
-                      Create New
-                    </Button>
-                  )}
-                </div>
-
-                {/* Metadata */}
-                <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
-                  <div className="flex justify-between">
-                    <span>Video ID:</span>
-                    <span className="font-mono">{state.generatedVideo.id.slice(-8)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Generated:</span>
-                    <span>{new Date(state.generatedVideo.created_at).toLocaleString()}</span>
-                  </div>
-                  {state.generatedVideo.thumbnail_url && (
-                    <div className="flex justify-between">
-                      <span>Thumbnail:</span>
-                      <span>Available</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Card>
-          </div>
+      <div className="h-full flex items-center justify-center overflow-auto">
+        <div className="w-full max-w-4xl">
+          <AvatarVideoPreview
+            video={state.generatedVideo}
+            onDownload={handleDownload}
+            onOpenInNewTab={handleOpenInNewTab}
+            onCreateNew={resetWizard}
+          />
         </div>
       </div>
     );
   }
   
-  // If generating video or polling for completion, show placeholder card (EXACT AI cinematographer pattern)
+  // If generating video, show processing state using the same AvatarVideoPreview component
   // Show this for both initial generation AND resumed generation
-  // But skip during the brief step 3 complete animation
-  if ((state.isGenerating || state.isPolling || (state.isStateRestored && state.generatedVideo)) && state.generatedVideo && !showStep3Complete) {
+  if ((state.isGenerating || (state.isStateRestored && state.generatedVideo)) && state.generatedVideo) {
     return (
       <div className="h-full flex flex-col relative overflow-hidden">
-        {/* Solid subtle overlay for consistency with theme */}
-        <div className="absolute inset-0 bg-secondary/20"></div>
-        
-        <div className="relative z-10 h-full flex flex-col">
-          {/* State restored notification */}
-          {state.isStateRestored && (
-            <div className="pb-4">
-              <Card className="p-3 bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <p className="text-sm text-blue-300 font-medium">
-                    {state.isPolling && !state.isGenerating ? 'Video generation complete - preparing your avatar video' : 'Video generation resumed - your avatar was still processing in the background'}
-                  </p>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Show Avatar Video Placeholder - EXACT VideoPreview pattern */}
-          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full">
-              <div className="space-y-4">
-                {/* Video Player - EXACT match */}
-                <Card className="overflow-hidden">
-                  <div className="aspect-video bg-muted flex items-center justify-center">
-                    <div className="text-center space-y-3">
-                      <Clock className="w-8 h-8 mx-auto text-muted-foreground" />
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">
-                          Video processing...
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Video Info - EXACT match */}
-                <Card className="p-4">
-                  <div className="space-y-3">
-                    {/* Video Details */}
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium mb-1">Generated Talking Avatar</h4>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {state.generatedVideo.script_text}
-                        </p>
-                      </div>
-                      <div className="flex gap-2 ml-4">
-                        <Badge variant="outline">
-                          Avatar Video
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {/* Metadata */}
-                    <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
-                      <div className="flex justify-between">
-                        <span>Video ID:</span>
-                        <span className="font-mono text-xs">{state.generatedVideo.id}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Generated:</span>
-                        <span>{new Date(state.generatedVideo.created_at).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Status:</span>
-                        <span>
-                          {state.isPolling 
-                            ? 'Processing...'
-                            : 'Generating video...'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+        {/* State restored notification */}
+        {state.isStateRestored && (
+          <div className="p-4">
+            <Card className="p-3 bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <p className="text-sm text-blue-300 font-medium">
+                  Video generation resumed - your avatar was still processing in the background
+                </p>
               </div>
-            </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Unified Avatar Video Preview - same component for processing and completed */}
+        <div className="flex-1 flex items-center justify-center overflow-auto">
+          <div className="w-full max-w-4xl">
+            <AvatarVideoPreview
+              video={state.generatedVideo}
+              onDownload={undefined} // No download during processing
+              onOpenInNewTab={undefined} // No open during processing
+              onCreateNew={undefined} // No create new during processing
+            />
           </div>
         </div>
       </div>
@@ -318,7 +182,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
     const getCurrentTitle = () => {
       if (state.currentStep === 2 && state.isLoading) {
-        return 'Preparing Video';
+        return 'Preparing Voice';
       }
       if (state.currentStep === 2) {
         return 'Configure Voice';
@@ -365,9 +229,9 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                 title="Generate Video"
                 description="Create professional avatar video"
                 icon={Video}
-                isCompleted={showStep3Complete || !!state.generatedVideo}
+                isCompleted={!!state.generatedVideo && !!state.generatedVideo.video_url}
                 isActive={false}
-                isLoading={state.isGenerating && !showStep3Complete}
+                isLoading={state.isGenerating}
               />
             </div>
           </div>

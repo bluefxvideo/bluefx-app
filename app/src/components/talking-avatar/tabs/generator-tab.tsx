@@ -529,10 +529,10 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
           >
             <Video className="w-4 h-4 mr-2" />
             {state.isLoading || state.isGenerating ? (
-              state.currentStep === 3 ? 'Generating Video...' : state.currentStep === 2 ? 'Preparing Video...' : 'Processing...'
+              state.currentStep === 3 ? 'Generating Video...' : state.currentStep === 2 ? 'Preparing Voice...' : 'Processing...'
             ) : (
               state.currentStep === 3 ? `Generate Video (${estimatedCredits} credits)` : 
-              state.currentStep === 2 ? 'Prepare Video' : 'Select Avatar'
+              state.currentStep === 2 ? 'Prepare Voice' : 'Select Avatar'
             )}
             {state.currentStep < 3 && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>

@@ -4,9 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
-import { ResultsGrid } from './results-grid';
-import { LoadingSkeleton } from './loading-skeleton';
 import { GenerateEmptyState, FaceSwapEmptyState, RecreateEmptyState } from './tab-empty-states';
+import { ThumbnailPreview } from './thumbnail-preview';
 import { Download, Trash2, Clock, CheckCircle, AlertCircle, Sparkles, Zap } from 'lucide-react';
 
 interface ThumbnailMachineOutputProps {
@@ -16,6 +15,7 @@ interface ThumbnailMachineOutputProps {
   onClearResults: () => void;
   activeTab?: string;
   onFocusPrompt?: () => void;
+  prompt?: string; // Add prompt for processing card display
 }
 
 /**
@@ -28,37 +28,54 @@ export function ThumbnailMachineOutput({
   error,
   onClearResults,
   activeTab = 'generate',
-  onFocusPrompt
+  onFocusPrompt,
+  prompt
 }: ThumbnailMachineOutputProps) {
-  // Loading state with premium styling
-  if (isGenerating) {
+  // Debug logging
+  console.log('🎨 ThumbnailMachineOutput render:', {
+    activeTab,
+    isGenerating,
+    hasResult: !!result,
+    resultSuccess: result?.success,
+    hasFaceSwap: !!result?.face_swapped_thumbnails,
+    faceSwapCount: result?.face_swapped_thumbnails?.length || 0,
+    hasThumbnails: !!result?.thumbnails,
+    thumbnailCount: result?.thumbnails?.length || 0
+  });
+  
+  // Show processing state or results if we have them
+  if (isGenerating || result) {
+    const handleDownload = async () => {
+      // TODO: Implement batch download
+      console.log('Download all images');
+    };
+
+    const handleOpenInNewTab = () => {
+      // TODO: Implement gallery view in new tab
+      console.log('Open gallery in new tab');
+    };
+
+    // Create fallback result for processing state if none exists
+    const displayResult = result || {
+      success: true,
+      batch_id: 'processing',
+      credits_used: 0,
+      generation_time_ms: 0,
+      thumbnails: []
+    };
+
     return (
-      <div className="h-full flex flex-col relative overflow-hidden">
-        {/* Solid subtle overlay for consistency with theme */}
-        <div className="absolute inset-0 bg-secondary/20"></div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center animate-spin">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <div className="absolute inset-0 rounded-full border-2 border-primary/40 animate-ping"></div>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Creating Your Masterpiece</h3>
-                <p className="text-zinc-400">AI is working its magic...</p>
-              </div>
-            </div>
-            
-            <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
-              <Clock className="w-3 h-3 mr-1.5" />
-              Processing
-            </Badge>
-          </div>
-          
-          <LoadingSkeleton />
+      <div className="h-full flex items-center justify-center overflow-auto">
+        <div className="w-full max-w-4xl">
+          <ThumbnailPreview
+            result={displayResult}
+            isGenerating={isGenerating}
+            onDownload={handleDownload}
+            onOpenInNewTab={handleOpenInNewTab}
+            onCreateNew={onClearResults}
+            prompt={prompt}
+            activeTab={activeTab}
+          />
         </div>
       </div>
     );
@@ -96,48 +113,10 @@ export function ThumbnailMachineOutput({
     );
   }
 
-  // Success state with centered professional results display
-  if (result && result.success) {
-    return (
-      <div className="h-full flex flex-col relative overflow-hidden">
-        {/* Subtle solid overlay */}
-        <div className="absolute inset-0 bg-secondary/20"></div>
-        
-        <div className="relative z-10 h-full flex flex-col">{/* Header now handled by OutputPanelShell */}
+  // Success state - now handled by unified ThumbnailPreview component
+  // This case is actually covered above in the "if (isGenerating || result)" block
 
-          {/* Results Section - Clean and Simple */}
-          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full">
-              <ResultsGrid
-                thumbnails={result.thumbnails || []}
-                faceSwappedThumbnails={result.face_swapped_thumbnails || []}
-                titles={result.titles || []}
-                batchId={result.batch_id}
-              />
-            </div>
-          </div>
-
-          {/* Premium Warnings - if any */}
-          {result.warnings && result.warnings.length > 0 && (
-            <div className="px-6 pb-4">
-              <Card className="p-4 bg-yellow-500/10 border border-yellow-500/30 backdrop-blur-sm">
-                <div className="space-y-2">
-                  {result.warnings.map((warning, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                      <p className="text-sm text-yellow-300 font-medium">{warning}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Enhanced Empty State with centered layout
+  // Empty State with centered layout
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
       {/* Subtle animated background */}

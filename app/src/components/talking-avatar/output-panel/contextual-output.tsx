@@ -45,12 +45,14 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
           <TalkingAvatarOutput avatarState={{
             state: avatarState.state,
             clearResults: avatarState.clearResults,
+            resetWizard: avatarState.resetWizard,
             checkStatusManually: avatarState.checkStatusManually
           }} />
         ) : (
           <TalkingAvatarOutput avatarState={{
             state: avatarState.state,
             clearResults: avatarState.clearResults,
+            resetWizard: avatarState.resetWizard,
             checkStatusManually: avatarState.checkStatusManually
           }} />
         )
@@ -59,6 +61,7 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
       <TalkingAvatarOutput avatarState={{
         state: avatarState.state,
         clearResults: avatarState.clearResults,
+        resetWizard: avatarState.resetWizard,
         checkStatusManually: avatarState.checkStatusManually
       }} />
     </OutputPanelShell>

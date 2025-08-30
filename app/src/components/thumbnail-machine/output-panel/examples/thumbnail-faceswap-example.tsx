@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 
 export function ThumbnailFaceSwapExample() {
-  const faceSwapPlaceholder = {
+  const c = {
     title: "Face Swap Preview",
     prompt: "Upload your face and target thumbnail to create personalized content",
     src: "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/images/placeholders/thumbnail-recreate.png"

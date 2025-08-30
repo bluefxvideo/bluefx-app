@@ -42,6 +42,7 @@ interface PredictionRecord {
   status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
   webhook_url?: string;
   output_data?: Json;
+  external_id?: string; // External service prediction ID (e.g., Replicate pred_abc123)
   created_at?: string;
   updated_at?: string;
   completed_at?: string;
@@ -104,10 +105,12 @@ export async function deleteThumbnailResult(
  * Store generated thumbnail results in database
  */
 export async function storeThumbnailResults(
-  results: ThumbnailResult[]
+  results: ThumbnailResult[],
+  useAdminClient: boolean = false
 ): Promise<{ success: boolean; data?: Record<string, unknown>[]; error?: string }> {
   try {
-    const supabase = await createClient();
+    // Use admin client for webhook context, regular client for user context
+    const supabase = useAdminClient ? await createAdminClient() : await createClient();
 
     const { data, error } = await supabase
       .from('generated_images')
@@ -123,6 +126,8 @@ export async function storeThumbnailResults(
     }
 
     console.log(`Stored ${results.length} thumbnail results in database`);
+    
+    // Note: Dummy update hack removed - now using AI Cinematographer pattern with ai_predictions table
     
     return {
       success: true,

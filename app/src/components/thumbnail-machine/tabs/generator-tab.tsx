@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Wand2, Image as ImageIcon } from 'lucide-react';
+import { Wand2} from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter, TabError } from '@/components/tools/tab-content-wrapper';
-import { ThumbnailMachineRequest } from '@/actions/tools/thumbnail-machine';
+import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { PromptSection } from '../input-panel/prompt-section';
 import { StandardStep } from '@/components/tools/standard-step';
 
 interface GeneratorTabProps {
-  onGenerate: (request: ThumbnailMachineRequest) => void;
+  onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
   isGenerating: boolean;
   credits: { available_credits: number } | null;
   error?: string;
@@ -93,14 +93,14 @@ export function GeneratorTab({
     },
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.prompt?.trim()) return;
     
     // Enhance prompt with selected style
     const selectedStyleConfig = thumbnailStyles[formData.selectedStyle];
     const enhancedPrompt = `${selectedStyleConfig.systemPrompt}\n\nUser's request: ${formData.prompt}`;
     
-    onGenerate({
+    await onGenerate({
       prompt: enhancedPrompt,
       num_outputs: formData.num_outputs,
       aspect_ratio: formData.aspect_ratio,

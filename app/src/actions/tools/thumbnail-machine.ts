@@ -8,6 +8,7 @@ import { uploadImageToStorage, downloadAndUploadImage } from '../supabase-storag
 import { 
   storeThumbnailResults, 
   createPredictionRecord, 
+  updatePredictionRecord,
   recordGenerationMetrics,
   getUserCredits,
   deductCredits 
@@ -171,10 +172,9 @@ export interface ThumbnailMachineResponse {
   titles?: string[];
   
   // Metadata
-  prediction_id: string;
   batch_id: string;
   credits_used: number;
-  remaining_credits?: number; // NEW - from credit system integration
+  remaining_credits?: number;
   generation_time_ms: number;
   
   // Error handling
@@ -259,7 +259,6 @@ export async function generateThumbnails(
 
     // Step 3: Create Prediction Record (from legacy system)
     await createPredictionRecord({
-      prediction_id: batch_id, // Use batch_id as temp prediction_id
       user_id: request.user_id,
       tool_id: 'thumbnail-machine',
       service_id: 'generate',
@@ -287,14 +286,18 @@ export async function generateThumbnails(
     // For single thumbnail generation, use direct function instead of multiple
     let predictions;
     if (numOutputs === 1) {
+      const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`;
+      console.log('🔗 Using webhook URL:', webhookUrl);
+      
       const singlePrediction = await createIdeogramV2aPrediction({
         prompt: enhancedPrompt, // Use the enhanced prompt instead of raw user prompt
         aspect_ratio: request.aspect_ratio || '16:9',
         style_type: request.style_type || 'Auto',
         magic_prompt_option: request.magic_prompt_option || 'On',
         seed: request.seed,
-        // Temporarily disable webhook for testing - use polling instead
-        // webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai`,
+        webhook: webhookUrl,
+        user_id: request.user_id, // Add user_id for webhook processing
+        batch_id: batch_id, // Add batch_id for webhook processing
       });
       predictions = [singlePrediction];
     } else {
@@ -305,8 +308,7 @@ export async function generateThumbnails(
         {
           aspectRatio: request.aspect_ratio || '16:9',
           styleType: request.style_type || 'Auto',
-          // Temporarily disable webhook for testing - use polling instead
-          // webhook: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/replicate-ai`,
+          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`,
         }
       );
     }
@@ -314,7 +316,6 @@ export async function generateThumbnails(
     // Update prediction records for all generated predictions
     for (const prediction of predictions) {
       await createPredictionRecord({
-        prediction_id: prediction.id,
         user_id: request.user_id,
         tool_id: 'thumbnail-machine',
         service_id: 'generate',
@@ -414,35 +415,35 @@ export async function generateThumbnails(
           
           for (const thumbnail of targetThumbnails) {
             try {
-              const faceSwapResult = await performFaceSwap(thumbnail.url, sourceImageUrl);
-            
-            if (faceSwapResult) {
-              // Download and store face-swapped result in Supabase Storage
-              const faceSwapStorageResult = await downloadAndUploadImage(
-                faceSwapResult,
-                'thumbnail-machine-faceswap',
-                `${thumbnail.id}_swapped`,
-                {
-                  folder: 'thumbnails/faceswap',
-                  bucket: 'images'
-                }
+              // Use webhook for async face swap processing (non-blocking)
+              const faceSwapPredictionId = await performFaceSwap(
+                thumbnail.url, 
+                sourceImageUrl, 
+                webhookUrl, // Pass webhook for async processing
+                request.user_id, // Pass user_id for webhook processing
+                batch_id // Pass batch_id for real-time matching
               );
+            
+              console.log(`🔄 Face swap prediction created: ${faceSwapPredictionId} for thumbnail ${thumbnail.id}`);
               
-              face_swapped_thumbnails.push({
-                url: faceSwapStorageResult.success && faceSwapStorageResult.url 
-                  ? faceSwapStorageResult.url 
-                  : faceSwapResult, // Fallback to original if storage fails
-                source_thumbnail_id: thumbnail.id,
-                replicate_url: faceSwapResult, // Keep original for reference
+              // Store face swap prediction record for webhook processing
+              await createPredictionRecord({
+                user_id: request.user_id,
+                tool_id: 'thumbnail-machine-faceswap',
+                service_id: 'face-swap',
+                model_version: 'cdingram-face-swap',
+                status: 'processing',
+                input_data: {
+                  source_thumbnail_id: thumbnail.id,
+                  batch_id: batch_id,
+                  input_image: thumbnail.url,
+                  swap_image: sourceImageUrl
+                } as unknown as Json,
               });
-              total_credits += FACE_SWAP_CREDITS;
               
-              if (faceSwapStorageResult.success) {
-                console.log(`✅ Stored face-swapped thumbnail: ${faceSwapStorageResult.url}`);
-              } else {
-                console.warn(`⚠️ Failed to store face-swapped thumbnail, using original URL`);
-              }
-            }
+              // Note: Actual face swap results will be processed by webhook
+              // and stored via real-time updates
+              total_credits += FACE_SWAP_CREDITS;
           } catch (swapError) {
             console.warn(`Face swap failed for thumbnail ${thumbnail.id}:`, swapError);
             warnings.push(`Face swap failed for variation ${thumbnail.variation_index}`);
@@ -539,7 +540,6 @@ export async function generateThumbnails(
       thumbnails,
       face_swapped_thumbnails,
       titles,
-      prediction_id: predictions[0]?.id || batch_id, // Use first prediction ID or batch_id as fallback
       batch_id,
       credits_used: total_credits,
       remaining_credits: creditDeduction.remainingCredits,
@@ -562,7 +562,6 @@ export async function generateThumbnails(
     
     return {
       success: false,
-      prediction_id: '',
       batch_id,
       credits_used: total_credits,
       generation_time_ms: Date.now() - startTime,
@@ -698,6 +697,17 @@ async function executeFaceSwapOnlyWorkflow(
       throw new Error('Face swap requires both source and target images');
     }
 
+    // ✅ FIX: Create prediction record for state restoration (like regular generation)
+    await createPredictionRecord({
+      prediction_id: batch_id,
+      user_id: request.user_id,
+      tool_id: 'thumbnail-machine',
+      service_id: 'face-swap-only',
+      model_version: 'cdingram-face-swap',
+      status: 'starting',
+      input_data: request as unknown as Json,
+    });
+
     // Upload source face image
     let sourceImageUrl: string;
     if (typeof request.face_swap.source_image === 'string' && request.face_swap.source_image.startsWith('http')) {
@@ -757,69 +767,43 @@ async function executeFaceSwapOnlyWorkflow(
       }
     }
 
-    // Perform face swap
-    console.log('🔄 Performing face swap via Replicate API');
-    const faceSwapResultUrl = await performFaceSwap(targetImageUrl, sourceImageUrl);
+    // Perform face swap with webhook pattern (async)
+    console.log('🔄 Starting face swap via webhook pattern');
+    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`;
+    console.log('🔗 Webhook URL for face swap:', webhookUrl);
     
-    if (!faceSwapResultUrl) {
-      throw new Error('Face swap operation failed');
-    }
-
-    // Download and store result
-    const storageResult = await downloadAndUploadImage(
-      faceSwapResultUrl,
-      'face-swap-result',
-      `result_${batch_id}`,
-      {
-        folder: 'face-swap/results',
-        bucket: 'images'
-      }
+    const faceSwapPredictionId = await performFaceSwap(
+      targetImageUrl, 
+      sourceImageUrl, 
+      webhookUrl,
+      request.user_id,
+      batch_id // Pass original batch_id, webhook will handle the rest
     );
+    
+    console.log('✅ Face swap started with prediction ID:', faceSwapPredictionId);
 
-    const finalImageUrl = storageResult.success && storageResult.url 
-      ? storageResult.url 
-      : faceSwapResultUrl;
+    // ✅ FIX: Update prediction with external_id for proper webhook matching
+    await updatePredictionRecord(batch_id, { 
+      status: 'processing',
+      external_id: faceSwapPredictionId // Store Replicate prediction ID for webhook matching
+    });
 
-    // Deduct credits
+    // Deduct credits upfront
     const creditDeduction = await deductCredits(
       request.user_id,
       FACE_SWAP_CREDITS,
       'face-swap-only',
-      { batch_id, source: sourceImageUrl, target: targetImageUrl, result: finalImageUrl }
+      { batch_id, source: sourceImageUrl, target: targetImageUrl }
     );
 
-    // Store result in database
-    await storeThumbnailResults([{
-      user_id: request.user_id,
-      prompt: 'Face Swap Operation',
-      image_urls: [finalImageUrl],
-      dimensions: 'landscape', // Use predefined value
-      height: 1024,
-      width: 1024,
-      model_name: 'face-swap-cdingram',
-      model_version: 'face-swap',
-      batch_id,
-      generation_settings: request as unknown as Json,
-      metadata: {
-        type: 'face-swap',
-        source_image: sourceImageUrl,
-        target_image: targetImageUrl,
-        stored_in_supabase: storageResult.success
-      }
-    }]);
-
     const generation_time_ms = Date.now() - startTime;
-    console.log(`✅ Face Swap workflow completed in ${generation_time_ms}ms`);
+    console.log(`✅ Face Swap workflow started in ${generation_time_ms}ms - results will be delivered via webhook`);
 
     return {
       success: true,
-      face_swapped_thumbnails: [{
-        url: finalImageUrl,
-        source_thumbnail_id: batch_id,
-        replicate_url: faceSwapResultUrl
-      }],
-      prediction_id: batch_id,
-      batch_id,
+      thumbnails: [], // Empty for face-swap-only mode
+      face_swapped_thumbnails: [], // Will be populated via real-time when webhook completes
+      batch_id, // Use original UUID batch_id for proper database storage
       credits_used: FACE_SWAP_CREDITS,
       remaining_credits: creditDeduction.remainingCredits,
       generation_time_ms
@@ -846,6 +830,17 @@ async function executeRecreationOnlyWorkflow(
     if (!request.reference_image) {
       throw new Error('Recreation requires a reference image');
     }
+
+    // ✅ FIX: Create prediction record FIRST for state restoration (like regular generation)
+    await createPredictionRecord({
+      prediction_id: batch_id,
+      user_id: request.user_id,
+      tool_id: 'thumbnail-machine',
+      service_id: 'recreation-only',
+      model_version: 'gpt-image-1',
+      status: 'starting',
+      input_data: request as unknown as Json,
+    });
 
     // Upload reference image
     let referenceImageUrl: string;
@@ -886,6 +881,9 @@ async function executeRecreationOnlyWorkflow(
     // Step 2: Generate recreation using OpenAI Image Edits API (gpt-image-1)
     console.log('🎨 Creating recreation with OpenAI gpt-image-1 model');
     
+    // ✅ FIX: Update prediction status to processing (like regular generation)
+    await updatePredictionRecord(batch_id, { status: 'processing' });
+
     const openAIResult = await recreateWithOpenAI(
       referenceImageUrl,
       'YouTube Thumbnail Recreation', // Company name parameter (required by function signature)
@@ -897,16 +895,7 @@ async function executeRecreationOnlyWorkflow(
       throw new Error('OpenAI recreation failed: No images generated');
     }
 
-    // Record in database
-    await createPredictionRecord({
-      prediction_id: batch_id,
-      user_id: request.user_id,
-      tool_id: 'thumbnail-machine',
-      service_id: 'recreation',
-      model_version: 'gpt-image-1',
-      status: 'processing',
-      input_data: request as unknown as Json
-    });
+    // ✅ Prediction record already created at workflow start
 
     // Get the generated image URL
     const generatedImageUrl = openAIResult.data[0].url || openAIResult.data[0].b64_json;
@@ -1014,6 +1003,17 @@ async function executeTitlesOnlyWorkflow(
     
     // Validate required fields
     const topic = request.prompt || 'YouTube video';
+
+    // ✅ FIX: Create prediction record for state restoration (like regular generation)
+    await createPredictionRecord({
+      prediction_id: batch_id,
+      user_id: request.user_id,
+      tool_id: 'thumbnail-machine',
+      service_id: 'titles-only',
+      model_version: 'gpt-4o-mini',
+      status: 'starting',
+      input_data: request as unknown as Json,
+    });
     
     // Generate titles with enhanced context
     let titlePrompt = topic;
@@ -1021,6 +1021,9 @@ async function executeTitlesOnlyWorkflow(
       titlePrompt += `. Include keywords: ${request.target_keywords}`;
     }
     
+    // ✅ FIX: Update prediction status to processing (like regular generation)
+    await updatePredictionRecord(batch_id, { status: 'processing' });
+
     console.log('📝 Generating YouTube titles with OpenAI');
     const titles = await generateYouTubeTitles(
       titlePrompt,
@@ -1053,7 +1056,6 @@ async function executeTitlesOnlyWorkflow(
     return {
       success: true,
       titles,
-      prediction_id: batch_id,
       batch_id,
       credits_used: TITLE_GENERATION_CREDITS,
       remaining_credits: creditDeduction.remainingCredits,

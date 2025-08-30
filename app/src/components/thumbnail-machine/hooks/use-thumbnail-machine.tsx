@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { generateThumbnails, ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -9,14 +8,31 @@ import { useCredits } from '@/hooks/useCredits';
 
 /**
  * Custom hook for thumbnail machine functionality
- * Integrates AI orchestrator with React Query and real-time updates
+ * Simplified to match AI Cinematographer pattern
  */
 export function useThumbnailMachine() {
-  const { credits } = useCredits(); // Use real credits hook
+  const { credits } = useCredits();
+  
+  const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<ThumbnailMachineResponse | undefined>();
+  const [error, setError] = useState<string | undefined>();
   const [user, setUser] = useState<User | null>(null);
-  const queryClient = useQueryClient();
+  
+  // Use ref to track current result without causing subscription re-creation
+  const resultRef = useRef<ThumbnailMachineResponse | undefined>(undefined);
+  const isGeneratingRef = useRef<boolean>(false);
+  const lastProcessedRef = useRef<string | null>(null);
+  
   const supabase = createClient();
+
+  // Update refs when state changes
+  useEffect(() => {
+    resultRef.current = result;
+  }, [result]);
+  
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+  }, [isGenerating]);
 
   // Get current user
   useEffect(() => {
@@ -33,163 +49,422 @@ export function useThumbnailMachine() {
     return () => subscription?.unsubscribe();
   }, [supabase.auth]);
 
-  // AI Orchestrator integration
-  const generateMutation = useMutation({
-    mutationFn: async (request: ThumbnailMachineRequest) => {
-      // Authentication check
-      if (!user?.id) {
-        throw new Error('User must be authenticated to generate thumbnails');
-      }
+  // State restoration - check for ongoing generations when user is authenticated
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    console.log('🔍 Checking for ongoing thumbnail generations...');
+    
+    const checkOngoingGenerations = async () => {
+      try {
+        // Only check for VERY recent predictions (last 10 minutes) that might need restoration
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        
+        const { data: recentPredictions } = await supabase
+          .from('ai_predictions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('tool_id', 'thumbnail-machine')
+          .gte('created_at', tenMinutesAgo)
+          .in('status', ['starting', 'processing'])
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-      // Pre-validation
-      const estimatedCredits = calculateEstimatedCredits(request);
-      const availableCredits = credits?.available_credits || 0;
-      if (availableCredits < estimatedCredits) {
-        throw new Error(`Insufficient credits. Need ${estimatedCredits}, have ${availableCredits}`);
+        if (recentPredictions && recentPredictions.length > 0) {
+          const prediction = recentPredictions[0];
+          console.log('📺 Found ongoing thumbnail generation, restoring state:', prediction.prediction_id);
+          
+          // Restore processing state
+          setIsGenerating(true);
+          
+          // Create placeholder result for processing display
+          const placeholderResult: ThumbnailMachineResponse = {
+            success: true,
+            batch_id: prediction.prediction_id,
+            credits_used: 0,
+            generation_time_ms: 0,
+            thumbnails: []
+          };
+          
+          setResult(placeholderResult);
+          console.log('✅ Thumbnail processing state restored');
+        }
+      } catch (error) {
+        console.error('State restoration error:', error);
       }
-      
-      console.log('🤖 Calling AI Orchestrator with request:', request);
-      
-      // Call AI orchestrator
+    };
+
+    // Delay to let user auth complete
+    const timeoutId = setTimeout(checkOngoingGenerations, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [user?.id, supabase]);
+
+  // Generate thumbnails - simplified like AI Cinematographer
+  const generateThumbnail = async (request: ThumbnailMachineRequest): Promise<ThumbnailMachineResponse> => {
+    // Authentication check
+    if (!user?.id) {
+      const errorResponse: ThumbnailMachineResponse = {
+        success: false,
+        error: 'User must be authenticated to generate thumbnails',
+        batch_id: `error_${Date.now()}`,
+        generation_time_ms: 0,
+        credits_used: 0,
+        thumbnails: []
+      };
+      setError(errorResponse.error);
+      return errorResponse;
+    }
+
+    setIsGenerating(true);
+    setError(undefined);
+    
+    // Create immediate placeholder result
+    const batch_id = `thumbnail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const placeholderResult: ThumbnailMachineResponse = {
+      success: true,
+      batch_id,
+      generation_time_ms: 0,
+      credits_used: 0,
+      thumbnails: []
+    };
+    setResult(placeholderResult);
+    
+    try {
       const response = await generateThumbnails({
         ...request,
-        user_id: user.id
+        user_id: user.id,
       });
       
-      console.log('✅ AI Orchestrator response:', response);
-      return response;
-    },
-    onMutate: async (request) => {
-      // Optimistic UI - show immediate loading state
-      const optimisticResult: ThumbnailMachineResponse = {
-        success: true,
-        prediction_id: 'pending',
-        batch_id: `opt_${Date.now()}`,
-        credits_used: calculateEstimatedCredits(request),
-        generation_time_ms: 0,
-        thumbnails: [] // Empty initially, will be populated via real-time
-      };
+      // Don't overwrite result if it's a face swap that returns empty arrays (webhook will update it)
+      // Check if this is a face swap operation that's waiting for webhook
+      const isFaceSwapWaitingForWebhook = request.operation_mode === 'face-swap-only' && 
+        response.success && 
+        response.face_swapped_thumbnails?.length === 0;
       
-      setResult(optimisticResult);
-      console.log('🚀 Optimistic UI: Starting generation with batch_id:', optimisticResult.batch_id);
-      
-      return { optimisticResult };
-    },
-    onSuccess: (response, _variables, _context) => {
-      if (response.success) {
-        // Credits are now managed by useCredits hook
-        
-        // Update result with actual prediction details
+      if (!isFaceSwapWaitingForWebhook) {
+        setResult(response);
+      } else {
+        console.log('🔄 Face swap initiated - waiting for webhook to update results');
+        // Keep the placeholder result with the batch_id but don't overwrite with empty arrays
         setResult(prev => ({
           ...response,
-          batch_id: prev?.batch_id || response.batch_id // Keep optimistic batch_id
+          // Preserve any face swap results that might have already arrived via webhook
+          face_swapped_thumbnails: prev?.face_swapped_thumbnails?.length ? prev.face_swapped_thumbnails : []
         }));
-        
-        // Invalidate related queries
-        queryClient.invalidateQueries({ queryKey: ['user-thumbnails'] });
-        queryClient.invalidateQueries({ queryKey: ['user-credits'] });
-        
-        console.log('🎉 Generation successful:', {
-          prediction_id: response.prediction_id,
-          batch_id: response.batch_id,
-          credits_used: response.credits_used,
-          generation_time: response.generation_time_ms
-        });
       }
-    },
-    onError: (error) => {
-      console.error('❌ Generation failed:', error);
+      
+      if (!response.success) {
+        setError(response.error);
+      }
+      
+      return response;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Thumbnail generation failed';
+      const errorResponse: ThumbnailMachineResponse = {
+        success: false,
+        error: errorMessage,
+        batch_id: `error_${Date.now()}`,
+        generation_time_ms: 0,
+        credits_used: 0,
+        thumbnails: []
+      };
+      setError(errorMessage);
+      setResult(errorResponse);
+      return errorResponse;
+    } finally {
+      // Don't stop generating for face swap - webhook will handle that
+      if (request.operation_mode !== 'face-swap-only') {
+        setIsGenerating(false);
+      }
     }
-  });
+  };
 
-  // Real-time updates (STANDARD pattern)
-  useEffect(() => {
-    const userId = user?.id;
-    if (!userId) return;
+  // Clear results
+  const clearResults = () => {
+    setResult(undefined);
+    setError(undefined);
+    setIsGenerating(false);
+  };
+
+  // Handle webhook broadcast updates (Direct broadcasting like AI Cinematographer)
+  const handleWebhookUpdate = useCallback(async (message: any) => {
+    const timestamp = new Date().toISOString();
+    console.log(`📡 [${timestamp}] Processing webhook broadcast:`, {
+      tool_type: message.tool_type,
+      prediction_id: message.prediction_id,
+      batch_id: message.batch_id,
+      status: message.status,
+      has_results: !!message.results
+    });
     
-    console.log('📡 Setting up real-time updates for user:', userId);
+    if (message.tool_type !== 'face-swap' && message.tool_type !== 'thumbnail' && message.tool_type !== 'ideogram') {
+      console.log('⏭️ Skipping - not a thumbnail tool');
+      return;
+    }
     
-    const channel = supabase
-      .channel(`user_${userId}_thumbnails`)
-      // DISABLED: Real-time thumbnail updates to prevent race conditions with orchestrator
-      // The orchestrator already returns complete results with stored Supabase URLs
-      /*
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'generated_images', // Fixed: Use correct table name
-        filter: `user_id=eq.${userId}`
-      }, (payload) => {
-        console.log('📨 Real-time update received:', payload);
+    // Simple duplicate prevention - one prediction ID only
+    console.log('🔍 Duplicate check:', {
+      messagePredictionId: message.prediction_id,
+      lastProcessed: lastProcessedRef.current,
+      isDuplicate: lastProcessedRef.current === message.prediction_id
+    });
+    
+    if (lastProcessedRef.current === message.prediction_id) {
+      console.log('⏭️ DUPLICATE DETECTED - Skipping already processed prediction:', message.prediction_id);
+      return;
+    }
+    lastProcessedRef.current = message.prediction_id;
+    
+    if (message.status !== 'succeeded' || !message.results?.success) {
+      return;
+    }
+    
+    // Get the prediction record to get the actual image data
+    if (message.prediction_id) {
+      console.log('🔍 Querying prediction with external_id:', message.prediction_id, 'for user:', user?.id);
+      try {
+        // For face swap, we might need to query by prediction_id OR external_id
+        let prediction;
+        let error;
         
-        // Direct result update for immediate UI feedback
-        if (payload.new && payload.new.batch_id) {
-          // Check if this result belongs to current generation
-          if (result?.batch_id === payload.new.batch_id) {
-            console.log('🎯 Updating current result with new thumbnail');
+        // First try by external_id (normal flow)
+        ({ data: prediction, error } = await supabase
+          .from('ai_predictions')
+          .select('prediction_id, output_data, user_id')
+          .eq('external_id', message.prediction_id)
+          .eq('user_id', user.id)
+          .single());
+        
+        // If not found and it's face swap, try by prediction_id directly using batch_id
+        if (!prediction && message.tool_type === 'face-swap' && message.batch_id) {
+          console.log('🔍 Face swap: trying direct prediction_id match with batch_id:', message.batch_id);
+          ({ data: prediction, error } = await supabase
+            .from('ai_predictions')
+            .select('prediction_id, output_data, user_id')
+            .eq('prediction_id', message.batch_id)
+            .eq('user_id', user.id)
+            .single());
+        }
+          
+        console.log('🔍 Prediction query result:', { prediction, error });
+          
+        if (prediction && prediction.output_data) {
+          const currentResult = resultRef.current;
+          console.log('🔍 Matching check:', { 
+            currentBatchId: currentResult?.batch_id, 
+            predictionId: prediction.prediction_id,
+            messageBatchId: message.batch_id,
+            isMatch: currentResult && (currentResult.batch_id === prediction.prediction_id || currentResult.batch_id === message.batch_id)
+          });
+          // Match by either prediction_id or batch_id (for face swap)
+          const isCurrentGeneration = currentResult && (
+            currentResult.batch_id === prediction.prediction_id || 
+            currentResult.batch_id === message.batch_id
+          );
+          
+          if (isCurrentGeneration) {
+            console.log('🎉 [BROADCAST] Webhook broadcast matches - updating UI with results!');
+            
+            const outputData = prediction.output_data as any;
+            console.log('🔍 Output data to process:', outputData);
+            
+            // Create the final result directly without multiple state updates
+            const currentResult = resultRef.current;
+            if (currentResult) {
+              let finalResult;
+              
+              // Handle Face Swap results
+              if (outputData.face_swapped_thumbnails) {
+                console.log('🎯 Processing face swap results:', outputData.face_swapped_thumbnails);
+                finalResult = {
+                  ...currentResult,
+                  face_swapped_thumbnails: outputData.face_swapped_thumbnails.map((item: any) => ({
+                    url: item.image_url || item.url,
+                    source_thumbnail_id: item.source_thumbnail_id || currentResult.batch_id,
+                    replicate_url: item.image_url || item.url,
+                  }))
+                };
+              }
+              // Handle Normal Generate results
+              else if (outputData.thumbnails) {
+                console.log('🎯 Processing thumbnail results:', outputData.thumbnails);
+                finalResult = {
+                  ...currentResult,
+                  thumbnails: outputData.thumbnails.map((item: any, index: number) => ({
+                    id: `${currentResult.batch_id}_${index + 1}`,
+                    url: item.image_url || item.url,
+                    variation_index: index + 1,
+                    batch_id: currentResult.batch_id,
+                  }))
+                };
+              }
+              
+              if (finalResult) {
+                console.log('🔍 Setting final result with data:', {
+                  has_face_swap: !!finalResult.face_swapped_thumbnails,
+                  face_swap_count: finalResult.face_swapped_thumbnails?.length || 0,
+                  has_thumbnails: !!finalResult.thumbnails,
+                  thumbnail_count: finalResult.thumbnails?.length || 0,
+                  batch_id: finalResult.batch_id,
+                  success: finalResult.success
+                });
+                setResult(finalResult);
+                console.log('✅ Result state updated via setResult');
+              } else {
+                console.warn('⚠️ No final result created from output data');
+              }
+            } else {
+              console.warn('⚠️ No current result to update');
+            }
+            
+            // Wait for next tick to ensure setResult completes before stopping loading
+            setTimeout(() => {
+              setIsGenerating(false);
+              console.log('🎉 [BROADCAST] Generation complete via broadcast!');
+            }, 0);
+          }
+        } else if (error) {
+          console.error('❌ Prediction query error:', error);
+        } else {
+          console.log('⚠️ No prediction found or no output_data');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching prediction from broadcast:', error);
+      }
+    }
+  }, [user?.id, supabase]);
+
+  // Subscribe to real-time updates for thumbnail status
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔔 Setting up real-time subscription for user:', user.id);
+
+    const subscription = supabase
+      .channel(`user_${user.id}_updates`)
+      .on(
+        'broadcast',
+        {
+          event: 'webhook_update',
+        },
+        (payload) => {
+          console.log('🔔 Real-time broadcast received:', payload);
+          handleWebhookUpdate(payload.payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ai_predictions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('🔔 Real-time thumbnail update received:', {
+            event: payload.eventType,
+            old: payload.old,
+            new: payload.new
+          });
+
+          const updatedPrediction = payload.new as any;
+          
+          // Only process thumbnail-machine predictions that are completed
+          // Skip postgres updates for now since broadcast handler works better
+          if (updatedPrediction?.tool_id !== 'thumbnail-machine' || 
+              updatedPrediction?.status !== 'completed' ||
+              !updatedPrediction?.output_data) {
+            return;
+          }
+          
+          // TEMPORARY: Skip postgres updates to avoid double-processing with broadcasts
+          console.log('⏭️ [POSTGRES] Skipping postgres update - using broadcast instead');
+          return;
+          
+          // Update current result if it matches the current generation
+          const currentResult = resultRef.current;
+          const isCurrentGeneration = currentResult && currentResult.batch_id && 
+            updatedPrediction?.prediction_id === currentResult.batch_id;
+
+          console.log('🔍 Real-time matching check:', {
+            hasCurrentResult: !!currentResult,
+            currentBatchId: currentResult?.batch_id,
+            updatedPredictionId: updatedPrediction?.prediction_id,
+            isMatch: isCurrentGeneration,
+            isGenerating: isGeneratingRef.current
+          });
+
+          if (isCurrentGeneration) {
+            console.log('📺 [POSTGRES] Updating current thumbnail result:', {
+              batch_id: currentResult.batch_id,
+              output_data: updatedPrediction.output_data
+            });
+
+            // Parse results from ai_predictions.output_data (AI Cinematographer pattern)
+            const outputData = updatedPrediction.output_data;
+            
             setResult(prev => {
               if (!prev) return prev;
               
-              // Extract URL from image_urls array (first URL)
-              const imageUrls = payload.new.image_urls as string[];
-              const imageUrl = imageUrls && imageUrls.length > 0 ? imageUrls[0] : '';
+              // Handle Face Swap results
+              if (outputData.face_swapped_thumbnails) {
+                return {
+                  ...prev,
+                  face_swapped_thumbnails: outputData.face_swapped_thumbnails.map((item: any) => ({
+                    url: item.image_url,
+                    source_thumbnail_id: item.source_thumbnail_id || prev.batch_id,
+                    replicate_url: item.image_url,
+                  }))
+                };
+              }
               
-              const newThumbnail = {
-                id: payload.new.id,
-                url: imageUrl, // Use URL from image_urls array
-                variation_index: payload.new.metadata?.variation_index || 1,
-                batch_id: payload.new.batch_id,
-              };
+              // Handle Normal Generate results
+              if (outputData.thumbnails) {
+                return {
+                  ...prev,
+                  thumbnails: outputData.thumbnails.map((item: any, index: number) => ({
+                    id: `${prev.batch_id}_${index + 1}`,
+                    url: item.image_url,
+                    variation_index: index + 1,
+                    batch_id: prev.batch_id,
+                  }))
+                };
+              }
               
-              return {
-                ...prev,
-                thumbnails: [...(prev.thumbnails || []), newThumbnail]
-              };
+              return prev;
             });
+
+            // Stop generating when prediction is completed (UPDATE event)
+            if (updatedPrediction.status === 'completed') {
+              setIsGenerating(false);
+              console.log('🎉 [POSTGRES] Thumbnail generation complete!');
+            }
           }
         }
-        
-        queryClient.invalidateQueries({ queryKey: ['thumbnail-results'] });
-      })
-      */
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'user_credits',
-        filter: `user_id=eq.${userId}`
-      }, (payload) => {
-        console.log('💳 Credit update received:', payload);
-        // Credits are now managed by useCredits hook
-      })
-      .subscribe();
-      
-    return () => {
-      console.log('🔌 Cleaning up real-time subscriptions');
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient, supabase, result?.batch_id, user?.id]);
+      )
+      .subscribe((status) => {
+        console.log('📡 Subscription status:', status);
+      });
 
-  // Clear results function
-  const clearResults = () => {
-    setResult(undefined);
-  };
+    return () => {
+      console.log('🔌 Cleaning up real-time subscription');
+      supabase.removeChannel(subscription);
+    };
+  }, [user?.id, supabase]);
+
 
   return {
     // Main function
-    generate: generateMutation.mutate,
+    generate: generateThumbnail,
     
     // States
-    isGenerating: generateMutation.isPending,
+    isGenerating,
     result,
-    error: generateMutation.error?.message,
+    error,
     credits,
     
     // Utilities
     clearResults,
-    
-    // Metadata
-    isSuccess: generateMutation.isSuccess,
-    isError: generateMutation.isError,
   };
 }
 

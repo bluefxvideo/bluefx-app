@@ -29,104 +29,62 @@ export function CinematographerOutput({
   activeTab = 'generate',
   isStateRestored = false
 }: CinematographerOutputProps) {
+  // Debug logging for restoration issues
+  console.log('🎬 CinematographerOutput render:', {
+    isGenerating,
+    hasResult: !!result,
+    resultSuccess: result?.success,
+    hasVideo: !!result?.video,
+    isStateRestored,
+    batchId: result?.batch_id,
+    videoId: result?.video?.id,
+    videoUrl: result?.video?.video_url
+  });
+
   // Loading state with premium styling - but show video placeholder if we have result data (state restoration)
   if (isGenerating) {
-    // If we have result data (from state restoration), show the video placeholder instead of just loading spinner
+    // If we have result data, show the same clean VideoPreview as completed state
     if (result && result.success && result.video) {
+      console.log('📺 Showing uniform VideoPreview for:', result.batch_id);
       return (
-        <div className="h-full flex flex-col relative overflow-hidden">
-          {/* Solid subtle overlay for consistency with theme */}
-          <div className="absolute inset-0 bg-secondary/20"></div>
-          
-          <div className="relative z-10 h-full flex flex-col">
-            {/* Processing Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center animate-spin">
-                    <Video className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="absolute inset-0 rounded-full border-2 border-primary/40 animate-ping"></div>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Creating Your Video</h3>
-                  <p className="text-zinc-400">
-                    {isStateRestored ? 'Continuing video generation...' : 'AI is generating cinematic content...'}
-                  </p>
-                </div>
-              </div>
-              
-              <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
-                <Clock className="w-3 h-3 mr-1.5" />
-                {isStateRestored ? 'Resumed' : 'Processing'}
-              </Badge>
-            </div>
-            
-            {/* State restored notification */}
-            {isStateRestored && (
-              <div className="px-6 pb-4">
-                <Card className="p-3 bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                    <p className="text-sm text-blue-300 font-medium">
-                      Video generation resumed - your video was still processing in the background
-                    </p>
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {/* Show Video Placeholder */}
-            <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-              <div className="w-full">
-                <VideoPreview
-                  video={result.video}
-                  batchId={result.batch_id}
-                />
-              </div>
-            </div>
+        <div className="h-full flex items-center justify-center overflow-auto">
+          <div className="w-full max-w-4xl">
+            <VideoPreview
+              video={result.video}
+              batchId={result.batch_id}
+            />
           </div>
         </div>
       );
     }
 
-    // Fallback loading state for initial generation (no result data yet)
+    // Show VideoPreview card with placeholder data (uniform design)
+    console.log('⚠️ Creating placeholder result for uniform card display');
+    
+    const placeholderResult: CinematographerResponse = {
+      success: true,
+      batch_id: `initializing_${Date.now()}`,
+      generation_time_ms: 0,
+      credits_used: 0,
+      remaining_credits: 0,
+      video: {
+        id: `initializing_${Date.now()}`,
+        video_url: '', // Empty to show processing state
+        thumbnail_url: '',
+        duration: 5, // Default duration
+        aspect_ratio: '16:9',
+        prompt: 'Initializing video generation...',
+        created_at: new Date().toISOString()
+      }
+    };
+
     return (
-      <div className="h-full flex flex-col relative overflow-hidden">
-        {/* Solid subtle overlay for consistency with theme */}
-        <div className="absolute inset-0 bg-secondary/20"></div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center animate-spin">
-                  <Video className="w-4 h-4 text-white" />
-                </div>
-                <div className="absolute inset-0 rounded-full border-2 border-primary/40 animate-ping"></div>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Creating Your Video</h3>
-                <p className="text-zinc-400">AI is generating cinematic content...</p>
-              </div>
-            </div>
-            
-            <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
-              <Clock className="w-3 h-3 mr-1.5" />
-              Processing
-            </Badge>
-          </div>
-          
-          {/* Loading skeleton for video */}
-          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full">
-              <Card className="group overflow-hidden animate-pulse">
-                <div className="relative aspect-video bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 flex items-center justify-center">
-                  <Video className="w-12 h-12 text-zinc-600" />
-                </div>
-              </Card>
-            </div>
-          </div>
+      <div className="h-full flex items-center justify-center overflow-auto">
+        <div className="w-full max-w-4xl">
+          <VideoPreview
+            video={placeholderResult.video}
+            batchId={placeholderResult.batch_id}
+          />
         </div>
       </div>
     );
@@ -164,57 +122,41 @@ export function CinematographerOutput({
     );
   }
 
-  // Success state with centered professional results display
+  // Success state - Same clean layout as placeholder
   if (result && result.success) {
     return (
-      <div className="h-full flex flex-col relative overflow-hidden">
-        {/* Subtle solid overlay */}
-        <div className="absolute inset-0 bg-secondary/20"></div>
-        
-        <div className="relative z-10 h-full flex flex-col">
-          {/* Header now handled by OutputPanelShell */}
-
-          {/* Results Section - Clean and Simple */}
-          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full">
-              {result.video && (
-                <VideoPreview
-                  video={result.video}
-                  batchId={result.batch_id}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Premium Warnings - if any */}
+      <div className="h-full flex items-center justify-center overflow-auto">
+        <div className="w-full max-w-4xl">
+          {result.video && (
+            <VideoPreview
+              video={result.video}
+              batchId={result.batch_id}
+            />
+          )}
+          
+          {/* Warnings below video if any */}
           {result.warnings && result.warnings.length > 0 && (
-            <div className="px-6 pb-4">
-              <Card className="p-4 bg-yellow-500/10 border border-yellow-500/30 backdrop-blur-sm">
-                <div className="space-y-2">
-                  {result.warnings.map((warning, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                      <p className="text-sm text-yellow-300 font-medium">{warning}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
+            <Card className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30">
+              <div className="space-y-2">
+                {result.warnings.map((warning, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                    <p className="text-sm text-yellow-300 font-medium">{warning}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
       </div>
     );
   }
 
-  // Enhanced Empty State with centered layout
+  // Normal empty state
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
-      {/* Subtle animated background */}
       <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
-      
       <div className="relative z-10 flex-1 flex flex-col">
-        
-        {/* Centered Content Area */}
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="w-full">
             {activeTab === 'history' ? (

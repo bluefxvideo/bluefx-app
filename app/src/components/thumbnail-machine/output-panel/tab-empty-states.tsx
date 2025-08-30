@@ -1,8 +1,8 @@
 'use client';
 
 import { UserRound, RotateCcw } from 'lucide-react';
-import { ThumbnailExample } from './thumbnail-example';
-import { ThumbnailFaceSwapExample } from './thumbnail-faceswap-example';
+import { ThumbnailExample } from './examples/thumbnail-example';
+import { ThumbnailFaceSwapExample } from './examples/thumbnail-faceswap-example';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 interface EmptyStateProps {
