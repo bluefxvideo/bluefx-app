@@ -127,7 +127,7 @@ export function AvatarVideoPreview({
           
           {/* Create New Button - bottom row when video is complete */}
           {video.video_url && onCreateNew && (
-            <div className="pt-2 border-t mt-2">
+            <div className="pt-2">
               <Button
                 variant="outline"
                 size="sm"

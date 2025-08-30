@@ -13,6 +13,7 @@ interface ThumbnailMachineOutputProps {
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;
+  onCancelGeneration?: () => void;
   activeTab?: string;
   onFocusPrompt?: () => void;
   prompt?: string; // Add prompt for processing card display
@@ -27,6 +28,7 @@ export function ThumbnailMachineOutput({
   isGenerating,
   error,
   onClearResults,
+  onCancelGeneration,
   activeTab = 'generate',
   onFocusPrompt,
   prompt
@@ -44,7 +46,15 @@ export function ThumbnailMachineOutput({
   });
   
   // Show processing state or results if we have them
-  if (isGenerating || result) {
+  const shouldShowResults = isGenerating || result;
+  console.log('🎨 Should show results?', {
+    shouldShowResults,
+    isGenerating,
+    hasResult: !!result,
+    resultTruthiness: result ? 'truthy' : 'falsy'
+  });
+  
+  if (shouldShowResults) {
     const handleDownload = async () => {
       // TODO: Implement batch download
       console.log('Download all images');
@@ -73,6 +83,7 @@ export function ThumbnailMachineOutput({
             onDownload={handleDownload}
             onOpenInNewTab={handleOpenInNewTab}
             onCreateNew={onClearResults}
+            onCancelGeneration={onCancelGeneration}
             prompt={prompt}
             activeTab={activeTab}
           />
@@ -117,6 +128,13 @@ export function ThumbnailMachineOutput({
   // This case is actually covered above in the "if (isGenerating || result)" block
 
   // Empty State with centered layout
+  console.log('🚨 SHOWING EMPTY STATE - This should NOT happen after face swap completes!', {
+    isGenerating,
+    hasResult: !!result,
+    resultDetails: result,
+    activeTab
+  });
+  
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
       {/* Subtle animated background */}

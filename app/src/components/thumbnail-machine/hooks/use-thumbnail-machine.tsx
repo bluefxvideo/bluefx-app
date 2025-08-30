@@ -5,6 +5,10 @@ import { generateThumbnails, ThumbnailMachineRequest, ThumbnailMachineResponse }
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useCredits } from '@/hooks/useCredits';
+import { updatePredictionRecord } from '@/actions/database/thumbnail-database';
+import { usePredictionPolling } from '@/hooks/use-prediction-polling';
+import { getIdeogramV2aPrediction } from '@/actions/models/ideogram-v2-turbo';
+import { getFaceSwapPrediction } from '@/actions/models/face-swap-cdingram';
 
 /**
  * Custom hook for thumbnail machine functionality
@@ -17,6 +21,10 @@ export function useThumbnailMachine() {
   const [result, setResult] = useState<ThumbnailMachineResponse | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [user, setUser] = useState<User | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [activePredictionId, setActivePredictionId] = useState<string | null>(null);
+  const [activePredictionType, setActivePredictionType] = useState<'ideogram' | 'face-swap' | null>(null);
+  const pollingEnabledRef = useRef<boolean>(false);
   
   // Use ref to track current result without causing subscription re-creation
   const resultRef = useRef<ThumbnailMachineResponse | undefined>(undefined);
@@ -57,37 +65,76 @@ export function useThumbnailMachine() {
     
     const checkOngoingGenerations = async () => {
       try {
-        // Only check for VERY recent predictions (last 10 minutes) that might need restoration
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        // Only restore VERY recent operations (last 3 minutes max)
+        // Most operations complete within 30-60 seconds
+        const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
         
         const { data: recentPredictions } = await supabase
           .from('ai_predictions')
           .select('*')
           .eq('user_id', user.id)
           .eq('tool_id', 'thumbnail-machine')
-          .gte('created_at', tenMinutesAgo)
-          .in('status', ['starting', 'processing'])
+          .gte('created_at', threeMinutesAgo)
+          .in('status', ['starting', 'processing']) // Excludes 'cancelled', 'completed', 'failed'
           .order('created_at', { ascending: false })
           .limit(1);
 
         if (recentPredictions && recentPredictions.length > 0) {
           const prediction = recentPredictions[0];
-          console.log('📺 Found ongoing thumbnail generation, restoring state:', prediction.prediction_id);
+          const createdAt = new Date(prediction.created_at);
+          const ageInSeconds = (Date.now() - createdAt.getTime()) / 1000;
           
-          // Restore processing state
-          setIsGenerating(true);
+          console.log('📺 Found prediction:', {
+            id: prediction.prediction_id,
+            age: `${Math.round(ageInSeconds)} seconds`,
+            status: prediction.status
+          });
           
-          // Create placeholder result for processing display
-          const placeholderResult: ThumbnailMachineResponse = {
-            success: true,
-            batch_id: prediction.prediction_id,
-            credits_used: 0,
-            generation_time_ms: 0,
-            thumbnails: []
-          };
-          
-          setResult(placeholderResult);
-          console.log('✅ Thumbnail processing state restored');
+          // Only restore if prediction is less than 3 minutes old
+          // This prevents restoring stuck/orphaned records
+          if (ageInSeconds < 180) { // 3 minutes
+            console.log('✅ Restoring recent generation (< 3 min old)');
+            
+            // Restore processing state
+            setIsGenerating(true);
+            
+            // Create placeholder result for processing display
+            const placeholderResult: ThumbnailMachineResponse = {
+              success: true,
+              batch_id: prediction.prediction_id,
+              credits_used: 0,
+              generation_time_ms: 0,
+              thumbnails: []
+            };
+            
+            setResult(placeholderResult);
+            
+            // Auto-cleanup if this restoration gets stuck
+            // Set a timeout to stop after reasonable time
+            const maxWaitTime = Math.max(180000 - (ageInSeconds * 1000), 30000); // Remaining time up to 3 min, min 30 sec
+            console.log(`⏰ Setting restoration timeout for ${Math.round(maxWaitTime/1000)} seconds`);
+            
+            // Set timeout directly here since startGenerationTimeout isn't available yet
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+            }
+            timeoutRef.current = setTimeout(() => {
+              console.log('⏰ Restored generation timed out');
+              setIsGenerating(false);
+              setError('Generation timed out. Please try again.');
+            }, maxWaitTime);
+          } else {
+            console.log('⚠️ Found old prediction, marking as failed:', prediction.prediction_id);
+            // Mark old stuck predictions as failed
+            try {
+              await updatePredictionRecord(prediction.prediction_id, {
+                status: 'failed',
+                completed_at: new Date().toISOString()
+              });
+            } catch (err) {
+              console.error('Failed to update old prediction:', err);
+            }
+          }
         }
       } catch (error) {
         console.error('State restoration error:', error);
@@ -118,16 +165,10 @@ export function useThumbnailMachine() {
     setIsGenerating(true);
     setError(undefined);
     
-    // Create immediate placeholder result
-    const batch_id = `thumbnail_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const placeholderResult: ThumbnailMachineResponse = {
-      success: true,
-      batch_id,
-      generation_time_ms: 0,
-      credits_used: 0,
-      thumbnails: []
-    };
-    setResult(placeholderResult);
+    // Don't create placeholder - just set loading state
+    // The server will return the real batch_id and we'll use that everywhere
+    
+    let hadError = false;
     
     try {
       const response = await generateThumbnails({
@@ -135,30 +176,27 @@ export function useThumbnailMachine() {
         user_id: user.id,
       });
       
-      // Don't overwrite result if it's a face swap that returns empty arrays (webhook will update it)
-      // Check if this is a face swap operation that's waiting for webhook
-      const isFaceSwapWaitingForWebhook = request.operation_mode === 'face-swap-only' && 
-        response.success && 
-        response.face_swapped_thumbnails?.length === 0;
+      console.log('🎯 Server response batch_id:', response.batch_id);
       
-      if (!isFaceSwapWaitingForWebhook) {
-        setResult(response);
-      } else {
-        console.log('🔄 Face swap initiated - waiting for webhook to update results');
-        // Keep the placeholder result with the batch_id but don't overwrite with empty arrays
-        setResult(prev => ({
-          ...response,
-          // Preserve any face swap results that might have already arrived via webhook
-          face_swapped_thumbnails: prev?.face_swapped_thumbnails?.length ? prev.face_swapped_thumbnails : []
-        }));
-      }
+      // Start timeout now that we have the real batch_id
+      const timeoutMs = request.operation_mode === 'face-swap-only' ? 180000 
+                      : request.operation_mode === 'recreation-only' ? 150000 
+                      : 120000;
+      startGenerationTimeout(timeoutMs);
+      
+      // Always set the result with the server's batch_id
+      setResult(response);
+      
+      console.log('✅ Result set with server batch_id:', response.batch_id);
       
       if (!response.success) {
         setError(response.error);
+        hadError = true;
       }
       
       return response;
     } catch (err) {
+      hadError = true;
       const errorMessage = err instanceof Error ? err.message : 'Thumbnail generation failed';
       const errorResponse: ThumbnailMachineResponse = {
         success: false,
@@ -172,8 +210,16 @@ export function useThumbnailMachine() {
       setResult(errorResponse);
       return errorResponse;
     } finally {
-      // Don't stop generating for face swap - webhook will handle that
-      if (request.operation_mode !== 'face-swap-only') {
+      // For face swap: only skip cleanup if the operation was successful
+      // If there's an error, we need to clean up even for face swap
+      const shouldCleanup = request.operation_mode !== 'face-swap-only' || hadError;
+      
+      if (shouldCleanup) {
+        // Clear timeout since operation completed (successfully or with error)
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         setIsGenerating(false);
       }
     }
@@ -186,6 +232,67 @@ export function useThumbnailMachine() {
     setIsGenerating(false);
   };
 
+  // Cancel ongoing generation
+  const cancelGeneration = useCallback(async () => {
+    console.log('🚫 Cancelling ongoing generation...');
+    
+    // Clear timeout if exists
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    
+    // Update database to prevent state restoration from re-enabling generation
+    const currentResult = resultRef.current;
+    if (currentResult?.batch_id && user?.id) {
+      try {
+        console.log('🔄 Updating database to mark generation as cancelled:', currentResult.batch_id);
+        await updatePredictionRecord(currentResult.batch_id, {
+          status: 'cancelled',
+          completed_at: new Date().toISOString()
+        });
+        console.log('✅ Database updated - generation marked as cancelled');
+      } catch (error) {
+        console.error('❌ Failed to update database on cancellation:', error);
+      }
+    }
+    
+    // Reset to clean initial state - no error message for user cancellation
+    setIsGenerating(false);
+    setResult(undefined);
+    setError(undefined);
+  }, [user?.id]);
+
+  // Auto-timeout functionality
+  const startGenerationTimeout = useCallback((timeoutMs: number = 180000) => { // 3 minutes default
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(async () => {
+      console.log('⏰ Generation timed out after', timeoutMs / 1000, 'seconds');
+      
+      // Update database to mark as failed to prevent restoration
+      const currentResult = resultRef.current;
+      if (currentResult?.batch_id && user?.id) {
+        try {
+          console.log('🔄 Updating database to mark generation as failed (timeout):', currentResult.batch_id);
+          await updatePredictionRecord(currentResult.batch_id, {
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: 'Generation timed out'
+          });
+          console.log('✅ Database updated - generation marked as failed due to timeout');
+        } catch (error) {
+          console.error('❌ Failed to update database on timeout:', error);
+        }
+      }
+      
+      setIsGenerating(false);
+      setError('Generation timed out. Please try again.');
+    }, timeoutMs);
+  }, [user?.id]);
+
   // Handle webhook broadcast updates (Direct broadcasting like AI Cinematographer)
   const handleWebhookUpdate = useCallback(async (message: any) => {
     const timestamp = new Date().toISOString();
@@ -194,11 +301,13 @@ export function useThumbnailMachine() {
       prediction_id: message.prediction_id,
       batch_id: message.batch_id,
       status: message.status,
-      has_results: !!message.results
+      has_results: !!message.results,
+      currentBatchId: resultRef.current?.batch_id,
+      isGenerating: isGeneratingRef.current
     });
     
-    if (message.tool_type !== 'face-swap' && message.tool_type !== 'thumbnail' && message.tool_type !== 'ideogram') {
-      console.log('⏭️ Skipping - not a thumbnail tool');
+    if (message.tool_type !== 'face-swap' && message.tool_type !== 'thumbnail' && message.tool_type !== 'ideogram' && message.tool_type !== 'thumbnail-machine') {
+      console.log('⏭️ Skipping - not a thumbnail tool, tool_type:', message.tool_type);
       return;
     }
     
@@ -233,7 +342,7 @@ export function useThumbnailMachine() {
           .select('prediction_id, output_data, user_id')
           .eq('external_id', message.prediction_id)
           .eq('user_id', user.id)
-          .single());
+          .maybeSingle()); // Use maybeSingle to avoid error when no rows found
         
         // If not found and it's face swap, try by prediction_id directly using batch_id
         if (!prediction && message.tool_type === 'face-swap' && message.batch_id) {
@@ -243,7 +352,7 @@ export function useThumbnailMachine() {
             .select('prediction_id, output_data, user_id')
             .eq('prediction_id', message.batch_id)
             .eq('user_id', user.id)
-            .single());
+            .maybeSingle()); // Use maybeSingle to avoid error when no rows found
         }
           
         console.log('🔍 Prediction query result:', { prediction, error });
@@ -319,9 +428,16 @@ export function useThumbnailMachine() {
             
             // Wait for next tick to ensure setResult completes before stopping loading
             setTimeout(() => {
+              console.log('🎉 [BROADCAST] Generation complete via broadcast! Stopping isGenerating...');
+              
+              // Clear timeout since generation completed successfully
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+              }
+              
               setIsGenerating(false);
-              console.log('🎉 [BROADCAST] Generation complete via broadcast!');
-            }, 0);
+            }, 100); // Small delay to ensure state updates propagate
           }
         } else if (error) {
           console.error('❌ Prediction query error:', error);
@@ -453,6 +569,17 @@ export function useThumbnailMachine() {
   }, [user?.id, supabase]);
 
 
+  // Debug what we're returning
+  useEffect(() => {
+    console.log('🔄 Hook state update:', {
+      isGenerating,
+      hasResult: !!result,
+      resultSuccess: result?.success,
+      faceSwapCount: result?.face_swapped_thumbnails?.length || 0,
+      thumbnailCount: result?.thumbnails?.length || 0
+    });
+  }, [isGenerating, result]);
+  
   return {
     // Main function
     generate: generateThumbnail,
@@ -465,6 +592,7 @@ export function useThumbnailMachine() {
     
     // Utilities
     clearResults,
+    cancelGeneration,
   };
 }
 

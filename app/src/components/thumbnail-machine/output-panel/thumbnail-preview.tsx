@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Copy, Loader2, Images, Sparkles, ExternalLink } from 'lucide-react';
+import { Download, Eye, Copy, Loader2, Images, Sparkles, ExternalLink, X } from 'lucide-react';
 import { ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
+
+// Helper function to validate URLs
+function isValidUrl(url: string): boolean {
+  try {
+    if (!url || url.trim() === '') return false;
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 interface ThumbnailPreviewProps {
   result: ThumbnailMachineResponse;
@@ -14,6 +25,7 @@ interface ThumbnailPreviewProps {
   onDownload?: () => void;
   onOpenInNewTab?: () => void;
   onCreateNew?: () => void;
+  onCancelGeneration?: () => void;
   prompt?: string;
   activeTab?: string;
 }
@@ -29,10 +41,80 @@ export function ThumbnailPreview({
   onDownload, 
   onOpenInNewTab, 
   onCreateNew,
+  onCancelGeneration,
   prompt,
   activeTab = 'generate'
 }: ThumbnailPreviewProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  
+  // Determine expected aspect ratio from result data or active tab context
+  const getExpectedAspectRatio = (): 'landscape' | 'portrait' | 'square' => {
+    // For recreate tab: try to detect from the uploaded reference image or result
+    if (activeTab === 'recreate') {
+      // If we have a completed result, use the actual image to detect ratio
+      const thumbnail = result?.thumbnails?.[0];
+      if (thumbnail) {
+        // We'll update this when the image loads, but for now assume portrait
+        // since the screenshot shows a portrait result
+        return 'portrait';
+      }
+      // Default to portrait for recreate if no result yet (will be updated on image load)
+      return 'portrait';
+    }
+    
+    // For generate tab: check aspect_ratio from generation settings
+    if (activeTab === 'generate') {
+      const inputData = result?.thumbnails?.[0];
+      const generationSettings = inputData?.generation_settings;
+      
+      if (generationSettings?.aspect_ratio) {
+        const aspectRatio = generationSettings.aspect_ratio;
+        if (aspectRatio === '9:16' || aspectRatio === '3:4' || aspectRatio === '2:3' || aspectRatio === '10:16') {
+          return 'portrait';
+        } else if (aspectRatio === '1:1') {
+          return 'square';
+        } else {
+          return 'landscape';
+        }
+      }
+    }
+    
+    // For face-swap: usually portrait
+    if (activeTab === 'face-swap') {
+      return 'portrait';
+    }
+    
+    // Default
+    return 'landscape';
+  };
+  
+  const [imageAspectRatio, setImageAspectRatio] = useState<'landscape' | 'portrait' | 'square'>(getExpectedAspectRatio());
+  
+  // Update aspect ratio when activeTab or result changes
+  React.useEffect(() => {
+    setImageAspectRatio(getExpectedAspectRatio());
+  }, [activeTab, result]);
+
+  // Handle image load to detect aspect ratio
+  const handleImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.target as HTMLImageElement;
+    const { naturalWidth, naturalHeight } = img;
+    
+    if (naturalWidth > naturalHeight) {
+      setImageAspectRatio('landscape');
+    } else if (naturalHeight > naturalWidth) {
+      setImageAspectRatio('portrait');
+    } else {
+      setImageAspectRatio('square');
+    }
+    
+    console.log('📐 Image aspect ratio detected:', {
+      naturalWidth,
+      naturalHeight,
+      ratio: naturalWidth / naturalHeight,
+      classification: naturalWidth > naturalHeight ? 'landscape' : naturalHeight > naturalWidth ? 'portrait' : 'square'
+    });
+  }, []);
 
   // EXACT same hasResults logic as title (contextual-output.tsx line 98-100)
   const hasResults = activeTab === 'face-swap' 
@@ -46,9 +128,31 @@ export function ThumbnailPreview({
   // Select the primary result to display - prioritize based on active tab
   const displayThumbnail = result.thumbnails?.[0];
   const displayFaceSwapped = result.face_swapped_thumbnails?.[0];
-  const primaryResult = activeTab === 'face-swap' 
-    ? (displayFaceSwapped || displayThumbnail)  // Face swap tab: prioritize face swap result
-    : (displayThumbnail || displayFaceSwapped); // Other tabs: prioritize thumbnail result
+  
+  // Create unified result object with consistent URL property
+  const primaryResult = (() => {
+    const selected = activeTab === 'face-swap' 
+      ? (displayFaceSwapped || displayThumbnail)  // Face swap tab: prioritize face swap result
+      : (displayThumbnail || displayFaceSwapped); // Other tabs: prioritize thumbnail result
+    
+    if (!selected) return null;
+    
+    // Face swap results use 'image_url', thumbnails use 'url' - normalize to 'url'
+    const normalizedUrl = selected.image_url || selected.url || '';
+    console.log('🖼️ Primary result URL mapping:', {
+      activeTab,
+      selectedType: selected.image_url ? 'face-swap' : 'thumbnail',
+      originalImageUrl: selected.image_url,
+      originalUrl: selected.url, 
+      normalizedUrl,
+      isValid: isValidUrl(normalizedUrl)
+    });
+    
+    return {
+      ...selected,
+      url: normalizedUrl
+    };
+  })();
 
   // Download/Copy utilities (moved from ResultsGrid)
   const downloadImage = async (url: string, filename: string) => {
@@ -83,27 +187,40 @@ export function ThumbnailPreview({
         {/* UNIFIED CONTENT AREA */}
         {hasResults && result?.success ? (
           // ✅ PRIORITY 1: Show actual result if we have data (regardless of isGenerating)
-          <div className="flex justify-center p-6">
-            <div className="group relative aspect-video rounded-lg overflow-hidden 
-                            border border-zinc-700/50 shadow-xl w-full max-w-4xl">
-              <Image
-                src={primaryResult?.url || ''}
-                alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}
-                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 bg-secondary/10"
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              />
+          <div className="flex justify-center p-4 max-h-[60vh] overflow-hidden">
+            <div className={`group relative rounded-lg overflow-hidden 
+                            border border-zinc-700/50 shadow-xl w-full
+                            ${imageAspectRatio === 'portrait' ? 'max-h-[48vh] aspect-[9/16]' : 
+                              imageAspectRatio === 'square' ? 'max-h-[45vh] aspect-square' : 
+                              'max-w-4xl max-h-[40vh] aspect-video'}`}>
+              {primaryResult?.url && isValidUrl(primaryResult.url) ? (
+                <Image
+                  src={primaryResult.url}
+                  alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}
+                  className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 bg-secondary/10"
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  onLoad={handleImageLoad}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-secondary/20 text-muted-foreground">
+                  <div className="text-center">
+                    <Images className="w-12 h-12 mx-auto mb-2" />
+                    <p>Image not available</p>
+                  </div>
+                </div>
+              )}
               
               {/* Overlay Controls */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 
-                             transition-all duration-300 flex items-center justify-center">
+                             transition-all duration-300 flex items-center justify-center z-10">
                 <div className="flex items-center gap-3">
                   <Button
                     size="lg"
                     variant="secondary"
                     className="bg-white/10 hover:bg-white/20 text-white border border-white/20 
                               backdrop-blur-sm shadow-lg hover:scale-110 transition-all duration-300"
-                    onClick={() => setSelectedImage(primaryResult?.url)}
+                    onClick={() => primaryResult?.url && isValidUrl(primaryResult.url) && setSelectedImage(primaryResult.url)}
                   >
                     <Eye className="w-5 h-5" />
                   </Button>
@@ -112,10 +229,14 @@ export function ThumbnailPreview({
                     variant="secondary"
                     className="bg-blue-500/80 hover:bg-blue-500 text-white border-0 
                               shadow-lg hover:scale-110 transition-all duration-300"
-                    onClick={() => downloadImage(
-                      primaryResult?.url || '', 
-                      displayThumbnail ? `thumbnail-${displayThumbnail.variation_index}.webp` : 'faceswap.webp'
-                    )}
+                    onClick={() => {
+                      if (primaryResult?.url && isValidUrl(primaryResult.url)) {
+                        downloadImage(
+                          primaryResult.url,
+                          displayThumbnail ? `thumbnail-${displayThumbnail.variation_index}.webp` : 'faceswap.webp'
+                        );
+                      }
+                    }}
                   >
                     <Download className="w-5 h-5" />
                   </Button>
@@ -124,7 +245,11 @@ export function ThumbnailPreview({
                     variant="secondary"
                     className="bg-white/10 hover:bg-white/20 text-white border border-white/20 
                               backdrop-blur-sm shadow-lg hover:scale-110 transition-all duration-300"
-                    onClick={() => copyToClipboard(primaryResult?.url || '')}
+                    onClick={() => {
+                      if (primaryResult?.url && isValidUrl(primaryResult.url)) {
+                        copyToClipboard(primaryResult.url);
+                      }
+                    }}
                   >
                     <Copy className="w-5 h-5" />
                   </Button>
@@ -142,18 +267,37 @@ export function ThumbnailPreview({
             </div>
           </div>
         ) : isGenerating ? (
-          // ✅ PROCESSING STATE: Show unified processing card ONLY when actually generating
-          <div className="relative aspect-video bg-muted flex items-center justify-center p-8">
-            <Card className="p-8 w-96 min-h-[280px] text-center space-y-4 border-dashed bg-transparent dark:bg-card-content border-input flex flex-col justify-center">
+          // ✅ PROCESSING STATE: Show unified processing card matching image container size
+          <div className="flex justify-center p-4 max-h-[60vh] overflow-hidden">
+            <div className={`group relative rounded-lg overflow-hidden 
+                            border border-zinc-700/50 shadow-xl w-full flex items-center justify-center
+                            ${imageAspectRatio === 'portrait' ? 'max-h-[48vh] aspect-[9/16]' : 
+                              imageAspectRatio === 'square' ? 'max-h-[45vh] aspect-square' : 
+                              'max-w-4xl max-h-[40vh] aspect-video'}`}>
+              <Card className="relative p-8 w-full h-full text-center space-y-4 border-none bg-transparent dark:bg-card-content/50 flex flex-col justify-center">
+              {/* Cancel Button - Top Right */}
+              {onCancelGeneration && (
+                <Button
+                  variant="ghost"
+                  size="sm" 
+                  onClick={onCancelGeneration}
+                  className="absolute top-3 right-3 h-8 w-8 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                  title="Cancel Generation"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+              
               {/* Blue Square with Spinning Icon */}
               <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
                 <Loader2 className="w-8 h-8 text-white animate-spin" />
               </div>
               
               {/* Processing Text */}
-              <div className="space-y-2">
-                <h3 className="font-medium">
-                  {activeTab === 'face-swap' ? 'Processing Face Swap...' : 'Generating Images...'}
+              <div className="space-y-2 px-2">
+                <h3 className="font-medium text-center">
+                  {activeTab === 'face-swap' ? 'Processing Face Swap...' : 
+                   activeTab === 'recreate' ? 'Recreating Thumbnail...' : 'Generating Images...'}
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {(() => {
@@ -164,11 +308,13 @@ export function ThumbnailPreview({
                 <div className="flex items-center justify-center gap-2 text-xs text-yellow-500">
                   <Sparkles className="w-3 h-3" />
                   <span>
-                    {activeTab === 'face-swap' ? '~1-2 minutes' : '~30-60 seconds'}
+                    {activeTab === 'face-swap' ? '~1-2 minutes' : 
+                     activeTab === 'recreate' ? '~45-90 seconds' : '~30-60 seconds'}
                   </span>
                 </div>
               </div>
             </Card>
+            </div>
           </div>
         ) : (
           // Empty state - show nothing or minimal placeholder
@@ -237,7 +383,7 @@ export function ThumbnailPreview({
           
           {/* Create New Button - bottom row when generation is complete */}
           {hasResults && !effectivelyGenerating && onCreateNew && (
-            <div className="pt-2 border-t mt-2">
+            <div className="pt-2">
               <Button
                 variant="outline"
                 size="sm"

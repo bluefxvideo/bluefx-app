@@ -313,20 +313,23 @@ export async function generateThumbnails(
       );
     }
 
-    // Update prediction records for all generated predictions
-    for (const prediction of predictions) {
-      await createPredictionRecord({
-        user_id: request.user_id,
-        tool_id: 'thumbnail-machine',
-        service_id: 'generate',
-        model_version: 'ideogram-v2-turbo',
-        status: 'processing',
-        input_data: request as unknown as Json,
-      });
-    }
+    // Create a single prediction record with the main Replicate prediction ID
+    // This allows us to track and poll if webhooks fail
+    const predictionIds = predictions.map(p => p.id);
+    await createPredictionRecord({
+      prediction_id: batch_id,
+      user_id: request.user_id,
+      tool_id: 'thumbnail-machine',
+      service_id: 'generate',
+      model_version: 'ideogram-v2-turbo',
+      status: 'processing',
+      input_data: request as unknown as Json,
+      external_id: predictionIds[0], // Store the main prediction ID for webhook matching
+    });
 
     // Step 5: Wait for All Completions
     console.log(`⏳ Waiting for ${predictions.length} Ideogram V2a completions`);
+    console.log(`📝 Replicate prediction IDs available for polling:`, predictionIds);
     const completed_predictions = await Promise.all(
       predictions.map(p => waitForIdeogramV2aCompletion(p.id))
     );
@@ -727,29 +730,66 @@ async function executeFaceSwapOnlyWorkflow(
     // Handle target image with aspect ratio consideration
     let targetImageUrl: string;
     
-    // If aspect ratio is specified and different from default, generate a new base image
+    // If aspect ratio is specified and different from default, try to generate a new base image
+    // If generation fails, fallback to using the uploaded target image directly
     if (request.aspect_ratio && request.aspect_ratio !== '16:9') {
-      console.log(`🎨 Generating base thumbnail with aspect ratio: ${request.aspect_ratio}`);
+      console.log(`🎨 Attempting to generate base thumbnail with aspect ratio: ${request.aspect_ratio}`);
       
-      // Create a base thumbnail with the desired aspect ratio
-      const baseThumbnailPrediction = await createIdeogramV2aPrediction({
-        prompt: 'professional headshot, clean background, high quality portrait',
-        aspect_ratio: request.aspect_ratio,
-        style_type: 'Realistic',
-        magic_prompt_option: 'On'
-      });
+      try {
+        // Create a base thumbnail with the desired aspect ratio
+        const baseThumbnailPrediction = await createIdeogramV2aPrediction({
+          prompt: 'professional headshot, clean background, high quality portrait',
+          aspect_ratio: request.aspect_ratio,
+          style_type: 'Realistic',
+          magic_prompt_option: 'On'
+        });
 
-      if (!baseThumbnailPrediction.id) {
-        throw new Error('Failed to create base thumbnail prediction');
+        if (!baseThumbnailPrediction.id) {
+          throw new Error('Failed to create base thumbnail prediction');
+        }
+
+        // Wait for completion
+        const completedBasePrediction = await waitForIdeogramV2aCompletion(baseThumbnailPrediction.id);
+        if (completedBasePrediction.status === 'failed') {
+          throw new Error(`Base thumbnail generation failed: ${completedBasePrediction.error || 'Unknown error'}`);
+        }
+        
+        if (!completedBasePrediction.output) {
+          throw new Error('Base thumbnail generation completed but no output received');
+        }
+
+        targetImageUrl = completedBasePrediction.output;
+        console.log('✅ Generated base thumbnail:', targetImageUrl);
+        
+        // Add small delay to ensure image is fully available on CDN
+        console.log('⏳ Waiting 2 seconds for Ideogram image to be available on CDN...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (baseGenerationError) {
+        console.warn('⚠️ Base thumbnail generation failed, falling back to uploaded target image:', baseGenerationError);
+        
+        // Fallback: Check if user provided a target image to use directly
+        if (!request.face_swap.target_image) {
+          throw new Error(`Cannot generate base thumbnail (${baseGenerationError instanceof Error ? baseGenerationError.message : 'service unavailable'}) and no target image provided. Please upload a target image or try again later.`);
+        }
+        
+        // Use the uploaded target image directly as fallback
+        if (typeof request.face_swap.target_image === 'string' && request.face_swap.target_image.startsWith('http')) {
+          targetImageUrl = request.face_swap.target_image;
+          console.log('🔄 Using provided target image as fallback:', targetImageUrl);
+        } else {
+          // Upload the target image first
+          const targetUpload = await uploadImageToStorage(request.face_swap.target_image, {
+            folder: 'face-swap/target',
+            filename: `target_${batch_id}.png`,
+            bucket: 'images'
+          });
+          if (!targetUpload.success || !targetUpload.url) {
+            throw new Error('Failed to upload target image as fallback');
+          }
+          targetImageUrl = targetUpload.url;
+          console.log('🔄 Uploaded and using target image as fallback:', targetImageUrl);
+        }
       }
-
-      // Wait for completion
-      const completedBasePrediction = await waitForIdeogramV2aCompletion(baseThumbnailPrediction.id);
-      if (!completedBasePrediction.output || !completedBasePrediction.output[0]) {
-        throw new Error('Base thumbnail generation failed');
-      }
-
-      targetImageUrl = completedBasePrediction.output[0];
     } else {
       // Use the uploaded target image as-is
       if (typeof request.face_swap.target_image === 'string' && request.face_swap.target_image.startsWith('http')) {
@@ -769,6 +809,7 @@ async function executeFaceSwapOnlyWorkflow(
 
     // Perform face swap with webhook pattern (async)
     console.log('🔄 Starting face swap via webhook pattern');
+    console.log('🎯 Final URLs before face swap:', { targetImageUrl, sourceImageUrl });
     const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`;
     console.log('🔗 Webhook URL for face swap:', webhookUrl);
     
@@ -810,6 +851,17 @@ async function executeFaceSwapOnlyWorkflow(
     };
   } catch (error) {
     console.error('🚨 Face Swap workflow error:', error);
+    
+    // Provide user-friendly error messages
+    if (error instanceof Error) {
+      if (error.message.includes('service unavailable') || error.message.includes('temporarily unavailable') || error.message.includes('E004')) {
+        throw new Error('Thumbnail generation service is temporarily unavailable. Please try again in a few minutes or provide a target image to use directly.');
+      }
+      if (error.message.includes('Base thumbnail generation failed')) {
+        throw new Error('Could not generate base thumbnail. Please provide a target image or try again later.');
+      }
+    }
+    
     throw error;
   }
 }
@@ -897,16 +949,22 @@ async function executeRecreationOnlyWorkflow(
 
     // ✅ Prediction record already created at workflow start
 
-    // Get the generated image URL
-    const generatedImageUrl = openAIResult.data[0].url || openAIResult.data[0].b64_json;
+    // Get the generated image - OpenAI can return either url or b64_json
+    const result = openAIResult.data[0];
+    let generatedImageUrl: string;
     
-    if (!generatedImageUrl) {
-      throw new Error('No image URL returned from OpenAI');
+    if (result.url) {
+      generatedImageUrl = result.url;
+    } else if (result.b64_json) {
+      // Convert base64 to proper data URL format
+      generatedImageUrl = `data:image/png;base64,${result.b64_json}`;
+    } else {
+      throw new Error('No image URL or data returned from OpenAI');
     }
 
     // Download and store result
     const storageResult = await downloadAndUploadImage(
-      generatedImageUrl.startsWith('data:') ? generatedImageUrl : generatedImageUrl,
+      generatedImageUrl,
       'recreation-result',
       `recreation_${batch_id}`,
       {
@@ -975,9 +1033,9 @@ async function executeRecreationOnlyWorkflow(
         url: finalImageUrl,
         variation_index: 1,
         batch_id,
-        replicate_url: completedPrediction.output as string
+        replicate_url: finalImageUrl // Use finalImageUrl since recreation uses OpenAI, not Replicate
       }],
-      prediction_id: prediction.id,
+      prediction_id: batch_id,
       batch_id,
       credits_used: CREDITS_PER_THUMBNAIL,
       remaining_credits: creditDeduction.remainingCredits,

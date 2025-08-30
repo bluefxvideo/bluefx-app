@@ -9,6 +9,16 @@ import { fetchUserLogoHistory, deleteLogoItem, LogoHistoryItem } from '@/actions
 import Image from 'next/image';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
+// Helper function to validate URLs
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 interface HistoryOutputProps {
   refreshTrigger?: number;
   filters?: HistoryFilters;
@@ -274,7 +284,7 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
 
               {/* Logo Preview */}
               <div className="aspect-square bg-muted rounded overflow-hidden relative">
-                {item.logoUrl ? (
+                {item.logoUrl && isValidUrl(item.logoUrl) ? (
                   <Image
                     src={item.logoUrl}
                     alt={item.companyName}

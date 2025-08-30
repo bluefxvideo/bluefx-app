@@ -15,6 +15,7 @@ interface ContextualOutputProps {
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;
+  onCancelGeneration?: () => void;
   onFocusPrompt?: () => void;
   historyFilters?: HistoryFilters;
   prompt?: string; // Add prompt prop
@@ -30,6 +31,7 @@ export function ContextualOutput({
   isGenerating,
   error,
   onClearResults,
+  onCancelGeneration,
   onFocusPrompt,
   historyFilters,
   prompt
@@ -42,13 +44,48 @@ export function ContextualOutput({
     hasFaceSwap: !!result?.face_swapped_thumbnails,
     faceSwapCount: result?.face_swapped_thumbnails?.length || 0
   });
+
+  // Clean up error messages for better UX
+  const getCleanErrorMessage = (errorMsg?: string) => {
+    if (!errorMsg) return undefined;
+    
+    // OpenAI safety system errors
+    if (errorMsg.includes('safety system') || errorMsg.includes('moderation_blocked')) {
+      return 'Content blocked by safety system. Try a different image or description.';
+    }
+    
+    // Rate limit errors
+    if (errorMsg.includes('rate limit') || errorMsg.includes('Rate limit')) {
+      return 'Too many requests. Please wait a moment and try again.';
+    }
+    
+    // API errors
+    if (errorMsg.includes('API Error') || errorMsg.includes('Bad Request')) {
+      return 'Service temporarily unavailable. Please try again.';
+    }
+    
+    // Timeout errors
+    if (errorMsg.includes('timeout') || errorMsg.includes('Timeout')) {
+      return 'Request timed out. Please try again.';
+    }
+    
+    // Generic long error cleanup - truncate if too long
+    if (errorMsg.length > 100) {
+      const firstSentence = errorMsg.split('.')[0];
+      return firstSentence.length > 80 
+        ? 'An error occurred. Please try again or contact support.'
+        : firstSentence + '.';
+    }
+    
+    return errorMsg;
+  };
   // Wrap all tab-specific outputs in the shared OutputPanelShell for consistency
   if (activeTab === 'history') {
     return (
       <OutputPanelShell
         title="History"
         status={isGenerating ? 'loading' : error ? 'error' : result ? 'ready' : 'idle'}
-        errorMessage={error}
+        errorMessage={getCleanErrorMessage(error)}
         empty={<HistoryOutput filters={historyFilters} />}
       >
         <HistoryOutput filters={historyFilters} />
@@ -77,7 +114,7 @@ export function ContextualOutput({
         subtitle={titleSubtitle}
         icon={titleIcon}
         status={isGenerating ? 'loading' : error ? 'error' : (result?.titles?.length ? 'ready' : 'idle')}
-        errorMessage={error}
+        errorMessage={getCleanErrorMessage(error)}
         actions={result?.titles?.length ? (
           <Button
             variant="ghost"
@@ -177,27 +214,26 @@ export function ContextualOutput({
       title={getTitle()}
       subtitle={getSubtitle()}
       icon={getIcon()}
-      status={isGenerating ? 'loading' : error ? 'error' : (result?.success && (result?.thumbnails?.length || 0) > 0 ? 'ready' : 'idle')}
-      errorMessage={error}
+      status={
+        isGenerating ? 'loading' : 
+        error ? 'error' : 
+        (result && (
+          (result.thumbnails && result.thumbnails.length > 0) || 
+          (result.face_swapped_thumbnails && result.face_swapped_thumbnails.length > 0)
+        )) ? 'ready' : 'idle'
+      }
+      errorMessage={getCleanErrorMessage(error)}
       actions={getActions()}
+      activeTab={activeTab}
+      onCancelGeneration={onCancelGeneration}
       loading={
         // Custom loading component to show our processing card instead of simple spinner
         <ThumbnailMachineOutput
           result={result}
           isGenerating={isGenerating}
-          error={error}
+          error={getCleanErrorMessage(error)}
           onClearResults={onClearResults}
-          activeTab={activeTab}
-          onFocusPrompt={onFocusPrompt}
-          prompt={prompt}
-        />
-      }
-      empty={
-        <ThumbnailMachineOutput
-          result={undefined}
-          isGenerating={isGenerating}
-          error={error}
-          onClearResults={onClearResults}
+          onCancelGeneration={onCancelGeneration}
           activeTab={activeTab}
           onFocusPrompt={onFocusPrompt}
           prompt={prompt}
@@ -207,8 +243,9 @@ export function ContextualOutput({
       <ThumbnailMachineOutput
         result={result}
         isGenerating={isGenerating}
-        error={error}
+        error={getCleanErrorMessage(error)}
         onClearResults={onClearResults}
+        onCancelGeneration={onCancelGeneration}
         activeTab={activeTab}
         onFocusPrompt={onFocusPrompt}
         prompt={prompt}

@@ -9,6 +9,16 @@ import { fetchUserThumbnailHistory, deleteHistoryItem, ThumbnailHistoryItem } fr
 import Image from 'next/image';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
+// Helper function to validate URLs
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 interface HistoryOutputProps {
   refreshTrigger?: number; // Change this value to trigger a refresh
   filters?: HistoryFilters;
@@ -283,7 +293,7 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
               ) : (
                 /* Single Thumbnail Preview */
                 <div className="aspect-video bg-muted rounded overflow-hidden relative">
-                  {item.thumbnails && item.thumbnails[0] ? (
+                  {item.thumbnails && item.thumbnails[0] && isValidUrl(item.thumbnails[0]) ? (
                     <Image
                       src={item.thumbnails[0]}
                       alt={item.prompt}
@@ -313,11 +323,50 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
                     }
                   </div>
                   <div className="flex flex-col gap-1">
-                    <Button variant="ghost" size="sm" className="h-6 px-2 justify-start">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 px-2 justify-start"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // TODO: Implement view functionality
+                        console.log('View clicked for:', item.id);
+                        // Could open in modal or new tab
+                        if (item.thumbnails?.[0] && isValidUrl(item.thumbnails[0])) {
+                          window.open(item.thumbnails[0], '_blank');
+                        }
+                      }}
+                    >
                       <Eye className="w-3 h-3 mr-1" />
                       <span className="text-sm">View</span>
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-6 px-2 justify-start">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 px-2 justify-start"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        // Download the first image as actual file
+                        if (item.thumbnails?.[0] && isValidUrl(item.thumbnails[0])) {
+                          try {
+                            const response = await fetch(item.thumbnails[0]);
+                            const blob = await response.blob();
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = `thumbnail-${item.batch_id || item.id}.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(downloadUrl);
+                          } catch (error) {
+                            console.error('Download failed:', error);
+                            // Fallback: try the direct link method
+                            window.open(item.thumbnails[0], '_blank');
+                          }
+                        }
+                      }}
+                    >
                       <Download className="w-3 h-3 mr-1" />
                       <span className="text-sm">Download</span>
                     </Button>

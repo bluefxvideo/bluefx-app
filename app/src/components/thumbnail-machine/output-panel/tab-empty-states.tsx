@@ -1,8 +1,6 @@
 'use client';
 
-import { UserRound, RotateCcw } from 'lucide-react';
-import { ThumbnailExample } from './examples/thumbnail-example';
-import { ThumbnailFaceSwapExample } from './examples/thumbnail-faceswap-example';
+import { RotateCcw } from 'lucide-react';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 
 interface EmptyStateProps {
@@ -17,7 +15,7 @@ interface EmptyStateProps {
 export function GenerateEmptyState({}: EmptyStateProps) {
   return (
     <div className="flex-1 overflow-hidden">
-      <ThumbnailExample />
+      {/* Empty state - no content */}
     </div>
   );
 }
@@ -25,7 +23,7 @@ export function GenerateEmptyState({}: EmptyStateProps) {
 export function FaceSwapEmptyState({}: EmptyStateProps) {
   return (
     <div className="flex-1 overflow-hidden">
-      <ThumbnailFaceSwapExample />
+      {/* Empty state - no content */}
     </div>
   );
 }

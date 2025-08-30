@@ -169,10 +169,33 @@ export async function performFaceSwap(
   batch_id?: string
 ): Promise<string> {
   try {
+    // Validate and log URLs before making the request
+    console.log('🔍 Face swap URL validation:', {
+      inputImage,
+      swapImage,
+      inputIsValidURL: inputImage.startsWith('http'),
+      swapIsValidURL: swapImage.startsWith('http'),
+      inputLength: inputImage.length,
+      swapLength: swapImage.length
+    });
+
+    // Ensure URLs are properly encoded
+    const encodedInputImage = encodeURI(inputImage);
+    const encodedSwapImage = encodeURI(swapImage);
+
+    console.log('🔍 Encoded URLs:', {
+      originalInput: inputImage,
+      encodedInput: encodedInputImage,
+      originalSwap: swapImage,
+      encodedSwap: encodedSwapImage,
+      inputChanged: inputImage !== encodedInputImage,
+      swapChanged: swapImage !== encodedSwapImage
+    });
+
     // Create the prediction
     const prediction = await createFaceSwapPrediction({
-      input_image: inputImage,
-      swap_image: swapImage
+      input_image: encodedInputImage,
+      swap_image: encodedSwapImage
     }, webhook, user_id, batch_id);
 
     console.log(`Face swap prediction created: ${prediction.id}`);

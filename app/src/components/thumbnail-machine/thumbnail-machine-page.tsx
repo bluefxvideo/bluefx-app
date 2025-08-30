@@ -7,7 +7,11 @@ import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
-import { useThumbnailMachine } from './hooks/use-thumbnail-machine';
+// Toggle between implementations for testing
+const USE_V2_HOOK = true; // Set to true to use the new simplified version
+import { useThumbnailMachine as useThumbnailMachineV1 } from './hooks/use-thumbnail-machine';
+import { useThumbnailMachine as useThumbnailMachineV2 } from './hooks/use-thumbnail-machine-v2';
+const useThumbnailMachine = USE_V2_HOOK ? useThumbnailMachineV2 : useThumbnailMachineV1;
 
 // Tab content components
 import { GeneratorTab } from './tabs/generator-tab';
@@ -40,7 +44,8 @@ export function ThumbnailMachinePage() {
     result,
     error,
     credits,
-    clearResults
+    clearResults,
+    cancelGeneration
   } = useThumbnailMachine();
 
   const handleFocusPrompt = () => {
@@ -157,9 +162,10 @@ export function ThumbnailMachinePage() {
           isGenerating={isGenerating}
           error={error}
           onClearResults={clearResults}
+          onCancelGeneration={cancelGeneration}
           onFocusPrompt={handleFocusPrompt}
           historyFilters={historyFilters}
-          prompt={''}
+          prompt={result?.prompt || ''}
         />
       </StandardToolLayout>
     </StandardToolPage>
