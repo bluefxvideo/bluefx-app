@@ -33,36 +33,17 @@ export function ThumbnailMachineOutput({
   onFocusPrompt,
   prompt
 }: ThumbnailMachineOutputProps) {
-  // Debug logging
-  console.log('🎨 ThumbnailMachineOutput render:', {
-    activeTab,
-    isGenerating,
-    hasResult: !!result,
-    resultSuccess: result?.success,
-    hasFaceSwap: !!result?.face_swapped_thumbnails,
-    faceSwapCount: result?.face_swapped_thumbnails?.length || 0,
-    hasThumbnails: !!result?.thumbnails,
-    thumbnailCount: result?.thumbnails?.length || 0
-  });
   
   // Show processing state or results if we have them
   const shouldShowResults = isGenerating || result;
-  console.log('🎨 Should show results?', {
-    shouldShowResults,
-    isGenerating,
-    hasResult: !!result,
-    resultTruthiness: result ? 'truthy' : 'falsy'
-  });
   
   if (shouldShowResults) {
     const handleDownload = async () => {
       // TODO: Implement batch download
-      console.log('Download all images');
     };
 
     const handleOpenInNewTab = () => {
       // TODO: Implement gallery view in new tab
-      console.log('Open gallery in new tab');
     };
 
     // Create fallback result for processing state if none exists
@@ -128,12 +109,6 @@ export function ThumbnailMachineOutput({
   // This case is actually covered above in the "if (isGenerating || result)" block
 
   // Empty State with centered layout
-  console.log('🚨 SHOWING EMPTY STATE - This should NOT happen after face swap completes!', {
-    isGenerating,
-    hasResult: !!result,
-    resultDetails: result,
-    activeTab
-  });
   
   return (
     <div className="h-full flex flex-col overflow-hidden relative">

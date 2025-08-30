@@ -47,18 +47,11 @@ export function useThumbnailMachine() {
         
         // Try to restore active generation state silently in background
         if (user) {
-          console.log('🔄 User found, silently checking for active generations...', {
-            userId: user.id,
-            userEmail: user.email
-          });
           await restoreActiveGeneration(user.id);
-        } else {
-          console.log('ℹ️ No user found, skipping restoration');
         }
       } catch (error) {
         console.error('❌ Error during user initialization:', error);
       }
-      console.log('✅ User initialization and restoration complete');
     };
     
     initializeUser();
@@ -70,7 +63,6 @@ export function useThumbnailMachine() {
       // If user just logged in, try to restore their active generations silently
       if (newUser && event === 'SIGNED_IN') {
         try {
-          console.log('🔄 User signed in, checking for active generations...');
           await restoreActiveGeneration(newUser.id);
         } catch (error) {
           console.error('❌ Error restoring on sign in:', error);
@@ -86,28 +78,18 @@ export function useThumbnailMachine() {
    */
   const restoreActiveGeneration = async (userId: string) => {
     try {
-      console.log('🔄 Attempting to restore active generation state for user:', userId);
-      
       const activePredictionsResult = await getActivePredictions(userId);
       
       if (!activePredictionsResult.success) {
-        console.log('❌ Failed to fetch active predictions:', activePredictionsResult.error);
         return;
       }
       
       if (!activePredictionsResult.predictions?.length) {
-        console.log('ℹ️ No active predictions to restore');
         return;
       }
 
       // Get the most recent active prediction
       const activePrediction = activePredictionsResult.predictions[0];
-      console.log('🔄 Restoring active prediction:', {
-        id: activePrediction.predictionId,
-        type: activePrediction.type,
-        prompt: activePrediction.prompt.substring(0, 50) + '...',
-        status: activePrediction.status
-      });
 
       // Set generating state FIRST
       setIsGenerating(true);
@@ -115,12 +97,6 @@ export function useThumbnailMachine() {
       
       // Create partial result for UI display
       const partialResult = createPartialResultFromPrediction(activePrediction);
-      console.log('🔄 Setting partial result:', {
-        success: partialResult.success,
-        batch_id: partialResult.batch_id,
-        prompt: partialResult.prompt,
-        generationType: (partialResult as any).generationType
-      });
       setResult(partialResult);
       
       // Store current batch ID and prediction IDs for polling
@@ -128,10 +104,7 @@ export function useThumbnailMachine() {
       predictionIdsRef.current = [activePrediction.predictionId];
       
       // Start polling immediately for the restored prediction
-      console.log('🔄 Starting polling for restored prediction:', activePrediction.predictionId);
       startPolling(activePrediction.predictionId);
-      
-      console.log('✅ Active generation state restored successfully');
       
     } catch (error) {
       console.error('❌ Error restoring active generation:', error);
@@ -144,8 +117,6 @@ export function useThumbnailMachine() {
    * This is our fallback when webhooks fail
    */
   const startPolling = useCallback(async (batchId: string) => {
-    console.log('🔄 Starting polling fallback for batch:', batchId);
-    
     // Clear any existing polling
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -156,7 +127,6 @@ export function useThumbnailMachine() {
     
     const pollForResults = async () => {
       pollCount++;
-      console.log(`📊 Polling attempt ${pollCount}/${maxPolls} for batch:`, batchId);
       
       try {
         // Get prediction metadata from database
@@ -167,7 +137,6 @@ export function useThumbnailMachine() {
           .single();
         
         if (!prediction) {
-          console.log('⚠️ No prediction record found for polling');
           return;
         }
         
@@ -180,7 +149,6 @@ export function useThumbnailMachine() {
           replicatePredictionIds.push(prediction.external_id);
         }
         
-        console.log('🔍 Polling Replicate predictions:', replicatePredictionIds);
         
         // Poll each Replicate prediction
         const allCompleted = [];
@@ -204,8 +172,6 @@ export function useThumbnailMachine() {
         
         // All predictions completed or failed
         if (allCompleted.length > 0 || hasFailure) {
-          console.log('✅ Polling complete:', allCompleted.length, 'successful predictions');
-          
           // Stop polling
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -234,7 +200,6 @@ export function useThumbnailMachine() {
                 face_swapped_thumbnails: outputData.face_swapped_thumbnails || [],
               };
               
-              console.log('📦 Setting result from polling:', polledResult);
               setResult(polledResult);
               setIsGenerating(false);
               setError(undefined);
@@ -247,7 +212,6 @@ export function useThumbnailMachine() {
         
         // Stop polling after max attempts
         if (pollCount >= maxPolls) {
-          console.log('⏰ Polling timeout reached');
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
@@ -272,8 +236,6 @@ export function useThumbnailMachine() {
    * Handle webhook updates from real-time subscription
    */
   const handleWebhookUpdate = useCallback(async (message: any) => {
-    console.log('📡 Webhook received:', message);
-    
     // Clear webhook timeout since we received a webhook
     if (webhookTimeoutRef.current) {
       clearTimeout(webhookTimeoutRef.current);
@@ -284,12 +246,10 @@ export function useThumbnailMachine() {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
-      console.log('🛑 Stopped polling - webhook received');
     }
     
     // Check if this webhook is for our current generation
     if (message.batch_id !== currentBatchIdRef.current) {
-      console.log('⏭️ Skipping webhook - different batch_id');
       return;
     }
     
@@ -314,7 +274,6 @@ export function useThumbnailMachine() {
             face_swapped_thumbnails: outputData.face_swapped_thumbnails || [],
           };
           
-          console.log('✅ Setting result from webhook:', webhookResult);
           setResult(webhookResult);
           setIsGenerating(false);
           setError(undefined);
@@ -331,18 +290,14 @@ export function useThumbnailMachine() {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔔 Setting up real-time subscription for user:', user.id);
-
     const subscription = supabase
       .channel(`user_${user.id}_updates`)
       .on('broadcast', { event: 'webhook_update' }, (payload) => {
-        console.log('🔔 Real-time broadcast received:', payload);
         handleWebhookUpdate(payload.payload);
       })
       .subscribe();
 
     return () => {
-      console.log('🔕 Cleaning up real-time subscription');
       subscription.unsubscribe();
     };
   }, [user?.id, handleWebhookUpdate, supabase]);
@@ -372,7 +327,6 @@ export function useThumbnailMachine() {
         user_id: user.id,
       });
       
-      console.log('🎯 Server response:', response);
       
       // Store the batch_id for webhook/polling matching
       currentBatchIdRef.current = response.batch_id;
@@ -385,11 +339,8 @@ export function useThumbnailMachine() {
                                (request.face_swap && !response.face_swapped_thumbnails?.length);
       
       if (isAsyncOperation) {
-        console.log('⏰ Setting up webhook timeout for async operation');
-        
         // Start polling after 5 seconds if no webhook arrives
         webhookTimeoutRef.current = setTimeout(() => {
-          console.log('⚠️ No webhook received after 5 seconds, starting polling fallback');
           startPolling(response.batch_id);
         }, 5000);
       } else {
@@ -417,8 +368,6 @@ export function useThumbnailMachine() {
    * Cancel generation
    */
   const cancelGeneration = useCallback(async () => {
-    console.log('🛑 Cancelling generation');
-    
     // Clear all timeouts and intervals
     if (webhookTimeoutRef.current) {
       clearTimeout(webhookTimeoutRef.current);

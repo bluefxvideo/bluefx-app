@@ -30,13 +30,6 @@ export function ThumbnailMachinePage() {
   const promptInputRef = useRef<HTMLTextAreaElement>(null!);
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters | undefined>();
   
-  // Debug mounting/unmounting
-  useEffect(() => {
-    console.log('📍 ThumbnailMachinePage mounted, pathname:', pathname);
-    return () => {
-      console.log('📍 ThumbnailMachinePage unmounted');
-    };
-  }, [pathname]);
   
   const {
     generate,
@@ -48,15 +41,6 @@ export function ThumbnailMachinePage() {
     cancelGeneration
   } = useThumbnailMachine();
 
-  // Debug logging for generation state
-  useEffect(() => {
-    console.log('🎭 ThumbnailMachinePage state change:', {
-      isGenerating,
-      hasResult: !!result,
-      resultBatchId: result?.batch_id,
-      resultPrompt: result?.prompt?.substring(0, 50) + '...'
-    });
-  }, [isGenerating, result]);
 
   const handleFocusPrompt = () => {
     promptInputRef.current?.focus();

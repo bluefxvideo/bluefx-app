@@ -65,7 +65,7 @@ export function ThumbnailPreview({
     // For generate tab: check aspect_ratio from generation settings
     if (activeTab === 'generate') {
       const inputData = result?.thumbnails?.[0];
-      const generationSettings = inputData?.generation_settings;
+      const generationSettings = (inputData as any)?.generation_settings;
       
       if (generationSettings?.aspect_ratio) {
         const aspectRatio = generationSettings.aspect_ratio;
@@ -108,12 +108,6 @@ export function ThumbnailPreview({
       setImageAspectRatio('square');
     }
     
-    console.log('📐 Image aspect ratio detected:', {
-      naturalWidth,
-      naturalHeight,
-      ratio: naturalWidth / naturalHeight,
-      classification: naturalWidth > naturalHeight ? 'landscape' : naturalHeight > naturalWidth ? 'portrait' : 'square'
-    });
   }, []);
 
   // EXACT same hasResults logic as title (contextual-output.tsx line 98-100)
@@ -138,16 +132,7 @@ export function ThumbnailPreview({
     if (!selected) return null;
     
     // Face swap results use 'image_url', thumbnails use 'image_urls' array or 'url' - normalize to 'url'
-    const normalizedUrl = selected.image_url || selected.url || (selected.image_urls && selected.image_urls[0]) || '';
-    console.log('🖼️ Primary result URL mapping:', {
-      activeTab,
-      selectedType: selected.image_url ? 'face-swap' : selected.image_urls ? 'thumbnail-array' : 'thumbnail',
-      originalImageUrl: selected.image_url,
-      originalUrl: selected.url,
-      originalImageUrls: selected.image_urls,
-      normalizedUrl,
-      isValid: isValidUrl(normalizedUrl)
-    });
+    const normalizedUrl = (selected as any).image_url || selected.url || ((selected as any).image_urls && (selected as any).image_urls[0]) || '';
     
     return {
       ...selected,
@@ -197,7 +182,7 @@ export function ThumbnailPreview({
               {primaryResult?.url && isValidUrl(primaryResult.url) ? (
                 <Image
                   src={primaryResult.url}
-                  alt={displayThumbnail ? `Thumbnail ${displayThumbnail.variation_index}` : "Face swapped thumbnail"}
+                  alt={displayThumbnail ? `Thumbnail ${(displayThumbnail as any).variation_index || 1}` : "Face swapped thumbnail"}
                   className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 bg-secondary/10"
                   fill
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -234,7 +219,7 @@ export function ThumbnailPreview({
                       if (primaryResult?.url && isValidUrl(primaryResult.url)) {
                         downloadImage(
                           primaryResult.url,
-                          displayThumbnail ? `thumbnail-${displayThumbnail.variation_index}.webp` : 'faceswap.webp'
+                          displayThumbnail ? `thumbnail-${(displayThumbnail as any).variation_index || 1}.webp` : 'faceswap.webp'
                         );
                       }
                     }}
@@ -342,7 +327,9 @@ export function ThumbnailPreview({
               </div>
               <p className="text-xs text-muted-foreground truncate">
                 {(() => {
-                  const text = prompt || 'Image generation in progress...';
+                  // Get prompt from result data if available (cast to any to access prompt property)
+                  const resultPrompt = (displayThumbnail as any)?.prompt || (displayFaceSwapped as any)?.prompt || (result as any).prompt;
+                  const text = prompt || resultPrompt || (effectivelyGenerating ? 'Image generation in progress...' : 'Generation complete');
                   return text.length > 60 ? `${text.substring(0, 60)}...` : text;
                 })()}
               </p>

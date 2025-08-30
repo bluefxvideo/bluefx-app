@@ -36,14 +36,6 @@ export function ContextualOutput({
   historyFilters,
   prompt
 }: ContextualOutputProps) {
-  // Debug logging
-  console.log('🎭 ContextualOutput render:', {
-    activeTab,
-    isGenerating,
-    hasResult: !!result,
-    hasFaceSwap: !!result?.face_swapped_thumbnails,
-    faceSwapCount: result?.face_swapped_thumbnails?.length || 0
-  });
 
   // Clean up error messages for better UX
   const getCleanErrorMessage = (errorMsg?: string) => {

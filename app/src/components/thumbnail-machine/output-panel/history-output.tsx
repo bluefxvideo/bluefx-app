@@ -363,7 +363,6 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
                       onClick={(e) => {
                         e.stopPropagation();
                         // TODO: Implement view functionality
-                        console.log('View clicked for:', item.id);
                         // Could open in modal or new tab
                         if (item.thumbnails?.[0] && isValidUrl(item.thumbnails[0])) {
                           window.open(item.thumbnails[0], '_blank');

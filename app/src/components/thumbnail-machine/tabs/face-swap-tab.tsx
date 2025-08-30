@@ -47,11 +47,8 @@ export function FaceSwapTab({
     e.stopPropagation(); // Stop event bubbling
     
     if (!formData.sourceImage || !formData.targetImage || isGenerating) {
-      console.log('❌ Face swap blocked - missing data or already generating');
       return;
     }
-    
-    console.log('🚀 Starting face swap generation...');
     
     // Call unified orchestrator with face-swap-only mode
     await onGenerate({
