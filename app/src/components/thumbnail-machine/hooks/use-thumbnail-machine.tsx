@@ -6,568 +6,438 @@ import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useCredits } from '@/hooks/useCredits';
 import { updatePredictionRecord } from '@/actions/database/thumbnail-database';
-import { usePredictionPolling } from '@/hooks/use-prediction-polling';
 import { getIdeogramV2aPrediction } from '@/actions/models/ideogram-v2-turbo';
 import { getFaceSwapPrediction } from '@/actions/models/face-swap-cdingram';
+import { getActivePredictions } from '@/actions/database/restore-active-predictions';
+import { createPartialResultFromPrediction } from '@/utils/prediction-restoration';
 
 /**
- * Custom hook for thumbnail machine functionality
- * Simplified to match AI Cinematographer pattern
+ * Simplified Thumbnail Machine Hook with Robust Polling Fallback
+ * 
+ * Key improvements:
+ * 1. Automatic polling when webhooks don't arrive within 5 seconds
+ * 2. No complex timeout logic - just reliable polling
+ * 3. Clean state management without race conditions
+ * 4. Modular for all operations (generate, face-swap, recreate)
  */
 export function useThumbnailMachine() {
   const { credits } = useCredits();
   
+  // Core state
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<ThumbnailMachineResponse | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [user, setUser] = useState<User | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [activePredictionId, setActivePredictionId] = useState<string | null>(null);
-  const [activePredictionType, setActivePredictionType] = useState<'ideogram' | 'face-swap' | null>(null);
-  const pollingEnabledRef = useRef<boolean>(false);
+  const [isRestoring, setIsRestoring] = useState(false); // Silent restoration by default
   
-  // Use ref to track current result without causing subscription re-creation
-  const resultRef = useRef<ThumbnailMachineResponse | undefined>(undefined);
-  const isGeneratingRef = useRef<boolean>(false);
-  const lastProcessedRef = useRef<string | null>(null);
+  // Polling state
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const webhookTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentBatchIdRef = useRef<string | null>(null);
+  const predictionIdsRef = useRef<string[]>([]);
   
   const supabase = createClient();
 
-  // Update refs when state changes
+  // Get current user and restore any active generation state
   useEffect(() => {
-    resultRef.current = result;
-  }, [result]);
-  
-  useEffect(() => {
-    isGeneratingRef.current = isGenerating;
-  }, [isGenerating]);
-
-  // Get current user
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    const initializeUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        
+        // Try to restore active generation state silently in background
+        if (user) {
+          await restoreActiveGeneration(user.id);
+        }
+      } catch (error) {
+        console.error('❌ Error during user initialization:', error);
+      }
     };
-    getUser();
+    
+    initializeUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const newUser = session?.user || null;
+      setUser(newUser);
+      
+      // If user just logged in, try to restore their active generations silently
+      if (newUser && event === 'SIGNED_IN') {
+        try {
+          await restoreActiveGeneration(newUser.id);
+        } catch (error) {
+          console.error('❌ Error restoring on sign in:', error);
+        }
+      }
     });
 
     return () => subscription?.unsubscribe();
   }, [supabase.auth]);
 
-  // State restoration - check for ongoing generations when user is authenticated
-  useEffect(() => {
-    if (!user?.id) return;
+  /**
+   * Restore active generation state from database after page refresh
+   */
+  const restoreActiveGeneration = async (userId: string) => {
+    try {
+      const activePredictionsResult = await getActivePredictions(userId);
+      
+      if (!activePredictionsResult.success) {
+        return;
+      }
+      
+      if (!activePredictionsResult.predictions?.length) {
+        return;
+      }
+
+      // Get the most recent active prediction
+      const activePrediction = activePredictionsResult.predictions[0];
+
+      // Set generating state FIRST
+      setIsGenerating(true);
+      setError(undefined);
+      
+      // Create partial result for UI display
+      const partialResult = createPartialResultFromPrediction(activePrediction);
+      setResult(partialResult);
+      
+      // Store current batch ID and prediction IDs for polling
+      currentBatchIdRef.current = activePrediction.batchId;
+      predictionIdsRef.current = [activePrediction.predictionId];
+      
+      // Start polling immediately for the restored prediction
+      startPolling(activePrediction.predictionId);
+      
+    } catch (error) {
+      console.error('❌ Error restoring active generation:', error);
+      // Don't set error state for restoration failures, just log them
+    }
+  };
+
+  /**
+   * Start polling for prediction results
+   * This is our fallback when webhooks fail
+   */
+  const startPolling = useCallback(async (batchId: string) => {
+    // Clear any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
     
+    let pollCount = 0;
+    const maxPolls = 90; // 3 minutes with 2 second intervals
     
-    const checkOngoingGenerations = async () => {
+    const pollForResults = async () => {
+      pollCount++;
+      
       try {
-        // Only restore VERY recent operations (last 3 minutes max)
-        // Most operations complete within 30-60 seconds
-        const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-        
-        const { data: recentPredictions } = await supabase
+        // Get prediction metadata from database
+        const { data: prediction, error } = await supabase
           .from('ai_predictions')
           .select('*')
-          .eq('user_id', user.id)
-          .eq('tool_id', 'thumbnail-machine')
-          .gte('created_at', threeMinutesAgo)
-          .in('status', ['starting', 'processing']) // Excludes 'cancelled', 'completed', 'failed'
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (recentPredictions && recentPredictions.length > 0) {
-          const prediction = recentPredictions[0];
-          const createdAt = new Date(prediction.created_at);
-          const ageInSeconds = (Date.now() - createdAt.getTime()) / 1000;
+          .eq('prediction_id', batchId)
+          .single();
+        
+        if (error || !prediction) {
+          console.warn('❌ Thumbnail prediction not found in database, stopping polling:', batchId);
+          // Stop polling for non-existent predictions
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          setError('Generation record not found. Please try generating again.');
+          setIsGenerating(false);
+          return;
+        }
+        
+        // Get the Replicate prediction IDs from metadata
+        const metadata = prediction.metadata as any;
+        const replicatePredictionIds = metadata?.replicate_prediction_ids || [];
+        const predictionType = metadata?.prediction_type || 'ideogram';
+        
+        if (replicatePredictionIds.length === 0 && prediction.external_id) {
+          replicatePredictionIds.push(prediction.external_id);
+        }
+        
+        
+        // Poll each Replicate prediction
+        const allCompleted = [];
+        let hasFailure = false;
+        
+        for (const predId of replicatePredictionIds) {
+          const replicatePrediction = predictionType === 'face-swap' 
+            ? await getFaceSwapPrediction(predId)
+            : await getIdeogramV2aPrediction(predId);
           
-            id: prediction.prediction_id,
-            age: `${Math.round(ageInSeconds)} seconds`,
-            status: prediction.status
-          });
-          
-          // Only restore if prediction is less than 3 minutes old
-          // This prevents restoring stuck/orphaned records
-          if (ageInSeconds < 180) { // 3 minutes
-            
-            // Restore processing state
-            setIsGenerating(true);
-            
-            // Create placeholder result for processing display
-            const placeholderResult: ThumbnailMachineResponse = {
-              success: true,
-              batch_id: prediction.prediction_id,
-              credits_used: 0,
-              generation_time_ms: 0,
-              thumbnails: []
-            };
-            
-            setResult(placeholderResult);
-            
-            // Auto-cleanup if this restoration gets stuck
-            // Set a timeout to stop after reasonable time
-            const maxWaitTime = Math.max(180000 - (ageInSeconds * 1000), 30000); // Remaining time up to 3 min, min 30 sec
-            
-            // Set timeout directly here since startGenerationTimeout isn't available yet
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-            }
-            timeoutRef.current = setTimeout(() => {
-              setIsGenerating(false);
-              setError('Generation timed out. Please try again.');
-            }, maxWaitTime);
-          } else {
-            // Mark old stuck predictions as failed
-            try {
-              await updatePredictionRecord(prediction.prediction_id, {
-                status: 'failed',
-                completed_at: new Date().toISOString()
-              });
-            } catch (err) {
-            }
+          if (replicatePrediction.status === 'succeeded' && replicatePrediction.output) {
+            allCompleted.push(replicatePrediction);
+          } else if (replicatePrediction.status === 'failed' || replicatePrediction.status === 'canceled') {
+            hasFailure = true;
+            console.error('❌ Prediction failed:', predId, replicatePrediction.error);
+          } else if (replicatePrediction.status === 'processing' || replicatePrediction.status === 'starting') {
+            // Still processing, continue polling
+            return;
           }
         }
+        
+        // All predictions completed or failed
+        if (allCompleted.length > 0 || hasFailure) {
+          // Stop polling
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          
+          // Update the result based on completed predictions
+          if (allCompleted.length > 0) {
+            // Get the latest result from database (webhook might have updated it)
+            const { data: updatedPrediction } = await supabase
+              .from('ai_predictions')
+              .select('*')
+              .eq('prediction_id', batchId)
+              .single();
+            
+            if (updatedPrediction?.output_data) {
+              const outputData = updatedPrediction.output_data as any;
+              
+              // Build the result from output_data
+              const polledResult: ThumbnailMachineResponse = {
+                success: true,
+                batch_id: batchId,
+                credits_used: prediction.credits_used || 0,
+                generation_time_ms: Date.now() - new Date(prediction.created_at).getTime(),
+                thumbnails: outputData.thumbnails || [],
+                face_swapped_thumbnails: outputData.face_swapped_thumbnails || [],
+              };
+              
+              setResult(polledResult);
+              setIsGenerating(false);
+              setError(undefined);
+            }
+          } else if (hasFailure) {
+            setError('Generation failed. Please try again.');
+            setIsGenerating(false);
+          }
+        }
+        
+        // Stop polling after max attempts
+        if (pollCount >= maxPolls) {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          setError('Generation timed out. Please try again.');
+          setIsGenerating(false);
+        }
       } catch (error) {
+        console.error('❌ Polling error:', error);
+        
+        // Stop polling on critical errors (like 406 - prediction doesn't exist)
+        if (error && typeof error === 'object' && 'code' in error) {
+          const supabaseError = error as any;
+          if (supabaseError.code === 'PGRST116' || supabaseError.details?.includes('406')) {
+            console.warn('❌ Stopping thumbnail polling due to database error (prediction not found)');
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            setError('Generation record not found. Please try generating again.');
+            setIsGenerating(false);
+            return;
+          }
+        }
+        
+        // Continue polling for temporary errors
       }
     };
+    
+    // Start polling immediately
+    pollForResults();
+    
+    // Set up interval for subsequent polls
+    pollingIntervalRef.current = setInterval(pollForResults, 2000);
+  }, [supabase]);
 
-    // Delay to let user auth complete
-    const timeoutId = setTimeout(checkOngoingGenerations, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [user?.id, supabase]);
+  /**
+   * Handle webhook updates from real-time subscription
+   */
+  const handleWebhookUpdate = useCallback(async (message: any) => {
+    // Clear webhook timeout since we received a webhook
+    if (webhookTimeoutRef.current) {
+      clearTimeout(webhookTimeoutRef.current);
+      webhookTimeoutRef.current = null;
+    }
+    
+    // Stop polling since webhook arrived
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    
+    // Check if this webhook is for our current generation
+    if (message.batch_id !== currentBatchIdRef.current) {
+      return;
+    }
+    
+    if (message.status === 'succeeded' && message.results?.success) {
+      // Process the webhook result
+      try {
+        const { data: prediction } = await supabase
+          .from('ai_predictions')
+          .select('*')
+          .eq('prediction_id', message.batch_id)
+          .single();
+        
+        if (prediction?.output_data) {
+          const outputData = prediction.output_data as any;
+          
+          const webhookResult: ThumbnailMachineResponse = {
+            success: true,
+            batch_id: message.batch_id,
+            credits_used: prediction.credits_used || 0,
+            generation_time_ms: Date.now() - new Date(prediction.created_at).getTime(),
+            thumbnails: outputData.thumbnails || [],
+            face_swapped_thumbnails: outputData.face_swapped_thumbnails || [],
+          };
+          
+          setResult(webhookResult);
+          setIsGenerating(false);
+          setError(undefined);
+        }
+      } catch (error) {
+        console.error('❌ Error processing webhook:', error);
+      }
+    }
+  }, [supabase]);
 
-  // Generate thumbnails - simplified like AI Cinematographer
+  /**
+   * Subscribe to real-time webhook updates
+   */
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const subscription = supabase
+      .channel(`user_${user.id}_updates`)
+      .on('broadcast', { event: 'webhook_update' }, (payload) => {
+        handleWebhookUpdate(payload.payload);
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user?.id, handleWebhookUpdate, supabase]);
+
+  /**
+   * Main generation function
+   */
   const generateThumbnail = async (request: ThumbnailMachineRequest): Promise<ThumbnailMachineResponse> => {
-    // Authentication check
+    // Validation
     if (!user?.id) {
-      const errorResponse: ThumbnailMachineResponse = {
-        success: false,
-        error: 'User must be authenticated to generate thumbnails',
-        batch_id: `error_${Date.now()}`,
-        generation_time_ms: 0,
-        credits_used: 0,
-        thumbnails: []
-      };
-      setError(errorResponse.error);
-      return errorResponse;
+      throw new Error('Please sign in to generate thumbnails');
     }
 
+    if (!credits || credits < 2) {
+      throw new Error('Insufficient credits. Please purchase more credits to continue.');
+    }
+
+    // Reset state
     setIsGenerating(true);
     setError(undefined);
-    
-    // Don't create placeholder - just set loading state
-    // The server will return the real batch_id and we'll use that everywhere
-    
-    let hadError = false;
+    setResult(undefined);
     
     try {
+      // Call the server action
       const response = await generateThumbnails({
         ...request,
         user_id: user.id,
       });
       
       
-      // Start timeout now that we have the real batch_id
-      const timeoutMs = request.operation_mode === 'face-swap-only' ? 180000 
-                      : request.operation_mode === 'recreation-only' ? 150000 
-                      : 120000;
-      startGenerationTimeout(timeoutMs);
+      // Store the batch_id for webhook/polling matching
+      currentBatchIdRef.current = response.batch_id;
       
-      // Always set the result with the server's batch_id
+      // Set initial result (will be updated by webhook or polling)
       setResult(response);
       
+      // For async operations, set up webhook timeout and polling fallback
+      const isAsyncOperation = request.operation_mode === 'face-swap-only' || 
+                               (request.face_swap && !response.face_swapped_thumbnails?.length);
       
-      if (!response.success) {
-        setError(response.error);
-        hadError = true;
+      if (isAsyncOperation) {
+        // Start polling after 5 seconds if no webhook arrives
+        webhookTimeoutRef.current = setTimeout(() => {
+          startPolling(response.batch_id);
+        }, 5000);
+      } else {
+        // Synchronous operation completed
+        setIsGenerating(false);
       }
       
       return response;
     } catch (err) {
-      hadError = true;
-      const errorMessage = err instanceof Error ? err.message : 'Thumbnail generation failed';
-      const errorResponse: ThumbnailMachineResponse = {
-        success: false,
-        error: errorMessage,
-        batch_id: `error_${Date.now()}`,
-        generation_time_ms: 0,
-        credits_used: 0,
-        thumbnails: []
-      };
+      const errorMessage = err instanceof Error ? err.message : 'Generation failed';
       setError(errorMessage);
-      setResult(errorResponse);
-      return errorResponse;
-    } finally {
-      // For face swap: only skip cleanup if the operation was successful
-      // If there's an error, we need to clean up even for face swap
-      const shouldCleanup = request.operation_mode !== 'face-swap-only' || hadError;
+      setIsGenerating(false);
       
-      if (shouldCleanup) {
-        // Clear timeout since operation completed (successfully or with error)
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        setIsGenerating(false);
+      // Clear any timeouts
+      if (webhookTimeoutRef.current) {
+        clearTimeout(webhookTimeoutRef.current);
+        webhookTimeoutRef.current = null;
       }
+      
+      throw err;
     }
   };
 
-  // Clear results
-  const clearResults = () => {
-    setResult(undefined);
-    setError(undefined);
-    setIsGenerating(false);
-  };
-
-  // Cancel ongoing generation
+  /**
+   * Cancel generation
+   */
   const cancelGeneration = useCallback(async () => {
-    
-    // Clear timeout if exists
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    // Clear all timeouts and intervals
+    if (webhookTimeoutRef.current) {
+      clearTimeout(webhookTimeoutRef.current);
+      webhookTimeoutRef.current = null;
     }
     
-    // Update database to prevent state restoration from re-enabling generation
-    const currentResult = resultRef.current;
-    if (currentResult?.batch_id && user?.id) {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    
+    // Update database if we have a batch_id
+    if (currentBatchIdRef.current && user?.id) {
       try {
-        await updatePredictionRecord(currentResult.batch_id, {
+        await updatePredictionRecord(currentBatchIdRef.current, {
           status: 'cancelled',
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
         });
       } catch (error) {
+        console.error('Failed to update database on cancellation:', error);
       }
     }
     
-    // Reset to clean initial state - no error message for user cancellation
+    // Reset state
     setIsGenerating(false);
     setResult(undefined);
     setError(undefined);
+    currentBatchIdRef.current = null;
   }, [user?.id]);
 
-  // Auto-timeout functionality
-  const startGenerationTimeout = useCallback((timeoutMs: number = 180000) => { // 3 minutes default
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    timeoutRef.current = setTimeout(async () => {
-      
-      // Update database to mark as failed to prevent restoration
-      const currentResult = resultRef.current;
-      if (currentResult?.batch_id && user?.id) {
-        try {
-          await updatePredictionRecord(currentResult.batch_id, {
-            status: 'failed',
-            completed_at: new Date().toISOString(),
-            error_message: 'Generation timed out'
-          });
-        } catch (error) {
-        }
-      }
-      
-      setIsGenerating(false);
-      setError('Generation timed out. Please try again.');
-    }, timeoutMs);
-  }, [user?.id]);
-
-  // Handle webhook broadcast updates (Direct broadcasting like AI Cinematographer)
-  const handleWebhookUpdate = useCallback(async (message: any) => {
-    const timestamp = new Date().toISOString();
-      tool_type: message.tool_type,
-      prediction_id: message.prediction_id,
-      batch_id: message.batch_id,
-      status: message.status,
-      has_results: !!message.results,
-      currentBatchId: resultRef.current?.batch_id,
-      isGenerating: isGeneratingRef.current
-    });
-    
-    if (message.tool_type !== 'face-swap' && message.tool_type !== 'thumbnail' && message.tool_type !== 'ideogram' && message.tool_type !== 'thumbnail-machine') {
-      return;
-    }
-    
-    // Simple duplicate prevention - one prediction ID only
-      messagePredictionId: message.prediction_id,
-      lastProcessed: lastProcessedRef.current,
-      isDuplicate: lastProcessedRef.current === message.prediction_id
-    });
-    
-    if (lastProcessedRef.current === message.prediction_id) {
-      return;
-    }
-    lastProcessedRef.current = message.prediction_id;
-    
-    if (message.status !== 'succeeded' || !message.results?.success) {
-      return;
-    }
-    
-    // Get the prediction record to get the actual image data
-    if (message.prediction_id) {
-      try {
-        // For face swap, we might need to query by prediction_id OR external_id
-        let prediction;
-        let error;
-        
-        // First try by external_id (normal flow)
-        ({ data: prediction, error } = await supabase
-          .from('ai_predictions')
-          .select('prediction_id, output_data, user_id')
-          .eq('external_id', message.prediction_id)
-          .eq('user_id', user.id)
-          .maybeSingle()); // Use maybeSingle to avoid error when no rows found
-        
-        // If not found and it's face swap, try by prediction_id directly using batch_id
-        if (!prediction && message.tool_type === 'face-swap' && message.batch_id) {
-          ({ data: prediction, error } = await supabase
-            .from('ai_predictions')
-            .select('prediction_id, output_data, user_id')
-            .eq('prediction_id', message.batch_id)
-            .eq('user_id', user.id)
-            .maybeSingle()); // Use maybeSingle to avoid error when no rows found
-        }
-          
-          
-        if (prediction && prediction.output_data) {
-          const currentResult = resultRef.current;
-            currentBatchId: currentResult?.batch_id, 
-            predictionId: prediction.prediction_id,
-            messageBatchId: message.batch_id,
-            isMatch: currentResult && (currentResult.batch_id === prediction.prediction_id || currentResult.batch_id === message.batch_id)
-          });
-          // Match by either prediction_id or batch_id (for face swap)
-          const isCurrentGeneration = currentResult && (
-            currentResult.batch_id === prediction.prediction_id || 
-            currentResult.batch_id === message.batch_id
-          );
-          
-          if (isCurrentGeneration) {
-            
-            const outputData = prediction.output_data as any;
-            
-            // Create the final result directly without multiple state updates
-            const currentResult = resultRef.current;
-            if (currentResult) {
-              let finalResult;
-              
-              // Handle Face Swap results
-              if (outputData.face_swapped_thumbnails) {
-                finalResult = {
-                  ...currentResult,
-                  face_swapped_thumbnails: outputData.face_swapped_thumbnails.map((item: any) => ({
-                    url: item.image_url || item.url,
-                    source_thumbnail_id: item.source_thumbnail_id || currentResult.batch_id,
-                    replicate_url: item.image_url || item.url,
-                  }))
-                };
-              }
-              // Handle Normal Generate results
-              else if (outputData.thumbnails) {
-                finalResult = {
-                  ...currentResult,
-                  thumbnails: outputData.thumbnails.map((item: any, index: number) => ({
-                    id: `${currentResult.batch_id}_${index + 1}`,
-                    url: item.image_url || item.url,
-                    variation_index: index + 1,
-                    batch_id: currentResult.batch_id,
-                  }))
-                };
-              }
-              
-              if (finalResult) {
-                  has_face_swap: !!finalResult.face_swapped_thumbnails,
-                  face_swap_count: finalResult.face_swapped_thumbnails?.length || 0,
-                  has_thumbnails: !!finalResult.thumbnails,
-                  thumbnail_count: finalResult.thumbnails?.length || 0,
-                  batch_id: finalResult.batch_id,
-                  success: finalResult.success
-                });
-                setResult(finalResult);
-              } else {
-              }
-            } else {
-            }
-            
-            // Wait for next tick to ensure setResult completes before stopping loading
-            setTimeout(() => {
-              
-              // Clear timeout since generation completed successfully
-              if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-              }
-              
-              setIsGenerating(false);
-            }, 100); // Small delay to ensure state updates propagate
-          }
-        } else if (error) {
-        } else {
-        }
-      } catch (error) {
-      }
-    }
-  }, [user?.id, supabase]);
-
-  // Subscribe to real-time updates for thumbnail status
-  useEffect(() => {
-    if (!user?.id) return;
-
-
-    const subscription = supabase
-      .channel(`user_${user.id}_updates`)
-      .on(
-        'broadcast',
-        {
-          event: 'webhook_update',
-        },
-        (payload) => {
-          handleWebhookUpdate(payload.payload);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'ai_predictions',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-            event: payload.eventType,
-            old: payload.old,
-            new: payload.new
-          });
-
-          const updatedPrediction = payload.new as any;
-          
-          // Only process thumbnail-machine predictions that are completed
-          // Skip postgres updates for now since broadcast handler works better
-          if (updatedPrediction?.tool_id !== 'thumbnail-machine' || 
-              updatedPrediction?.status !== 'completed' ||
-              !updatedPrediction?.output_data) {
-            return;
-          }
-          
-          // TEMPORARY: Skip postgres updates to avoid double-processing with broadcasts
-          return;
-          
-          // Update current result if it matches the current generation
-          const currentResult = resultRef.current;
-          const isCurrentGeneration = currentResult && currentResult.batch_id && 
-            updatedPrediction?.prediction_id === currentResult.batch_id;
-
-            hasCurrentResult: !!currentResult,
-            currentBatchId: currentResult?.batch_id,
-            updatedPredictionId: updatedPrediction?.prediction_id,
-            isMatch: isCurrentGeneration,
-            isGenerating: isGeneratingRef.current
-          });
-
-          if (isCurrentGeneration) {
-              batch_id: currentResult.batch_id,
-              output_data: updatedPrediction.output_data
-            });
-
-            // Parse results from ai_predictions.output_data (AI Cinematographer pattern)
-            const outputData = updatedPrediction.output_data;
-            
-            setResult(prev => {
-              if (!prev) return prev;
-              
-              // Handle Face Swap results
-              if (outputData.face_swapped_thumbnails) {
-                return {
-                  ...prev,
-                  face_swapped_thumbnails: outputData.face_swapped_thumbnails.map((item: any) => ({
-                    url: item.image_url,
-                    source_thumbnail_id: item.source_thumbnail_id || prev.batch_id,
-                    replicate_url: item.image_url,
-                  }))
-                };
-              }
-              
-              // Handle Normal Generate results
-              if (outputData.thumbnails) {
-                return {
-                  ...prev,
-                  thumbnails: outputData.thumbnails.map((item: any, index: number) => ({
-                    id: `${prev.batch_id}_${index + 1}`,
-                    url: item.image_url,
-                    variation_index: index + 1,
-                    batch_id: prev.batch_id,
-                  }))
-                };
-              }
-              
-              return prev;
-            });
-
-            // Stop generating when prediction is completed (UPDATE event)
-            if (updatedPrediction.status === 'completed') {
-              setIsGenerating(false);
-            }
-          }
-        }
-      )
-      .subscribe((status) => {
-      });
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [user?.id, supabase]);
-
-
-  // Debug what we're returning
-  useEffect(() => {
-      isGenerating,
-      hasResult: !!result,
-      resultSuccess: result?.success,
-      faceSwapCount: result?.face_swapped_thumbnails?.length || 0,
-      thumbnailCount: result?.thumbnails?.length || 0
-    });
-  }, [isGenerating, result]);
-  
   return {
-    // Main function
+    // Actions
     generate: generateThumbnail,
+    cancelGeneration,
     
     // States
     isGenerating,
     result,
     error,
+    user,
     credits,
     
     // Utilities
-    clearResults,
-    cancelGeneration,
+    clearResults: () => {
+      setResult(undefined);
+      setError(undefined);
+    },
   };
-}
-
-/**
- * Calculate estimated credits for a request
- * Matches the logic in the AI orchestrator
- */
-function calculateEstimatedCredits(request: ThumbnailMachineRequest): number {
-  let credits = 0;
-  
-  // Core thumbnail generation (2 credits per thumbnail)
-  credits += (request.num_outputs || 4) * 2;
-  
-  // Face swap (3 credits per target)
-  if (request.face_swap) {
-    const targetsCount = request.face_swap.apply_to_all ? (request.num_outputs || 4) : 1;
-    credits += targetsCount * 3;
-  }
-  
-  // Title generation (1 credit)
-  if (request.generate_titles) {
-    credits += 1;
-  }
-  
-  return credits;
 }

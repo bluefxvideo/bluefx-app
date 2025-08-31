@@ -5,11 +5,13 @@ import { uploadImageToStorage, downloadAndUploadImage } from '../supabase-storag
 import { 
   storeLogoResults, 
   createPredictionRecord, 
+  updatePredictionRecord,
   recordLogoMetrics,
   getUserCredits,
   deductCredits 
 } from '../database/logo-database';
 import { Json } from '@/types/database';
+import { createClient } from '@/app/supabase/server';
 
 /**
  * Unified Logo Machine Server Action
@@ -92,7 +94,6 @@ export async function generateLogo(
   const warnings: string[] = [];
 
   try {
-    console.log(`🎨 AI Logo Orchestrator: Starting workflow for company "${request.company_name}"`);
 
     // Step 1: Credit Validation
     const creditCheck = await getUserCredits(request.user_id);
@@ -105,12 +106,10 @@ export async function generateLogo(
       throw new Error(`Insufficient credits. Need ${estimatedCredits}, have ${creditCheck.credits || 0}`);
     }
 
-    console.log(`💳 Credits validated: ${creditCheck.credits} available, ${estimatedCredits} estimated`);
 
     // Step 2: AI Decision - Reference Image Processing (for recreate workflow)
     let referenceImageUrl: string | undefined;
     if (request.reference_image && request.workflow_intent === 'recreate') {
-      console.log('🖼️ AI Decision: Processing reference image for recreation');
       
       const uploadResult = await uploadImageToStorage(request.reference_image, {
         folder: 'logos/references',
@@ -120,7 +119,6 @@ export async function generateLogo(
 
       if (uploadResult.success && uploadResult.url) {
         referenceImageUrl = uploadResult.url;
-        console.log(`✅ Reference image uploaded: ${referenceImageUrl}`);
       } else {
         const errorDetail = uploadResult.error || 'Unknown upload error';
         warnings.push(`Reference image upload failed: ${errorDetail}. Proceeding with standard generation.`);
@@ -128,26 +126,24 @@ export async function generateLogo(
       }
     }
 
-    // Step 3: Create Prediction Record
+    // Step 3: Create Prediction Record in ai_predictions table (matching thumbnail machine pattern)
     await createPredictionRecord({
       prediction_id: batch_id,
       user_id: request.user_id,
       tool_id: 'logo-machine',
       service_id: request.workflow_intent || 'generate',
-      model_version: 'ideogram-v3-turbo',
+      model_version: 'dall-e-3',
       status: 'starting',
       input_data: request as unknown as Json,
     });
 
     // Step 4: AI Decision - OpenAI Logo Generation
-    console.log(`🎨 AI Decision: Generating logo with OpenAI ${request.workflow_intent === 'recreate' ? 'recreation' : 'generation'}`);
     
     let openAIResult;
     const openAI_batch_id = crypto.randomUUID();
 
     if (request.workflow_intent === 'recreate' && referenceImageUrl) {
       // Step 5: OpenAI Recreation Workflow
-      console.log(`🔄 OpenAI Recreation: Processing reference image for "${request.company_name}"`);
       
       openAIResult = await recreateOpenAILogo(
         referenceImageUrl,
@@ -157,7 +153,6 @@ export async function generateLogo(
       );
     } else {
       // Step 5: OpenAI Generation Workflow
-      console.log(`✨ OpenAI Generation: Creating logo for "${request.company_name}"`);
       
       openAIResult = await generateOpenAILogo(
         request.company_name,
@@ -173,15 +168,10 @@ export async function generateLogo(
       );
     }
 
-    // Update prediction record with OpenAI response
-    await createPredictionRecord({
-      prediction_id: openAI_batch_id,
-      user_id: request.user_id,
-      tool_id: 'logo-machine',
-      service_id: request.workflow_intent || 'generate',
-      model_version: 'dall-e-3',
+    // Update prediction record to processing status
+    await updatePredictionRecord(batch_id, {
       status: 'processing',
-      input_data: request as unknown as Json,
+      external_id: `openai_${openAI_batch_id}`, // Store the OpenAI batch ID for reference
     });
 
     // Step 6: Process OpenAI Results (handle both url and b64_json formats like legacy)
@@ -194,15 +184,12 @@ export async function generateLogo(
     if (imageData.url) {
       // Direct URL format
       openaiLogoUrl = imageData.url;
-      console.log(`📥 Using direct URL from OpenAI: ${openaiLogoUrl}`);
     } else if (imageData.b64_json) {
       // Base64 format - convert to data URL temporarily for download
       openaiLogoUrl = `data:image/png;base64,${imageData.b64_json}`;
-      console.log(`📥 Using base64 data from OpenAI (${imageData.b64_json.length} chars)`);
     } else {
       throw new Error('No valid image data (url or b64_json) in OpenAI response');
     }
-    console.log(`📥 Downloading and storing OpenAI logo in Supabase Storage`);
 
     // Step 7: Download and Store in Supabase Storage (same pattern as thumbnail machine)
     const storageResult = await downloadAndUploadImage(
@@ -221,7 +208,6 @@ export async function generateLogo(
     }
 
     const logoUrl = storageResult.success && storageResult.url ? storageResult.url : openaiLogoUrl;
-    console.log(`✅ Logo stored successfully: ${logoUrl}`);
 
     const logo = {
       id: `${batch_id}_logo`,
@@ -231,7 +217,6 @@ export async function generateLogo(
       batch_id,
     };
 
-    console.log(`✅ Generated logo for "${request.company_name}"`);
     total_credits += request.workflow_intent === 'recreate' ? LOGO_RECREATION_CREDITS : LOGO_GENERATION_CREDITS;
 
     // Step 8: Deduct Credits
@@ -246,7 +231,18 @@ export async function generateLogo(
       warnings.push('Credit deduction failed - please contact support');
     }
 
-    // Step 9: Store Results in Database
+    // Step 9: Update ai_predictions with completed status and output data
+    await updatePredictionRecord(batch_id, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      output_data: {
+        logo: logo,
+        storage_url: logoUrl,
+        original_openai_url: openaiLogoUrl
+      } as unknown as Json
+    });
+
+    // Step 10: Store Results in Database (for legacy/backup)
     await storeLogoResults({
       user_id: request.user_id,
       company_name: request.company_name,
@@ -277,7 +273,7 @@ export async function generateLogo(
       status: 'completed',
     });
 
-    // Step 10: Record Analytics
+    // Step 11: Record Analytics
     await recordLogoMetrics({
       user_id: request.user_id,
       batch_id,
@@ -292,7 +288,6 @@ export async function generateLogo(
     });
 
     const generation_time_ms = Date.now() - startTime;
-    console.log(`🎉 AI Logo Orchestrator: Workflow completed in ${generation_time_ms}ms`);
 
     return {
       success: true,
@@ -307,6 +302,16 @@ export async function generateLogo(
 
   } catch (error) {
     console.error('🚨 AI Logo Orchestrator error:', error);
+    
+    // Update prediction record as failed
+    try {
+      await updatePredictionRecord(batch_id, {
+        status: 'failed',
+        logs: error instanceof Error ? error.message : 'Logo generation failed'
+      });
+    } catch (updateError) {
+      console.error('Failed to update prediction record:', updateError);
+    }
     
     return {
       success: false,

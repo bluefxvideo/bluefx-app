@@ -62,6 +62,17 @@ export function ContextualOutput({
       title={titleWithIndicator}
       status={isGenerating ? 'loading' : error ? 'error' : (result?.success || isStateRestored ? 'ready' : 'idle')}
       errorMessage={error}
+      loading={
+        // Custom loading component to show video processing card instead of simple spinner
+        <CinematographerOutput
+          result={result}
+          isGenerating={isGenerating}
+          error={error}
+          onClearResults={onClearResults}
+          activeTab={activeTab}
+          isStateRestored={isStateRestored}
+        />
+      }
       empty={
         // Don't show empty state if we have restored state or result data
         (isStateRestored || result?.success) ? (

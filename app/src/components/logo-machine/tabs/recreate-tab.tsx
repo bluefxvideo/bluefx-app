@@ -15,6 +15,7 @@ interface RecreateTabProps {
   onGenerate: (request: LogoMachineRequest) => void;
   isGenerating: boolean;
   credits: number;
+  creditsLoading: boolean;
   error?: string;
 }
 
@@ -22,7 +23,7 @@ interface RecreateTabProps {
  * Logo Recreate Tab - Logo recreation from reference images
  * Based on legacy logo-recreate functionality
  */
-export function RecreateTab({ onGenerate, isGenerating, credits, error }: RecreateTabProps) {
+export function RecreateTab({ onGenerate, isGenerating, credits, creditsLoading, error }: RecreateTabProps) {
   const [formData, setFormData] = useState({
     reference_image: null as File | null,
     modifications: '',
@@ -102,7 +103,7 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
       <TabFooter>
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || credits < estimatedCredits || !formData.reference_image}
+          disabled={isGenerating || !formData.reference_image || (!creditsLoading && credits < estimatedCredits)}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
@@ -117,12 +118,6 @@ export function RecreateTab({ onGenerate, isGenerating, credits, error }: Recrea
             </>
           )}
         </Button>
-
-        {credits < estimatedCredits && (
-          <p className="text-xs text-destructive text-center mt-2">
-            Insufficient credits. You need {estimatedCredits} credits.
-          </p>
-        )}
       </TabFooter>
     </TabContentWrapper>
   );

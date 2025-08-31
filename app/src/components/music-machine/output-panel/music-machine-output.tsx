@@ -88,6 +88,39 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
       <OutputPanelShell
         title="Music Results"
         status={isProcessing ? 'loading' : state.generatedMusic.length > 0 ? 'ready' : 'idle'}
+        loading={
+          <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center">
+            {/* Custom Music Generation Loading */}
+            <Card className="p-6 w-full max-w-2xl mx-auto">
+              <div className="flex items-center gap-2 mb-4">
+                <Music className="w-5 h-5 text-primary animate-pulse" />
+                <h3 className="font-semibold">Generating Music...</h3>
+              </div>
+              <div className="space-y-4">
+                <Card className="p-4 bg-card border-border">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {state.genre || 'AI Generated'}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs animate-pulse">
+                          Processing...
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-sm text-muted-foreground">
+                        {state.prompt || 'Creating your music...'}
+                      </p>
+                    </div>
+                    <Progress value={33} className="w-full" />
+                  </div>
+                </Card>
+              </div>
+            </Card>
+          </div>
+        }
         empty={
           <div className="flex items-center justify-center h-full">
             <UnifiedEmptyState

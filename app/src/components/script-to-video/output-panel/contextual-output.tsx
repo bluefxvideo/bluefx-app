@@ -46,6 +46,13 @@ export function ContextualOutput({
           title="Editor Results"
           status={isEditing ? 'loading' : error ? 'error' : result ? 'ready' : 'idle'}
           errorMessage={error}
+          loading={
+            <EditorOutput
+              result={result}
+              isEditing={isEditing}
+              error={error}
+            />
+          }
           empty={
             <EditorOutput
               result={undefined}
@@ -69,6 +76,15 @@ export function ContextualOutput({
           title="Video Results"
           status={isGenerating ? 'loading' : error ? 'error' : result ? 'ready' : 'idle'}
           errorMessage={error}
+          loading={
+            <ScriptToVideoOutput
+              result={result}
+              isGenerating={isGenerating}
+              error={error}
+              onClearResults={onClearResults}
+              activeTab={activeTab}
+            />
+          }
           empty={
             <ScriptToVideoOutput
               result={undefined}
@@ -81,8 +97,8 @@ export function ContextualOutput({
         >
           <ScriptToVideoOutput
             result={result}
-            isGenerating={false}
-            error={undefined}
+            isGenerating={isGenerating}
+            error={error}
             onClearResults={onClearResults}
             activeTab={activeTab}
           />

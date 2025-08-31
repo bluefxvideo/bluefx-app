@@ -23,14 +23,15 @@ import { Wand2 as GenerateIcon, RotateCcw, History } from 'lucide-react';
  */
 export function LogoMachinePage() {
   const pathname = usePathname();
-  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
+  const { credits: userCredits, isLoading: creditsLoading } = useCredits();
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters | undefined>();
   const {
     generate,
     isGenerating,
     result,
     error,
-    clearResults
+    clearResults,
+    cancelGeneration
   } = useLogoMachine();
 
   // Determine active tab from URL
@@ -73,6 +74,7 @@ export function LogoMachinePage() {
             onGenerate={generate}
             isGenerating={isGenerating}
             credits={userCredits?.available_credits || 0}
+            creditsLoading={creditsLoading}
             error={error}
           />
         );
@@ -85,6 +87,7 @@ export function LogoMachinePage() {
             onGenerate={generate}
             isGenerating={isGenerating}
             credits={userCredits?.available_credits || 0}
+            creditsLoading={creditsLoading}
             error={error}
           />
         );
@@ -114,6 +117,7 @@ export function LogoMachinePage() {
             isGenerating={isGenerating}
             error={error}
             onClearResults={clearResults}
+            onCancelGeneration={cancelGeneration}
             historyFilters={historyFilters}
           />
         ]}

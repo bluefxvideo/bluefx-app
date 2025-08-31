@@ -15,6 +15,7 @@ interface ContextualOutputProps {
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;
+  onCancelGeneration?: () => void;
   historyFilters?: HistoryFilters;
 }
 
@@ -28,6 +29,7 @@ export function ContextualOutput({
   isGenerating,
   error,
   onClearResults,
+  onCancelGeneration,
   historyFilters
 }: ContextualOutputProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -117,21 +119,35 @@ export function ContextualOutput({
       status={isGenerating ? 'loading' : error ? 'error' : (result?.success ? 'ready' : 'idle')}
       errorMessage={error}
       actions={getActions()}
+      onCancelGeneration={onCancelGeneration}
+      loading={
+        // Custom loading component to show logo processing card instead of simple spinner
+        <LogoMachineOutput
+          result={result}
+          isGenerating={isGenerating}
+          error={undefined}
+          onClearResults={onClearResults}
+          onCancelGeneration={onCancelGeneration}
+          activeTab={activeTab}
+        />
+      }
       empty={
         <LogoMachineOutput
           result={undefined}
           isGenerating={false}
           error={undefined}
           onClearResults={onClearResults}
+          onCancelGeneration={onCancelGeneration}
           activeTab={activeTab}
         />
       }
     >
       <LogoMachineOutput
         result={result}
-        isGenerating={false}
+        isGenerating={isGenerating}
         error={undefined}
         onClearResults={onClearResults}
+        onCancelGeneration={onCancelGeneration}
         activeTab={activeTab}
       />
     </OutputPanelShell>

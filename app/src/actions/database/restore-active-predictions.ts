@@ -5,12 +5,14 @@ import { ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 
 /**
  * Get active (ongoing) predictions for a user that can be restored on page refresh
+ * @param userId - The user ID to query predictions for
+ * @param toolId - The tool to query predictions for (thumbnail-machine or logo-machine)
  */
-export async function getActivePredictions(userId: string) {
+export async function getActivePredictions(userId: string, toolId: string = 'thumbnail-machine') {
   const supabase = await createClient();
   
   try {
-    console.log('🔍 Querying active predictions for user:', userId);
+    console.log('🔍 Querying active predictions for user:', userId, 'tool:', toolId);
     
     // Get predictions that are still in progress (not completed/failed)
     // Only get recent ones (within last 5 minutes) to avoid stuck/stale predictions
@@ -20,7 +22,7 @@ export async function getActivePredictions(userId: string) {
       .from('ai_predictions')
       .select('*')
       .eq('user_id', userId)
-      .eq('tool_id', 'thumbnail-machine')
+      .eq('tool_id', toolId)
       .in('status', ['starting', 'processing', 'in_queue'])
       .gte('created_at', fiveMinutesAgo) // Only restore predictions created within last 5 minutes
       .order('created_at', { ascending: false });
@@ -72,7 +74,7 @@ export async function getActivePredictions(userId: string) {
     }) || [];
 
     // Also check for stuck predictions (older than 5 minutes) and mark them as failed
-    await cleanupStuckPredictions(userId);
+    await cleanupStuckPredictions(userId, toolId);
     
     console.log(`🔄 Found ${activePredictions.length} recent active predictions for user`);
     
@@ -93,7 +95,7 @@ export async function getActivePredictions(userId: string) {
 /**
  * Clean up stuck predictions that have been processing for too long
  */
-async function cleanupStuckPredictions(userId: string) {
+async function cleanupStuckPredictions(userId: string, toolId: string) {
   try {
     const supabase = await createClient();
     
@@ -104,7 +106,7 @@ async function cleanupStuckPredictions(userId: string) {
       .from('ai_predictions')
       .select('prediction_id, created_at, service_id')
       .eq('user_id', userId)
-      .eq('tool_id', 'thumbnail-machine')
+      .eq('tool_id', toolId)
       .in('status', ['starting', 'processing', 'in_queue'])
       .lt('created_at', fiveMinutesAgo);
 
@@ -126,7 +128,7 @@ async function cleanupStuckPredictions(userId: string) {
           logs: 'Marked as failed due to timeout (stuck for >5 minutes)'
         })
         .eq('user_id', userId)
-        .eq('tool_id', 'thumbnail-machine')
+        .eq('tool_id', toolId)
         .in('status', ['starting', 'processing', 'in_queue'])
         .lt('created_at', fiveMinutesAgo);
 

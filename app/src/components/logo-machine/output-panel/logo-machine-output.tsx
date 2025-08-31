@@ -2,17 +2,19 @@
 
 import { Card } from '@/components/ui/card';
 import { LogoMachineResponse } from '@/actions/tools/logo-machine';
-import { ResultsGrid } from './results-grid';
+import { LogoPreview } from './logo-preview';
 import { GenerateEmptyState, RecreateEmptyState } from './tab-empty-states';
-import { Clock, CheckCircle, AlertCircle, Zap } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, Zap, Loader2, X, Sparkles } from 'lucide-react';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface LogoMachineOutputProps {
   result?: LogoMachineResponse;
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;
+  onCancelGeneration?: () => void;
   activeTab?: string;
 }
 
@@ -25,46 +27,19 @@ export function LogoMachineOutput({
   isGenerating,
   error,
   onClearResults,
+  onCancelGeneration,
   activeTab = 'generate'
 }: LogoMachineOutputProps) {
-  // Loading state with premium styling
+  // Loading state with premium processing card
   if (isGenerating) {
     return (
-      <div className="h-full flex flex-col relative overflow-hidden">
-        {/* Solid subtle overlay for consistency with theme */}
-        <div className="absolute inset-0 bg-secondary/20"></div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center animate-spin">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <div className="absolute inset-0 rounded-full border-2 border-primary/40 animate-ping"></div>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Creating Your Logo</h3>
-                <p className="text-zinc-400">AI is crafting your brand identity...</p>
-              </div>
-            </div>
-            
-            <Badge className="bg-primary/20 border border-primary/30 text-primary-foreground/80 animate-pulse">
-              <Clock className="w-3 h-3 mr-1.5" />
-              Processing
-            </Badge>
-          </div>
-          
-          {/* Loading skeleton for logo */}
-          <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full w-full">
-              <div className="grid grid-cols-1 gap-3 max-w-md mx-auto">
-                <Card className="group overflow-hidden animate-pulse">
-                  <div className="relative aspect-square bg-gradient-to-br from-zinc-800/50 to-zinc-900/50"></div>
-                </Card>
-              </div>
-            </div>
-          </div>
+      <div className="h-full flex items-center justify-center overflow-auto py-6">
+        <div className="w-full">
+          <LogoPreview
+            isGenerating={true}
+            companyName={result?.logo?.company_name}
+            onCancelGeneration={onCancelGeneration}
+          />
         </div>
       </div>
     );
@@ -97,7 +72,7 @@ export function LogoMachineOutput({
     );
   }
 
-  // Success state with centered professional results display
+  // Success state with logo preview
   if (result && result.success) {
     return (
       <div className="h-full flex flex-col relative overflow-hidden">
@@ -105,22 +80,10 @@ export function LogoMachineOutput({
         <div className="absolute inset-0 bg-secondary/20"></div>
         
         <div className="relative z-10 h-full flex flex-col">
-          {/* Header now handled by OutputPanelShell */}
-
-          {/* Results Section - Clean and Simple */}
+          {/* Logo Preview Section */}
           <div className="flex-1 min-h-0 flex items-center justify-center py-6">
-            <div className="w-full w-full">
-              <ResultsGrid
-                thumbnails={result.logo && result.logo.url ? [{ 
-                  id: result.logo.id,
-                  url: result.logo.url,
-                  variation_index: 0,
-                  batch_id: result.logo.batch_id 
-                }] : []}
-                faceSwappedThumbnails={[]}
-                titles={[]} // Remove company name from titles display
-                batchId={result.batch_id}
-              />
+            <div className="w-full">
+              <LogoPreview logo={result.logo} />
             </div>
           </div>
 

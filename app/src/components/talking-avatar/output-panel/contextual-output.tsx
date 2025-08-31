@@ -37,8 +37,17 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
   return (
     <OutputPanelShell
       title={titleWithIndicator}
-      status={avatarState.state.error ? 'error' : (avatarState.state.generatedVideo || avatarState.state.isStateRestored ? 'ready' : 'idle')}
+      status={avatarState.state.isGenerating ? 'loading' : avatarState.state.error ? 'error' : (avatarState.state.generatedVideo || avatarState.state.isStateRestored ? 'ready' : 'idle')}
       errorMessage={avatarState.state.error || undefined}
+      loading={
+        // Custom loading component to show avatar processing card instead of simple spinner
+        <TalkingAvatarOutput avatarState={{
+          state: avatarState.state,
+          clearResults: avatarState.clearResults,
+          resetWizard: avatarState.resetWizard,
+          checkStatusManually: avatarState.checkStatusManually
+        }} />
+      }
       empty={
         // Don't show empty state if we have restored state or result data
         (avatarState.state.isStateRestored || avatarState.state.generatedVideo) ? (

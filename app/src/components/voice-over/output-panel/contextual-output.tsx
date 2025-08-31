@@ -93,6 +93,25 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
         title="Voice Results"
         status={state.isGenerating ? 'loading' : state.error ? 'error' : state.generatedAudios.length > 0 ? 'ready' : 'idle'}
         errorMessage={state.error}
+        loading={
+          <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center">
+            {/* Custom Voice Generation Loading */}
+            <Card className="p-6 w-full max-w-2xl mx-auto">
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center">
+                  <Mic className="w-6 h-6 text-blue-500 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Generating Voice...</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Creating your voice over with {state.selectedVoice || 'AI voice'}
+                  </p>
+                </div>
+                <Progress value={33} className="w-full" />
+              </div>
+            </Card>
+          </div>
+        }
         empty={
           <div className="flex items-center justify-center h-full">
             <UnifiedEmptyState
@@ -104,23 +123,6 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
         }
       >
       <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center">
-        {/* Generation Status */}
-        {state.isGenerating && (
-          <Card className="p-6 w-full max-w-2xl mx-auto">
-            <div className="text-center space-y-4">
-              <div className="w-12 h-12 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center">
-                <Mic className="w-6 h-6 text-blue-500 animate-pulse" />
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2">Generating Voice...</h3>
-                <p className="text-sm text-muted-foreground">
-                  Creating your voice over
-                </p>
-              </div>
-              <Progress value={33} className="w-full" />
-            </div>
-          </Card>
-        )}
 
         {/* Generated Results */}
         {state.generatedAudios.length > 0 && (

@@ -16,6 +16,7 @@ interface GeneratorTabProps {
   onGenerate: (request: LogoMachineRequest) => void;
   isGenerating: boolean;
   credits: number;
+  creditsLoading: boolean;
   error?: string;
 }
 
@@ -23,7 +24,7 @@ interface GeneratorTabProps {
  * Logo Generation Tab - Company-focused logo creation
  * Uses Ideogram V3 Turbo for professional logo design
  */
-export function GeneratorTab({ onGenerate, isGenerating, credits, error }: GeneratorTabProps) {
+export function GeneratorTab({ onGenerate, isGenerating, credits, creditsLoading, error }: GeneratorTabProps) {
   const [formData, setFormData] = useState<{
     company_name: string;
     description: string;
@@ -38,22 +39,26 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
     industry: ''
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.company_name.trim()) {
       return;
     }
 
-    const request: LogoMachineRequest = {
-      company_name: formData.company_name.trim(),
-      custom_description: formData.description.trim() || undefined,
-      style: formData.style as any,
-      color_scheme: formData.color_scheme || undefined,
-      industry: formData.industry || undefined,
-      workflow_intent: 'generate',
-      user_id: 'demo-user' // This will be replaced with actual user ID
-    };
+    try {
+      const request: LogoMachineRequest = {
+        company_name: formData.company_name.trim(),
+        custom_description: formData.description.trim() || undefined,
+        style: formData.style as any,
+        color_scheme: formData.color_scheme || undefined,
+        industry: formData.industry || undefined,
+        workflow_intent: 'generate',
+        user_id: 'demo-user' // This will be replaced with actual user ID
+      };
 
-    onGenerate(request);
+      await onGenerate(request);
+    } catch (error) {
+      console.error('Generation failed:', error);
+    }
   };
 
   const estimatedCredits = 3; // Logo generation cost
@@ -153,7 +158,7 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
       <TabFooter>
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || credits < estimatedCredits || !formData.company_name.trim()}
+          disabled={isGenerating || !formData.company_name.trim() || (!creditsLoading && credits < estimatedCredits)}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
@@ -168,11 +173,6 @@ export function GeneratorTab({ onGenerate, isGenerating, credits, error }: Gener
             </>
           )}
         </Button>
-        {credits < estimatedCredits && (
-          <p className="text-xs text-destructive text-center mt-2">
-            Insufficient credits. You need {estimatedCredits} credits.
-          </p>
-        )}
       </TabFooter>
     </TabContentWrapper>
   );

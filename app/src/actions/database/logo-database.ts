@@ -24,8 +24,15 @@ export interface PredictionRecord {
   tool_id: string;
   service_id: string;
   model_version: string;
-  status: string;
-  input_data: Json;
+  input_data?: Json;
+  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  webhook_url?: string;
+  output_data?: Json;
+  external_id?: string; // External service prediction ID (e.g., OpenAI request ID)
+  created_at?: string;
+  updated_at?: string;
+  completed_at?: string;
+  logs?: string;
 }
 
 export interface LogoMetrics {
@@ -99,41 +106,72 @@ export async function storeLogoResults(result: LogoResult): Promise<{ success: b
 }
 
 /**
- * Create or update prediction record for tracking using generation_metrics
+ * Create prediction record in ai_predictions table (matching thumbnail machine pattern)
  */
-export async function createPredictionRecord(record: PredictionRecord): Promise<{ success: boolean; error?: string }> {
+export async function createPredictionRecord(
+  record: PredictionRecord
+): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('ai_predictions')
+      .insert(record)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Prediction record error:', error);
+      return {
+        success: false,
+        error: `Failed to create prediction record: ${error.message}`,
+      };
+    }
+
+    return {
+      success: true,
+      data,
+    };
+
+  } catch (error) {
+    console.error('createPredictionRecord error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Prediction record failed',
+    };
+  }
+}
+
+/**
+ * Update prediction record status and data
+ */
+export async function updatePredictionRecord(
+  prediction_id: string,
+  updates: Partial<Omit<PredictionRecord, 'prediction_id' | 'user_id' | 'tool_id'>>
+): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from('generation_metrics')
-      .insert({
-        user_id: record.user_id,
-        tool_name: record.tool_id,
-        workflow_type: record.service_id,
-        metadata: {
-          prediction_id: record.prediction_id,
-          model_version: record.model_version,
-          status: record.status,
-          input_data: record.input_data
-        },
-        generation_time_ms: 0,
-        credits_used: 0,
-        created_at: new Date().toISOString(),
-      });
+      .from('ai_predictions')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('prediction_id', prediction_id);
 
     if (error) {
-      console.error('Error creating prediction record:', error);
+      console.error('Error updating prediction record:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
 
   } catch (error) {
-    console.error('createPredictionRecord error:', error);
+    console.error('updatePredictionRecord error:', error);
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Failed to create prediction record' 
+      error: error instanceof Error ? error.message : 'Failed to update prediction record' 
     };
   }
 }
@@ -345,6 +383,7 @@ export async function getLogoHistory(
     };
   }
 }
+
 
 /**
  * Delete logo from history (with user ownership validation)
