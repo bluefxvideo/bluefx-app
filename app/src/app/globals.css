@@ -17,7 +17,7 @@
   --muted-foreground: 240 3.8% 50%;
   --accent: 240 4.8% 96%;
   --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
@@ -44,7 +44,7 @@
   --muted-foreground: 220 12% 65%; /* Muted blue-gray text */
   --accent: 220 18% 18%;           /* #2d3348 - Accent elements */
   --accent-foreground: 210 20% 92%;
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
   --border: 220 15% 25%;           /* #3a4056 - Borders and dividers */
   --input: 220 18% 18%;            /* #2d3348 - Form inputs */

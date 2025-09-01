@@ -1,6 +1,6 @@
 'use client';
 
-import { DollarSign, TrendingUp, TrendingDown, ExternalLink, ArrowUp, ArrowDown, RefreshCw, Search, Info, BarChart3, Filter } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, ExternalLink, ArrowUp, ArrowDown, RefreshCw, Search, Info, BarChart3, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { StandardToolPage } from '@/components/tools/standard-tool-page';
+import { FullWidthToolLayout } from '@/components/tools/full-width-tool-layout';
 import { getTopOffers, searchOffers, getOfferCategories } from '@/actions/research/top-offers';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -220,87 +222,99 @@ export default function TopOffersPage() {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <div className="p-6 h-screen flex flex-col bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2">
-          <DollarSign className="text-blue-500 h-6 w-6 flex-shrink-0" />
-          <h1 className="text-2xl md:text-3xl font-bold">Top Offers</h1>
-        </div>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Find the best affiliate offers and promotions in your niche
-        </p>
-      </div>
-
-      {/* Search and Filter Section */}
-      <Card className="p-6 mb-6">
+    <StandardToolPage
+      icon={DollarSign}
+      title="Top Offers"
+      description="Find the best affiliate offers and promotions in your niche"
+      iconGradient="bg-primary"
+    >
+      <FullWidthToolLayout>
+        {/* Filter Bar - Horizontal */}
         <div className="space-y-4">
           {/* Search Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+            {/* Search Input */}
+            <div className="flex-1 max-w-md">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
-                  type="text"
                   placeholder="Search by product name or description..."
-                  className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="pl-10"
                 />
               </div>
             </div>
+            
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>{category}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={sortBy} onValueChange={(value) => { setSortBy(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gravity_score">Gravity Score</SelectItem>
+                  <SelectItem value="commission_rate">Commission Rate</SelectItem>
+                  <SelectItem value="average_dollar_per_sale">Average Sale</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Actions */}
             <div className="flex gap-2">
-              <Button onClick={handleSearch} className="flex-1">
+              <Button 
+                onClick={handleSearch} 
+                className="bg-primary"
+                size="sm"
+              >
                 <Search className="w-4 h-4 mr-2" />
                 Search
               </Button>
-              <Button onClick={handleClearSearch} variant="outline">
+              <Button 
+                onClick={handleClearSearch} 
+                variant="outline"
+                size="sm"
+              >
                 Clear
               </Button>
+              <Button 
+                onClick={() => loadOffers(true)} 
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+            
+            {/* Stats */}
+            <div className="flex gap-4 text-sm">
+              <div className="flex items-center gap-1">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <span className="text-muted-foreground">Total:</span>
+                <span className="font-bold">{totalCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <TrendingUp className="w-4 h-4 text-blue-500" />
+                <span className="text-muted-foreground">Page:</span>
+                <span className="font-bold">{currentPage}/{totalPages}</span>
+              </div>
             </div>
           </div>
 
-          {/* Filter Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={(value) => { setSortBy(value); setCurrentPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gravity_score">Gravity Score</SelectItem>
-                <SelectItem value="commission_rate">Commission Rate</SelectItem>
-                <SelectItem value="average_dollar_per_sale">Average Sale</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={pageSize.toString()} disabled>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="15">15 per page</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button onClick={() => loadOffers(true)} variant="outline" className="w-full">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-
-          {/* Quick Filters */}
+          {/* Quick Filters Row */}
           <div className="flex flex-wrap gap-2">
             <Button 
               onClick={() => { setFilterType('All Offers'); setCurrentPage(1); }}
@@ -339,229 +353,291 @@ export default function TopOffersPage() {
             >
               Recurring
             </Button>
+            {filterType !== 'All Offers' && (
+              <Badge variant="secondary" className="ml-2">Active: {filterType}</Badge>
+            )}
           </div>
         </div>
-      </Card>
 
-      {/* Results Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Results ({totalCount})</h2>
-        {filterType !== 'All Offers' && (
-          <Badge variant="secondary">Filtered: {filterType}</Badge>
-        )}
-      </div>
-
-      {/* Table View */}
-      <div className="flex-1 overflow-hidden">
-        <Card className="h-full flex flex-col">
-          {isLoading ? (
-            <div className="flex-1 flex justify-center items-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-          ) : (
-            <>
-              <div className="flex-1 overflow-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/50 sticky top-0">
-                    <tr>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
-                        onClick={() => handleSortChange('title')}
-                      >
-                        <div className="flex items-center">
-                          Product
-                          {sortBy === 'title' && (
-                            sortDirection === 'asc' ? 
-                              <ArrowUp className="ml-1 h-4 w-4" /> : 
-                              <ArrowDown className="ml-1 h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                        Category
-                      </th>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
-                        onClick={() => handleSortChange('gravity_score')}
-                      >
-                        <div className="flex items-center">
-                          Gravity
-                          {sortBy === 'gravity_score' && (
-                            sortDirection === 'asc' ? 
-                              <ArrowUp className="ml-1 h-4 w-4" /> : 
-                              <ArrowDown className="ml-1 h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
-                        onClick={() => handleSortChange('commission_rate')}
-                      >
-                        <div className="flex items-center">
-                          Commission
-                          {sortBy === 'commission_rate' && (
-                            sortDirection === 'asc' ? 
-                              <ArrowUp className="ml-1 h-4 w-4" /> : 
-                              <ArrowDown className="ml-1 h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-muted"
-                        onClick={() => handleSortChange('average_dollar_per_sale')}
-                      >
-                        <div className="flex items-center">
-                          Average $
-                          {sortBy === 'average_dollar_per_sale' && (
-                            sortDirection === 'asc' ? 
-                              <ArrowUp className="ml-1 h-4 w-4" /> : 
-                              <ArrowDown className="ml-1 h-4 w-4" />
-                          )}
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                        Trend
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-card divide-y divide-border">
-                    {offers.map((offer) => (
-                      <tr 
-                        key={offer.id}
-                        className="hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => handleOfferSelect(offer)}
-                      >
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium line-clamp-1">
-                              {offer.title}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              by {offer.vendor_name}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <Badge variant="outline" className="text-xs">
-                            {offer.category}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium">
-                            {offer.gravity_score?.toFixed(1) || 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="text-sm">
-                            {formatPercentage(offer.commission_rate)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-green-600">
-                            {formatCurrency(offer.average_dollar_per_sale)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {offer.clickbank_history?.[0] ? (
-                            <div className="w-24 h-8">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={[
-                                  { value: offer.clickbank_history[0].min_gravity || 0 },
-                                  { value: offer.gravity_score || 0 }
-                                ]}>
-                                  <Line 
-                                    type="monotone" 
-                                    dataKey="value" 
-                                    stroke={offer.clickbank_history[0].gravity_change >= 0 ? '#10b981' : '#ef4444'}
-                                    strokeWidth={2}
-                                    dot={false}
-                                  />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">No data</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
-                          <div className="flex items-center justify-end space-x-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const url = offer.affiliate_page_url || offer.sales_page_url;
-                                if (url) window.open(url, '_blank');
-                              }}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(`https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`);
-                                toast.success('Link copied!');
-                              }}
-                            >
-                              Copy
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOfferSelect(offer);
-                              }}
-                            >
-                              <Info className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+        
+        {/* Results Panel - Full Width */}
+        <div className="h-full overflow-y-auto scrollbar-hover">
+          <div className="space-y-4">
+            
+            {isLoading ? (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Product</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Gravity</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Commission</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Avg Sale</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Trend</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {[...Array(8)].map((_, i) => (
+                        <tr key={i} className="animate-pulse">
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-start">
+                              <div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-2"></div>
+                                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-1"></div>
+                                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mr-2"></div>
+                              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-8"></div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-8"></div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end space-x-2">
+                              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-6"></div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="border-t p-4 flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Previous
-                    </Button>
-                    <span className="text-sm">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Next
-                    </Button>
+            ) : offers.length === 0 ? (
+              <div className="text-center py-12">
+                <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Offers Found</h3>
+                <p className="text-muted-foreground">
+                  Try adjusting your search or filters
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Product
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Category
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Gravity
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Commission
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Avg Sale
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Trend
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {offers.map((offer) => (
+                          <tr 
+                            key={offer.id}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                            onClick={() => handleOfferSelect(offer)}
+                          >
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="flex items-start">
+                                <div>
+                                  <div className="text-base font-medium text-gray-900 dark:text-white line-clamp-2 max-w-[300px]" title={offer.title}>
+                                    {offer.title}
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    by {offer.vendor_name}
+                                  </div>
+                                  <div className="text-xs text-gray-400 dark:text-gray-500">
+                                    ID: {offer.clickbank_id}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <Badge variant="outline" className="text-xs">
+                                {offer.category}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="text-sm font-bold text-green-600">
+                                  {offer.gravity_score?.toFixed(1) || 'N/A'}
+                                </div>
+                                {offer.clickbank_history?.[0]?.gravity_change && (
+                                  <div className="ml-2">
+                                    {getTrendIndicator(offer.clickbank_history[0].gravity_change)}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-green-600">
+                                {formatPercentage(offer.commission_rate)}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-blue-600">
+                                {formatCurrency(offer.average_dollar_per_sale)}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              {offer.clickbank_history?.[0] && (
+                                <div className="w-24 h-12">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={
+                                      offer.clickbank_history[0].daily_data?.slice(-7).map((point: any) => ({
+                                        value: point.gravity_score || 0,
+                                        date: point.date
+                                      })) || [
+                                        { value: offer.clickbank_history[0].min_gravity || 0 },
+                                        { value: offer.gravity_score || 0 }
+                                      ]
+                                    }>
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="value" 
+                                        stroke={offer.clickbank_history[0].gravity_change >= 0 ? '#10b981' : '#ef4444'}
+                                        strokeWidth={2}
+                                        dot={false}
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              )}
+                              <div className="flex gap-1 mt-1">
+                                {offer.mobile_optimized && (
+                                  <Badge variant="secondary" className="text-xs">Mobile</Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex items-center justify-end space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(`https://hop.clickbank.net/?affiliate=${offer.clickbank_id}`);
+                                    toast.success('Link copied!');
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs"
+                                >
+                                  Copy Link
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const url = offer.affiliate_page_url || offer.sales_page_url;
+                                    if (url) window.open(url, '_blank');
+                                  }}
+                                  className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </Card>
-      </div>
-
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-6 py-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} offers
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: totalPages }).map((_, i) => {
+                          const page = i + 1;
+                          if (
+                            page === 1 ||
+                            page === totalPages ||
+                            (page >= currentPage - 1 && page <= currentPage + 1)
+                          ) {
+                            return (
+                              <Button
+                                key={page}
+                                variant={currentPage === page ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(page)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {page}
+                              </Button>
+                            );
+                          } else if (
+                            page === currentPage - 2 ||
+                            page === currentPage + 2
+                          ) {
+                            return <span key={page} className="text-muted-foreground">...</span>;
+                          }
+                          return null;
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </FullWidthToolLayout>
+      
       {/* Offer Detail Modal */}
       {selectedOffer && (
         <Dialog open={!!selectedOffer} onOpenChange={() => closeOfferDetail()}>
@@ -780,6 +856,6 @@ export default function TopOffersPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </StandardToolPage>
   );
 }
