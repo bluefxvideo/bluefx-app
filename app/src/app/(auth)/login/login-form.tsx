@@ -24,6 +24,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [resetSent, setResetSent] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
   const router = useRouter()
 
   const {
@@ -73,6 +74,7 @@ export default function LoginForm() {
       
       if (result.success) {
         setResetSent(true)
+        setResetMessage(result.message || 'Setup email sent! Check your inbox.')
         setError('')
       } else {
         setError(result.error || 'Failed to set up legacy account')
@@ -98,6 +100,7 @@ export default function LoginForm() {
       
       if (result.success) {
         setResetSent(true)
+        setResetMessage(result.message || 'Password reset email sent! Check your inbox.')
         setError('')
       } else {
         setError(result.error || 'Failed to send reset email')
@@ -159,7 +162,7 @@ export default function LoginForm() {
           <Alert>
             <Mail className="h-4 w-4" />
             <AlertDescription>
-              Account setup email sent! Check your inbox and follow the instructions to complete your account setup with your legacy data.
+              {resetMessage}
             </AlertDescription>
           </Alert>
         )}
@@ -177,7 +180,7 @@ export default function LoginForm() {
         </Button>
 
         {/* Forgot Password */}
-        <div className="flex flex-col space-y-2">
+        <div className="flex flex-col space-y-2 pb-4">
           <Button 
             type="button" 
             variant="ghost" 
@@ -187,13 +190,6 @@ export default function LoginForm() {
           >
             Forgot your password?
           </Button>
-          
-          <div className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <Link href="/pricing" className="text-primary hover:underline">
-              Choose a plan
-            </Link>
-          </div>
         </div>
       </form>
     </div>

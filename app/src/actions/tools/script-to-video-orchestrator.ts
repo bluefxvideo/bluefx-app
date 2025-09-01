@@ -783,7 +783,7 @@ Focus on natural story progression with clean narrative text that flows naturall
     // Create segments with timing and enhanced prompts
     let cumulativeTime = 0;
     const storySegments = storyboard.segments.map((scene, index) => {
-      const duration = Math.max(3, Math.min(8, calculateSpeechDuration(scene.text_content)));
+      const duration = Math.max(3, Math.min(5, calculateSpeechDuration(scene.text_content)));
       const startTime = cumulativeTime;
       cumulativeTime += duration;
       
@@ -827,7 +827,7 @@ Focus on natural story progression with clean narrative text that flows naturall
 function calculateSpeechDuration(text: string): number {
   const wordCount = text.split(/\s+/).length;
   const baseDuration = wordCount / 3; // ~180 words per minute
-  return Math.max(3, Math.min(8, baseDuration + 0.5));
+  return Math.max(3, Math.min(5, baseDuration + 0.5));
 }
 
 function calculateOptimalDuration(script: string): number {

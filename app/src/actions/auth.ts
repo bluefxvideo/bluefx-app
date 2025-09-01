@@ -80,7 +80,24 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
     })
 
     if (authError || !authData.user) {
-      return createApiError(authError?.message || 'Failed to create user')
+      // Provide clearer error messages for signup failures
+      let errorMessage = 'Failed to create user'
+      
+      if (authError?.message) {
+        const errorMsg = authError.message.toLowerCase()
+        
+        if (errorMsg.includes('user already registered') || errorMsg.includes('already registered')) {
+          errorMessage = 'An account with this email address already exists. Please try logging in instead.'
+        } else if (errorMsg.includes('invalid email')) {
+          errorMessage = 'Please enter a valid email address.'
+        } else if (errorMsg.includes('password')) {
+          errorMessage = 'Password must be at least 8 characters long.'
+        } else {
+          errorMessage = authError.message
+        }
+      }
+      
+      return createApiError(errorMessage)
     }
 
     let profile: Tables<'profiles'>
@@ -213,8 +230,28 @@ export async function signIn(formData: FormData): Promise<ApiResponse<{ user: Us
       }
     }
 
-    // Regular error handling
-    return createApiError(error?.message || 'Invalid login credentials')
+    // Provide clearer error messages for common authentication failures
+    let errorMessage = 'Invalid login credentials'
+    
+    if (error?.message) {
+      const errorMsg = error.message.toLowerCase()
+      
+      if (errorMsg.includes('invalid login credentials') || errorMsg.includes('invalid email or password')) {
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.'
+      } else if (errorMsg.includes('email not confirmed')) {
+        errorMessage = 'Please check your email and click the confirmation link before signing in.'
+      } else if (errorMsg.includes('too many requests')) {
+        errorMessage = 'Too many login attempts. Please wait a few minutes before trying again.'
+      } else if (errorMsg.includes('user not found')) {
+        errorMessage = 'No account found with this email address.'
+      } else if (errorMsg.includes('user already registered')) {
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.'
+      } else {
+        errorMessage = error.message
+      }
+    }
+
+    return createApiError(errorMessage)
 
   } catch (error) {
     console.error('Sign in error:', error)
@@ -314,7 +351,23 @@ export async function setupLegacyUserPassword(formData: FormData): Promise<ApiRe
       return createApiError('Legacy account data not found.')
     }
 
-    // Create a temporary auth user for password setup
+    // Check if this legacy user has already been migrated (account already created)
+    if (migrationData.migration_status === 'completed' && migrationData.new_user_id) {
+      // User already has an account - send regular password reset instead of creating new account
+      
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`,
+      })
+
+      if (resetError) {
+        return createApiError('Failed to send password reset email: ' + resetError.message)
+      }
+
+      return createApiSuccess({}, 'Password reset email sent! Check your inbox to reset your password and access your migrated account.')
+    }
+
+    // User hasn't been migrated yet - create a temporary auth user for password setup
+    
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password: Math.random().toString(36).slice(-8), // Temporary password
@@ -328,22 +381,36 @@ export async function setupLegacyUserPassword(formData: FormData): Promise<ApiRe
     })
 
     if (authError || !authData.user) {
+      // Handle the "user already registered" error more gracefully
+      if (authError?.message?.toLowerCase().includes('user already registered') || 
+          authError?.message?.toLowerCase().includes('already registered')) {
+        // Even though migration status says pending, an account might already exist
+        // Fall back to password reset
+        
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`,
+        })
+
+        if (resetError) {
+          return createApiError('Failed to send password reset email: ' + resetError.message)
+        }
+
+        return createApiSuccess({}, 'Password reset email sent! Check your inbox to reset your password.')
+      }
+      
       return createApiError(authError?.message || 'Failed to create setup account')
     }
 
     // Send password setup email
-    console.log('🔐 Sending legacy user setup email to:', email)
     
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`,
     })
 
     if (resetError) {
-      console.error('❌ Legacy setup email failed:', resetError.message)
       return createApiError('Failed to send setup email: ' + resetError.message)
     }
 
-    console.log('✅ Legacy user setup email sent successfully')
     return createApiSuccess({}, 'Password setup email sent! Check your inbox to complete your account setup.')
 
   } catch (error) {

@@ -36,7 +36,7 @@ export default async function LoginPage() {
 
         {/* Login Card */}
         <Card>
-          <CardHeader className="space-y-1">
+          <CardHeader className="space-y-1 pt-6">
             <CardTitle className="text-2xl font-bold text-center">
               Welcome Back
             </CardTitle>
