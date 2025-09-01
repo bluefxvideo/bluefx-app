@@ -28,10 +28,15 @@ export function FaceSwapEmptyState({}: EmptyStateProps) {
   );
 }
 
-export function RecreateEmptyState({}: EmptyStateProps) {
+export function RecreateEmptyState({ onFocusPrompt }: EmptyStateProps) {
   return (
     <div className="flex-1 overflow-hidden">
-      {/* Empty state - no content */}
+      <UnifiedEmptyState
+        icon={RotateCcw}
+        title="Upload Reference Image"
+        description="Upload a thumbnail to recreate with AI-powered variations and improvements"
+        onFocusPrompt={onFocusPrompt}
+      />
     </div>
   );
 }

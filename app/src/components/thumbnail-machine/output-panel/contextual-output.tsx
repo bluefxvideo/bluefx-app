@@ -19,6 +19,7 @@ interface ContextualOutputProps {
   onFocusPrompt?: () => void;
   historyFilters?: HistoryFilters;
   prompt?: string; // Add prompt prop
+  hasReferenceImage?: boolean;
 }
 
 /**
@@ -34,7 +35,8 @@ export function ContextualOutput({
   onCancelGeneration,
   onFocusPrompt,
   historyFilters,
-  prompt
+  prompt,
+  hasReferenceImage
 }: ContextualOutputProps) {
 
   // Clean up error messages for better UX
@@ -281,6 +283,20 @@ export function ContextualOutput({
           activeTab={activeTab}
           onFocusPrompt={onFocusPrompt}
           prompt={prompt}
+          hasReferenceImage={hasReferenceImage}
+        />
+      }
+      empty={
+        <ThumbnailMachineOutput
+          result={result}
+          isGenerating={isGenerating}
+          error={getCleanErrorMessage(error)}
+          onClearResults={onClearResults}
+          onCancelGeneration={onCancelGeneration}
+          activeTab={activeTab}
+          onFocusPrompt={onFocusPrompt}
+          prompt={prompt}
+          hasReferenceImage={hasReferenceImage}
         />
       }
     >
@@ -293,6 +309,7 @@ export function ContextualOutput({
         activeTab={activeTab}
         onFocusPrompt={onFocusPrompt}
         prompt={prompt}
+        hasReferenceImage={hasReferenceImage}
       />
     </OutputPanelShell>
   );

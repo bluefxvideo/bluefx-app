@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
@@ -16,6 +16,7 @@ interface RecreateTabProps {
   isGenerating: boolean;
   credits: { available_credits: number } | null;
   error?: string;
+  onReferenceImageChange?: (hasImage: boolean) => void;
 }
 
 /**
@@ -26,7 +27,8 @@ export function RecreateTab({
   onGenerate,
   isGenerating,
   credits,
-  error
+  error,
+  onReferenceImageChange
 }: RecreateTabProps) {
   const [formData, setFormData] = useState({
     referenceImage: null as File | null,
@@ -34,6 +36,11 @@ export function RecreateTab({
     style: 'similar' as 'similar' | 'improved' | 'style-transfer',
     detectedAspectRatio: '16:9' as '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '16:10' | '10:16' | '3:1' | '1:3',
   });
+
+  useEffect(() => {
+    // Notify parent about initial state (no image)
+    onReferenceImageChange?.(false);
+  }, [onReferenceImageChange]);
 
   // Utility function to detect aspect ratio from image dimensions
   const detectAspectRatio = (width: number, height: number): '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '16:10' | '10:16' | '3:1' | '1:3' => {
@@ -58,7 +65,18 @@ export function RecreateTab({
     return ratio > 1 ? '16:9' : '9:16';
   };
 
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = (file: File | null) => {
+    if (!file) {
+      // Handle image removal
+      setFormData(prev => ({ 
+        ...prev, 
+        referenceImage: null,
+        detectedAspectRatio: '16:9' 
+      }));
+      onReferenceImageChange?.(false);
+      return;
+    }
+
     const img = new Image();
     const url = URL.createObjectURL(file);
     
@@ -69,12 +87,14 @@ export function RecreateTab({
         referenceImage: file,
         detectedAspectRatio: aspectRatio 
       }));
+      onReferenceImageChange?.(true);
       URL.revokeObjectURL(url); // Clean up memory
     };
     
     img.onerror = () => {
       // Fallback if image can't be loaded
       setFormData(prev => ({ ...prev, referenceImage: file }));
+      onReferenceImageChange?.(true);
       URL.revokeObjectURL(url);
     };
     
@@ -99,6 +119,7 @@ export function RecreateTab({
   };
 
   const estimatedCredits = 2; // Recreation operation
+
 
   return (
     <TabContentWrapper>

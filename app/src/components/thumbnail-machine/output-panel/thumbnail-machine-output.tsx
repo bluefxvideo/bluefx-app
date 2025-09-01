@@ -17,6 +17,7 @@ interface ThumbnailMachineOutputProps {
   activeTab?: string;
   onFocusPrompt?: () => void;
   prompt?: string; // Add prompt for processing card display
+  hasReferenceImage?: boolean;
 }
 
 /**
@@ -31,7 +32,8 @@ export function ThumbnailMachineOutput({
   onCancelGeneration,
   activeTab = 'generate',
   onFocusPrompt,
-  prompt
+  prompt,
+  hasReferenceImage
 }: ThumbnailMachineOutputProps) {
   
   // Show processing state or results if we have them

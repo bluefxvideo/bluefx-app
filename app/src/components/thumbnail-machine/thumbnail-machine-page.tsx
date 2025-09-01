@@ -29,6 +29,7 @@ export function ThumbnailMachinePage() {
   const pathname = usePathname();
   const promptInputRef = useRef<HTMLTextAreaElement>(null!);
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters | undefined>();
+  const [hasReferenceImage, setHasReferenceImage] = useState(false);
   
   
   const {
@@ -110,6 +111,7 @@ export function ThumbnailMachinePage() {
             isGenerating={isGenerating}
             credits={credits ? { available_credits: credits.available_credits } : null}
             error={error}
+            onReferenceImageChange={setHasReferenceImage}
           />
         );
       case 'titles':
@@ -160,6 +162,7 @@ export function ThumbnailMachinePage() {
           onFocusPrompt={handleFocusPrompt}
           historyFilters={historyFilters}
           prompt={result?.prompt || ''}
+          hasReferenceImage={hasReferenceImage}
         />
       </StandardToolLayout>
     </StandardToolPage>
