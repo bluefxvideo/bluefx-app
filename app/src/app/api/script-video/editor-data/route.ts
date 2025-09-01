@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
           whisper_data,
           caption_data,
           storyboard_data,
+          image_data,
+          voice_data,
           created_at,
           updated_at
         `)
@@ -74,6 +76,8 @@ export async function POST(request: NextRequest) {
           whisper_data,
           caption_data,
           storyboard_data,
+          image_data,
+          voice_data,
           created_at,
           updated_at
         `)
@@ -146,12 +150,20 @@ export async function POST(request: NextRequest) {
       createdAt: videoData.created_at,
       updatedAt: videoData.updated_at,
       
+      // Include image_data for aspect ratio extraction
+      imageData: videoData.image_data,
+      image_data: videoData.image_data, // Support both field names
+      
       // Audio assets (from processing_logs)
       voice: {
         url: processingLogs.audio_url,
         // Include whisper data for precise timing
         whisperData: videoData.whisper_data,
       },
+      
+      // Voice data for additional metadata
+      voiceData: videoData.voice_data,
+      voice_data: videoData.voice_data, // Support both field names
       
       // Image assets (from processing_logs)
       images: {
@@ -197,7 +209,7 @@ export async function POST(request: NextRequest) {
     const allowedOrigin = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
     response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
     
     return response;
 
@@ -215,7 +227,7 @@ export async function POST(request: NextRequest) {
     const allowedOrigin = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
     errorResponse.headers.set('Access-Control-Allow-Origin', allowedOrigin);
     errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
     
     return errorResponse;
   }
@@ -256,6 +268,8 @@ export async function GET(request: NextRequest) {
           whisper_data,
           caption_data,
           storyboard_data,
+          image_data,
+          voice_data,
           created_at,
           updated_at
         `)
@@ -283,6 +297,8 @@ export async function GET(request: NextRequest) {
           whisper_data,
           caption_data,
           storyboard_data,
+          image_data,
+          voice_data,
           created_at,
           updated_at
         `)
@@ -338,7 +354,7 @@ export async function GET(request: NextRequest) {
 
     response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
     response.headers.set('Access-Control-Allow-Credentials', 'true');
     
     return response;
@@ -365,7 +381,7 @@ export async function OPTIONS(request: NextRequest) {
     headers: {
       'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning',
       'Access-Control-Allow-Credentials': 'true',
     },
   });

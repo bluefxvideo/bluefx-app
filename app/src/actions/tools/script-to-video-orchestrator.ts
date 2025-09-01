@@ -668,7 +668,7 @@ async function generateImagesForAllSegments(segments: any[], aspectRatio: string
     })),
     style_settings: {
       visual_style: 'realistic' as const,
-      aspect_ratio: aspectRatio as '16:9' | '9:16' | '1:1' | '4:3',
+      aspect_ratio: aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '4:5',
       quality: 'standard' as const
     },
     user_id,

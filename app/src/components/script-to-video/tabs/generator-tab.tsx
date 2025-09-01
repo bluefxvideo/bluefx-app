@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Film, Mic, Zap, ArrowRight, ArrowLeft, FileText, Play, Square, CheckCircle } from 'lucide-react';
+import { Film, Mic, Zap, ArrowRight, ArrowLeft, FileText, Play, Square, CheckCircle, Monitor, Smartphone, Square as SquareIcon } from 'lucide-react';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
 import { useScriptToVideo } from '../hooks/use-script-to-video';
@@ -32,13 +32,15 @@ export interface MultiStepState {
   generatedScript: string;
   finalScript: string;
   isGeneratingScript: boolean;
+  aspectRatio: '16:9' | '9:16' | '1:1' | '4:3' | '4:5';
 }
 
 /**
  * Generator Tab - Multi-step script to video generation interface
  * Step 1: Idea/Script input with option to use existing script
  * Step 2: Script review and editing
- * Step 3: Voice selection and generation
+ * Step 3: Aspect ratio selection
+ * Step 4: Voice selection and generation
  */
 export function GeneratorTab({
   credits,
@@ -52,12 +54,13 @@ export function GeneratorTab({
   // Use shared multi-step state with fallback
   const stepState = multiStepState || {
     currentStep: 1,
-    totalSteps: 3,
+    totalSteps: 4,
     useMyScript: false,
     ideaText: '',
     generatedScript: '',
     finalScript: '',
     isGeneratingScript: false,
+    aspectRatio: '9:16' as const,
   };
 
   const setStepState = (updater: MultiStepState | ((prev: MultiStepState) => MultiStepState)) => {
@@ -245,13 +248,13 @@ export function GeneratorTab({
           },
           quality: formData.quality
         },
-        aspect_ratio: '9:16'
+        aspect_ratio: stepState.aspectRatio
       });
 
       // Generate video using the orchestrator
       await generateBasic(stepState.finalScript, {
         quality: formData.quality,
-        aspect_ratio: '9:16',
+        aspect_ratio: stepState.aspectRatio,
         video_style: formData.video_style,
         voice_settings: {
           voice_id: selectedVoice,
@@ -293,6 +296,8 @@ export function GeneratorTab({
       case 2:
         return stepState.finalScript.trim().length > 0;
       case 3:
+        return stepState.aspectRatio.length > 0; // Aspect ratio must be selected
+      case 4:
         // For video generation, only require that a voice has been selected
         return selectedVoice.length > 0;
       default:
@@ -315,9 +320,12 @@ export function GeneratorTab({
         // Stay on step 1 to show generated script preview, then allow proceeding to step 2
       }
     } else if (stepState.currentStep === 2) {
-      // Proceed to voice generation step
+      // Proceed to aspect ratio selection step
       goToStep(3);
     } else if (stepState.currentStep === 3) {
+      // Proceed to voice generation step
+      goToStep(4);
+    } else if (stepState.currentStep === 4) {
       // Generate video
       await generateVideo();
     }
@@ -326,12 +334,13 @@ export function GeneratorTab({
   const resetWizard = () => {
     setStepState({
       currentStep: 1,
-      totalSteps: 3,
+      totalSteps: 4,
       useMyScript: false,
       ideaText: '',
       generatedScript: '',
       finalScript: '',
       isGeneratingScript: false,
+      aspectRatio: '9:16' as const,
     });
     setSelectedVoice('anna');
     setHasUserSelectedVoice(false);
@@ -536,8 +545,120 @@ Examples:
           </div>
         )}
 
-        {/* Step 3: Voice Selection and Generation */}
+        {/* Step 3: Aspect Ratio Selection */}
         {stepState.currentStep === 3 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Monitor className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Choose Aspect Ratio</Label>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Select the output format for your video content
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Portrait 9:16 */}
+              <Card 
+                className={`p-4 cursor-pointer transition-all duration-300 ${
+                  stepState.aspectRatio === '9:16'
+                    ? 'border-primary bg-primary/10 shadow-lg' 
+                    : 'border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-secondary/50'
+                }`}
+                onClick={() => setStepState({ ...stepState, aspectRatio: '9:16' })}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <div className={`w-8 h-12 rounded border-2 flex items-center justify-center ${
+                    stepState.aspectRatio === '9:16'
+                      ? 'border-primary bg-primary/20' 
+                      : 'border-muted-foreground/40'
+                  }`}>
+                    <Smartphone className={`w-4 h-4 ${
+                      stepState.aspectRatio === '9:16' ? 'text-primary' : 'text-muted-foreground'
+                    }`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-sm font-medium ${
+                      stepState.aspectRatio === '9:16' ? 'text-primary' : 'text-foreground'
+                    }`}>
+                      Portrait
+                    </p>
+                    <p className="text-xs text-muted-foreground">9:16 • TikTok, Stories</p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Landscape 16:9 */}
+              <Card 
+                className={`p-4 cursor-pointer transition-all duration-300 ${
+                  stepState.aspectRatio === '16:9'
+                    ? 'border-primary bg-primary/10 shadow-lg' 
+                    : 'border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-secondary/50'
+                }`}
+                onClick={() => setStepState({ ...stepState, aspectRatio: '16:9' })}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <div className={`w-12 h-8 rounded border-2 flex items-center justify-center ${
+                    stepState.aspectRatio === '16:9'
+                      ? 'border-primary bg-primary/20' 
+                      : 'border-muted-foreground/40'
+                  }`}>
+                    <Monitor className={`w-4 h-4 ${
+                      stepState.aspectRatio === '16:9' ? 'text-primary' : 'text-muted-foreground'
+                    }`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-sm font-medium ${
+                      stepState.aspectRatio === '16:9' ? 'text-primary' : 'text-foreground'
+                    }`}>
+                      Landscape
+                    </p>
+                    <p className="text-xs text-muted-foreground">16:9 • YouTube, Desktop</p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Square 1:1 */}
+              <Card 
+                className={`p-4 cursor-pointer transition-all duration-300 ${
+                  stepState.aspectRatio === '1:1'
+                    ? 'border-primary bg-primary/10 shadow-lg' 
+                    : 'border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-secondary/50'
+                }`}
+                onClick={() => setStepState({ ...stepState, aspectRatio: '1:1' })}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <div className={`w-10 h-10 rounded border-2 flex items-center justify-center ${
+                    stepState.aspectRatio === '1:1'
+                      ? 'border-primary bg-primary/20' 
+                      : 'border-muted-foreground/40'
+                  }`}>
+                    <SquareIcon className={`w-4 h-4 ${
+                      stepState.aspectRatio === '1:1' ? 'text-primary' : 'text-muted-foreground'
+                    }`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-sm font-medium ${
+                      stepState.aspectRatio === '1:1' ? 'text-primary' : 'text-foreground'
+                    }`}>
+                      Square
+                    </p>
+                    <p className="text-xs text-muted-foreground">1:1 • Instagram Posts</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <Card className="p-3 bg-blue-50 dark:bg-blue-950/20">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                💡 <strong>Tip:</strong> Choose the aspect ratio that matches where you'll share your video. 
+                This affects both the canvas size and how images are generated.
+              </p>
+            </Card>
+          </div>
+        )}
+
+        {/* Step 4: Voice Selection and Generation */}
+        {stepState.currentStep === 4 && (
           <div className="space-y-4">
             {/* Voice Selection */}
             <div className="space-y-3">
@@ -734,7 +855,7 @@ Examples:
               stepState.isGeneratingScript || 
               isGeneratingVoice || 
               isGeneratingVideo ||
-              (stepState.currentStep === 3 && credits < estimatedCredits)
+              (stepState.currentStep === 4 && credits < estimatedCredits)
             }
             className={`${stepState.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium`}
             size="lg"
@@ -743,14 +864,15 @@ Examples:
             {stepState.isGeneratingScript ? 'Generating Script...' :
             isGeneratingVoice ? 'Generating Voice...' :
             isGeneratingVideo ? 'Generating Video...' :
-            stepState.currentStep === 3 ? `Generate Video (${estimatedCredits} credits)` :
-            stepState.currentStep === 2 ? 'Continue to Voice' :
+            stepState.currentStep === 4 ? `Generate Video (${estimatedCredits} credits)` :
+            stepState.currentStep === 3 ? 'Continue to Voice' :
+            stepState.currentStep === 2 ? 'Continue to Aspect Ratio' :
             stepState.useMyScript ? 'Continue with Script' : 
             stepState.generatedScript ? 'Continue to Review' : 'Generate Script'}
-            {stepState.currentStep < 3 && !stepState.isGeneratingScript && !isGeneratingVoice && !isGeneratingVideo && <ArrowRight className="w-4 h-4 ml-2" />}
+            {stepState.currentStep < 4 && !stepState.isGeneratingScript && !isGeneratingVoice && !isGeneratingVideo && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>
         </div>
-        {stepState.currentStep === 3 && credits < estimatedCredits && (
+        {stepState.currentStep === 4 && credits < estimatedCredits && (
           <p className="text-xs text-destructive text-center mt-2">
             Insufficient credits. You need {estimatedCredits} credits.
           </p>

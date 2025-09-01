@@ -20,7 +20,7 @@ export interface ImageGenerationRequest {
   }>;
   style_settings: {
     visual_style: 'realistic' | 'artistic' | 'minimal' | 'dynamic';
-    aspect_ratio: '16:9' | '9:16' | '1:1' | '4:3';
+    aspect_ratio: '16:9' | '9:16' | '1:1' | '4:3' | '4:5';
     quality: 'draft' | 'standard' | 'premium';
   };
   user_id: string;
@@ -275,7 +275,8 @@ function convertAspectRatio(ratio: string): string {
     '16:9': '16:9',
     '9:16': '9:16', 
     '1:1': '1:1',
-    '4:3': '4:3'
+    '4:3': '4:3',
+    '4:5': '4:5'
   };
   return ratioMap[ratio] || '16:9';
 }

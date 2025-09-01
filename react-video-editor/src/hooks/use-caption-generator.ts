@@ -130,7 +130,7 @@ export function useCaptionGenerator(): UseCaptionGeneratorReturn {
           timing_precision: 0,
           readability_score: 0
         }
-      };
+      } as CaptionGenerationResponse;
     }
   }, [updateState]);
 

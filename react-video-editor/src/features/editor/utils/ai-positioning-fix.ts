@@ -26,6 +26,7 @@ export function fixAIImagePositioning(trackItemsMap: Record<string, ITrackItem>)
     const details = item.details;
     
     // Check if image has incorrect positioning (top-left corner positioning)
+    // But SKIP images that have been manually positioned or have saved composition data
     const hasIncorrectPositioning = (
       details?.top === "0px" || 
       details?.top === 0 ||
@@ -33,6 +34,20 @@ export function fixAIImagePositioning(trackItemsMap: Record<string, ITrackItem>)
       details?.left === 0 ||
       (details?.transform && details.transform.includes('translate(0px, 0px)'))
     );
+    
+    // Don't fix images that already have proper positioning or come from saved compositions
+    const hasExistingPositioning = (
+      (details?.top && details.top !== "0px" && details.top !== 0) ||
+      (details?.left && details.left !== "0px" && details.left !== 0) ||
+      (details?.width && details.width > 0) ||
+      (details?.height && details.height > 0) ||
+      (details?.transform && !details.transform.includes('translate(0px, 0px)'))
+    );
+    
+    if (hasExistingPositioning) {
+      console.log(`ℹ️ AI image ${item.id} already has proper positioning, skipping fix`);
+      return;
+    }
     
     if (hasIncorrectPositioning) {
       console.log(`🔧 Fixing positioning for AI image: ${item.id}`);

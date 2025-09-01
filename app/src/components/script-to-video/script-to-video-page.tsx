@@ -37,12 +37,13 @@ export function ScriptToVideoPage() {
   // Multi-step state - shared between generator tab and preview panel
   const [multiStepState, setMultiStepState] = useState<MultiStepState>({
     currentStep: 1,
-    totalSteps: 3,
+    totalSteps: 4,
     useMyScript: false,
     ideaText: '',
     generatedScript: '',
     finalScript: '',
     isGeneratingScript: false,
+    aspectRatio: '9:16',
   });
   
   // Additional state for workflow tracking
@@ -111,8 +112,8 @@ export function ScriptToVideoPage() {
     
     // Detect transition: was generating -> stopped generating
     if (prevIsGeneratingVideo.current === true && isGeneratingVideo === false) {
-      // If we're on step 3 and the loader just stopped, show checkmark
-      if (multiStepState.currentStep >= 3) {
+      // If we're on step 4 and the loader just stopped, show checkmark
+      if (multiStepState.currentStep >= 4) {
         setVideoGenerated(true);
       }
     }

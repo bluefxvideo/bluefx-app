@@ -122,13 +122,19 @@ export interface EditorCompositionPayload {
  * Main conversion function - converts AI assets to proper DESIGN_LOAD format
  */
 export function convertAIAssetsToEditorFormat(
-  aiAssets: AIGeneratedAssets
+  aiAssets: AIGeneratedAssets,
+  aspectRatio?: string
 ): EditorCompositionPayload {
   console.log('🔄 Converting AI assets to editor format:', aiAssets);
+  console.log('🔄 Using aspect ratio:', aspectRatio);
   
   if (!aiAssets.success || !aiAssets.segments || !aiAssets.timeline_data) {
     throw new Error('Invalid AI assets data');
   }
+  
+  // Calculate dynamic canvas size based on aspect ratio
+  const canvasSize = getCanvasSizeForAspectRatio(aspectRatio || '16:9');
+  console.log('📐 Canvas size calculated:', canvasSize);
 
   const trackItems: ITrackItem[] = [];
   const totalDurationMs = aiAssets.timeline_data.total_duration * 1000; // Convert to milliseconds
@@ -260,7 +266,7 @@ export function convertAIAssetsToEditorFormat(
   const payload: EditorCompositionPayload = {
     // Main state structure matching DESIGN_LOAD format
     fps: 30,
-    size: { width: 1920, height: 1080 },
+    size: canvasSize,
     duration: totalDurationMs,
     
     // Track items
@@ -416,4 +422,25 @@ export function validateAIAssets(aiAssets: any): aiAssets is AIGeneratedAssets {
 
   console.log('✅ AI assets validation passed');
   return true;
+}
+
+/**
+ * Calculate canvas size based on aspect ratio
+ * Ensures consistency between main app generation and editor canvas
+ */
+function getCanvasSizeForAspectRatio(aspectRatio: string): { width: number; height: number } {
+  console.log('📐 Calculating canvas size for aspect ratio:', aspectRatio);
+  
+  const aspectRatioMap: Record<string, { width: number; height: number }> = {
+    '16:9': { width: 1920, height: 1080 },   // Horizontal - YouTube, landscape
+    '9:16': { width: 1080, height: 1920 },   // Vertical - TikTok, Instagram Stories
+    '1:1': { width: 1080, height: 1080 },    // Square - Instagram posts
+    '4:3': { width: 1440, height: 1080 },    // Classic TV format
+    '4:5': { width: 1080, height: 1350 },    // Instagram portrait
+  };
+  
+  const size = aspectRatioMap[aspectRatio] || aspectRatioMap['16:9'];
+  console.log(`📐 Canvas size for ${aspectRatio}:`, size);
+  
+  return size;
 }
