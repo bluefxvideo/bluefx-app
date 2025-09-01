@@ -225,8 +225,8 @@ export async function signIn(formData: FormData): Promise<ApiResponse<{ user: Us
         .rpc('check_user_migration_data', { p_email: email })
 
       if ((migrationCheck as unknown as MigrationCheckResult)?.has_migration_data) {
-        // This is a legacy user who needs to set up their account
-        return createApiError('LEGACY_USER_NEEDS_SETUP', { message: `We found your legacy account! You need to set up your password first. We'll send you a setup email.` })
+        // This is a legacy user - show standard invalid password message
+        return createApiError('Invalid email or password. Please check your credentials and try again.')
       }
     }
 
