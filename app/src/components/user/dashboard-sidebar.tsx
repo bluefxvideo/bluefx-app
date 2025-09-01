@@ -27,12 +27,24 @@ import {
   PanelLeftClose,
   PanelLeft
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { signOut } from '@/actions/auth'
 import { useTheme } from 'next-themes'
 import { useDashboardLayout } from './dashboard-layout-context'
+
+// Tool interface
+interface Tool {
+  name: string;
+  route: string;
+  icon: any;
+  gradient: string;
+  description: string;
+  disabled?: boolean;
+  comingSoon?: string;
+}
 
 // Tool categories with their navigation data
 const toolCategories = [
@@ -113,6 +125,8 @@ const toolCategories = [
         icon: BookOpen,
         gradient: "from-emerald-500 to-teal-500",
         description: "Write complete ebooks with AI",
+        disabled: true,
+        comingSoon: "Under construction - Ready on September 3rd",
       },
       {
         name: "Content Multiplier",
@@ -120,6 +134,8 @@ const toolCategories = [
         icon: Layers,
         gradient: "bg-primary",
         description: "Multi-platform social content",
+        disabled: true,
+        comingSoon: "Under construction - Ready on September 3rd",
       },
     ],
   },
@@ -170,8 +186,10 @@ export function DashboardSidebar({
     return pathname === route || pathname?.startsWith(route + '/')
   }
 
-  const handleToolClick = (route: string) => {
-    router.push(route)
+  const handleToolClick = (route: string, disabled?: boolean) => {
+    if (!disabled) {
+      router.push(route)
+    }
   }
 
   const handleLogout = async () => {
@@ -211,9 +229,12 @@ export function DashboardSidebar({
           {!isCollapsed && (
             <button
               onClick={() => router.push('/dashboard')}
-              className="ml-2 text-xl font-bold text-white hover:text-blue-400 transition-colors cursor-pointer"
+              className="ml-2 text-xl font-bold text-white hover:text-blue-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               BlueFX
+              <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-blue-500/20 text-blue-300 border-blue-500/30">
+                BETA
+              </Badge>
             </button>
           )}
           {isCollapsed && <div className="w-full" />}
@@ -247,10 +268,11 @@ export function DashboardSidebar({
                       <Button
                         variant="ghost"
                         className={cn(
-                          "group w-full h-12 justify-start cursor-pointer rounded-lg transition-all duration-300",
-                          isCollapsed ? "p-2" : "p-3"
+                          "group w-full h-12 justify-start rounded-lg transition-all duration-300",
+                          isCollapsed ? "p-2" : "p-3",
+                          tool.disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                         )}
-                        onClick={() => handleToolClick(tool.route)}
+                        onClick={() => handleToolClick(tool.route, tool.disabled)}
                       >
                         <div className="flex items-center w-full relative">
                           <div
@@ -298,9 +320,12 @@ export function DashboardSidebar({
                     </TooltipTrigger>
                     <TooltipContent
                       side="right"
-                      className={isCollapsed ? "" : "hidden"}
+                      className={isCollapsed || tool.disabled ? "" : "hidden"}
                     >
                       <p className="font-medium">{tool.name}</p>
+                      {tool.disabled && (
+                        <p className="text-sm text-white mt-1">{tool.comingSoon}</p>
+                      )}
                     </TooltipContent>
                   </Tooltip>
                 ))}
