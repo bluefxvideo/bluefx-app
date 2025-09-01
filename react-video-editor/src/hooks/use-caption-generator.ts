@@ -208,7 +208,7 @@ export function captionsToTrackItems(
     })),
     confidence: caption.confidence,
     style: {
-      fontSize: 24,
+      fontSize: 60,
       color: '#FFFFFF',
       activeColor: '#FFFF00', // Highlight color
       appearedColor: '#FFFFFF'
@@ -242,7 +242,7 @@ export function captionsToTrackItems(
     duration: Math.round(totalDuration / 1000 * 30), // Convert to frames for timeline
     details: {
       text: '🤖 AI Generated Captions',
-      fontSize: 24,
+      fontSize: 60,
       fontFamily: 'Arial, sans-serif',
       fontWeight: 'bold',
       color: '#00FF88', // Green to distinguish AI captions
