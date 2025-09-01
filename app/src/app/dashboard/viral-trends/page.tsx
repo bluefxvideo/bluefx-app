@@ -234,52 +234,52 @@ export default function ViralTrendsPage() {
                 {[...Array(12)].map((_, i) => (
                   <div key={i} className="bg-card rounded-lg shadow-md overflow-hidden animate-pulse">
                     {/* Video Thumbnail Section */}
-                    <div className="h-48 bg-gray-200 dark:bg-gray-700 relative">
+                    <div className="h-48 bg-muted relative">
                       {/* Platform Badge */}
                       <div className="absolute top-2 left-2">
-                        <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-16"></div>
+                        <div className="h-6 bg-muted rounded w-16"></div>
                       </div>
                       {/* Virality Badge */}
                       <div className="absolute top-2 right-2">
-                        <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-12"></div>
+                        <div className="h-6 bg-muted rounded w-12"></div>
                       </div>
                       {/* Category Badge */}
                       <div className="absolute bottom-2 right-2">
-                        <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-20"></div>
+                        <div className="h-6 bg-muted rounded w-20"></div>
                       </div>
                     </div>
                     
                     {/* Content Section */}
                     <div className="p-4">
                       {/* Title */}
-                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
-                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
+                      <div className="h-5 bg-muted rounded w-full mb-2"></div>
+                      <div className="h-5 bg-muted rounded w-3/4 mb-4"></div>
                       
                       {/* Creator Info */}
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-3"></div>
+                      <div className="h-3 bg-muted rounded w-24 mb-3"></div>
                       
                       {/* Hashtags */}
                       <div className="flex flex-wrap gap-1 mb-4">
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-14"></div>
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-18"></div>
+                        <div className="h-6 bg-muted rounded w-16"></div>
+                        <div className="h-6 bg-muted rounded w-20"></div>
+                        <div className="h-6 bg-muted rounded w-14"></div>
+                        <div className="h-6 bg-muted rounded w-18"></div>
                       </div>
                       
                       {/* Engagement Metrics */}
                       <div className="flex justify-between text-sm mb-4">
                         <div className="flex items-center space-x-4">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-10"></div>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-10"></div>
+                          <div className="h-4 bg-muted rounded w-12"></div>
+                          <div className="h-4 bg-muted rounded w-10"></div>
+                          <div className="h-4 bg-muted rounded w-10"></div>
                         </div>
                       </div>
                       
                       {/* Action Buttons */}
                       <div className="flex gap-2">
-                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
-                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-8"></div>
-                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                        <div className="h-8 bg-muted rounded flex-1"></div>
+                        <div className="h-8 bg-muted rounded w-8"></div>
+                        <div className="h-8 bg-muted rounded w-12"></div>
                       </div>
                     </div>
                   </div>
@@ -335,7 +335,7 @@ export default function ViralTrendsPage() {
                           </div>
                         </a>
                       ) : (
-                        <div className="w-full h-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                        <div className="w-full h-full bg-muted flex items-center justify-center">
                           <div className="text-gray-500 dark:text-gray-400 text-center">
                             <Eye className="w-16 h-16 mx-auto mb-2 opacity-60" />
                             <p className="text-sm">YouTube Video</p>
@@ -389,14 +389,14 @@ export default function ViralTrendsPage() {
                         {trend.hashtags?.slice(0, 4).map((hashtag, index) => (
                           <span
                             key={index}
-                            className="inline-block px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 cursor-pointer"
+                            className="inline-block px-2 py-1 text-xs bg-muted rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 cursor-pointer"
                             onClick={() => setSearchQuery(hashtag)}
                           >
                             {hashtag}
                           </span>
                         ))}
                         {trend.hashtags && trend.hashtags.length > 4 && (
-                          <span className="inline-block px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-full">
+                          <span className="inline-block px-2 py-1 text-xs bg-muted rounded-full">
                             +{trend.hashtags.length - 4} more
                           </span>
                         )}

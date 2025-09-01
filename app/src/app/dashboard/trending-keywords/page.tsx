@@ -25,6 +25,8 @@ interface Keyword {
   category: string | null;
   is_active: boolean | null;
   last_checked_at: string | null;
+  trend_status?: string;
+  search_intent?: string;
 }
 
 export default function TrendingKeywordsPage() {
@@ -49,7 +51,9 @@ export default function TrendingKeywordsPage() {
       if (result.success) {
         setKeywords((result.data || []).map(keyword => ({
           ...keyword,
-          target_page_url: null // Add missing field with default value
+          target_page_url: null, // Add missing field with default value
+          trend_status: keyword.trend_status || 'stable',
+          search_intent: keyword.search_intent || 'informational'
         })));
         setTotalCount(result.total_count || 0);
       } else {
@@ -76,7 +80,9 @@ export default function TrendingKeywordsPage() {
       if (result.success) {
         setKeywords((result.data || []).map(keyword => ({
           ...keyword,
-          target_page_url: null // Add missing field with default value
+          target_page_url: null, // Add missing field with default value
+          trend_status: keyword.trend_status || 'stable',
+          search_intent: keyword.search_intent || 'informational'
         })));
         setTotalCount(result.total_count || 0);
         setCurrentPage(1); // Reset to first page on search
@@ -110,6 +116,59 @@ export default function TrendingKeywordsPage() {
     if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
     if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
     return volume.toString();
+  };
+
+  const getTrendIndicator = (trend?: string) => {
+    if (trend === 'rising' || trend === 'up') {
+      return (
+        <div className="flex items-center text-green-600 dark:text-green-500">
+          <TrendingUp className="h-4 w-4 mr-1" />
+          <span>Rising</span>
+        </div>
+      );
+    } else if (trend === 'declining' || trend === 'down') {
+      return (
+        <div className="flex items-center text-red-600 dark:text-red-500">
+          <TrendingUp className="h-4 w-4 mr-1 rotate-180" />
+          <span>Declining</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center text-blue-600 dark:text-blue-500">
+          <span>Stable</span>
+        </div>
+      );
+    }
+  };
+
+  const getIntentBadge = (intent?: string) => {
+    const intentLower = intent?.toLowerCase();
+    if (intentLower === 'informational') {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs">
+          Informational
+        </Badge>
+      );
+    } else if (intentLower === 'commercial') {
+      return (
+        <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-xs">
+          Commercial
+        </Badge>
+      );
+    } else if (intentLower === 'transactional') {
+      return (
+        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
+          Transactional
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="outline" className="text-xs">
+          {intent || 'Unknown'}
+        </Badge>
+      );
+    }
   };
 
   return (
@@ -214,7 +273,7 @@ export default function TrendingKeywordsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-muted/50 border-b">
+                      <tr className="bg-card border-b border-border">
                         <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           <div className="flex items-center">
                             Keyword
@@ -242,7 +301,7 @@ export default function TrendingKeywordsPage() {
                           </div>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Competition
+                          Intent
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Action
@@ -253,37 +312,37 @@ export default function TrendingKeywordsPage() {
                       {[...Array(10)].map((_, i) => (
                         <tr key={i} className="animate-pulse">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                            <div className="h-4 bg-muted rounded w-32 mb-2"></div>
+                            <div className="h-3 bg-muted rounded w-20"></div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-2"></div>
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-2 w-24 bg-gray-200 dark:bg-gray-700 rounded-full mr-2"></div>
-                              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-8"></div>
-                            </div>
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12 mt-1"></div>
+                            <div className="h-4 bg-muted rounded w-16 mb-2"></div>
+                            <div className="h-3 bg-muted rounded w-24"></div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded mr-1"></div>
-                              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                              <div className="h-2 w-24 bg-muted rounded-full mr-2"></div>
+                              <div className="h-3 bg-muted rounded w-8"></div>
+                            </div>
+                            <div className="h-3 bg-muted rounded w-12 mt-1"></div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="h-4 w-4 bg-muted rounded mr-1"></div>
+                              <div className="h-3 bg-muted rounded w-12"></div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2"></div>
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                            <div className="h-4 bg-muted rounded w-12 mb-2"></div>
+                            <div className="h-3 bg-muted rounded w-16"></div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                            <div className="h-6 bg-muted rounded w-16"></div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end space-x-2">
-                              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
-                              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-10"></div>
+                              <div className="h-6 bg-muted rounded w-12"></div>
+                              <div className="h-6 bg-muted rounded w-10"></div>
                             </div>
                           </td>
                         </tr>
@@ -306,7 +365,7 @@ export default function TrendingKeywordsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-muted/50 border-b">
+                      <tr className="bg-card border-b border-border">
                         <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/70">
                           <div className="flex items-center">
                             Keyword
@@ -334,7 +393,7 @@ export default function TrendingKeywordsPage() {
                           </div>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Competition
+                          Intent
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Action
@@ -384,12 +443,7 @@ export default function TrendingKeywordsPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex items-center text-primary">
-                                <TrendingUp className="h-4 w-4 mr-1" />
-                                <span className="text-sm font-medium">Rising</span>
-                              </div>
-                            </div>
+                            {getTrendIndicator(keyword.trend_status || 'stable')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-foreground">
                             <div className="font-medium">
@@ -400,31 +454,16 @@ export default function TrendingKeywordsPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge 
-                              variant={
-                                keyword.competition_level === 'high' ? 'destructive' :
-                                keyword.competition_level === 'medium' ? 'secondary' : 'default'
-                              }
-                              className="text-xs"
-                            >
-                              {keyword.competition_level || 'Low'}
-                            </Badge>
+                            {getIntentBadge(keyword.search_intent)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end space-x-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-primary hover:text-primary/80"
+                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                               >
                                 Analyze
-                              </Button>
-                              <Button
-                                variant="ghost" 
-                                size="sm"
-                                className="text-primary hover:text-primary/80"
-                              >
-                                Track
                               </Button>
                             </div>
                           </td>

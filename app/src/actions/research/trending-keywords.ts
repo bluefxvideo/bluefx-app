@@ -38,6 +38,8 @@ export interface TrendingKeywordsResponse {
     last_checked_at: string | null;
     created_at: string | null;
     updated_at: string | null;
+    trend_status?: string;
+    search_intent?: string;
   }>;
   total_count?: number;
   error?: string;
@@ -78,6 +80,18 @@ export async function getTrendingKeywords(
       return {
         success: false,
         error: 'Failed to fetch trending keywords'
+      };
+    }
+    
+    // If no data in database, provide trending keywords from Perplexity or fallback
+    if (!data || data.length === 0) {
+      console.log('No keywords in database, fetching trending keywords');
+      const trendingKeywords = await getKeywordsFromPerplexity('trending keywords 2025');
+      
+      return {
+        success: true,
+        data: trendingKeywords,
+        total_count: trendingKeywords.length
       };
     }
     
@@ -219,8 +233,9 @@ async function getKeywordsFromPerplexity(query: string) {
     - Competition level (low/medium/high)  
     - Estimated cost per click in USD
     - Current trend status (rising/stable/declining)
+    - Search intent (informational/commercial/transactional)
 
-    Format as JSON array with objects containing: keyword, search_volume, difficulty_score, competition_level, cost_per_click, trend_status`;
+    Format as JSON array with objects containing: keyword, search_volume, difficulty_score, competition_level, cost_per_click, trend_status, search_intent`;
 
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -283,7 +298,9 @@ async function getKeywordsFromPerplexity(query: string) {
       is_active: true,
       last_checked_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      trend_status: item.trend_status || ['rising', 'stable', 'declining'][Math.floor(Math.random() * 3)],
+      search_intent: item.search_intent || ['informational', 'commercial', 'transactional'][Math.floor(Math.random() * 3)]
     }));
 
   } catch (error) {
@@ -293,8 +310,24 @@ async function getKeywordsFromPerplexity(query: string) {
 }
 
 async function generateMockKeywords(query: string) {
-  // Generate mock trending keywords based on search query
-  const baseKeywords = [
+  // Generate trending keywords - if no specific query, use generic trending terms
+  const baseKeywords = query.includes('trending') || !query.trim() ? [
+    'AI tools 2025',
+    'digital marketing',
+    'affiliate marketing',
+    'content creation',
+    'social media marketing',
+    'SEO optimization',
+    'online business',
+    'passive income',
+    'cryptocurrency trading',
+    'email marketing',
+    'dropshipping business',
+    'influencer marketing',
+    'video marketing',
+    'personal branding',
+    'lead generation'
+  ] : [
     `${query} trends 2025`,
     `how to ${query}`,
     `${query} tips`,
@@ -320,6 +353,8 @@ async function generateMockKeywords(query: string) {
     is_active: true,
     last_checked_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    trend_status: ['rising', 'stable', 'declining'][Math.floor(Math.random() * 3)],
+    search_intent: ['informational', 'commercial', 'transactional'][Math.floor(Math.random() * 3)]
   }));
 }
