@@ -498,13 +498,16 @@ export async function generateThumbnails(
     }
 
     // Step 10: Store Results in Database
+    const aspectRatio = request.aspect_ratio || '16:9';
+    const { width, height, dimensions } = calculateDimensionsFromAspectRatio(aspectRatio);
+    
     const thumbnailRecords = thumbnails.map((thumb) => ({
       user_id: request.user_id,
       prompt: request.prompt, // Store original user prompt
       image_urls: [thumb.url], // Supabase Storage URL
-      dimensions: 'landscape', // Use predefined value for 16:9 aspect ratio
-      height: 1024,
-      width: 1024,
+      dimensions,
+      height,
+      width,
       model_name: 'ideogram-v2-turbo',
       model_version: 'ideogram-v2-turbo',
       batch_id: thumb.batch_id,
@@ -516,6 +519,7 @@ export async function generateThumbnails(
         thumbnail_style: selectedStyle,
         enhanced_prompt: enhancedPrompt, // Store enhanced prompt for reference
         replicate_url: thumb.replicate_url, // Keep original URL for reference
+        aspect_ratio: aspectRatio,
         stored_in_supabase: true
       },
     }));
@@ -576,6 +580,43 @@ export async function generateThumbnails(
 /**
  * AI Helper Functions for Enhanced Orchestration
  */
+
+// Calculate dimensions and orientation from aspect ratio
+function calculateDimensionsFromAspectRatio(aspectRatio: string): {
+  width: number;
+  height: number;
+  dimensions: 'portrait' | 'landscape' | 'square';
+} {
+  const baseSize = 1024;
+  
+  switch (aspectRatio) {
+    case '1:1':
+      return { width: baseSize, height: baseSize, dimensions: 'square' };
+    case '16:9':
+      return { width: Math.round(baseSize * 16/9), height: baseSize, dimensions: 'landscape' };
+    case '9:16':
+      return { width: baseSize, height: Math.round(baseSize * 16/9), dimensions: 'portrait' };
+    case '4:3':
+      return { width: Math.round(baseSize * 4/3), height: baseSize, dimensions: 'landscape' };
+    case '3:4':
+      return { width: baseSize, height: Math.round(baseSize * 4/3), dimensions: 'portrait' };
+    case '3:2':
+      return { width: Math.round(baseSize * 3/2), height: baseSize, dimensions: 'landscape' };
+    case '2:3':
+      return { width: baseSize, height: Math.round(baseSize * 3/2), dimensions: 'portrait' };
+    case '16:10':
+      return { width: Math.round(baseSize * 16/10), height: baseSize, dimensions: 'landscape' };
+    case '10:16':
+      return { width: baseSize, height: Math.round(baseSize * 16/10), dimensions: 'portrait' };
+    case '3:1':
+      return { width: baseSize * 3, height: baseSize, dimensions: 'landscape' };
+    case '1:3':
+      return { width: baseSize, height: baseSize * 3, dimensions: 'portrait' };
+    default:
+      // Default to 16:9 landscape
+      return { width: Math.round(baseSize * 16/9), height: baseSize, dimensions: 'landscape' };
+  }
+}
 
 // Calculate estimated credits before starting workflow
 function calculateEstimatedCredits(request: ThumbnailMachineRequest): number {
@@ -910,6 +951,10 @@ async function executeRecreationOnlyWorkflow(
       referenceImageUrl = referenceUpload.url;
     }
 
+    // Get aspect ratio from request first (needed for OpenAI call)
+    const aspectRatio = request.aspect_ratio || '16:9';
+    console.log(`📐 Recreation aspect ratio: ${aspectRatio}`);
+    
     // Step 1: Build recreation prompt
     let recreationPrompt = 'Create a high-quality YouTube thumbnail';
     
@@ -940,7 +985,8 @@ async function executeRecreationOnlyWorkflow(
       referenceImageUrl,
       'YouTube Thumbnail Recreation', // Company name parameter (required by function signature)
       recreationPrompt,
-      request.user_id
+      request.user_id,
+      aspectRatio // Pass the aspect ratio to OpenAI function
     );
 
     if (!openAIResult.data || openAIResult.data.length === 0) {
@@ -990,14 +1036,17 @@ async function executeRecreationOnlyWorkflow(
       }
     );
 
+    // Calculate dimensions based on aspect ratio
+    const { width, height, dimensions } = calculateDimensionsFromAspectRatio(aspectRatio);
+
     // Store result in database
     await storeThumbnailResults([{
       user_id: request.user_id,
       prompt: recreationPrompt,
       image_urls: [finalImageUrl],
-      dimensions: 'landscape', // Use predefined value for 16:9 aspect ratio
-      height: 1024,
-      width: 1024,
+      dimensions,
+      height,
+      width,
       model_name: 'gpt-image-1',
       model_version: 'gpt-image-1',
       batch_id,
@@ -1006,6 +1055,7 @@ async function executeRecreationOnlyWorkflow(
         type: 'recreation',
         reference_image: referenceImageUrl,
         recreation_style: request.recreation_style,
+        aspect_ratio: aspectRatio,
         stored_in_supabase: storageResult.success
       }
     }]);
@@ -1026,6 +1076,23 @@ async function executeRecreationOnlyWorkflow(
     const generation_time_ms = Date.now() - startTime;
     console.log(`✅ Recreation workflow completed in ${generation_time_ms}ms`);
 
+    // Update prediction status to completed
+    const updateResult = await updatePredictionRecord(batch_id, { 
+      status: 'completed',
+      output_data: {
+        thumbnails: [{
+          id: `${batch_id}_1`,
+          url: finalImageUrl,
+          variation_index: 1,
+          batch_id
+        }]
+      } as unknown as Json
+    });
+    
+    if (!updateResult.success) {
+      console.warn(`⚠️ Failed to update prediction status to completed: ${updateResult.error}`);
+    }
+
     return {
       success: true,
       thumbnails: [{
@@ -1043,6 +1110,17 @@ async function executeRecreationOnlyWorkflow(
     };
   } catch (error) {
     console.error('🚨 Recreation workflow error:', error);
+    
+    // Update prediction status to failed
+    const updateResult = await updatePredictionRecord(batch_id, { 
+      status: 'failed',
+      logs: error instanceof Error ? error.message : 'Recreation workflow failed'
+    });
+    
+    if (!updateResult.success) {
+      console.warn(`⚠️ Failed to update prediction status to failed: ${updateResult.error}`);
+    }
+    
     throw error;
   }
 }
@@ -1111,6 +1189,14 @@ async function executeTitlesOnlyWorkflow(
     const generation_time_ms = Date.now() - startTime;
     console.log(`✅ Titles workflow completed in ${generation_time_ms}ms`);
 
+    // Update prediction status to completed
+    await updatePredictionRecord(batch_id, { 
+      status: 'completed',
+      output_data: {
+        titles
+      } as unknown as Json
+    });
+
     return {
       success: true,
       titles,
@@ -1121,6 +1207,13 @@ async function executeTitlesOnlyWorkflow(
     };
   } catch (error) {
     console.error('🚨 Titles workflow error:', error);
+    
+    // Update prediction status to failed
+    await updatePredictionRecord(batch_id, { 
+      status: 'failed',
+      logs: error instanceof Error ? error.message : 'Titles workflow failed'
+    });
+    
     throw error;
   }
 }

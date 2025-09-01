@@ -154,7 +154,7 @@ export async function createPredictionRecord(
 
     const { data, error } = await supabase
       .from('ai_predictions')
-      .insert(record)
+      .upsert(record)
       .select()
       .single();
 
@@ -188,6 +188,7 @@ export async function updatePredictionRecord(
   updates: Partial<PredictionRecord>
 ): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
   try {
+    console.log(`🔄 Updating prediction ${predictionId} with status: ${updates.status}`);
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -201,13 +202,14 @@ export async function updatePredictionRecord(
       .single();
 
     if (error) {
-      console.error('Prediction update error:', error);
+      console.error('❌ Prediction update error:', error);
       return {
         success: false,
         error: `Failed to update prediction: ${error.message}`,
       };
     }
 
+    console.log(`✅ Successfully updated prediction ${predictionId} to status: ${updates.status}`);
     return {
       success: true,
       data,
@@ -427,7 +429,6 @@ export async function deductCredits(
     // If no credits record or available credits < required amount or period expired, top up first
     const needsTopup = !credits || 
                       (credits.available_credits < amount) || 
-                      (credits.available_credits < 600) ||
                       (new Date(credits.period_end) < new Date());
 
     if (needsTopup) {

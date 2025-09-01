@@ -32,9 +32,53 @@ export function RecreateTab({
     referenceImage: null as File | null,
     prompt: '',
     style: 'similar' as 'similar' | 'improved' | 'style-transfer',
+    detectedAspectRatio: '16:9' as '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '16:10' | '10:16' | '3:1' | '1:3',
   });
+
+  // Utility function to detect aspect ratio from image dimensions
+  const detectAspectRatio = (width: number, height: number): '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '16:10' | '10:16' | '3:1' | '1:3' => {
+    const ratio = width / height;
+    
+    // Define tolerance for aspect ratio matching
+    const tolerance = 0.05;
+    
+    if (Math.abs(ratio - 1) < tolerance) return '1:1'; // Square
+    if (Math.abs(ratio - 16/9) < tolerance) return '16:9'; // Widescreen
+    if (Math.abs(ratio - 9/16) < tolerance) return '9:16'; // Vertical
+    if (Math.abs(ratio - 4/3) < tolerance) return '4:3'; // Traditional
+    if (Math.abs(ratio - 3/4) < tolerance) return '3:4'; // Portrait
+    if (Math.abs(ratio - 3/2) < tolerance) return '3:2'; // Photo
+    if (Math.abs(ratio - 2/3) < tolerance) return '2:3'; // Vertical photo
+    if (Math.abs(ratio - 16/10) < tolerance) return '16:10'; // Widescreen alt
+    if (Math.abs(ratio - 10/16) < tolerance) return '10:16'; // Vertical widescreen
+    if (Math.abs(ratio - 3) < tolerance) return '3:1'; // Ultrawide
+    if (Math.abs(ratio - 1/3) < tolerance) return '1:3'; // Ultra vertical
+    
+    // Default fallback based on orientation
+    return ratio > 1 ? '16:9' : '9:16';
+  };
+
   const handleImageUpload = (file: File) => {
-    setFormData(prev => ({ ...prev, referenceImage: file }));
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    
+    img.onload = () => {
+      const aspectRatio = detectAspectRatio(img.width, img.height);
+      setFormData(prev => ({ 
+        ...prev, 
+        referenceImage: file,
+        detectedAspectRatio: aspectRatio 
+      }));
+      URL.revokeObjectURL(url); // Clean up memory
+    };
+    
+    img.onerror = () => {
+      // Fallback if image can't be loaded
+      setFormData(prev => ({ ...prev, referenceImage: file }));
+      URL.revokeObjectURL(url);
+    };
+    
+    img.src = url;
   };
 
   const handleSubmit = async () => {
@@ -48,7 +92,7 @@ export function RecreateTab({
       reference_image: formData.referenceImage,
       prompt,
       recreation_style: formData.style,
-      aspect_ratio: '16:9',
+      aspect_ratio: formData.detectedAspectRatio, // Use detected aspect ratio
       style_type: 'Auto',
       user_id: 'current-user', // This will be handled by the parent component
     });
@@ -74,6 +118,14 @@ export function RecreateTab({
             description="Style reference for generation"
             previewSize="large"
           />
+          {formData.referenceImage && (
+            <div className="mt-2 text-sm text-muted-foreground">
+              <span className="text-primary font-medium">
+                Detected aspect ratio: {formData.detectedAspectRatio}
+              </span>
+              <span className="ml-2">• Recreation will maintain this ratio</span>
+            </div>
+          )}
         </StandardStep>
 
         {/* Step 2: Describe Your Thumbnail */}

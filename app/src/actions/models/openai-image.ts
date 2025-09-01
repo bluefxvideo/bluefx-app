@@ -223,7 +223,8 @@ export async function recreateLogo(
   referenceImageUrl: string,
   companyName: string,
   modifications?: string,
-  user?: string
+  user?: string,
+  aspectRatio?: string
 ): Promise<OpenAIImageOutput> {
   try {
     console.log(`🎨 OpenAI Logo Recreation: Using Image Edits API for "${companyName}"`);
@@ -244,13 +245,39 @@ export async function recreateLogo(
     const imageBlob = await imageResponse.blob();
     console.log(`📥 Downloaded reference image: ${imageBlob.size} bytes, type: ${imageBlob.type}`);
 
+    // Map aspect ratio to supported OpenAI size (gpt-image-1 supports: 1536x1024, 1024x1536, 1024x1024)
+    const getOpenAISize = (aspectRatio?: string): string => {
+      if (!aspectRatio) return '1024x1024'; // Default square
+      
+      switch (aspectRatio) {
+        case '16:9':
+        case '4:3':
+        case '3:2':
+        case '16:10':
+        case '3:1':
+          return '1536x1024'; // Landscape
+        case '9:16':
+        case '3:4':
+        case '2:3':
+        case '10:16':
+        case '1:3':
+          return '1024x1536'; // Portrait
+        case '1:1':
+        default:
+          return '1024x1024'; // Square
+      }
+    };
+
+    const openaiSize = getOpenAISize(aspectRatio);
+    console.log(`📐 Using OpenAI size ${openaiSize} for aspect ratio ${aspectRatio || 'default'}`);
+
     // Prepare multipart form data for OpenAI Image Edits API (following legacy approach)
     const formData = new FormData();
     formData.append('image', imageBlob, 'image.png');
     formData.append('model', 'gpt-image-1'); // Using gpt-image-1 like the legacy function
     formData.append('prompt', enhancedPrompt);
     formData.append('n', '1');
-    formData.append('size', '1024x1024');
+    formData.append('size', openaiSize);
     
     if (user) {
       formData.append('user', user);
