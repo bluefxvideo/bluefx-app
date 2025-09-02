@@ -449,21 +449,17 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
           {state.musicHistory.length > 0 ? (
             <div className="space-y-4">
               {state.musicHistory.map((music: any) => (
-                <Card key={music.id} className="p-4">
+                <Card key={music.id} className="p-4 bg-card border-border">
                   <div className="space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">
-                            AI Generated
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {music.output_format?.toUpperCase() || 'AUDIO'}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(music.created_at || '').toLocaleDateString()} • {music.duration ? formatDuration(music.duration) : 'Variable'} • {music.file_size_mb ? formatFileSize(music.file_size_mb) : 'N/A'}
-                        </p>
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          AI Generated
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {music.generation_settings?.output_format?.toUpperCase() || 'WAV'}
+                        </Badge>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -472,9 +468,9 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                           onClick={() => handleAudioPlayback(music.id, music.audio_url || '')}
                         >
                           {playingMusicId === music.id ? (
-                            <Square className="w-3 h-3" />
+                            <Square className="w-4 h-4" />
                           ) : (
-                            <Play className="w-3 h-3" />
+                            <Play className="w-4 h-4" />
                           )}
                         </Button>
                         <Button
@@ -482,7 +478,7 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                           size="sm"
                           onClick={() => window.open(music.audio_url, '_blank')}
                         >
-                          <Download className="w-3 h-3" />
+                          <Download className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="outline"
@@ -490,26 +486,74 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                           onClick={() => deleteMusic(music.id)}
                           className="text-destructive hover:text-destructive"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
-                    
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span>{music.duration_seconds ? formatDuration(music.duration_seconds) : 'Variable'}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <FileAudio className="w-4 h-4 text-muted-foreground" />
+                        <span>{music.generation_settings?.model_version || music.generation_settings?.output_format || 'Audio'}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Zap className="w-4 h-4 text-muted-foreground" />
+                        <span>{music.credits_used || music.generation_settings?.credits_used || 3} credits</span>
+                      </div>
+                    </div>
+
+                    {/* Script Preview */}
                     <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm line-clamp-2">
-                        {music.prompt || music.text_content}
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {music.track_title || music.prompt || music.description}
                       </p>
                     </div>
-                    
-                    {music.audio_url ? (
-                      <audio controls className="w-full">
-                        <source src={music.audio_url} type={`audio/${music.generation_settings?.output_format || 'mp3'}`} />
-                      </audio>
-                    ) : (
-                      <div className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-500">
-                        <p>Audio will appear here when generation is complete</p>
+
+                    {/* Audio Player */}
+                    <div className="relative w-full">
+                      <div className="bg-muted/30 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleAudioPlayback(music.id, music.audio_url || '')}
+                            className="flex-shrink-0 w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+                          >
+                            {playingMusicId === music.id ? (
+                              <Square className="w-5 h-5" />
+                            ) : (
+                              <Play className="w-5 h-5" />
+                            )}
+                          </button>
+                          <div className="flex-1 h-12 bg-muted/50 rounded-md flex items-center px-3">
+                            {/* Waveform visualization */}
+                            <div className="flex items-center justify-center w-full gap-1">
+                              {[...Array(120)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`bg-primary/40 rounded-full transition-all duration-75 ${
+                                    playingMusicId === music.id 
+                                      ? 'animate-pulse bg-primary/70' 
+                                      : ''
+                                  }`}
+                                  style={{
+                                    width: '2px',
+                                    height: `${Math.random() * 30 + 8}px`,
+                                    animationDelay: `${i * 30}ms`
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-sm text-muted-foreground font-mono">
+                            {music.duration_seconds ? formatDuration(music.duration_seconds) : '~30s'}
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </Card>
               ))}
