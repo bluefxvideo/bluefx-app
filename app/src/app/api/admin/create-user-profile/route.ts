@@ -5,7 +5,7 @@ import { createClient } from '@/app/supabase/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { user_id, email, username, full_name, plan_type, credits } = body
+    const { user_id, email, username, full_name, plan_type, payment_type, credits } = body
 
     if (!user_id || !email || !username) {
       return NextResponse.json(
@@ -61,24 +61,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create subscription
+    // Create subscription based on payment type
+    const subscriptionData = {
+      user_id,
+      plan_type: 'pro', // Always pro as requested
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+      credits_per_month: credits,
+      max_concurrent_jobs: 5, // Pro plan gets 5 concurrent jobs
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      // For now, use fastspring_subscription_id for both types until ClickBank fields are added
+      ...(payment_type === 'fastspring' ? {
+        fastspring_subscription_id: `manual_fs_${user_id}_${Date.now()}`
+      } : {
+        // For ClickBank, we'll store it in fastspring_subscription_id with a different prefix
+        // until proper ClickBank fields are added to the database
+        fastspring_subscription_id: `manual_cb_${user_id}_${Date.now()}`
+      })
+    }
+
     const { error: subscriptionError } = await adminClient
       .from('user_subscriptions')
-      .insert({
-        user_id,
-        plan_type,
-        status: 'active',
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-        credits_per_month: credits,
-        max_concurrent_jobs: plan_type === 'enterprise' ? 20 : plan_type === 'pro' ? 5 : 3,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(subscriptionData)
 
     if (subscriptionError) {
       console.error('Subscription creation error:', subscriptionError)
       // Don't fail completely, just log the error
+    } else {
+      console.log(`✅ Created ${payment_type} subscription for user ${email}`)
     }
 
     // Create credits

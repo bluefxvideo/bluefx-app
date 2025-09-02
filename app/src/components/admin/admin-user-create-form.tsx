@@ -50,7 +50,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
     password: '',
     username: '',
     full_name: '',
-    plan_type: 'pro' as 'free' | 'starter' | 'pro' | 'enterprise',
+    payment_type: 'clickbank' as 'fastspring' | 'clickbank',
     credits: 600
   })
 
@@ -93,7 +93,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
         app_metadata: {
           provider: 'email',
           providers: ['email'],
-          plan_type: formData.plan_type
+          plan_type: 'pro'
         }
       })
 
@@ -111,7 +111,8 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
           email: formData.email,
           username: formData.username,
           full_name: formData.full_name,
-          plan_type: formData.plan_type,
+          plan_type: 'pro',
+          payment_type: formData.payment_type,
           credits: formData.credits
         })
       })
@@ -129,7 +130,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
         password: '',
         username: '',
         full_name: '',
-        plan_type: 'pro',
+        payment_type: 'clickbank',
         credits: 600
       })
 
@@ -256,23 +257,24 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="plan_type">Plan Type</Label>
+                <Label htmlFor="payment_type">Payment Type</Label>
                 <Select 
-                  value={formData.plan_type} 
-                  onValueChange={(value: 'free' | 'starter' | 'pro' | 'enterprise') => 
-                    setFormData(prev => ({ ...prev, plan_type: value }))
+                  value={formData.payment_type} 
+                  onValueChange={(value: 'fastspring' | 'clickbank') => 
+                    setFormData(prev => ({ ...prev, payment_type: value }))
                   }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="free">Free</SelectItem>
-                    <SelectItem value="starter">Starter</SelectItem>
-                    <SelectItem value="pro">Pro</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                    <SelectItem value="fastspring">FastSpring</SelectItem>
+                    <SelectItem value="clickbank">ClickBank</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  All users created will have Pro plan with the selected payment provider
+                </p>
               </div>
               
               <div className="space-y-2">
