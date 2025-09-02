@@ -5,7 +5,9 @@ import { type EmailOtpType } from '@supabase/supabase-js'
 export async function GET(request: NextRequest) {
   console.log('🔐 Password reset callback hit with URL:', request.url)
   
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
+  // Use the configured site URL instead of request origin to avoid container hostname issues
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://app.bluefx.net'
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
   const code = searchParams.get('code')
@@ -32,16 +34,16 @@ export async function GET(request: NextRequest) {
     // Handle common password reset errors
     if (errorCode === 'otp_expired') {
       console.error('🕒 Password reset link expired')
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Password reset link expired. Please request a new one.')}`)
+      return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent('Password reset link expired. Please request a new one.')}`)
     }
     
     if (errorCode === 'invalid_request' || error === 'invalid_request') {
       console.error('🔗 Invalid password reset link')
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Invalid password reset link. Please request a new one.')}`)
+      return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent('Invalid password reset link. Please request a new one.')}`)
     }
     
     console.error('🔥 General auth error:', errorDescription || error)
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || error || 'Password reset failed')}`)
+    return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent(errorDescription || error || 'Password reset failed')}`)
   }
 
   const supabase = await createClient()
@@ -61,14 +63,14 @@ export async function GET(request: NextRequest) {
         
         // Handle specific OTP errors
         if (verifyError.message?.includes('expired')) {
-          return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Password reset link has expired. Please request a new one.')}`)
+          return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent('Password reset link has expired. Please request a new one.')}`)
         }
         
         if (verifyError.message?.includes('invalid')) {
-          return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Invalid password reset link. Please request a new one.')}`)
+          return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent('Invalid password reset link. Please request a new one.')}`)
         }
         
-        return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(verifyError.message)}`)
+        return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent(verifyError.message)}`)
       }
       
       console.log('✅ OTP verification successful for user:', verifyData?.user?.email)
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest) {
       
       if (exchangeError) {
         console.error('Code exchange error:', exchangeError)
-        return NextResponse.redirect(`${origin}/error?message=${encodeURIComponent(exchangeError.message)}`)
+        return NextResponse.redirect(`${baseUrl}/error?message=${encodeURIComponent(exchangeError.message)}`)
       }
       
       console.log('Code exchange successful')
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
     
     if (userError || !user) {
       console.error('❌ No user session after callback:', userError?.message)
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Authentication failed. Please request a new password reset link.')}`)
+      return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent('Authentication failed. Please request a new password reset link.')}`)
     }
 
     console.log('User authenticated:', user.email)
@@ -111,15 +113,15 @@ export async function GET(request: NextRequest) {
     if (type === 'recovery') {
       console.log('🔄 Password reset detected - redirecting to setup page')
       // Pass legacy flag in URL for the form to handle restoration logic
-      return NextResponse.redirect(`${origin}/setup-password?from=reset${isLegacySetup ? '&legacy=true' : ''}`)
+      return NextResponse.redirect(`${baseUrl}/setup-password?from=reset${isLegacySetup ? '&legacy=true' : ''}`)
     }
 
     // Success - redirect to intended destination
     console.log('✅ Auth successful - redirecting to:', next)
-    return NextResponse.redirect(`${origin}${next}`)
+    return NextResponse.redirect(`${baseUrl}${next}`)
     
   } catch (error) {
     console.error('💥 Unexpected auth callback error:', error)
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Password reset failed. Please try again.')}`)
+    return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent('Password reset failed. Please try again.')}`)
   }
 }
