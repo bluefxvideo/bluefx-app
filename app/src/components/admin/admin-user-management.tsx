@@ -1,12 +1,10 @@
-import { createClient } from '@/app/supabase/server'
+import { createAdminClient } from '@/app/supabase/server'
 import { AdminUserTable } from './admin-user-table'
+import { AdminUserCreateDialog } from './admin-user-create-dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 // import { Badge } from '@/components/ui/badge'
 import { 
-  Crown, 
-  CreditCard, 
-  UserPlus,
   Search,
   Filter,
   Download
@@ -27,7 +25,7 @@ interface UserWithStats extends Tables<'profiles'> {
  * Fetch users with their subscription and credit information
  */
 async function getUsersWithStats(): Promise<UserWithStats[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   
   try {
     // Get all users with their profiles
@@ -35,7 +33,7 @@ async function getUsersWithStats(): Promise<UserWithStats[]> {
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50) // Limit for MVP
+      .limit(100) // Increase limit for proper admin view
 
     if (profilesError || !profiles) {
       console.error('Error fetching profiles:', profilesError)
@@ -102,64 +100,19 @@ async function getUsersWithStats(): Promise<UserWithStats[]> {
  */
 export async function AdminUserManagement() {
   const users = await getUsersWithStats()
-  const adminUsers = users.filter(user => user.role === 'admin').length
-  const totalCreditsAllocated = users.reduce((sum, user) => sum + (user.credits?.available_credits || 0), 0)
 
-  const stats = [
-    {
-      title: 'Admin Users',
-      value: adminUsers.toLocaleString(),
-      description: 'System administrators',
-      icon: Crown,
-      gradient: 'from-blue-500 to-cyan-500'
-    },
-    {
-      title: 'Total Credits Allocated',
-      value: totalCreditsAllocated.toLocaleString(),
-      description: 'Credits currently allocated',
-      icon: CreditCard,
-      gradient: 'from-emerald-500 to-teal-500'
-    }
-  ]
 
   return (
     <div className="space-y-8">
       {/* Action buttons */}
       <div className="flex justify-end items-center space-x-2">
-        <Button className="bg-blue-500 hover:bg-blue-600 text-white">
-          <UserPlus className="mr-2 h-4 w-4" />
-          Add User
-        </Button>
+        <AdminUserCreateDialog />
         <Button variant="outline">
           <Download className="mr-2 h-4 w-4" />
           Export
         </Button>
       </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {stats.map((stat, index) => {
-            const Icon = stat.icon
-            return (
-              <div key={index} className="rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </span>
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-sm`}>
-                    <Icon className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-foreground">
-                  {stat.value}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {stat.description}
-                </p>
-              </div>
-            )
-          })}
-        </div>
         {/* User directory */}
       <Card>
         <CardHeader>

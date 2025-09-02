@@ -162,7 +162,13 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       lastName,
       payment_processor: 'clickbank',
       receipt: receipt,
-      plan_type: planType
+      plan_type: planType,
+      email_verified: true,
+      phone_verified: false
+    },
+    app_metadata: {
+      provider: 'email',
+      providers: ['email']
     }
   })
 
@@ -175,6 +181,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
   const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
   await supabase.from('profiles').insert({
     id: authUser.user.id,
+    email: email,  // Add email field to profiles
     username: cleanUsername,
     full_name: `${firstName} ${lastName}`,
     bio: null,

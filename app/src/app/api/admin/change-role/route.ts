@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/app/supabase/server'
+import { createAdminClient } from '@/app/supabase/server'
 import { requireAdminAuthApi } from '@/lib/admin-auth'
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { userId, newRole } = await request.json()
 
     if (!userId || !newRole) {

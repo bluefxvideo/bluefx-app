@@ -196,6 +196,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
       const cleanUsername = customerEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
       await supabase.from('profiles').insert({
         id: userId,
+        email: customerEmail,  // Add email field to profiles
         username: cleanUsername,
         full_name: `${customerFirstName} ${customerLastName}`.trim(),
         bio: null,
@@ -212,7 +213,13 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
         lastName: customerLastName,
         payment_processor: 'fastspring',
         subscription_id: subscriptionId,
-        plan_type: planType
+        plan_type: planType,
+        email_verified: true,
+        phone_verified: false
+      },
+      app_metadata: {
+        provider: 'email',
+        providers: ['email']
       }
     })
 
@@ -228,6 +235,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     const cleanUsername = customerEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
     await supabase.from('profiles').insert({
       id: userId,
+      email: customerEmail,  // Add email field to profiles
       username: cleanUsername,
       full_name: `${customerFirstName} ${customerLastName}`.trim(),
       bio: null,

@@ -1,7 +1,4 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { createClient } from '@/app/supabase/client'
+import { createAdminClient } from '@/app/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { 
@@ -28,7 +25,7 @@ interface DashboardStats {
  * Fetch dashboard statistics from database
  */
 async function getDashboardStats(): Promise<DashboardStats> {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   
   try {
     // Get total users
@@ -92,35 +89,8 @@ async function getDashboardStats(): Promise<DashboardStats> {
  * Follows the established design system patterns with card-based layout,
  * consistent colors, and proper spacing
  */
-export function AdminDashboardOverview() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const data = await getDashboardStats()
-        setStats(data)
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchStats()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    )
-  }
+export async function AdminDashboardOverview() {
+  const stats = await getDashboardStats()
 
   if (!stats) {
     return (
