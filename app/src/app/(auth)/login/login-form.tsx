@@ -84,31 +84,6 @@ export default function LoginForm() {
     }
   }
 
-  const handleResetPassword = async () => {
-    if (!email) {
-      setError('Please enter your email first')
-      return
-    }
-
-    try {
-      const formData = new FormData()
-      formData.append('email', email)
-
-      // Using existing resetPassword action
-      const { resetPassword } = await import('@/actions/auth')
-      const result = await resetPassword(formData)
-      
-      if (result.success) {
-        setResetSent(true)
-        setResetMessage(result.message || 'Password reset email sent! Check your inbox.')
-        setError('')
-      } else {
-        setError(result.error || 'Failed to send reset email')
-      }
-    } catch {
-      setError('Failed to send reset email')
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -181,15 +156,12 @@ export default function LoginForm() {
 
         {/* Forgot Password */}
         <div className="flex flex-col space-y-2 pb-4">
-          <Button 
-            type="button" 
-            variant="ghost" 
-            onClick={handleResetPassword}
-            disabled={!email || loading}
-            className="text-sm"
+          <Link 
+            href="/forgot-password"
+            className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 text-center py-2"
           >
             Forgot your password?
-          </Button>
+          </Link>
         </div>
       </form>
     </div>

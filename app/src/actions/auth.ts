@@ -268,12 +268,12 @@ export async function signOut() {
   redirect('/login')
 }
 
-export async function resetPassword(formData: FormData): Promise<ApiResponse<object>> {
+export async function resetPassword(data: FormData | { email: string }): Promise<ApiResponse<object>> {
   try {
     const supabase = await createClient()
     
-    // Parse form data
-    const email = formData.get('email') as string
+    // Parse data - handle both FormData and direct object
+    const email = data instanceof FormData ? data.get('email') as string : data.email
 
     // Validate data
     const validation = PasswordResetSchema.safeParse({ email })
