@@ -27,6 +27,15 @@ interface MigrationRestoreResult {
   credits_restored?: number
 }
 
+// User creation data interface
+interface CreateUserData {
+  email: string
+  password: string
+  user_metadata?: Record<string, any>
+  app_metadata?: Record<string, any>
+  email_confirm?: boolean
+}
+
 // === Authentication Actions ===
 
 export async function signUp(formData: FormData): Promise<ApiResponse<{ user: User; profile: Tables<'profiles'> }>> {
@@ -549,5 +558,48 @@ export async function updateProfile(formData: FormData): Promise<ApiResponse<Tab
     return createApiError(
       error instanceof Error ? error.message : 'An unexpected error occurred'
     )
+  }
+}
+
+// === Admin User Management ===
+
+/**
+ * Properly create a user using Supabase Admin API
+ * This is the correct way to create users programmatically
+ */
+export async function createUserWithAdminAPI(userData: CreateUserData): Promise<ApiResponse<User>> {
+  try {
+    const adminClient = createAdminClient()
+    
+    // Use proper Admin API to create user
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: userData.email,
+      password: userData.password,
+      email_confirm: userData.email_confirm ?? true,
+      user_metadata: userData.user_metadata || {
+        email_verified: true,
+        phone_verified: false
+      },
+      app_metadata: userData.app_metadata || {
+        provider: 'email',
+        providers: ['email']
+      }
+    })
+
+    if (authError) {
+      console.error('Admin createUser error:', authError)
+      return createApiError(authError.message)
+    }
+
+    if (!authData.user) {
+      return createApiError('Failed to create user - no user data returned')
+    }
+
+    console.log('✅ User created successfully via Admin API:', authData.user.email)
+    return createApiSuccess(authData.user, 'User created successfully')
+
+  } catch (error) {
+    console.error('💥 Admin user creation unexpected error:', error)
+    return createApiError(error instanceof Error ? error.message : 'An unexpected error occurred')
   }
 }
