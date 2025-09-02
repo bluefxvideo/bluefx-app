@@ -154,13 +154,13 @@ export default function LoginForm() {
           )}
         </Button>
 
-        {/* Forgot Password */}
+        {/* Reset Password */}
         <div className="flex flex-col space-y-2 pb-4">
           <Link 
-            href="/forgot-password"
+            href="/reset-password"
             className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 text-center py-2"
           >
-            Forgot your password?
+            Reset your password
           </Link>
         </div>
       </form>

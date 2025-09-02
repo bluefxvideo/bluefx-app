@@ -30,10 +30,10 @@ const outfit = Outfit({
 
 export const metadata = createMetadata({
 	title: {
-		template: "%s | Combo",
-		default: "Combo",
+		template: "%s | BlueFX Editor",
+		default: "BlueFX Editor",
 	},
-	description: "AI Video generator for the next gen web.",
+	description: "Professional AI-powered video editor - Create stunning videos with BlueFX Editor.",
 	metadataBase: baseUrl,
 });
 

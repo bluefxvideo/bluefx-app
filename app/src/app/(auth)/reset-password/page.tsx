@@ -1,12 +1,12 @@
 import { Metadata } from 'next'
-import { ForgotPasswordForm } from './forgot-password-form'
+import { ResetPasswordForm } from './reset-password-form'
 
 export const metadata: Metadata = {
   title: 'Reset Password - BlueFX',
   description: 'Reset your BlueFX account password',
 }
 
-export default function ForgotPasswordPage() {
+export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -20,7 +20,7 @@ export default function ForgotPasswordPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
-          <ForgotPasswordForm />
+          <ResetPasswordForm />
         </div>
       </div>
     </div>
