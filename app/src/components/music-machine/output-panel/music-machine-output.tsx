@@ -333,7 +333,14 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(music.audio_url, '_blank')}
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = music.audio_url || '';
+                              link.download = `${music.track_title || music.prompt || 'music'}.mp3`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
                           >
                             <Download className="w-4 h-4" />
                           </Button>
@@ -476,7 +483,14 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(music.audio_url, '_blank')}
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = music.audio_url || '';
+                            link.download = `${music.track_title || music.prompt || music.description || 'music'}.mp3`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
                         >
                           <Download className="w-4 h-4" />
                         </Button>
