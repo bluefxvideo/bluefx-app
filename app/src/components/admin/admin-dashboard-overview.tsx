@@ -5,11 +5,7 @@ import {
   Users, 
   CreditCard, 
   Activity, 
-  TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Crown
+  TrendingUp
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -18,7 +14,6 @@ interface DashboardStats {
   totalCreditsUsed: number
   dailyActiveUsers: number
   newUsersToday: number
-  systemHealth: 'healthy' | 'warning' | 'error'
 }
 
 /**
@@ -67,8 +62,7 @@ async function getDashboardStats(): Promise<DashboardStats> {
       activeSubscriptions: activeSubscriptions || 0,
       totalCreditsUsed,
       dailyActiveUsers: dailyActiveUsers || 0,
-      newUsersToday: newUsersToday || 0,
-      systemHealth: 'healthy' // For now, we'll implement proper health checks later
+      newUsersToday: newUsersToday || 0
     }
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
@@ -77,8 +71,7 @@ async function getDashboardStats(): Promise<DashboardStats> {
       activeSubscriptions: 0,
       totalCreditsUsed: 0,
       dailyActiveUsers: 0,
-      newUsersToday: 0,
-      systemHealth: 'error'
+      newUsersToday: 0
     }
   }
 }
@@ -140,62 +133,11 @@ export async function AdminDashboardOverview() {
     }
   ]
 
-  const getHealthIcon = () => {
-    switch (stats.systemHealth) {
-      case 'healthy':
-        return <CheckCircle className="h-5 w-5 text-blue-600" />
-      case 'warning':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />
-      default:
-        return <Clock className="h-5 w-5 text-muted-foreground" />
-    }
-  }
-
-  const getHealthBadge = () => {
-    switch (stats.systemHealth) {
-      case 'healthy':
-        return <Badge className="bg-blue-100 text-white">All Systems Operational</Badge>
-      case 'warning':
-        return <Badge className="bg-yellow-500 text-white">Some Issues Detected</Badge>
-      case 'error':
-        return <Badge className="bg-red-500 text-white">Critical Errors</Badge>
-      default:
-        return <Badge variant="outline">Checking Status...</Badge>
-    }
-  }
 
 
   return (
     <div className="space-y-8">
-      {/* System Status and Health Badge */}
-      <div className="flex justify-end items-center space-x-2">
-        <Crown className="h-6 w-6 text-primary" />
-        {getHealthBadge()}
-      </div>
 
-      {/* System Status Card */}
-      <Card className="border-2">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {getHealthIcon()}
-              <CardTitle>System Status</CardTitle>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Last updated: {new Date().toLocaleTimeString()}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {stats.systemHealth === 'healthy' && 'All systems are running smoothly. No issues detected.'}
-            {stats.systemHealth === 'warning' && 'Some services are experiencing minor issues. Monitoring in progress.'}
-            {stats.systemHealth === 'error' && 'Critical system errors have been detected. Immediate attention required.'}
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

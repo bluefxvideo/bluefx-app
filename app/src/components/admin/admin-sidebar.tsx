@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { signOut } from '@/actions/auth'
 
 
@@ -27,21 +26,18 @@ const adminNavigation = [
     name: 'Dashboard',
     href: '/admin',
     icon: Home,
-    description: 'System overview and metrics',
     gradient: 'from-blue-500 to-cyan-500'
   },
   {
     name: 'User Management',
     href: '/admin/users',
     icon: Users,
-    description: 'Users, roles, and credits',
     gradient: 'from-blue-500 to-cyan-500'
   },
   {
     name: 'Analytics',
     href: '/admin/analytics',
     icon: BarChart3,
-    description: 'Usage statistics and reports',
     gradient: 'from-blue-500 to-cyan-500'
   }
 ]
@@ -182,9 +178,6 @@ export function AdminSidebar({
                           <p className="text-sm font-medium leading-none whitespace-nowrap">
                             {item.name}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1 whitespace-nowrap">
-                            {item.description}
-                          </p>
                         </div>
                       </div>
                     </Button>
@@ -193,12 +186,7 @@ export function AdminSidebar({
                 
                 {isCollapsed && (
                   <TooltipContent side="right">
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.description}
-                      </p>
-                    </div>
+                    <p className="font-medium">{item.name}</p>
                   </TooltipContent>
                 )}
               </Tooltip>
@@ -282,26 +270,6 @@ export function AdminSidebar({
             )}
           </div>
 
-          {/* Theme toggle and version info */}
-          <div className="flex items-center w-full relative px-1">
-            <div className={cn(
-              'flex-1 transition-all duration-300',
-              isCollapsed ? 'opacity-0 w-0 overflow-hidden invisible' : 'opacity-100 visible'
-            )}>
-              <p className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                Admin v1.0
-              </p>
-              <p className="text-xs text-muted-foreground/60 whitespace-nowrap">
-                BlueFX Platform
-              </p>
-            </div>
-            <div className={cn(
-              'shrink-0 transition-all duration-300',
-              isCollapsed ? 'mx-auto' : ''
-            )}>
-              <ThemeToggle />
-            </div>
-          </div>
         </div>
       </div>
     </TooltipProvider>

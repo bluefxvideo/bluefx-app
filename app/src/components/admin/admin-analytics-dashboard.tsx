@@ -1,7 +1,4 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { createClient } from '@/app/supabase/client'
+import { createAdminClient } from '@/app/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 // import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,15 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   BarChart3, 
   Users, 
-  CreditCard, 
   Activity, 
   TrendingUp,
   TrendingDown,
-  DollarSign,
-  Image,
-  Video,
-  Music,
-  FileText,
   Calendar,
   Clock,
   Target,
@@ -43,16 +34,6 @@ interface AnalyticsData {
   creditsUsedToday: number
   topTools: { tool: string; usage: number; credits: number }[]
   
-  // Revenue Metrics (from addons)
-  totalRevenue: number
-  revenueThisMonth: number
-  
-  // Tool-Specific Metrics
-  imagesGenerated: number
-  videosCreated: number
-  musicTracks: number
-  contentPieces: number
-  
   // Time-based Analytics
   dailyUsage: Array<{ date: string; users: number; credits: number }>
   hourlyDistribution: Array<{ hour: number; activity: number }>
@@ -63,7 +44,7 @@ interface AnalyticsData {
  * Following the schema structure for accurate metrics
  */
 async function getAnalyticsData(): Promise<AnalyticsData> {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   
   try {
     // Time ranges for calculations
@@ -153,36 +134,6 @@ async function getAnalyticsData(): Promise<AnalyticsData> {
       .sort((a, b) => b.usage - a.usage)
       .slice(0, 10)
 
-    // Revenue metrics (from addon purchases)
-    const { data: addonPurchases } = await supabase
-      .from('addon_purchases')
-      .select('price_paid, created_at')
-      .eq('payment_status', 'completed')
-
-    const totalRevenue = addonPurchases?.reduce((sum, purchase) => 
-      sum + purchase.price_paid, 0
-    ) || 0
-
-    const revenueThisMonth = addonPurchases?.filter(purchase =>
-      purchase.created_at && new Date(purchase.created_at) >= new Date(monthAgo)
-    ).reduce((sum, purchase) => sum + purchase.price_paid, 0) || 0
-
-    // Tool-specific content counts
-    const { count: imagesGenerated } = await supabase
-      .from('generated_images')
-      .select('*', { count: 'exact', head: true })
-
-    const { count: videosCreated } = await supabase
-      .from('avatar_videos')
-      .select('*', { count: 'exact', head: true })
-
-    const { count: musicTracks } = await supabase
-      .from('music_history')
-      .select('*', { count: 'exact', head: true })
-
-    const { count: contentPieces } = await supabase
-      .from('content_multiplier_history')
-      .select('*', { count: 'exact', head: true })
 
     // Daily usage trends (last 30 days)
     const { data: dailyUsageData } = await supabase
@@ -228,12 +179,6 @@ async function getAnalyticsData(): Promise<AnalyticsData> {
       totalCreditsUsed,
       creditsUsedToday,
       topTools,
-      totalRevenue,
-      revenueThisMonth,
-      imagesGenerated: imagesGenerated || 0,
-      videosCreated: videosCreated || 0,
-      musicTracks: musicTracks || 0,
-      contentPieces: contentPieces || 0,
       dailyUsage,
       hourlyDistribution
     }
@@ -252,12 +197,6 @@ async function getAnalyticsData(): Promise<AnalyticsData> {
       totalCreditsUsed: 0,
       creditsUsedToday: 0,
       topTools: [],
-      totalRevenue: 0,
-      revenueThisMonth: 0,
-      imagesGenerated: 0,
-      videosCreated: 0,
-      musicTracks: 0,
-      contentPieces: 0,
       dailyUsage: [],
       hourlyDistribution: []
     }
@@ -271,35 +210,8 @@ async function getAnalyticsData(): Promise<AnalyticsData> {
  * Follows established design system patterns with card-based layout,
  * consistent gradients, and proper spacing
  */
-export function AdminAnalyticsDashboard() {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const data = await getAnalyticsData()
-        setAnalytics(data)
-      } catch (error) {
-        console.error('Error fetching analytics:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchData()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading analytics...</p>
-        </div>
-      </div>
-    )
-  }
+export async function AdminAnalyticsDashboard() {
+  const analytics = await getAnalyticsData()
 
   if (!analytics) {
     return (
@@ -309,7 +221,7 @@ export function AdminAnalyticsDashboard() {
     )
   }
 
-  // Key performance indicators focused on analytics insights
+  // Key performance indicators focused on core metrics
   const kpis = [
     {
       title: 'User Growth This Week',
@@ -328,50 +240,23 @@ export function AdminAnalyticsDashboard() {
       trend: 'up'
     },
     {
-      title: 'Revenue This Month',
-      value: `$${analytics.revenueThisMonth.toFixed(0)}`,
-      description: `$${analytics.totalRevenue.toFixed(0)} total`,
-      icon: CreditCard,
+      title: 'Active Subscriptions',
+      value: analytics.activeSubscriptions.toLocaleString(),
+      description: `${Math.round(analytics.conversionRate)}% conversion`,
+      icon: Crown,
       gradient: 'from-emerald-500 to-teal-500',
-      trend: analytics.revenueThisMonth > 0 ? 'up' : 'neutral'
+      trend: analytics.activeSubscriptions > 0 ? 'up' : 'neutral'
     },
     {
-      title: 'Avg Credits Per User',
-      value: Math.round(analytics.totalCreditsUsed / Math.max(analytics.weeklyActiveUsers, 1)).toLocaleString(),
-      description: `${analytics.creditsUsedToday.toLocaleString()} today`,
+      title: 'Credits Used Today',
+      value: analytics.creditsUsedToday.toLocaleString(),
+      description: `${analytics.totalCreditsUsed.toLocaleString()} total`,
       icon: Zap,
       gradient: 'from-blue-500 to-cyan-500',
       trend: analytics.creditsUsedToday > 0 ? 'up' : 'neutral'
     }
   ]
 
-  // Tool usage metrics
-  const toolMetrics = [
-    {
-      title: 'Images Generated',
-      value: analytics.imagesGenerated.toLocaleString(),
-      icon: Image,
-      gradient: 'from-blue-500 to-cyan-500'
-    },
-    {
-      title: 'Videos Created',
-      value: analytics.videosCreated.toLocaleString(),
-      icon: Video,
-      gradient: 'from-blue-500 to-cyan-500'
-    },
-    {
-      title: 'Music Tracks',
-      value: analytics.musicTracks.toLocaleString(),
-      icon: Music,
-      gradient: 'from-teal-500 to-blue-500'
-    },
-    {
-      title: 'Content Pieces',
-      value: analytics.contentPieces.toLocaleString(),
-      icon: FileText,
-      gradient: 'from-cyan-500 to-blue-500'
-    }
-  ]
 
   return (
     <div className="space-y-8">
@@ -424,11 +309,9 @@ export function AdminAnalyticsDashboard() {
 
       {/* Analytics Tabs */}
       <Tabs defaultValue="usage" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="usage">Usage Analytics</TabsTrigger>
           <TabsTrigger value="users">User Analytics</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue Analytics</TabsTrigger>
-          <TabsTrigger value="tools">Tool Performance</TabsTrigger>
         </TabsList>
 
         {/* Usage Analytics Tab */}
@@ -602,94 +485,6 @@ export function AdminAnalyticsDashboard() {
           </div>
         </TabsContent>
 
-        {/* Revenue Analytics Tab */}
-        <TabsContent value="revenue" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <DollarSign className="h-5 w-5" />
-                  <span>Total Revenue</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  ${analytics.totalRevenue.toFixed(2)}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  All-time addon sales
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>This Month</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">
-                  ${analytics.revenueThisMonth.toFixed(2)}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Current month revenue
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Conversion Rate</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">
-                  {analytics.conversionRate.toFixed(1)}%
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Users to subscribers
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Tool Performance Tab */}
-        <TabsContent value="tools" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {toolMetrics.map((metric, index) => {
-              const Icon = metric.icon
-              return (
-                <Card key={index} className="text-center">
-                  <CardHeader className="pb-2">
-                    <div className={`mx-auto w-12 h-12 rounded-lg bg-gradient-to-br ${metric.gradient} flex items-center justify-center shadow-sm mb-2`}>
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <CardTitle className="text-sm">{metric.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{metric.value}</div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-
-          {/* Detailed tool performance would go here */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tool Performance Details</CardTitle>
-              <CardDescription>
-                Detailed analytics for each AI tool and service
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Detailed tool performance charts and metrics</p>
-                <p className="text-sm">Coming soon with enhanced visualization</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   )
