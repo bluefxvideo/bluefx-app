@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/app/supabase/server'
+import { createClient, createAdminClient } from '@/app/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { 
@@ -282,7 +282,27 @@ export async function resetPassword(data: FormData | { email: string }): Promise
       return createApiError(validation.error.issues.map(i => i.message).join(', '))
     }
 
-    console.log('🔐 Sending password reset email to:', email)
+    console.log('🔐 Checking if user exists for email:', email)
+    
+    // Use admin client to bypass RLS and check profiles table
+    const adminClient = createAdminClient()
+    const { data: profileData, error: profileError } = await adminClient
+      .from('profiles')
+      .select('id, email')
+      .eq('email', email)
+      .single()
+    
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('❌ Error checking profile:', profileError.message)
+      return createApiError('Unable to process password reset request. Please try again.')
+    }
+
+    if (!profileData) {
+      console.log('❌ No user found with email:', email)
+      return createApiError('No account found with this email address. Please check your email or create a new account.')
+    }
+
+    console.log('✅ User exists in profiles, sending password reset email to:', email)
     
     const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`
     console.log('🔗 Reset redirect URL:', redirectUrl)
@@ -299,16 +319,11 @@ export async function resetPassword(data: FormData | { email: string }): Promise
         return createApiError('Too many password reset attempts. Please wait before trying again.')
       }
       
-      // Handle user not found
-      if (error.message?.includes('not found') || error.message?.includes('user')) {
-        return createApiError('If an account with this email exists, you will receive a password reset link.')
-      }
-      
       return createApiError(error.message)
     }
 
     console.log('✅ Password reset email sent successfully')
-    return createApiSuccess({}, 'Check your email for password reset instructions!')
+    return createApiSuccess({}, 'Password reset email sent! Check your inbox and follow the link to reset your password.')
 
   } catch (error) {
     console.error('💥 Password reset unexpected error:', error)
