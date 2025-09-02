@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -105,7 +106,8 @@ const popularTopics = [
 ];
 
 export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) {
-  const hasContent = topic && topic.trim().length > 0;
+  const router = useRouter();
+  const hasContent = false; // Never show selected topic view - always show popular topics
   const { setActiveTab, clearCurrentProject, setTopic, generateTitles } = useEbookWriterStore();
   
   // Debug logging
@@ -139,14 +141,14 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
   };
 
   const handleTopicSelect = (topicTitle: string) => {
-    // Update topic in store
+    // Update topic in store first
     setTopic(topicTitle);
     
-    // Navigate immediately to title tab
+    // Set active tab
     setActiveTab('title');
-    window.location.href = '/dashboard/ebook-writer/title';
     
-    // Titles will be generated automatically when title tab loads
+    // Navigate to title tab using router
+    router.push('/dashboard/ebook-writer/title');
   };
 
   // Three-dot menu for actions

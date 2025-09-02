@@ -38,7 +38,7 @@ export function ContextualOutput({
     case 'topic':
       return (
         <TopicPreview
-          topic=""
+          topic={topic}
           documents={uploadedDocuments}
         />
       );
