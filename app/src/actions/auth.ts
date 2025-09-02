@@ -292,8 +292,10 @@ export async function resetPassword(data: FormData | { email: string }): Promise
       .eq('email', email)
       .single()
     
+    console.log('🔍 Profile query result:', { profileData, profileError, email })
+    
     if (profileError && profileError.code !== 'PGRST116') {
-      console.error('❌ Error checking profile:', profileError.message)
+      console.error('❌ Error checking profile:', profileError.message, 'Code:', profileError.code)
       return createApiError('Unable to process password reset request. Please try again.')
     }
 
