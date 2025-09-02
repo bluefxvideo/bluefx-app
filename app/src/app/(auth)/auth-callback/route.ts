@@ -107,9 +107,11 @@ export async function GET(request: NextRequest) {
       metadata: user?.user_metadata 
     })
 
-    if (isLegacySetup || type === 'recovery') {
+    // For password reset, redirect to setup page  
+    if (type === 'recovery') {
       console.log('🔄 Password reset detected - redirecting to setup page')
-      return NextResponse.redirect(`${origin}/setup-password?legacy=${isLegacySetup}&from=reset`)
+      // Pass legacy flag in URL for the form to handle restoration logic
+      return NextResponse.redirect(`${origin}/setup-password?from=reset${isLegacySetup ? '&legacy=true' : ''}`)
     }
 
     // Success - redirect to intended destination
