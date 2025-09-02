@@ -59,6 +59,7 @@ export interface UseMusicMachineReturn {
   updatePrompt: (prompt: string) => void;
   updateSettings: (updates: Partial<MusicMachineState>) => void;
   clearGeneration: () => void;
+  updateMusicDuration: (musicId: string, actualDurationSeconds: number) => Promise<void>;
   setState: React.Dispatch<React.SetStateAction<MusicMachineState>>;
 }
 
@@ -78,8 +79,8 @@ export function useMusicMachine() {
   
   const [state, setState] = useState<MusicMachineState>({
     prompt: '',
-    genre: 'pop',
-    mood: 'energetic',
+    genre: '',
+    mood: '',
     duration: 30,
     model_provider: 'lyria-2', // Default to newer Lyria-2 model
     model_version: 'stereo-melody-large',
@@ -125,6 +126,55 @@ export function useMusicMachine() {
     loadModelInfo();
   }, []);
 
+  // ✅ State restoration for seamless navigation (following perfect pattern)
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const checkOngoingGenerations = async () => {
+      try {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        
+        const { data: recentPredictions } = await supabase
+          .from('music_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('created_at', tenMinutesAgo)
+          .in('status', ['pending', 'processing']) // Only restore incomplete generations
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (recentPredictions && recentPredictions.length > 0) {
+          const music = recentPredictions[0];
+          const generationSettings = music.generation_settings as any;
+          
+          console.log('🔄 Restoring music generation state:', music.track_title);
+          
+          // ✅ Restore processing state
+          setState(prev => ({
+            ...prev,
+            isGenerating: true,
+            currentGeneration: {
+              id: music.id,
+              prediction_id: generationSettings?.prediction_id || '',
+              prompt: music.track_title,
+              genre: generationSettings?.genre,
+              mood: generationSettings?.mood,
+              duration: music.duration_seconds || 30,
+              status: music.status,
+              created_at: music.created_at
+            },
+            prompt: music.track_title // Restore the prompt too
+          }));
+        }
+      } catch (error) {
+        console.error('State restoration error:', error);
+      }
+    };
+
+    const timeoutId = setTimeout(checkOngoingGenerations, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [user?.id, supabase]);
+
   // Load music history function (defined early to avoid hoisting issues)
   const loadMusicHistory = useCallback(async () => {
     if (!user) return;
@@ -159,6 +209,151 @@ export function useMusicMachine() {
       loadMusicHistory();
     }
   }, [activeTab, user, loadMusicHistory]);
+
+  // ✅ Real-time subscription for webhook updates (exact thumbnail machine pattern)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const subscription = supabase
+      .channel(`user_${user.id}_updates`)
+      .on('broadcast', { event: 'webhook_update' }, (payload) => {
+        console.log('🎵 Real-time webhook update:', payload);
+        handleWebhookUpdate(payload.payload);
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user?.id, supabase]);
+
+  // Handle webhook updates (matching thumbnail machine pattern exactly)
+  const handleWebhookUpdate = useCallback(async (message: any) => {
+    console.log('🎵 Processing webhook update:', message);
+    
+    // Check if this webhook is for music generation
+    if (message.tool_type !== 'music-machine') {
+      return;
+    }
+    
+    // Check if this is for our current generation
+    if (state.currentGeneration?.prediction_id && message.prediction_id !== state.currentGeneration.prediction_id) {
+      return;
+    }
+    
+    if (message.status === 'succeeded' && message.results?.success) {
+      // Fetch the updated music record from database
+      try {
+        console.log('🎵 Looking for music record with prediction_id:', message.prediction_id);
+        
+        const { data: musicRecord, error } = await supabase
+          .from('music_history')
+          .select('*')
+          .contains('generation_settings', { prediction_id: message.prediction_id })
+          .single();
+        
+        console.log('🎵 Database query result:', { musicRecord, error });
+        
+        if (musicRecord && musicRecord.status === 'completed' && musicRecord.audio_url) {
+          console.log('🎵 Music record found and completed! Updating state...');
+          
+          const musicData = {
+            id: musicRecord.id,
+            track_title: musicRecord.prompt,
+            prompt: musicRecord.prompt,
+            status: 'completed',
+            audio_url: musicRecord.audio_url,
+            duration: musicRecord.duration_seconds,
+            credits_used: musicRecord.credits_used,
+            model_version: musicRecord.generation_settings?.model_version,
+            output_format: musicRecord.generation_settings?.output_format,
+            created_at: musicRecord.created_at,
+          };
+          
+          setState(prev => ({
+            ...prev,
+            isGenerating: false,
+            generatedMusic: [musicData],
+            musicHistory: [musicRecord, ...prev.musicHistory.filter(m => m.id !== musicRecord.id)],
+            currentGeneration: null,
+            error: null,
+          }));
+          
+          // Preload audio to get real duration
+          console.log('🎵 Preloading audio to get real duration...');
+          const audio = new Audio(musicRecord.audio_url);
+          audio.addEventListener('loadedmetadata', () => {
+            if (audio.duration && isFinite(audio.duration)) {
+              const actualDuration = Math.round(audio.duration);
+              console.log(`🎵 Preloaded duration detected: ${actualDuration}s, updating immediately...`);
+              
+              // Update with real duration
+              setState(prev => ({
+                ...prev,
+                generatedMusic: prev.generatedMusic.map(music => 
+                  music.id === musicRecord.id 
+                    ? { ...music, duration: actualDuration }
+                    : music
+                ),
+              }));
+              
+              // Update database in background
+              import('@/actions/database/music-database')
+                .then(({ updateMusicRecord }) => updateMusicRecord(musicRecord.id, {
+                  duration_seconds: actualDuration
+                }))
+                .catch(err => console.error('Failed to update duration in DB:', err));
+            }
+          });
+          
+          toast.success('Music generated successfully!');
+        }
+      } catch (error) {
+        console.error('❌ Error processing successful webhook:', error);
+      }
+    } else if (message.status === 'failed') {
+      setState(prev => ({
+        ...prev,
+        isGenerating: false,
+        error: message.results?.error || 'Music generation failed',
+        generatedMusic: [], // Clear any placeholder results
+        currentGeneration: null,
+      }));
+      
+      toast.error(message.results?.error || 'Music generation failed');
+    }
+  }, [supabase, state.currentGeneration?.prediction_id]);
+
+  // Backup postgres subscription for database changes (music history updates)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const subscription = supabase
+      .channel(`music_history_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'music_history',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newMusic = payload.new as any;
+          // Only add to history if it's not part of current generation
+          if (!state.currentGeneration || 
+              newMusic.generation_settings?.prediction_id !== state.currentGeneration.prediction_id) {
+            setState(prev => ({
+              ...prev,
+              musicHistory: [newMusic, ...prev.musicHistory.filter(m => m.id !== newMusic.id)],
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(subscription);
+  }, [user?.id, supabase, state.currentGeneration?.prediction_id]);
 
   // Update estimated credits based on settings
   useEffect(() => {
@@ -202,8 +397,8 @@ export function useMusicMachine() {
     try {
       const request: MusicMachineRequest = {
         prompt: state.prompt,
-        genre: state.genre,
-        mood: state.mood,
+        genre: state.genre || undefined,
+        mood: state.mood || undefined,
         model_provider: state.model_provider,
         duration: state.model_provider === 'musicgen' ? state.duration : undefined,
         model_version: state.model_provider === 'musicgen' ? state.model_version : undefined,
@@ -215,28 +410,39 @@ export function useMusicMachine() {
       const response = await executeMusicMachine(request);
       
       if (response.success) {
+        // Set immediate result for optimistic UI (like thumbnail machine)
+        const initialMusic = response.generated_music ? {
+          id: response.generated_music.id,
+          track_title: response.generated_music.prompt,
+          status: 'processing',
+          audio_url: null,
+          created_at: response.generated_music.created_at,
+          generation_settings: {
+            prediction_id: response.generated_music.prediction_id,
+            batch_id: response.batch_id,
+            model_provider: state.model_provider,
+            credits_used: response.credits_used
+          }
+        } : null;
+        
         setState(prev => ({
           ...prev,
           currentGeneration: response.generated_music ? {
             id: response.generated_music.id,
             prediction_id: response.generated_music.prediction_id,
             prompt: response.generated_music.prompt,
-            genre: prev.genre,
-            mood: prev.mood,
+            genre: prev.genre || undefined,
+            mood: prev.mood || undefined,
             duration: response.generated_music.duration,
             status: response.generated_music.status,
             created_at: response.generated_music.created_at
           } : null,
+          generatedMusic: initialMusic ? [initialMusic] : [], // Set initial result immediately
           credits: response.remaining_credits,
-          isGenerating: false,
+          // Keep isGenerating: true until real-time event confirms completion
         }));
         
         toast.success('Music generation started! Processing may take 1-2 minutes.');
-        
-        // Start polling for completion using the prediction_id
-        if (response.prediction_id) {
-          startPolling(response.prediction_id);
-        }
       } else {
         throw new Error(response.error || 'Music generation failed');
       }
@@ -249,53 +455,7 @@ export function useMusicMachine() {
       }));
       toast.error('Music generation failed');
     }
-  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model_provider, state.model_version, state.negative_prompt, state.seed]); // startPolling removed to avoid circular dep
-
-  // Start polling for music completion
-  const startPolling = useCallback((predictionId: string) => {
-    const pollInterval = setInterval(async () => {
-      try {
-        // Check if music is completed by refreshing history
-        await loadMusicHistory();
-        
-        // Check if current generation is completed
-        // Look for the music record with matching prediction_id in generation_settings
-        const history = await getMusicHistory(user?.id || '', 10);
-        if (history.success && history.data && history.data.length > 0) {
-          const matchingMusic = history.data.find((music: any) => 
-            music.generation_settings?.prediction_id === predictionId
-          );
-          
-          if (matchingMusic) {
-            if (matchingMusic.status === 'completed') {
-              clearInterval(pollInterval);
-              setState(prev => ({ ...prev, isGenerating: false }));
-              toast.success('Music generated successfully!');
-              
-              // Auto-switch to history tab
-              setActiveTab('history');
-            } else if (matchingMusic.status === 'failed') {
-              clearInterval(pollInterval);
-              setState(prev => ({ 
-                ...prev, 
-                isGenerating: false,
-                error: 'Music generation failed'
-              }));
-              toast.error('Music generation failed');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      }
-    }, 5000); // Poll every 5 seconds
-
-    // Clear polling after 5 minutes
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      setState(prev => ({ ...prev, isGenerating: false }));
-    }, 300000);
-  }, [user, loadMusicHistory]);
+  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model_provider, state.model_version, state.negative_prompt, state.seed]);
 
 
   // Delete music
@@ -385,6 +545,78 @@ export function useMusicMachine() {
     }));
   }, []);
 
+  // Cancel current generation
+  const cancelGeneration = useCallback(async () => {
+    if (!user?.id || !state.currentGeneration) return;
+    
+    try {
+      // Update current generation to cancelled in database
+      const { updateMusicRecord } = await import('@/actions/database/music-database');
+      
+      // Find the music record and mark as cancelled
+      const musicHistory = await import('@/actions/database/music-database').then(m => m.getMusicHistory);
+      const history = await musicHistory(user.id, 10);
+      
+      if (history.success && history.data) {
+        const currentMusic = history.data.find((music: any) => 
+          music.generation_settings?.prediction_id === state.currentGeneration?.prediction_id
+        );
+        
+        if (currentMusic) {
+          await updateMusicRecord(currentMusic.id, {
+            status: 'cancelled'
+          });
+        }
+      }
+      
+      // Reset state
+      setState(prev => ({
+        ...prev,
+        currentGeneration: null,
+        isGenerating: false,
+        error: null,
+      }));
+      
+      toast.info('Music generation cancelled');
+      
+    } catch (error) {
+      console.error('Failed to cancel generation:', error);
+      toast.error('Failed to cancel generation');
+    }
+  }, [user?.id, state.currentGeneration]);
+
+  // Update music duration with actual audio duration
+  const updateMusicDuration = useCallback(async (musicId: string, actualDurationSeconds: number) => {
+    try {
+      console.log(`🎵 Updating duration for ${musicId} to ${actualDurationSeconds}s`);
+      
+      // Update local state immediately
+      setState(prev => ({
+        ...prev,
+        generatedMusic: prev.generatedMusic.map(music => 
+          music.id === musicId 
+            ? { ...music, duration: actualDurationSeconds }
+            : music
+        ),
+        musicHistory: prev.musicHistory.map(music => 
+          music.id === musicId 
+            ? { ...music, duration_seconds: actualDurationSeconds }
+            : music
+        ),
+      }));
+      
+      // Update database in background
+      const { updateMusicRecord } = await import('@/actions/database/music-database');
+      await updateMusicRecord(musicId, {
+        duration_seconds: actualDurationSeconds
+      });
+      
+      console.log(`✅ Duration updated for ${musicId}`);
+    } catch (error) {
+      console.error('❌ Failed to update music duration:', error);
+    }
+  }, []);
+
   return {
     activeTab,
     setActiveTab,
@@ -397,6 +629,8 @@ export function useMusicMachine() {
     updatePrompt,
     updateSettings,
     clearGeneration,
+    cancelGeneration,
+    updateMusicDuration,
     setState,
   };
 }

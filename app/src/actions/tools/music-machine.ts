@@ -99,7 +99,7 @@ export async function executeMusicMachine(
   request: MusicMachineRequest
 ): Promise<MusicMachineResponse> {
   const startTime = Date.now();
-  const batch_id = `music_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const batch_id = crypto.randomUUID(); // ✅ Follow perfect pattern
   let total_credits = 0;
   const warnings: string[] = [];
 
@@ -218,6 +218,8 @@ export async function executeMusicMachine(
     if (modelProvider === 'lyria-2') {
       prediction = await createLyria2Prediction({
         ...(modelInput as Lyria2Input),
+        user_id: authenticatedRequest.user_id,
+        batch_id: batch_id,
         ...(webhookUrl && { webhook: webhookUrl })
       });
     } else {

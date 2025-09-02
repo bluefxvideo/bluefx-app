@@ -151,7 +151,65 @@ export async function createMusicRecord(
 }
 
 /**
- * Update music record with completion data
+ * Update music record with completion data (Admin version for webhooks)
+ */
+export async function updateMusicRecordAdmin(
+  musicId: string,
+  updateData: {
+    status?: string;
+    audio_url?: string | null;
+    final_audio_url?: string | null;
+    progress_percentage?: number | null;
+    quality_rating?: number | null;
+    duration_seconds?: number;
+    generation_settings?: Json;
+  }
+): Promise<MusicDatabaseResponse<GeneratedMusic>> {
+  try {
+    const { createAdminClient } = await import('@/app/supabase/server');
+    const supabase = createAdminClient();
+
+    // Map final_audio_url to audio_url for the database
+    const dbUpdateData = { ...updateData };
+    if (updateData.final_audio_url) {
+      dbUpdateData.audio_url = updateData.final_audio_url;
+      delete dbUpdateData.final_audio_url;
+    }
+
+    const { data, error } = await supabase
+      .from('music_history')
+      .update({
+        ...dbUpdateData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', musicId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Music record update error (admin):', error);
+      return {
+        success: false,
+        error: 'Failed to update music record'
+      };
+    }
+
+    return {
+      success: true,
+      data
+    };
+
+  } catch (error) {
+    console.error('updateMusicRecordAdmin error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Database update failed'
+    };
+  }
+}
+
+/**
+ * Update music record with completion data (User version)
  */
 export async function updateMusicRecord(
   musicId: string,
@@ -162,10 +220,7 @@ export async function updateMusicRecord(
     progress_percentage?: number | null;
     quality_rating?: number | null;
     duration_seconds?: number;
-    model_version?: string;
-    model_provider?: string;
-    generation_time_ms?: number;
-    metadata?: Json;
+    generation_settings?: Json;
   }
 ): Promise<MusicDatabaseResponse<GeneratedMusic>> {
   try {

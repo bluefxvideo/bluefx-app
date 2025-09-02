@@ -331,6 +331,58 @@ export async function uploadVideoToStorage(
 }
 
 /**
+ * Download audio from URL and upload to Supabase Storage
+ * Used for webhook audio processing
+ */
+export async function downloadAndUploadAudio(
+  audioUrl: string,
+  toolType: string = 'music-machine',
+  uniqueId?: string,
+  options: UploadImageOptions = {}
+): Promise<UploadImageResult> {
+  try {
+    console.log(`Downloading audio from: ${audioUrl}`);
+    
+    // Download audio
+    const response = await fetch(audioUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download audio: ${response.status} ${response.statusText}`);
+    }
+    const audioBlob = await response.blob();
+    
+    // Force audio to be treated as mp3 for storage compatibility
+    const audioFormat = 'mp3';
+    const contentType = 'audio/mpeg';
+    
+    // Create a new blob with the correct content type, overriding the original
+    const fixedAudioBlob = new Blob([audioBlob], { type: contentType });
+    
+    // Generate filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '');
+    const defaultFilename = uniqueId 
+      ? `${toolType}_${uniqueId}_${timestamp}.${audioFormat}`
+      : `${toolType}_${timestamp}.${audioFormat}`;
+    
+    // Upload to audio storage
+    return await uploadAudioToStorage(fixedAudioBlob, {
+      bucket: 'audio',
+      folder: 'public',
+      filename: options.filename || defaultFilename,
+      contentType,
+      upsert: true,
+      ...options
+    });
+
+  } catch (error) {
+    console.error('downloadAndUploadAudio error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Audio download/upload failed',
+    };
+  }
+}
+
+/**
  * Upload audio file to Supabase Storage and return public URL
  * Used for music generation input audio conditioning
  */

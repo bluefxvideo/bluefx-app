@@ -15,7 +15,9 @@ import {
   CheckCircle,
   AlertCircle,
   History,
-  Trash2
+  Trash2,
+  X,
+  Loader2
 } from 'lucide-react';
 import { useState } from 'react';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
@@ -46,6 +48,7 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
 
     // If clicking same audio, just stop
     if (playingMusicId === musicId) {
+      handleMusicPlayback(musicId, audioUrl); // This will trigger the stop logic
       return;
     }
 
@@ -56,8 +59,30 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
       audioMap.set(musicId, audio);
       setAudioElements(audioMap);
       
+      console.log(`🎵 Creating audio element for ${musicId}:`, audioUrl);
+      
+      audio.addEventListener('loadedmetadata', () => {
+        console.log(`🎵 Metadata loaded for ${musicId}:`, audio?.duration);
+        if (audio && audio.duration && isFinite(audio.duration)) {
+          const actualDuration = Math.round(audio.duration);
+          console.log(`🎵 Actual audio duration for ${musicId}:`, actualDuration, 'seconds');
+          
+          // Update the music record with correct duration
+          musicMachineState.updateMusicDuration?.(musicId, actualDuration);
+        }
+      });
+      
+      audio.addEventListener('loadeddata', () => {
+        console.log(`🎵 Data loaded for ${musicId}:`, audio?.duration);
+      });
+      
+      audio.addEventListener('canplay', () => {
+        console.log(`🎵 Can play ${musicId}:`, audio?.duration);
+      });
+      
       audio.addEventListener('ended', () => {
-        // Handle audio end
+        // Audio ended - the music machine hook will handle clearing the state
+        // We don't need to call handleMusicPlayback here since it's already handled
       });
       
       audio.addEventListener('error', () => {
@@ -66,6 +91,7 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
     }
 
     // Play new audio
+    audio.play();
     handleMusicPlayback(musicId, audioUrl);
   };
 
@@ -89,34 +115,47 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
         title="Music Results"
         status={isProcessing ? 'loading' : state.generatedMusic.length > 0 ? 'ready' : 'idle'}
         loading={
-          <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center">
-            {/* Custom Music Generation Loading */}
-            <Card className="p-6 w-full max-w-2xl mx-auto">
-              <div className="flex items-center gap-2 mb-4">
-                <Music className="w-5 h-5 text-primary animate-pulse" />
-                <h3 className="font-semibold">Generating Music...</h3>
+          <div className="h-full flex items-center justify-center">
+            {/* Music-specific Processing Card with thumbnail machine visual principles */}
+            <Card className="relative p-6 w-full max-w-2xl mx-auto border border-zinc-700/50 shadow-xl bg-transparent dark:bg-card-content/50">
+              {/* Cancel Button - Top Right */}
+              <Button
+                variant="ghost"
+                size="sm" 
+                onClick={musicMachineState.cancelGeneration}
+                className="absolute top-3 right-3 h-8 w-8 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                title="Cancel Generation"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+              
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+                  <Music className="w-6 h-6 text-white animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Generating Music...</h3>
+                  <p className="text-sm text-muted-foreground">Processing your audio</p>
+                </div>
               </div>
-              <div className="space-y-4">
-                <Card className="p-4 bg-card border-border">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {state.genre || 'AI Generated'}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs animate-pulse">
-                          Processing...
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm text-muted-foreground">
-                        {state.prompt || 'Creating your music...'}
-                      </p>
-                    </div>
-                    <Progress value={33} className="w-full" />
-                  </div>
-                </Card>
+              
+              <div className="space-y-3">
+                <div className="bg-muted/30 border border-zinc-700/30 rounded-lg p-3">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    "{state.prompt || 'Creating your music...'}"
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {state.model_provider === 'lyria-2' ? 'Lyria-2' : 'MusicGen'}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {state.duration}s duration
+                  </Badge>
+                  <div className="flex-1" />
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
               </div>
             </Card>
           </div>
@@ -131,10 +170,10 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
           </div>
         }
       >
-        <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center">
+        <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center justify-center">
           {/* Show placeholder immediately when generation starts - following voice-over pattern */}
           {(isProcessing || state.generatedMusic.length > 0) && (
-            <Card className="p-6 w-full max-w-2xl mx-auto">
+            <Card className="p-6 w-full mx-auto bg-transparent dark:bg-card-content/50">
               {isProcessing && (
                 <div className="flex items-center gap-2 mb-4">
                   <Music className="w-5 h-5 text-primary animate-pulse" />
@@ -150,8 +189,40 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
               )}
               
               <div className="space-y-4">
+                {/* Error card if generation failed */}
+                {state.error && !state.isGenerating && (
+                  <Card className="relative p-6 w-full mx-auto border border-destructive/50 shadow-xl bg-destructive/5">
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-destructive">
+                          <AlertCircle className="w-5 h-5" />
+                          <span className="font-medium">Generation Failed</span>
+                        </div>
+                      </div>
+
+                      {/* Error message */}
+                      <div className="bg-destructive/10 rounded-lg p-3">
+                        <p className="text-sm text-destructive">
+                          {state.error}
+                        </p>
+                      </div>
+
+                      {/* Retry button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.location.reload()}
+                        className="w-full border-destructive/50 hover:bg-destructive/10"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+
                 {/* Show placeholder card immediately when generation starts */}
-                {isProcessing && !state.generatedMusic.length && state.currentGeneration && (
+                {isProcessing && !state.generatedMusic.length && state.currentGeneration && !state.error && (
                   <Card key="generating" className="p-4 bg-card border-border">
                     <div className="space-y-3">
                       {/* Header */}
@@ -210,14 +281,14 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                             <div className="flex-1 h-12 bg-muted/50 rounded-md flex items-center px-3">
                               {/* Animated placeholder waveform */}
                               <div className="flex items-center justify-center w-full gap-1">
-                                {[...Array(60)].map((_, i) => (
+                                {[...Array(120)].map((_, i) => (
                                   <div
                                     key={i}
-                                    className="bg-muted-foreground/20 rounded-full animate-pulse"
+                                    className="bg-primary/40 rounded-full animate-pulse"
                                     style={{
                                       width: '2px',
                                       height: `${Math.random() * 20 + 8}px`,
-                                      animationDelay: `${i * 50}ms`
+                                      animationDelay: `${i * 30}ms`
                                     }}
                                   />
                                 ))}
@@ -277,7 +348,7 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                         </div>
                         <div className="flex items-center gap-1">
                           <FileAudio className="w-4 h-4 text-muted-foreground" />
-                          <span>{music.file_size_mb ? formatFileSize(music.file_size_mb) : 'N/A'}</span>
+                          <span>{music.model_version || music.output_format || 'Audio'}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Zap className="w-4 h-4 text-muted-foreground" />
@@ -309,18 +380,18 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                             <div className="flex-1 h-12 bg-muted/50 rounded-md flex items-center px-3">
                               {/* Waveform visualization */}
                               <div className="flex items-center justify-center w-full gap-1">
-                                {[...Array(60)].map((_, i) => (
+                                {[...Array(120)].map((_, i) => (
                                   <div
                                     key={i}
-                                    className={`bg-muted-foreground/30 rounded-full transition-all duration-75 ${
+                                    className={`bg-primary/40 rounded-full transition-all duration-75 ${
                                       playingMusicId === music.id 
-                                        ? 'animate-pulse bg-primary/50' 
+                                        ? 'animate-pulse bg-primary/70' 
                                         : ''
                                     }`}
                                     style={{
                                       width: '2px',
                                       height: `${Math.random() * 30 + 8}px`,
-                                      animationDelay: `${i * 50}ms`
+                                      animationDelay: `${i * 30}ms`
                                     }}
                                   />
                                 ))}
@@ -430,9 +501,15 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                       </p>
                     </div>
                     
-                    <audio controls className="w-full">
-                      <source src={music.audio_url || ''} type={`audio/${music.output_format || 'mp3'}`} />
-                    </audio>
+                    {music.audio_url ? (
+                      <audio controls className="w-full">
+                        <source src={music.audio_url} type={`audio/${music.generation_settings?.output_format || 'mp3'}`} />
+                      </audio>
+                    ) : (
+                      <div className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-500">
+                        <p>Audio will appear here when generation is complete</p>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}

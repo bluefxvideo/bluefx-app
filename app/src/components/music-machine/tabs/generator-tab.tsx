@@ -91,56 +91,9 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
           </div>
         </StandardStep>
 
+
         <StandardStep
           stepNumber={2}
-          title="Choose Style"
-          description="Select the genre and mood for your music"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Genre</Label>
-              <Select
-                value={state.genre}
-                onValueChange={(genre) => updateSettings({ genre })}
-                disabled={state.isGenerating}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {genres.map((genre: string) => (
-                    <SelectItem key={genre} value={genre}>
-                      {genre.charAt(0).toUpperCase() + genre.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Mood</Label>
-              <Select
-                value={state.mood}
-                onValueChange={(mood) => updateSettings({ mood })}
-                disabled={state.isGenerating}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {moods.map((mood: string) => (
-                    <SelectItem key={mood} value={mood}>
-                      {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </StandardStep>
-
-        <StandardStep
-          stepNumber={3}
           title="Advanced Options"
           description="Optional settings to customize your music generation"
         >
@@ -179,25 +132,9 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
                   Random
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Leave empty for random results, or use same seed for consistent outputs
-              </p>
             </div>
           </div>
         </StandardStep>
-
-        {/* Current Generation Status */}
-        {state.currentGeneration && (
-          <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              <p className="text-sm font-medium">Generating music...</p>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              This may take 1-2 minutes. You&apos;ll be notified when complete.
-            </p>
-          </Card>
-        )}
 
       </TabBody>
 
@@ -210,7 +147,6 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
         >
           {state.isGenerating ? (
             <>
-              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Generating Music...
             </>
           ) : (

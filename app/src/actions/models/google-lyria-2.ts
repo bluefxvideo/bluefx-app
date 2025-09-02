@@ -11,6 +11,8 @@ interface Lyria2Input {
   prompt: string;
   seed?: number;
   negative_prompt?: string;
+  user_id?: string;
+  batch_id?: string;
 }
 
 interface Lyria2Output {

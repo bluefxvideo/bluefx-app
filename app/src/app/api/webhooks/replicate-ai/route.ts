@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { downloadAndUploadImage, downloadAndUploadVideo } from '@/actions/supabase-storage';
+import { downloadAndUploadImage, downloadAndUploadVideo, downloadAndUploadAudio } from '@/actions/supabase-storage';
 import { 
   updatePredictionRecord, 
   updatePredictionRecordAdmin,
@@ -267,6 +267,12 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
   const outputUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
   const isVideoOutput = outputUrl && (outputUrl.includes('.mp4') || outputUrl.includes('.mov') || outputUrl.includes('.webm'));
   
+  // Check for audio output (music generation)
+  const isAudioOutput = outputUrl && (outputUrl.includes('.mp3') || outputUrl.includes('.wav') || outputUrl.includes('.m4a') || outputUrl.includes('.flac'));
+  
+  // Check for music-specific batch_id pattern
+  const isMusicBatchId = analysis.batch_id && analysis.batch_id.startsWith('music_');
+  
   // Check for AI Cinematographer first (more specific)
   if (isVideoOutput ||
       payload.version?.includes('dc91b71f6bafe90e311c8b6e03b9b5c1ce53f932b47e243c3a2ebf90d2d2a12d') || // Stable Video Diffusion
@@ -304,7 +310,8 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
     analysis.expected_outputs = 4; // Typical logo generation batch
     analysis.requires_batch_processing = true;
     analysis.requires_real_time_update = true;
-  } else if (payload.version?.includes('6ad9d07e53bf7e1f5ce9f58b11ad5d5fadc0e2e4b48fa35f47f55ff9b9db6de0') || // Meta MusicGen Stereo Melody
+  } else if (isAudioOutput || isMusicBatchId ||
+            payload.version?.includes('6ad9d07e53bf7e1f5ce9f58b11ad5d5fadc0e2e4b48fa35f47f55ff9b9db6de0') || // Meta MusicGen Stereo Melody
             payload.version?.includes('a7e8d3fd87b875af2897e25dbde07888be1621bf18915b40a1a82543f5c0ab01') || // Google Lyria-2
             (payload.input?.model_version && payload.input?.output_format) ||
             (payload.input?.prompt && (payload.input?.seed !== undefined || payload.input?.negative_prompt))) { // Lyria-2 specific params
@@ -566,7 +573,54 @@ async function handleFailedGeneration(payload: ReplicateWebhookPayload, analysis
   // AI Decision: Intelligent failure analysis and potential recovery
   const failureType = analyzeFailureType(payload.error || '');
   
-  // TODO: Implement intelligent retry logic, user notification, credit refunds
+  // Update database based on tool type
+  try {
+    if (analysis.tool_type === 'music-machine') {
+      // Find and update the music record
+      const { createAdminClient } = await import('@/app/supabase/server');
+      const supabase = createAdminClient();
+      
+      // Query music records with matching prediction_id in generation_settings
+      const { data: musicRecords } = await supabase
+        .from('music_history')
+        .select('id, user_id, generation_settings')
+        .contains('generation_settings', { prediction_id: payload.id });
+      
+      console.log(`🔍 Failed music query: prediction_id=${payload.id}, found=${musicRecords?.length || 0} records`);
+      
+      if (musicRecords && musicRecords.length > 0) {
+        const musicId = musicRecords[0].id;
+        
+        // ✅ Update analysis with user_id for broadcasting  
+        analysis.user_id = musicRecords[0].user_id;
+        
+        const { updateMusicRecordAdmin } = await import('@/actions/database/music-database');
+        
+        await updateMusicRecordAdmin(musicId, {
+          status: 'failed',
+          error_message: payload.error || 'Generation failed',
+          generation_settings: {
+            prediction_id: payload.id,
+            error: payload.error,
+            failure_type: failureType,
+            replicate_status: payload.status,
+            replicate_logs: payload.logs
+          } as Json
+        });
+        
+        console.log(`✅ Updated failed music record ${musicId}`);
+      }
+    } else if (analysis.tool_type === 'thumbnail-machine') {
+      // Handle thumbnail failures (already implemented in the system)
+      console.log(`📸 Thumbnail failure - will be handled by existing logic`);
+    } else if (analysis.tool_type === 'ai-cinematographer') {
+      // Handle video failures (already implemented in the system)
+      console.log(`🎬 Video failure - will be handled by existing logic`);
+    }
+  } catch (error) {
+    console.error('❌ Failed to update database for failed generation:', error);
+  }
+  
   console.log(`🔍 Failure Analysis: Type=${failureType}, Tool=${analysis.tool_type}`);
   
   return {
@@ -811,29 +865,32 @@ async function processMusicGeneration(payload: ReplicateWebhookPayload, analysis
   console.log(`🎵 Music Processing: Music Machine`);
   
   try {
-    // Download and upload music to our storage
-    const uploadResult = await downloadAndUploadImage( // This function works for audio too
+    // Download and upload music to our storage using proper audio handling
+    const uploadResult = await downloadAndUploadAudio(
       audioUrl as string, 
       'music-machine', 
       `music_${payload.id}`
     );
     
     if (uploadResult.success && uploadResult.url) {
-      // Find the music record by prediction_id
-      const { createClient } = await import('@/app/supabase/server');
-      const supabase = await createClient();
+      // Find the music record by prediction_id stored in generation_settings
+      const { createAdminClient } = await import('@/app/supabase/server');
+      const supabase = createAdminClient();
       
-      // Query music records created around the time this prediction was made
+      // Query music records with matching prediction_id in generation_settings
       const { data: musicRecords } = await supabase
         .from('music_history')
-        .select('id, user_id')
-        .eq('user_id', analysis.user_id || 'unknown-user')
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .select('id, user_id, generation_settings')
+        .contains('generation_settings', { prediction_id: payload.id });
+      
+      console.log(`🔍 Music query: prediction_id=${payload.id}, found=${musicRecords?.length || 0} records`);
       
       if (musicRecords && musicRecords.length > 0) {
-        // Update the most recent music record (assuming it's the one for this prediction)
+        // Update the matching music record
         const musicId = musicRecords[0].id;
+        
+        // ✅ Update analysis with user_id for broadcasting
+        analysis.user_id = musicRecords[0].user_id;
         
         // Determine if this is Lyria-2 or MusicGen based on version
         const isLyria2 = payload.version?.includes('a7e8d3fd87b875af2897e25dbde07888be1621bf18915b40a1a82543f5c0ab01');
@@ -841,21 +898,25 @@ async function processMusicGeneration(payload: ReplicateWebhookPayload, analysis
         const modelVersion = isLyria2 ? 'google-lyria-2' : (payload.input?.model_version || 'stereo-melody-large');
         const estimatedCredits = isLyria2 ? 3 : 6; // Lyria-2 is cheaper but no duration control
         
-        await updateMusicRecord(musicId, {
+        const { updateMusicRecordAdmin } = await import('@/actions/database/music-database');
+        // Get actual audio duration from the uploaded file
+        const actualDuration = uploadResult.metadata?.duration || payload.input?.duration || (isLyria2 ? 30 : 8);
+        
+        await updateMusicRecordAdmin(musicId, {
           status: 'completed',
           final_audio_url: uploadResult.url,
-          duration_seconds: payload.input?.duration || (isLyria2 ? 30 : 8), // Lyria-2 generates ~30s, MusicGen respects duration
-          model_version: modelVersion,
-          model_provider: modelProvider,
-          generation_time_ms: payload.metrics?.predict_time || 0,
-          metadata: {
+          duration_seconds: actualDuration,
+          generation_settings: {
             prediction_id: payload.id,
             output_format: payload.input?.output_format || (isLyria2 ? 'audio' : 'wav'),
             prompt: payload.input?.prompt || '',
             model_provider: modelProvider,
+            model_version: modelVersion,
+            generation_time_ms: payload.metrics?.predict_time || 0,
             seed: payload.input?.seed || null,
             negative_prompt: payload.input?.negative_prompt || null,
-            generation_settings: payload.input
+            replicate_input: payload.input,
+            replicate_metrics: payload.metrics
           } as Json
         });
         
