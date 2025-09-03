@@ -207,16 +207,24 @@ export async function generateEbookCover(params: GenerateCoverParams): Promise<G
     const safeTitle = params.title.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 30);
     const fileName = `ebook_cover_${safeTitle}_${timestamp}.jpg`;
     
-    const storedUrl = await downloadAndUploadImage(result.output, fileName);
+    const storageResult = await downloadAndUploadImage(result.output, fileName);
+    
+    if (!storageResult.success || !storageResult.url) {
+      throw new Error('Failed to upload cover image to storage');
+    }
     
     // Deduct credits
     await deductCredits(params.userId, requiredCredits, 'ebook_cover_generation');
     
-    console.log('✅ Cover generated successfully:', storedUrl);
+    console.log('✅ Cover generated successfully:', {
+      success: true,
+      url: storageResult.url,
+      path: storageResult.path
+    });
     
     return {
       success: true,
-      coverUrl: storedUrl,
+      coverUrl: storageResult.url,
       creditsUsed: requiredCredits
     };
     

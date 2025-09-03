@@ -11,7 +11,8 @@ import {
   Sparkles,
   RefreshCw,
   ZoomIn,
-  ExternalLink
+  ExternalLink,
+  Layout
 } from 'lucide-react';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
@@ -24,25 +25,28 @@ interface CoverOutputProps {
 }
 
 export function CoverOutput({ ebook }: CoverOutputProps) {
-  const { generation_progress } = useEbookWriterStore();
+  const { generation_progress, current_ebook } = useEbookWriterStore();
   const [imageLoading, setImageLoading] = useState(false);
   
+  // Use current_ebook from store if ebook prop doesn't have cover yet
+  const coverData = ebook?.cover || current_ebook?.cover;
+  
   const handleDownload = async () => {
-    if (!ebook?.cover?.image_url) return;
+    if (!coverData?.image_url) return;
     
     try {
       // Open image in new tab for download
-      window.open(ebook.cover.image_url, '_blank');
+      window.open(coverData.image_url, '_blank');
     } catch (error) {
       console.error('Error downloading cover:', error);
     }
   };
   
   const handleViewFullSize = () => {
-    if (!ebook?.cover?.image_url) {
+    if (!coverData?.image_url) {
       return;
     }
-    window.open(ebook.cover.image_url, '_blank');
+    window.open(coverData.image_url, '_blank');
   };
   
   // Loading state during generation
@@ -65,7 +69,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
   }
   
   // No cover generated yet
-  if (!ebook?.cover) {
+  if (!coverData) {
     return (
       <OutputPanelShell
         title="Cover Design"
@@ -92,7 +96,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
           <div>
             <h2 className="text-lg font-semibold">Cover Preview</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {ebook.title || 'Untitled Book'}
+              {ebook?.title || current_ebook?.title || 'Untitled Book'}
             </p>
           </div>
           <SharedActionsMenu />
@@ -112,7 +116,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
                   </div>
                 )}
                 <img
-                  src={ebook.cover.image_url}
+                  src={coverData.image_url}
                   alt="Book Cover"
                   className={`w-full h-full object-contain ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity`}
                   onLoad={() => setImageLoading(false)}
@@ -151,18 +155,18 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Title</span>
-                  <span className="text-sm font-medium">{ebook.title}</span>
+                  <span className="text-sm font-medium">{ebook?.title || current_ebook?.title}</span>
                 </div>
-                {ebook.cover.author_name && (
+                {coverData.author_name && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Author</span>
-                    <span className="text-sm font-medium">{ebook.cover.author_name}</span>
+                    <span className="text-sm font-medium">{coverData.author_name}</span>
                   </div>
                 )}
-                {ebook.cover.subtitle && (
+                {coverData.subtitle && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Subtitle</span>
-                    <span className="text-sm font-medium">{ebook.cover.subtitle}</span>
+                    <span className="text-sm font-medium">{coverData.subtitle}</span>
                   </div>
                 )}
               </div>
@@ -172,14 +176,14 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
                 <div className="flex gap-2 flex-wrap">
                   <Badge variant="secondary">
                     <Layout className="h-3 w-3 mr-1" />
-                    {ebook.cover.style}
+                    {coverData.style}
                   </Badge>
                   <Badge variant="secondary">
                     <Image className="h-3 w-3 mr-1" />
-                    {ebook.cover.color_scheme}
+                    {coverData.color_scheme}
                   </Badge>
                   <Badge variant="secondary">
-                    {ebook.cover.font_style}
+                    {coverData.font_style}
                   </Badge>
                 </div>
               </div>
@@ -188,7 +192,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
               <div className="pt-3 border-t">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Generated</span>
-                  <span>{new Date(ebook.cover.generated_at).toLocaleString()}</span>
+                  <span>{new Date(coverData.generated_at || Date.now()).toLocaleString()}</span>
                 </div>
               </div>
             </CardContent>

@@ -125,8 +125,6 @@ const toolCategories = [
         icon: BookOpen,
         gradient: "from-emerald-500 to-teal-500",
         description: "Write complete ebooks with AI",
-        disabled: true,
-        comingSoon: "Under construction - Ready on September 3rd",
       },
       {
         name: "Content Multiplier",

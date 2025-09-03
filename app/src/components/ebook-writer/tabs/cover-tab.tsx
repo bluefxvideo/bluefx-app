@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Image, ArrowLeft, ArrowRight, Loader2, Palette, Type, Layout, RefreshCw, Sparkles, SkipForward } from 'lucide-react';
+import { Image, ArrowLeft, ArrowRight, Loader2, Palette, RefreshCw, Sparkles, SkipForward } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
