@@ -54,24 +54,31 @@ export async function POST(request: NextRequest) {
   }]) as { amount?: string }[]
   const receipt = (payload.receipt || payload.order_id || payload.transaction_id) as string
   
-  // Filter by product ID - only process webhooks for our specific product
-  const targetProductId = process.env.CLICKBANK_PRODUCT_ID || '53'
+  // Filter by product ID - accept both monthly (53) and lifetime (55) products
+  const monthlyProductId = process.env.CLICKBANK_PRODUCT_ID || '53'
+  const lifetimeProductId = '55'
+  const targetProductIds = [monthlyProductId, lifetimeProductId]
   
-  // Parse lineItemData to check product numbers
+  // Parse lineItemData to check product numbers and detect lifetime
   let hasTargetProduct = false
+  let isLifetimeProduct = false
   if (payload.lineItemData) {
     try {
       const lineItemData = JSON.parse((payload.lineItemData as string).replace(/'/g, '"'))
-      hasTargetProduct = lineItemData.some((item: { itemNo?: string }) => item.itemNo === targetProductId)
+      hasTargetProduct = lineItemData.some((item: { itemNo?: string }) => targetProductIds.includes(item.itemNo || ''))
+      isLifetimeProduct = lineItemData.some((item: { itemNo?: string }) => item.itemNo === lifetimeProductId)
     } catch {
       // Fallback: check if product ID appears anywhere in the raw string
-      hasTargetProduct = (payload.lineItemData as string).includes(`'itemNo': '${targetProductId}'`)
+      hasTargetProduct = targetProductIds.some(id => 
+        (payload.lineItemData as string).includes(`'itemNo': '${id}'`)
+      )
+      isLifetimeProduct = (payload.lineItemData as string).includes(`'itemNo': '${lifetimeProductId}'`)
     }
   }
   
-  // If this webhook is not for our target product, acknowledge but don't process
+  // If this webhook is not for our target products, acknowledge but don't process
   if (!hasTargetProduct) {
-    console.log(`ClickBank webhook for different product (not ${targetProductId}), skipping processing`)
+    console.log(`ClickBank webhook for different product (not ${targetProductIds.join(' or ')}), skipping processing`)
     return NextResponse.json({ message: 'Product not targeted for processing' }, { status: 200 })
   }
   
@@ -80,7 +87,8 @@ export async function POST(request: NextRequest) {
     transactionType,
     customer,
     receipt,
-    targetProductId,
+    targetProductIds,
+    isLifetimeProduct,
     rawPayload: payload
   })
 
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest) {
     switch (transactionType) {
       case 'SALE':
       case 'TEST_SALE':  // Handle test transactions
-        await handleClickBankSale(customer, lineItems, receipt)
+        await handleClickBankSale(customer, lineItems, receipt, isLifetimeProduct)
         break
       case 'REFUND':
       case 'TEST_REFUND':
@@ -114,7 +122,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string) {
+async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false) {
   const supabase = createAdminClient()
   
   // Extract customer information
@@ -148,78 +156,195 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       payload: { customer, lineItems, receipt }
     })
 
-  // Calculate total amount from line items
+  // Calculate total amount and determine plan type based on product ID
   const totalAmount = lineItems.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
-  const isTrial = totalAmount <= 1.00
-  const planType = isTrial ? 'starter' : 'pro'
+  const isLifetime = isLifetimeProduct // Use product ID detection (product 55)
+  const planType = 'pro' // Everyone gets pro plan like FastSpring
+  const creditsAllocation = 600 // Everyone gets 600 credits like FastSpring
 
-  // Create user account using admin client
-  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    user_metadata: {
-      firstName,
-      lastName,
-      payment_processor: 'clickbank',
-      receipt: receipt,
-      plan_type: planType,
-      email_verified: true,
-      phone_verified: false
-    },
-    app_metadata: {
-      provider: 'email',
-      providers: ['email']
+  console.log(`ClickBank sale: ${email} -> ${planType} (${creditsAllocation} credits) - ${isLifetime ? 'LIFETIME' : 'MONTHLY'} - Amount: $${totalAmount} - Product: ${isLifetimeProduct ? '55 (Lifetime)' : '53 (Monthly)'}`)
+
+  // Check for existing user to decide upgrade vs new user
+  const { data: authUsers } = await supabase.auth.admin.listUsers()
+  const existingUser = authUsers.users.find(u => u.email === email)
+  let userId: string
+
+  if (existingUser) {
+    userId = existingUser.id
+    console.log(`Found existing ClickBank user: ${userId}`)
+    
+    // Check if profile exists, create if missing
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+    
+    if (!profileData) {
+      console.log(`Creating missing profile for existing user ${userId}`)
+      const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+      await supabase.from('profiles').insert({
+        id: userId,
+        email: email,
+        username: cleanUsername,
+        full_name: `${firstName} ${lastName}`.trim(),
+        bio: null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
     }
-  })
 
-  if (authError) {
-    console.error('Failed to create ClickBank user:', authError)
-    throw new Error('User creation failed')
+    // Check for existing subscription to decide upgrade vs new subscription
+    const { data: existingSubscription } = await supabase
+      .from('user_subscriptions')
+      .select('id, plan_type')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single()
+
+    if (existingSubscription && isLifetime) {
+      console.log(`Upgrading existing subscription to lifetime for user ${userId}`)
+      
+      // Update existing subscription to lifetime terms (50 years)
+      const currentPeriodStart = new Date()
+      const currentPeriodEnd = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000) // 50 years
+      
+      const { error: subscriptionUpdateError } = await supabase
+        .from('user_subscriptions')
+        .update({
+          current_period_start: currentPeriodStart.toISOString(),
+          current_period_end: currentPeriodEnd.toISOString(),
+          credits_per_month: creditsAllocation,
+          max_concurrent_jobs: 5, // Pro plan gets 5 jobs
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingSubscription.id)
+
+      if (subscriptionUpdateError) {
+        console.error('ClickBank subscription update error:', subscriptionUpdateError)
+        throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
+      }
+
+      // Update existing credits with new lifetime period
+      const { error: creditsUpdateError } = await supabase
+        .from('user_credits')
+        .update({
+          total_credits: creditsAllocation,
+          period_start: currentPeriodStart.toISOString(),
+          period_end: currentPeriodEnd.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+
+      if (creditsUpdateError) {
+        console.error('ClickBank credits update error:', creditsUpdateError)
+        throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
+      }
+
+      console.log(`✅ Upgraded subscription to lifetime for user ${email} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
+      return // Exit early - upgrade complete
+    }
+  } else {
+    // Create new user account using admin client
+    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: {
+        firstName,
+        lastName,
+        payment_processor: 'clickbank',
+        receipt: receipt,
+        plan_type: planType,
+        email_verified: true,
+        phone_verified: false
+      },
+      app_metadata: {
+        provider: 'email',
+        providers: ['email']
+      }
+    })
+
+    if (authError) {
+      console.error('Failed to create ClickBank user:', authError)
+      throw new Error('User creation failed')
+    }
+
+    userId = authUser.user.id
+    console.log(`Created new ClickBank user: ${userId}`)
+
+    // Create profile with a clean username (remove hyphens/special chars)
+    const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+    await supabase.from('profiles').insert({
+      id: userId,
+      email: email,
+      username: cleanUsername,
+      full_name: `${firstName} ${lastName}`.trim(),
+      bio: null,
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+
+    // Send password setup email
+    await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/setup-password`
+      }
+    })
   }
 
-  // Create profile with a clean username (remove hyphens/special chars)
-  const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-  await supabase.from('profiles').insert({
-    id: authUser.user.id,
-    email: email,  // Add email field to profiles
-    username: cleanUsername,
-    full_name: `${firstName} ${lastName}`,
-    bio: null,
-    avatar_url: null
-  })
-
-  // Create subscription
+  // Create subscription (following admin pattern) - set correct period based on plan type
   const currentPeriodStart = new Date()
-  const currentPeriodEnd = new Date()
-  currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1)
+  const periodDays = isLifetime ? 50 * 365 : 30 // 50 years for lifetime, 30 days for monthly
+  const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
 
-  await supabase.from('user_subscriptions').insert({
-    user_id: authUser.user.id,
+  const subscriptionData = {
+    user_id: userId,
     plan_type: planType,
     status: 'active',
     current_period_start: currentPeriodStart.toISOString(),
     current_period_end: currentPeriodEnd.toISOString(),
-    credits_per_month: isTrial ? 100 : 1000,
-    max_concurrent_jobs: isTrial ? 1 : 3
-  })
+    credits_per_month: creditsAllocation,
+    max_concurrent_jobs: 5, // Pro plan gets 5 jobs like admin
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
 
-  // Allocate credits
-  await supabase.from('user_credits').insert({
-    user_id: authUser.user.id,
-    total_credits: 600,
-    used_credits: 0,
-    period_start: currentPeriodStart.toISOString(),
-    period_end: currentPeriodEnd.toISOString()
-  })
+  const { error: subscriptionError } = await supabase
+    .from('user_subscriptions')
+    .insert(subscriptionData)
 
-  // Send password setup email
-  await supabase.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/setup-password`
-    }
-  })
+  if (subscriptionError) {
+    console.error('ClickBank subscription creation error:', subscriptionError)
+    throw new Error(`Failed to create subscription: ${subscriptionError.message}`)
+  } else {
+    console.log(`✅ Created ClickBank subscription for user ${email}`)
+  }
+
+  // Create credits (following admin pattern)
+  const { error: creditsError } = await supabase
+    .from('user_credits')
+    .insert({
+      user_id: userId,
+      total_credits: creditsAllocation,
+      used_credits: 0,
+      period_start: currentPeriodStart.toISOString(),
+      period_end: currentPeriodEnd.toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+
+  if (creditsError) {
+    console.error('ClickBank credits creation error:', creditsError)
+    throw new Error(`Failed to create credits: ${creditsError.message}`)
+  } else {
+    console.log(`✅ Created ${creditsAllocation} credits for user ${email}`)
+  }
+
+  console.log(`ClickBank subscription processed successfully for ${email}`)
 }
 
 async function handleClickBankRefund(customer: { email?: string }) {
@@ -304,13 +429,12 @@ async function handleClickBankRenewal(customer: { email?: string }, lineItems: {
 
   // Calculate renewal amount and plan
   const totalAmount = lineItems.reduce((sum, item) => sum + parseFloat(item.amount || '37.00'), 0)
-  const planType = totalAmount <= 1.00 ? 'starter' : 'pro'
-  const creditsAllocation = planType === 'starter' ? 100 : 600  // Keep consistent with initial allocation
+  const planType = 'pro' // Everyone gets pro plan like FastSpring
+  const creditsAllocation = 600 // Everyone gets 600 credits like FastSpring
 
-  // Update subscription period
+  // Update subscription period - using proper date calculation
   const currentPeriodStart = new Date()
-  const currentPeriodEnd = new Date()
-  currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1)
+  const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
   await supabase
     .from('user_subscriptions')
