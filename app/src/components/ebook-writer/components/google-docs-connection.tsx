@@ -91,7 +91,7 @@ export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
     setExportResult(null);
     
     try {
-      const result = await initiateOAuthFlow('google_docs', userId);
+      const result = await initiateOAuthFlow('google' as any, userId);
       
       if (result.success && result.authUrl) {
         // Open OAuth flow in new window

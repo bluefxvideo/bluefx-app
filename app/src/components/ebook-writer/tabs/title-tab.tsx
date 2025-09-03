@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Type, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Type, ArrowRight, ArrowLeft, Edit2 } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
+import { SharedEbookEmptyState } from '../components/shared-empty-state';
+import { ProgressIndicator } from '../components/progress-indicator';
 import type { TitleOptions } from '../store/ebook-writer-store';
 
 interface TitleTabProps {
@@ -88,21 +90,11 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
     return (
       <TabContentWrapper>
         <TabBody>
-          <div className="h-full flex items-center justify-center">
-            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
-              <CardContent className="pt-6">
-                <Type className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-medium mb-2">No Topic Selected</h3>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setActiveTab('topic')}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Topic
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <SharedEbookEmptyState
+            icon={Type}
+            title="No Topic Selected"
+            backTo="topic"
+          />
         </TabBody>
       </TabContentWrapper>
     );
@@ -112,24 +104,47 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
     <TabContentWrapper>
       <TabBody>
         <div className="space-y-6">
-          {/* Selected Topic Display - This is ALL we want in the left panel */}
-          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Type className="h-5 w-5 text-blue-500" />
-                Selected Topic
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {topic}
-              </p>
-            </CardContent>
-          </Card>
+          {/* Custom Title Input */}
+          <StandardStep
+            stepNumber={1}
+            title="Create Custom Title (Optional)"
+            description="Enter your own title or select from AI-generated options"
+          >
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="custom-title">Custom Title</Label>
+                <Input
+                  id="custom-title"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  placeholder="Enter your own title..."
+                  className="text-base"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="use-custom"
+                  checked={useCustom}
+                  onChange={(e) => {
+                    setUseCustom(e.target.checked);
+                    if (e.target.checked && customTitle.trim()) {
+                      updateCustomTitle(customTitle.trim());
+                    }
+                  }}
+                  className="rounded"
+                />
+                <Label htmlFor="use-custom" className="text-sm">
+                  Use custom title instead of AI-generated options
+                </Label>
+              </div>
+            </div>
+          </StandardStep>
         </div>
       </TabBody>
       
       <TabFooter>
+        <ProgressIndicator currentStep="title" className="mb-4" />
         <div className="flex gap-2">
           <Button 
             variant="outline" 

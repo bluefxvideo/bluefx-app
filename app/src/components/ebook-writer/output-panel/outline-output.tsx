@@ -26,6 +26,7 @@ import {
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
+import { SharedActionsMenu } from '../components/shared-actions-menu';
 import type { EbookChapter, EbookSubsection, EbookMetadata } from '../store/ebook-writer-store';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 
@@ -36,13 +37,11 @@ interface OutlineOutputProps {
 
 export function OutlineOutput({ ebook, uploadedDocuments }: OutlineOutputProps) {
   const { 
-    clearCurrentProject,
     updateChapter,
     addSubsection,
     removeSubsection,
     reorderChapters,
     removeChapter,
-    setActiveTab,
     generation_progress
   } = useEbookWriterStore();
   
@@ -51,23 +50,6 @@ export function OutlineOutput({ ebook, uploadedDocuments }: OutlineOutputProps) 
   const [editingDescription, setEditingDescription] = useState<string | null>(null);
   const [collapsedChapters, setCollapsedChapters] = useState<Set<string>>(new Set());
 
-  const handleStartOver = async () => {
-    if (confirm('Are you sure you want to start over? This will clear all progress and delete your session.')) {
-      try {
-        const { createClient } = await import('@/app/supabase/client');
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          await clearCurrentProject(user.id);
-          setActiveTab('topic');
-          window.location.href = '/dashboard/ebook-writer';
-        }
-      } catch (error) {
-        console.error('Error starting over:', error);
-      }
-    }
-  };
 
   const handleChapterEdit = (chapterId: string, newTitle: string) => {
     updateChapter(chapterId, { title: newTitle });
@@ -122,21 +104,7 @@ export function OutlineOutput({ ebook, uploadedDocuments }: OutlineOutputProps) 
       <OutputPanelShell
         title="Chapter Outline"
         subtitle="Your AI-generated chapter structure"
-        actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleStartOver} className="text-red-600">
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Start Over
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        }
+        actions={<SharedActionsMenu />}
       >
         <UnifiedEmptyState
           icon={List}
@@ -160,19 +128,7 @@ export function OutlineOutput({ ebook, uploadedDocuments }: OutlineOutputProps) 
             <h2 className="text-lg font-semibold">Chapter Outline</h2>
             <p className="text-sm text-muted-foreground">{totalChapters} chapters • ~{totalWords.toLocaleString()} words</p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleStartOver} className="text-red-600">
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Start Over
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <SharedActionsMenu />
         </div>
       </div>
       

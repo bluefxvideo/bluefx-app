@@ -9,7 +9,7 @@ import { devtools, persist } from 'zustand/middleware';
  */
 
 // Platform Types
-export type SocialPlatform = 'twitter' | 'x' | 'instagram' | 'tiktok' | 'linkedin' | 'facebook' | 'youtube' | 'google_docs';
+export type SocialPlatform = 'twitter' | 'x' | 'instagram' | 'tiktok' | 'linkedin' | 'facebook' | 'youtube' | 'google_docs' | 'google';
 
 export interface PlatformConfig {
   name: string;

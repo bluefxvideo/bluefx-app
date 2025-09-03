@@ -5,10 +5,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { List, ArrowLeft, ArrowRight, Plus, Loader2 } from 'lucide-react';
+import { List, ArrowLeft, ArrowRight, Plus, Loader2, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
+import { SharedEbookEmptyState } from '../components/shared-empty-state';
+import { ProgressIndicator } from '../components/progress-indicator';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import type { EbookMetadata } from '../store/ebook-writer-store';
 import { useRouter } from 'next/navigation';
 
@@ -53,10 +60,9 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
   const [preferences, setPreferences] = useState({
     word_count_preference: 'medium',
     complexity: 'intermediate',
-    writing_tone: 'professional',
-    include_images: true,
-    include_ctas: true
+    writing_tone: 'professional'
   });
+  const [showSettings, setShowSettings] = useState(false);
   const [hasGeneratedOutline, setHasGeneratedOutline] = useState(false);
   
   // Auto-generate outline when tab is opened for the first time
@@ -89,24 +95,12 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
     return (
       <TabContentWrapper>
         <TabBody>
-          <div className="h-full flex items-center justify-center">
-            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
-              <CardContent className="pt-6">
-                <List className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-medium mb-2">No Title Selected</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Please select a title first to generate an outline.
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setActiveTab('title')}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Title
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <SharedEbookEmptyState
+            icon={List}
+            title="No Title Selected"
+            message="Please select a title first to generate an outline."
+            backTo="title"
+          />
         </TabBody>
       </TabContentWrapper>
     );
@@ -161,8 +155,23 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
               </div>
             )}
             
-            {/* Settings Panel - Always visible */}
-            <div className="space-y-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            {/* Collapsible Settings Panel */}
+            <Collapsible open={showSettings} onOpenChange={setShowSettings}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    <span>Outline Settings</span>
+                  </div>
+                  {showSettings ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="space-y-6 p-4 mt-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 {/* Word Count */}
                 <div>
                   <Label className="text-sm font-medium mb-3 block">Words per Chapter</Label>
@@ -226,38 +235,15 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
                   </div>
                 </div>
                 
-                {/* Toggles */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="include-images" className="text-sm font-medium">Include Images</Label>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Add relevant images to chapters</p>
-                    </div>
-                    <Switch
-                      id="include-images"
-                      checked={preferences.include_images}
-                      onCheckedChange={(checked) => setPreferences(prev => ({ ...prev, include_images: checked }))}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="include-ctas" className="text-sm font-medium">Include CTAs</Label>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Add call-to-actions for products</p>
-                    </div>
-                    <Switch
-                      id="include-ctas"
-                      checked={preferences.include_ctas}
-                      onCheckedChange={(checked) => setPreferences(prev => ({ ...prev, include_ctas: checked }))}
-                    />
-                  </div>
                 </div>
-              </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </StandardStep>
       </TabBody>
       
       <TabFooter>
+        <ProgressIndicator currentStep="outline" className="mb-4" />
         <div className="flex gap-2">
           <Button 
             variant="outline" 

@@ -19,7 +19,10 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
+import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
+import { SharedEbookEmptyState } from '../components/shared-empty-state';
+import { ProgressIndicator } from '../components/progress-indicator';
 import type { EbookMetadata, EbookChapter } from '../store/ebook-writer-store';
 
 interface ContentTabProps {
@@ -60,27 +63,12 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
     return (
       <TabContentWrapper>
         <TabBody>
-          <div className="h-full flex items-center justify-center">
-            <Card className="max-w-md text-center bg-gray-50 dark:bg-gray-800/30">
-              <CardContent className="pt-6">
-                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-medium mb-2">No Outline Created</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Please create an outline first before generating content.
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setActiveTab('outline');
-                    router.push('/dashboard/ebook-writer/outline');
-                  }}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Outline
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <SharedEbookEmptyState
+            icon={BookOpen}
+            title="No Outline Created"
+            message="Please create an outline first before generating content."
+            backTo="outline"
+          />
         </TabBody>
       </TabContentWrapper>
     );
@@ -174,17 +162,14 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
   return (
     <TabContentWrapper>
       <TabBody>
-        <div className="space-y-4">
-          {/* Header */}
-          <div>
-            <h2 className="text-xl font-bold mb-2">Generate Content</h2>
-            <p className="text-sm text-muted-foreground">
-              Generate and edit content for each chapter
-            </p>
-          </div>
-
-          {/* Progress and Actions */}
-          <Card className="p-4 bg-muted/30">
+        <StandardStep
+          stepNumber={1}
+          title="Generate Chapter Content"
+          description={`Ebook: ${ebook.title || 'Untitled'}`}
+        >
+          <div className="space-y-4">
+            {/* Progress and Actions */}
+            <Card className="p-4 bg-muted/30">
             <div className="space-y-4">
               {/* Progress Bar */}
               <div>
@@ -376,11 +361,13 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
                 </Card>
               );
             })}
+            </div>
           </div>
-        </div>
+        </StandardStep>
       </TabBody>
 
       <TabFooter>
+        <ProgressIndicator currentStep="content" className="mb-4" />
         <div className="flex gap-2">
           <Button 
             variant="outline" 

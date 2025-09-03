@@ -13,6 +13,7 @@ import { Type, BookOpen, Sparkles, ArrowLeft, MoreVertical, RotateCcw, FileText 
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
+import { SharedActionsMenu } from '../components/shared-actions-menu';
 import type { TitleOptions, EbookMetadata } from '../store/ebook-writer-store';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 
@@ -25,45 +26,7 @@ interface TitleOutputProps {
 }
 
 export function TitleOutput({ titleOptions, isGenerating, topic = '', ebook, uploadedDocuments = [] }: TitleOutputProps) {
-  const { setActiveTab, clearCurrentProject, selectTitle, setCustomTitle } = useEbookWriterStore();
-
-  const handleStartOver = async () => {
-    if (confirm('Are you sure you want to start over? This will clear all progress and delete your session.')) {
-      try {
-        // Get user ID from Supabase
-        const { createClient } = await import('@/app/supabase/client');
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          await clearCurrentProject(user.id);
-          setActiveTab('topic');
-          window.location.href = '/dashboard/ebook-writer';
-        } else {
-          console.warn('No user found for clearing session');
-        }
-      } catch (error) {
-        console.error('Error starting over:', error);
-      }
-    }
-  };
-
-  // Three-dot menu for actions
-  const actionsMenu = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleStartOver} className="text-destructive">
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Start Over
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  const { selectTitle, setCustomTitle } = useEbookWriterStore();
   const handleTitleSelect = (titleIndex: number) => {
     selectTitle(titleIndex);
     // Could navigate to next step here
@@ -95,7 +58,7 @@ export function TitleOutput({ titleOptions, isGenerating, topic = '', ebook, upl
       <OutputPanelShell 
         title="Title Options" 
         status="ready"
-        actions={actionsMenu}
+        actions={<SharedActionsMenu />}
       >
         <div className="p-4 space-y-2">
           <div className="space-y-2">

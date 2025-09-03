@@ -107,17 +107,7 @@ const popularTopics = [
 
 export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) {
   const router = useRouter();
-  const hasContent = false; // Never show selected topic view - always show popular topics
   const { setActiveTab, clearCurrentProject, setTopic, generateTitles } = useEbookWriterStore();
-  
-  // Debug logging
-  console.log('TopicPreview Debug:', { 
-    topic, 
-    topicLength: topic?.length, 
-    trimmedLength: topic?.trim().length, 
-    hasContent,
-    typeof: typeof topic
-  });
 
   const handleStartOver = async () => {
     if (confirm('Are you sure you want to start over? This will clear all progress and delete your session.')) {
@@ -151,31 +141,11 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
     router.push('/dashboard/ebook-writer/title');
   };
 
-  // Three-dot menu for actions
-  const actionsMenu = hasContent ? (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleStartOver} className="text-destructive">
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Start Over
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  ) : null;
-  
-  // Show popular topics when no topic selected
-  console.log('Showing popular topics check:', !hasContent, 'hasContent:', hasContent);
-  if (!hasContent) {
-    return (
-      <OutputPanelShell 
-        title="Popular Topics" 
-        status="ready"
-      >
+  return (
+    <OutputPanelShell 
+      title="Popular Topics" 
+      status="ready"
+    >
         <div className="p-4 space-y-2">
           <div className="space-y-2">
             {popularTopics.map((topic, index) => (
@@ -200,36 +170,4 @@ export function TopicPreview({ topic = '', documents = [] }: TopicPreviewProps) 
         </div>
       </OutputPanelShell>
     );
-  }
-  
-  return (
-    <OutputPanelShell title="Ebook Preview" status="ready" actions={actionsMenu}>
-      <div className="space-y-4 p-4">
-        {/* Topic Card */}
-        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <BookOpen className="h-5 w-5 text-blue-500" />
-              Topic
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              {topic}
-            </p>
-            {documents.length > 0 && (
-              <div className="mt-3 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {documents.length} reference document{documents.length > 1 ? 's' : ''} uploaded
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-
-      </div>
-    </OutputPanelShell>
-  );
 }

@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 import { saveEbookSession, loadEbookSession } from '@/actions/database/ebook-writer-database';
+import { generateEbookCover } from '@/actions/tools/ebook-cover-generator';
 
 /**
  * Ebook Writer Zustand Store
@@ -530,19 +531,43 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               ...state.generation_progress,
               is_generating: true,
               current_step: 'cover',
+              error_message: undefined,
             }
           }));
           
           try {
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            // Get user ID for credits check
+            const { createClient } = await import('@/app/supabase/client');
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
             
-            const mockCover: EbookCover = {
+            if (!user) {
+              throw new Error('User not authenticated');
+            }
+            
+            // Call the real cover generation API
+            const result = await generateEbookCover({
+              title: state.current_ebook.title || state.current_ebook.topic,
+              subtitle: preferences.subtitle,
+              authorName: preferences.author_name,
+              topic: state.current_ebook.topic,
+              style: preferences.style || 'minimal',
+              colorScheme: preferences.color_scheme || 'blue',
+              fontStyle: preferences.font_style || 'sans-serif',
+              userId: user.id
+            });
+            
+            if (!result.success || !result.coverUrl) {
+              throw new Error(result.error || 'Failed to generate cover');
+            }
+            
+            const newCover: EbookCover = {
               id: `cover_${Date.now()}`,
-              image_url: 'https://via.placeholder.com/400x600/1a1a1a/ffffff?text=Ebook+Cover',
-              style: preferences.style || 'professional',
-              color_scheme: preferences.color_scheme || 'blue-gradient',
-              font_style: preferences.font_style || 'modern',
-              author_name: preferences.author_name || 'Author Name',
+              image_url: result.coverUrl,
+              style: preferences.style || 'minimal',
+              color_scheme: preferences.color_scheme || 'blue',
+              font_style: preferences.font_style || 'sans-serif',
+              author_name: preferences.author_name || '',
               subtitle: preferences.subtitle,
               generated_at: new Date().toISOString(),
             };
@@ -550,7 +575,7 @@ export const useEbookWriterStore = create<EbookWriterState>()(
             set(state => ({
               current_ebook: {
                 ...state.current_ebook!,
-                cover: mockCover,
+                cover: newCover,
                 updated_at: new Date().toISOString(),
               },
               generation_progress: {
@@ -558,11 +583,12 @@ export const useEbookWriterStore = create<EbookWriterState>()(
                 is_generating: false,
                 current_step: 'export',
                 total_progress: 90,
-                credits_used: state.generation_progress.credits_used + 10,
+                credits_used: state.generation_progress.credits_used + (result.creditsUsed || 10),
               }
             }));
             
           } catch (error) {
+            console.error('Cover generation error:', error);
             set(state => ({
               generation_progress: {
                 ...state.generation_progress,

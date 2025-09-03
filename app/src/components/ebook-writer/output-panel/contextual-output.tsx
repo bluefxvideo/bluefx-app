@@ -6,6 +6,7 @@ import { HistoryOutput } from './history-output';
 import { TopicPreview } from './topic-preview';
 import { OutlineOutput } from './outline-output';
 import { ContentOutput } from './content-output';
+import { CoverOutput } from './cover-output';
 import type { EbookMetadata, TitleOptions } from '../store/ebook-writer-store';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
 
@@ -70,6 +71,12 @@ export function ContextualOutput({
       );
     
     case 'cover':
+      return (
+        <CoverOutput
+          ebook={ebook}
+        />
+      );
+    
     case 'export':
     default:
       return (

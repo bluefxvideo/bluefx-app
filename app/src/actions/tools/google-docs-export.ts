@@ -99,27 +99,14 @@ export async function exportEbookToGoogleDocs(
 async function getGoogleAccessToken(userId: string): Promise<string | null> {
   const supabase = await createClient();
   
-  // Check for dedicated Google Docs connection first
-  let { data } = await supabase
+  // Check for Google connection
+  const { data } = await supabase
     .from('social_platform_connections')
     .select('access_token_encrypted, connection_status')
     .eq('user_id', userId)
-    .eq('platform', 'google_docs')
+    .eq('platform', 'google')
     .eq('connection_status', 'active')
     .single();
-
-  // Fallback to YouTube connection if no dedicated Google Docs connection
-  if (!data?.access_token_encrypted) {
-    const { data: youtubeData } = await supabase
-      .from('social_platform_connections')
-      .select('access_token_encrypted, connection_status')
-      .eq('user_id', userId)
-      .eq('platform', 'youtube')
-      .eq('connection_status', 'active')
-      .single();
-    
-    data = youtubeData;
-  }
 
   if (!data?.access_token_encrypted) {
     return null;
@@ -136,6 +123,54 @@ function buildDocumentRequests(ebook: EbookContent) {
   const requests: any[] = [];
   let insertIndex = 1; // Start after default paragraph
 
+  // COVER PAGE - Insert cover image if available
+  if (ebook.cover?.image_url) {
+    // Insert the cover image
+    requests.push({
+      insertInlineImage: {
+        location: { index: insertIndex },
+        uri: ebook.cover.image_url,
+        objectSize: {
+          height: {
+            magnitude: 400,
+            unit: 'PT'
+          },
+          width: {
+            magnitude: 267,
+            unit: 'PT'
+          }
+        }
+      }
+    });
+    insertIndex += 1; // Image takes 1 character
+
+    // Add page break after cover
+    requests.push({
+      insertText: {
+        location: { index: insertIndex },
+        text: '\n'
+      }
+    });
+    insertIndex += 1;
+
+    requests.push({
+      insertPageBreak: {
+        location: { index: insertIndex }
+      }
+    });
+    insertIndex += 1;
+  }
+
+  // TITLE PAGE
+  // Center align the title page
+  requests.push({
+    insertText: {
+      location: { index: insertIndex },
+      text: '\n\n\n\n\n' // Add some vertical spacing
+    }
+  });
+  insertIndex += 5;
+
   // Title
   requests.push({
     insertText: {
@@ -143,19 +178,34 @@ function buildDocumentRequests(ebook: EbookContent) {
       text: ebook.title + '\n\n'
     }
   });
+  const titleStart = insertIndex;
+  const titleLength = ebook.title.length;
   insertIndex += ebook.title.length + 2;
 
   // Style title
   requests.push({
+    updateParagraphStyle: {
+      range: {
+        startIndex: titleStart,
+        endIndex: titleStart + titleLength + 1
+      },
+      paragraphStyle: {
+        alignment: 'CENTER'
+      },
+      fields: 'alignment'
+    }
+  });
+
+  requests.push({
     updateTextStyle: {
       range: {
-        startIndex: 1,
-        endIndex: ebook.title.length + 1
+        startIndex: titleStart,
+        endIndex: titleStart + titleLength
       },
       textStyle: {
-        fontSize: { magnitude: 24, unit: 'PT' },
+        fontSize: { magnitude: 36, unit: 'PT' },
         bold: true,
-        weightedFontFamily: { fontFamily: 'Arial' }
+        weightedFontFamily: { fontFamily: 'Georgia' }
       },
       fields: 'fontSize,bold,weightedFontFamily'
     }
@@ -169,8 +219,46 @@ function buildDocumentRequests(ebook: EbookContent) {
         text: `by ${ebook.author}\n\n`
       }
     });
+    const authorStart = insertIndex;
+    const authorLength = `by ${ebook.author}`.length;
     insertIndex += `by ${ebook.author}\n\n`.length;
+
+    // Style and center author
+    requests.push({
+      updateParagraphStyle: {
+        range: {
+          startIndex: authorStart,
+          endIndex: authorStart + authorLength + 1
+        },
+        paragraphStyle: {
+          alignment: 'CENTER'
+        },
+        fields: 'alignment'
+      }
+    });
+
+    requests.push({
+      updateTextStyle: {
+        range: {
+          startIndex: authorStart,
+          endIndex: authorStart + authorLength
+        },
+        textStyle: {
+          fontSize: { magnitude: 18, unit: 'PT' },
+          italic: true
+        },
+        fields: 'fontSize,italic'
+      }
+    });
   }
+
+  // Add page break after title page
+  requests.push({
+    insertPageBreak: {
+      location: { index: insertIndex }
+    }
+  });
+  insertIndex += 1;
 
   // Table of Contents
   requests.push({
@@ -228,6 +316,16 @@ function buildDocumentRequests(ebook: EbookContent) {
 
   // Chapters
   ebook.chapters.forEach((chapter, chapterIndex) => {
+    // Add page break before each chapter (except the first one, TOC already has page break)
+    if (chapterIndex > 0) {
+      requests.push({
+        insertPageBreak: {
+          location: { index: insertIndex }
+        }
+      });
+      insertIndex += 1;
+    }
+
     // Chapter title
     requests.push({
       insertText: {
@@ -248,10 +346,11 @@ function buildDocumentRequests(ebook: EbookContent) {
           endIndex: chapterTitleStart + chapterTitleLength
         },
         textStyle: {
-          fontSize: { magnitude: 16, unit: 'PT' },
-          bold: true
+          fontSize: { magnitude: 20, unit: 'PT' },
+          bold: true,
+          weightedFontFamily: { fontFamily: 'Georgia' }
         },
-        fields: 'fontSize,bold'
+        fields: 'fontSize,bold,weightedFontFamily'
       }
     });
 
@@ -264,6 +363,36 @@ function buildDocumentRequests(ebook: EbookContent) {
       }
     });
     insertIndex += cleanContent.length + 2;
+
+    // Style chapter content with better readability
+    requests.push({
+      updateTextStyle: {
+        range: {
+          startIndex: chapterTitleStart + chapterTitleLength + 2,
+          endIndex: insertIndex - 2
+        },
+        textStyle: {
+          fontSize: { magnitude: 12, unit: 'PT' },
+          weightedFontFamily: { fontFamily: 'Arial' }
+        },
+        fields: 'fontSize,weightedFontFamily'
+      }
+    });
+
+    requests.push({
+      updateParagraphStyle: {
+        range: {
+          startIndex: chapterTitleStart + chapterTitleLength + 2,
+          endIndex: insertIndex - 2
+        },
+        paragraphStyle: {
+          lineSpacing: 150, // 1.5 line spacing
+          spaceAbove: { magnitude: 6, unit: 'PT' },
+          spaceBelow: { magnitude: 6, unit: 'PT' }
+        },
+        fields: 'lineSpacing,spaceAbove,spaceBelow'
+      }
+    });
   });
 
   return requests;
@@ -283,7 +412,7 @@ export async function checkGoogleConnection(userId: string): Promise<{
     if (!accessToken) {
       return {
         hasConnection: false,
-        connectionUrl: '/dashboard/content-multiplier/platforms'
+        connectionUrl: '/dashboard/ebook-writer/export'
       };
     }
 
