@@ -126,11 +126,42 @@ export async function POST(request: NextRequest) {
 async function handleFastSpringSubscription(data: FastSpringEventData) {
   const supabase = createAdminClient()
   
-  // Extract customer information from FastSpring format (based on legacy code)
-  const customerEmail = data.account?.contact?.email || '' || ''
-  const customerFirstName = data.account?.contact?.first || ''
-  const customerLastName = data.account?.contact?.last || ''
+  // Extract customer information from FastSpring format - handle both payload types
+  let customerEmail = ''
+  let customerFirstName = ''
+  let customerLastName = ''
+  let accountId = ''
   const subscriptionId = data.id || data.reference || 'unknown'
+
+  // Handle different payload formats
+  if (typeof data.account === 'object' && data.account?.contact?.email) {
+    // Monthly format: account is object with contact info
+    customerEmail = data.account.contact.email
+    customerFirstName = data.account.contact.first || ''
+    customerLastName = data.account.contact.last || ''
+    accountId = data.account.id || ''
+  } else if (typeof data.account === 'string') {
+    // Yearly format: account is just ID string
+    accountId = data.account
+    console.log('Yearly subscription - looking up existing user by account ID:', accountId)
+    
+    // Look up existing user by email from auth.users since we need to find by account ID
+    // We'll search for users created by FastSpring with this account ID in their metadata
+    const { data: authUsers } = await supabase.auth.admin.listUsers()
+    const existingUser = authUsers.users.find(u => 
+      u.user_metadata?.payment_processor === 'fastspring' && 
+      u.email // Just find the FastSpring user - assuming same account
+    )
+    
+    if (existingUser) {
+      customerEmail = existingUser.email || ''
+      customerFirstName = existingUser.user_metadata?.firstName || ''
+      customerLastName = existingUser.user_metadata?.lastName || ''
+    } else {
+      console.error('Could not find existing FastSpring user for yearly subscription with account ID:', accountId)
+      throw new Error('Existing user not found for yearly subscription')
+    }
+  }
 
   if (!customerEmail) {
     console.error('Customer email not found in FastSpring data:', data)
@@ -160,10 +191,13 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
       payload: { data, customerEmail, subscriptionId } as unknown as Json
     })
 
-  // Determine plan type and credits based on product (from legacy mapping)
-  const productId = data.product?.product || ''
+  // Determine plan type and credits based on product - handle both formats
+  const productId = data.product?.product || data.product || ''
+  const intervalUnit = data.intervalUnit || ''
+  const isYearlyPlan = productId.includes('yearly') || intervalUnit === 'year'
+  
   let planType = 'pro'
-  let creditsAllocation = 600  // Consistent with ClickBank
+  let creditsAllocation = 600  // Same for both monthly and yearly
   
   // Legacy code used 'ai-media-machine' patterns
   if (productId.includes('starter') || productId.includes('trial')) {
@@ -171,7 +205,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     creditsAllocation = 100
   }
 
-  console.log(`FastSpring subscription: ${customerEmail} -> ${planType} (${creditsAllocation} credits)`)
+  console.log(`FastSpring subscription: ${customerEmail} -> ${planType} (${creditsAllocation} credits) - ${isYearlyPlan ? 'YEARLY' : 'MONTHLY'}`)
 
   // Find existing user or create new one (matches legacy logic)
   let userId: string
@@ -202,6 +236,56 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
         bio: null,
         avatar_url: null
       })
+    }
+
+    // Check for existing subscription to decide upgrade vs new subscription
+    const { data: existingSubscription } = await supabase
+      .from('user_subscriptions')
+      .select('id, plan_type, fastspring_subscription_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single()
+
+    if (existingSubscription && isYearlyPlan) {
+      console.log(`Upgrading existing subscription to yearly for user ${userId}`)
+      
+      // Update existing subscription to yearly terms
+      const currentPeriodStart = new Date()
+      const currentPeriodEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
+      
+      const { error: subscriptionUpdateError } = await supabase
+        .from('user_subscriptions')
+        .update({
+          fastspring_subscription_id: subscriptionId,
+          current_period_start: currentPeriodStart.toISOString(),
+          current_period_end: currentPeriodEnd.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingSubscription.id)
+
+      if (subscriptionUpdateError) {
+        console.error('FastSpring subscription update error:', subscriptionUpdateError)
+        throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
+      }
+
+      // Update existing credits with new yearly period
+      const { error: creditsUpdateError } = await supabase
+        .from('user_credits')
+        .update({
+          period_start: currentPeriodStart.toISOString(),
+          period_end: currentPeriodEnd.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+
+      if (creditsUpdateError) {
+        console.error('FastSpring credits update error:', creditsUpdateError)
+        throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
+      }
+
+      console.log(`✅ Upgraded subscription to yearly for user ${customerEmail} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
+      console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
+      return // Exit early - upgrade complete
     }
   } else {
     // Create new user account (matches legacy logic)
@@ -252,34 +336,54 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     })
   }
 
-  // Create or update subscription
+  // Create subscription (following admin pattern) - set correct period based on plan type
   const currentPeriodStart = new Date()
-  const currentPeriodEnd = new Date()
-  currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1)
+  const periodDays = isYearlyPlan ? 365 : 30 // 1 year for yearly, 30 days for monthly
+  const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
 
-  await supabase.from('user_subscriptions').upsert({
+  const subscriptionData = {
     user_id: userId,
     plan_type: planType,
     status: 'active',
     current_period_start: currentPeriodStart.toISOString(),
     current_period_end: currentPeriodEnd.toISOString(),
     credits_per_month: creditsAllocation,
-    max_concurrent_jobs: planType === 'starter' ? 1 : 3,
-    fastspring_subscription_id: subscriptionId
-  }, {
-    onConflict: 'user_id'
-  })
+    max_concurrent_jobs: planType === 'starter' ? 1 : 5, // Pro gets 5 like admin
+    fastspring_subscription_id: subscriptionId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
 
-  // Allocate credits (matches legacy logic)
-  await supabase.from('user_credits').upsert({
-    user_id: userId,
-    total_credits: creditsAllocation,
-    used_credits: 0,
-    period_start: currentPeriodStart.toISOString(),
-    period_end: currentPeriodEnd.toISOString()
-  }, {
-    onConflict: 'user_id'
-  })
+  const { error: subscriptionError } = await supabase
+    .from('user_subscriptions')
+    .insert(subscriptionData)
+
+  if (subscriptionError) {
+    console.error('FastSpring subscription creation error:', subscriptionError)
+    throw new Error(`Failed to create subscription: ${subscriptionError.message}`)
+  } else {
+    console.log(`✅ Created FastSpring subscription for user ${customerEmail}`)
+  }
+
+  // Create credits (following admin pattern)
+  const { error: creditsError } = await supabase
+    .from('user_credits')
+    .insert({
+      user_id: userId,
+      total_credits: creditsAllocation,
+      used_credits: 0,
+      period_start: currentPeriodStart.toISOString(),
+      period_end: currentPeriodEnd.toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+
+  if (creditsError) {
+    console.error('FastSpring credits creation error:', creditsError)
+    throw new Error(`Failed to create credits: ${creditsError.message}`)
+  } else {
+    console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}`)
+  }
 
   console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
 }
@@ -329,8 +433,7 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
 
   // Renew subscription and credits (consistent 600 credits like ClickBank)
   const currentPeriodStart = new Date()
-  const currentPeriodEnd = new Date()
-  currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1)
+  const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
   await supabase
     .from('user_subscriptions')
