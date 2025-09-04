@@ -119,21 +119,15 @@ async function handleEbookGoogleOAuth(request: NextRequest, code: string) {
       .upsert({
         user_id: user.id,
         platform: 'google',
-        platform_user_id: userInfo.id,
-        platform_username: userInfo.email,
+        username: userInfo.email,
         connection_status: 'active',
+        connected: true,
         access_token_encrypted: Buffer.from(tokens.access_token).toString('base64'),
         refresh_token_encrypted: tokens.refresh_token ? 
           Buffer.from(tokens.refresh_token).toString('base64') : null,
-        token_expires_at: tokens.expires_in ? 
+        expires_at: tokens.expires_in ? 
           new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
-        connected_at: new Date().toISOString(),
-        metadata: {
-          scope: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
-          email: userInfo.email,
-          name: userInfo.name,
-          source: 'ebook_export'
-        }
+        last_connected: new Date().toISOString()
       }, {
         onConflict: 'user_id,platform'
       });
