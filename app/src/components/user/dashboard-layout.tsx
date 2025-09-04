@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { DashboardSidebar } from './dashboard-sidebar'
 import { DashboardLayoutContext } from './dashboard-layout-context'
 
@@ -10,12 +11,39 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const pathname = usePathname()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false) // Default expanded on desktop
   const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
     setIsHydrated(true)
+    
+    // Auto-close sidebar on mobile
+    const checkMobileAndClose = () => {
+      const isMobile = window.innerWidth < 1024 // lg breakpoint
+      if (isMobile) {
+        setIsSidebarCollapsed(true)
+      }
+    }
+    
+    // Check on mount
+    checkMobileAndClose()
+    
+    // Check on resize
+    window.addEventListener('resize', checkMobileAndClose)
+    
+    return () => {
+      window.removeEventListener('resize', checkMobileAndClose)
+    }
   }, [])
+
+  // Auto-close sidebar on mobile when navigating to new pages
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024 // lg breakpoint
+    if (isMobile && isHydrated) {
+      setIsSidebarCollapsed(true)
+    }
+  }, [pathname, isHydrated])
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed)

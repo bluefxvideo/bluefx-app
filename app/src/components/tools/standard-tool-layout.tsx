@@ -13,10 +13,10 @@ export function StandardToolLayout({ children, className }: StandardToolLayoutPr
 
   return (
     <div className={cn("h-full lg:px-2", className)}>
-      <div className="h-full flex flex-col lg:flex-row gap-3 md:gap-5 max-w-full">
+      <div className="h-full flex flex-col lg:flex-row gap-0 lg:gap-5 max-w-full">
         {/* Left Panel - Input (Golden Ratio: 38.2%) */}
         <div className="w-full lg:w-[38.2%] min-w-0">
-          <Card className="h-full p-4 md:p-8 bg-card border-border/30">
+          <Card className="h-full p-2 md:p-4 lg:p-8 bg-card border-0 lg:border lg:border-border/30 rounded-none lg:rounded-lg">
             <div className="h-full flex flex-col min-w-0">
               {inputPanel}
             </div>
@@ -25,7 +25,7 @@ export function StandardToolLayout({ children, className }: StandardToolLayoutPr
         
         {/* Right Panel - Output (Golden Ratio: 61.8%) */}
         <div className="w-full lg:w-[61.8%] min-w-0">
-          <Card className="h-full p-4 md:p-8 bg-card border-border/30">
+          <Card className="h-full p-2 md:p-4 lg:p-8 bg-card border-0 lg:border lg:border-border/30 rounded-none lg:rounded-lg">
             <div className="h-full flex flex-col min-w-0">
               {outputPanel}
             </div>

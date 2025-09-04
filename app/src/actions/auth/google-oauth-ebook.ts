@@ -12,10 +12,21 @@ export async function initiateGoogleOAuth(): Promise<{
 }> {
   try {
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/google/ebook`;
+    const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/v1/callback`;
+    
+    // Debug logging
+    console.log('Google OAuth Debug:', {
+      clientId: clientId ? `${clientId.slice(0, 10)}...` : 'NOT SET',
+      redirectUri,
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL
+    });
     
     if (!clientId) {
       throw new Error('Google OAuth client ID not configured');
+    }
+    
+    if (!process.env.NEXT_PUBLIC_SITE_URL) {
+      throw new Error('NEXT_PUBLIC_SITE_URL not configured');
     }
 
     // Required scopes for Google Docs and Drive

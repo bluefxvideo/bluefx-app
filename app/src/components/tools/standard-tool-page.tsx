@@ -30,9 +30,9 @@ export function StandardToolPage({
   return (
     <div className={cn("h-full bg-background", className)}>
       {/* Main Content Area */}
-      <div className="h-full flex flex-col p-4 lg:p-6">
+      <div className="h-full flex flex-col p-0 lg:p-6">
         {/* Tool Header Card */}
-        <div className="bg-card border border-border rounded-xl p-6 mb-6">
+        <div className="bg-card border-0 lg:border lg:border-border rounded-none lg:rounded-xl p-4 lg:p-6 mb-0 lg:mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className={cn(
@@ -64,7 +64,7 @@ export function StandardToolPage({
 
           {/* Tool-specific Tab Navigation */}
           {tabs && (
-            <div className="bg-secondary/30 rounded-lg p-1">
+            <div className="bg-secondary/30 rounded-none lg:rounded-lg p-1">
               {tabs}
             </div>
           )}

@@ -10,20 +10,57 @@ export async function GET(request: NextRequest) {
 
     // Handle OAuth error
     if (error) {
-      console.error('Google OAuth error:', error);
+      console.error('OAuth error:', error);
+      
+      // Route error based on state
+      if (state === 'ebook_export') {
+        return NextResponse.redirect(
+          new URL('/dashboard/ebook-writer/export?error=oauth_failed', request.url)
+        );
+      }
+      
+      // Default Supabase error handling
       return NextResponse.redirect(
-        new URL('/dashboard/ebook-writer/export?error=oauth_failed', request.url)
+        new URL(`/auth/error?message=${encodeURIComponent(error)}`, request.url)
       );
     }
 
     // Handle missing code
     if (!code) {
       console.error('No authorization code received');
+      
+      if (state === 'ebook_export') {
+        return NextResponse.redirect(
+          new URL('/dashboard/ebook-writer/export?error=no_code', request.url)
+        );
+      }
+      
       return NextResponse.redirect(
-        new URL('/dashboard/ebook-writer/export?error=no_code', request.url)
+        new URL('/auth/error?message=No authorization code provided', request.url)
       );
     }
 
+    // Handle ebook Google OAuth (direct Google API flow)
+    if (state === 'ebook_export') {
+      return await handleEbookGoogleOAuth(request, code);
+    }
+
+    // Handle Supabase OAuth (default behavior)
+    return await handleSupabaseOAuth(request, code);
+
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    return NextResponse.redirect(
+      new URL('/auth/error?message=Unexpected error occurred', request.url)
+    );
+  }
+}
+
+/**
+ * Handle ebook-specific Google OAuth (direct API calls)
+ */
+async function handleEbookGoogleOAuth(request: NextRequest, code: string) {
+  try {
     // Exchange code for access token
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -35,7 +72,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/google/ebook`,
+        redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/v1/callback`,
       }),
     });
 
@@ -94,7 +131,8 @@ export async function GET(request: NextRequest) {
         metadata: {
           scope: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
           email: userInfo.email,
-          name: userInfo.name
+          name: userInfo.name,
+          source: 'ebook_export'
         }
       }, {
         onConflict: 'user_id,platform'
@@ -113,9 +151,50 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Google OAuth callback error:', error);
+    console.error('Ebook Google OAuth error:', error);
     return NextResponse.redirect(
       new URL('/dashboard/ebook-writer/export?error=unexpected', request.url)
+    );
+  }
+}
+
+/**
+ * Handle Supabase OAuth (original behavior)
+ */
+async function handleSupabaseOAuth(request: NextRequest, code: string) {
+  try {
+    const { origin } = new URL(request.url);
+    const supabase = await createClient();
+    
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (error) {
+      console.error('Auth callback error:', error);
+      return NextResponse.redirect(`${origin}/auth/error?message=${encodeURIComponent(error.message)}`);
+    }
+    
+    if (data.session && data.user) {
+      // Get the provider information from the session
+      const provider = data.user.app_metadata?.provider;
+      const providerToken = data.session.provider_token;
+      
+      console.log('OAuth success:', {
+        provider,
+        userId: data.user.id,
+        email: data.user.email,
+        hasProviderToken: !!providerToken,
+      });
+      
+      // Redirect back to content multiplier with success
+      return NextResponse.redirect(`${origin}/dashboard/content-multiplier?connected=${provider}`);
+    }
+    
+    return NextResponse.redirect(`${origin}/auth/error?message=Session creation failed`);
+    
+  } catch (error) {
+    console.error('Supabase OAuth error:', error);
+    return NextResponse.redirect(
+      new URL('/auth/error?message=Unexpected error occurred', request.url)
     );
   }
 }
