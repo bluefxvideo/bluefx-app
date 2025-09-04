@@ -61,19 +61,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const theme = localStorage.getItem('bluefx-theme');
-                const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                const finalTheme = theme === 'system' || !theme ? systemTheme : theme;
-                document.documentElement.classList.toggle('dark', finalTheme === 'dark');
-                document.documentElement.style.colorScheme = finalTheme;
-              } catch (e) {}
-            `,
-          }}
-        />
         {/* FastSpring Script */}
         <script 
           id="fsc-api" 
@@ -88,11 +75,10 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
-          enableColorScheme
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
-          storageKey="bluefx-theme"
+          forcedTheme="dark"
         >
           <QueryProvider>
             {children}
