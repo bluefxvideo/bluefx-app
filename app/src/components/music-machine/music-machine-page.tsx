@@ -1,12 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useMusicMachine } from './hooks/use-music-machine';
 import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { GeneratorTab } from './tabs/generator-tab';
-import { HistoryTab } from './tabs/history-tab';
+import { MusicHistoryFilters, type MusicHistoryFilters as HistoryFiltersType } from './tabs/music-history-filters';
 import { MusicMachineOutput } from './output-panel/music-machine-output';
 import { Music, History } from 'lucide-react';
 
@@ -18,6 +19,7 @@ export function MusicMachinePage() {
   const musicMachineState = useMusicMachine();
   const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
   const { activeTab, setActiveTab: _setActiveTab } = musicMachineState;
+  const [historyFilters, setHistoryFilters] = useState<HistoryFiltersType | undefined>();
 
   // Define tabs for StandardToolTabs
   const musicTabs = [
@@ -39,7 +41,7 @@ export function MusicMachinePage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'history':
-        return <HistoryTab />;
+        return <MusicHistoryFilters onFiltersChange={setHistoryFilters} />;
       default:
         return <GeneratorTab musicMachineState={musicMachineState} credits={userCredits?.available_credits || 0} />;
     }
@@ -73,6 +75,7 @@ export function MusicMachinePage() {
           <MusicMachineOutput
             key="output"
             musicMachineState={musicMachineState}
+            historyFilters={historyFilters}
           />
         ]}
       </StandardToolLayout>

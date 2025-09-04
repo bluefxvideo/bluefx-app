@@ -22,17 +22,20 @@ import {
 import { useState } from 'react';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
+import { MusicHistoryOutput } from './music-history-output';
 import type { UseMusicMachineReturn } from '../hooks/use-music-machine';
+import type { MusicHistoryFilters } from '../tabs/music-history-filters';
 
 interface MusicMachineOutputProps {
   musicMachineState: UseMusicMachineReturn;
+  historyFilters?: MusicHistoryFilters;
 }
 
 /**
  * Music Machine Output Panel - Contextual display based on active tab
  * Following exact voice-over pattern
  */
-export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProps) {
+export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicMachineOutputProps) {
   const { activeTab, state, playingMusicId, handleMusicPlayback, deleteMusic } = musicMachineState;
   const [audioElements, setAudioElements] = useState<Map<string, HTMLAudioElement>>(new Map());
 
@@ -278,7 +281,7 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                             >
                               <Play className="w-5 h-5" />
                             </button>
-                            <div className="flex-1 h-12 bg-muted/50 rounded-md flex items-center px-3">
+                            <div className="flex-1 h-12 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3 backdrop-blur-sm">
                               {/* Animated placeholder waveform */}
                               <div className="flex items-center justify-center w-full gap-1">
                                 {[...Array(120)].map((_, i) => (
@@ -370,9 +373,9 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                         </p>
                       </div>
 
-                      {/* Audio Player */}
+                      {/* Audio Player with improved shading */}
                       <div className="relative w-full">
-                        <div className="bg-muted/30 rounded-lg p-4">
+                        <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-4 border border-border/50">
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => handleAudioPlayback(music.id, music.audio_url || '')}
@@ -384,7 +387,7 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
                                 <Play className="w-5 h-5" />
                               )}
                             </button>
-                            <div className="flex-1 h-12 bg-muted/50 rounded-md flex items-center px-3">
+                            <div className="flex-1 h-12 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3 backdrop-blur-sm">
                               {/* Waveform visualization */}
                               <div className="flex items-center justify-center w-full gap-1">
                                 {[...Array(120)].map((_, i) => (
@@ -436,152 +439,18 @@ export function MusicMachineOutput({ musicMachineState }: MusicMachineOutputProp
     );
   }
 
-  // History Tab Output
+  // History Tab Output - Use the new grid-based component
   if (activeTab === 'history') {
     return (
-      <OutputPanelShell
-        title="Music History"
-        status={state.isLoading ? 'loading' : state.musicHistory.length > 0 ? 'ready' : 'idle'}
-        empty={
-          <div className="flex items-center justify-center h-full">
-            <UnifiedEmptyState
-              icon={History}
-              title="No Music History"
-              description="Your generated music tracks will appear here. Create your first AI music to see it in your history."
-            />
-          </div>
-        }
-      >
-        <div className="h-full overflow-y-auto scrollbar-hover p-4">
-          {state.musicHistory.length > 0 ? (
-            <div className="space-y-4">
-              {state.musicHistory.map((music: any) => (
-                <Card key={music.id} className="p-4 bg-card border-border">
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          AI Generated
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {music.generation_settings?.output_format?.toUpperCase() || 'WAV'}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAudioPlayback(music.id, music.audio_url || '')}
-                        >
-                          {playingMusicId === music.id ? (
-                            <Square className="w-4 h-4" />
-                          ) : (
-                            <Play className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = music.audio_url || '';
-                            link.download = `${music.track_title || music.prompt || music.description || 'music'}.mp3`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteMusic(music.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span>{music.duration_seconds ? formatDuration(music.duration_seconds) : 'Variable'}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <FileAudio className="w-4 h-4 text-muted-foreground" />
-                        <span>{music.generation_settings?.model_version || music.generation_settings?.output_format || 'Audio'}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Zap className="w-4 h-4 text-muted-foreground" />
-                        <span>{music.credits_used || music.generation_settings?.credits_used || 3} credits</span>
-                      </div>
-                    </div>
-
-                    {/* Script Preview */}
-                    <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {music.track_title || music.prompt || music.description}
-                      </p>
-                    </div>
-
-                    {/* Audio Player */}
-                    <div className="relative w-full">
-                      <div className="bg-muted/30 rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleAudioPlayback(music.id, music.audio_url || '')}
-                            className="flex-shrink-0 w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:scale-105 transition-transform"
-                          >
-                            {playingMusicId === music.id ? (
-                              <Square className="w-5 h-5" />
-                            ) : (
-                              <Play className="w-5 h-5" />
-                            )}
-                          </button>
-                          <div className="flex-1 h-12 bg-muted/50 rounded-md flex items-center px-3">
-                            {/* Waveform visualization */}
-                            <div className="flex items-center justify-center w-full gap-1">
-                              {[...Array(120)].map((_, i) => (
-                                <div
-                                  key={i}
-                                  className={`bg-primary/40 rounded-full transition-all duration-75 ${
-                                    playingMusicId === music.id 
-                                      ? 'animate-pulse bg-primary/70' 
-                                      : ''
-                                  }`}
-                                  style={{
-                                    width: '2px',
-                                    height: `${Math.random() * 30 + 8}px`,
-                                    animationDelay: `${i * 30}ms`
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex-shrink-0 text-sm text-muted-foreground font-mono">
-                            {music.duration_seconds ? formatDuration(music.duration_seconds) : '~30s'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <FileAudio className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">No music in history yet</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </OutputPanelShell>
+      <MusicHistoryOutput
+        musicHistory={state.musicHistory}
+        filters={historyFilters}
+        isLoading={state.isLoading}
+        error={state.error}
+        playingMusicId={playingMusicId}
+        onPlayMusic={handleAudioPlayback}
+        onDeleteMusic={deleteMusic}
+      />
     );
   }
 
