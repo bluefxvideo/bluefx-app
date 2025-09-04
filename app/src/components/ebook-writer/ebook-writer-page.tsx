@@ -20,7 +20,7 @@ import { OutlineTab } from './tabs/outline-tab';
 import { ContentTab } from './tabs/content-tab';
 import { CoverTab } from './tabs/cover-tab';
 import { ExportTab } from './tabs/export-tab';
-import { HistoryTab } from './tabs/history-tab';
+import { EbookHistoryFilters, type EbookHistoryFilters as HistoryFiltersType } from './tabs/ebook-history-filters';
 
 /**
  * Ebook Writer - Complete AI-Orchestrated Tool with Tabs
@@ -30,6 +30,7 @@ import { HistoryTab } from './tabs/history-tab';
 export function EbookWriterPage() {
   const pathname = usePathname();
   const [userId, setUserId] = useState<string | null>(null);
+  const [historyFilters, setHistoryFilters] = useState<HistoryFiltersType | undefined>();
   const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
   const {
     current_ebook,
@@ -134,7 +135,7 @@ export function EbookWriterPage() {
           />
         );
       case 'history':
-        return <HistoryTab />;
+        return <EbookHistoryFilters onFiltersChange={setHistoryFilters} />;
       default:
         return (
           <TopicTab
@@ -218,6 +219,7 @@ export function EbookWriterPage() {
             isGenerating={generation_progress.is_generating && generation_progress.current_step === 'title'}
             topic={current_ebook?.topic || ''}
             uploadedDocuments={uploaded_documents}
+            historyFilters={historyFilters}
           />
         ]}
       </StandardToolLayout>

@@ -721,7 +721,13 @@ export const useEbookWriterStore = create<EbookWriterState>()(
                   updated_at: new Date().toISOString(),
                   outline: session.outline as EbookOutline,
                   content: session.content,
-                  cover: null
+                  cover: session.cover_metadata ? 
+                    session.cover_metadata as EbookCover : 
+                    (session.cover_url ? {
+                      id: `cover_${session.ebook_id}`,
+                      image_url: session.cover_url,
+                      generated_at: new Date().toISOString(),
+                    } : null)
                 },
                 title_options: session.title_options as TitleOptions,
                 uploaded_documents: (session.uploaded_documents as UploadedDocument[]) || [],
@@ -761,6 +767,7 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               outline: state.current_ebook?.outline,
               content: state.current_ebook?.content,
               cover_url: state.current_ebook?.cover?.image_url,
+              cover_metadata: state.current_ebook?.cover, // Save full cover object
               uploaded_documents: state.uploaded_documents,
               current_step: state.active_tab,
               generation_progress: state.generation_progress.total_progress,

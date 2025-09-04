@@ -9,6 +9,7 @@ import { ContentOutput } from './content-output';
 import { CoverOutput } from './cover-output';
 import type { EbookMetadata, TitleOptions } from '../store/ebook-writer-store';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
+import type { EbookHistoryFilters } from '../tabs/ebook-history-filters';
 
 interface ContextualOutputProps {
   activeTab: string;
@@ -17,6 +18,7 @@ interface ContextualOutputProps {
   isGenerating: boolean;
   topic?: string;
   uploadedDocuments?: UploadedDocument[];
+  historyFilters?: EbookHistoryFilters;
 }
 
 /**
@@ -29,12 +31,13 @@ export function ContextualOutput({
   titleOptions,
   isGenerating,
   topic = '',
-  uploadedDocuments = []
+  uploadedDocuments = [],
+  historyFilters
 }: ContextualOutputProps) {
 
   switch (activeTab) {
     case 'history':
-      return <HistoryOutput />;
+      return <HistoryOutput filters={historyFilters} />;
     
     case 'topic':
       return (
