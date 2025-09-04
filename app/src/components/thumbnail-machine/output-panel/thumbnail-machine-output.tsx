@@ -113,7 +113,7 @@ export function ThumbnailMachineOutput({
   // Empty State with centered layout
   
   return (
-    <div className="h-full flex flex-col overflow-hidden relative">
+    <div className="min-h-full lg:h-full flex flex-col lg:overflow-hidden relative">
       {/* Subtle animated background */}
       <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
       

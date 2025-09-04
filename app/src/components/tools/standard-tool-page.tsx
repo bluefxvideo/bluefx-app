@@ -33,7 +33,7 @@ export function StandardToolPage({
       <div className="h-full flex flex-col p-0 lg:p-6">
         {/* Tool Header Card */}
         <div className="bg-card border-0 lg:border lg:border-border rounded-none lg:rounded-xl p-4 lg:p-6 mb-0 lg:mb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div className={cn(
                 "w-10 h-10 rounded-lg flex items-center justify-center",
@@ -42,7 +42,7 @@ export function StandardToolPage({
                 <Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">
                   {title}
                 </h2>
                 <p className="text-sm text-zinc-400">
@@ -54,7 +54,7 @@ export function StandardToolPage({
               <Button
                 variant="outline"
                 size="sm"
-                className="border-border text-zinc-300 hover:bg-secondary gap-1.5"
+                className="border-border text-zinc-300 hover:bg-secondary gap-1.5 self-start sm:self-auto"
               >
                 <BookOpen className="w-4 h-4" />
                 Tutorial
