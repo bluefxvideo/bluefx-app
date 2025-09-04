@@ -14,8 +14,9 @@ import {
   Users
 } from 'lucide-react';
 import { exportEbookToGoogleDocs, checkGoogleConnection } from '@/actions/tools/google-docs-export';
+import { initiateGoogleOAuth, checkGoogleOAuthConfig } from '@/actions/auth/google-oauth-ebook';
 import { createClient } from '@/app/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface GoogleDocsConnectionProps {
   ebook: {
@@ -33,16 +34,45 @@ interface GoogleDocsConnectionProps {
 
 export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isChecking, setIsChecking] = useState(true);
   const [hasConnection, setHasConnection] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<{ documentUrl: string; documentId: string } | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
     checkConnection();
   }, []);
+
+  // Handle OAuth callback parameters
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    const error = searchParams.get('error');
+    
+    if (connected === 'true') {
+      setHasConnection(true);
+      setConnectionError(null);
+      // Clear URL parameters
+      router.replace('/dashboard/ebook-writer/export');
+    } else if (error) {
+      const errorMessages = {
+        oauth_failed: 'Google OAuth authorization failed',
+        no_code: 'Authorization code not received',
+        token_failed: 'Failed to exchange authorization code',
+        user_info_failed: 'Failed to get user information',
+        not_authenticated: 'Please log in to connect Google account',
+        storage_failed: 'Failed to store connection',
+        unexpected: 'An unexpected error occurred'
+      };
+      setConnectionError(errorMessages[error as keyof typeof errorMessages] || 'Connection failed');
+      setIsConnecting(false);
+      // Clear URL parameters
+      router.replace('/dashboard/ebook-writer/export');
+    }
+  }, [searchParams, router]);
 
   const checkConnection = async () => {
     try {
@@ -96,8 +126,29 @@ export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
     }
   };
 
-  const handleConnectGoogle = () => {
-    router.push('/dashboard/content-multiplier/platforms');
+  const handleConnectGoogle = async () => {
+    setIsConnecting(true);
+    setConnectionError(null);
+
+    try {
+      // Check if OAuth is configured
+      const config = await checkGoogleOAuthConfig();
+      if (!config.isConfigured) {
+        throw new Error(`Google OAuth not configured. Missing: ${config.missingVars?.join(', ')}`);
+      }
+
+      // Initiate OAuth flow
+      const result = await initiateGoogleOAuth();
+      if (!result.success || !result.authUrl) {
+        throw new Error(result.error || 'Failed to initiate Google connection');
+      }
+
+      // Redirect to Google OAuth
+      window.location.href = result.authUrl;
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : 'Failed to connect to Google');
+      setIsConnecting(false);
+    }
   };
 
   if (isChecking) {
@@ -143,9 +194,23 @@ export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
             <p className="text-sm text-muted-foreground mb-3">
               {connectionError || 'Connect your Google account to export ebooks to Google Docs.'}
             </p>
-            <Button onClick={handleConnectGoogle} variant="outline" className="w-full">
-              <Users className="w-4 h-4 mr-2" />
-              Connect Google Account
+            <Button 
+              onClick={handleConnectGoogle} 
+              variant="outline" 
+              className="w-full"
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Users className="w-4 h-4 mr-2" />
+                  Connect Google Account
+                </>
+              )}
             </Button>
           </div>
         </CardContent>

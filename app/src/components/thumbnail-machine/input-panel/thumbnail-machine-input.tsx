@@ -55,16 +55,16 @@ export function ThumbnailMachineInput({
   );
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-            <Wand2 className="w-4 h-4 text-white" />
+        <div className="flex items-center gap-3 sm:gap-2 mb-2">
+          <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+            <Wand2 className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
           </div>
-          <h2 className="text-xl font-semibold">Thumbnail Machine</h2>
+          <h2 className="text-xl sm:text-xl font-semibold">Thumbnail Machine</h2>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm sm:text-sm text-muted-foreground leading-relaxed">
           Generate AI-powered YouTube thumbnails with advanced customization
         </p>
       </div>
@@ -72,13 +72,13 @@ export function ThumbnailMachineInput({
 
       {/* Error Display */}
       {error && (
-        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+        <div className="p-4 sm:p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
           <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
 
       {/* Form Sections */}
-      <div className="flex-1 space-y-6 overflow-visible scrollbar-hover">
+      <div className="flex-1 space-y-4 sm:space-y-6 overflow-visible scrollbar-hover">
         <PromptSection
           value={formData.prompt || ''}
           onChange={(prompt) => setFormData(prev => ({ ...prev, prompt }))}

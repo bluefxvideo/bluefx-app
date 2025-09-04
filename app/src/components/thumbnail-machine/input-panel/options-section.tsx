@@ -38,14 +38,14 @@ export function OptionsSection({ options, onChange }: OptionsSectionProps) {
         </div>
         
         {/* Number of Outputs */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="num-outputs" className="text-sm text-muted-foreground">Variations</Label>
             <Select
               value={options.num_outputs?.toString() || '4'}
               onValueChange={(value) => updateOption('num_outputs', parseInt(value))}
             >
-              <SelectTrigger className="mt-2">
+              <SelectTrigger className="mt-2 h-11 sm:h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -64,7 +64,7 @@ export function OptionsSection({ options, onChange }: OptionsSectionProps) {
               value={options.aspect_ratio || '16:9'}
               onValueChange={(value) => updateOption('aspect_ratio', value)}
             >
-              <SelectTrigger className="mt-2">
+              <SelectTrigger className="mt-2 h-11 sm:h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -80,8 +80,8 @@ export function OptionsSection({ options, onChange }: OptionsSectionProps) {
       </div>
 
       {/* Title Generation */}
-      <Card className="p-3 bg-card">
-        <div className="flex items-center justify-between mb-2">
+      <Card className="p-4 sm:p-3 bg-card">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 sm:mb-2">
           <div className="flex items-center gap-2">
             <Type className="w-4 h-4 text-muted-foreground" />
             <Label className="text-base font-medium">YouTube Titles</Label>
@@ -90,7 +90,7 @@ export function OptionsSection({ options, onChange }: OptionsSectionProps) {
             variant="ghost"
             size="sm"
             onClick={() => updateOption('generate_titles', !options.generate_titles)}
-            className={options.generate_titles ? 'bg-primary/10 text-primary' : ''}
+            className={`h-9 sm:h-8 ${options.generate_titles ? 'bg-primary/10 text-primary' : ''}`}
           >
             {options.generate_titles ? 'Enabled' : 'Disabled'}
           </Button>
@@ -103,7 +103,7 @@ export function OptionsSection({ options, onChange }: OptionsSectionProps) {
               value={options.title_style || 'engaging'}
               onValueChange={(value) => updateOption('title_style', value)}
             >
-              <SelectTrigger className="mt-2">
+              <SelectTrigger className="mt-2 h-11 sm:h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -122,18 +122,18 @@ export function OptionsSection({ options, onChange }: OptionsSectionProps) {
       <Button
         variant="ghost"
         onClick={() => setShowAdvanced(!showAdvanced)}
-        className="w-full justify-between h-8 px-0 text-sm bg-card hover:bg-card/80 hover:text-foreground"
+        className="w-full justify-between h-10 sm:h-8 px-0 text-sm bg-card hover:bg-card/80 hover:text-foreground"
       >
-        <div className="flex items-center gap-1">
-          <Sliders className="w-3 h-3" />
+        <div className="flex items-center gap-2">
+          <Sliders className="w-4 h-4 sm:w-3 sm:h-3" />
           <span>Advanced Settings</span>
         </div>
-        {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        {showAdvanced ? <ChevronUp className="w-4 h-4 sm:w-3 sm:h-3" /> : <ChevronDown className="w-4 h-4 sm:w-3 sm:h-3" />}
       </Button>
 
       {/* Advanced Options */}
       {showAdvanced && (
-        <Card className="p-3 space-y-3 bg-card border-dashed">
+        <Card className="p-4 sm:p-3 space-y-4 sm:space-y-3 bg-card border-dashed">
           <div className="text-sm text-muted-foreground mb-2">
             Fine-tune generation parameters (optional)
           </div>

@@ -30,7 +30,7 @@ export function StandardToolPage({
   return (
     <div className={cn("h-full bg-background", className)}>
       {/* Main Content Area */}
-      <div className="h-full flex flex-col p-6">
+      <div className="h-full flex flex-col p-4 lg:p-6">
         {/* Tool Header Card */}
         <div className="bg-card border border-border rounded-xl p-6 mb-6">
           <div className="flex items-center justify-between mb-4">

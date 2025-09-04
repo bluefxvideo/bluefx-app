@@ -12,7 +12,7 @@ export function StandardToolLayout({ children, className }: StandardToolLayoutPr
   const [inputPanel, outputPanel] = children;
 
   return (
-    <div className={cn("h-full px-2", className)}>
+    <div className={cn("h-full lg:px-2", className)}>
       <div className="h-full flex flex-col lg:flex-row gap-3 md:gap-5 max-w-full">
         {/* Left Panel - Input (Golden Ratio: 38.2%) */}
         <div className="w-full lg:w-[38.2%] min-w-0">

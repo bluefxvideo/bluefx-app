@@ -350,3 +350,15 @@ h1, h2, h3, h4, h5, h6 {
   background-color: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
 }
+
+/* Scrollbar utilities for mobile tabs */
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+}
