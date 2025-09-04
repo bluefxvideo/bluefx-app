@@ -135,7 +135,7 @@ export function OutlineOutput({ ebook, uploadedDocuments }: OutlineOutputProps) 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-hover space-y-4">
         {/* Ebook Info Card */}
-      <Card className="mb-4 bg-muted/30">
+      <Card className="mb-4 bg-secondary">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
@@ -154,18 +154,6 @@ export function OutlineOutput({ ebook, uploadedDocuments }: OutlineOutputProps) 
         )}
       </Card>
 
-      {/* Outline Preferences */}
-      <Card className="mb-4 bg-muted/30">
-        <CardContent className="pt-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{outline.complexity_level} level</Badge>
-            <Badge variant="secondary">{outline.writing_tone} tone</Badge>
-            {outline.include_images && <Badge variant="secondary">With images</Badge>}
-            {outline.include_ctas && <Badge variant="secondary">With CTAs</Badge>}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Chapters List */}
       <div className="space-y-3">
         {outline.chapters ? (
@@ -175,7 +163,7 @@ export function OutlineOutput({ ebook, uploadedDocuments }: OutlineOutputProps) 
           return (
             <Card
               key={chapter.id}
-              className="overflow-hidden bg-muted/30"
+              className="overflow-hidden bg-secondary transition-all duration-200 hover:shadow-md"
               draggable
               onDragStart={(e) => handleDragStart(e, index)}
               onDrop={(e) => handleDrop(e, index)}

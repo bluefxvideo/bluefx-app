@@ -17,6 +17,7 @@ import {
 import type { EbookMetadata } from '../store/ebook-writer-store';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
+import { useEbookWriterStore } from '../store/ebook-writer-store';
 
 interface EbookOutputProps {
   ebook: EbookMetadata | null;
@@ -26,6 +27,7 @@ interface EbookOutputProps {
 }
 
 export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutputProps) {
+  const { generation_progress } = useEbookWriterStore();
   const getStatus = () => {
     if (isGenerating) return 'loading';
     if (error) return 'error';
@@ -119,16 +121,28 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
   };
 
   const getCompletionPercentage = () => {
-    if (!ebook.outline) return 0;
+    if (!ebook?.outline) {
+      console.log('📈 Export: No outline found', { ebook });
+      return 0;
+    }
     const totalChapters = ebook.outline.chapters.length;
     const completedChapters = ebook.outline.chapters.filter(c => c.status === 'completed').length;
-    return totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
+    const progress = totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
+    
+    console.log('📈 Export progress calculation:', {
+      totalChapters,
+      completedChapters,
+      progress,
+      chapters: ebook.outline.chapters.map(c => ({ title: c.title, status: c.status }))
+    });
+    
+    return progress;
   };
 
   const renderContent = () => (
     <>
       {/* Main Ebook Card */}
-      <Card >
+      <Card className="bg-secondary">
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -244,7 +258,7 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
 
       {/* Error Display */}
       {error && (
-        <Card className="border-destructive">
+        <Card className="border-destructive bg-secondary">
           <CardContent className="pt-6">
             <div className="text-sm text-destructive">
               {error}
@@ -255,7 +269,7 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
 
       {/* Generation Status */}
       {isGenerating && (
-        <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+        <Card className="border-blue-200 bg-secondary dark:border-blue-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-blue-700">
               <div className="animate-spin">

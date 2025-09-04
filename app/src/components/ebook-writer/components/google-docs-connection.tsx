@@ -153,7 +153,7 @@ export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
 
   if (isChecking) {
     return (
-      <Card>
+      <Card className="bg-secondary">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -175,7 +175,7 @@ export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
 
   if (!hasConnection) {
     return (
-      <Card>
+      <Card className="bg-secondary">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -220,7 +220,7 @@ export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
 
   if (exportSuccess) {
     return (
-      <Card>
+      <Card className="bg-secondary">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -260,7 +260,7 @@ export function GoogleDocsConnection({ ebook }: GoogleDocsConnectionProps) {
   }
 
   return (
-    <Card>
+    <Card className="bg-secondary">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />

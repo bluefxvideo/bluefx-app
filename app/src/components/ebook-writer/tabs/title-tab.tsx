@@ -35,10 +35,9 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [customTitle, setCustomTitle] = useState('');
   const [useCustom, setUseCustom] = useState(false);
-  const [hasTriggeredGeneration, setHasTriggeredGeneration] = useState(false);
-
   const { 
     current_ebook,
+    has_triggered_title_generation,
     generateTitles, 
     selectTitle, 
     setCustomTitle: updateCustomTitle,
@@ -47,12 +46,11 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
 
   // Auto-generate titles when component loads if we have a topic but no titles yet
   useEffect(() => {
-    if (topic && !titleOptions && !hasTriggeredGeneration && !isLoadingSession) {
+    if (topic && !titleOptions && !has_triggered_title_generation && !isLoadingSession && !isGenerating) {
       console.log('🚀 Auto-generating titles for topic:', topic);
-      setHasTriggeredGeneration(true);
       generateTitles(topic);
     }
-  }, [topic, titleOptions, hasTriggeredGeneration, isLoadingSession, generateTitles]);
+  }, [topic, titleOptions, has_triggered_title_generation, isLoadingSession, isGenerating]); // Use store state
 
   // Sync local state with loaded session data
   useEffect(() => {

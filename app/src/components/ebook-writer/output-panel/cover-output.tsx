@@ -31,6 +31,14 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
   // Use current_ebook from store if ebook prop doesn't have cover yet
   const coverData = ebook?.cover || current_ebook?.cover;
   
+  // Debug logging
+  console.log('🖼️ CoverOutput Debug:', {
+    ebook_cover: ebook?.cover,
+    current_ebook_cover: current_ebook?.cover,
+    coverData,
+    has_image_url: !!coverData?.image_url
+  });
+  
   const handleDownload = async () => {
     if (!coverData?.image_url) return;
     
@@ -71,19 +79,29 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
   // No cover generated yet
   if (!coverData) {
     return (
-      <OutputPanelShell
-        title="Cover Design"
-        subtitle="AI-generated book cover"
-        status="idle"
-      >
-        <div className="flex items-center justify-center h-full">
+      <div className="h-full flex flex-col min-h-0">
+        {/* Header */}
+        <div className="flex-shrink-0 p-6 border-b border-border bg-muted/30">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Cover Design</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                AI-generated book cover
+              </p>
+            </div>
+            <SharedActionsMenu />
+          </div>
+        </div>
+        
+        {/* Centered Empty State */}
+        <div className="flex-1 flex items-center justify-center overflow-hidden">
           <UnifiedEmptyState
             icon={Image}
-            title="No Cover Yet"
-            description="Configure settings and generate a cover in the left panel"
+            title="Generate Cover Design"
+            description="Create a professional book cover that attracts readers and represents your content."
           />
         </div>
-      </OutputPanelShell>
+      </div>
     );
   }
   
@@ -107,7 +125,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-hover">
         <div className="p-6 space-y-6">
           {/* Cover Image */}
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden bg-secondary">
             <CardContent className="p-0">
               <div className="relative aspect-[2/3] bg-gray-100 dark:bg-gray-800">
                 {imageLoading && (
@@ -146,7 +164,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
           </Card>
           
           {/* Cover Details */}
-          <Card>
+          <Card className="bg-secondary">
             <CardHeader className="pb-3">
               <h3 className="text-sm font-medium">Cover Details</h3>
             </CardHeader>
@@ -199,7 +217,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
           </Card>
           
           {/* Actions Card */}
-          <Card>
+          <Card className="bg-secondary">
             <CardHeader className="pb-3">
               <h3 className="text-sm font-medium">Actions</h3>
             </CardHeader>

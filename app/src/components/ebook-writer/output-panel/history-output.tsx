@@ -29,6 +29,7 @@ interface EbookHistoryItem {
   user_id: string;
   title: string;
   status: 'draft' | 'completed';
+  cover_image_url?: string;
   metadata: {
     topic?: string;
     title?: string;
@@ -210,9 +211,32 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
     }
   };
 
-  // Get progress percentage
+  // Get progress percentage based on content completion
   const getProgress = (ebook: EbookHistoryItem) => {
-    return ebook.generation_progress || ebook.metadata?.generation_progress || 0;
+    // Outline data is stored in metadata.session_data.outline
+    const outline = (ebook.metadata as any)?.session_data?.outline || ebook.metadata?.outline;
+    if (!outline?.chapters) {
+      console.log('📊 No chapters found in outline for ebook:', ebook.id, { 
+        metadata: ebook.metadata,
+        session_data: (ebook.metadata as any)?.session_data,
+        outline 
+      });
+      return 0;
+    }
+    
+    const totalChapters = outline.chapters.length;
+    const completedChapters = outline.chapters.filter((c: any) => c.status === 'completed').length;
+    const progress = totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
+    
+    console.log('📊 Progress calculation:', {
+      ebook_id: ebook.id,
+      totalChapters,
+      completedChapters,
+      progress,
+      chapters: outline.chapters.map((c: any) => ({ title: c.title, status: c.status }))
+    });
+    
+    return progress;
   };
 
   // Format date
@@ -325,7 +349,7 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
                       : `${getProgress(ebook)}% Progress`}
                   </Badge>
                   <span className="text-sm text-muted-foreground">
-                    {ebook.metadata.outline?.chapters?.length || 0} chapters
+                    {((ebook.metadata as any)?.session_data?.outline?.chapters?.length || ebook.metadata?.outline?.chapters?.length || 0)} chapters
                   </span>
                 </div>
                 
@@ -348,16 +372,16 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
                 </div>
 
                 {/* Cover Preview */}
-                {(ebook.cover_image_url || ebook.metadata?.cover_url) ? (
-                  <div className="aspect-[3/4] max-h-32 bg-muted rounded overflow-hidden mx-auto">
+                {(ebook.cover_image_url || ebook.metadata?.cover_url || ebook.metadata?.cover_metadata?.image_url) ? (
+                  <div className="aspect-[2/3] bg-muted rounded overflow-hidden relative" style={{ maxHeight: '150px' }}>
                     <img 
-                      src={ebook.cover_image_url || ebook.metadata?.cover_url} 
-                      alt="Cover"
+                      src={ebook.cover_image_url || ebook.metadata?.cover_url || ebook.metadata?.cover_metadata?.image_url} 
+                      alt={ebook.metadata.title || ebook.title || 'Ebook Cover'}
                       className="w-full h-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="aspect-[3/4] max-h-32 bg-muted rounded flex items-center justify-center mx-auto">
+                  <div className="aspect-[2/3] bg-muted rounded flex items-center justify-center" style={{ maxHeight: '150px' }}>
                     <Book className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
@@ -450,7 +474,7 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
           <div>
             <p className="text-lg font-semibold">
               {filteredEbooks.reduce((acc, ebook) => 
-                acc + (ebook.metadata.outline?.chapters?.length || 0), 0
+                acc + (((ebook.metadata as any)?.session_data?.outline?.chapters?.length || ebook.metadata?.outline?.chapters?.length) || 0), 0
               )}
             </p>
             <p className="text-sm text-muted-foreground">Total Chapters</p>

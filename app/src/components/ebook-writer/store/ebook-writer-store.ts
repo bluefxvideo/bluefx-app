@@ -109,6 +109,7 @@ interface EbookWriterState {
   selected_chapter_id?: string;
   sidebar_collapsed: boolean;
   show_progress_panel: boolean;
+  has_triggered_title_generation: boolean;
   
   // History and persistence
   saved_ebooks: EbookMetadata[];
@@ -203,6 +204,7 @@ const initialState = {
   active_tab: 'topic' as const,
   sidebar_collapsed: false,
   show_progress_panel: true,
+  has_triggered_title_generation: false,
   saved_ebooks: [],
   auto_save_enabled: true,
   current_session_id: undefined,
@@ -242,7 +244,10 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               include_ctas: state.current_ebook?.include_ctas ?? true,
               target_audience: state.current_ebook?.target_audience || 'General audience',
             } as EbookMetadata,
-            // Don't clear title_options here - preserve them!
+            // Reset title generation flag when topic changes
+            has_triggered_title_generation: false,
+            // Clear title options when topic changes to trigger fresh generation
+            title_options: null,
             generation_progress: {
               ...state.generation_progress,
               current_step: 'title',
@@ -255,6 +260,7 @@ export const useEbookWriterStore = create<EbookWriterState>()(
           console.log('🚀 Starting title generation for topic:', topic, 'with documents:', documents?.length || 0);
           
           set(state => ({
+            has_triggered_title_generation: true,
             generation_progress: {
               ...state.generation_progress,
               is_generating: true,

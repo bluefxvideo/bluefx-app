@@ -146,7 +146,7 @@ interface EbookSubsection {
 
 // AI Schemas for structured generation
 const TitleGenerationSchema = z.object({
-  titles: z.array(z.string()).min(5).max(5),
+  titles: z.array(z.string()).min(10).max(10),
   reasoningText: z.string(),
   target_audience_analysis: z.string()
 });
@@ -352,7 +352,7 @@ export async function ebookWriterOrchestrator(
 }
 
 /**
- * Generate 5 compelling titles based on topic
+ * Generate 10 compelling titles based on topic
  * Using Gemini 2.0 Flash - 200x cheaper than O1 models!
  */
 async function generateTitles(topic: string, uploadedDocuments?: UploadedDocument[]): Promise<string[]> {
@@ -368,7 +368,7 @@ async function generateTitles(topic: string, uploadedDocuments?: UploadedDocumen
     model: google('gemini-2.0-flash-exp'),
     schema: TitleGenerationSchema,
     prompt: `
-      Generate 5 compelling, professional ebook titles for the topic: "${topic}"
+      Generate 10 compelling, professional ebook titles for the topic: "${topic}"
       
       ${documentContext ? `Context from uploaded documents:\n${documentContext.slice(0, 10000)}\n\nUse this context to make titles more specific and valuable. Reference specific concepts, methodologies, or insights from the documents when relevant.\n\n` : ''}
       

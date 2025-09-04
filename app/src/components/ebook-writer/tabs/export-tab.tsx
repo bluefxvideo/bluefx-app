@@ -132,9 +132,8 @@ export function ExportTab({ ebook, isGenerating, error }: ExportTabProps) {
           <StandardStep
             stepNumber={1}
             title="Download PDF"
-            description="Get a simple, clean PDF of your ebook"
           >
-            <Card>
+            <Card className="bg-secondary">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
@@ -174,7 +173,6 @@ export function ExportTab({ ebook, isGenerating, error }: ExportTabProps) {
           <StandardStep
             stepNumber={2}
             title="Export to Google Docs"
-            description="Create a collaborative Google Doc with professional formatting"
           >
             <GoogleDocsConnection 
               ebook={convertedEbook}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,10 +27,15 @@ interface TitleOutputProps {
 }
 
 export function TitleOutput({ titleOptions, isGenerating, topic = '', ebook, uploadedDocuments = [] }: TitleOutputProps) {
-  const { selectTitle, setCustomTitle } = useEbookWriterStore();
+  const router = useRouter();
+  const { selectTitle, setCustomTitle, setActiveTab } = useEbookWriterStore();
+  
   const handleTitleSelect = (titleIndex: number) => {
     selectTitle(titleIndex);
-    // Could navigate to next step here
+    
+    // Automatically navigate to outline tab
+    setActiveTab('outline');
+    router.push('/dashboard/ebook-writer/outline');
   };
 
   // Show generating state
