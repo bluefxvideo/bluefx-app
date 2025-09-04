@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       // Route error based on state
       if (state === 'ebook_export') {
         return NextResponse.redirect(
-          new URL('/dashboard/ebook-writer/export?error=oauth_failed', request.url)
+          new URL('/dashboard/ebook-writer/export?error=oauth_failed', process.env.NEXT_PUBLIC_SITE_URL || request.url)
         );
       }
       
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       
       if (state === 'ebook_export') {
         return NextResponse.redirect(
-          new URL('/dashboard/ebook-writer/export?error=no_code', request.url)
+          new URL('/dashboard/ebook-writer/export?error=no_code', process.env.NEXT_PUBLIC_SITE_URL || request.url)
         );
       }
       
@@ -80,7 +80,7 @@ async function handleEbookGoogleOAuth(request: NextRequest, code: string) {
       const errorData = await tokenResponse.text();
       console.error('Token exchange failed:', errorData);
       return NextResponse.redirect(
-        new URL('/dashboard/ebook-writer/export?error=token_failed', request.url)
+        new URL('/dashboard/ebook-writer/export?error=token_failed', process.env.NEXT_PUBLIC_SITE_URL || request.url)
       );
     }
 
@@ -96,7 +96,7 @@ async function handleEbookGoogleOAuth(request: NextRequest, code: string) {
     if (!userInfoResponse.ok) {
       console.error('Failed to get user info');
       return NextResponse.redirect(
-        new URL('/dashboard/ebook-writer/export?error=user_info_failed', request.url)
+        new URL('/dashboard/ebook-writer/export?error=user_info_failed', process.env.NEXT_PUBLIC_SITE_URL || request.url)
       );
     }
 
@@ -109,7 +109,7 @@ async function handleEbookGoogleOAuth(request: NextRequest, code: string) {
     if (authError || !user) {
       console.error('User not authenticated:', authError);
       return NextResponse.redirect(
-        new URL('/dashboard/ebook-writer/export?error=not_authenticated', request.url)
+        new URL('/dashboard/ebook-writer/export?error=not_authenticated', process.env.NEXT_PUBLIC_SITE_URL || request.url)
       );
     }
 
@@ -141,19 +141,19 @@ async function handleEbookGoogleOAuth(request: NextRequest, code: string) {
     if (insertError) {
       console.error('Failed to store connection:', insertError);
       return NextResponse.redirect(
-        new URL('/dashboard/ebook-writer/export?error=storage_failed', request.url)
+        new URL('/dashboard/ebook-writer/export?error=storage_failed', process.env.NEXT_PUBLIC_SITE_URL || request.url)
       );
     }
 
     // Success - redirect back to export page
     return NextResponse.redirect(
-      new URL('/dashboard/ebook-writer/export?connected=true', request.url)
+      new URL('/dashboard/ebook-writer/export?connected=true', process.env.NEXT_PUBLIC_SITE_URL || request.url)
     );
 
   } catch (error) {
     console.error('Ebook Google OAuth error:', error);
     return NextResponse.redirect(
-      new URL('/dashboard/ebook-writer/export?error=unexpected', request.url)
+      new URL('/dashboard/ebook-writer/export?error=unexpected', process.env.NEXT_PUBLIC_SITE_URL || request.url)
     );
   }
 }
