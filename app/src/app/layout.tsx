@@ -23,6 +23,11 @@ export const metadata: Metadata = {
   authors: [{ name: "BlueFX" }],
   creator: "BlueFX",
   publisher: "BlueFX",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
   robots: "index, follow",
   icons: {
     icon: [
@@ -56,6 +61,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('bluefx-theme');
+                const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                const finalTheme = theme === 'system' || !theme ? systemTheme : theme;
+                document.documentElement.classList.toggle('dark', finalTheme === 'dark');
+                document.documentElement.style.colorScheme = finalTheme;
+              } catch (e) {}
+            `,
+          }}
+        />
         {/* FastSpring Script */}
         <script 
           id="fsc-api" 
@@ -72,7 +90,9 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="system"
           enableSystem
+          enableColorScheme
           disableTransitionOnChange
+          storageKey="bluefx-theme"
         >
           <QueryProvider>
             {children}
