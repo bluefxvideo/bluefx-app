@@ -170,11 +170,11 @@ export function ExportTab({ ebook, isGenerating, error }: ExportTabProps) {
             </Card>
           </StandardStep>
 
-          {/* Google Docs Export - Coming Soon */}
+          {/* Google Docs Export */}
           <StandardStep
             stepNumber={2}
             title="Export to Google Docs"
-            description="Coming soon - Google Docs integration"
+            description="Create a collaborative Google Doc with professional formatting"
           >
             <GoogleDocsConnection 
               ebook={convertedEbook}

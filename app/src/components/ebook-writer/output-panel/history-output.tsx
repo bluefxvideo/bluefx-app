@@ -107,7 +107,7 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
     if (filters.filterStatus && filters.filterStatus !== 'all') {
       filtered = filtered.filter(item => {
         if (filters.filterStatus === 'completed') {
-          return item.status === 'completed' || getProgress(item) === 100;
+          return item.status === 'completed' || getProgress(item) >= 100;
         }
         return item.status === filters.filterStatus;
       });
@@ -212,7 +212,7 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
 
   // Get progress percentage
   const getProgress = (ebook: EbookHistoryItem) => {
-    return ebook.metadata.generation_progress || 0;
+    return ebook.generation_progress || ebook.metadata?.generation_progress || 0;
   };
 
   // Format date
@@ -232,7 +232,7 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
   // Get status color for badge
   const getStatusColor = (ebook: EbookHistoryItem) => {
     const progress = getProgress(ebook);
-    if (ebook.status === 'completed' || progress === 100) {
+    if (ebook.status === 'completed' || progress >= 100) {
       return 'bg-green-600';
     }
     if (progress > 50) {
@@ -320,7 +320,7 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
                 {/* Status Badge and Progress */}
                 <div className="flex items-center justify-between">
                   <Badge className={`text-sm ${getStatusColor(ebook)}`}>
-                    {ebook.status === 'completed' || getProgress(ebook) === 100 
+                    {ebook.status === 'completed' || getProgress(ebook) >= 100 
                       ? 'Completed' 
                       : `${getProgress(ebook)}% Progress`}
                   </Badge>
@@ -348,10 +348,10 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
                 </div>
 
                 {/* Cover Preview */}
-                {ebook.metadata.cover_url ? (
+                {(ebook.cover_image_url || ebook.metadata?.cover_url) ? (
                   <div className="aspect-[3/4] max-h-32 bg-muted rounded overflow-hidden mx-auto">
                     <img 
-                      src={ebook.metadata.cover_url} 
+                      src={ebook.cover_image_url || ebook.metadata?.cover_url} 
                       alt="Cover"
                       className="w-full h-full object-cover"
                     />
@@ -443,7 +443,7 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
           </div>
           <div>
             <p className="text-lg font-semibold">
-              {filteredEbooks.filter(e => e.status === 'completed' || getProgress(e) === 100).length}
+              {filteredEbooks.filter(e => e.status === 'completed' || getProgress(e) >= 100).length}
             </p>
             <p className="text-sm text-muted-foreground">Completed</p>
           </div>

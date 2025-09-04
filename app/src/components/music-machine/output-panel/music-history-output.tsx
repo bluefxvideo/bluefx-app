@@ -237,19 +237,19 @@ export function MusicHistoryOutput({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-w-0">
       {/* History Grid */}
       <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 gap-4 p-1">
+        <div className="grid grid-cols-1 gap-4 p-1 max-w-full">
           {filteredMusic.map((music) => (
             <Card 
               key={music.id} 
-              className={`p-4 bg-secondary/50 transition-all duration-200 hover:shadow-md cursor-pointer ${
+              className={`p-4 bg-secondary/50 transition-all duration-200 hover:shadow-md cursor-pointer min-w-0 ${
                 selectedMusic === music.id ? 'ring-2 ring-primary' : ''
               }`}
               onClick={() => setSelectedMusic(selectedMusic === music.id ? null : music.id)}
             >
-              <div className="space-y-3">
+              <div className="space-y-3 min-w-0">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -288,8 +288,8 @@ export function MusicHistoryOutput({
 
                 {/* Full Width Audio Player with better shading */}
                 {music.audio_url && (
-                  <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-4 border border-border/50">
-                    <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-4 border border-border/50 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -303,13 +303,13 @@ export function MusicHistoryOutput({
                           <Play className="w-5 h-5" />
                         )}
                       </button>
-                      <div className="flex-1 h-12 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3 backdrop-blur-sm">
+                      <div className="flex-1 h-12 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3 backdrop-blur-sm min-w-0 overflow-hidden">
                         {/* Waveform visualization */}
-                        <div className="flex items-center justify-center w-full gap-[2px]">
-                          {[...Array(80)].map((_, i) => (
+                        <div className="flex items-center justify-center w-full gap-[1px] overflow-hidden">
+                          {[...Array(60)].map((_, i) => (
                             <div
                               key={i}
-                              className={`bg-primary/40 rounded-full transition-all duration-75 ${
+                              className={`bg-primary/40 rounded-full transition-all duration-75 flex-shrink-0 ${
                                 playingMusicId === music.id 
                                   ? 'animate-pulse bg-primary/70' 
                                   : ''
