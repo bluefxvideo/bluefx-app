@@ -132,8 +132,6 @@ const toolCategories = [
         icon: Layers,
         gradient: "bg-primary",
         description: "Multi-platform social content",
-        disabled: true,
-        comingSoon: "Under construction - Ready on September 3rd",
       },
     ],
   },

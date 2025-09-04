@@ -4,8 +4,8 @@ import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Upload, 
   FileText, 
@@ -14,7 +14,7 @@ import {
   Music, 
   X, 
   Wand2,
-  Layers,
+  ArrowRight,
 } from 'lucide-react';
 import { useContentMultiplierStore } from '../store/content-multiplier-store';
 import { toast } from 'sonner';
@@ -23,8 +23,7 @@ import { StandardStep } from '@/components/tools/standard-step';
 
 /**
  * Content-Only Tab Component
- * Clean, focused content input without platform selection
- * Matches the simple, beautiful design of Thumbnail Machine
+ * Clean, focused content input matching ebook writer style
  */
 export function ContentOnlyTab() {
   const [dragActive, setDragActive] = useState(false);
@@ -38,7 +37,7 @@ export function ContentOnlyTab() {
     uploadFile,
     removeFile,
     generatePlatformContent,
-    clearCurrentProject,
+    togglePlatform,
   } = useContentMultiplierStore();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -50,49 +49,30 @@ export function ContentOnlyTab() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+      'video/*': ['.mp4', '.mov', '.avi'],
+      'audio/*': ['.mp3', '.wav', '.m4a'],
+      'application/pdf': ['.pdf'],
+      'text/*': ['.txt', '.md'],
+    },
     onDragEnter: () => setDragActive(true),
     onDragLeave: () => setDragActive(false),
-    accept: {
-      'text/*': ['.txt', '.md'],
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
-      'video/*': ['.mp4', '.mov', '.avi', '.webm'],
-      'audio/*': ['.mp3', '.wav', '.ogg'],
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-    },
-    maxSize: 100 * 1024 * 1024, // 100MB
   });
 
   const handleGenerate = async () => {
-    if (selected_platforms.length === 0) {
-      toast.error('Please select platforms first', {
-        description: 'Go to the Platforms tab to choose which social media platforms to create content for'
-      });
+    if (!original_input.trim() && uploaded_files.length === 0) {
+      toast.error('Please enter content or upload files');
       return;
     }
-    
-    toast.info('Starting content generation...', {
-      description: `Creating optimized content for ${selected_platforms.length} platform${selected_platforms.length > 1 ? 's' : ''}`
-    });
-    
-    try {
-      await generatePlatformContent();
-      
-      toast.success('Content generated successfully!', {
-        description: 'Navigate to platform tabs to review and edit your content',
-        duration: 4000,
-      });
-    } catch (_error) {
-      toast.error('Content generation failed', {
-        description: 'Please try again or check your input',
-      });
-    }
-  };
 
-  const canGenerate = (original_input.trim() || uploaded_files.length > 0) && 
-                     selected_platforms.length > 0 && 
-                     !generation_progress.is_generating;
+    if (selected_platforms.length === 0) {
+      toast.error('Please select at least one platform');
+      return;
+    }
+
+    await generatePlatformContent();
+  };
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image')) return Image;
@@ -101,94 +81,84 @@ export function ContentOnlyTab() {
     return FileText;
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  // Available platforms for selection
+  const availablePlatforms = [
+    { id: 'twitter', label: 'Twitter', checked: selected_platforms.includes('twitter') },
+    { id: 'instagram', label: 'Instagram', checked: selected_platforms.includes('instagram') },
+    { id: 'tiktok', label: 'TikTok', checked: selected_platforms.includes('tiktok') },
+    { id: 'linkedin', label: 'LinkedIn', checked: selected_platforms.includes('linkedin') },
+    { id: 'facebook', label: 'Facebook', checked: selected_platforms.includes('facebook') },
+  ];
 
   return (
     <TabContentWrapper>
       <TabBody>
         <StandardStep
           stepNumber={1}
-          title="Content Input"
-          description="Enter your content to multiply across social media platforms"
+          title="Original Content"
         >
-        {/* Content Input Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-blue-600" />
-              Content Input
-            </CardTitle>
-            <CardDescription>
-              Enter your content or upload files to multiply across platforms
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="content">Original Content</Label>
+              <Label htmlFor="content">Content</Label>
               <Textarea
                 id="content"
                 value={original_input}
                 onChange={(e) => setOriginalInput(e.target.value)}
-                placeholder="Enter your content here... You can also upload files below."
-                rows={6}
-                className="text-sm resize-y"
+                placeholder="Enter your content here..."
+                rows={8}
+                className="text-base resize-y"
               />
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">
-                  {original_input.length} characters
-                </span>
-                <span className="text-xs text-blue-600 dark:text-blue-400">
-                  💡 Be descriptive for better results
-                </span>
-              </div>
             </div>
 
             {/* File Upload Area */}
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                isDragActive || dragActive
-                  ? 'border-purple-500 bg-blue-50 dark:bg-purple-950/20'
-                  : 'border-border hover:border-purple-300'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm font-medium mb-1">
-                {isDragActive ? 'Drop files here' : 'Drag & drop files here'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                or click to select files (images, videos, audio, documents)
-              </p>
+            <div className="space-y-2">
+              <Label>Upload Files (Optional)</Label>
+              <div
+                {...getRootProps()}
+                className={`
+                  border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+                  transition-colors duration-200
+                  ${isDragActive || dragActive
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                  }
+                `}
+              >
+                <input {...getInputProps()} />
+                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Drag & drop files here, or click to select
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Images, videos, audio, PDFs, and text files supported
+                </p>
+              </div>
             </div>
 
             {/* Uploaded Files List */}
             {uploaded_files.length > 0 && (
               <div className="space-y-2">
-                <Label>Uploaded Files ({uploaded_files.length})</Label>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {uploaded_files.map((file) => {
-                    const FileIcon = getFileIcon(file.type);
+                <Label>Uploaded Files</Label>
+                <div className="space-y-1">
+                  {uploaded_files.map(file => {
+                    const FileIcon = getFileIcon(file.mime_type);
                     return (
-                      <div key={file.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                        <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{file.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatFileSize(file.size)} • {file.type}
-                          </div>
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({(file.size / 1024).toFixed(1)} KB)
+                          </span>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => removeFile(file.id)}
-                          className="h-6 w-6 p-0 hover:bg-red-100 dark:hover:bg-red-900/20"
+                          className="h-6 w-6 p-0"
                         >
                           <X className="h-3 w-3" />
                         </Button>
@@ -198,54 +168,48 @@ export function ContentOnlyTab() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </StandardStep>
 
-        {selected_platforms.length === 0 && (
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-sm text-muted-foreground mb-2">
-                No platforms selected
+        <StandardStep
+          stepNumber={2}
+          title="Select Platforms"
+        >
+          <div className="space-y-3">
+            {availablePlatforms.map(platform => (
+              <div key={platform.id} className="flex items-center space-x-3">
+                <Checkbox
+                  id={platform.id}
+                  checked={platform.checked}
+                  onCheckedChange={() => togglePlatform(platform.id as any)}
+                />
+                <Label
+                  htmlFor={platform.id}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  {platform.label}
+                </Label>
               </div>
-              <div className="text-xs text-muted-foreground">
-                Go to the Platforms tab to choose which social media platforms to create content for
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            ))}
+          </div>
         </StandardStep>
       </TabBody>
       
       <TabFooter>
-        <div className="space-y-2">
-          <Button 
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            className="w-full bg-primary"
-            size="lg"
-          >
-            {generation_progress.is_generating ? (
-              'Generating Content...'
-            ) : (
-              <>
-                <Wand2 className="mr-2 h-4 w-4" />
-                Generate Platform Content
-              </>
-            )}
-          </Button>
-
-          {/* Clear Project Button */}
-          {(original_input || uploaded_files.length > 0) && (
-            <Button 
-              variant="outline" 
-              onClick={clearCurrentProject}
-              className="w-full"
-              size="sm"
-            >
-              Clear All
-            </Button>
+        <Button 
+          onClick={handleGenerate}
+          disabled={generation_progress.is_generating || (!original_input.trim() && uploaded_files.length === 0) || selected_platforms.length === 0}
+          className="w-full bg-primary hover:from-blue-600 hover:to-cyan-600"
+        >
+          {generation_progress.is_generating ? (
+            'Generating Content...'
+          ) : (
+            <>
+              Generate Content
+              <Wand2 className="ml-2 h-4 w-4" />
+            </>
           )}
-        </div>
+        </Button>
       </TabFooter>
     </TabContentWrapper>
   );

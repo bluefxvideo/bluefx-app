@@ -379,10 +379,10 @@ const initialState = {
     is_generating: false,
     credits_used: 0,
   },
-  selected_platforms: ['twitter', 'instagram', 'linkedin'] as SocialPlatform[],
+  selected_platforms: [] as SocialPlatform[], // Start with no platforms selected
   oauth_connections: {} as Record<SocialPlatform, OAuthConnection>,
   platform_configs: PLATFORM_CONFIGS,
-  active_tab: 'input' as const,
+  active_tab: 'content' as const, // Default to content tab
   active_workflow_tab: 'content' as const,
   sidebar_collapsed: false,
   show_preview_panel: true,
@@ -585,7 +585,7 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
             
             set(state => ({
               current_variant: variant,
-              active_tab: state.selected_platforms[0] || 'review', // Auto-navigate to first platform
+              active_tab: 'content', // Stay on content tab after generation
               generation_progress: {
                 ...state.generation_progress,
                 is_generating: false,
