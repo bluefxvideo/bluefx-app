@@ -65,7 +65,7 @@ export function ScriptToVideoOutput({
   return (
     <div className="space-y-6">
       {/* Success Header */}
-      <Card className="border-blue-200 bg-blue-50/50">
+      <Card className="border-blue-200 ">
         <CardContent className="pt-6">
           <div className="flex items-center gap-3">
             <CheckCircle className="w-8 h-8 text-blue-600" />

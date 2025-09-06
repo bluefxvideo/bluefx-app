@@ -118,7 +118,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
         </DialogHeader>
 
         {isPurchasing && (
-          <div className="flex items-center justify-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center justify-center p-4 ">
             <Loader2 className="mr-2 h-4 w-4 animate-spin text-blue-600" />
             <span className="text-blue-700 dark:text-blue-300">
               Processing your purchase... This may take a moment.

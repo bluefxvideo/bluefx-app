@@ -182,7 +182,7 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
                         onClick={() => setPreferences(prev => ({ ...prev, word_count_preference: option.id }))}
                         className={`p-3 rounded-lg border-2 transition-all text-left ${
                           preferences.word_count_preference === option.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-blue-500 bg-blue-950/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
                         }`}
                       >
@@ -203,7 +203,7 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
                         onClick={() => setPreferences(prev => ({ ...prev, complexity: option.id }))}
                         className={`p-3 rounded-lg border-2 transition-all text-left ${
                           preferences.complexity === option.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-blue-500 bg-blue-950/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
                         }`}
                       >
@@ -224,7 +224,7 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
                         onClick={() => setPreferences(prev => ({ ...prev, writing_tone: option.id }))}
                         className={`p-3 rounded-lg border-2 transition-all text-left ${
                           preferences.writing_tone === option.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-blue-500 bg-blue-950/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
                         }`}
                       >

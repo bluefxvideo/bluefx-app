@@ -70,7 +70,7 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
       id: 'facebook', 
       name: 'Facebook', 
       icon: FacebookIcon, 
-      color: 'bg-blue-500',
+      color: '
       description: 'Community engagement, longer posts, diverse demographics'
     },
   ];
@@ -139,7 +139,7 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
                   className={cn(
                     "p-4 border rounded-lg transition-all cursor-pointer hover:bg-muted/50",
                     isSelected 
-                      ? 'border-emerald-500 bg-blue-50 dark:bg-emerald-950/20' 
+                      ? 'border-emerald-500 
                       : 'border-border'
                   )}
                   onClick={() => togglePlatform(platform.id)}
@@ -155,7 +155,7 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium">{platform.name}</span>
                         {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                          <div className="w-5 h-5 rounded-full ">
                             <Check className="h-3 w-3 text-white" />
                           </div>
                         )}
@@ -175,7 +175,7 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
                         ) : (
                           <Badge 
                             variant="outline" 
-                            className="text-xs cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                            className="text-xs cursor-pointer hover:"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleConnectPlatform(platform.id);
@@ -209,14 +209,14 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
             </h3>
             
             <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="p-3 ">
                 <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">✨ Content Optimization</p>
                 <p className="text-blue-600 dark:text-blue-400">
                   Each platform gets custom-tailored content with optimal formatting, hashtags, and tone.
                 </p>
               </div>
               
-              <div className="p-3 bg-blue-50 dark:bg-emerald-950/20 rounded-lg border border-blue-200 dark:border-emerald-800">
+              <div className="p-3 ">
                 <p className="font-medium text-emerald-700 dark:text-emerald-300 mb-1">🚀 Auto-Publishing</p>
                 <p className="text-blue-600 dark:text-emerald-400">
                   Connect your accounts to publish directly or schedule posts for later.

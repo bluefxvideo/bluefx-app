@@ -382,7 +382,7 @@ export default function TopOffersPage() {
               <div className="space-y-4">
                 <h3 className="font-medium">Performance</h3>
                 <div className="space-y-3">
-                  <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/50">
+                  <Card className="p-3 ">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       <div>

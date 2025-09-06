@@ -28,7 +28,7 @@ export function LoadingSkeleton() {
           <div className="h-3 bg-muted rounded w-32" />
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+          <div className="w-2 h-2 " />
           <div className="h-3 bg-muted rounded w-40" />
         </div>
         <div className="flex items-center gap-3">

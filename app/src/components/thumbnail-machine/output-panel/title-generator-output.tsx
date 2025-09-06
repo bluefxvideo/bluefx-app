@@ -138,21 +138,21 @@ export function TitleGeneratorOutput({
                   
                   {/* Length indicator */}
                   {title.length <= 60 && (
-                    <Badge variant="outline" className="text-sm bg-blue-50 text-blue-600 border-blue-200">
+                    <Badge variant="outline" className="text-sm ">
                       ✓ Optimal length
                     </Badge>
                   )}
                   
                   {/* Emotional trigger detection */}
                   {/[!?]/.test(title) && (
-                    <Badge variant="outline" className="text-sm bg-blue-50 text-blue-700 border-blue-200">
+                    <Badge variant="outline" className="text-sm ">
                       ⚡ Engaging
                     </Badge>
                   )}
                   
                   {/* Number detection */}
                   {/\d/.test(title) && (
-                    <Badge variant="outline" className="text-sm bg-blue-50 text-blue-600 border-blue-200">
+                    <Badge variant="outline" className="text-sm ">
                       # Numbers
                     </Badge>
                   )}

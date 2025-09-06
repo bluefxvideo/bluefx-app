@@ -108,7 +108,7 @@ export function InputTab() {
     { id: 'instagram', name: 'Instagram', icon: InstagramIcon, color: 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500' },
     { id: 'tiktok', name: 'TikTok', icon: TikTokIcon, color: 'bg-black' },
     { id: 'linkedin', name: 'LinkedIn', icon: LinkedInIcon, color: 'bg-blue-600' },
-    { id: 'facebook', name: 'Facebook', icon: FacebookIcon, color: 'bg-blue-500' },
+    { id: 'facebook', name: 'Facebook', icon: FacebookIcon, color: '
   ];
 
   const getFileIcon = (type: string) => {
@@ -160,7 +160,7 @@ export function InputTab() {
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
               isDragActive || dragActive
-                ? 'border-purple-500 bg-blue-50 dark:bg-purple-950/20'
+                ? 'border-purple-500 
                 : 'border-border hover:border-purple-300'
             }`}
           >
@@ -229,7 +229,7 @@ export function InputTab() {
                   key={platform.id}
                   className={`p-3 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 ${
                     isSelected 
-                      ? 'border-emerald-500 bg-blue-50 dark:bg-emerald-950/20' 
+                      ? 'border-emerald-500 
                       : 'border-border'
                   }`}
                   onClick={() => togglePlatform(platform.id)}
@@ -250,7 +250,7 @@ export function InputTab() {
                         {!isConnected && (
                           <Badge 
                             variant="outline" 
-                            className="text-xs cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                            className="text-xs cursor-pointer hover:"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleConnectPlatform(platform.id);
@@ -266,7 +266,7 @@ export function InputTab() {
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                       isSelected 
-                        ? 'border-emerald-500 bg-blue-500' 
+                        ? 'border-emerald-500 
                         : 'border-gray-300'
                     }`}>
                       {isSelected && <Check className="h-3 w-3 text-white" />}

@@ -210,7 +210,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
                 <Button
                   key={q}
                   variant={quality === q ? 'default' : 'outline'}
-                  className={`capitalize ${quality === q ? 'bg-blue-500 hover:bg-blue-600 text-white' : ''}`}
+                  className={`capitalize ${quality === q ? '
                   onClick={() => setQuality(q)}
                 >
                   {q}
@@ -239,7 +239,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
             <Button
               onClick={handleGenerate}
               disabled={!scriptText.trim() || isGenerating || credits < estimatedCredits}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+              className="w-full "
             >
               {isGenerating ? (
                 <>

@@ -73,7 +73,7 @@ export function TitleOutput({ titleOptions, isGenerating, topic = '', ebook, upl
                 key={index} 
                 className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 ${
                   ebook?.title === title 
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
+                    ? 'border-blue-500 bg-blue-950/20'
                     : 'border-border'
                 }`}
                 onClick={() => handleTitleSelect(index)}
@@ -81,7 +81,7 @@ export function TitleOutput({ titleOptions, isGenerating, topic = '', ebook, upl
                 <div className="flex items-start gap-3">
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                     ebook?.title === title
-                      ? 'border-blue-500 bg-blue-500'
+                      ? 'border-blue-500 bg-blue-950/20'
                       : 'border-gray-300'
                   }`}>
                     {ebook?.title === title && (

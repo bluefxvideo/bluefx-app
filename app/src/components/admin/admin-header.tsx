@@ -66,7 +66,7 @@ export function AdminHeader({ title, user }: AdminHeaderProps) {
             {/* User info */}
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <div className="h-8 w-8 ">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div className="hidden sm:block">

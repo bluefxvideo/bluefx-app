@@ -171,7 +171,7 @@ export function SimplifiedInputTab() {
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
                   isDragActive || dragActive
-                    ? 'border-purple-500 bg-blue-50 dark:bg-purple-950/20'
+                    ? 'border-purple-500 
                     : 'border-border hover:border-purple-300'
                 }`}
               >

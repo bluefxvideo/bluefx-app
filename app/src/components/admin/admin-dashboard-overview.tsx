@@ -193,7 +193,7 @@ export async function AdminDashboardOverview() {
             </div>
             
             <div className="flex items-start space-x-3">
-              <div className="h-2 w-2 bg-blue-500 rounded-full mt-2"></div>
+              <div className="h-2 w-2 "></div>
               <div className="flex-1">
                 <div className="text-sm font-medium">Admin Dashboard Accessed</div>
                 <div className="text-xs text-muted-foreground">Administrative session started - {new Date().toLocaleString()}</div>

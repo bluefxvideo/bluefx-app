@@ -318,7 +318,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
             <Button 
               type="submit" 
               disabled={loading}
-              className="bg-blue-500 hover:bg-blue-600"
+              className=""
             >
               {loading ? (
                 <>

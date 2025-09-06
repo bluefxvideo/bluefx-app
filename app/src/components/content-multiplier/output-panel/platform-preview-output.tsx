@@ -49,14 +49,14 @@ export function PlatformPreviewOutput({ platform }: PlatformPreviewOutputProps) 
       icon: LinkedInIcon,
       name: 'LinkedIn',
       color: 'text-blue-600',
-      bgColor: 'bg-blue-50 dark:bg-blue-950/20',
+      bgColor: 'dark:bg-blue-950/20',
       borderColor: 'border-blue-200 dark:border-blue-800',
     },
     facebook: {
       icon: FacebookIcon,
       name: 'Facebook',
       color: 'text-blue-500',
-      bgColor: 'bg-blue-50 dark:bg-blue-950/20',
+      bgColor: 'dark:bg-blue-950/20',
       borderColor: 'border-blue-200 dark:border-blue-800',
     },
   };

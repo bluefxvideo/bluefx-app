@@ -139,7 +139,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         {/* State restored notification */}
         {state.isStateRestored && (
           <div className="p-4">
-            <Card className="p-3 bg-blue-500/10 border border-blue-500/30 backdrop-blur-sm">
+            <Card className="p-3 ">
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 <p className="text-sm text-blue-300 font-medium">

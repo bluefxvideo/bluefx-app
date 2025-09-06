@@ -281,7 +281,7 @@ export default function DashboardPage() {
                   <CardTitle>Credit Balance</CardTitle>
                   <CardDescription>Your current available credits</CardDescription>
                 </div>
-                <span className="px-3 py-1 bg-blue-500/10 text-blue-500 text-xs font-medium rounded-full">
+                <span className="px-3 py-1 ">
                   Monthly
                 </span>
               </div>
@@ -308,7 +308,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-3 mt-4">
               <Button 
-                className="bg-blue-500 hover:bg-blue-600 text-white"
+                className=""
                 disabled={isPurchasing}
                 onClick={() => setIsBuyCreditsDialogOpen(true)}
               >
@@ -391,7 +391,7 @@ export default function DashboardPage() {
                     {currentUser?.profile?.role === 'admin' && (
                       <div className="absolute top-2 right-2 flex gap-2">
                         <button
-                          className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors shadow-lg"
+                          className="p-2 "
                           title="Edit Tutorial"
                         >
                           <Edit3 className="h-4 w-4" />

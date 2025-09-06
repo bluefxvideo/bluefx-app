@@ -98,7 +98,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
             {/* Custom Voice Generation Loading */}
             <Card className="p-6 w-full max-w-2xl mx-auto">
               <div className="text-center space-y-4">
-                <div className="w-12 h-12 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 mx-auto ">
                   <Mic className="w-6 h-6 text-blue-500 animate-pulse" />
                 </div>
                 <div>

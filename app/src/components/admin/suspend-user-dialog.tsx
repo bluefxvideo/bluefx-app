@@ -156,7 +156,7 @@ export function SuspendUserDialog({ user, open, onOpenChange, onSuccess }: Suspe
           )}
 
           {isSuspended && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="p-3 ">
               <div className="flex items-center space-x-2">
                 <Shield className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-medium text-blue-600">Restore Access</span>

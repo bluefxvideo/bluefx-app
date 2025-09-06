@@ -536,7 +536,7 @@ Examples:
               <span>Word count: {stepState.finalScript.trim().split(/\s+/).filter(Boolean).length}</span>
             </div>
             
-            <Card className="p-3 bg-blue-50 dark:bg-blue-950/20">
+            <Card className="p-3 ">
               <p className="text-sm text-blue-700 dark:text-blue-300">
                 💡 <strong>Tip:</strong> Make any final edits to your script here. Once you proceed to the next step, 
                 you&apos;ll select a voice and generate the audio.
@@ -648,7 +648,7 @@ Examples:
               </Card>
             </div>
 
-            <Card className="p-3 bg-blue-50 dark:bg-blue-950/20">
+            <Card className="p-3 ">
               <p className="text-sm text-blue-700 dark:text-blue-300">
                 💡 <strong>Tip:</strong> Choose the aspect ratio that matches where you'll share your video. 
                 This affects both the canvas size and how images are generated.
@@ -673,7 +673,7 @@ Examples:
                     key={voice.id}
                     className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
                       selectedVoice === voice.id 
-                        ? 'ring-2 ring-purple-500 bg-blue-50 dark:bg-blue-950/50 shadow-lg' 
+                        ? 'ring-2 ring-purple-500 
                         : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={() => {
@@ -689,7 +689,7 @@ Examples:
                             {voice.gender}
                           </Badge>
                           {voice.isNew && (
-                            <Badge variant="default" className="text-xs bg-blue-500">
+                            <Badge variant="default" className="text-xs ">
                               New
                             </Badge>
                           )}

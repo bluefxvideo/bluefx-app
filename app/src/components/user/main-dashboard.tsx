@@ -233,7 +233,7 @@ export function MainDashboard() {
           </CardContent>
           <CardFooter className="flex items-center gap-3">
             <Button 
-              className="bg-blue-500 hover:bg-blue-600 text-white"
+              className=""
               disabled={isPurchasing}
               onClick={() => setIsBuyCreditsDialogOpen(true)}
             >
@@ -310,7 +310,7 @@ export function MainDashboard() {
                   {(currentUser as any)?.profile?.role === 'admin' && (
                     <div className="absolute top-2 right-2 flex gap-2">
                       <button
-                        className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors shadow-lg"
+                        className="p-2 "
                         title="Edit Tutorial"
                       >
                         <Edit3 className="h-4 w-4" />

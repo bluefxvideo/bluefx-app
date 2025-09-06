@@ -207,7 +207,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                     key={template.id}
                     className={`p-2 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
                       selectedTemplate?.id === template.id 
-                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/50 shadow-lg scale-[1.02]' 
+                        ? 'ring-2 ring-blue-500 
                         : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={async () => {
@@ -291,7 +291,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                     key={voice.id}
                     className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
                       selectedVoice === voice.id 
-                        ? 'ring-2 ring-purple-500 bg-blue-50 dark:bg-blue-950/50 shadow-lg' 
+                        ? 'ring-2 ring-purple-500 
                         : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={() => setSelectedVoice(voice.id)}
@@ -304,7 +304,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                             {voice.gender}
                           </Badge>
                           {voice.isNew && (
-                            <Badge variant="default" className="text-xs bg-blue-500">
+                            <Badge variant="default" className="text-xs ">
                               New
                             </Badge>
                           )}

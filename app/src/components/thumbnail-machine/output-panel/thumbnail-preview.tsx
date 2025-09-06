@@ -213,7 +213,7 @@ export function ThumbnailPreview({
                   <Button
                     size="lg"
                     variant="secondary"
-                    className="bg-blue-500/80 hover:bg-blue-500 text-white border-0 
+                    className="
                               shadow-lg hover:scale-110 transition-all duration-300"
                     onClick={() => {
                       if (primaryResult?.url && isValidUrl(primaryResult.url)) {

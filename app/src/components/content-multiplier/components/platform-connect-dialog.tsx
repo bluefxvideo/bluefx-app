@@ -72,7 +72,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
     facebook: {
       icon: FacebookIcon,
       name: 'Facebook',
-      color: 'bg-blue-500',
+      color: '
       supported: true,
       permissions: ['Post to timeline', 'Access basic info', 'Page management'],
       features: ['Timeline posting', 'Page posting', 'Community engagement'],
@@ -213,7 +213,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
               <p className="text-sm text-muted-foreground mb-4">
                 We&apos;re actively working on {info.name} integration. Stay tuned for updates!
               </p>
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="p-3 ">
                 <p className="text-xs text-blue-700 dark:text-blue-300">
                   <strong>Good news:</strong> You can still generate optimized {info.name} content! 
                   Just copy and paste from the content preview tabs.
@@ -270,7 +270,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
 
           {isConnected && (
             <div className="space-y-3">
-              <div className="p-3 bg-blue-50 dark:bg-green-950/20 rounded-lg border border-blue-200 dark:border-green-800">
+              <div className="p-3 ">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-medium text-blue-600 dark:text-blue-600">

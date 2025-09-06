@@ -231,7 +231,7 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
                         onClick={() => setCoverStyle(option.id)}
                         className={`p-3 rounded-lg border-2 transition-all text-left ${
                           coverStyle === option.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-blue-500 bg-blue-950/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
                         }`}
                       >
@@ -281,7 +281,7 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
                         onClick={() => setFontStyle(option.id)}
                         className={`p-3 rounded-lg border-2 transition-all text-left ${
                           fontStyle === option.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-blue-500 bg-blue-950/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
                         }`}
                       >

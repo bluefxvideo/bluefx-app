@@ -158,7 +158,7 @@ const ProgressCore = ({
             
             {isActive && (
               <motion.div
-                className="w-2 h-2 bg-blue-500 rounded-full"
+                className="w-2 h-2 "
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
               />

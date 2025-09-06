@@ -228,7 +228,7 @@ export function DashboardSidebar({
               className="ml-2 text-xl font-bold text-white hover:text-blue-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               BlueFX
-              <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-blue-500/20 text-blue-300 border-blue-500/30">
+              <Badge variant="secondary" className="text-xs px-1.5 py-0.5 ">
                 BETA
               </Badge>
             </button>

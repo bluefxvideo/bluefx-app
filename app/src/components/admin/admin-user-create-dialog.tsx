@@ -32,7 +32,7 @@ export function AdminUserCreateDialog({ onUserCreated }: AdminUserCreateDialogPr
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+        <Button className="">
           <UserPlus className="mr-2 h-4 w-4" />
           Add User
         </Button>

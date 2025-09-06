@@ -262,7 +262,7 @@ export async function AdminAnalyticsDashboard() {
     <div className="space-y-8">
       {/* Status badges */}
       <div className="flex justify-end items-center space-x-2">
-        <Badge className="bg-blue-500 text-white">Live Data</Badge>
+        <Badge className="">Live Data</Badge>
         <div className="flex items-center px-3 py-1.5 text-sm border border-border rounded-md text-muted-foreground">
           <Calendar className="mr-2 h-4 w-4" />
           Export Report
@@ -365,7 +365,7 @@ export async function AdminAnalyticsDashboard() {
                         <div className="flex items-center space-x-2">
                           <div className="w-24 bg-muted rounded-full h-2">
                             <div 
-                              className="bg-blue-500 h-2 rounded-full"
+                              className=""
                               style={{ 
                                 width: `${(hour.activity / Math.max(...analytics.hourlyDistribution.map(h => h.activity), 1)) * 100}%` 
                               }}

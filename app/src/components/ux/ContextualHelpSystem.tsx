@@ -100,7 +100,7 @@ const ContextualTooltip: React.FC<ContextualTooltipProps> = ({ item, onDismiss, 
           <Button
             size="sm"
             variant="outline"
-            className="pointer-events-auto w-6 h-6 p-0 rounded-full bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
+            className="pointer-events-auto w-6 h-6 p-0 rounded-full "
             onClick={() => {
               if (item.trigger === 'click') {
                 setIsOpen(!isOpen)

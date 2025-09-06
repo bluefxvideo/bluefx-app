@@ -69,7 +69,7 @@ export function PlatformsTab() {
       id: 'facebook', 
       name: 'Facebook', 
       icon: FacebookIcon, 
-      color: 'bg-blue-500',
+      color: '
       description: 'Community engagement, longer posts, diverse demographics'
     },
   ];
@@ -93,11 +93,11 @@ export function PlatformsTab() {
         <CardContent>
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="text-center p-3 bg-blue-50 dark:bg-emerald-950/20 rounded-lg border border-blue-200 dark:border-emerald-800">
+            <div className="text-center p-3 ">
               <div className="text-2xl font-bold text-blue-600">{selectedCount}</div>
               <div className="text-xs text-emerald-700 dark:text-emerald-300">Selected</div>
             </div>
-            <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="text-center p-3 ">
               <div className="text-2xl font-bold text-blue-600">{connectedCount}</div>
               <div className="text-xs text-blue-700 dark:text-blue-300">Connected</div>
             </div>
@@ -115,7 +115,7 @@ export function PlatformsTab() {
                   key={platform.id}
                   className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 ${
                     isSelected 
-                      ? 'border-emerald-500 bg-blue-50 dark:bg-emerald-950/20' 
+                      ? 'border-emerald-500 
                       : 'border-border'
                   }`}
                   onClick={() => togglePlatform(platform.id)}
@@ -131,7 +131,7 @@ export function PlatformsTab() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium">{platform.name}</span>
                         {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                          <div className="w-5 h-5 rounded-full ">
                             <Check className="h-3 w-3 text-white" />
                           </div>
                         )}
@@ -204,7 +204,7 @@ export function PlatformsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="p-3 ">
             <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
               ✨ Smart Optimization
             </p>
@@ -222,7 +222,7 @@ export function PlatformsTab() {
             </p>
           </div>
 
-          <div className="p-3 bg-blue-50 dark:bg-purple-950/20 rounded-lg border border-blue-200 dark:border-purple-800">
+          <div className="p-3 ">
             <p className="text-sm font-medium text-blue-600 dark:text-blue-600 mb-1">
               💡 Best Practices
             </p>

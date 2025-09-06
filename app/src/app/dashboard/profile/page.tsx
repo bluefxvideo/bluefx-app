@@ -187,7 +187,7 @@ export default function ProfilePage() {
                 <Button 
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="bg-blue-500 hover:bg-blue-600"
+                  className=""
                 >
                   {isSaving ? (
                     <>

@@ -235,7 +235,7 @@ export const PWAFeatures: React.FC = () => {
 
   if (isInstalled) {
     return (
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="">
         <CardContent className="pt-6">
           <div className="flex items-center gap-2 text-blue-600">
             <Smartphone className="h-5 w-5" />
@@ -254,7 +254,7 @@ export const PWAFeatures: React.FC = () => {
   }
 
   return (
-    <Card className="bg-blue-50 border-blue-200">
+    <Card className="">
       <CardContent className="pt-6">
         <div className="flex items-center gap-2 text-blue-700 mb-2">
           <Download className="h-5 w-5" />

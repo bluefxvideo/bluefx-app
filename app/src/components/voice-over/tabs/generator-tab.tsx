@@ -180,7 +180,7 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
                 key={voice.id}
                 className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-card ${
                   state.selectedVoice === voice.id
-                    ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-lg'
+                    ? 'ring-2 ring-blue-500 
                     : 'hover:bg-muted/50'
                 }`}
                 onClick={() => handleVoiceSelection(voice.id)}

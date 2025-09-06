@@ -253,7 +253,7 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                   onClick={() => handleColorChange('text', '#000000')}
                 />
                 <div 
-                  className={`w-8 h-8 bg-blue-500 border-2 rounded cursor-pointer ${
+                  className={`w-8 h-8 
                     settings.colors.text_color === '#3b82f6' ? 'border-blue-400' : 'border-gray-200'
                   }`}
                   onClick={() => handleColorChange('text', '#3b82f6')}
@@ -552,7 +552,7 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                       
                       {/* Selection indicator */}
                       {isSelected && (
-                        <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <div className="absolute top-2 right-2 w-6 h-6 ">
                           <span className="text-white text-xs font-bold">✓</span>
                         </div>
                       )}

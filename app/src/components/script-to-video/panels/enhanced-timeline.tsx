@@ -171,7 +171,7 @@ export function EnhancedTimeline({
                 <ImageIcon className="w-3 h-3 text-blue-500" />
                 <span className="text-xs font-medium text-blue-600">Video</span>
               </div>
-              <div className="relative h-8 bg-blue-50 dark:bg-blue-950/20 rounded">
+              <div className="relative h-8 ">
                 {videoSegments.map((segment) => (
                   <div
                     key={segment.id}
@@ -198,7 +198,7 @@ export function EnhancedTimeline({
                 <Volume2 className="w-3 h-3 text-blue-600" />
                 <span className="text-xs font-medium text-blue-600">Audio</span>
               </div>
-              <div className="h-6 bg-blue-50 dark:bg-green-950/20 rounded">
+              <div className="h-6 ">
                 <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded opacity-80" />
               </div>
             </div>
@@ -210,7 +210,7 @@ export function EnhancedTimeline({
                 <span className="text-xs font-medium text-blue-600">Captions</span>
                 <Badge variant="secondary" className="text-xs px-1 py-0">AI Synced</Badge>
               </div>
-              <div className="h-6 bg-blue-50 dark:bg-purple-950/20 rounded">
+              <div className="h-6 ">
                 {captionSegments.map((segment) => (
                   <div
                     key={segment.id}
