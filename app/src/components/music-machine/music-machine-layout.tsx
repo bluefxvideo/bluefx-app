@@ -18,7 +18,7 @@ export function MusicMachineLayout({ children }: MusicMachineLayoutProps) {
       <div className="h-full flex gap-6">
         {/* Left Panel - Input */}
         <div className="w-1/2 max-w-md">
-          <Card className="h-full p-6 shadow-lg bg-gray-50 dark:bg-gray-800/30">
+          <Card className="h-full p-6 shadow-lg ">
             {inputPanel}
           </Card>
         </div>

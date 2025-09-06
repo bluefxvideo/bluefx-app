@@ -171,7 +171,7 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="space-y-6 p-4 mt-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <div className="space-y-6 p-4 mt-4 ">
                 {/* Word Count */}
                 <div>
                   <Label className="text-sm font-medium mb-3 block">Words per Chapter</Label>

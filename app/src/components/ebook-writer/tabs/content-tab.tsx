@@ -237,7 +237,7 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
                     isSelected ? 'ring-2 ring-primary' : ''
                   } ${
                     hasContent ? 'bg-green-50/30 dark:bg-green-900/10 border-green-200 dark:border-green-800' :
-                    isSkipped ? 'bg-gray-50/50 dark:bg-gray-900/20 opacity-60' :
+                    isSkipped ? '
                     'bg-muted/30'
                   }`}
                 >

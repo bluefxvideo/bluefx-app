@@ -28,7 +28,7 @@ export function PlatformPreviewOutput({ platform }: PlatformPreviewOutputProps) 
       icon: XIcon,
       name: 'Twitter/X',
       color: 'text-black dark:text-white',
-      bgColor: 'bg-gray-50 dark:bg-gray-950/20',
+      bgColor: 'dark:bg-gray-950/20',
       borderColor: 'border-gray-200 dark:border-gray-800',
     },
     instagram: {
@@ -42,7 +42,7 @@ export function PlatformPreviewOutput({ platform }: PlatformPreviewOutputProps) 
       icon: TikTokIcon,
       name: 'TikTok',
       color: 'text-black dark:text-white',
-      bgColor: 'bg-gray-50 dark:bg-gray-950/20',
+      bgColor: 'dark:bg-gray-950/20',
       borderColor: 'border-gray-200 dark:border-gray-800',
     },
     linkedin: {

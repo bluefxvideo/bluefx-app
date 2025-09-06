@@ -503,7 +503,7 @@ export function UserDashboardEnhanced() {
               {toolUsage.map((tool, index) => {
                 const Icon = getToolIcon(tool.tool_id)
                 return (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 dark:bg-gray-800/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 rounded-lg">
                         <Icon className="h-5 w-5 text-blue-600" />

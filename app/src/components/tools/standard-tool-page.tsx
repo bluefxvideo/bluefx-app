@@ -64,7 +64,7 @@ export function StandardToolPage({
 
           {/* Tool-specific Tab Navigation */}
           {tabs && (
-            <div className="bg-secondary/30 rounded-none lg:rounded-lg p-1">
+            <div className="rounded-none lg:rounded-lg p-1">
               {tabs}
             </div>
           )}

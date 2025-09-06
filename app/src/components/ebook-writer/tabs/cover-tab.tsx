@@ -220,7 +220,7 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
             
             {/* Customization Options */}
             {showCustomization && (
-              <div className="space-y-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div className="space-y-6 p-4 ">
                 {/* Style */}
                 <div>
                   <Label className="text-sm font-medium mb-3 block">Cover Style</Label>

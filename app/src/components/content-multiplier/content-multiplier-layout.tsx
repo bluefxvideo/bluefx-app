@@ -28,7 +28,7 @@ export function ContentMultiplierLayout({ children }: ContentMultiplierLayoutPro
       <div className="h-full flex gap-6">
         {/* Left Panel - Input & Controls */}
         <div className="w-1/2 max-w-md">
-          <Card className="h-full p-6 shadow-lg bg-gray-50 dark:bg-gray-800/30">
+          <Card className="h-full p-6 shadow-lg dark:bg-gray-800/30">
             <div className="h-full flex flex-col">
               {/* Top-Level Workflow Tabs */}
               <WorkflowTabs activeWorkflowTab={active_workflow_tab} />

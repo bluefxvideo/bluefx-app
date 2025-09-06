@@ -58,17 +58,12 @@ async function getUsersWithStats(): Promise<UserWithStats[]> {
           .eq('user_id', profile.id)
           .single()
 
-        // Get total credits used
-        const { data: creditUsage } = await supabase
-          .from('credit_usage')
-          .select('credits_used')
-          .eq('user_id', profile.id)
+        // Get total credits used from user_credits table (already tracked correctly)
+        const totalCreditsUsed = credits?.used_credits || 0
 
-        const totalCreditsUsed = creditUsage?.reduce((sum, usage) => sum + usage.credits_used, 0) || 0
-
-        // Get last activity
+        // Get last activity from credit_transactions table
         const { data: lastActivityData } = await supabase
-          .from('credit_usage')
+          .from('credit_transactions')
           .select('created_at')
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })

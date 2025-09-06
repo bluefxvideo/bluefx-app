@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button'
 import { RotateCcw } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
@@ -33,7 +31,6 @@ export function RecreateTab({
   const [formData, setFormData] = useState({
     referenceImage: null as File | null,
     prompt: '',
-    style: 'similar' as 'similar' | 'improved' | 'style-transfer',
     detectedAspectRatio: '16:9' as '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '16:10' | '10:16' | '3:1' | '1:3',
   });
 
@@ -111,7 +108,6 @@ export function RecreateTab({
       operation_mode: 'recreation-only',
       reference_image: formData.referenceImage,
       prompt,
-      recreation_style: formData.style,
       aspect_ratio: formData.detectedAspectRatio, // Use detected aspect ratio
       style_type: 'Auto',
       user_id: 'current-user', // This will be handled by the parent component
@@ -160,7 +156,7 @@ export function RecreateTab({
               placeholder="Describe changes you want... (e.g., 'Make it more vibrant', 'Change the background', 'Add more energy', 'Keep the same style but brighter colors')"
               value={formData.prompt}
               onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
-              className="min-h-[80px] resize-y"
+              className="min-h-[160px] resize-y !bg-interactive border-gray-600 focus:!bg-interactive-hover hover:!bg-interactive-hover"
             />
             <div className="flex justify-between text-sm text-muted-foreground mt-1">
               <span>Leave empty to recreate exact style</span>
@@ -169,43 +165,6 @@ export function RecreateTab({
           </div>
         </StandardStep>
 
-        {/* Step 3: Choose Recreation Style */}
-        <StandardStep
-          stepNumber={3}
-          title="Choose Recreation Style"
-          description="Select how to recreate your reference image"
-        >
-          <div className="grid grid-cols-1 gap-2">
-            {[
-              { id: 'similar', label: 'Similar Style', desc: 'Keep the same style and composition' },
-              { id: 'improved', label: 'Enhanced Version', desc: 'Improve quality and details' },
-              { id: 'style-transfer', label: 'Style Transfer', desc: 'Apply modern thumbnail trends' }
-            ].map((option) => (
-              <Card 
-                key={option.id}
-                className={`p-3 cursor-pointer transition-colors ${
-                  formData.style === option.id 
-                    ? 'border-primary bg-primary/5' 
-                    : 'hover:bg-muted/30'
-                }`}
-                onClick={() => setFormData(prev => ({ ...prev, style: option.id as any }))}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={formData.style === option.id}
-                    onChange={() => {}}
-                    className="text-primary"
-                  />
-                  <div>
-                    <p className="text-base font-medium">{option.label}</p>
-                    <p className="text-sm text-muted-foreground">{option.desc}</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </StandardStep>
       </TabBody>
 
       <TabFooter>

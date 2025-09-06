@@ -466,7 +466,7 @@ export default function TopOffersPage() {
                         {offers.map((offer) => (
                           <tr 
                             key={offer.id}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                            className="hover:"
                             onClick={() => handleOfferSelect(offer)}
                           >
                             <td className="px-4 py-4 whitespace-nowrap">

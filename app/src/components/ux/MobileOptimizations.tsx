@@ -84,7 +84,7 @@ export const MobileOptimizedButton: React.FC<MobileOptimizedButtonProps> = ({
   const variantClasses = {
     primary: "bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700",
     secondary: "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 active:bg-gray-300 dark:active:bg-gray-600",
-    outline: "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600"
+    outline: "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:"
   }
 
   return (

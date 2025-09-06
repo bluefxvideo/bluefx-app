@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { UserRound, Wand2, Monitor, Smartphone } from 'lucide-react';
+import { UserRound, Wand2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { TabContentWrapper, TabBody, TabError, TabFooter } from '@/components/tools/tab-content-wrapper';
@@ -31,7 +31,6 @@ export function FaceSwapTab({
   const [formData, setFormData] = useState({
     sourceImage: null as File | null,
     targetImage: null as File | null,
-    aspect_ratio: '16:9' as '16:9' | '9:16',
   });
 
   const handleSourceUpload = (file: File) => {
@@ -53,7 +52,6 @@ export function FaceSwapTab({
     // Call unified orchestrator with face-swap-only mode
     await onGenerate({
       operation_mode: 'face-swap-only',
-      aspect_ratio: formData.aspect_ratio,
       face_swap: {
         source_image: formData.sourceImage,
         target_image: formData.targetImage,
@@ -100,74 +98,6 @@ export function FaceSwapTab({
           />
         </StandardStep>
 
-        {/* Step 3: Choose Aspect Ratio */}
-        <StandardStep
-          stepNumber={3}
-          title="Choose Aspect Ratio"
-          description="Select the output format for your face swap"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            {/* Landscape 16:9 */}
-            <Card 
-              className={`p-4 cursor-pointer transition-all duration-300 ${
-                formData.aspect_ratio === '16:9'
-                  ? 'border-primary bg-primary/10 shadow-lg' 
-                  : 'border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-secondary/50'
-              }`}
-              onClick={() => setFormData(prev => ({ ...prev, aspect_ratio: '16:9' }))}
-            >
-              <div className="flex flex-col items-center gap-3">
-                <div className={`w-12 h-8 rounded border-2 flex items-center justify-center ${
-                  formData.aspect_ratio === '16:9'
-                    ? 'border-primary bg-primary/20' 
-                    : 'border-muted-foreground/40'
-                }`}>
-                  <Monitor className={`w-4 h-4 ${
-                    formData.aspect_ratio === '16:9' ? 'text-primary' : 'text-muted-foreground'
-                  }`} />
-                </div>
-                <div className="text-center">
-                  <p className={`text-sm font-medium ${
-                    formData.aspect_ratio === '16:9' ? 'text-primary' : 'text-foreground'
-                  }`}>
-                    Landscape
-                  </p>
-                  <p className="text-xs text-muted-foreground">16:9 • YouTube</p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Portrait 9:16 */}
-            <Card 
-              className={`p-4 cursor-pointer transition-all duration-300 ${
-                formData.aspect_ratio === '9:16'
-                  ? 'border-primary bg-primary/10 shadow-lg' 
-                  : 'border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-secondary/50'
-              }`}
-              onClick={() => setFormData(prev => ({ ...prev, aspect_ratio: '9:16' }))}
-            >
-              <div className="flex flex-col items-center gap-3">
-                <div className={`w-8 h-12 rounded border-2 flex items-center justify-center ${
-                  formData.aspect_ratio === '9:16'
-                    ? 'border-primary bg-primary/20' 
-                    : 'border-muted-foreground/40'
-                }`}>
-                  <Smartphone className={`w-4 h-4 ${
-                    formData.aspect_ratio === '9:16' ? 'text-primary' : 'text-muted-foreground'
-                  }`} />
-                </div>
-                <div className="text-center">
-                  <p className={`text-sm font-medium ${
-                    formData.aspect_ratio === '9:16' ? 'text-primary' : 'text-foreground'
-                  }`}>
-                    Portrait
-                  </p>
-                  <p className="text-xs text-muted-foreground">9:16 • Vertical</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </StandardStep>
 
       </TabBody>
 

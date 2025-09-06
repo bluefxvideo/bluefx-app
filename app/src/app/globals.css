@@ -49,6 +49,8 @@
   --border: 220 15% 25%;           /* #3a4056 - Borders and dividers */
   --input: 220 18% 18%;            /* #2d3348 - Form inputs */
   --ring: 210 60% 70%;             /* Focus ring blue */
+  --interactive: 220deg 25.42% 11.57%;      /* #161b25 - Interactive element backgrounds */
+  --interactive-hover: 218.18deg 23.1% 10.29%;   /* Hover state - specific darker shade */
 }
 
 /* Map to Tailwind v4 format (shadcn/ui way) */
@@ -75,6 +77,8 @@
   --color-ring: hsl(var(--ring));
   --color-brand: hsl(var(--brand));
   --color-brand-foreground: hsl(var(--brand-foreground));
+  --color-interactive: hsl(var(--interactive));
+  --color-interactive-hover: hsl(var(--interactive-hover));
   --radius: var(--radius);
   
   /* Animation utilities */

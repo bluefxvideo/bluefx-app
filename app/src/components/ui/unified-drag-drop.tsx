@@ -187,7 +187,7 @@ export function UnifiedDragDrop({
 
     if (fileType === 'reference' || fileType === 'avatar') {
       return (
-        <div className={`${dimensions} mx-auto rounded-lg overflow-hidden bg-muted relative aspect-video`}>
+        <div className={`${dimensions} mx-auto rounded-lg overflow-hidden bg-muted relative`}>
           <Image
             src={previewUrl}
             alt="Image preview"
@@ -214,16 +214,19 @@ export function UnifiedDragDrop({
 
   return (
     <div className={`space-y-2 ${className}`}>
-      <Card
+      <div
         {...getRootProps()}
         className={`
-          relative p-6 border-2 border-dashed cursor-pointer transition-all duration-300 
-          backdrop-blur-sm overflow-hidden
+          relative p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-200 
+          overflow-hidden
           ${disabled || loading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}
-          ${isDragActive || dragOver ? 'border-primary bg-primary/10 shadow-lg scale-[1.02]' : 'border-border/50 hover:border-border'}
+          ${isDragActive || dragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-gray-400 hover:border-gray-500 dark:border-gray-500 dark:hover:border-gray-400'}
           ${hasError ? 'border-destructive bg-destructive/5' : ''}
-          ${selectedFile ? 'bg-card' : 'bg-secondary/30 hover:bg-secondary/50'}
+          ${selectedFile ? '!bg-interactive' : '!bg-interactive hover:!bg-interactive-hover'}
         `}
+        style={{
+          backgroundColor: !isDragActive && !dragOver && !hasError ? 'hsl(var(--interactive))' : undefined
+        }}
       >
         <input {...getInputProps()} />
 
@@ -309,49 +312,25 @@ export function UnifiedDragDrop({
             )}
           </div>
         ) : (
-          // Empty State
-          <div className="flex flex-col items-center gap-4 py-8">
+          // Empty State - Compact Design
+          <div className="flex flex-col items-center gap-3 py-4">
             <div className="relative">
-              <div className={`
-                w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300
-                ${isDragActive || dragOver 
-                  ? 'bg-primary/20 border border-primary/40 scale-110' 
-                  : 'bg-secondary/80 border border-border/30 hover:border-border/70'
-                }
-              `}>
-                <IconComponent className={`
-                  w-7 h-7 transition-colors duration-300
-                  ${isDragActive || dragOver ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}
-                `} />
+              {/* Compact icon with plus overlay */}
+              <div className="w-12 h-12 text-muted-foreground/60 relative">
+                <ImageIcon className="w-8 h-8 absolute top-1 left-1" />
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-muted-foreground/40 rounded-full flex items-center justify-center">
+                  <span className="text-xs text-background font-bold">+</span>
+                </div>
               </div>
-              
-              {/* Animated upload indicator */}
-              {(isDragActive || dragOver) && (
-                <div className="absolute -inset-2 rounded-3xl border-2 border-dashed border-primary/50 animate-pulse" />
-              )}
             </div>
             
-            <div className="text-center space-y-2">
-              <p className="text-lg font-semibold">
-                {isDragActive ? 'Drop files here!' : finalTitle}
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                {isDragActive ? 'Drop files here!' : 'Upload a file or drag and drop'}
               </p>
-              <p className="text-muted-foreground">
-                {isDragActive ? 'Release to upload' : finalDescription}
+              <p className="text-xs text-muted-foreground">
+                {isDragActive ? 'Release to upload' : 'PNG, JPG, GIF up to 10MB'}
               </p>
-              
-              {/* File type hints */}
-              <div className="flex flex-wrap justify-center gap-1 mt-2">
-                {Object.values(finalAccept).flat().slice(0, 4).map((ext, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {ext}
-                  </Badge>
-                ))}
-                {Object.values(finalAccept).flat().length > 4 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{Object.values(finalAccept).flat().length - 4} more
-                  </Badge>
-                )}
-              </div>
             </div>
           </div>
         )}
@@ -362,7 +341,7 @@ export function UnifiedDragDrop({
             <CheckCircle className="w-5 h-5 text-green-500" />
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Error Display */}
       {hasError && (
