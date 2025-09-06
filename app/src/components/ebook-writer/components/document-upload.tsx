@@ -131,7 +131,7 @@ export function DocumentUpload({
           className={`
             border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
             transition-colors duration-200
-            ${isDragActive ? 'border-blue-500 bg-blue-950/20'
+            ${isDragActive ? 'border-blue-500 bg-blue-950/20' : 'border-gray-300 dark:border-gray-600'}
             ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
           `}
         >
