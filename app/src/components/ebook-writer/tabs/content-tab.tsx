@@ -22,7 +22,6 @@ import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-co
 import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
 import { SharedEbookEmptyState } from '../components/shared-empty-state';
-import { ProgressIndicator } from '../components/progress-indicator';
 import type { EbookMetadata, EbookChapter } from '../store/ebook-writer-store';
 
 interface ContentTabProps {
@@ -367,7 +366,6 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
       </TabBody>
 
       <TabFooter>
-        <ProgressIndicator currentStep="content" className="mb-4" />
         <div className="flex gap-2">
           <Button 
             variant="outline" 

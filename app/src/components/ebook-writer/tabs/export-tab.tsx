@@ -7,7 +7,6 @@ import { GoogleDocsConnection } from '../components/google-docs-connection';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { SharedEbookEmptyState } from '../components/shared-empty-state';
-import { ProgressIndicator } from '../components/progress-indicator';
 import { Download, FileText, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -182,7 +181,6 @@ export function ExportTab({ ebook, isGenerating, error }: ExportTabProps) {
       </TabBody>
       
       <TabFooter>
-        <ProgressIndicator currentStep="export" className="mb-4" />
         <div className="flex gap-2">
           <Button 
             variant="outline" 

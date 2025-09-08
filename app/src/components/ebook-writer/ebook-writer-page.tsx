@@ -196,6 +196,9 @@ export function EbookWriterPage() {
   // Tab Navigation Component
   const tabsComponent = <StandardToolTabs tabs={ebookTabs} activeTab={currentTab} basePath="/dashboard/ebook-writer" />;
 
+  // Determine if current tab should use single panel layout
+  const isSinglePanelTab = ['topic', 'title', 'outline'].includes(currentTab);
+
   return (
     <StandardToolPage
       icon={BookOpen}
@@ -208,7 +211,13 @@ export function EbookWriterPage() {
         <Card className="h-full bg-card border-border/30 p-4">
           <HistoryOutput filters={historyFilters} />
         </Card>
+      ) : isSinglePanelTab ? (
+        // Single Panel Layout for Topic, Title, and Outline - Full Width
+        <div className="h-full bg-card">
+          {renderTabContent()}
+        </div>
       ) : (
+        // Two Panel Layout for Content, Cover, and Export
         <StandardToolLayout>
           {[
             // Left Panel - Tab Content

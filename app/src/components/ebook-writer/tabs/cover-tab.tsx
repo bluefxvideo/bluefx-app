@@ -10,7 +10,6 @@ import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-co
 import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
 import { SharedEbookEmptyState } from '../components/shared-empty-state';
-import { ProgressIndicator } from '../components/progress-indicator';
 import { useRouter } from 'next/navigation';
 import type { EbookMetadata } from '../store/ebook-writer-store';
 
@@ -305,7 +304,6 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
       </TabBody>
       
       <TabFooter>
-        <ProgressIndicator currentStep="cover" className="mb-4" />
         <div className="flex gap-2">
           <Button 
             variant="outline" 
