@@ -212,10 +212,10 @@ export function EbookWriterPage() {
           <HistoryOutput filters={historyFilters} />
         </Card>
       ) : isSinglePanelTab ? (
-        // Single Panel Layout for Topic, Title, and Outline - Full Width
-        <div className="h-full bg-card">
+        // Single Panel Layout for Topic, Title, and Outline - Full Width with Card styling
+        <Card className="h-full bg-card border-border/30 rounded-lg overflow-hidden">
           {renderTabContent()}
-        </div>
+        </Card>
       ) : (
         // Two Panel Layout for Content, Cover, and Export
         <StandardToolLayout>

@@ -66,10 +66,10 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
   };
 
   const toggleAllChapters = () => {
-    if (expandedChapters.size === current_ebook?.outline?.length) {
+    if (expandedChapters.size === chapters.length) {
       setExpandedChapters(new Set());
     } else {
-      setExpandedChapters(new Set(current_ebook?.outline?.map((_, i) => i) || []));
+      setExpandedChapters(new Set(chapters.map((_, i) => i)));
     }
   };
 
@@ -93,7 +93,8 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
     );
   }
 
-  const chapterCount = current_ebook?.outline?.length || 0;
+  const chapters = current_ebook?.outline?.chapters || [];
+  const chapterCount = chapters.length;
   const estimatedWords = chapterCount * 1500;
 
   return (
@@ -127,13 +128,13 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {current_ebook?.outline && current_ebook.outline.length > 0 && (
+                      {chapters.length > 0 && (
                         <Button
                           onClick={toggleAllChapters}
                           variant="outline"
                           size="sm"
                         >
-                          {expandedChapters.size === current_ebook.outline.length ? 'Collapse All' : 'Expand All'}
+                          {expandedChapters.size === chapters.length ? 'Collapse All' : 'Expand All'}
                         </Button>
                       )}
                       <Button
@@ -166,9 +167,9 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
                         <p className="text-xs text-muted-foreground">This may take a moment...</p>
                       </div>
                     </div>
-                  ) : current_ebook?.outline && current_ebook.outline.length > 0 ? (
+                  ) : chapters.length > 0 ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      {current_ebook.outline.map((chapter, index) => (
+                      {chapters.map((chapter, index) => (
                         <div
                           key={index}
                           className="border-2 rounded-lg overflow-hidden transition-all hover:shadow-md"
@@ -284,8 +285,8 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
         </div>
       </div>
       
-      {/* Fixed Footer */}
-      <div className="border-t px-6 py-4 bg-background">
+      {/* Fixed Footer with Card styling */}
+      <div className="border-t px-6 py-4 bg-card">
         <div className="flex justify-between">
           <Button 
             variant="outline" 
@@ -297,7 +298,7 @@ export function OutlineTab({ ebook, isGenerating: _isGenerating, error: _error, 
           </Button>
           <Button 
             onClick={handleContinue}
-            disabled={!current_ebook?.outline || current_ebook.outline.length === 0}
+            disabled={chapters.length === 0}
             className="min-w-[200px] bg-primary hover:bg-primary/90"
             size="lg"
           >

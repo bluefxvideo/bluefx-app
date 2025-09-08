@@ -164,8 +164,8 @@ export function TopicTab({ currentTopic, isGenerating }: TopicTabProps) {
         </div>
       </div>
       
-      {/* Fixed Footer */}
-      <div className="border-t px-6 py-4 bg-background">
+      {/* Fixed Footer with Card styling */}
+      <div className="border-t px-6 py-4 bg-card">
         <div className="flex justify-end">
           <Button 
             onClick={handleSubmit}

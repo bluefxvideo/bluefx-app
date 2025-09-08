@@ -124,10 +124,10 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
       {/* Scrollable Content */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-hover">
         <div className="p-6 space-y-6">
-          {/* Cover Image */}
+          {/* Cover Image - Fixed height with object-fit */}
           <Card className="overflow-hidden bg-secondary">
             <CardContent className="p-0">
-              <div className="relative aspect-[2/3] bg-gray-100 dark:bg-gray-800">
+              <div className="relative bg-gray-100 dark:bg-gray-800" style={{ height: '500px' }}>
                 {imageLoading && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -137,6 +137,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
                   src={coverData.image_url}
                   alt="Book Cover"
                   className={`w-full h-full object-contain ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity`}
+                  style={{ maxHeight: '500px' }}
                   onLoad={() => setImageLoading(false)}
                   onError={() => setImageLoading(false)}
                 />

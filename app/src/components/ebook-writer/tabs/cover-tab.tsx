@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Image, ArrowLeft, ArrowRight, Loader2, Palette, RefreshCw, Sparkles, SkipForward } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Image, ArrowLeft, ArrowRight, Loader2, RefreshCw, Sparkles, SkipForward } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
@@ -19,41 +20,15 @@ interface CoverTabProps {
   error?: string;
 }
 
-// Style options from legacy system
-const styleOptions = [
-  { id: 'minimal', name: 'Minimal', description: 'Clean and simple design' },
-  { id: 'modern', name: 'Modern', description: 'Contemporary and stylish' },
-  { id: 'professional', name: 'Professional', description: 'Business and corporate look' },
-  { id: 'creative', name: 'Creative', description: 'Artistic and unique' }
-];
-
-const colorSchemeOptions = [
-  { id: 'blue', name: 'Blue', colors: ['#3B82F6', '#1D4ED8'] },
-  { id: 'green', name: 'Green', colors: ['#10B981', '#047857'] },
-  { id: 'purple', name: 'Purple', colors: ['#8B5CF6', '#6D28D9'] },
-  { id: 'red', name: 'Red', colors: ['#EF4444', '#B91C1C'] },
-  { id: 'orange', name: 'Orange', colors: ['#F97316', '#C2410C'] },
-  { id: 'teal', name: 'Teal', colors: ['#14B8A6', '#0D9488'] }
-];
-
-const fontOptions = [
-  { id: 'serif', name: 'Serif', description: 'Classic and elegant' },
-  { id: 'sans-serif', name: 'Sans Serif', description: 'Modern and clean' },
-  { id: 'display', name: 'Display', description: 'Bold and attention-grabbing' },
-  { id: 'handwriting', name: 'Handwriting', description: 'Personal and friendly' }
-];
 
 export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: CoverTabProps) {
   const router = useRouter();
   const { setActiveTab, generateCover, generation_progress } = useEbookWriterStore();
   
   // Local state for preferences
-  const [coverStyle, setCoverStyle] = useState('minimal');
-  const [colorScheme, setColorScheme] = useState('blue');
-  const [fontStyle, setFontStyle] = useState('sans-serif');
   const [authorName, setAuthorName] = useState('');
   const [subtitle, setSubtitle] = useState('');
-  const [showCustomization, setShowCustomization] = useState(false);
+  const [styleDescription, setStyleDescription] = useState('');
 
   // Check what step we need to go back to
   if (!ebook?.topic) {
@@ -117,11 +92,12 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
 
   const handleGenerateCover = async () => {
     await generateCover({
-      style: coverStyle,
-      color_scheme: colorScheme,
-      font_style: fontStyle,
+      style: 'modern', // Default style
+      color_scheme: 'blue', // Default color
+      font_style: 'sans-serif', // Default font
       author_name: authorName,
-      subtitle: subtitle
+      subtitle: subtitle,
+      style_description: styleDescription // Custom style description from user
     });
   };
   
@@ -140,13 +116,13 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
   return (
     <TabContentWrapper>
       <TabBody>
-        <StandardStep
-          stepNumber={1}
-          title="Design Your Book Cover"
-          description={`Create a professional cover for: ${ebook.title}`}
-        >
-          <div className="space-y-6">
-            {/* Author & Subtitle Info */}
+        <div className="space-y-6">
+          {/* Step 1: Basic Information */}
+          <StandardStep
+            stepNumber={1}
+            title="Book Information"
+            description={`Creating cover for: ${ebook.title}`}
+          >
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="author">Author Name</Label>
@@ -167,140 +143,78 @@ export function CoverTab({ ebook, isGenerating: _isGenerating, error: _error }: 
                 />
               </div>
             </div>
-            
-            {/* Generate Button */}
-            <div className="space-y-3">
-              <Button
-                onClick={handleGenerateCover}
-                disabled={generation_progress.is_generating}
-                className="w-full"
-                size="lg"
-              >
-                {generation_progress.is_generating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating Cover...
-                  </>
-                ) : ebook?.cover ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Regenerate Cover ({estimatedCredits} credits)
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate Cover ({estimatedCredits} credits)
-                  </>
-                )}
-              </Button>
-              
-              {/* Skip Button - only show if no cover yet */}
-              {!ebook?.cover && !generation_progress.is_generating && (
-                <Button
-                  variant="outline"
-                  onClick={handleContinue}
-                  className="w-full"
-                >
-                  <SkipForward className="mr-2 h-4 w-4" />
-                  Skip Cover Generation
-                </Button>
-              )}
+          </StandardStep>
+          
+          {/* Step 2: Style Description */}
+          <StandardStep
+            stepNumber={2}
+            title="Describe Your Cover Style"
+            description="Tell us what style and mood you want for your book cover"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="style">Style Description</Label>
+                <span className="text-xs text-muted-foreground">Optional</span>
+              </div>
+              <Textarea
+                id="style"
+                value={styleDescription}
+                onChange={(e) => setStyleDescription(e.target.value)}
+                placeholder="Leave blank for AI to choose, or describe the style you want... (e.g., minimalist with blue tones, professional and modern, creative with bold typography, elegant serif fonts with warm colors)"
+                className="min-h-[100px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                Be specific about colors, typography, mood, and any visual elements you want. If left empty, AI will create a style based on your book's content.
+              </p>
             </div>
-            
-            {/* Customization Toggle */}
+          </StandardStep>
+          
+          {/* Generate Button */}
+          <div className="space-y-3">
             <Button
-              variant="outline"
-              onClick={() => setShowCustomization(!showCustomization)}
+              onClick={handleGenerateCover}
+              disabled={generation_progress.is_generating}
               className="w-full"
+              size="lg"
             >
-              <Palette className="mr-2 h-4 w-4" />
-              {showCustomization ? 'Hide' : 'Show'} Customization Options
+              {generation_progress.is_generating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Cover...
+                </>
+              ) : ebook?.cover ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Regenerate Cover ({estimatedCredits} credits)
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Cover ({estimatedCredits} credits)
+                </>
+              )}
             </Button>
             
-            {/* Customization Options */}
-            {showCustomization && (
-              <div className="space-y-6 p-4 ">
-                {/* Style */}
-                <div>
-                  <Label className="text-sm font-medium mb-3 block">Cover Style</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {styleOptions.map(option => (
-                      <button
-                        key={option.id}
-                        onClick={() => setCoverStyle(option.id)}
-                        className={`p-3 rounded-lg border-2 transition-all text-left ${
-                          coverStyle === option.id
-                            ? 'border-blue-500 bg-blue-950/20'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                        }`}
-                      >
-                        <div className="font-medium text-sm">{option.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{option.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Color Scheme */}
-                <div>
-                  <Label className="text-sm font-medium mb-3 block">Color Scheme</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {colorSchemeOptions.map(option => (
-                      <button
-                        key={option.id}
-                        onClick={() => setColorScheme(option.id)}
-                        className={`p-3 rounded-lg border-2 transition-all ${
-                          colorScheme === option.id
-                            ? 'border-blue-500'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                        }`}
-                      >
-                        <div className="flex gap-1 mb-2 justify-center">
-                          {option.colors.map((color, index) => (
-                            <div
-                              key={index}
-                              className="w-6 h-6 rounded"
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-sm">{option.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Font Style */}
-                <div>
-                  <Label className="text-sm font-medium mb-3 block">Font Style</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {fontOptions.map(option => (
-                      <button
-                        key={option.id}
-                        onClick={() => setFontStyle(option.id)}
-                        className={`p-3 rounded-lg border-2 transition-all text-left ${
-                          fontStyle === option.id
-                            ? 'border-blue-500 bg-blue-950/20'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                        }`}
-                      >
-                        <div className="font-medium text-sm">{option.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{option.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Error Display */}
-            {generation_progress.error_message && (
-              <Card className="p-4 border-destructive bg-destructive/5">
-                <p className="text-sm text-destructive">{generation_progress.error_message}</p>
-              </Card>
+            {/* Skip Button - only show if no cover yet */}
+            {!ebook?.cover && !generation_progress.is_generating && (
+              <Button
+                variant="outline"
+                onClick={handleContinue}
+                className="w-full"
+              >
+                <SkipForward className="mr-2 h-4 w-4" />
+                Skip Cover Generation
+              </Button>
             )}
           </div>
-        </StandardStep>
+          
+          {/* Error Display */}
+          {generation_progress.error_message && (
+            <Card className="p-4 border-destructive bg-destructive/5">
+              <p className="text-sm text-destructive">{generation_progress.error_message}</p>
+            </Card>
+          )}
+        </div>
       </TabBody>
       
       <TabFooter>

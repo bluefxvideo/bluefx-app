@@ -1,25 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, 
   ArrowRight,
-  ChevronDown, 
   ChevronRight, 
+  ChevronDown,
   Loader2, 
   CheckCircle2, 
   SkipForward,
   BookOpen,
   Sparkles,
-  Play
+  Play,
+  FileText,
+  Folder,
+  FolderOpen
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
-import { StandardStep } from '@/components/tools/standard-step';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
 import { SharedEbookEmptyState } from '../components/shared-empty-state';
 import type { EbookMetadata, EbookChapter } from '../store/ebook-writer-store';
@@ -41,7 +42,6 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
   } = useEbookWriterStore();
 
   // Local state for UI
-  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [generatingChapters, setGeneratingChapters] = useState<Set<string>>(new Set());
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
@@ -77,29 +77,16 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
   const totalChapters = chapters.length;
   const completedChapters = chapters.filter(ch => ch.content && ch.content !== '<!SKIPPED!>').length;
   const skippedChapters = chapters.filter(ch => ch.content === '<!SKIPPED!>').length;
-  const progressPercentage = totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
+  const remainingChapters = chapters.filter(ch => (!ch.content || ch.content === '') && ch.content !== '<!SKIPPED!>').length;
 
-  // Toggle chapter expansion
-  const toggleChapter = (chapterId: string) => {
-    const newExpanded = new Set(expandedChapters);
-    if (newExpanded.has(chapterId)) {
-      newExpanded.delete(chapterId);
-    } else {
-      newExpanded.add(chapterId);
-    }
-    setExpandedChapters(newExpanded);
-  };
+  const estimatedCreditsPerChapter = 15;
 
   // Handle chapter selection for right panel
   const handleSelectChapter = (chapter: EbookChapter) => {
     setSelectedChapterId(chapter.id);
     setSelectedChapter(chapter.id);
-    // Also expand the chapter when selected
-    setExpandedChapters(prev => new Set(prev).add(chapter.id));
   };
 
-  const estimatedCreditsPerChapter = 15; // Cost per chapter
-  
   // Handle content generation for a single chapter
   const handleGenerateChapter = async (chapter: EbookChapter) => {
     if (credits < estimatedCreditsPerChapter) return;
@@ -107,7 +94,6 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
     setGeneratingChapters(prev => new Set(prev).add(chapter.id));
     try {
       await generateChapterContent(chapter.id);
-      // Auto-select and expand chapter after generation
       handleSelectChapter(chapter);
     } finally {
       setGeneratingChapters(prev => {
@@ -160,209 +146,145 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
 
   return (
     <TabContentWrapper>
-      <TabBody>
-        <StandardStep
-          stepNumber={1}
-          title="Generate Chapter Content"
-          description={`Ebook: ${ebook.title || 'Untitled'}`}
-        >
-          <div className="space-y-4">
-            {/* Progress and Actions */}
-            <Card className="p-4 bg-muted/30">
-            <div className="space-y-4">
-              {/* Progress Bar */}
+      <TabBody className="px-0">
+        <div className="h-full flex flex-col">
+          {/* Header with Bulk Actions */}
+          <div className="px-4 pb-4">
+            <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>{completedChapters} of {totalChapters} chapters complete</span>
-                  {skippedChapters > 0 && (
-                    <span className="text-muted-foreground">{skippedChapters} skipped</span>
-                  )}
-                </div>
-                <Progress value={progressPercentage} className="h-2" />
+                <h3 className="text-lg font-semibold">Chapters</h3>
+                <p className="text-sm text-muted-foreground">
+                  {completedChapters}/{totalChapters} complete
+                  {skippedChapters > 0 && ` • ${skippedChapters} skipped`}
+                </p>
               </div>
-
-              {/* Bulk Actions */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2">
                 <Button 
                   onClick={handleGenerateAll}
                   disabled={isGeneratingAll || completedChapters === totalChapters || credits < (chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter)}
                   size="sm"
+                  variant="outline"
                 >
                   {isGeneratingAll ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                       Generating...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate All ({chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter} credits)
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      Generate All
                     </>
                   )}
                 </Button>
                 
-                <Button 
-                  onClick={handleGenerateRemaining}
-                  disabled={isGeneratingAll || (completedChapters + skippedChapters) === totalChapters || credits < (chapters.filter(ch => (!ch.content || ch.content === '') && ch.content !== '<!SKIPPED!>').length * estimatedCreditsPerChapter)}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Generate Remaining ({chapters.filter(ch => (!ch.content || ch.content === '') && ch.content !== '<!SKIPPED!>').length * estimatedCreditsPerChapter} credits)
-                </Button>
-              </div>
-              {/* Credit warnings */}
-              {chapters.length > 0 && credits < (chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter) && (
-                <p className="text-xs text-destructive text-center">
-                  Insufficient credits. Generate All needs {chapters.filter(ch => !ch.content || ch.content === '').length * estimatedCreditsPerChapter} credits.
-                </p>
-              )}
-            </div>
-          </Card>
-
-          {/* Chapters Accordion List */}
-          <div className="space-y-3">
-            {chapters.map((chapter, index) => {
-              const isExpanded = expandedChapters.has(chapter.id);
-              const isSelected = selectedChapterId === chapter.id;
-              const isGenerating = generatingChapters.has(chapter.id);
-              const isSkipped = chapter.content === '<!SKIPPED!>';
-              const hasContent = chapter.content && chapter.content !== '' && !isSkipped;
-
-              return (
-                <Card 
-                  key={chapter.id}
-                  className={`overflow-hidden ${
-                    isSelected ? 'ring-2 ring-primary' : ''
-                  } ${
-                    hasContent ? 'bg-green-50/30 dark:bg-green-900/10 border-green-200 dark:border-green-800' :
-                    isSkipped ? 'bg-red-50/30 dark:bg-red-900/10 border-red-200 dark:border-red-800' :
-                    'bg-muted/30'
-                  }`}
-                >
-                  {/* Chapter Header */}
-                  <CardHeader 
-                    className="cursor-pointer"
-                    onClick={() => {
-                      toggleChapter(chapter.id);
-                      handleSelectChapter(chapter);
-                    }}
+                {remainingChapters > 0 && (
+                  <Button 
+                    onClick={handleGenerateRemaining}
+                    disabled={isGeneratingAll || remainingChapters === 0 || credits < (remainingChapters * estimatedCreditsPerChapter)}
+                    size="sm"
+                    variant="outline"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <button className="p-0" onClick={(e) => {
-                          e.stopPropagation();
-                          toggleChapter(chapter.id);
-                        }}>
-                          {isExpanded ? (
-                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                          )}
-                        </button>
-                        <div>
-                          <h3 className="text-lg font-semibold">
-                            Chapter {index + 1}: {chapter.title}
-                          </h3>
-                          {chapter.description && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {chapter.description}
-                            </p>
-                          )}
-                        </div>
+                    <Play className="mr-1 h-3 w-3" />
+                    Generate Remaining ({remainingChapters})
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Credit warning */}
+            {remainingChapters > 0 && credits < (remainingChapters * estimatedCreditsPerChapter) && (
+              <p className="text-xs text-destructive">
+                Insufficient credits. Need {remainingChapters * estimatedCreditsPerChapter} credits.
+              </p>
+            )}
+          </div>
+
+          {/* File System Style Chapter List */}
+          <div className="flex-1 overflow-y-auto scrollbar-hover px-4">
+            <div className="space-y-1">
+              {chapters.map((chapter, index) => {
+                const isSelected = selectedChapterId === chapter.id;
+                const isGenerating = generatingChapters.has(chapter.id);
+                const isSkipped = chapter.content === '<!SKIPPED!>';
+                const hasContent = chapter.content && chapter.content !== '' && !isSkipped;
+
+                return (
+                  <div
+                    key={chapter.id}
+                    className={`
+                      group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer
+                      transition-all hover:bg-muted/50
+                      ${isSelected ? 'bg-primary/10 hover:bg-primary/15' : ''}
+                    `}
+                    onClick={() => handleSelectChapter(chapter)}
+                  >
+                    {/* Left side - Chapter info */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {/* Folder icon */}
+                      <div className="flex-shrink-0">
+                        {isSelected ? (
+                          <FolderOpen className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Folder className="h-4 w-4 text-muted-foreground" />
+                        )}
                       </div>
+                      
+                      {/* Chapter title */}
+                      <span className={`
+                        text-sm truncate flex-1
+                        ${hasContent ? 'text-green-600 dark:text-green-400 font-medium' : ''}
+                        ${isSkipped ? 'text-muted-foreground line-through' : ''}
+                        ${isSelected ? 'font-medium' : ''}
+                      `}>
+                        {index + 1}. {chapter.title}
+                      </span>
 
-                      {/* Chapter Actions */}
-                      <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                        {hasContent && (
-                          <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Complete
-                          </Badge>
-                        )}
-                        
-                        {isSkipped && (
-                          <Badge variant="secondary">
-                            <SkipForward className="h-3 w-3 mr-1" />
-                            Skipped
-                          </Badge>
-                        )}
+                      {/* Status badges */}
+                      {hasContent && (
+                        <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      )}
+                      {isSkipped && (
+                        <SkipForward className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      )}
+                    </div>
 
-                        {!hasContent && !isSkipped && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleGenerateChapter(chapter)}
-                            disabled={isGenerating || isGeneratingAll || credits < estimatedCreditsPerChapter}
-                          >
-                            {isGenerating ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <>
-                                <Sparkles className="h-4 w-4 mr-1" />
-                                Generate ({estimatedCreditsPerChapter})
-                              </>
-                            )}
-                          </Button>
-                        )}
-
+                    {/* Right side - Actions (visible on hover) */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                      {!hasContent && !isSkipped && (
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleSkipChapter(chapter)}
+                          className="h-7 px-2 text-xs"
+                          onClick={() => handleGenerateChapter(chapter)}
+                          disabled={isGenerating || isGeneratingAll || credits < estimatedCreditsPerChapter}
                         >
-                          {isSkipped ? (
-                            <Play className="h-4 w-4" />
+                          {isGenerating ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            <SkipForward className="h-4 w-4" />
+                            <>
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Generate
+                            </>
                           )}
                         </Button>
-                      </div>
+                      )}
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => handleSkipChapter(chapter)}
+                      >
+                        {isSkipped ? 'Unskip' : 'Skip'}
+                      </Button>
                     </div>
-                  </CardHeader>
-
-                  {/* Expanded Content Preview */}
-                  {isExpanded && (
-                    <CardContent className="pt-0">
-                      {hasContent ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <div className="text-sm text-muted-foreground line-clamp-3 bg-card p-3 rounded border">
-                            {chapter.content.substring(0, 200)}...
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Click to view and edit full content in the right panel →
-                          </p>
-                        </div>
-                      ) : isSkipped ? (
-                        <div className="text-center py-4 text-muted-foreground">
-                          <SkipForward className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">This chapter has been skipped</p>
-                        </div>
-                      ) : (
-                        <div className="text-center py-4">
-                          <BookOpen className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">No content generated yet</p>
-                        </div>
-                      )}
-
-                      {/* Show subsections if available */}
-                      {chapter.subsections && chapter.subsections.length > 0 && (
-                        <div className="mt-3 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Sections:</p>
-                          {chapter.subsections.map((section, idx) => (
-                            <div key={section.id} className="text-xs text-muted-foreground">
-                              {idx + 1}. {section.title}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  )}
-                </Card>
-              );
-            })}
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </StandardStep>
+        </div>
       </TabBody>
 
       <TabFooter>
@@ -377,8 +299,8 @@ export function ContentTab({ ebook, credits }: ContentTabProps) {
           </Button>
           <Button 
             onClick={handleContinue}
-            disabled={completedChapters === 0}
-            className="flex-1 bg-primary"
+            disabled={completedChapters === 0 && skippedChapters === 0}
+            className="flex-1 bg-primary hover:bg-primary/90"
           >
             Continue to Cover
             <ArrowRight className="ml-2 h-4 w-4" />
