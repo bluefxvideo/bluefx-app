@@ -433,8 +433,37 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
             </Card>
           )}
 
-
         </div>
+
+        {/* Summary Footer - Always visible as separate element */}
+        <Card className="mt-4 p-3 bg-secondary">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-lg font-semibold text-primary">
+                {state.generatedMusic.length || 0}
+              </p>
+              <p className="text-sm text-muted-foreground">Tracks</p>
+            </div>
+            <div>
+              <p className="text-lg font-semibold">
+                {state.generatedMusic.length > 0 
+                  ? state.generatedMusic.reduce((acc: number, m: any) => acc + (m.credits_used || state.estimatedCredits || 3), 0)
+                  : 0
+                }
+              </p>
+              <p className="text-sm text-muted-foreground">Credits Used</p>
+            </div>
+            <div>
+              <p className="text-lg font-semibold">
+                {state.generatedMusic.length > 0 
+                  ? formatDuration(state.generatedMusic.reduce((acc: number, m: any) => acc + (m.duration || 30), 0))
+                  : '0s'
+                }
+              </p>
+              <p className="text-sm text-muted-foreground">Total Duration</p>
+            </div>
+          </div>
+        </Card>
       </OutputPanelShell>
     );
   }

@@ -217,10 +217,9 @@ export function HistoryOutput({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Videos Grid */}
-      <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+    <div className="h-full overflow-y-auto scrollbar-hover p-4">
+      {/* Videos Grid - Full width with 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredVideos.map((video) => (
             <Card 
               key={video.id} 
@@ -397,30 +396,7 @@ export function HistoryOutput({
               </div>
             </Card>
           ))}
-        </div>
       </div>
-
-      {/* Summary Footer */}
-      <Card className="mt-4 p-3 bg-secondary">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-lg font-semibold text-primary">
-              {filteredVideos.length}{videos.length !== filteredVideos.length && <span className="text-sm text-muted-foreground">/{videos.length}</span>}
-            </p>
-            <p className="text-sm text-muted-foreground">Videos</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">-</p>
-            <p className="text-sm text-muted-foreground">Credits Used</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">
-              {filteredVideos.filter(v => v.status === 'completed').length}
-            </p>
-            <p className="text-sm text-muted-foreground">Completed</p>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

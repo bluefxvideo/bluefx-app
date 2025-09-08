@@ -2,9 +2,11 @@
 
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
+import { Card } from '@/components/ui/card';
 import { GeneratorTab } from './tabs/generator-tab';
 import { HistoryTab } from './tabs/history-tab';
 import { ContextualOutput } from './output-panel/contextual-output';
+import { HistoryOutput } from './output-panel/history-output';
 import { useTalkingAvatar } from './hooks/use-talking-avatar';
 import { useCredits } from '@/hooks/useCredits';
 import { Video, History } from 'lucide-react';
@@ -18,7 +20,7 @@ export function TalkingAvatarPage() {
   const renderTabContent = () => {
     switch (avatarState.activeTab) {
       case 'history':
-        return <HistoryTab />;
+        return null; // No left panel content for history
       default:
         return <GeneratorTab avatarState={avatarState} credits={userCredits?.available_credits || 0} />;
     }
@@ -58,21 +60,27 @@ export function TalkingAvatarPage() {
       toolName="Talking Avatar"
       tabs={tabsComponent}
     >
-      <StandardToolLayout>
-        {[
-          // Left Panel - Tab Content
-          <div key="input" className="h-full">
-            {renderTabContent()}
-          </div>,
-          
-          // Right Panel - Output
-          <ContextualOutput
-            key="output"
-            activeTab={avatarState.activeTab}
-            avatarState={avatarState}
-          />
-        ]}
-      </StandardToolLayout>
+      {avatarState.activeTab === 'history' ? (
+        <Card className="h-full bg-card border-border/30 p-4">
+          <HistoryOutput avatarState={avatarState} />
+        </Card>
+      ) : (
+        <StandardToolLayout>
+          {[
+            // Left Panel - Tab Content
+            <div key="input" className="h-full">
+              {renderTabContent()}
+            </div>,
+            
+            // Right Panel - Output
+            <ContextualOutput
+              key="output"
+              activeTab={avatarState.activeTab}
+              avatarState={avatarState}
+            />
+          ]}
+        </StandardToolLayout>
+      )}
     </StandardToolPage>
   );
 }

@@ -155,7 +155,7 @@ export function HistoryOutput({
   }
 
   // Empty state
-  if (videos.length === 0) {
+  if (!videos || videos.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
@@ -172,41 +172,9 @@ export function HistoryOutput({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header with Controls */}
-      <div className="flex items-center justify-between px-1 pb-4">
-        <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {videos.length} video{videos.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {onRefresh && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRefresh}
-              className="h-7 px-2"
-            >
-              <RefreshCw className="w-3 h-3" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleMute}
-            className="h-7 px-2"
-            title={isMuted ? 'Unmute video previews' : 'Mute video previews'}
-          >
-            {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Videos Grid */}
-      <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+    <div className="h-full overflow-y-auto scrollbar-hover p-4">
+      {/* Videos Grid - Full width with 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map((video) => (
             <Card 
               key={video.id} 
@@ -405,29 +373,6 @@ export function HistoryOutput({
             </Card>
           ))}
         </div>
-      </div>
-
-      {/* Summary Footer */}
-      <Card className="mt-4 p-3 bg-secondary">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-lg font-semibold text-primary">
-              {videos.length}
-            </p>
-            <p className="text-sm text-muted-foreground">Videos</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">-</p>
-            <p className="text-sm text-muted-foreground">Credits Used</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">
-              {videos.filter(v => v.status === 'completed').length}
-            </p>
-            <p className="text-sm text-muted-foreground">Completed</p>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

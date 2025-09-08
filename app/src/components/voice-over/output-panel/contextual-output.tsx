@@ -336,7 +336,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
       >
         <div className="h-full overflow-y-auto scrollbar-hover p-4">
           {state.voiceHistory.length > 0 ? (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {state.voiceHistory.map((voice: GeneratedVoice) => (
                 <Card key={voice.id} className="p-4">
                   <div className="space-y-3">

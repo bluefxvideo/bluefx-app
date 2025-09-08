@@ -673,7 +673,7 @@ Examples:
                     key={voice.id}
                     className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
                       selectedVoice === voice.id 
-                        ? 'ring-2 ring-purple-500 
+                        ? 'ring-2 ring-purple-500'
                         : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={() => {

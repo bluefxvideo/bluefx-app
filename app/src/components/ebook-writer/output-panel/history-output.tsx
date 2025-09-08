@@ -328,10 +328,9 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* History Grid */}
-      <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+    <div className="h-full overflow-y-auto scrollbar-hover p-4">
+      {/* History Grid - Full width with 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredEbooks.map((ebook) => (
             <Card 
               key={ebook.id} 
@@ -451,36 +450,6 @@ export function HistoryOutput({ filters }: HistoryOutputProps = {}) {
             </Card>
           ))}
         </div>
-      </div>
-
-      {/* Summary Footer */}
-      <Card className="mt-4 p-3 bg-secondary">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-lg font-semibold text-primary">
-              {filteredEbooks.length}
-              {ebooks.length !== filteredEbooks.length && (
-                <span className="text-sm text-muted-foreground">/{ebooks.length}</span>
-              )}
-            </p>
-            <p className="text-sm text-muted-foreground">Ebooks</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">
-              {filteredEbooks.filter(e => e.status === 'completed' || getProgress(e) >= 100).length}
-            </p>
-            <p className="text-sm text-muted-foreground">Completed</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">
-              {filteredEbooks.reduce((acc, ebook) => 
-                acc + (((ebook.metadata as any)?.session_data?.outline?.chapters?.length || ebook.metadata?.outline?.chapters?.length) || 0), 0
-              )}
-            </p>
-            <p className="text-sm text-muted-foreground">Total Chapters</p>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

@@ -6,7 +6,9 @@ import { Image as ImageIcon, Wand2, RotateCcw, FileText, History, UserCheck } fr
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
+import { Card } from '@/components/ui/card';
 import { ContextualOutput } from './output-panel/contextual-output';
+import { HistoryOutput } from './output-panel/history-output';
 // Toggle between implementations for testing
 const USE_V2_HOOK = true; // Set to true to use the new simplified version
 import { useThumbnailMachine as useThumbnailMachineV1 } from './hooks/use-thumbnail-machine';
@@ -124,7 +126,7 @@ export function ThumbnailMachinePage() {
           />
         );
       case 'history':
-        return <HistoryTab onFiltersChange={setHistoryFilters} />;
+        return null; // No left panel content for history
       default:
         return (
           <GeneratorTab
@@ -147,24 +149,30 @@ export function ThumbnailMachinePage() {
       toolName="Thumbnail Machine"
       tabs={<StandardToolTabs tabs={thumbnailTabs} activeTab={activeTab} basePath="/dashboard/thumbnail-machine" />}
     >
-      <StandardToolLayout>
-        {/* Left Panel - Tab Content */}
-        <div className="h-full">{renderTabContent()}</div>
+      {activeTab === 'history' ? (
+        <Card className="h-full bg-card border-border/30 p-4">
+          <HistoryOutput filters={historyFilters} />
+        </Card>
+      ) : (
+        <StandardToolLayout>
+          {/* Left Panel - Tab Content */}
+          <div className="h-full">{renderTabContent()}</div>
 
-        {/* Right Panel - Contextual Output */}
-        <ContextualOutput
-          activeTab={activeTab}
-          result={result}
-          isGenerating={isGenerating}
-          error={error}
-          onClearResults={clearResults}
-          onCancelGeneration={cancelGeneration}
-          onFocusPrompt={handleFocusPrompt}
-          historyFilters={historyFilters}
-          prompt={result?.prompt || ''}
-          hasReferenceImage={hasReferenceImage}
-        />
-      </StandardToolLayout>
+          {/* Right Panel - Contextual Output */}
+          <ContextualOutput
+            activeTab={activeTab}
+            result={result}
+            isGenerating={isGenerating}
+            error={error}
+            onClearResults={clearResults}
+            onCancelGeneration={cancelGeneration}
+            onFocusPrompt={handleFocusPrompt}
+            historyFilters={historyFilters}
+            prompt={result?.prompt || ''}
+            hasReferenceImage={hasReferenceImage}
+          />
+        </StandardToolLayout>
+      )}
     </StandardToolPage>
   );
 }

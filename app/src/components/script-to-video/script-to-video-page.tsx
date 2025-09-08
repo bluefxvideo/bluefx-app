@@ -5,9 +5,11 @@ import { useEffect, useState, useRef } from 'react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
+import { Card } from '@/components/ui/card';
 import { VideoPreview } from './panels/video-preview';
 import { ScriptPreviewPanel } from './components/script-preview-panel';
 import { ContextualOutput } from './output-panel/contextual-output';
+import { HistoryOutput } from './output-panel/history-output';
 import { useScriptToVideo } from './hooks/use-script-to-video';
 import { useVideoEditorStore } from './store/video-editor-store';
 import { createClient } from '@/app/supabase/client';
@@ -179,7 +181,7 @@ export function ScriptToVideoPage() {
           />
         );
       case 'history':
-        return <HistoryTab />;
+        return null; // No left panel content for history
       default:
         return (
           <GeneratorTab
@@ -255,15 +257,21 @@ export function ScriptToVideoPage() {
       toolName="Script to Video"
       tabs={<StandardToolTabs tabs={scriptToVideoTabs} activeTab={activeTab} basePath="/dashboard/script-to-video" />}
     >
-      <StandardToolLayout>
-        {/* Left Panel - Content Only */}
-        <div className="h-full overflow-hidden">
-          {renderTabContent()}
-        </div>
-        
-        {/* Right Panel - Script Preview or Video Preview */}
-        {renderRightPanel()}
-      </StandardToolLayout>
+      {activeTab === 'history' ? (
+        <Card className="h-full bg-card border-border/30 p-4">
+          <HistoryOutput />
+        </Card>
+      ) : (
+        <StandardToolLayout>
+          {/* Left Panel - Content Only */}
+          <div className="h-full overflow-hidden">
+            {renderTabContent()}
+          </div>
+          
+          {/* Right Panel - Script Preview or Video Preview */}
+          {renderRightPanel()}
+        </StandardToolLayout>
+      )}
       
       {/* User Choice Dialog - Global Modal */}
       <UserChoiceDialog />

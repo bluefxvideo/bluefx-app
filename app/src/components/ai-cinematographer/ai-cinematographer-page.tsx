@@ -1,10 +1,12 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { Card } from '@/components/ui/card';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
+import { HistoryOutput } from './output-panel/history-output';
 import { useAICinematographer } from './hooks/use-ai-cinematographer';
 import { Video, History } from 'lucide-react';
 
@@ -60,14 +62,7 @@ export function AICinematographerPage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'history':
-        return (
-          <HistoryTab
-            videos={videos}
-            isLoading={isLoadingHistory}
-            onRefresh={loadHistory}
-            onDeleteVideo={deleteVideo}
-          />
-        );
+        return null; // No left panel content for history
       default:
         return (
           <GeneratorTab
@@ -87,26 +82,39 @@ export function AICinematographerPage() {
       toolName="AI Cinematographer"
       tabs={<StandardToolTabs tabs={cinematographerTabs} activeTab={activeTab} basePath="/dashboard/ai-cinematographer" />}
     >
-      <StandardToolLayout>
-        {/* Left Panel - Content Only */}
-        <div className="h-full overflow-hidden">
-          {renderTabContent()}
-        </div>
-        
-        {/* Right Panel - Contextual Output */}
-        <ContextualOutput
-          activeTab={activeTab}
-          result={result}
-          isGenerating={isGenerating}
-          error={error}
-          onClearResults={clearResults}
-          videos={videos}
-          isLoadingHistory={isLoadingHistory}
-          onRefresh={loadHistory}
-          isStateRestored={isStateRestored}
-          onDeleteVideo={deleteVideo}
-        />
-      </StandardToolLayout>
+      {activeTab === 'history' ? (
+        // History tab - Full width single panel
+        <Card className="h-full bg-card border-border/30 p-4">
+          <HistoryOutput
+            videos={videos}
+            isLoading={isLoadingHistory}
+            onRefresh={loadHistory}
+            onDeleteVideo={deleteVideo}
+          />
+        </Card>
+      ) : (
+        // Other tabs - Use standard two-panel layout
+        <StandardToolLayout>
+          {/* Left Panel - Content Only */}
+          <div className="h-full overflow-hidden">
+            {renderTabContent()}
+          </div>
+          
+          {/* Right Panel - Contextual Output */}
+          <ContextualOutput
+            activeTab={activeTab}
+            result={result}
+            isGenerating={isGenerating}
+            error={error}
+            onClearResults={clearResults}
+            videos={videos}
+            isLoadingHistory={isLoadingHistory}
+            onRefresh={loadHistory}
+            isStateRestored={isStateRestored}
+            onDeleteVideo={deleteVideo}
+          />
+        </StandardToolLayout>
+      )}
     </StandardToolPage>
   );
 }

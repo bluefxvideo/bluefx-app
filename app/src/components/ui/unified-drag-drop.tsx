@@ -220,7 +220,7 @@ export function UnifiedDragDrop({
           relative p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-200 
           overflow-hidden
           ${disabled || loading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}
-          ${isDragActive || dragOver ? 'border-blue-500 bg-blue-950/20'
+          ${isDragActive || dragOver ? 'border-blue-500 bg-blue-950/20' : ''}
           ${hasError ? 'border-destructive bg-destructive/5' : ''}
           ${selectedFile ? '!bg-interactive' : '!bg-interactive hover:!bg-interactive-hover'}
         `}

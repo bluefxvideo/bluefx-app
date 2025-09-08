@@ -114,7 +114,7 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-blue-100';
-      case 'in_progress': return '
+      case 'in_progress': return 'bg-orange-500';
       case 'draft': return 'bg-yellow-500';
       default: return 'bg-gray-500';
     }

@@ -4,10 +4,12 @@ import { useVoiceOver } from './hooks/use-voice-over';
 import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
+import { Card } from '@/components/ui/card';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { GeneratorTab } from './tabs/generator-tab';
 import { HistoryTab } from './tabs/history-tab';
 import { VoiceOverOutput } from './output-panel/voice-over-output';
+import { HistoryOutput } from './output-panel/history-output';
 import { Mic, History } from 'lucide-react';
 
 export function VoiceOverPage() {
@@ -35,7 +37,7 @@ export function VoiceOverPage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'history':
-        return <HistoryTab voiceOverState={voiceOverState} />;
+        return null; // No left panel content for history
       default:
         return <GeneratorTab voiceOverState={voiceOverState} credits={userCredits?.available_credits || 0} />;
     }
@@ -58,23 +60,34 @@ export function VoiceOverPage() {
       toolName="Voice Over Studio"
       tabs={tabsComponent}
     >
-      <StandardToolLayout>
-        {[
-          // Left Panel - Tab Content
-          <div key="input" className="h-full">
-            {renderTabContent()}
-          </div>,
-          
-          // Right Panel - Output
-          <VoiceOverOutput
-            key="output"
+      {activeTab === 'history' ? (
+        <Card className="h-full bg-card border-border/30 p-4">
+          <HistoryOutput 
             voiceOverState={{
               ...voiceOverState,
               deleteVoice: voiceOverState.deleteVoice
-            }}
+            }} 
           />
-        ]}
-      </StandardToolLayout>
+        </Card>
+      ) : (
+        <StandardToolLayout>
+          {[
+            // Left Panel - Tab Content
+            <div key="input" className="h-full">
+              {renderTabContent()}
+            </div>,
+            
+            // Right Panel - Output
+            <VoiceOverOutput
+              key="output"
+              voiceOverState={{
+                ...voiceOverState,
+                deleteVoice: voiceOverState.deleteVoice
+              }}
+            />
+          ]}
+        </StandardToolLayout>
+      )}
     </StandardToolPage>
   );
 }

@@ -149,28 +149,9 @@ export function HistoryOutput() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-1 pb-4">
-        <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {videos.length} video{videos.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={fetchHistory}
-          className="h-7 px-2"
-        >
-          <RefreshCw className="w-3 h-3" />
-        </Button>
-      </div>
-
-      {/* Videos Grid */}
-      <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+    <div className="h-full overflow-y-auto scrollbar-hover p-4">
+      {/* Videos Grid - Full width with 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map((video) => (
             <Card 
               key={video.id}
@@ -321,7 +302,6 @@ export function HistoryOutput() {
             </Card>
           ))}
         </div>
-      </div>
     </div>
   );
 }

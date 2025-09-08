@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { BookOpen, FileText, Type, Image as ImageIcon, Download, History } from 'lucide-react';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
+import { HistoryOutput } from './output-panel/history-output';
 import { useEbookWriterStore } from './store/ebook-writer-store';
 import { useAutoSave } from './hooks/use-auto-save';
 
@@ -135,7 +136,7 @@ export function EbookWriterPage() {
           />
         );
       case 'history':
-        return <EbookHistoryFilters onFiltersChange={setHistoryFilters} />;
+        return null; // No left panel content for history
       default:
         return (
           <TopicTab
@@ -203,26 +204,32 @@ export function EbookWriterPage() {
       toolName="Ebook Writer"
       tabs={tabsComponent}
     >
-      <StandardToolLayout>
-        {[
-          // Left Panel - Tab Content
-          <div key="input" className="h-full">
-            {renderTabContent()}
-          </div>,
-          
-          // Right Panel - Contextual Output
-          <ContextualOutput
-            key="output"
-            activeTab={currentTab}
-            ebook={current_ebook}
-            titleOptions={title_options}
-            isGenerating={generation_progress.is_generating && generation_progress.current_step === 'title'}
-            topic={current_ebook?.topic || ''}
-            uploadedDocuments={uploaded_documents}
-            historyFilters={historyFilters}
-          />
-        ]}
-      </StandardToolLayout>
+      {currentTab === 'history' ? (
+        <Card className="h-full bg-card border-border/30 p-4">
+          <HistoryOutput filters={historyFilters} />
+        </Card>
+      ) : (
+        <StandardToolLayout>
+          {[
+            // Left Panel - Tab Content
+            <div key="input" className="h-full">
+              {renderTabContent()}
+            </div>,
+            
+            // Right Panel - Contextual Output
+            <ContextualOutput
+              key="output"
+              activeTab={currentTab}
+              ebook={current_ebook}
+              titleOptions={title_options}
+              isGenerating={generation_progress.is_generating && generation_progress.current_step === 'title'}
+              topic={current_ebook?.topic || ''}
+              uploadedDocuments={uploaded_documents}
+              historyFilters={historyFilters}
+            />
+          ]}
+        </StandardToolLayout>
+      )}
     </StandardToolPage>
   );
 }

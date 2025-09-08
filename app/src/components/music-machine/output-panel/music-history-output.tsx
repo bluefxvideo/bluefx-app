@@ -237,10 +237,9 @@ export function MusicHistoryOutput({
   }
 
   return (
-    <div className="h-full flex flex-col min-w-0">
-      {/* History Grid */}
-      <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 gap-4 p-1 max-w-full">
+    <div className="h-full overflow-y-auto scrollbar-hover p-4">
+      {/* History Grid - Full width with 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMusic.map((music) => (
             <Card 
               key={music.id} 
@@ -374,34 +373,6 @@ export function MusicHistoryOutput({
             </Card>
           ))}
         </div>
-      </div>
-
-      {/* Summary Footer */}
-      <Card className="mt-4 p-3 bg-secondary">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-lg font-semibold text-primary">
-              {filteredMusic.length}
-              {musicHistory.length !== filteredMusic.length && (
-                <span className="text-sm text-muted-foreground">/{musicHistory.length}</span>
-              )}
-            </p>
-            <p className="text-sm text-muted-foreground">Tracks</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">
-              {filteredMusic.reduce((acc, m) => acc + ((m.generation_settings as any)?.credits_used || 3), 0)}
-            </p>
-            <p className="text-sm text-muted-foreground">Credits Used</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">
-              {formatDuration(filteredMusic.reduce((acc, m) => acc + (m.duration_seconds || 0), 0))}
-            </p>
-            <p className="text-sm text-muted-foreground">Total Duration</p>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

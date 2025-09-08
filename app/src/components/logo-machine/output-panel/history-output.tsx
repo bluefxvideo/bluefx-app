@@ -252,10 +252,9 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* History Grid */}
-      <div className="flex-1 overflow-y-auto scrollbar-hover">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+    <div className="h-full overflow-y-auto scrollbar-hover p-4">
+      {/* History Grid - Full width with 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredHistory.map((item) => (
             <Card 
               key={item.id} 
@@ -337,29 +336,6 @@ export function HistoryOutput({ refreshTrigger, filters }: HistoryOutputProps = 
           </Card>
         ))}
         </div>
-      </div>
-
-      {/* Summary Footer */}
-      <Card className="mt-4 p-3 bg-secondary">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-lg font-semibold text-primary">
-              {filteredHistory.length}{history.length !== filteredHistory.length && <span className="text-sm text-muted-foreground">/{history.length}</span>}
-            </p>
-            <p className="text-sm text-muted-foreground">Logos</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">{filteredHistory.reduce((acc, item) => acc + item.credits, 0)}</p>
-            <p className="text-sm text-muted-foreground">Credits Used</p>
-          </div>
-          <div>
-            <p className="text-lg font-semibold">
-              {filteredHistory.length}
-            </p>
-            <p className="text-sm text-muted-foreground">Assets Created</p>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

@@ -207,7 +207,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                     key={template.id}
                     className={`p-2 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
                       selectedTemplate?.id === template.id 
-                        ? 'ring-2 ring-blue-500 
+                        ? 'ring-2 ring-blue-500'
                         : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={async () => {
@@ -291,7 +291,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                     key={voice.id}
                     className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
                       selectedVoice === voice.id 
-                        ? 'ring-2 ring-purple-500 
+                        ? 'ring-2 ring-purple-500'
                         : 'bg-card hover:bg-muted/50'
                     }`}
                     onClick={() => setSelectedVoice(voice.id)}

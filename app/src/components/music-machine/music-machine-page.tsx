@@ -6,9 +6,11 @@ import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
+import { Card } from '@/components/ui/card';
 import { GeneratorTab } from './tabs/generator-tab';
 import { MusicHistoryFilters, type MusicHistoryFilters as HistoryFiltersType } from './tabs/music-history-filters';
 import { MusicMachineOutput } from './output-panel/music-machine-output';
+import { MusicHistoryOutput } from './output-panel/music-history-output';
 import { Music, History } from 'lucide-react';
 
 /**
@@ -41,7 +43,7 @@ export function MusicMachinePage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'history':
-        return <MusicHistoryFilters onFiltersChange={setHistoryFilters} />;
+        return null; // No left panel content for history
       default:
         return <GeneratorTab musicMachineState={musicMachineState} credits={userCredits?.available_credits || 0} />;
     }
@@ -64,21 +66,35 @@ export function MusicMachinePage() {
       toolName="Music Maker"
       tabs={tabsComponent}
     >
-      <StandardToolLayout>
-        {[
-          // Left Panel - Tab Content
-          <div key="input" className="h-full">
-            {renderTabContent()}
-          </div>,
-          
-          // Right Panel - Output
-          <MusicMachineOutput
-            key="output"
-            musicMachineState={musicMachineState}
-            historyFilters={historyFilters}
+      {activeTab === 'history' ? (
+        <Card className="h-full bg-card border-border/30 p-4">
+          <MusicHistoryOutput
+            musicHistory={musicMachineState.state.musicHistory}
+            filters={historyFilters}
+            isLoading={musicMachineState.state.isLoading}
+            error={musicMachineState.state.error}
+            playingMusicId={musicMachineState.playingMusicId}
+            onPlayMusic={musicMachineState.handleMusicPlayback}
+            onDeleteMusic={musicMachineState.deleteMusic}
           />
-        ]}
-      </StandardToolLayout>
+        </Card>
+      ) : (
+        <StandardToolLayout>
+          {[
+            // Left Panel - Tab Content
+            <div key="input" className="h-full">
+              {renderTabContent()}
+            </div>,
+            
+            // Right Panel - Output
+            <MusicMachineOutput
+              key="output"
+              musicMachineState={musicMachineState}
+              historyFilters={historyFilters}
+            />
+          ]}
+        </StandardToolLayout>
+      )}
     </StandardToolPage>
   );
 }
