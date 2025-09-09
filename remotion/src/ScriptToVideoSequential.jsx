@@ -292,7 +292,13 @@ const FrameBasedSegment = ({
                 fontWeight: captionSettings.fontWeight,
                 lineHeight: 1.4, // Increased from 1.3 for better readability with larger fonts
                 whiteSpace: "pre", // Use 'pre' not 'pre-wrap' for proper space preservation
-                wordSpacing: "0.8em", // Doubled word spacing from 0.4em to 0.8em for more visible spacing
+                wordSpacing: "0.6em", // Word spacing for additional space between words
+                // Add transform for better rendering stability
+                transform: "translateZ(0)",
+                backfaceVisibility: "hidden",
+                // Force font smoothing
+                WebkitFontSmoothing: "antialiased",
+                MozOsxFontSmoothing: "grayscale",
               }}
             >
               {wordHighlighting.map((wordState, index) => {
@@ -318,16 +324,25 @@ const FrameBasedSegment = ({
                     style={{
                       display: "inline-block", // Required for proper whitespace measurement
                       color: wordColor,
-                      textShadow: "2px 2px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)", // Enhanced shadow for better visibility
+                      // More explicit text shadow with fallback
+                      textShadow: "0 0 8px rgba(0,0,0,1), 2px 2px 4px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.8)",
                       fontWeight: wordState.isHighlighted
                         ? "bold"
                         : captionSettings.fontWeight,
-                      transition: "color 0.15s ease", // Smooth color transition
+                      // Remove transition for rendering stability
+                      // transition: "color 0.15s ease", 
                       WebkitFontSmoothing: "antialiased", // Better text rendering
                       MozOsxFontSmoothing: "grayscale",
+                      // Add transform for better rendering
+                      transform: "perspective(100px) translateZ(0)",
+                      willChange: "transform",
+                      // Explicit margin for word spacing
+                      marginRight: !isLastWord ? "0.5em" : "0",
+                      // Ensure text is rendered properly
+                      backfaceVisibility: "hidden",
                     }}
                   >
-                    {wordState.word}{!isLastWord && " "}
+                    {wordState.word}
                   </span>
                 );
               })}
