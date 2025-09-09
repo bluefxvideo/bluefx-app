@@ -162,8 +162,8 @@ export function useScriptToVideo() {
       visual_style?: 'realistic' | 'artistic' | 'minimal' | 'dynamic';
     };
     voice_settings?: {
-      voice_id?: 'anna' | 'eric' | 'felix' | 'oscar' | 'nina' | 'sarah';
-      speed?: 'slower' | 'normal' | 'faster';
+      voice_id?: string; // Accept any voice ID string (OpenAI voices + legacy names)
+      speed?: number | 'slower' | 'normal' | 'faster';
       emotion?: 'neutral' | 'excited' | 'calm' | 'confident' | 'authoritative';
     };
     was_script_generated?: boolean;

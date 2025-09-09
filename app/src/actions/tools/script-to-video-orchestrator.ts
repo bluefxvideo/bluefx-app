@@ -247,7 +247,7 @@ export async function generateScriptToVideo(
     // Store voice metadata for structured storage
     let voiceMetadata: any = {
       synthesis_params: {
-        voice_id: request.voice_settings?.voice_id || 'anna',
+        voice_id: request.voice_settings?.voice_id || 'alloy',
         speed: request.voice_settings?.speed || 'normal',
         emotion: request.voice_settings?.emotion || 'neutral',
         model: 'openai-tts-1'
@@ -438,7 +438,7 @@ export async function generateScriptToVideo(
       
       // Voice Settings
       voice_synthesis: {
-        voice_id: request.voice_settings?.voice_id || 'anna',
+        voice_id: request.voice_settings?.voice_id || 'alloy',
         speed: request.voice_settings?.speed || 'normal',
         emotion: request.voice_settings?.emotion || 'neutral',
         model: 'openai-tts-1',
@@ -619,7 +619,7 @@ async function generateVoiceForAllSegments(
   const { generateVoiceForAllSegments: generateVoice } = await import('../services/voice-generation-service');
   
   // Use the voice ID as-is - the voice service will handle the mapping
-  const selectedVoice = voice_settings?.voice_id || 'anna';
+  const selectedVoice = voice_settings?.voice_id || 'alloy'; // Default to alloy (OpenAI default voice)
   
   console.log(`🎤 Using voice: ${selectedVoice}`);
   

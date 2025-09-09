@@ -342,7 +342,7 @@ export function GeneratorTab({
       isGeneratingScript: false,
       aspectRatio: '9:16' as const,
     });
-    setSelectedVoice('anna');
+    setSelectedVoice('alloy'); // Reset to default OpenAI voice
     setHasUserSelectedVoice(false);
     setVoiceAudioUrl(null);
     setIsGeneratingVoice(false);

@@ -218,9 +218,11 @@ export function GeneratorTabNew({
       
       const result = await generateVoiceForScript(
         stepState.finalScript,
-        currentUserId,
-        selectedVoice,
-        { speed: 1.0, emotion: 'neutral' }
+        {
+          voice_id: selectedVoice,
+          speed: 1.0
+        },
+        currentUserId
       );
 
       if (result.success && result.audio_url) {
