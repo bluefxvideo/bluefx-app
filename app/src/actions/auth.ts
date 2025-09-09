@@ -291,29 +291,7 @@ export async function resetPassword(data: FormData | { email: string }): Promise
       return createApiError(validation.error.issues.map(i => i.message).join(', '))
     }
 
-    console.log('🔐 Checking if user exists for email:', email)
-    
-    // Use admin client to bypass RLS and check profiles table
-    const adminClient = createAdminClient()
-    const { data: profileData, error: profileError } = await adminClient
-      .from('profiles')
-      .select('id, email')
-      .eq('email', email)
-      .single()
-    
-    console.log('🔍 Profile query result:', { profileData, profileError, email })
-    
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error('❌ Error checking profile:', profileError.message, 'Code:', profileError.code)
-      return createApiError('Unable to process password reset request. Please try again.')
-    }
-
-    if (!profileData) {
-      console.log('❌ No user found with email:', email)
-      return createApiError('No account found with this email address. Please check your email or create a new account.')
-    }
-
-    console.log('✅ User exists in profiles, sending password reset email to:', email)
+    console.log('📧 Sending password reset email to:', email)
     
     const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`
     console.log('🔗 Reset redirect URL:', redirectUrl)
@@ -323,18 +301,21 @@ export async function resetPassword(data: FormData | { email: string }): Promise
     })
 
     if (error) {
-      console.error('❌ Password reset failed:', error.message)
+      console.error('❌ Password reset error:', error.message)
       
-      // Handle rate limiting
+      // Handle specific error cases
       if (error.message?.includes('rate limit')) {
         return createApiError('Too many password reset attempts. Please wait before trying again.')
       }
       
-      return createApiError(error.message)
+      // Don't expose whether user exists or not for security
+      // Always show success message
+      console.log('⚠️ Showing success despite error to prevent user enumeration')
     }
 
-    console.log('✅ Password reset email sent successfully')
-    return createApiSuccess({}, 'Password reset email sent! Check your inbox and follow the link to reset your password.')
+    // Always return success to prevent user enumeration attacks
+    console.log('✅ Password reset process completed')
+    return createApiSuccess({}, 'If an account exists with this email, you will receive password reset instructions.')
 
   } catch (error) {
     console.error('💥 Password reset unexpected error:', error)
