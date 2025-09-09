@@ -76,12 +76,70 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
     return null;
   }, [trackItem, activeIds, trackItemsMap]);
 
-  // Load original prompt when image is selected
+  // Load original prompt and detect aspect ratio when image is selected
   useEffect(() => {
-    if (selectedAIImage?.metadata?.prompt) {
-      const original = selectedAIImage.metadata.prompt;
-      setOriginalPrompt(original);
-      setPrompt(original);
+    if (selectedAIImage) {
+      // Load original prompt
+      if (selectedAIImage.metadata?.prompt) {
+        const original = selectedAIImage.metadata.prompt;
+        setOriginalPrompt(original);
+        setPrompt(original);
+      }
+      
+      // Detect and set aspect ratio
+      let detectedAspectRatio: '16:9' | '9:16' | '1:1' | '4:3' = '16:9';
+      
+      // First check if aspect ratio is stored in metadata
+      if (selectedAIImage.metadata?.aspectRatio) {
+        detectedAspectRatio = selectedAIImage.metadata.aspectRatio as typeof detectedAspectRatio;
+      } 
+      // Otherwise, detect from dimensions if available
+      else if (selectedAIImage.details?.width && selectedAIImage.details?.height) {
+        const width = selectedAIImage.details.width;
+        const height = selectedAIImage.details.height;
+        const ratio = width / height;
+        
+        // Determine closest standard aspect ratio
+        if (Math.abs(ratio - 16/9) < 0.1) {
+          detectedAspectRatio = '16:9';
+        } else if (Math.abs(ratio - 9/16) < 0.1) {
+          detectedAspectRatio = '9:16';
+        } else if (Math.abs(ratio - 1) < 0.1) {
+          detectedAspectRatio = '1:1';
+        } else if (Math.abs(ratio - 4/3) < 0.1) {
+          detectedAspectRatio = '4:3';
+        } else {
+          // Default based on orientation
+          detectedAspectRatio = ratio > 1 ? '16:9' : '9:16';
+        }
+      }
+      // Check from the composition size as a fallback
+      else {
+        // Get the global composition size from store
+        const { size } = useStore.getState();
+        if (size) {
+          const ratio = size.width / size.height;
+          if (Math.abs(ratio - 16/9) < 0.1) {
+            detectedAspectRatio = '16:9';
+          } else if (Math.abs(ratio - 9/16) < 0.1) {
+            detectedAspectRatio = '9:16';
+          } else if (Math.abs(ratio - 1) < 0.1) {
+            detectedAspectRatio = '1:1';
+          } else {
+            detectedAspectRatio = ratio > 1 ? '16:9' : '9:16';
+          }
+        }
+      }
+      
+      console.log('🎯 Detected aspect ratio for image:', detectedAspectRatio);
+      
+      // Update options with detected aspect ratio
+      setOptions(prev => ({
+        ...prev,
+        aspect_ratio: detectedAspectRatio,
+        visual_style: selectedAIImage.metadata?.visualStyle || prev.visual_style,
+        quality: selectedAIImage.metadata?.quality || prev.quality
+      }));
     }
   }, [selectedAIImage]);
 
@@ -131,6 +189,9 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
             metadata: {
               ...selectedAIImage.metadata,
               prompt: prompt, // Update with new prompt
+              aspectRatio: options.aspect_ratio, // Store aspect ratio
+              visualStyle: options.visual_style,
+              quality: options.quality,
               lastRegenerated: new Date().toISOString()
             }
           }

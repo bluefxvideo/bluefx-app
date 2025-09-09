@@ -8,7 +8,7 @@ import { useIsDraggingOverTimeline } from "../hooks/is-dragging-over-timeline";
 import { ADD_ITEMS } from "@designcombo/state";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, Sparkles } from "lucide-react";
+import { Search, Loader2, Sparkles, X } from "lucide-react";
 import { usePexelsImages } from "@/hooks/use-pexels-images";
 import { ImageLoading } from "@/components/ui/image-loading";
 import { AIImageGeneratorPanel } from "./ai-image-generator";
@@ -19,6 +19,7 @@ export const ImagesAI = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
 	const [searchQuery, setSearchQuery] = useState("");
 	const { activeIds, trackItemsMap } = useStore();
+	const [selectedAIImageId, setSelectedAIImageId] = useState<string | null>(null);
 
 	const {
 		images: pexelsImages,
@@ -163,9 +164,31 @@ export const ImagesAI = () => {
 					<TabsContent value="ai-images" className="flex-1 mt-0">
 						<ScrollArea className="flex-1 h-[calc(100vh-200px)]">
 							<div className="p-4">
-								<p className="text-xs text-muted-foreground mb-3">
-									Your AI-generated images ({aiGeneratedImages.length})
-								</p>
+								<div className="flex items-center justify-between mb-3">
+									<p className="text-xs text-muted-foreground">
+										Your AI-generated images ({aiGeneratedImages.length})
+									</p>
+									{selectedAIImageId && (
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => setSelectedAIImageId(null)}
+											className="h-6 text-xs"
+										>
+											Clear Selection
+										</Button>
+									)}
+								</div>
+								
+								{/* Show regeneration panel if an image is selected */}
+								{selectedAIImageId && (
+									<div className="mb-4">
+										<AIImageGeneratorPanel 
+											trackItem={aiGeneratedImages.find(img => img.id === selectedAIImageId) || null}
+										/>
+									</div>
+								)}
+								
 								<div className="masonry-sm">
 									{aiGeneratedImages.map((image) => (
 										<AIImageItem
@@ -173,6 +196,10 @@ export const ImagesAI = () => {
 											image={image}
 											shouldDisplayPreview={!isDraggingOverTimeline}
 											handleAddImage={handleAddImage}
+											onSelect={(item) => {
+												setSelectedAIImageId(item.id === selectedAIImageId ? null : item.id);
+											}}
+											isSelected={image.id === selectedAIImageId}
 										/>
 									))}
 								</div>
@@ -282,10 +309,14 @@ const AIImageItem = ({
 	handleAddImage,
 	image,
 	shouldDisplayPreview,
+	onSelect,
+	isSelected,
 }: {
 	handleAddImage: (payload: Partial<IImage>) => void;
 	image: ITrackItem;
 	shouldDisplayPreview: boolean;
+	onSelect?: (item: ITrackItem) => void;
+	isSelected?: boolean;
 }) => {
 	const style = React.useMemo(
 		() => ({
@@ -297,6 +328,24 @@ const AIImageItem = ({
 		[image.details?.src],
 	);
 
+	const handleClick = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		// If we have an onSelect handler, use it (for selection mode)
+		if (onSelect) {
+			onSelect(image);
+		} else {
+			// Otherwise, add to timeline (default behavior)
+			handleAddImage({
+				id: generateId(),
+				details: {
+					src: image.details?.src,
+				},
+			} as IImage);
+		}
+	};
+
 	return (
 		<Draggable
 			data={{
@@ -307,15 +356,10 @@ const AIImageItem = ({
 			shouldDisplayPreview={shouldDisplayPreview}
 		>
 			<div
-				onClick={() =>
-					handleAddImage({
-						id: generateId(),
-						details: {
-							src: image.details?.src,
-						},
-					} as IImage)
-				}
-				className="relative flex w-full items-center justify-center overflow-hidden bg-background pb-2 cursor-pointer group"
+				onClick={handleClick}
+				className={`relative flex w-full items-center justify-center overflow-hidden bg-background pb-2 cursor-pointer group ${
+					isSelected ? 'ring-2 ring-primary' : ''
+				}`}
 			>
 				<img
 					draggable={false}

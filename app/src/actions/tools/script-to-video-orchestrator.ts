@@ -219,7 +219,7 @@ export async function generateScriptToVideo(
     const productionPlan = {
       workflow_type: 'parallel' as const,
       complexity_score: Math.min(10, Math.ceil(finalScript.length / 200)),
-      estimated_duration: targetDuration
+      estimated_duration: actualAudioDuration
     };
     
     total_credits += 2; // Planning

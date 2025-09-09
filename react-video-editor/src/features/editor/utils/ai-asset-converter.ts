@@ -213,6 +213,7 @@ export function convertAIAssetsToEditorFormat(
           prompt: img.prompt,
           segmentId: segment.id,
           segmentText: segment.text,
+          aspectRatio: aspectRatio || '16:9',  // Store aspect ratio for regeneration
           // Add Ken Burns effect by default
           kenBurns: {
             preset: selectedPreset,

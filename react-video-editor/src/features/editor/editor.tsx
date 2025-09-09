@@ -4,6 +4,8 @@ import useStore from "./store/use-store";
 import Navbar from "./navbar";
 import useTimelineEvents from "./hooks/use-timeline-events";
 import usePlayerEvents from "./hooks/use-player-events";
+import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
+import { useDeleteHandler } from "./hooks/use-delete-handler";
 import Scene from "./scene";
 import { SceneRef } from "./scene/scene.types";
 import StateManager, { DESIGN_LOAD } from "@designcombo/state";
@@ -64,6 +66,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 
 	useTimelineEvents();
 	usePlayerEvents();
+	useKeyboardShortcuts();
+	useDeleteHandler(stateManager);
 	
 	// Atomic loading function to prevent race conditions
 	const loadDesignAtomically = useCallback(async (
