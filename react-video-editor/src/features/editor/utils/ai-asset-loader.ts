@@ -454,7 +454,19 @@ async function loadAIAssetsFromBlueFX({
 
     // Check for existing captions before completing (will auto-generate if missing)
     onProgress?.('Checking for existing captions...', 90);
-    await checkAndLoadExistingCaptions(videoData, userId, cleanApiUrl, onProgress, aiAssets.timeline_data.total_duration);
+    const captionsLoaded = await checkAndLoadExistingCaptions(videoData, userId, cleanApiUrl, onProgress, aiAssets.timeline_data.total_duration);
+    
+    // If captions were generated (not loaded from saved), trigger auto-save
+    if (!captionsLoaded) {
+      console.log('🔄 New captions generated, triggering auto-save...');
+      setTimeout(() => {
+        // Trigger auto-save after captions are added
+        if (window.autoSaveManager) {
+          window.autoSaveManager.triggerAutoSave();
+          console.log('✅ Auto-save triggered after caption generation');
+        }
+      }, 3000); // Wait 3 seconds for captions to be fully added
+    }
     
     onProgress?.('Complete!', 100);
     onSuccess?.(videoData.videoId);
@@ -883,69 +895,16 @@ async function checkAndLoadExistingCaptions(
         
         if (savedData.success && savedData.data?.caption_chunks?.length > 0) {
           console.log('✅ Found existing captions in saved composition! Loading them...');
+          console.log(`📝 Loading ${savedData.data.caption_chunks.length} saved caption chunks`);
           onProgress?.('Loading existing captions...', 95);
           
-          // Convert database caption chunks to timeline format
+          // Convert database caption chunks to timeline format and add to editor
           const captionChunks = savedData.data.caption_chunks;
-          const captionSegments = captionChunks.map((chunk: any, index: number) => ({
-            id: chunk.id || `caption-${index}`,
-            start: Math.round((chunk.start_time || 0) * 1000), // Convert to milliseconds
-            end: Math.round((chunk.end_time || chunk.start_time + chunk.duration || 0) * 1000),
-            text: chunk.text || '',
-            words: [], // Word boundaries not stored in this format
-            confidence: 0.9,
-            style: {
-              fontSize: 48,
-              color: '#FFFFFF',
-              activeColor: '#FFFF00',
-              appearedColor: '#FFFFFF'
-            }
-          }));
+          await addCaptionsToEditor(captionChunks, totalDuration);
+          console.log('✅ Existing captions loaded successfully');
           
-          if (captionSegments.length > 0) {
-            // Calculate total duration
-            const totalDuration = Math.max(...captionSegments.map(seg => seg.end));
-            
-            // Create caption track item for timeline
-            const captionTrackItem = {
-              id: 'db-captions',
-              type: 'text',
-              start: 0,
-              duration: Math.round(totalDuration / 1000 * 30), // Convert to frames
-              details: {
-                text: '💾 Database Captions',
-                fontSize: 48,
-                fontFamily: 'Arial, sans-serif',
-                fontWeight: 'bold',
-                color: '#00FF88',
-                textAlign: 'center',
-                isCaptionTrack: true,
-                top: '75%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '80%',
-                captionSegments: captionSegments
-              },
-              metadata: {
-                source: 'database-loaded',
-                totalCaptions: captionSegments.length,
-                fromSavedComposition: true
-              }
-            };
-            
-            // Add caption track to editor
-            setTimeout(() => {
-              console.log('📤 Adding database captions to editor...');
-              dispatch(ADD_ITEMS, {
-                payload: {
-                  trackItems: [captionTrackItem]
-                }
-              });
-              console.log('✅ Database captions loaded successfully!');
-            }, 200);
-            
-            return; // Exit early - we found and loaded existing captions
-          }
+          // Return early - no need to regenerate
+          return true;
         }
       } else {
         console.log('⚠️ Saved composition request failed:', savedResponse.status);
@@ -961,13 +920,14 @@ async function checkAndLoadExistingCaptions(
     
     // Auto-generate captions when none exist (with proper error isolation)
     console.log('🎬 Starting caption auto-generation...');
-    autoGenerateCaptions(videoData, userId, apiUrl, onProgress, totalDuration)
-      .then(() => {
-        console.log('✅ Caption auto-generation completed successfully');
-      })
-      .catch((captionError) => {
-        console.warn('⚠️ Caption auto-generation failed (non-blocking):', captionError);
-      });
+    try {
+      await autoGenerateCaptions(videoData, userId, apiUrl, onProgress, totalDuration);
+      console.log('✅ Caption auto-generation completed successfully');
+      return false; // Return false to indicate new captions were generated
+    } catch (captionError) {
+      console.warn('⚠️ Caption auto-generation failed (non-blocking):', captionError);
+      return false; // Still return false even on error
+    }
     
   } catch (error) {
     console.warn('⚠️ Error checking for existing captions, continuing without them:', error);

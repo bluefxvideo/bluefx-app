@@ -180,6 +180,16 @@ export function convertAIAssetsToEditorFormat(
         return;
       }
 
+      // Select Ken Burns preset for variety
+      const kenBurnsPresets = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'zoom-in-right', 'zoom-out-left'];
+      const selectedPreset = kenBurnsPresets[index % kenBurnsPresets.length];
+      
+      // Calculate intensity based on segment duration (longer = more subtle)
+      const segmentDurationSec = segment.duration;
+      const intensity = segmentDurationSec > 5 ? 15 : // Subtle for long segments
+                        segmentDurationSec > 3 ? 20 : // Medium for normal segments
+                        25; // More noticeable for short segments
+
       const imageTrack: ITrackItem = {
         id: generateId(),
         type: "image",
@@ -202,7 +212,14 @@ export function convertAIAssetsToEditorFormat(
           generationType: 'image',
           prompt: img.prompt,
           segmentId: segment.id,
-          segmentText: segment.text
+          segmentText: segment.text,
+          // Add Ken Burns effect by default
+          kenBurns: {
+            preset: selectedPreset,
+            intensity: intensity,
+            smoothness: 'ease-in-out',
+            speed: 1.0
+          }
         },
         duration: segment.duration * 1000
       };

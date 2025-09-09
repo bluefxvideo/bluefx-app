@@ -124,6 +124,9 @@ export default function Navbar({
 				}
 			});
 			
+			// Expose to window for global access
+			(window as any).autoSaveManager = autoSaveManagerRef.current;
+			
 			// Set up state change listener for auto-save
 			const handleStateChange = () => {
 				autoSaveManagerRef.current?.triggerAutoSave();
@@ -134,6 +137,7 @@ export default function Navbar({
 			
 			return () => {
 				autoSaveManagerRef.current?.destroy();
+				(window as any).autoSaveManager = null;
 				// stateManager.off('change', handleStateChange);
 			};
 		}
