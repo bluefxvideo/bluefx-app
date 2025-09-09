@@ -8,7 +8,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
   getInputProps,
-  interpolate
+  interpolate,
+  Easing
 } from 'remotion';
 
 /**
@@ -63,13 +64,7 @@ export const VideoEditor = () => {
           from={video.startFrame}
           durationInFrames={video.durationInFrames}
         >
-          <Video
-            src={video.src}
-            startFrom={video.startFrom || 0}
-            endAt={video.endAt}
-            volume={video.volume}
-            style={video.style}
-          />
+          <VideoWithKenBurns video={video} />
         </Sequence>
       ))}
 
@@ -80,10 +75,7 @@ export const VideoEditor = () => {
           from={image.startFrame}
           durationInFrames={image.durationInFrames}
         >
-          <Img
-            src={image.src}
-            style={image.style}
-          />
+          <ImageWithKenBurns image={image} />
         </Sequence>
       ))}
 
@@ -268,6 +260,237 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
     </div>
   );
 };
+
+/**
+ * Image Component with Ken Burns Effect
+ */
+const ImageWithKenBurns = ({ image }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  
+  // Calculate Ken Burns transform if effect is enabled
+  // Use the local frame within the sequence for smooth continuous animation
+  const kenBurnsTransform = image.kenBurns && image.kenBurns.preset !== 'none' 
+    ? calculateKenBurnsTransform(frame, image.durationInFrames, image.kenBurns, true)
+    : { transform: 'none' };
+  
+  // Combine Ken Burns transform with existing style transform
+  const finalStyle = {
+    ...image.style,
+    transform: kenBurnsTransform.transform !== 'none' 
+      ? kenBurnsTransform.transform 
+      : image.style.transform || 'none'
+  };
+  
+  return <Img src={image.src} style={finalStyle} />;
+};
+
+/**
+ * Video Component with Ken Burns Effect
+ */
+const VideoWithKenBurns = ({ video }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  
+  // Calculate Ken Burns transform if effect is enabled
+  // Use the local frame within the sequence for smooth continuous animation
+  const kenBurnsTransform = video.kenBurns && video.kenBurns.preset !== 'none'
+    ? calculateKenBurnsTransform(frame, video.durationInFrames, video.kenBurns, true)
+    : { transform: 'none' };
+  
+  // Combine Ken Burns transform with existing style transform
+  const finalStyle = {
+    ...video.style,
+    transform: kenBurnsTransform.transform !== 'none'
+      ? kenBurnsTransform.transform
+      : video.style.transform || 'none'
+  };
+  
+  return (
+    <Video
+      src={video.src}
+      startFrom={video.startFrom || 0}
+      endAt={video.endAt}
+      volume={video.volume}
+      style={finalStyle}
+    />
+  );
+};
+
+/**
+ * Calculate Ken Burns transform based on preset and frame
+ */
+function calculateKenBurnsTransform(frame, durationInFrames, config, continuous = false) {
+  const { preset, intensity = 20, smoothness = 'ease-in-out', speed = 1.0 } = config;
+  
+  // No effect
+  if (preset === 'none') {
+    return { transform: 'none' };
+  }
+  
+  // Calculate intensity factor (0-100 maps to 0-0.5 for reasonable zoom)
+  const intensityFactor = intensity / 200;
+  
+  // For continuous animation, use modulo to create a looping effect
+  // This prevents the animation from resetting between sequences
+  let progressFrame = frame * speed;
+  
+  if (continuous) {
+    // Don't clamp the animation - let it continue smoothly
+    // The animation will progress continuously without resetting
+    progressFrame = frame * speed;
+  } else {
+    // Apply speed multiplier to frame progression
+    progressFrame = Math.min(frame * speed, durationInFrames);
+  }
+  
+  // Select easing function
+  const easingFn = getEasingFunction(smoothness);
+  
+  // Initialize transform values
+  let scale = 1;
+  let translateX = 0;
+  let translateY = 0;
+  
+  // Apply preset transformations
+  switch (preset) {
+    case 'zoom-in':
+      scale = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [1, 1 + intensityFactor],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'zoom-out':
+      scale = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [1 + intensityFactor, 1],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'pan-left':
+      translateX = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [0, -intensity],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'pan-right':
+      translateX = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [0, intensity],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'pan-up':
+      translateY = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [0, -intensity],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'pan-down':
+      translateY = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [0, intensity],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'zoom-in-left':
+      scale = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [1, 1 + intensityFactor],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      translateX = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [0, -intensity / 2],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'zoom-in-right':
+      scale = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [1, 1 + intensityFactor],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      translateX = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [0, intensity / 2],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'zoom-out-left':
+      scale = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [1 + intensityFactor, 1],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      translateX = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [intensity / 2, 0],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+      
+    case 'zoom-out-right':
+      scale = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [1 + intensityFactor, 1],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      translateX = interpolate(
+        progressFrame,
+        [0, durationInFrames],
+        [-intensity / 2, 0],
+        { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+      );
+      break;
+  }
+  
+  // Combine into transform string
+  const transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+  
+  return { transform };
+}
+
+/**
+ * Get Remotion easing function based on smoothness setting
+ */
+function getEasingFunction(smoothness) {
+  switch (smoothness) {
+    case 'linear':
+      return Easing.linear;
+    case 'ease-in':
+      return Easing.in(Easing.cubic);
+    case 'ease-out':
+      return Easing.out(Easing.cubic);
+    case 'ease-in-out':
+    default:
+      return Easing.inOut(Easing.cubic);
+  }
+}
 
 // Default export for registration
 export default VideoEditor;

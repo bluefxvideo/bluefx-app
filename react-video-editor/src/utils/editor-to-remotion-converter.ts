@@ -34,6 +34,12 @@ interface ImageLayer extends RemotionLayer {
     borderRadius?: number;
     filter?: string;
   };
+  kenBurns?: {
+    preset: string;
+    intensity: number;
+    smoothness: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+    speed: number;
+  };
 }
 
 interface VideoLayer extends RemotionLayer {
@@ -50,6 +56,12 @@ interface VideoLayer extends RemotionLayer {
     height: number;
     transform?: string;
     opacity?: number;
+  };
+  kenBurns?: {
+    preset: string;
+    intensity: number;
+    smoothness: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+    speed: number;
   };
 }
 
@@ -211,7 +223,7 @@ export class EditorToRemotionConverter {
         const startFrame = this.msToFrames(item.display.from, fps);
         const endFrame = this.msToFrames(item.display.to, fps);
         
-        return {
+        const layer: ImageLayer = {
           id: item.id,
           type: 'image' as const,
           startFrame,
@@ -229,6 +241,13 @@ export class EditorToRemotionConverter {
             filter: this.buildFilter(item.details)
           }
         };
+        
+        // Add Ken Burns effect if present
+        if (item.metadata?.kenBurns) {
+          layer.kenBurns = item.metadata.kenBurns;
+        }
+        
+        return layer;
       });
   }
   
@@ -246,7 +265,7 @@ export class EditorToRemotionConverter {
         const trimStartFrame = item.trim ? this.msToFrames(item.trim.from, fps) : 0;
         const trimEndFrame = item.trim ? this.msToFrames(item.trim.to, fps) : undefined;
         
-        return {
+        const layer: VideoLayer = {
           id: item.id,
           type: 'video' as const,
           startFrame,
@@ -265,6 +284,13 @@ export class EditorToRemotionConverter {
             opacity: (item.details.opacity || 100) / 100
           }
         };
+        
+        // Add Ken Burns effect if present
+        if (item.metadata?.kenBurns) {
+          layer.kenBurns = item.metadata.kenBurns;
+        }
+        
+        return layer;
       });
   }
   
