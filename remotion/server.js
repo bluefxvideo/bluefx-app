@@ -525,6 +525,10 @@ app.post("/render", async (req, res) => {
         jpegQuality: quality,
         logLevel: "verbose",
         concurrency: 2, // Limit concurrency for debugging
+        // Enable GPU for text-shadow and other GPU-accelerated properties
+        chromiumOptions: {
+          gl: "angle", // Enable GPU acceleration
+        },
         onProgress: ({
           renderedFrames,
           encodedFrames,
@@ -959,6 +963,10 @@ async function performBackgroundRender(
       jpegQuality: quality,
       logLevel: "verbose",
       concurrency: 2,
+      // Enable GPU for text-shadow and other GPU-accelerated properties
+      chromiumOptions: {
+        gl: "angle", // Enable GPU acceleration
+      },
       onProgress: ({
         renderedFrames,
         encodedFrames,
