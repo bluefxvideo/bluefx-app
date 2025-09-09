@@ -474,7 +474,11 @@ export async function updatePassword(formData: FormData): Promise<ApiResponse<Pa
             `Welcome back! Your account has been restored with ${(migrationResult as unknown as MigrationRestoreResult).credits_restored || 0} credits.`
           )
         } else {
-          return createApiError('Failed to restore legacy account data: ' + (migrationResult as unknown as MigrationRestoreResult)?.message)
+          // No migration data found, but password was updated successfully
+          // Just let the user proceed without migration
+          console.log('No migration data found for user:', user.email)
+          revalidatePath('/', 'layout')
+          return createApiSuccess({}, 'Password updated successfully!')
         }
       }
     }

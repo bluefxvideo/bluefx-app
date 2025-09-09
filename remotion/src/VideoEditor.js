@@ -35,13 +35,6 @@ export const VideoEditor = () => {
     }
   } = inputProps;
 
-  console.log('🎬 VideoEditor render at frame:', frame, {
-    audioLayers: audioLayers.length,
-    imageLayers: imageLayers.length,
-    videoLayers: videoLayers.length,
-    textLayers: textLayers.length,
-    captionLayers: captionLayers.length
-  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'transparent' }}>
@@ -49,7 +42,6 @@ export const VideoEditor = () => {
       {audioLayers.map((audio) => {
         // Skip invalid or test URLs
         if (!audio.src || audio.src.includes('example.com') || audio.src.includes('placeholder')) {
-          console.log('⚠️ Skipping invalid audio URL:', audio.src);
           return null;
         }
         
@@ -194,7 +186,7 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
         position: 'absolute',
         bottom: '10%', // Position from bottom for better centering
         left: '50%',
-        transform: 'translateX(-50%)', // Center horizontally
+        transform: 'translateX(-50%) translateZ(0)', // Center horizontally with GPU acceleration
         width: '80%', // Use percentage of video width
         maxWidth: '1200px',
         textAlign: 'center',
@@ -204,7 +196,12 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
         fontSize: style.fontSize || 48,
         fontFamily: style.fontFamily || 'Inter',
         color: style.color || '#FFFFFF',
-        textShadow: style.textShadow || '2px 2px 4px rgba(0,0,0,0.8)'
+        // Enhanced text shadow with multiple layers
+        textShadow: '0 0 8px rgba(0,0,0,1), 2px 2px 4px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.8)',
+        WebkitFontSmoothing: 'antialiased',
+        MozOsxFontSmoothing: 'grayscale',
+        backfaceVisibility: 'hidden',
+        willChange: 'transform'
       }}>
         {segment.text}
       </div>
@@ -217,18 +214,20 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
       position: 'absolute',
       bottom: '10%', // Position from bottom for better centering
       left: '50%',
-      transform: 'translateX(-50%)', // Center horizontally
+      transform: 'translateX(-50%) translateZ(0)', // Center horizontally and enable GPU acceleration
       width: '80%', // Use percentage of video width
       maxWidth: '1200px',
       display: 'flex',
       flexWrap: 'wrap',
-      gap: '0.3em',
+      gap: '0.6em', // Increased word spacing from 0.3em to 0.6em
       alignItems: 'center',
       justifyContent: 'center', // Always center captions
       textAlign: 'center',
       padding: '16px 24px',
       backgroundColor: style.backgroundColor || 'rgba(0, 0, 0, 0.7)',
-      borderRadius: '8px'
+      borderRadius: '8px',
+      willChange: 'transform',
+      backfaceVisibility: 'hidden'
     }}>
       {segment.words.map((wordData, index) => {
         // Determine word state based on current time
@@ -246,13 +245,20 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
           <span
             key={`${wordData.word}-${index}`}
             style={{
+              display: 'inline-block', // Important for proper spacing
               color: wordColor,
               fontSize: style.fontSize || 48,
               fontFamily: style.fontFamily || 'Inter',
               fontWeight: style.fontWeight || '600',
               transition: 'color 0.1s ease-in-out',
-              textShadow: style.textShadow || '2px 2px 4px rgba(0,0,0,0.8)',
-              lineHeight: 1.2
+              // Enhanced text shadow with multiple layers for better visibility
+              textShadow: '0 0 8px rgba(0,0,0,1), 2px 2px 4px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.8)',
+              lineHeight: 1.2,
+              transform: 'translateZ(0)', // GPU acceleration for text shadow
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale',
+              backfaceVisibility: 'hidden',
+              willChange: 'transform'
             }}
           >
             {wordData.word}
