@@ -285,18 +285,20 @@ const FrameBasedSegment = ({
           >
             <div
               style={{
-                display: "block", // Changed from flex to block for proper text flow
+                display: "block",
                 textAlign: "center",
                 fontFamily: captionSettings.fontFamily,
                 fontSize: getResponsiveFontSize(),
                 fontWeight: captionSettings.fontWeight,
-                lineHeight: 1.4, // Increased from 1.3 for better readability with larger fonts
-                whiteSpace: "pre", // Use 'pre' not 'pre-wrap' for proper space preservation
-                wordSpacing: "0.6em", // Word spacing for additional space between words
-                // Add transform for better rendering stability
+                lineHeight: 1.4,
+                // Critical: preserve spaces as per Remotion TikTok caption docs
+                whiteSpace: "pre",
+                // Remove word-spacing since we're adding spaces directly
+                // wordSpacing: "0.6em",
+                // Transform for rendering stability
                 transform: "translateZ(0)",
                 backfaceVisibility: "hidden",
-                // Force font smoothing
+                // Font smoothing
                 WebkitFontSmoothing: "antialiased",
                 MozOsxFontSmoothing: "grayscale",
               }}
@@ -315,34 +317,31 @@ const FrameBasedSegment = ({
                   wordColor = "#E0E0E0";
                 }
                 
-                // For the last word, don't add a space after
-                const isLastWord = index === wordHighlighting.length - 1;
+                // Add space BEFORE each word (except the first) as per Remotion docs
+                const wordWithSpace = index === 0 ? wordState.word : ` ${wordState.word}`;
                 
                 return (
                   <span
                     key={index}
                     style={{
-                      display: "inline-block", // Required for proper whitespace measurement
+                      // Keep inline-block for proper measurement
+                      display: "inline-block",
                       color: wordColor,
-                      // More explicit text shadow with fallback
+                      // Strong, layered text shadow for visibility
                       textShadow: "0 0 8px rgba(0,0,0,1), 2px 2px 4px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.8)",
                       fontWeight: wordState.isHighlighted
                         ? "bold"
                         : captionSettings.fontWeight,
-                      // Remove transition for rendering stability
-                      // transition: "color 0.15s ease", 
-                      WebkitFontSmoothing: "antialiased", // Better text rendering
+                      // Font smoothing
+                      WebkitFontSmoothing: "antialiased",
                       MozOsxFontSmoothing: "grayscale",
-                      // Add transform for better rendering
+                      // Transform for better rendering
                       transform: "perspective(100px) translateZ(0)",
                       willChange: "transform",
-                      // Explicit margin for word spacing
-                      marginRight: !isLastWord ? "0.5em" : "0",
-                      // Ensure text is rendered properly
                       backfaceVisibility: "hidden",
                     }}
                   >
-                    {wordState.word}
+                    {wordWithSpace}
                   </span>
                 );
               })}
