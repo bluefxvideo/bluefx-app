@@ -46,6 +46,7 @@ const DownloadProgressModal = () => {
 				<XIcon
 					onClick={() => {
 						actions.setDisplayProgressModal(false);
+						// Note: We keep the activeRenderVideoId so user can reopen the modal
 					}}
 					className="absolute right-4 top-5 h-5 w-5 text-zinc-400 hover:cursor-pointer hover:text-zinc-500"
 				/>

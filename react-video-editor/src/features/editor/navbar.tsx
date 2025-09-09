@@ -268,6 +268,7 @@ export default function Navbar({
 				
 				<DownloadPopover stateManager={stateManager} />
 				
+				<CheckActiveExportButton />
 				
 				<Button
 					variant="ghost"
@@ -280,6 +281,28 @@ export default function Navbar({
 		</nav>
 	);
 }
+
+// Button to check and reopen active exports
+const CheckActiveExportButton = () => {
+	const { activeRenderVideoId, exporting, actions } = useDownloadState();
+	
+	// Don't show button if no active render or if already showing progress
+	if (!activeRenderVideoId || exporting) {
+		return null;
+	}
+	
+	return (
+		<Button
+			variant="outline"
+			size="sm"
+			onClick={() => actions.checkActiveExport()}
+			className="flex gap-1 animate-pulse"
+		>
+			<Loader2 className="h-4 w-4 mr-1 animate-spin" />
+			View Export
+		</Button>
+	);
+};
 
 const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
 	const isMediumScreen = useIsMediumScreen();
