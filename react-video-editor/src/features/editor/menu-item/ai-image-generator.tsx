@@ -155,10 +155,9 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
       // Simulate progress updates
       setProgress(30);
       
-      // Use full URL in production, relative in development
-      const apiUrl = process.env.NEXT_PUBLIC_SITE_URL 
-        ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/regenerate-image`
-        : '/api/regenerate-image';
+      // Use the main app URL from environment variable or fallback to relative URL
+      const mainAppUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || '';
+      const apiUrl = mainAppUrl ? `${mainAppUrl}/api/regenerate-image` : '/api/regenerate-image';
       
       // Call the regeneration API
       const response = await fetch(apiUrl, {

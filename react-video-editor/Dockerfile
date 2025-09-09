@@ -17,6 +17,10 @@ RUN npm ci --only=production --legacy-peer-deps
 FROM base AS builder
 WORKDIR /app
 
+# Accept build arguments for environment variables
+ARG NEXT_PUBLIC_MAIN_APP_URL
+ENV NEXT_PUBLIC_MAIN_APP_URL=$NEXT_PUBLIC_MAIN_APP_URL
+
 COPY package*.json ./
 COPY yarn.lock* ./
 RUN npm ci --legacy-peer-deps
