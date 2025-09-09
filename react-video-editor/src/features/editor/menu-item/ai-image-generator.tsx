@@ -181,18 +181,19 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
         // Update the image in the timeline
         dispatch(EDIT_OBJECT, {
           payload: {
-            id: selectedAIImage.id,
-            details: {
-              ...selectedAIImage.details,
-              src: result.image_url
-            },
-            metadata: {
-              ...selectedAIImage.metadata,
-              prompt: prompt, // Update with new prompt
-              aspectRatio: options.aspect_ratio, // Store aspect ratio
-              visualStyle: options.visual_style,
-              quality: options.quality,
-              lastRegenerated: new Date().toISOString()
+            [selectedAIImage.id]: {
+              details: {
+                ...selectedAIImage.details,
+                src: result.image_url
+              },
+              metadata: {
+                ...selectedAIImage.metadata,
+                prompt: prompt, // Update with new prompt
+                aspectRatio: options.aspect_ratio, // Store aspect ratio
+                visualStyle: options.visual_style,
+                quality: options.quality,
+                lastRegenerated: new Date().toISOString()
+              }
             }
           }
         });
