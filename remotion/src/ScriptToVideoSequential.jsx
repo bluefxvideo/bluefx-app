@@ -285,15 +285,14 @@ const FrameBasedSegment = ({
           >
             <div
               style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "center",
+                display: "block", // Changed from flex to block for proper text flow
+                textAlign: "center",
                 fontFamily: captionSettings.fontFamily,
                 fontSize: getResponsiveFontSize(),
                 fontWeight: captionSettings.fontWeight,
                 lineHeight: 1.4, // Increased from 1.3 for better readability with larger fonts
-                whiteSpace: "pre-wrap", // Critical for preserving spaces between words
-                wordSpacing: "0.3em", // Additional word spacing for better readability
+                whiteSpace: "pre", // Use 'pre' not 'pre-wrap' for proper space preservation
+                wordSpacing: "0.8em", // Doubled word spacing from 0.4em to 0.8em for more visible spacing
               }}
             >
               {wordHighlighting.map((wordState, index) => {
@@ -310,25 +309,26 @@ const FrameBasedSegment = ({
                   wordColor = "#E0E0E0";
                 }
                 
+                // For the last word, don't add a space after
+                const isLastWord = index === wordHighlighting.length - 1;
+                
                 return (
-                  <React.Fragment key={index}>
-                    <span
-                      style={{
-                        color: wordColor,
-                        textShadow: "2px 2px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)", // Enhanced shadow for better visibility
-                        fontWeight: wordState.isHighlighted
-                          ? "bold"
-                          : captionSettings.fontWeight,
-                        transition: "color 0.15s ease", // Smooth color transition
-                        WebkitFontSmoothing: "antialiased", // Better text rendering
-                        MozOsxFontSmoothing: "grayscale",
-                      }}
-                    >
-                      {wordState.word}
-                    </span>
-                    {/* Space character between words - preserved by whiteSpace: pre-wrap */}
-                    {index < wordHighlighting.length - 1 && " "}
-                  </React.Fragment>
+                  <span
+                    key={index}
+                    style={{
+                      display: "inline-block", // Required for proper whitespace measurement
+                      color: wordColor,
+                      textShadow: "2px 2px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)", // Enhanced shadow for better visibility
+                      fontWeight: wordState.isHighlighted
+                        ? "bold"
+                        : captionSettings.fontWeight,
+                      transition: "color 0.15s ease", // Smooth color transition
+                      WebkitFontSmoothing: "antialiased", // Better text rendering
+                      MozOsxFontSmoothing: "grayscale",
+                    }}
+                  >
+                    {wordState.word}{!isLastWord && " "}
+                  </span>
                 );
               })}
             </div>
