@@ -4,6 +4,13 @@ import {
   waitForFluxKontextCompletion 
 } from '@/actions/models/flux-kontext-pro';
 
+// CORS headers for cross-origin requests from React Video Editor
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*', // In production, you might want to restrict this
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 /**
  * Enhance prompt based on visual style
  */
@@ -94,6 +101,8 @@ export async function POST(request: NextRequest) {
       track_item_id,
       prompt: image_prompt,
       enhanced_prompt: enhancedPrompt
+    }, {
+      headers: corsHeaders
     });
   } catch (error) {
     console.error('❌ Error regenerating image:', error);
@@ -102,7 +111,18 @@ export async function POST(request: NextRequest) {
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to regenerate image' 
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
+}
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { 
+    status: 200,
+    headers: corsHeaders
+  });
 }
