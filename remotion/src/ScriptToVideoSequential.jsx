@@ -288,11 +288,12 @@ const FrameBasedSegment = ({
                 display: "flex",
                 flexWrap: "wrap",
                 justifyContent: "center",
-                gap: "0.25em", // Matches gap-x-1
                 fontFamily: captionSettings.fontFamily,
                 fontSize: getResponsiveFontSize(),
                 fontWeight: captionSettings.fontWeight,
                 lineHeight: 1.4, // Increased from 1.3 for better readability with larger fonts
+                whiteSpace: "pre-wrap", // Critical for preserving spaces between words
+                wordSpacing: "0.3em", // Additional word spacing for better readability
               }}
             >
               {wordHighlighting.map((wordState, index) => {
@@ -314,18 +315,18 @@ const FrameBasedSegment = ({
                     <span
                       style={{
                         color: wordColor,
-                        textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-                        display: "inline-block",
-                        marginRight: "0.35em", // Consistent spacing for all words
+                        textShadow: "2px 2px 6px rgba(0,0,0,0.9), 1px 1px 3px rgba(0,0,0,0.8)", // Enhanced shadow for better visibility
                         fontWeight: wordState.isHighlighted
                           ? "bold"
                           : captionSettings.fontWeight,
                         transition: "color 0.15s ease", // Smooth color transition
+                        WebkitFontSmoothing: "antialiased", // Better text rendering
+                        MozOsxFontSmoothing: "grayscale",
                       }}
                     >
                       {wordState.word}
                     </span>
-                    {/* Add actual space character between words except for the last word */}
+                    {/* Space character between words - preserved by whiteSpace: pre-wrap */}
                     {index < wordHighlighting.length - 1 && " "}
                   </React.Fragment>
                 );
