@@ -110,7 +110,9 @@ export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
       fontSize: captionTrack.details?.fontSize || 24,
       fontFamily: captionTrack.details?.fontFamily || "Arial, sans-serif",
       fontWeight: captionTrack.details?.fontWeight || "bold",
-      color: captionTrack.details?.color || "#00FF88", // Green to distinguish AI captions
+      color: captionTrack.details?.color || "#E0E0E0", // Default unspoken color
+      activeColor: captionTrack.details?.activeColor || "#facc15", // Yellow highlight
+      appearedColor: captionTrack.details?.appearedColor || "#FFFFFF", // White for spoken
       textAlign: captionTrack.details?.textAlign || "center",
       
       // Position captions towards bottom center

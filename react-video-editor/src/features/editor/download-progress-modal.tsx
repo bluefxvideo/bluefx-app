@@ -4,63 +4,21 @@ import { Button } from "@/components/ui/button";
 import { CircleCheckIcon, XIcon } from "lucide-react";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { download } from "@/utils/download";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const DownloadProgressModal = () => {
 	const { progress, displayProgressModal, output, actions, projectId } =
 		useDownloadState();
 	const isCompleted = progress === 100;
-	const [isStoringToSupabase, setIsStoringToSupabase] = useState(false);
-	const [storedUrl, setStoredUrl] = useState<string | null>(null);
 
-	// Store video to Supabase when export completes
+	// Log the Remotion URL when export completes
 	useEffect(() => {
-		const storeVideoToSupabase = async () => {
-			if (isCompleted && output?.url && !storedUrl && !isStoringToSupabase) {
-				setIsStoringToSupabase(true);
-				console.log("🔄 Storing exported video to Supabase...");
-				
-				try {
-					// Get video_id from localStorage or session
-					const storedData = localStorage.getItem('script-to-video-current');
-					const videoData = storedData ? JSON.parse(storedData) : null;
-					const video_id = videoData?.video_id || projectId;
-					
-					// Call API to store video
-					const response = await fetch('/api/script-video/store-export', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							video_url: output.url,
-							video_id,
-							batch_id: videoData?.batch_id,
-							duration_seconds: videoData?.duration || 30,
-							file_size_mb: 10, // Estimate, can be calculated from blob
-							export_settings: {
-								format: 'mp4',
-								quality: 'standard',
-								fps: 30
-							}
-						})
-					});
-
-					if (response.ok) {
-						const result = await response.json();
-						console.log("✅ Video stored in Supabase:", result.video_url);
-						setStoredUrl(result.video_url);
-					} else {
-						console.error("Failed to store video:", await response.text());
-					}
-				} catch (error) {
-					console.error("Error storing video to Supabase:", error);
-				} finally {
-					setIsStoringToSupabase(false);
-				}
-			}
-		};
-
-		storeVideoToSupabase();
-	}, [isCompleted, output?.url, storedUrl, isStoringToSupabase, projectId]);
+		if (isCompleted && output?.url) {
+			console.log("✅ Video available at Remotion URL:", output.url);
+			// The video is directly accessible via the Remotion server URL
+			// No need to store it elsewhere as it's already publicly accessible
+		}
+	}, [isCompleted, output?.url]);
 
 	const handleDownload = async () => {
 		// Always use the Remotion server URL for immediate download
@@ -86,7 +44,9 @@ const DownloadProgressModal = () => {
 				<DialogTitle className="hidden" />
 				<DialogDescription className="hidden" />
 				<XIcon
-					onClick={() => actions.setDisplayProgressModal(false)}
+					onClick={() => {
+						actions.setDisplayProgressModal(false);
+					}}
 					className="absolute right-4 top-5 h-5 w-5 text-zinc-400 hover:cursor-pointer hover:text-zinc-500"
 				/>
 				<div className="flex h-16 items-center border-b px-4 font-medium">

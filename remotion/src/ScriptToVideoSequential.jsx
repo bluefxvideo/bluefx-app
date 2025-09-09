@@ -169,18 +169,24 @@ const FrameBasedSegment = ({
   // Frame-based word highlighting (FIXED: use absolute frame timing)
   const getCurrentWordHighlighting = () => {
     if (!segment.wordFrameTimings || segment.wordFrameTimings.length === 0) {
-      return segment.text ? [{ word: segment.text, isHighlighted: false }] : [];
+      return segment.text ? [{ word: segment.text, isHighlighted: false, hasAppeared: false }] : [];
     }
 
     // CRITICAL FIX: Use absolute frame position (startFrame + localFrame)
     const absoluteFrame = segment.startFrame + localFrame;
 
-    return segment.wordFrameTimings.map((wordTiming) => ({
-      word: wordTiming.word,
-      isHighlighted:
+    return segment.wordFrameTimings.map((wordTiming) => {
+      const isCurrentlyHighlighted = 
         absoluteFrame >= wordTiming.startFrame &&
-        absoluteFrame < wordTiming.endFrame,
-    }));
+        absoluteFrame < wordTiming.endFrame;
+      const hasAlreadyAppeared = absoluteFrame >= wordTiming.endFrame;
+      
+      return {
+        word: wordTiming.word,
+        isHighlighted: isCurrentlyHighlighted,
+        hasAppeared: hasAlreadyAppeared
+      };
+    });
   };
 
   const wordHighlighting = getCurrentWordHighlighting();
@@ -289,23 +295,38 @@ const FrameBasedSegment = ({
                 lineHeight: 1.4, // Increased from 1.3 for better readability with larger fonts
               }}
             >
-              {wordHighlighting.map((wordState, index) => (
-                <span
-                  key={index}
-                  style={{
-                    color: wordState.isHighlighted
-                      ? captionSettings.highlightColor
-                      : "white",
-                    textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-                    display: "inline-block",
-                    fontWeight: wordState.isHighlighted
-                      ? "bold"
-                      : captionSettings.fontWeight,
-                  }}
-                >
-                  {wordState.word}
-                </span>
-              ))}
+              {wordHighlighting.map((wordState, index) => {
+                // Three-state coloring like the editor
+                let wordColor;
+                if (wordState.hasAppeared) {
+                  // Word has been spoken - white
+                  wordColor = "white";
+                } else if (wordState.isHighlighted) {
+                  // Word is currently being spoken - highlight color (yellow)
+                  wordColor = captionSettings.highlightColor;
+                } else {
+                  // Word hasn't been spoken yet - light gray
+                  wordColor = "#E0E0E0";
+                }
+                
+                return (
+                  <span
+                    key={index}
+                    style={{
+                      color: wordColor,
+                      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+                      display: "inline-block",
+                      marginRight: index < wordHighlighting.length - 1 ? "0.5em" : 0, // Doubled word spacing from 0.25em to 0.5em
+                      fontWeight: wordState.isHighlighted
+                        ? "bold"
+                        : captionSettings.fontWeight,
+                      transition: "color 0.15s ease", // Smooth color transition
+                    }}
+                  >
+                    {wordState.word}
+                  </span>
+                );
+              })}
             </div>
           </div>
         </AbsoluteFill>

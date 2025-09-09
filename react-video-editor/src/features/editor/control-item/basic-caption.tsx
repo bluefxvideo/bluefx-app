@@ -26,7 +26,7 @@ const BasicCaption = ({
 }) => {
 	const [properties, setProperties] = useState<ICaptionControlProps>({
 		baseColor: "#FFFFFF",
-		highlightColor: "#00FF88",
+		highlightColor: "#facc15", // Yellow to match Remotion default
 		backgroundColor: "rgba(0, 0, 0, 0.7)",
 		fontSize: 48,
 		opacity: 1,
@@ -45,7 +45,7 @@ const BasicCaption = ({
 		// Get actual colors from the track item details
 		setProperties({
 			baseColor: (trackItem.details as any)?.appearedColor || "#FFFFFF",
-			highlightColor: (trackItem.details as any)?.activeColor || "#00FF88",
+			highlightColor: (trackItem.details as any)?.activeColor || "#facc15", // Yellow default
 			backgroundColor: trackItem.details.backgroundColor || "rgba(0, 0, 0, 0.7)",
 			fontSize: trackItem.details.fontSize || 48,
 			opacity: trackItem.details.opacity || 1,
@@ -231,7 +231,7 @@ const BasicCaption = ({
 									value={properties.highlightColor}
 									onChange={(e) => handleHighlightColorChange(e.target.value)}
 									className="flex-1 text-sm p-2 border rounded"
-									placeholder="#00FF88"
+									placeholder="#facc15"
 								/>
 							</div>
 							<p className="text-xs text-muted-foreground">
