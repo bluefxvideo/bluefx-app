@@ -63,8 +63,9 @@ const DownloadProgressModal = () => {
 	}, [isCompleted, output?.url, storedUrl, isStoringToSupabase, projectId]);
 
 	const handleDownload = async () => {
-		// Use stored URL if available, otherwise use Remotion URL
-		const downloadUrl = storedUrl || output?.url;
+		// Always use the Remotion server URL for immediate download
+		// The stored URL is for persistence, but Remotion URL works better for direct downloads
+		const downloadUrl = output?.url;
 		if (downloadUrl) {
 			// Generate a meaningful filename with timestamp
 			const now = new Date();
@@ -73,7 +74,7 @@ const DownloadProgressModal = () => {
 			const filename = `video-${dateStr}-${timeStr}`;
 			
 			await download(downloadUrl, filename);
-			console.log("downloading:", filename);
+			console.log("downloading from Remotion server:", filename, downloadUrl);
 		}
 	};
 	return (

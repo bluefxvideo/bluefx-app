@@ -81,7 +81,18 @@ function ImageWithKenBurns({
 	return (
 		<div style={mediaStyles}>
 			{/* image layer */}
-			<Img data-id={item.id} src={details.src} />
+			<Img 
+				data-id={item.id} 
+				src={details.src}
+				style={{
+					width: '100%',
+					height: '100%',
+					objectFit: 'cover',
+					position: 'absolute',
+					top: 0,
+					left: 0
+				}}
+			/>
 		</div>
 	);
 }

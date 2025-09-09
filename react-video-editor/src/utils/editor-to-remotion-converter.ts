@@ -324,17 +324,20 @@ export class EditorToRemotionConverter {
           segments,
           style: {
             position: 'absolute' as const,
-            top: this.parsePixelValue(item.details.top) || 100,
-            left: this.parsePixelValue(item.details.left) || 100,
+            // Caption positioning is now handled in the Remotion component for proper centering
+            // These values are passed but may be overridden for better display
+            top: item.details.top || 'auto',
+            left: item.details.left || 'auto',
             fontSize: item.details.fontSize || 48,
             fontFamily: item.details.fontFamily || 'Inter',
-            textAlign: item.details.textAlign || 'center',
+            textAlign: 'center' as const, // Always center captions
             color: item.details.color || '#E0E0E0',
             activeColor: item.details.activeColor || '#00FF88',
             appearedColor: item.details.appearedColor || '#FFFFFF',
             backgroundColor: item.details.backgroundColor || 'rgba(0, 0, 0, 0.7)',
-            width: item.details.width || 800,
-            height: item.details.height || 100
+            width: item.details.width || '80%', // Use percentage for responsive width
+            height: item.details.height || 'auto',
+            textShadow: item.details.textShadow || '2px 2px 4px rgba(0,0,0,0.8)'
           }
         };
       });

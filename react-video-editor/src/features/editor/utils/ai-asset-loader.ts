@@ -60,44 +60,17 @@ export async function loadAIGeneratedAssets(options: AIAssetLoadOptions = {}) {
     
     onProgress?.('Loading into editor...', 80);
     
-    // Load audio/base composition with DESIGN_LOAD first
+    // Load complete composition with all tracks (audio and images on single track)
     console.log('📤 Dispatching DESIGN_LOAD from general loader...');
+    console.log(`📤 Loading complete composition with ${editorPayload.trackItems.length} items...`);
+    console.log('🔍 Tracks structure:', editorPayload.tracks.map(track => ({
+      name: track.name,
+      type: track.type,
+      itemCount: track.items.length
+    })));
     
-    // Create base composition with just audio and structure
-    const basePayload = {
-      ...editorPayload,
-      trackItems: editorPayload.trackItems.filter(item => item.type === 'audio'),
-      trackItemsMap: Object.fromEntries(
-        Object.entries(editorPayload.trackItemsMap).filter(([_, item]) => item.type === 'audio')
-      ),
-      trackItemIds: editorPayload.trackItemIds.filter(id => editorPayload.trackItemsMap[id]?.type === 'audio'),
-      tracks: editorPayload.tracks.filter(track => track.type === 'audio')
-    };
-    
-    dispatch(DESIGN_LOAD, { payload: basePayload });
-    
-    // Add images individually using ADD_ITEMS (like sidebar does) for proper centering
-    setTimeout(() => {
-      const imageItems = editorPayload.trackItems.filter(item => item.type === 'image');
-      console.log(`📤 Adding ${imageItems.length} images individually via ADD_ITEMS...`);
-      
-      imageItems.forEach((imageItem, index) => {
-        setTimeout(() => {
-          console.log(`📤 Adding image ${index + 1}: ${imageItem.details.src}`);
-          dispatch(ADD_ITEMS, {
-            payload: {
-              trackItems: [{
-                ...imageItem,
-                details: {
-                  src: imageItem.details.src
-                  // Minimal details like sidebar images
-                }
-              }]
-            }
-          });
-        }, index * 100); // Stagger the additions
-      });
-    }, 200);
+    // Dispatch the complete payload with all items and proper single track for images
+    dispatch(DESIGN_LOAD, { payload: editorPayload });
     
     onProgress?.('Complete!', 100);
     onSuccess?.(aiAssets.video_id || 'mock-video');
@@ -443,27 +416,21 @@ async function loadAIAssetsFromBlueFX({
     
     console.log('📤 Dispatching DESIGN_LOAD from BlueFX loader...');
     
-    // Load base composition with proper track structure (audio first, then add images to separate tracks)
-    const basePayload = {
-      ...editorPayload,
-      trackItems: editorPayload.trackItems.filter(item => item.type === 'audio'),
-      trackItemsMap: Object.fromEntries(
-        Object.entries(editorPayload.trackItemsMap).filter(([_, item]) => item.type === 'audio')
-      ),
-      trackItemIds: editorPayload.trackItemIds.filter(id => editorPayload.trackItemsMap[id]?.type === 'audio'),
-      tracks: editorPayload.tracks.filter(track => track.type === 'audio')
-    };
-    
-    console.log(`📤 Loading base composition with ${basePayload.trackItems.length} audio items...`);
-    console.log('🔍 DEBUG: Base payload audio items:', basePayload.trackItems.map(item => ({
-      id: item.id,
-      type: item.type,
-      src: item.details?.src,
-      duration: item.duration
+    // Load complete composition with all tracks (audio and images on single track)
+    console.log(`📤 Loading complete composition with ${editorPayload.trackItems.length} items...`);
+    console.log('🔍 DEBUG: All track items by type:', {
+      audio: editorPayload.trackItems.filter(item => item.type === 'audio').length,
+      image: editorPayload.trackItems.filter(item => item.type === 'image').length,
+      text: editorPayload.trackItems.filter(item => item.type === 'text').length
+    });
+    console.log('🔍 DEBUG: Tracks structure:', editorPayload.tracks.map(track => ({
+      name: track.name,
+      type: track.type,
+      itemCount: track.items.length
     })));
-    console.log('🔍 DEBUG: Audio tracks:', basePayload.tracks);
     
-    dispatch(DESIGN_LOAD, { payload: basePayload });
+    // Dispatch the complete payload with all items and proper single track for images
+    dispatch(DESIGN_LOAD, { payload: editorPayload });
     
     // Ensure canvas size matches the aspect ratio (since StateManager might be initialized with default size)
     // Add delay to ensure DESIGN_LOAD is fully processed and all state is settled
@@ -484,30 +451,6 @@ async function loadAIAssetsFromBlueFX({
       });
       console.log('📐 DESIGN_RESIZE dispatched successfully');
     }, 500); // Increased delay to ensure all loading is complete
-    
-    // Add images to separate tracks using ADD_ITEMS (with small delay to avoid conflicts)
-    const imageItems = editorPayload.trackItems.filter(item => item.type === 'image');
-    console.log(`📤 Adding ${imageItems.length} images to separate tracks...`);
-    
-    // Add images after base composition is loaded to avoid overriding audio
-    if (imageItems.length > 0) {
-      setTimeout(() => {
-        console.log('📤 Now adding images after audio is settled...');
-        console.log('🔍 DEBUG: About to dispatch ADD_ITEMS for images');
-        dispatch(ADD_ITEMS, {
-          payload: {
-            trackItems: imageItems.map(imageItem => ({
-              ...imageItem,
-              details: {
-                src: imageItem.details.src
-                // Keep minimal details for proper track separation
-              }
-            }))
-          }
-        });
-        console.log('✅ ADD_ITEMS dispatched for images');
-      }, 100); // Small delay to let audio settle
-    }
 
     // Check for existing captions before completing (will auto-generate if missing)
     onProgress?.('Checking for existing captions...', 90);

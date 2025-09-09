@@ -7,17 +7,15 @@ import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { Card } from '@/components/ui/card';
 import { VideoPreview } from './panels/video-preview';
-import { ScriptPreviewPanel } from './components/script-preview-panel';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { useScriptToVideo } from './hooks/use-script-to-video';
 import { useVideoEditorStore } from './store/video-editor-store';
 import { createClient } from '@/app/supabase/client';
 import { FileText, Edit, History } from 'lucide-react';
-import { ReadyToCreatePanel } from './components/ready-to-create-panel';
 
 // Tab content components
-import { GeneratorTab, type MultiStepState } from './tabs/generator-tab';
+import { GeneratorTabNew as GeneratorTab, type MultiStepState } from './tabs/generator-tab-new';
 import { VideoEditorPanel } from './panels/video-editor-panel';
 import { HistoryTab } from './tabs/history-tab';
 import { UserChoiceDialog } from './components/user-choice-dialog';
@@ -39,13 +37,13 @@ export function ScriptToVideoPage() {
   // Multi-step state - shared between generator tab and preview panel
   const [multiStepState, setMultiStepState] = useState<MultiStepState>({
     currentStep: 1,
-    totalSteps: 4,
+    totalSteps: 5,
     useMyScript: false,
     ideaText: '',
     generatedScript: '',
     finalScript: '',
     isGeneratingScript: false,
-    aspectRatio: '9:16',
+    aspectRatio: '9:16', // Default to portrait
   });
   
   // Additional state for workflow tracking
@@ -197,45 +195,8 @@ export function ScriptToVideoPage() {
     }
   };
 
-  // Render appropriate right panel content
+  // Render appropriate right panel content for editor only
   const renderRightPanel = () => {
-    // Show workflow progress when user has started generation
-    if (activeTab === 'generate' && (multiStepState.isGeneratingScript || isGeneratingVoice || isGeneratingVideo || multiStepState.generatedScript)) {
-      return (
-        <ScriptPreviewPanel
-          currentStep={multiStepState.currentStep}
-          totalSteps={multiStepState.totalSteps}
-          generatedScript={multiStepState.generatedScript}
-          finalScript={multiStepState.finalScript}
-          useMyScript={multiStepState.useMyScript}
-          isGeneratingScript={multiStepState.isGeneratingScript}
-          isGeneratingVoice={isGeneratingVoice}
-          isGeneratingVideo={isGeneratingVideo}
-          voiceSelected={voiceSelected}
-          videoGenerated={videoGenerated}
-          isEditable={true}
-          onScriptEdit={(script) => {
-            setMultiStepState(prev => ({ ...prev, finalScript: script }));
-          }}
-        />
-      );
-    }
-
-    // Show welcome panel for generate tab when idle
-    if (activeTab === 'generate') {
-      return (
-        <ReadyToCreatePanel 
-          currentStep={multiStepState.currentStep}
-          scriptGenerated={!!multiStepState.generatedScript || !!multiStepState.finalScript}
-          voiceSelected={voiceSelected}
-          isGeneratingVideo={isGeneratingVideo}
-          videoGenerated={videoGenerated}
-          isGeneratingScript={multiStepState.isGeneratingScript}
-        />
-      );
-    }
-
-    // Show contextual output for other tabs (editor, history)
     return (
       <ContextualOutput
         activeTab={activeTab}
@@ -261,14 +222,28 @@ export function ScriptToVideoPage() {
         <Card className="h-full bg-card border-border/30 p-4">
           <HistoryOutput />
         </Card>
+      ) : activeTab === 'generate' ? (
+        // Single-panel layout for generator tab (like ebook writer)
+        <div className="h-full overflow-hidden">
+          <GeneratorTab
+            credits={credits}
+            onGeneratingChange={setIsLocalGenerating}
+            multiStepState={multiStepState}
+            onMultiStepStateChange={setMultiStepState}
+            onVoiceSelected={setVoiceSelected}
+            onGeneratingVoiceChange={setIsGeneratingVoice}
+            onGeneratingVideoChange={setIsGeneratingVideo}
+          />
+        </div>
       ) : (
+        // Two-panel layout for editor tab
         <StandardToolLayout>
           {/* Left Panel - Content Only */}
           <div className="h-full overflow-hidden">
             {renderTabContent()}
           </div>
           
-          {/* Right Panel - Script Preview or Video Preview */}
+          {/* Right Panel - Video Preview */}
           {renderRightPanel()}
         </StandardToolLayout>
       )}

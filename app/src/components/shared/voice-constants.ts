@@ -27,7 +27,7 @@ export const OPENAI_VOICE_OPTIONS: VoiceOption[] = [
   {
     id: 'alloy',
     name: 'Alloy',
-    gender: 'neutral',
+    gender: 'female',
     description: 'Natural and versatile voice, great for narration',
     preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/alloy.mp3',
     category: 'natural'
@@ -35,8 +35,8 @@ export const OPENAI_VOICE_OPTIONS: VoiceOption[] = [
   {
     id: 'echo',
     name: 'Echo',
-    gender: 'male',
-    description: 'Deep and resonant voice, excellent for documentaries',
+    gender: 'female',
+    description: 'Clear and confident voice, excellent for documentaries',
     preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/echo.mp3',
     category: 'professional'
   },
@@ -117,8 +117,8 @@ export const OPENAI_VOICE_OPTIONS: VoiceOption[] = [
   {
     id: 'fable',
     name: 'Fable',
-    gender: 'neutral',
-    description: 'Versatile storytelling voice with character (legacy)',
+    gender: 'male',
+    description: 'British-accented storytelling voice with character (legacy)',
     preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/fable.mp3',
     category: 'character',
     isLegacy: true

@@ -79,7 +79,7 @@ services:
     environment:
       - NODE_ENV=${EDITOR_NODE_ENV:-production}
       - PORT=3002
-      - REMOTION_SERVER_URL=http://remotion:3001
+      - REMOTION_SERVER_URL=${EDITOR_REMOTION_SERVER_URL:-http://remotion:3001}
       - REMOTION_EXTERNAL_URL=${EDITOR_REMOTION_EXTERNAL_URL:-http://localhost:3001}
       - REMOTION_API_KEY=${EDITOR_REMOTION_API_KEY}
       - CORS_ORIGIN=${EDITOR_CORS_ORIGIN}

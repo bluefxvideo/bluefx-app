@@ -115,40 +115,103 @@ export async function generateScriptToVideo(
   try {
     console.log(`🎬 AI Video Orchestrator: Starting intelligent production for user ${request.user_id}`);
 
+    // Validate script_text is a string
+    if (!request.script_text || typeof request.script_text !== 'string') {
+      throw new Error('Invalid script_text: must be a non-empty string');
+    }
+
+    const scriptText = request.script_text.trim();
+    if (scriptText.length === 0) {
+      throw new Error('Script text cannot be empty');
+    }
+
     // Step 1: Credit Validation
     const creditCheck = await getUserCredits(request.user_id);
     if (!creditCheck.success) {
       throw new Error('Unable to verify credit balance');
     }
 
-    const estimatedCredits = BASE_CREDITS + (Math.ceil(request.script_text.length / 100) * CREDITS_PER_SEGMENT);
+    const estimatedCredits = BASE_CREDITS + (Math.ceil(scriptText.length / 100) * CREDITS_PER_SEGMENT);
     if ((creditCheck.credits || 0) < estimatedCredits) {
       throw new Error(`Insufficient credits. Need ${estimatedCredits}, have ${creditCheck.credits || 0}`);
     }
 
     console.log(`💳 Credits validated: ${creditCheck.credits} available, ${estimatedCredits} estimated`);
 
-    // Step 2: Generate segments from script
-    const finalScript = request.script_text;
+    // Step 2: Generate audio FIRST to get exact duration
+    const finalScript = scriptText;
     console.log(`📝 Processing script (${finalScript.length} characters)`);
     
-    const targetDuration = calculateOptimalDuration(request.script_text);
-    segmentAnalysis = { total_duration: targetDuration, segment_count: 0 };
+    // Generate voice first to get actual duration
+    console.log('🎤 Generating voice first to determine exact duration...');
+    let audioUrl: string | undefined = undefined;
+    let actualAudioDuration = 30; // Default fallback
     
-    total_credits += 2; // Basic analysis
-    console.log(`✅ Analysis complete - target duration: ${targetDuration}s`);
-
-    // Create intelligent segments using story beat analysis
-
-    const result = await createStoryBasedSegments(finalScript, segmentAnalysis, request.original_idea);
+    try {
+      // Create a temporary single segment for voice generation
+      const tempSegment = {
+        id: 'temp-full',
+        text: finalScript,
+        start_time: 0,
+        end_time: 30, // Temporary estimate
+        duration: 30,
+        image_prompt: ''
+      };
+      
+      const voiceResult = await generateVoiceForAllSegments([tempSegment], request.user_id, batch_id, request.voice_settings);
+      audioUrl = voiceResult.audio_url;
+      actualAudioDuration = voiceResult.metadata?.actual_duration || 30;
+      total_credits += voiceResult.credits_used;
+      
+      console.log(`✅ Voice generated - Actual duration: ${actualAudioDuration}s`);
+    } catch (error) {
+      console.error('❌ Initial voice generation failed:', error);
+      throw new Error(`Voice generation failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    // Step 3: Calculate optimal segment count based on ACTUAL audio duration
+    const segmentDuration = 5; // Default 5 seconds per segment
+    const minSegmentDuration = 3;
+    const maxSegmentDuration = 5;
+    
+    // Calculate ideal number of segments
+    let segmentCount = Math.ceil(actualAudioDuration / segmentDuration);
+    
+    // Adjust segment duration if needed to stay within 3-5 second range
+    let adjustedSegmentDuration = actualAudioDuration / segmentCount;
+    
+    // If segments would be too short, reduce count
+    while (adjustedSegmentDuration < minSegmentDuration && segmentCount > 1) {
+      segmentCount--;
+      adjustedSegmentDuration = actualAudioDuration / segmentCount;
+    }
+    
+    // If segments would be too long, increase count
+    while (adjustedSegmentDuration > maxSegmentDuration) {
+      segmentCount++;
+      adjustedSegmentDuration = actualAudioDuration / segmentCount;
+    }
+    
+    console.log(`📊 Segment calculation: ${actualAudioDuration}s audio → ${segmentCount} segments @ ~${adjustedSegmentDuration.toFixed(1)}s each`);
+    
+    segmentAnalysis = { 
+      total_duration: actualAudioDuration, 
+      segment_count: segmentCount 
+    };
+    
+    // Step 4: Create segments with proper count
+    const result = await createStoryBasedSegments(finalScript, segmentAnalysis, request.original_idea, segmentCount);
     const mockSegments = result.segments;
     storyContext = result.storyContext;
     
-    // Update analysis with AI's decisions
-    segmentAnalysis.segment_count = storyContext.ai_determined_count || mockSegments.length;
-    segmentAnalysis.total_duration = mockSegments.length > 0 
-      ? mockSegments[mockSegments.length - 1].end_time 
-      : 30;
+    // Adjust segment timings to match actual audio duration exactly
+    const segmentLength = actualAudioDuration / mockSegments.length;
+    mockSegments.forEach((segment, idx) => {
+      segment.start_time = idx * segmentLength;
+      segment.end_time = (idx + 1) * segmentLength;
+      segment.duration = segmentLength;
+      console.log(`📐 Segment ${idx + 1}: ${segment.start_time.toFixed(2)}s-${segment.end_time.toFixed(2)}s (${segment.duration.toFixed(2)}s)`);
+    });
 
     // Step 3: Create production plan
     console.log('🎯 Creating production plan...');
@@ -177,78 +240,24 @@ export async function generateScriptToVideo(
       } as unknown as Json,
     });
 
-    // Step 5: Execute Voice Generation FIRST (required for timing analysis)
+    // Step 5: Generate Images based on calculated segments
+    // Voice was already generated above to get timing
     let generatedImages: { url: string; segment_index: number; prompt: string; }[] = [];
-    let audioUrl: string | undefined = undefined;
-    let voiceMetadata: any = null;
-
-    console.log('🔄 Starting voice generation (required for accurate timing)...');
-    
-    let voiceResult: { audio_url?: string; credits_used: number; metadata?: any };
-    
-    try {
-      console.log('🎤 Generating voice with estimated timing...');
-      voiceResult = await generateVoiceForAllSegments(mockSegments, request.user_id, batch_id, request.voice_settings);
-      console.log('✅ Voice generation completed:', { 
-        audio_url: voiceResult.audio_url ? 'Generated' : 'NULL',
-        credits: voiceResult.credits_used 
-      });
-    } catch (error) {
-      console.error('❌ Voice generation failed:', error);
-      throw new Error(`Voice generation failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    audioUrl = voiceResult.audio_url;
-    total_credits += voiceResult.credits_used;
-    
-    // CRITICAL FIX: Get actual audio duration and fix segment timings
-    if (audioUrl && voiceResult.metadata?.actual_duration) {
-      const actualAudioDuration = voiceResult.metadata.actual_duration;
-      const estimatedDuration = mockSegments[mockSegments.length - 1].end_time;
-      
-      console.log(`🔧 TIMING FIX: Estimated duration: ${estimatedDuration}s, Actual audio: ${actualAudioDuration}s`);
-      
-      if (Math.abs(actualAudioDuration - estimatedDuration) > 2) {
-        console.log('⚠️ Significant timing mismatch detected, adjusting segments...');
-        
-        // Proportionally adjust all segment timings to match actual audio
-        const scaleFactor = actualAudioDuration / estimatedDuration;
-        
-        mockSegments.forEach((segment, idx) => {
-          const originalStartTime = segment.start_time;
-          const originalEndTime = segment.end_time;
-          
-          segment.start_time = originalStartTime * scaleFactor;
-          segment.end_time = originalEndTime * scaleFactor;
-          segment.duration = segment.end_time - segment.start_time;
-          
-          console.log(`📐 Segment ${idx + 1}: ${originalStartTime}s-${originalEndTime}s → ${segment.start_time.toFixed(2)}s-${segment.end_time.toFixed(2)}s`);
-        });
-        
-        // Update analysis with corrected duration
-        segmentAnalysis.total_duration = actualAudioDuration;
-        console.log(`✅ Segment timings adjusted to actual audio duration: ${actualAudioDuration}s`);
-      }
-    }
     
     // Store voice metadata for structured storage
-    voiceMetadata = {
+    let voiceMetadata: any = {
       synthesis_params: {
         voice_id: request.voice_settings?.voice_id || 'anna',
         speed: request.voice_settings?.speed || 'normal',
         emotion: request.voice_settings?.emotion || 'neutral',
         model: 'openai-tts-1'
       },
-      emotion_mapping: voiceResult.metadata?.emotion_mapping || null,
-      timing_adjustments: voiceResult.metadata?.timing_adjustments || null,
+      actual_duration: actualAudioDuration,
       generation_timestamp: new Date().toISOString(),
-      credits_used: voiceResult.credits_used
+      credits_used: 2 // Voice generation credits
     };
-
-    // Step 6: Generate Images (using estimated timing)
-    if (!audioUrl) {
-      throw new Error('No audio generated - cannot proceed without voice for timing analysis');
-    }
+    
+    // Step 6: Generate Images using the properly timed segments
     
     try {
       const imageResults = await generateImagesForAllSegments(mockSegments, request.aspect_ratio || '16:9', request.user_id, batch_id);
@@ -724,9 +733,10 @@ async function generateImagesForAllSegments(segments: any[], aspectRatio: string
 
 // Video assembly removed - happens in React Video Editor with Remotion
 
-async function createStoryBasedSegments(script: string, _segmentAnalysis: { segment_count: number }, originalIdea?: string): Promise<{ segments: any[], storyContext: any }> {
+async function createStoryBasedSegments(script: string, _segmentAnalysis: { segment_count: number }, originalIdea?: string, targetSegmentCount?: number): Promise<{ segments: any[], storyContext: any }> {
   try {
-    console.log('🎬 Creating storyboard segments with visual consistency...');
+    const segmentCount = targetSegmentCount || 6; // Use provided count or default to 6
+    console.log(`🎬 Creating ${segmentCount} storyboard segments with visual consistency...`);
     
     const { object: storyboard } = await generateObject({
       model: openai('gpt-4o'),
@@ -746,11 +756,13 @@ async function createStoryBasedSegments(script: string, _segmentAnalysis: { segm
 
 ${originalIdea ? `CORE CONCEPT: "${originalIdea}" - This should be central to the story and main character design.` : ''}
 
+IMPORTANT: Create EXACTLY ${segmentCount} segments. Split the narrative evenly across ${segmentCount} scenes.
+
 STEP 1 - CHARACTER DESIGN:
 First, extract and define the main characters with detailed, reusable visual descriptions. Include specific colors, features, clothing, and distinctive characteristics that will remain consistent whenever they appear.
 
 STEP 2 - SEGMENT CREATION:
-Create 4-6 natural story segments. For each segment, provide:
+Create exactly ${segmentCount} natural story segments by dividing the narrative evenly. For each segment, provide:
 
 TEXT_CONTENT: Pure narrative text that will be spoken by a narrator. NO segment labels, numbers, or visual descriptions. Only the actual words to be read aloud.
 
@@ -831,7 +843,18 @@ function calculateSpeechDuration(text: string): number {
 }
 
 function calculateOptimalDuration(script: string): number {
-  const wordCount = script.trim().split(/\s+/).length;
+  // Ensure script is a valid string
+  if (!script || typeof script !== 'string') {
+    console.warn('⚠️ Invalid script provided to calculateOptimalDuration, using default');
+    return 30; // Default duration
+  }
+  
+  const trimmedScript = script.trim();
+  if (trimmedScript.length === 0) {
+    return 30; // Default for empty script
+  }
+  
+  const wordCount = trimmedScript.split(/\s+/).length;
   const baseDuration = (wordCount / 180) * 60;
   
   if (baseDuration < 30) return 30;

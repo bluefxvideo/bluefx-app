@@ -190,7 +190,22 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
   // If no words array, just show the text
   if (!segment.words || segment.words.length === 0) {
     return (
-      <div style={style}>
+      <div style={{
+        position: 'absolute',
+        bottom: '10%', // Position from bottom for better centering
+        left: '50%',
+        transform: 'translateX(-50%)', // Center horizontally
+        width: '80%', // Use percentage of video width
+        maxWidth: '1200px',
+        textAlign: 'center',
+        padding: '16px 24px',
+        backgroundColor: style.backgroundColor || 'rgba(0, 0, 0, 0.7)',
+        borderRadius: '8px',
+        fontSize: style.fontSize || 48,
+        fontFamily: style.fontFamily || 'Inter',
+        color: style.color || '#FFFFFF',
+        textShadow: style.textShadow || '2px 2px 4px rgba(0,0,0,0.8)'
+      }}>
         {segment.text}
       </div>
     );
@@ -199,13 +214,21 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
   // Render each word with appropriate styling
   return (
     <div style={{
-      ...style,
+      position: 'absolute',
+      bottom: '10%', // Position from bottom for better centering
+      left: '50%',
+      transform: 'translateX(-50%)', // Center horizontally
+      width: '80%', // Use percentage of video width
+      maxWidth: '1200px',
       display: 'flex',
       flexWrap: 'wrap',
-      gap: '0.2em',
+      gap: '0.3em',
       alignItems: 'center',
-      justifyContent: style.textAlign === 'center' ? 'center' : 
-                     style.textAlign === 'right' ? 'flex-end' : 'flex-start'
+      justifyContent: 'center', // Always center captions
+      textAlign: 'center',
+      padding: '16px 24px',
+      backgroundColor: style.backgroundColor || 'rgba(0, 0, 0, 0.7)',
+      borderRadius: '8px'
     }}>
       {segment.words.map((wordData, index) => {
         // Determine word state based on current time
@@ -224,11 +247,12 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
             key={`${wordData.word}-${index}`}
             style={{
               color: wordColor,
-              fontSize: style.fontSize,
-              fontFamily: style.fontFamily,
-              fontWeight: style.fontWeight || 'normal',
+              fontSize: style.fontSize || 48,
+              fontFamily: style.fontFamily || 'Inter',
+              fontWeight: style.fontWeight || '600',
               transition: 'color 0.1s ease-in-out',
-              textShadow: style.textShadow || '2px 2px 4px rgba(0,0,0,0.5)'
+              textShadow: style.textShadow || '2px 2px 4px rgba(0,0,0,0.8)',
+              lineHeight: 1.2
             }}
           >
             {wordData.word}

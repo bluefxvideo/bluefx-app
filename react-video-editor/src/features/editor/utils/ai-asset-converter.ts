@@ -190,7 +190,12 @@ export function convertAIAssetsToEditorFormat(
         },
         details: {
           src: img.url,
-          // Let the editor handle positioning exactly like ADD_ITEMS does
+          // Set to fill entire canvas
+          width: canvasSize.width,
+          height: canvasSize.height,
+          left: 0,
+          top: 0,
+          scaleMode: 'cover' // Ensure image covers entire canvas
         },
         metadata: {
           aiGenerated: true,
