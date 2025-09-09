@@ -180,15 +180,11 @@ export function convertAIAssetsToEditorFormat(
         return;
       }
 
-      // Select Ken Burns preset for variety
-      const kenBurnsPresets = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'zoom-in-right', 'zoom-out-left'];
-      const selectedPreset = kenBurnsPresets[index % kenBurnsPresets.length];
+      // Use uniform zoom-in effect for all images
+      const selectedPreset = 'zoom-in';
       
-      // Calculate intensity based on segment duration (longer = more subtle)
-      const segmentDurationSec = segment.duration;
-      const intensity = segmentDurationSec > 5 ? 15 : // Subtle for long segments
-                        segmentDurationSec > 3 ? 20 : // Medium for normal segments
-                        25; // More noticeable for short segments
+      // Use consistent intensity for uniform effect
+      const intensity = 20; // Moderate zoom intensity for all images
 
       const imageTrack: ITrackItem = {
         id: generateId(),
@@ -218,7 +214,7 @@ export function convertAIAssetsToEditorFormat(
           kenBurns: {
             preset: selectedPreset,
             intensity: intensity,
-            smoothness: 'ease-in-out',
+            smoothness: 'linear', // Linear motion for uniform effect
             speed: 1.0
           }
         },
