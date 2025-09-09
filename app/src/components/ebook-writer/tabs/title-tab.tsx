@@ -61,7 +61,8 @@ export function TitleTab({ topic, titleOptions, isGenerating, isLoadingSession =
       if (useCustom) {
         updateCustomTitle(finalTitle);
       } else {
-        selectTitle(finalTitle);
+        // selectTitle expects an index, not the title string
+        selectTitle(parseInt(selectedOption));
       }
     }
     setActiveTab('outline');
