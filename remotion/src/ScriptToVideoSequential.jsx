@@ -310,21 +310,24 @@ const FrameBasedSegment = ({
                 }
                 
                 return (
-                  <span
-                    key={index}
-                    style={{
-                      color: wordColor,
-                      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-                      display: "inline-block",
-                      marginRight: index < wordHighlighting.length - 1 ? "0.5em" : 0, // Doubled word spacing from 0.25em to 0.5em
-                      fontWeight: wordState.isHighlighted
-                        ? "bold"
-                        : captionSettings.fontWeight,
-                      transition: "color 0.15s ease", // Smooth color transition
-                    }}
-                  >
-                    {wordState.word}
-                  </span>
+                  <React.Fragment key={index}>
+                    <span
+                      style={{
+                        color: wordColor,
+                        textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+                        display: "inline-block",
+                        marginRight: "0.35em", // Consistent spacing for all words
+                        fontWeight: wordState.isHighlighted
+                          ? "bold"
+                          : captionSettings.fontWeight,
+                        transition: "color 0.15s ease", // Smooth color transition
+                      }}
+                    >
+                      {wordState.word}
+                    </span>
+                    {/* Add actual space character between words except for the last word */}
+                    {index < wordHighlighting.length - 1 && " "}
+                  </React.Fragment>
                 );
               })}
             </div>
