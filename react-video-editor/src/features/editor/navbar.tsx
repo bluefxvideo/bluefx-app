@@ -306,11 +306,20 @@ const CheckActiveExportButton = () => {
 
 const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
 	const isMediumScreen = useIsMediumScreen();
-	const { actions, exportType } = useDownloadState();
+	const { actions, exportType, exporting, activeRenderVideoId } = useDownloadState();
 	const [isExportTypeOpen, setIsExportTypeOpen] = useState(false);
 	const [open, setOpen] = useState(false);
 
 	const handleExport = () => {
+		// Check if there's already an active export
+		if (exporting || activeRenderVideoId) {
+			// If already exporting, just open the progress modal
+			actions.setDisplayProgressModal(true);
+			setOpen(false); // Close the popover
+			return;
+		}
+
+		// Only start a new export if not already exporting
 		const data: IDesign = {
 			id: generateId(),
 			...stateManager.getState(),
@@ -318,6 +327,7 @@ const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
 
 		actions.setState({ payload: data });
 		actions.startExport();
+		setOpen(false); // Close the popover after starting export
 	};
 
 	return (
@@ -369,7 +379,7 @@ const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
 
 				<div>
 					<Button onClick={handleExport} className="w-full">
-						Export
+						{(exporting || activeRenderVideoId) ? "View Export Progress" : "Export"}
 					</Button>
 				</div>
 			</PopoverContent>

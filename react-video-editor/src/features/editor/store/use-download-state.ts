@@ -25,6 +25,7 @@ interface DownloadState {
 		setDisplayProgressModal: (displayProgressModal: boolean) => void;
 		checkActiveExport: () => void; // Check and resume tracking active export
 		clearActiveExport: () => void; // Clear the active export
+		cancelExport: () => void; // Cancel the current export
 	};
 }
 
@@ -173,6 +174,33 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 				exporting: false,
 				progress: 0,
 				output: undefined
+			});
+		},
+		cancelExport: async () => {
+			const state = get();
+			
+			// If there's an active render, try to cancel it
+			if (state.activeRenderVideoId) {
+				try {
+					// Send cancel request to the API
+					await fetch(`/api/render/${state.activeRenderVideoId}/cancel`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+					});
+				} catch (error) {
+					console.error('Failed to cancel export:', error);
+				}
+			}
+			
+			// Clear the export state regardless of API call success
+			set({ 
+				activeRenderVideoId: undefined,
+				exporting: false,
+				progress: 0,
+				output: undefined,
+				displayProgressModal: false
 			});
 		},
 	},

@@ -76,7 +76,15 @@ const DownloadProgressModal = () => {
 							<div>Closing the browser will not cancel the export.</div>
 							<div>The video will be saved in your space.</div>
 						</div>
-						<Button variant={"outline"}>Cancel</Button>
+						<Button 
+							variant={"outline"}
+							onClick={() => {
+								actions.cancelExport();
+								actions.setDisplayProgressModal(false);
+							}}
+						>
+							Cancel
+						</Button>
 					</div>
 				)}
 			</DialogContent>
