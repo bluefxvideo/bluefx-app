@@ -212,7 +212,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto p-6">
+          <div className="p-6">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
