@@ -43,64 +43,17 @@ export default function AdminPage() {
       
       setIsAdmin(true);
       
-      // Fetch users with stats
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      
-      if (profiles) {
-        // Get auth users for emails
-        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
-        const emailMap = new Map<string, string>();
-        authUsers?.forEach(user => {
-          emailMap.set(user.id, user.email || '');
-        });
-        
-        // Enrich profiles with additional data
-        const enrichedUsers = await Promise.all(
-          profiles.map(async (profile) => {
-            const email = emailMap.get(profile.id) || profile.email || '';
-            
-            // Get subscription
-            const { data: subscriptions } = await supabase
-              .from('user_subscriptions')
-              .select('*')
-              .eq('user_id', profile.id)
-              .eq('status', 'active')
-              .order('created_at', { ascending: false })
-              .limit(1);
-            
-            // Get credits
-            const { data: creditRecords } = await supabase
-              .from('user_credits')
-              .select('*')
-              .eq('user_id', profile.id)
-              .order('created_at', { ascending: false })
-              .limit(1);
-            
-            // Get last activity
-            const { data: lastActivityData } = await supabase
-              .from('credit_transactions')
-              .select('created_at')
-              .eq('user_id', profile.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-            
-            return {
-              ...profile,
-              email,
-              subscription: subscriptions?.[0] || null,
-              credits: creditRecords?.[0] || null,
-              totalCreditsUsed: creditRecords?.[0]?.used_credits || 0,
-              lastActivity: lastActivityData?.created_at || null
-            };
-          })
-        );
-        
-        setUsers(enrichedUsers);
+      // Fetch all users from API endpoint
+      try {
+        const response = await fetch('/api/admin/users');
+        if (response.ok) {
+          const data = await response.json();
+          setUsers(data.users || []);
+        } else {
+          console.error('Failed to fetch users:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
       }
       
       setIsLoading(false);
