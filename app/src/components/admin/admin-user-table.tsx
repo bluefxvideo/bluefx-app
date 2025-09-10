@@ -5,21 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { 
   Users, 
   Search,
-  MoreHorizontal,
   Shield,
   CreditCard,
-  Download
+  Download,
+  Trash2,
+  UserX,
+  UserCheck
 } from 'lucide-react'
 import { AddCreditsDialog } from './add-credits-dialog'
 import { ChangeRoleDialog } from './change-role-dialog'
@@ -137,7 +131,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
   }
 
   return (
-    <>
+    <div className="space-y-6">
       {/* Action buttons and Search */}
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
@@ -159,7 +153,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -206,14 +200,14 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
 
       {/* Search Results Info */}
       {searchTerm && (
-        <div className="text-sm text-muted-foreground mt-6">
+        <div className="text-sm text-muted-foreground">
           Showing {filteredUsers.length} of {users.length} users 
           {searchTerm && ` matching "${searchTerm}"`}
         </div>
       )}
 
       {/* Users Table */}
-      <Card className="mt-6">
+      <Card>
         <CardHeader>
           <CardTitle>All Users</CardTitle>
           <CardDescription>
@@ -221,84 +215,84 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">User</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Role</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Subscription</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Credits</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Last Activity</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b hover:bg-accent/50">
-                    <td className="py-3 px-4">
-                      <div>
-                        <div className="font-medium text-foreground">{user.email || user.username}</div>
-                        <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getRoleBadge(user.role, user.is_suspended ?? undefined)}
-                    </td>
-                    <td className="py-3 px-4">
-                      {getSubscriptionBadge(user.subscription)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-sm">
-                        <div>{user.credits?.available_credits || 0} available</div>
-                        <div className="text-muted-foreground">{user.totalCreditsUsed || 0} used</div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-sm text-muted-foreground">
-                        {user.lastActivity 
-                          ? new Date(user.lastActivity).toLocaleDateString()
-                          : 'Never'
-                        }
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleAddCredits(user)}>
-                            Add credits
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleChangeRole(user)}>
-                            Change role
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className={user.is_suspended ? "text-blue-600" : "text-red-600"}
-                            onClick={() => handleSuspendUser(user)}
-                          >
-                            {user.is_suspended ? 'Unsuspend user' : 'Suspend user'}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                            onClick={() => handleDeleteUser(user)}
-                          >
-                            Delete account
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Table Header */}
+          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
+            <div className="font-medium text-muted-foreground">User</div>
+            <div className="font-medium text-muted-foreground">Role</div>
+            <div className="font-medium text-muted-foreground">Subscription</div>
+            <div className="font-medium text-muted-foreground">Credits</div>
+            <div className="font-medium text-muted-foreground">Last Activity</div>
+            <div className="font-medium text-muted-foreground">Actions</div>
+          </div>
+          
+          {/* Table Body */}
+          <div className="divide-y">
+            {filteredUsers.map((user) => (
+              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
+                <div>
+                  <div className="font-medium text-foreground">{user.email || user.username}</div>
+                  <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
+                </div>
+                <div>
+                  {getRoleBadge(user.role, user.is_suspended ?? undefined)}
+                </div>
+                <div>
+                  {getSubscriptionBadge(user.subscription)}
+                </div>
+                <div className="text-sm">
+                  <div>{user.credits?.available_credits || 0} available</div>
+                  <div className="text-muted-foreground">{user.totalCreditsUsed || 0} used</div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {user.lastActivity 
+                    ? new Date(user.lastActivity).toLocaleDateString()
+                    : 'Never'
+                  }
+                </div>
+                <div className="flex gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleAddCredits(user)}
+                    className="h-8 w-8"
+                    title="Add credits"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleChangeRole(user)}
+                    className="h-8 w-8"
+                    title="Change role"
+                  >
+                    <Shield className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleSuspendUser(user)}
+                    className="h-8 w-8"
+                    title={user.is_suspended ? 'Unsuspend user' : 'Suspend user'}
+                  >
+                    {user.is_suspended ? (
+                      <UserCheck className="h-4 w-4 text-blue-600" />
+                    ) : (
+                      <UserX className="h-4 w-4 text-orange-600" />
+                    )}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleDeleteUser(user)}
+                    className="h-8 w-8 hover:text-red-600"
+                    title="Delete account"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
 
           {filteredUsers.length === 0 && searchTerm && (
@@ -319,7 +313,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
+      {/* Dialogs - rendered via portals, won't affect layout */}
       {selectedUser && (
         <>
           <AddCreditsDialog
@@ -355,6 +349,6 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           />
         </>
       )}
-    </>
+    </div>
   )
 }

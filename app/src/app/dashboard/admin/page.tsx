@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { AdminUserTable } from '@/components/admin/admin-user-table';
+import { UserDashboardEnhanced } from '@/components/user/user-dashboard-enhanced';
 
 /**
  * Admin Page
