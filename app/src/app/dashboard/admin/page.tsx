@@ -4,9 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { AdminUserTable } from '@/components/admin/admin-user-table';
-import { AdminUserCreateDialog } from '@/components/admin/admin-user-create-dialog';
-import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
 
 /**
  * Admin Page
@@ -112,19 +109,7 @@ export default function AdminPage() {
           <p className="text-muted-foreground">Loading admin data...</p>
         </div>
       ) : (
-        <>
-          {/* Action buttons */}
-          <div className="flex justify-end items-center space-x-2 mb-6">
-            <AdminUserCreateDialog />
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </div>
-          
-          {/* User table */}
-          <AdminUserTable users={users} />
-        </>
+        <AdminUserTable users={users} />
       )}
     </div>
   );

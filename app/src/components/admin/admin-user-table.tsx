@@ -18,12 +18,14 @@ import {
   Search,
   MoreHorizontal,
   Shield,
-  CreditCard
+  CreditCard,
+  Download
 } from 'lucide-react'
 import { AddCreditsDialog } from './add-credits-dialog'
 import { ChangeRoleDialog } from './change-role-dialog'
 import { SuspendUserDialog } from './suspend-user-dialog'
 import { DeleteUserDialog } from './delete-user-dialog'
+import { AdminUserCreateDialog } from './admin-user-create-dialog'
 import type { Tables } from '@/types/database'
 
 interface UserWithStats extends Tables<'profiles'> {
@@ -136,8 +138,15 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
 
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="flex justify-end">
+      {/* Action buttons and Search */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-2">
+          <AdminUserCreateDialog />
+          <Button variant="outline">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
