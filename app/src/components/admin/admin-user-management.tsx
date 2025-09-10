@@ -55,20 +55,26 @@ async function getUsersWithStats(): Promise<UserWithStats[]> {
         // Get email from auth users
         const email = emailMap.get(profile.id) || profile.email || ''
         
-        // Get active subscription
-        const { data: subscription } = await supabase
+        // Get active subscription (handle multiple subscriptions - take the most recent)
+        const { data: subscriptions } = await supabase
           .from('user_subscriptions')
           .select('*')
           .eq('user_id', profile.id)
           .eq('status', 'active')
-          .single()
+          .order('created_at', { ascending: false })
+          .limit(1)
+        
+        const subscription = subscriptions?.[0] || null
 
-        // Get current credits
-        const { data: credits } = await supabase
+        // Get current credits (handle multiple credit records - take the most recent)
+        const { data: creditRecords } = await supabase
           .from('user_credits')
           .select('*')
           .eq('user_id', profile.id)
-          .single()
+          .order('created_at', { ascending: false })
+          .limit(1)
+        
+        const credits = creditRecords?.[0] || null
 
         // Get total credits used from user_credits table (already tracked correctly)
         const totalCreditsUsed = credits?.used_credits || 0
