@@ -211,8 +211,8 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
             Complete list of registered users with their account details
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto p-6">
             <table className="w-full">
               <thead>
                 <tr className="border-b">

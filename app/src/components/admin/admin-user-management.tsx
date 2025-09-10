@@ -1,14 +1,8 @@
 import { createAdminClient } from '@/app/supabase/server'
 import { AdminUserTable } from './admin-user-table'
 import { AdminUserCreateDialog } from './admin-user-create-dialog'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-// import { Badge } from '@/components/ui/badge'
-import { 
-  Search,
-  Filter,
-  Download
-} from 'lucide-react'
+import { Download } from 'lucide-react'
 import type { Tables } from '@/types/database'
 
 interface UserWithStats extends Tables<'profiles'> {
@@ -117,7 +111,7 @@ export async function AdminUserManagement() {
 
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Action buttons */}
       <div className="flex justify-end items-center space-x-2">
         <AdminUserCreateDialog />
@@ -127,32 +121,8 @@ export async function AdminUserManagement() {
         </Button>
       </div>
 
-        {/* User directory */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>User Directory</CardTitle>
-              <CardDescription>
-                View and manage all user accounts
-              </CardDescription>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
-                <Filter className="mr-2 h-4 w-4" />
-                Filter
-              </Button>
-              <Button variant="outline" size="sm">
-                <Search className="mr-2 h-4 w-4" />
-                Search
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <AdminUserTable users={users} />
-        </CardContent>
-      </Card>
+      {/* User table component already has its own layout */}
+      <AdminUserTable users={users} />
     </div>
   )
 }
