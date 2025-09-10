@@ -149,24 +149,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     accountId = data.account
     console.log('Trial/Renewal subscription - account ID only, no email provided:', accountId)
     
-    // For trial activations without email, we need to skip processing
-    // FastSpring will send another webhook with full details when trial converts
-    if (data.state === 'trial' && !customerEmail) {
-      console.log('Trial activation without email - waiting for trial conversion webhook')
-      // Log this event but don't process user creation
-      await supabase
-        .from('webhook_events')
-        .insert({
-          event_id: `${subscriptionId}_trial_pending`,
-          event_type: 'TRIAL_PENDING',
-          processor: 'fastspring',
-          payload: { data, accountId, subscriptionId, note: 'Pending email from trial conversion' } as unknown as Json
-        })
-      
-      // Return early - we'll process when trial converts with full customer details
-      console.log('Skipping user creation for trial without email. Will process on conversion.')
-      return
-    }
+    // Don't skip trials anymore - we'll try to get email from API
     
     // For renewals or other events, try to find existing user
     const { data: authUsers } = await supabase.auth.admin.listUsers()
@@ -198,18 +181,66 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     }
   }
 
-  if (!customerEmail) {
-    console.error('Customer email not found in FastSpring data:', data)
-    console.error('Account ID:', accountId)
-    console.error('Full payload:', JSON.stringify(data, null, 2))
+  if (!customerEmail && accountId) {
+    console.log('Email not in webhook payload, fetching from FastSpring API for account:', accountId)
     
-    // For subscription events without email, log but don't fail
-    if (data.state === 'trial' || data.type === 'trial') {
-      console.log('Trial subscription without email - will process when customer details are provided')
+    // Try to fetch customer details from FastSpring API
+    const fastSpringUsername = process.env.FASTSPRING_USERNAME
+    const fastSpringApiKey = process.env.FASTSPRING_API_KEY
+    
+    if (fastSpringUsername && fastSpringApiKey) {
+      try {
+        const auth = Buffer.from(`${fastSpringUsername}:${fastSpringApiKey}`).toString('base64')
+        const accountResponse = await fetch(`https://api.fastspring.com/accounts/${accountId}`, {
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Accept': 'application/json'
+          }
+        })
+        
+        if (accountResponse.ok) {
+          const accountData = await accountResponse.json()
+          console.log('FastSpring account data retrieved:', accountData)
+          
+          // Extract email from account data
+          customerEmail = accountData.contact?.email || accountData.email || ''
+          customerFirstName = accountData.contact?.first || accountData.firstName || ''
+          customerLastName = accountData.contact?.last || accountData.lastName || ''
+          
+          if (customerEmail) {
+            console.log(`Successfully retrieved email from FastSpring API: ${customerEmail}`)
+          }
+        } else {
+          console.error(`FastSpring API error fetching account: ${accountResponse.status}`)
+        }
+      } catch (apiError) {
+        console.error('Failed to fetch account from FastSpring API:', apiError)
+      }
+    } else {
+      console.error('FastSpring API credentials not configured')
+    }
+  }
+  
+  if (!customerEmail) {
+    console.error('Customer email not found after all attempts:', data)
+    console.error('Account ID:', accountId)
+    
+    // For trial subscriptions, we still need to handle them but can't create user without email
+    if (data.state === 'trial') {
+      console.log('Trial subscription without email - cannot create user')
+      // Log the event for manual review
+      await supabase
+        .from('webhook_events')
+        .insert({
+          event_id: `${subscriptionId}_missing_email`,
+          event_type: 'ERROR_MISSING_EMAIL',
+          processor: 'fastspring',
+          payload: { data, accountId, subscriptionId, error: 'Could not retrieve customer email' } as unknown as Json
+        })
       return
     }
     
-    throw new Error('Customer email not found and not a trial activation')
+    throw new Error('Customer email not found and could not be retrieved from API')
   }
 
   // Check for duplicate processing
@@ -240,14 +271,17 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   const intervalUnit = data.intervalUnit || ''
   const isYearlyPlan = productId.includes('yearly') || intervalUnit === 'year'
   
+  // Always create as PRO even for trials (they're just PRO with 30-day free trial)
   let planType = 'pro'
   let creditsAllocation = 600  // Same for both monthly and yearly
   
-  // Legacy code used 'ai-media-machine' patterns
-  if (productId.includes('starter') || productId.includes('trial')) {
+  // Only use starter if explicitly a starter product (not for trials)
+  if (productId.includes('starter') && !data.state?.includes('trial')) {
     planType = 'starter'
     creditsAllocation = 100
   }
+  
+  console.log(`Creating ${data.state === 'trial' ? 'TRIAL (as PRO)' : planType.toUpperCase()} subscription with ${creditsAllocation} credits`)
 
   console.log(`FastSpring subscription: ${customerEmail} -> ${planType} (${creditsAllocation} credits) - ${isYearlyPlan ? 'YEARLY' : 'MONTHLY'}`)
 
