@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/app/supabase/server'
+import { createClient, createAdminClient } from '@/app/supabase/server'
 import { deleteUserAccount } from '@/app/actions/account-deletion'
 
 interface DeleteUserRequest {
@@ -9,7 +9,8 @@ interface DeleteUserRequest {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createAdminClient()
+    // Use regular client to get authenticated user
+    const supabase = await createClient()
     
     // Get the authenticated admin user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -27,6 +28,9 @@ export async function DELETE(request: NextRequest) {
     if (!profile || profile.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
+    
+    // Now create admin client for the actual deletion operations
+    const adminClient = createAdminClient()
 
     const { userId, confirmation }: DeleteUserRequest = await request.json()
 
@@ -36,8 +40,8 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Get the target user info for confirmation validation
-    const { data: targetUser } = await supabase
+    // Get the target user info for confirmation validation (use admin client)
+    const { data: targetUser } = await adminClient
       .from('profiles')
       .select('username')
       .eq('id', userId)

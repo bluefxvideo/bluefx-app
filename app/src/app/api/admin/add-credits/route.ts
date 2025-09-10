@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/app/supabase/server'
+import { createClient, createAdminClient } from '@/app/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createAdminClient()
+    // Use regular client to get authenticated user
+    const supabase = await createClient()
 
     // Check if the current user is an admin
     const { data: { user: currentUser } } = await supabase.auth.getUser()
@@ -41,9 +42,12 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
+    
+    // Now create admin client for the actual database operations
+    const adminClient = createAdminClient()
 
     // Check if user credits record exists
-    const { data: existingCredits } = await supabase
+    const { data: existingCredits } = await adminClient
       .from('user_credits')
       .select('available_credits')
       .eq('user_id', userId)
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (existingCredits) {
       // Update existing credits
-      const { error: updateError } = await supabase
+      const { error: updateError } = await adminClient
         .from('user_credits')
         .update({
           available_credits: existingCredits.available_credits + credits,
@@ -72,7 +76,7 @@ export async function POST(request: NextRequest) {
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
       
-      const { error: insertError } = await supabase
+      const { error: insertError } = await adminClient
         .from('user_credits')
         .insert({
           user_id: userId,
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Log the admin action (optional but recommended)
     try {
-      await supabase
+      await adminClient
         .from('admin_logs')
         .insert({
           admin_user_id: currentUser.id,
