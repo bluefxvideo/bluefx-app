@@ -137,7 +137,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       {/* Action buttons and Search */}
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
@@ -159,7 +159,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -206,22 +206,22 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
 
       {/* Search Results Info */}
       {searchTerm && (
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground mt-6">
           Showing {filteredUsers.length} of {users.length} users 
           {searchTerm && ` matching "${searchTerm}"`}
         </div>
       )}
 
       {/* Users Table */}
-      <Card>
+      <Card className="mt-6">
         <CardHeader>
           <CardTitle>All Users</CardTitle>
           <CardDescription>
             Complete list of registered users with their account details
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="p-6">
+        <CardContent>
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
@@ -355,6 +355,6 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           />
         </>
       )}
-    </div>
+    </>
   )
 }
