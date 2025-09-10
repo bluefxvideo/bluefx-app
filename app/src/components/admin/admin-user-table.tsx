@@ -224,8 +224,8 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                   <tr key={user.id} className="border-b hover:bg-accent/50">
                     <td className="py-3 px-4">
                       <div>
-                        <div className="font-medium text-foreground">{user.username}</div>
-                        <div className="text-sm text-muted-foreground">{user.full_name || user.email}</div>
+                        <div className="font-medium text-foreground">{user.email || user.username}</div>
+                        <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
                       </div>
                     </td>
                     <td className="py-3 px-4">

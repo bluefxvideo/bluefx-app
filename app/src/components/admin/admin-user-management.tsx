@@ -40,9 +40,21 @@ async function getUsersWithStats(): Promise<UserWithStats[]> {
       return []
     }
 
+    // First, get all auth users to have their emails
+    const { data: { users: authUsers } } = await supabase.auth.admin.listUsers()
+    
+    // Create a map of user IDs to emails for quick lookup
+    const emailMap = new Map<string, string>()
+    authUsers?.forEach(user => {
+      emailMap.set(user.id, user.email || '')
+    })
+
     // Get subscription and credit data for each user
     const usersWithStats: UserWithStats[] = await Promise.all(
       profiles.map(async (profile) => {
+        // Get email from auth users
+        const email = emailMap.get(profile.id) || profile.email || ''
+        
         // Get active subscription
         const { data: subscription } = await supabase
           .from('user_subscriptions')
@@ -72,6 +84,7 @@ async function getUsersWithStats(): Promise<UserWithStats[]> {
 
         return {
           ...profile,
+          email,  // Add email from auth users
           subscription,
           credits,
           totalCreditsUsed,
