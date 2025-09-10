@@ -109,11 +109,10 @@ async function getUsersWithStats(): Promise<UserWithStats[]> {
 export async function AdminUserManagement() {
   const users = await getUsersWithStats()
 
-
   return (
-    <div className="space-y-6">
+    <>
       {/* Action buttons */}
-      <div className="flex justify-end items-center space-x-2">
+      <div className="flex justify-end items-center space-x-2 mb-6">
         <AdminUserCreateDialog />
         <Button variant="outline">
           <Download className="mr-2 h-4 w-4" />
@@ -123,6 +122,6 @@ export async function AdminUserManagement() {
 
       {/* User table component already has its own layout */}
       <AdminUserTable users={users} />
-    </div>
+    </>
   )
 }

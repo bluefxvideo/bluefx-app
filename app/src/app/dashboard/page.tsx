@@ -227,6 +227,14 @@ export default function DashboardPage() {
         >
           Subscription
         </button>
+        {currentUser?.profile?.role === 'admin' && (
+          <button 
+            className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => router.push('/dashboard/admin')}
+          >
+            Admin
+          </button>
+        )}
       </div>
 
       <div className="space-y-6">
