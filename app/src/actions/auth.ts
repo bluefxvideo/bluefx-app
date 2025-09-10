@@ -47,7 +47,7 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
     const password = formData.get('password') as string
     const username = formData.get('username') as string
     const full_name = formData.get('full_name') as string
-    const plan_type = formData.get('plan_type') as string || 'trial'
+    const plan_type = formData.get('plan_type') as string || 'pro'  // Default to pro, not trial
 
     // Validate data
     const validation = UserRegistrationSchema.safeParse({
@@ -154,12 +154,12 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
 
       profile = newProfile
 
-      // Create initial subscription for new users
+      // Create initial subscription for new users (everyone is Pro)
       const subscriptionData: InsertTables<'user_subscriptions'> = {
         user_id: authData.user.id,
-        plan_type: plan_type as 'free' | 'starter' | 'pro' | 'enterprise',
+        plan_type: 'pro',  // Everyone is pro
         status: 'active',
-        credits_per_month: plan_type === 'trial' ? 100 : plan_type === 'pro' ? 1000 : 5000,
+        credits_per_month: 600,  // Pro users get 600 credits
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       }
@@ -168,10 +168,10 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
         .from('user_subscriptions')
         .insert(subscriptionData)
 
-      // Create initial credits for new users
+      // Create initial credits for new users (everyone gets Pro credits)
       const creditsData: InsertTables<'user_credits'> = {
         user_id: authData.user.id,
-        total_credits: plan_type === 'trial' ? 100 : plan_type === 'pro' ? 1000 : 5000,
+        total_credits: 600,  // Pro users get 600 credits
         used_credits: 0,
         period_start: new Date().toISOString(),
         period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()

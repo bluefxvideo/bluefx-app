@@ -271,15 +271,9 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   const intervalUnit = data.intervalUnit || ''
   const isYearlyPlan = productId.includes('yearly') || intervalUnit === 'year'
   
-  // Always create as PRO even for trials (they're just PRO with 30-day free trial)
-  let planType = 'pro'
-  let creditsAllocation = 600  // Same for both monthly and yearly
-  
-  // Only use starter if explicitly a starter product (not for trials)
-  if (productId.includes('starter') && !data.state?.includes('trial')) {
-    planType = 'starter'
-    creditsAllocation = 100
-  }
+  // Everyone is a PRO user - no other plan types
+  const planType = 'pro'
+  const creditsAllocation = 600  // All Pro users get 600 credits
   
   console.log(`Creating ${data.state === 'trial' ? 'TRIAL (as PRO)' : planType.toUpperCase()} subscription with ${creditsAllocation} credits`)
 
@@ -434,7 +428,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     current_period_start: currentPeriodStart.toISOString(),
     current_period_end: currentPeriodEnd.toISOString(),
     credits_per_month: creditsAllocation,
-    max_concurrent_jobs: planType === 'starter' ? 1 : 5, // Pro gets 5 like admin
+    max_concurrent_jobs: 5, // All Pro users get 5 concurrent jobs
     fastspring_subscription_id: subscriptionId,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()

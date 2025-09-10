@@ -71,21 +71,26 @@ function getRoleBadge(role?: string | null, isSuspended?: boolean) {
 
 /**
  * Get subscription status badge
+ * All users are Pro users - just show their subscription status
  */
 function getSubscriptionBadge(subscription?: Tables<'user_subscriptions'> | null) {
+  // Everyone is a Pro user - show status or default to Pro
   if (!subscription) {
-    return <Badge variant="outline" className="text-xs">Free</Badge>
+    // User should have a subscription, but if missing, they're still Pro
+    return <Badge variant="default" className="text-xs bg-blue-100 text-blue-600">Pro</Badge>
   }
 
   switch (subscription.status) {
     case 'active':
-      return <Badge variant="default" className="text-xs bg-blue-100 text-blue-600">Active</Badge>
+      return <Badge variant="default" className="text-xs bg-blue-100 text-blue-600">Pro (Active)</Badge>
     case 'cancelled':
-      return <Badge variant="secondary" className="text-xs">Cancelled</Badge>
+      return <Badge variant="secondary" className="text-xs">Pro (Cancelled)</Badge>
     case 'expired':
-      return <Badge variant="outline" className="text-xs">Expired</Badge>
+      return <Badge variant="outline" className="text-xs">Pro (Expired)</Badge>
+    case 'pending':
+      return <Badge variant="outline" className="text-xs">Pro (Pending)</Badge>
     default:
-      return <Badge variant="outline" className="text-xs">Unknown</Badge>
+      return <Badge variant="default" className="text-xs bg-blue-100 text-blue-600">Pro</Badge>
   }
 }
 
