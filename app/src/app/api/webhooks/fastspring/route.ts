@@ -20,8 +20,12 @@ interface FastSpringProduct {
 interface FastSpringEventData {
   id?: string
   reference?: string
-  account?: FastSpringAccount
-  product?: FastSpringProduct
+  account?: FastSpringAccount | string  // Can be object or string
+  product?: FastSpringProduct | string  // Can be object or string
+  state?: string  // For trial state detection
+  type?: string   // For event type
+  intervalUnit?: string  // For yearly detection
+  subscription?: string  // Subscription ID
   customer?: {
     email?: string
   }
@@ -135,37 +139,77 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
 
   // Handle different payload formats
   if (typeof data.account === 'object' && data.account?.contact?.email) {
-    // Monthly format: account is object with contact info
+    // Format 1: account is object with contact info (typical for new subscriptions)
     customerEmail = data.account.contact.email
     customerFirstName = data.account.contact.first || ''
     customerLastName = data.account.contact.last || ''
     accountId = data.account.id || ''
   } else if (typeof data.account === 'string') {
-    // Yearly format: account is just ID string
+    // Format 2: account is just ID string (trial activations, renewals, etc.)
     accountId = data.account
-    console.log('Yearly subscription - looking up existing user by account ID:', accountId)
+    console.log('Trial/Renewal subscription - account ID only, no email provided:', accountId)
     
-    // Look up existing user by email from auth.users since we need to find by account ID
-    // We'll search for users created by FastSpring with this account ID in their metadata
+    // For trial activations without email, we need to skip processing
+    // FastSpring will send another webhook with full details when trial converts
+    if (data.state === 'trial' && !customerEmail) {
+      console.log('Trial activation without email - waiting for trial conversion webhook')
+      // Log this event but don't process user creation
+      await supabase
+        .from('webhook_events')
+        .insert({
+          event_id: `${subscriptionId}_trial_pending`,
+          event_type: 'TRIAL_PENDING',
+          processor: 'fastspring',
+          payload: { data, accountId, subscriptionId, note: 'Pending email from trial conversion' } as unknown as Json
+        })
+      
+      // Return early - we'll process when trial converts with full customer details
+      console.log('Skipping user creation for trial without email. Will process on conversion.')
+      return
+    }
+    
+    // For renewals or other events, try to find existing user
     const { data: authUsers } = await supabase.auth.admin.listUsers()
     const existingUser = authUsers.users.find(u => 
       u.user_metadata?.payment_processor === 'fastspring' && 
-      u.email // Just find the FastSpring user - assuming same account
+      u.user_metadata?.fastspring_account_id === accountId
     )
     
     if (existingUser) {
       customerEmail = existingUser.email || ''
       customerFirstName = existingUser.user_metadata?.firstName || ''
       customerLastName = existingUser.user_metadata?.lastName || ''
+      console.log(`Found existing user for account ${accountId}: ${customerEmail}`)
     } else {
-      console.error('Could not find existing FastSpring user for yearly subscription with account ID:', accountId)
-      throw new Error('Existing user not found for yearly subscription')
+      // Check if this is linked to a previous subscription
+      const { data: previousEvent } = await supabase
+        .from('webhook_events')
+        .select('payload')
+        .eq('processor', 'fastspring')
+        .or(`payload->accountId.eq.${accountId},payload->data->account.eq.${accountId}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (previousEvent?.payload?.customerEmail) {
+        customerEmail = previousEvent.payload.customerEmail
+        console.log(`Found email from previous event for account ${accountId}: ${customerEmail}`)
+      }
     }
   }
 
   if (!customerEmail) {
     console.error('Customer email not found in FastSpring data:', data)
-    throw new Error('Customer email not found')
+    console.error('Account ID:', accountId)
+    console.error('Full payload:', JSON.stringify(data, null, 2))
+    
+    // For subscription events without email, log but don't fail
+    if (data.state === 'trial' || data.type === 'trial') {
+      console.log('Trial subscription without email - will process when customer details are provided')
+      return
+    }
+    
+    throw new Error('Customer email not found and not a trial activation')
   }
 
   // Check for duplicate processing
@@ -296,6 +340,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
         firstName: customerFirstName,
         lastName: customerLastName,
         payment_processor: 'fastspring',
+        fastspring_account_id: accountId,  // Store account ID for future lookups
         subscription_id: subscriptionId,
         plan_type: planType,
         email_verified: true,
