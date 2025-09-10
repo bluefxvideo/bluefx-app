@@ -15,7 +15,7 @@ interface BuyCreditsDialogProps {
 
 const CREDIT_PACKAGES = [
   { 
-    id: 'ai-credit-pack-100', 
+    id: '100-ai-credit-pack',  // Updated to match webhook mapping
     credits: 100, 
     price: '$9.99',
     popular: false,
@@ -24,29 +24,29 @@ const CREDIT_PACKAGES = [
     gradient: 'from-blue-500 to-cyan-500'
   },
   { 
-    id: 'ai-credit-pack-500', 
-    credits: 500, 
-    price: '$39.99',
+    id: '300-ai-credit-pack',  // Updated to match webhook mapping (was 500)
+    credits: 300, 
+    price: '$24.99',  // Adjusted price for 300 credits
     popular: true,
     description: 'Most popular choice',
     icon: Zap,
     gradient: 'from-blue-500 to-cyan-500'
   },
   { 
-    id: 'ai-credit-pack-1000', 
-    credits: 1000, 
-    price: '$69.99',
+    id: '600-ai-credit-pack',  // Updated to match webhook mapping (was 1000)
+    credits: 600, 
+    price: '$44.99',  // Adjusted price for 600 credits
     popular: false,
-    description: 'Best value for power users',
+    description: 'Great for regular users',
     icon: Star,
     gradient: 'from-blue-500 to-cyan-500'
   },
   { 
-    id: 'ai-credit-pack-2500', 
-    credits: 2500, 
-    price: '$149.99',
+    id: '1000-ai-credit-pack',  // Updated to match webhook mapping (was 2500)
+    credits: 1000, 
+    price: '$69.99',  // Adjusted price for 1000 credits
     popular: false,
-    description: 'For heavy usage',
+    description: 'Best value for power users',
     icon: Crown,
     gradient: 'from-blue-500 to-cyan-500'
   },
