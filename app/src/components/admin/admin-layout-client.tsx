@@ -33,37 +33,35 @@ export function AdminLayoutClient({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex h-screen">
-        {/* Collapsible Sidebar */}
-        <AdminSidebar 
-          isCollapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-        />
-        
-        {/* Main content area */}
-        <div className={cn(
-          'flex-1 flex flex-col transition-all duration-300',
-        )}>
-          {/* Header with title */}
-          {title && (
-            <div className="border-b bg-card px-6 py-4">
-              <div className="max-w-7xl mx-auto">
-                <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-              </div>
-            </div>
-          )}
-          
-          {/* Page content */}
-          <main className={cn(
-            "flex-1 overflow-y-auto bg-background p-6",
-            className
-          )}>
+    <div className="flex h-screen bg-background">
+      {/* Collapsible Sidebar */}
+      <AdminSidebar 
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
+      />
+      
+      {/* Main content area */}
+      <div className={cn(
+        'flex-1 flex flex-col transition-all duration-300 overflow-hidden',
+      )}>
+        {/* Header with title */}
+        {title && (
+          <div className="border-b bg-card px-6 py-4 flex-shrink-0">
             <div className="max-w-7xl mx-auto">
-              {children}
+              <h1 className="text-2xl font-bold text-foreground">{title}</h1>
             </div>
-          </main>
-        </div>
+          </div>
+        )}
+        
+        {/* Page content */}
+        <main className={cn(
+          "flex-1 overflow-y-auto bg-background p-6",
+          className
+        )}>
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   )
