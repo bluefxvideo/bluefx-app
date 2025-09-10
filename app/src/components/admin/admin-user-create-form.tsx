@@ -117,12 +117,23 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
         })
       })
 
+      const profileData = await profileResult.json()
+
       if (!profileResult.ok) {
-        setMessage({ type: 'error', text: 'User created but profile setup failed' })
+        // More detailed error message from the API
+        const errorMessage = profileData.error || 'User created but profile setup failed'
+        setMessage({ type: 'error', text: errorMessage })
+        console.error('Profile setup error:', profileData)
         return
       }
 
-      setMessage({ type: 'success', text: `User ${formData.email} created successfully!` })
+      // Show success with credits info if available
+      const successMessage = profileData.data?.credits 
+        ? `User ${formData.email} created successfully with ${profileData.data.credits} credits!`
+        : `User ${formData.email} created successfully!`
+      
+      setMessage({ type: 'success', text: successMessage })
+      console.log('User creation complete:', profileData.data)
       
       // Reset form
       setFormData({
