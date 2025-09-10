@@ -57,6 +57,7 @@ export default function SubscriptionPage() {
   const [credits, setCredits] = useState<UserCredits | null>(null)
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [showWarningModal, setShowWarningModal] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false)
@@ -75,6 +76,15 @@ export default function SubscriptionPage() {
         }
         
         setUser(authUser)
+        
+        // Check if user is admin
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', authUser.id)
+          .single()
+        
+        setIsAdmin(profile?.role === 'admin')
 
         // Get subscription data
         const { data: subData, error: subError } = await supabase
@@ -289,6 +299,14 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
         >
           Subscription
         </button>
+        {isAdmin && (
+          <button 
+            className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => router.push('/dashboard/admin')}
+          >
+            Admin
+          </button>
+        )}
       </div>
 
       <div className="space-y-6">

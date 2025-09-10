@@ -1,6 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/app/supabase/client';
 import { UserDashboardEnhanced } from '@/components/user/user-dashboard-enhanced'
 
 /**
@@ -10,6 +12,24 @@ import { UserDashboardEnhanced } from '@/components/user/user-dashboard-enhanced
  */
 export default function UsagePage() {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  useEffect(() => {
+    async function checkAdmin() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        setIsAdmin(profile?.role === 'admin');
+      }
+    }
+    checkAdmin();
+  }, []);
   
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -44,6 +64,14 @@ export default function UsagePage() {
         >
           Subscription
         </button>
+        {isAdmin && (
+          <button 
+            className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => router.push('/dashboard/admin')}
+          >
+            Admin
+          </button>
+        )}
       </div>
       
       <UserDashboardEnhanced />

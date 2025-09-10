@@ -16,6 +16,7 @@ export default function ProfilePage() {
   const supabase = createClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -46,6 +47,7 @@ export default function ProfilePage() {
         fullName: userProfile.user_metadata?.full_name || '',
         email: userProfile.email || '',
       });
+      setIsAdmin(userProfile.profile?.role === 'admin');
     }
   }, [userProfile]);
 
@@ -111,6 +113,14 @@ export default function ProfilePage() {
         >
           Subscription
         </button>
+        {isAdmin && (
+          <button 
+            className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => router.push('/dashboard/admin')}
+          >
+            Admin
+          </button>
+        )}
       </div>
 
       <div className="space-y-6">
