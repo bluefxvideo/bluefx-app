@@ -16,17 +16,6 @@ import {
 import { type Tables, type InsertTables } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 
-// Type definitions for RPC function returns
-interface MigrationCheckResult {
-  has_migration_data: boolean
-}
-
-interface MigrationRestoreResult {
-  success: boolean
-  message?: string
-  credits_restored?: number
-}
-
 // User creation data interface
 interface CreateUserData {
   email: string
@@ -69,11 +58,7 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
       return createApiError('Username is already taken')
     }
 
-    // Check for migration data before creating new account
-    const { data: migrationCheck } = await supabase
-      .rpc('check_user_migration_data', { p_email: email })
-
-    const hasMigrationData = (migrationCheck as unknown as MigrationCheckResult)?.has_migration_data || false
+    // No need to check for migration data anymore (all users migrated)
 
     // Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -109,88 +94,55 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
       return createApiError(errorMessage)
     }
 
-    let profile: Tables<'profiles'>
-    let migrationResult: { success: boolean; message?: string; credits_restored?: number } | null = null
-
-    if (hasMigrationData) {
-      // User has migration data - restore their legacy account
-      const { data: restorationResult } = await supabase
-        .rpc('restore_user_data_on_registration', {
-          p_auth_user_id: authData.user.id,
-          p_email: email
-        })
-
-      migrationResult = restorationResult as unknown as MigrationRestoreResult
-
-      if ((restorationResult as unknown as MigrationRestoreResult)?.success) {
-        // Get the restored profile
-        const { data: restoredProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single()
-
-        profile = restoredProfile!
-      } else {
-        return createApiError('Failed to restore user data: ' + (restorationResult as unknown as MigrationRestoreResult)?.message)
-      }
-    } else {
-      // New user - create fresh account
-      const profileData: InsertTables<'profiles'> = {
-        id: authData.user.id,
-        username,
-        full_name
-      }
-      
-      const { data: newProfile, error: profileError } = await supabase
-        .from('profiles')
-        .insert(profileData)
-        .select()
-        .single()
-
-      if (profileError) {
-        return createApiError('Failed to create user profile')
-      }
-
-      profile = newProfile
-
-      // Create initial subscription for new users (everyone is Pro)
-      const subscriptionData: InsertTables<'user_subscriptions'> = {
-        user_id: authData.user.id,
-        plan_type: 'pro',  // Everyone is pro
-        status: 'active',
-        credits_per_month: 600,  // Pro users get 600 credits
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      }
-      
-      await supabase
-        .from('user_subscriptions')
-        .insert(subscriptionData)
-
-      // Create initial credits for new users (everyone gets Pro credits)
-      const creditsData: InsertTables<'user_credits'> = {
-        user_id: authData.user.id,
-        total_credits: 600,  // Pro users get 600 credits
-        used_credits: 0,
-        period_start: new Date().toISOString(),
-        period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      }
-      
-      await supabase
-        .from('user_credits')
-        .insert(creditsData)
+    // Create fresh account for all new users
+    const profileData: InsertTables<'profiles'> = {
+      id: authData.user.id,
+      username,
+      full_name
     }
+    
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .insert(profileData)
+      .select()
+      .single()
+
+    if (profileError) {
+      return createApiError('Failed to create user profile')
+    }
+
+    // Create initial subscription for new users (everyone is Pro)
+    const subscriptionData: InsertTables<'user_subscriptions'> = {
+      user_id: authData.user.id,
+      plan_type: 'pro',  // Everyone is pro
+      status: 'active',
+      credits_per_month: 600,  // Pro users get 600 credits
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    }
+    
+    await supabase
+      .from('user_subscriptions')
+      .insert(subscriptionData)
+
+    // Create initial credits for new users (everyone gets Pro credits)
+    const creditsData: InsertTables<'user_credits'> = {
+      user_id: authData.user.id,
+      total_credits: 600,  // Pro users get 600 credits
+      used_credits: 0,
+      period_start: new Date().toISOString(),
+      period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    }
+    
+    await supabase
+      .from('user_credits')
+      .insert(creditsData)
 
     revalidatePath('/', 'layout')
     
-    const successMessage = hasMigrationData 
-      ? `Welcome back! Your account has been restored with ${migrationResult?.credits_restored || 0} credits.`
-      : 'Account created successfully!'
-    
     return createApiSuccess(
-      { user: authData.user, profile, migrated: hasMigrationData, migrationResult },
-      successMessage
+      { user: authData.user, profile },
+      'Account created successfully!'
     )
 
   } catch (error) {
@@ -228,28 +180,7 @@ export async function signIn(formData: FormData): Promise<ApiResponse<{ user: Us
       return createApiSuccess({ user: data.user }, 'Signed in successfully!')
     }
 
-    // If sign in failed, check if this is a legacy user
-    if (error?.message?.includes('Invalid login credentials')) {
-      const { data: migrationCheck } = await supabase
-        .rpc('check_user_migration_data', { p_email: email })
-
-      if ((migrationCheck as unknown as MigrationCheckResult)?.has_migration_data) {
-        // Check if this is a pending migration (hasn't set up password yet)
-        const migrationStatus = (migrationCheck as any)?.migration_status
-        
-        if (migrationStatus === 'pending') {
-          // This is a legacy user who needs to set up their password
-          return createApiError(
-            'Welcome back! We\'re migrating your account to our new system. ' +
-            'Please click "Forgot Password" below to set up your new password and complete the migration. ' +
-            'You\'ll receive 600 credits once migrated.'
-          )
-        } else {
-          // This is a migrated user with wrong password
-          return createApiError('Invalid email or password. Please check your credentials and try again.')
-        }
-      }
-    }
+    // Sign in failed - no need to check for legacy users anymore (all migrated)
 
     // Provide clearer error messages for common authentication failures
     let errorMessage = 'Invalid login credentials'
@@ -337,122 +268,15 @@ export async function resetPassword(data: FormData | { email: string }): Promise
   }
 }
 
-export async function setupLegacyUserPassword(formData: FormData): Promise<ApiResponse<object>> {
-  try {
-    const supabase = await createClient()
-    
-    // Parse form data
-    const email = formData.get('email') as string
+// Legacy user setup function removed - all users have been migrated
 
-    // Validate data
-    const validation = PasswordResetSchema.safeParse({ email })
-    
-    if (!validation.success) {
-      return createApiError(validation.error.issues.map(i => i.message).join(', '))
-    }
-
-    // Check if this email exists in migration data
-    const { data: migrationCheck } = await supabase
-      .rpc('check_user_migration_data', { p_email: email })
-
-    if (!(migrationCheck as unknown as MigrationCheckResult)?.has_migration_data) {
-      return createApiError('No legacy account found for this email address.')
-    }
-
-    // Get migration data
-    const { data: migrationData } = await supabase
-      .from('user_migration_reference')
-      .select('*')
-      .eq('email', email)
-      .single()
-
-    if (!migrationData) {
-      return createApiError('Legacy account data not found.')
-    }
-
-    // Check if this legacy user has already been migrated (account already created)
-    if (migrationData.migration_status === 'completed' && migrationData.new_user_id) {
-      // User already has an account - send regular password reset instead of creating new account
-      
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`,
-      })
-
-      if (resetError) {
-        return createApiError('Failed to send password reset email: ' + resetError.message)
-      }
-
-      return createApiSuccess({}, 'Password reset email sent! Check your inbox to reset your password and access your migrated account.')
-    }
-
-    // User hasn't been migrated yet - create a temporary auth user for password setup
-    
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password: Math.random().toString(36).slice(-8), // Temporary password
-      options: {
-        data: {
-          username: migrationData.full_name?.toLowerCase().replace(/\s+/g, '') || 'user',
-          full_name: migrationData.full_name || 'User',
-          is_legacy_setup: true
-        }
-      }
-    })
-
-    if (authError || !authData.user) {
-      // Handle the "user already registered" error more gracefully
-      if (authError?.message?.toLowerCase().includes('user already registered') || 
-          authError?.message?.toLowerCase().includes('already registered')) {
-        // Even though migration status says pending, an account might already exist
-        // Fall back to password reset
-        
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`,
-        })
-
-        if (resetError) {
-          return createApiError('Failed to send password reset email: ' + resetError.message)
-        }
-
-        return createApiSuccess({}, 'Password reset email sent! Check your inbox to reset your password.')
-      }
-      
-      return createApiError(authError?.message || 'Failed to create setup account')
-    }
-
-    // Send password setup email
-    
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`,
-    })
-
-    if (resetError) {
-      return createApiError('Failed to send setup email: ' + resetError.message)
-    }
-
-    return createApiSuccess({}, 'Password setup email sent! Check your inbox to complete your account setup.')
-
-  } catch (error) {
-    console.error('Legacy user setup error:', error)
-    return createApiError(
-      error instanceof Error ? error.message : 'An unexpected error occurred'
-    )
-  }
-}
-
-interface PasswordUpdateResult {
-  migrated?: boolean;
-  creditsRestored?: number;
-}
-
-export async function updatePassword(formData: FormData): Promise<ApiResponse<PasswordUpdateResult>> {
+export async function updatePassword(formData: FormData): Promise<ApiResponse<object>> {
   try {
     const supabase = await createClient()
     
     // Parse form data
     const password = formData.get('password') as string
     const confirmPassword = formData.get('confirmPassword') as string
-    const isLegacySetup = formData.get('isLegacySetup') === 'true'
 
     // Validate data
     const validation = PasswordUpdateSchema.safeParse({ password, confirmPassword })
@@ -469,41 +293,7 @@ export async function updatePassword(formData: FormData): Promise<ApiResponse<Pa
       return createApiError(error.message)
     }
 
-    // Get current user to check if they need migration
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return createApiError('User not found')
-    }
-
-    // Check if this user is a pending legacy user (even if isLegacySetup wasn't set)
-    const { data: migrationCheck } = await supabase
-      .rpc('check_user_migration_data', { p_email: user.email || '' })
-    
-    const hasPendingMigration = (migrationCheck as any)?.has_migration_data && 
-                                 (migrationCheck as any)?.migration_status === 'pending'
-
-    // If this is a legacy user (either explicitly set or detected), trigger migration restoration
-    if (isLegacySetup || hasPendingMigration) {
-      const { data: migrationResult } = await supabase
-        .rpc('restore_user_data_on_registration', {
-          p_auth_user_id: user.id,
-          p_email: user.email || ''
-        })
-
-      if ((migrationResult as unknown as MigrationRestoreResult)?.success) {
-        revalidatePath('/', 'layout')
-        return createApiSuccess(
-          { migrated: true, creditsRestored: (migrationResult as unknown as MigrationRestoreResult).credits_restored },
-          `Welcome back! Your account has been restored with ${(migrationResult as unknown as MigrationRestoreResult).credits_restored || 0} credits.`
-        )
-      } else if (hasPendingMigration) {
-        // Migration was expected but failed
-        console.error('Failed to migrate user:', user.email, migrationResult)
-        // Still let them proceed with the password update
-        revalidatePath('/', 'layout')
-        return createApiSuccess({}, 'Password updated successfully!')
-      }
-    }
+    // No migration checks needed anymore
 
     revalidatePath('/', 'layout')
     
