@@ -234,8 +234,20 @@ export async function signIn(formData: FormData): Promise<ApiResponse<{ user: Us
         .rpc('check_user_migration_data', { p_email: email })
 
       if ((migrationCheck as unknown as MigrationCheckResult)?.has_migration_data) {
-        // This is a legacy user - show standard invalid password message
-        return createApiError('Invalid email or password. Please check your credentials and try again.')
+        // Check if this is a pending migration (hasn't set up password yet)
+        const migrationStatus = (migrationCheck as any)?.migration_status
+        
+        if (migrationStatus === 'pending') {
+          // This is a legacy user who needs to set up their password
+          return createApiError(
+            'Welcome back! We\'re migrating your account to our new system. ' +
+            'Please click "Forgot Password" below to set up your new password and complete the migration. ' +
+            'You\'ll receive 600 credits once migrated.'
+          )
+        } else {
+          // This is a migrated user with wrong password
+          return createApiError('Invalid email or password. Please check your credentials and try again.')
+        }
       }
     }
 
@@ -457,29 +469,39 @@ export async function updatePassword(formData: FormData): Promise<ApiResponse<Pa
       return createApiError(error.message)
     }
 
-    // If this is a legacy user setup, trigger migration restoration
-    if (isLegacySetup) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: migrationResult } = await supabase
-          .rpc('restore_user_data_on_registration', {
-            p_auth_user_id: user.id,
-            p_email: user.email || ''
-          })
+    // Get current user to check if they need migration
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return createApiError('User not found')
+    }
 
-        if ((migrationResult as unknown as MigrationRestoreResult)?.success) {
-          revalidatePath('/', 'layout')
-          return createApiSuccess(
-            { migrated: true, creditsRestored: (migrationResult as unknown as MigrationRestoreResult).credits_restored },
-            `Welcome back! Your account has been restored with ${(migrationResult as unknown as MigrationRestoreResult).credits_restored || 0} credits.`
-          )
-        } else {
-          // No migration data found, but password was updated successfully
-          // Just let the user proceed without migration
-          console.log('No migration data found for user:', user.email)
-          revalidatePath('/', 'layout')
-          return createApiSuccess({}, 'Password updated successfully!')
-        }
+    // Check if this user is a pending legacy user (even if isLegacySetup wasn't set)
+    const { data: migrationCheck } = await supabase
+      .rpc('check_user_migration_data', { p_email: user.email || '' })
+    
+    const hasPendingMigration = (migrationCheck as any)?.has_migration_data && 
+                                 (migrationCheck as any)?.migration_status === 'pending'
+
+    // If this is a legacy user (either explicitly set or detected), trigger migration restoration
+    if (isLegacySetup || hasPendingMigration) {
+      const { data: migrationResult } = await supabase
+        .rpc('restore_user_data_on_registration', {
+          p_auth_user_id: user.id,
+          p_email: user.email || ''
+        })
+
+      if ((migrationResult as unknown as MigrationRestoreResult)?.success) {
+        revalidatePath('/', 'layout')
+        return createApiSuccess(
+          { migrated: true, creditsRestored: (migrationResult as unknown as MigrationRestoreResult).credits_restored },
+          `Welcome back! Your account has been restored with ${(migrationResult as unknown as MigrationRestoreResult).credits_restored || 0} credits.`
+        )
+      } else if (hasPendingMigration) {
+        // Migration was expected but failed
+        console.error('Failed to migrate user:', user.email, migrationResult)
+        // Still let them proceed with the password update
+        revalidatePath('/', 'layout')
+        return createApiSuccess({}, 'Password updated successfully!')
       }
     }
 
