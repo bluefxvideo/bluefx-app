@@ -2,7 +2,7 @@
 
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { GeneratorTab } from './tabs/generator-tab';
 import { HistoryTab } from './tabs/history-tab';
 import { ContextualOutput } from './output-panel/contextual-output';
@@ -61,9 +61,9 @@ export function TalkingAvatarPage() {
       tabs={tabsComponent}
     >
       {avatarState.activeTab === 'history' ? (
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput avatarState={avatarState} />
-        </Card>
+        </div>
       ) : (
         <StandardToolLayout>
           {[

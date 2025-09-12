@@ -6,7 +6,7 @@ import { Wand2 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { useLogoMachine } from './hooks/use-logo-machine';
@@ -105,9 +105,9 @@ export function LogoMachinePage() {
       tabs={<StandardToolTabs tabs={logoTabs} activeTab={activeTab} basePath="/dashboard/logo-generator" />}
     >
       {activeTab === 'history' ? (
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput filters={historyFilters} />
-        </Card>
+        </div>
       ) : (
         <StandardToolLayout>
           {[

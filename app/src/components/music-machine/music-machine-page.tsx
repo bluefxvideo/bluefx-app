@@ -6,7 +6,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { GeneratorTab } from './tabs/generator-tab';
 import { MusicHistoryFilters, type MusicHistoryFilters as HistoryFiltersType } from './tabs/music-history-filters';
 import { MusicMachineOutput } from './output-panel/music-machine-output';
@@ -67,7 +67,7 @@ export function MusicMachinePage() {
       tabs={tabsComponent}
     >
       {activeTab === 'history' ? (
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <MusicHistoryOutput
             musicHistory={musicMachineState.state.musicHistory}
             filters={historyFilters}
@@ -77,7 +77,7 @@ export function MusicMachinePage() {
             onPlayMusic={musicMachineState.handleMusicPlayback}
             onDeleteMusic={musicMachineState.deleteMusic}
           />
-        </Card>
+        </div>
       ) : (
         <StandardToolLayout>
           {[

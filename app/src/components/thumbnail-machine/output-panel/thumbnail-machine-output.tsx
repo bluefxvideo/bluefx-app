@@ -2,11 +2,11 @@
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { GenerateEmptyState, FaceSwapEmptyState, RecreateEmptyState } from './tab-empty-states';
 import { ThumbnailPreview } from './thumbnail-preview';
 import { Download, Trash2, Clock, CheckCircle, AlertCircle, Sparkles, Zap } from 'lucide-react';
+import { containerStyles } from '@/lib/container-styles';
 
 interface ThumbnailMachineOutputProps {
   result?: ThumbnailMachineResponse;
@@ -79,14 +79,11 @@ export function ThumbnailMachineOutput({
   if (error) {
     return (
       <div className="h-full flex flex-col overflow-hidden relative">
-        {/* Subtle animated background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
-        
         <div className="relative z-10 flex-1 flex flex-col">
           {/* Centered Error Content Area */}
           <div className="flex-1 flex items-center justify-center px-6">
             <div className="w-full">
-              <Card className="p-8 bg-gradient-to-br from-red-500/10 to-pink-500/10 border border-red-500/20 backdrop-blur-sm text-center">
+              <div className={`${containerStyles.error} p-8 rounded-lg text-center`}>
                 <div className="flex flex-col items-center gap-6">
                   <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/25">
                     <AlertCircle className="w-8 h-8 text-white" />
@@ -99,7 +96,7 @@ export function ThumbnailMachineOutput({
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
             </div>
           </div>
         </div>
@@ -114,8 +111,6 @@ export function ThumbnailMachineOutput({
   
   return (
     <div className="min-h-full lg:h-full flex flex-col lg:overflow-hidden relative">
-      {/* Subtle animated background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
       
       <div className="relative z-10 flex-1 flex flex-col">
         

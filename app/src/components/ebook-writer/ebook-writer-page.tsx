@@ -6,7 +6,7 @@ import { createClient } from '@/app/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { BookOpen, FileText, Type, Image as ImageIcon, Download, History } from 'lucide-react';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
@@ -208,14 +208,14 @@ export function EbookWriterPage() {
       tabs={tabsComponent}
     >
       {currentTab === 'history' ? (
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput filters={historyFilters} />
-        </Card>
+        </div>
       ) : isSinglePanelTab ? (
         // Single Panel Layout for Topic, Title, and Outline - Full Width with Card styling
-        <Card className="h-full bg-card border-border/30 rounded-lg overflow-hidden">
+        <div className={`h-full ${containerStyles.panel} rounded-lg overflow-hidden`}>
           {renderTabContent()}
-        </Card>
+        </div>
       ) : (
         // Two Panel Layout for Content, Cover, and Export
         <StandardToolLayout>

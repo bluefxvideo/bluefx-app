@@ -6,7 +6,7 @@ import { Image as ImageIcon, Wand2, RotateCcw, FileText, History, UserCheck } fr
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
 // Toggle between implementations for testing
@@ -150,9 +150,9 @@ export function ThumbnailMachinePage() {
       tabs={<StandardToolTabs tabs={thumbnailTabs} activeTab={activeTab} basePath="/dashboard/thumbnail-machine" />}
     >
       {activeTab === 'history' ? (
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput filters={historyFilters} />
-        </Card>
+        </div>
       ) : (
         <StandardToolLayout>
           {/* Left Panel - Tab Content */}

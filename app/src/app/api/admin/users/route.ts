@@ -64,12 +64,11 @@ export async function GET(request: NextRequest) {
         // Get email from auth users
         const email = emailMap.get(profile.id) || profile.email || ''
         
-        // Get active subscription (handle multiple subscriptions - take the most recent)
+        // Get subscription (any status - take the most recent)
         const { data: subscriptions } = await adminClient
           .from('user_subscriptions')
           .select('*')
           .eq('user_id', profile.id)
-          .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(1)
         

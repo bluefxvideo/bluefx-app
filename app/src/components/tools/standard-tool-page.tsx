@@ -30,9 +30,9 @@ export function StandardToolPage({
   return (
     <div className={cn("h-full bg-background", className)}>
       {/* Main Content Area */}
-      <div className="h-full flex flex-col p-0 lg:p-6">
+      <div className="h-full flex flex-col">
         {/* Tool Header Card */}
-        <div className="bg-card border-0 lg:border lg:border-border rounded-none lg:rounded-xl p-4 lg:p-6 mb-0 lg:mb-6">
+        <div className="bg-background border-0 lg:border-b lg:border-border/30 p-4 lg:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div className={cn(

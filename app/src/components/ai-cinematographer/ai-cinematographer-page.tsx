@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -84,14 +84,14 @@ export function AICinematographerPage() {
     >
       {activeTab === 'history' ? (
         // History tab - Full width single panel
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput
             videos={videos}
             isLoading={isLoadingHistory}
             onRefresh={loadHistory}
             onDeleteVideo={deleteVideo}
           />
-        </Card>
+        </div>
       ) : (
         // Other tabs - Use standard two-panel layout
         <StandardToolLayout>

@@ -18,13 +18,39 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
   
   try {
     // 1. Delete user-generated content (files, media, etc.)
-    // Note: Add your specific content tables here
+    // Note: These tables all have foreign keys to auth.users
     const contentTables: (keyof Database['public']['Tables'])[] = [
+      // Media generation tables
       'avatar_videos',
       'generated_voices',
       'generated_images',
+      'music_history',
+      'cinematographer_videos',
+      'script_to_video_history',
+      
+      // Content creation tables
+      'ebook_history',
+      'ebook_writer_history',
+      'ebook_documents',
+      'content_multiplier_history',
+      
+      // Social and publishing
+      'social_platform_connections',
+      'publishing_queue',
+      
+      // Credits and metrics
       'credit_usage',
-      'content_multiplier_history'
+      'credit_transactions',
+      'generation_metrics',
+      
+      // AI predictions
+      'ai_predictions',
+      
+      // Video render progress
+      'video_render_progress',
+      
+      // Voice collections
+      'voice_collections'
     ] as const
     
     for (const table of contentTables) {
@@ -39,6 +65,13 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
         // Continue with deletion even if some tables fail
       }
     }
+    
+    // 1b. Delete admin logs where user is either admin or target
+    console.log('Deleting admin logs...')
+    await supabase
+      .from('admin_logs')
+      .delete()
+      .or(`admin_user_id.eq.${userId},target_user_id.eq.${userId}`)
 
     // 2. Delete subscription and billing data
     console.log('Deleting subscription data...')
@@ -52,24 +85,14 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
       .delete()
       .eq('user_id', userId)
 
-    // 3. Delete webhook events related to this user (optional - you might want to keep for audit)
-    // Note: webhook_events table doesn't exist in current schema, skipping
-    console.log('Skipping webhook events cleanup (table not in schema)...')
-    // If you add webhook_events table later, uncomment and implement this section
-
-    // 4. Delete profile (this has CASCADE on auth.users)
-    console.log('Deleting profile...')
-    const { error: profileError } = await supabase
-      .from('profiles')
+    // 3. Delete cancellation feedback (references user_subscriptions)
+    console.log('Deleting cancellation feedback...')
+    await supabase
+      .from('cancellation_feedback')
       .delete()
-      .eq('id', userId)
-    
-    if (profileError) {
-      console.error('Profile deletion error:', profileError)
-      // Don't fail here, continue to user deletion
-    }
+      .eq('user_id', userId)
 
-    // 5. Delete from Supabase Storage (user files)
+    // 4. Delete from Supabase Storage (user files)
     console.log('Deleting storage files...')
     try {
       // List all buckets that might contain user files
@@ -91,7 +114,19 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
       // Don't fail the entire deletion for storage errors
     }
 
-    // 6. Finally, delete the user from auth.users (this cascades to profiles if set up correctly)
+    // 5. Delete profile (must be done before auth.users but after all other tables)
+    console.log('Deleting profile...')
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId)
+    
+    if (profileError) {
+      console.error('Profile deletion error:', profileError)
+      throw new Error(`Failed to delete profile: ${profileError.message}`)
+    }
+
+    // 6. Finally, delete the user from auth.users
     console.log('Deleting user from auth.users...')
     const { error: authError } = await supabase.auth.admin.deleteUser(userId)
     

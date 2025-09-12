@@ -2,7 +2,7 @@
 
 import { DollarSign, TrendingUp, TrendingDown, ExternalLink, ArrowUp, ArrowDown, RefreshCw, Search, Info, BarChart3, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -687,33 +687,33 @@ export default function TopOffersPage() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Card className="p-4">
+                  <div className={`${containerStyles.secondaryPanel} p-4`}>
                     <div className="text-sm text-muted-foreground mb-1">Gravity Score</div>
                     <div className="text-2xl font-bold">
                       {selectedOffer.gravity_score?.toFixed(1) || 'N/A'}
                     </div>
-                  </Card>
+                  </div>
                   
-                  <Card className="p-4">
+                  <div className={`${containerStyles.secondaryPanel} p-4`}>
                     <div className="text-sm text-muted-foreground mb-1">Commission</div>
                     <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                       {formatPercentage(selectedOffer.commission_rate)}
                     </div>
-                  </Card>
+                  </div>
 
-                  <Card className="p-4">
+                  <div className={`${containerStyles.secondaryPanel} p-4`}>
                     <div className="text-sm text-muted-foreground mb-1">Avg Sale</div>
                     <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                       {formatCurrency(selectedOffer.average_dollar_per_sale)}
                     </div>
-                  </Card>
+                  </div>
 
-                  <Card className="p-4">
+                  <div className={`${containerStyles.secondaryPanel} p-4`}>
                     <div className="text-sm text-muted-foreground mb-1">Refund Rate</div>
                     <div className="text-2xl font-bold text-orange-600">
                       {formatPercentage(selectedOffer.refund_rate)}
                     </div>
-                  </Card>
+                  </div>
                 </div>
               </div>
 
@@ -723,7 +723,7 @@ export default function TopOffersPage() {
                   <h3 className="text-lg font-semibold mb-4">Gravity Score History</h3>
                   
                   {/* Main Chart */}
-                  <Card className="p-4 mb-4">
+                  <div className={`${containerStyles.secondaryPanel} p-4 mb-4`}>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart
@@ -811,10 +811,10 @@ export default function TopOffersPage() {
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                  </Card>
+                  </div>
 
                   {/* Statistics */}
-                  <Card className="p-4">
+                  <div className={`${containerStyles.secondaryPanel} p-4`}>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
                         <div className="text-sm text-muted-foreground">Data Points</div>
@@ -835,7 +835,7 @@ export default function TopOffersPage() {
                         </div>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 </div>
               )}
 

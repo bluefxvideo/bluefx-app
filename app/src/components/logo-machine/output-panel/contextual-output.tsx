@@ -119,6 +119,7 @@ export function ContextualOutput({
       status={isGenerating ? 'loading' : error ? 'error' : (result?.success ? 'ready' : 'idle')}
       errorMessage={error}
       actions={getActions()}
+      activeTab={activeTab === 'generate' ? 'logo-generate' : activeTab}
       onCancelGeneration={onCancelGeneration}
       loading={
         // Custom loading component to show logo processing card instead of simple spinner

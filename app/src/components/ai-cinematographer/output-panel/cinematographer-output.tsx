@@ -94,8 +94,6 @@ export function CinematographerOutput({
   if (error) {
     return (
       <div className="h-full flex flex-col overflow-hidden relative">
-        {/* Subtle animated background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
         
         <div className="relative z-10 flex-1 flex flex-col">
           {/* Centered Error Content Area */}
@@ -155,7 +153,6 @@ export function CinematographerOutput({
   // Normal empty state
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/20 via-transparent to-zinc-900/20"></div>
       <div className="relative z-10 flex-1 flex flex-col">
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="w-full">

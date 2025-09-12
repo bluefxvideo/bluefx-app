@@ -122,19 +122,21 @@ export function OutputPanelShell({
         {isIdle && !isLoading && !isError && (
           <div className="h-full relative">
             {/* Tab-specific background examples for idle state */}
-            {(activeTab === 'generate' || activeTab === 'face-swap') && (
-              <div className="absolute inset-0 flex items-center justify-center p-8">
-                <div className="w-full max-w-3xl space-y-3">
-                  <div className="relative aspect-video rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl">
+            {(activeTab === 'generate' || activeTab === 'face-swap' || activeTab === 'logo-generate') && (
+              <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div className="w-full space-y-3">
+                  <div className={`relative ${activeTab === 'logo-generate' ? 'aspect-square max-w-md mx-auto' : 'aspect-video'} rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl`}>
                     <img
                       src={
-                        activeTab === 'generate' 
+                        activeTab === 'logo-generate'
+                          ? "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/images/placeholders/sun-metal-logo.png"
+                          : activeTab === 'generate' 
                           ? "https://trjkxgkbkyzthrgkbwfe.supabase.co/storage/v1/object/public/images/placeholders/placeholder-thumbnail-9db9dd3c-374e-42a6-ae04-606cb073e9d7.jpg"
                           : activeTab === 'recreate'
                           ? "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/images/placeholders/thumbnail-recreate.png"
                           : "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/images/placeholders/thumbnail-recreate.png"
                       }
-                      alt="Example thumbnail"
+                      alt={activeTab === 'logo-generate' ? "Example logo" : "Example thumbnail"}
                       className="w-full h-full object-cover"
                     />
                     {/* Badge in Top Right */}
@@ -148,7 +150,9 @@ export function OutputPanelShell({
                   {/* Tab-specific Sample Prompt Text */}
                   <p className="text-xs text-zinc-500 text-center">
                     Sample: {
-                      activeTab === 'generate' 
+                      activeTab === 'logo-generate'
+                        ? '"Modern tech startup logo with geometric shapes, blue gradient, minimalist design"'
+                        : activeTab === 'generate' 
                         ? '"Lifestyle morning routine with lottery excitement, bright energetic scene with money and celebration"'
                         : activeTab === 'recreate'
                         ? '"Upload a thumbnail to recreate with AI-powered variations"'

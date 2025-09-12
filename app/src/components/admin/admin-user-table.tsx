@@ -216,10 +216,11 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
         </CardHeader>
         <CardContent>
           {/* Table Header */}
-          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
+          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr 1fr 1fr' }}>
             <div className="font-medium text-muted-foreground">User</div>
             <div className="font-medium text-muted-foreground">Role</div>
-            <div className="font-medium text-muted-foreground">Subscription</div>
+            <div className="font-medium text-muted-foreground">Subscription ID</div>
+            <div className="font-medium text-muted-foreground">Status</div>
             <div className="font-medium text-muted-foreground">Credits</div>
             <div className="font-medium text-muted-foreground">Last Activity</div>
             <div className="font-medium text-muted-foreground">Actions</div>
@@ -228,13 +229,16 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           {/* Table Body */}
           <div className="divide-y">
             {filteredUsers.map((user) => (
-              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
+              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr 1fr 1fr' }}>
                 <div>
                   <div className="font-medium text-foreground">{user.email || user.username}</div>
                   <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
                 </div>
                 <div>
                   {getRoleBadge(user.role, user.is_suspended ?? undefined)}
+                </div>
+                <div className="text-sm font-mono truncate" title={user.subscription?.fastspring_subscription_id || 'No subscription ID'}>
+                  {user.subscription?.fastspring_subscription_id || '-'}
                 </div>
                 <div>
                   {getSubscriptionBadge(user.subscription)}

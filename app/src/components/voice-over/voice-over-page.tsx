@@ -4,7 +4,7 @@ import { useVoiceOver } from './hooks/use-voice-over';
 import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { GeneratorTab } from './tabs/generator-tab';
 import { HistoryTab } from './tabs/history-tab';
@@ -61,14 +61,14 @@ export function VoiceOverPage() {
       tabs={tabsComponent}
     >
       {activeTab === 'history' ? (
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput 
             voiceOverState={{
               ...voiceOverState,
               deleteVoice: voiceOverState.deleteVoice
             }} 
           />
-        </Card>
+        </div>
       ) : (
         <StandardToolLayout>
           {[

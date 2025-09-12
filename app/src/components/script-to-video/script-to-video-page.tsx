@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { VideoPreview } from './panels/video-preview';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
@@ -219,9 +219,9 @@ export function ScriptToVideoPage() {
       tabs={<StandardToolTabs tabs={scriptToVideoTabs} activeTab={activeTab} basePath="/dashboard/script-to-video" />}
     >
       {activeTab === 'history' ? (
-        <Card className="h-full bg-card border-border/30 p-4">
+        <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput />
-        </Card>
+        </div>
       ) : activeTab === 'generate' ? (
         // Single-panel layout for generator tab (like ebook writer)
         <div className="h-full overflow-hidden">

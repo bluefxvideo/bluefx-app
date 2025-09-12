@@ -1,7 +1,11 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from '@/components/ui/resizable';
 
 interface StandardToolLayoutProps {
   children: [React.ReactNode, React.ReactNode]; // [InputPanel, OutputPanel]
@@ -13,25 +17,30 @@ export function StandardToolLayout({ children, className }: StandardToolLayoutPr
 
   return (
     <div className={cn("h-full", className)}>
-      <div className="h-full flex flex-col lg:flex-row gap-0 lg:gap-5 max-w-full">
-        {/* Left Panel - Input (Golden Ratio: 38.2%) */}
-        <div className="w-full lg:w-[38.2%] min-w-0">
-          <Card className="h-full p-2 md:p-4 lg:p-8 bg-card border-0 lg:border lg:border-border/30 rounded-none lg:rounded-lg">
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="h-full max-w-full"
+      >
+        {/* Left Panel - Input (Default: 38.2%) */}
+        <ResizablePanel defaultSize={38.2} minSize={25} maxSize={60}>
+          <div className="h-full p-2 md:p-4 lg:p-8 bg-background">
             <div className="h-full flex flex-col min-w-0">
               {inputPanel}
             </div>
-          </Card>
-        </div>
+          </div>
+        </ResizablePanel>
         
-        {/* Right Panel - Output (Golden Ratio: 61.8%) */}
-        <div className="w-full lg:w-[61.8%] min-w-0">
-          <Card className="h-full p-2 md:p-4 lg:p-8 bg-card border-0 lg:border lg:border-border/30 rounded-none lg:rounded-lg">
+        <ResizableHandle withHandle className="bg-border/30" />
+        
+        {/* Right Panel - Output (Default: 61.8%) */}
+        <ResizablePanel defaultSize={61.8} minSize={40}>
+          <div className="h-full p-2 md:p-4 lg:p-8 bg-background">
             <div className="h-full flex flex-col min-w-0">
               {outputPanel}
             </div>
-          </Card>
-        </div>
-      </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

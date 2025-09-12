@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +10,7 @@ import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { HistoryOutput } from './history-output';
 import { useContentMultiplierStore, useCurrentVariant } from '../store/content-multiplier-store';
 import { toast } from 'sonner';
+import { containerStyles } from '@/lib/container-styles';
 
 interface ContentMultiplierOutputProps {
   activeTab: string;
@@ -130,81 +130,79 @@ export function ContentMultiplierOutput({ activeTab }: ContentMultiplierOutputPr
           <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hover">
             {platformContent.map(platformData => (
               <TabsContent key={platformData.platform} value={platformData.platform} className="p-6 pt-4 space-y-4 mt-0">
-                {/* Content Editor Card */}
-                <Card className="bg-secondary">
-                  <CardContent className="p-4 space-y-4">
-                    {/* Character count and status */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">
-                          {platformData.character_count} characters
+                {/* Content Editor Panel */}
+                <div className={`${containerStyles.secondaryPanel} p-4 space-y-4`}>
+                  {/* Character count and status */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        {platformData.character_count} characters
+                      </Badge>
+                      {platformData.engagement_score && (
+                        <Badge variant="secondary">
+                          {platformData.engagement_score}% engagement score
                         </Badge>
-                        {platformData.engagement_score && (
-                          <Badge variant="secondary">
-                            {platformData.engagement_score}% engagement score
-                          </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRegenerate(platformData.platform)}
+                        disabled={generation_progress.is_generating}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleCopy(platformData.platform, platformData.content)}
+                      >
+                        {copiedPlatform === platformData.platform ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
                         )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleRegenerate(platformData.platform)}
-                          disabled={generation_progress.is_generating}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleCopy(platformData.platform, platformData.content)}
-                        >
-                          {copiedPlatform === platformData.platform ? (
-                            <Check className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Editable Content */}
+                  <Textarea
+                    value={editedContent[platformData.platform] || platformData.content}
+                    onChange={(e) => handleContentEdit(platformData.platform, e.target.value)}
+                    className="min-h-[200px] text-base resize-y"
+                  />
+                  
+                  {/* Hashtags */}
+                  {platformData.hashtags && platformData.hashtags.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Hashtags</p>
+                      <div className="flex flex-wrap gap-2">
+                        {platformData.hashtags.map((tag, i) => (
+                          <Badge key={i} variant="secondary">
+                            {tag}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
-                    
-                    {/* Editable Content */}
-                    <Textarea
-                      value={editedContent[platformData.platform] || platformData.content}
-                      onChange={(e) => handleContentEdit(platformData.platform, e.target.value)}
-                      className="min-h-[200px] text-base resize-y"
-                    />
-                    
-                    {/* Hashtags */}
-                    {platformData.hashtags && platformData.hashtags.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Hashtags</p>
-                        <div className="flex flex-wrap gap-2">
-                          {platformData.hashtags.map((tag, i) => (
-                            <Badge key={i} variant="secondary">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Optimization Notes */}
-                    {platformData.optimization_notes && platformData.optimization_notes.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Optimization Notes</p>
-                        <ul className="text-sm text-muted-foreground space-y-1">
-                          {platformData.optimization_notes.map((note, i) => (
-                            <li key={i} className="flex items-start">
-                              <span className="text-primary mr-2">•</span>
-                              <span>{note}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  )}
+                  
+                  {/* Optimization Notes */}
+                  {platformData.optimization_notes && platformData.optimization_notes.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Optimization Notes</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        {platformData.optimization_notes.map((note, i) => (
+                          <li key={i} className="flex items-start">
+                            <span className="text-primary mr-2">•</span>
+                            <span>{note}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
                 
                 {/* Action Buttons */}
                 <div className="flex gap-2">

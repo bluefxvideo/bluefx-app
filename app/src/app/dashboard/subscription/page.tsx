@@ -331,7 +331,10 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-1">Plan Type</h4>
-                  <p className="text-lg font-semibold capitalize">{subscription.plan_type}</p>
+                  <p className="text-lg font-semibold capitalize">
+                    {subscription.plan_type}
+                    {subscription.status === 'cancelled' && ' (Cancelled)'}
+                  </p>
                 </div>
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-1">Credits per Month</h4>

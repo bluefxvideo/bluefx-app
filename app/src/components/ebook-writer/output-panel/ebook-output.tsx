@@ -1,7 +1,6 @@
 'use client';
 
 import NextImage from 'next/image';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +17,7 @@ import type { EbookMetadata } from '../store/ebook-writer-store';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { useEbookWriterStore } from '../store/ebook-writer-store';
+import { containerStyles } from '@/lib/container-styles';
 
 interface EbookOutputProps {
   ebook: EbookMetadata | null;
@@ -141,20 +141,20 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
 
   const renderContent = () => (
     <>
-      {/* Main Ebook Card */}
-      <Card className="bg-secondary">
-        <CardHeader>
+      {/* Main Ebook Panel */}
+      <div className={containerStyles.secondaryPanel}>
+        <div className={containerStyles.header}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="flex items-center gap-2 text-lg">
+              <h3 className="flex items-center gap-2 text-lg font-semibold">
                 <BookOpen className="h-5 w-5 text-emerald-500" />
                 {ebook.title || 'Untitled Ebook'}
-              </CardTitle>
-              <CardDescription className="mt-1">
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {ebook.topic && (
                   <span className="text-sm">Topic: {ebook.topic}</span>
                 )}
-              </CardDescription>
+              </p>
             </div>
             <Badge 
               className={`${getStatusColor(ebook.status)} text-white`}
@@ -162,8 +162,8 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
               {ebook.status.replace('_', ' ').toUpperCase()}
             </Badge>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </div>
+        <div className="space-y-4">
           {/* Progress Bar */}
           {ebook.outline && (
             <div className="space-y-2">
@@ -253,34 +253,30 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
               Delete
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Error Display */}
       {error && (
-        <Card className="border-destructive bg-secondary">
-          <CardContent className="pt-6">
-            <div className="text-sm text-destructive">
-              {error}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="border border-destructive bg-secondary/50 rounded-lg p-6">
+          <div className="text-sm text-destructive">
+            {error}
+          </div>
+        </div>
       )}
 
       {/* Generation Status */}
       {isGenerating && (
-        <Card className="border-blue-200 bg-secondary dark:border-blue-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-blue-700">
-              <div className="animate-spin">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <span className="text-sm font-medium">
-                Generating content...
-              </span>
+        <div className="border border-blue-500/30 bg-blue-500/10 rounded-lg p-6">
+          <div className="flex items-center gap-2 text-blue-400">
+            <div className="animate-spin">
+              <Sparkles className="h-4 w-4" />
             </div>
-          </CardContent>
-        </Card>
+            <span className="text-sm font-medium">
+              Generating content...
+            </span>
+          </div>
+        </div>
       )}
     </>
   );

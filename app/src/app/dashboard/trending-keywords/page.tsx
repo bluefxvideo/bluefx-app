@@ -2,7 +2,7 @@
 
 import { Search, TrendingUp, BarChart3, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
+import { containerStyles } from '@/lib/container-styles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -269,7 +269,7 @@ export default function TrendingKeywordsPage() {
             </div>
             
             {isLoading ? (
-              <Card className="overflow-hidden">
+              <div className={`${containerStyles.panel} overflow-hidden`}>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -350,7 +350,7 @@ export default function TrendingKeywordsPage() {
                     </tbody>
                   </table>
                 </div>
-              </Card>
+              </div>
             ) : keywords.length === 0 ? (
               <div className="text-center py-12">
                 <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -361,7 +361,7 @@ export default function TrendingKeywordsPage() {
               </div>
             ) : (
               /* Keywords Table */
-              <Card className="overflow-hidden">
+              <div className={`${containerStyles.panel} overflow-hidden`}>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -529,7 +529,7 @@ export default function TrendingKeywordsPage() {
                     </div>
                   </div>
                 )}
-              </Card>
+              </div>
             )}
           </div>
         </div>

@@ -28,9 +28,7 @@ export interface LogoMachineRequest {
   // Custom description (optional)
   custom_description?: string; // User's descriptive text about their desired logo
   
-  // Logo style and options
-  style?: 'modern' | 'minimalist' | 'vintage' | 'playful' | 'professional' | 'creative';
-  color_scheme?: string; // e.g., "blue and white", "monochrome", "colorful"
+  // Industry context
   industry?: string; // e.g., "tech", "restaurant", "fitness", "creative"
   
   // Advanced options  
@@ -61,7 +59,6 @@ export interface LogoMachineResponse {
     id: string;
     url: string;
     company_name: string;
-    style: string;
     batch_id: string;
   };
   
@@ -158,9 +155,7 @@ export async function generateLogo(
         request.company_name,
         {
           customDescription: request.custom_description,
-          style: request.style,
           industry: request.industry,
-          colorScheme: request.color_scheme,
           model: 'dall-e-3',
           size: mapAspectRatioToSize(request.aspect_ratio),
           user: request.user_id,
@@ -213,7 +208,6 @@ export async function generateLogo(
       id: `${batch_id}_logo`,
       url: logoUrl,
       company_name: request.company_name,
-      style: request.style || 'modern',
       batch_id,
     };
 
@@ -248,12 +242,9 @@ export async function generateLogo(
       company_name: request.company_name,
       logo_url: logo.url, // This is now our Supabase Storage URL
       batch_id: logo.batch_id,
-      style: logo.style,
       settings: {
         model: 'dall-e-3',
         custom_description: request.custom_description,
-        style: request.style,
-        color_scheme: request.color_scheme,
         industry: request.industry,
         workflow_intent: request.workflow_intent,
         aspect_ratio: request.aspect_ratio,
@@ -279,7 +270,6 @@ export async function generateLogo(
       batch_id,
       model_version: 'dall-e-3',
       company_name: request.company_name,
-      style_type: request.style || 'modern',
       generation_time_ms: Date.now() - startTime,
       credits_used: total_credits,
       workflow_type: request.workflow_intent || 'generate',

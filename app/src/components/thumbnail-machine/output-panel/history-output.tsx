@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2 } from 'lucide-react';
 import { fetchUserThumbnailHistory, deleteHistoryItem, ThumbnailHistoryItem } from '@/actions/tools/get-thumbnail-history';
 import Image from 'next/image';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
+import { containerStyles } from '@/lib/container-styles';
 
 // Helper function to validate URLs
 function isValidUrl(url: string): boolean {
@@ -229,14 +229,14 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
   if (error) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Card className="p-6 max-w-sm text-center space-y-3">
+        <div className="p-6 max-w-sm text-center space-y-3 bg-secondary/50 border border-border/30 rounded-lg">
           <AlertCircle className="w-8 h-8 text-destructive mx-auto" />
           <p className="text-destructive font-medium">Failed to load history</p>
           <p className="text-sm text-muted-foreground">{error}</p>
           <Button onClick={loadHistory} variant="outline" size="sm">
             Try Again
           </Button>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -245,7 +245,7 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
   if (history.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
+        <div className="p-8 max-w-sm text-center space-y-4 border border-dashed border-border/50 rounded-lg">
           <History className="w-12 h-12 text-muted-foreground mx-auto" />
           <div>
             <h3 className="font-medium mb-2">No History Yet</h3>
@@ -253,7 +253,7 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
               Your generated thumbnails and titles will appear here
             </p>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -262,7 +262,7 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
   if (filteredHistory.length === 0 && history.length > 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
+        <div className="p-8 max-w-sm text-center space-y-4 border border-dashed border-border/50 rounded-lg">
           <History className="w-12 h-12 text-muted-foreground mx-auto" />
           <div>
             <h3 className="font-medium mb-2">No Results Found</h3>
@@ -270,7 +270,7 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
               Try adjusting your filters to see more results
             </p>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -280,9 +280,9 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
       {/* History Grid - Full width with 3 columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredHistory.map((item) => (
-            <Card 
+            <div 
               key={item.id} 
-              className={`p-3 bg-secondary transition-all duration-200 hover:shadow-md cursor-pointer ${
+              className={`${containerStyles.secondaryPanel} p-3 transition-all duration-200 hover:shadow-md cursor-pointer ${
                 selectedHistory === item.id ? 'ring-2 ring-primary' : ''
               }`}
               onClick={() => setSelectedHistory(selectedHistory === item.id ? null : item.id)}
@@ -422,7 +422,7 @@ export function HistoryOutput({ refreshTrigger, filters, currentGeneration }: Hi
                 </div>
               )}
             </div>
-          </Card>
+          </div>
         ))}
         </div>
     </div>
