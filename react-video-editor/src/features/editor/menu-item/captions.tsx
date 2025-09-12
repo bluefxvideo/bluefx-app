@@ -115,7 +115,7 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
       </div>
 
       <ScrollArea className="flex-1" style={{ maxHeight: 'calc(100vh - 400px)' }}>
-        <div className="space-y-2 pr-3">
+        <div className="space-y-2 pr-3 pb-16">
           {allSegments.map((segment, index) => (
           <Card 
             key={`${segment.trackId}-${segment.segmentIndex}`}
