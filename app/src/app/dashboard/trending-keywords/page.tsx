@@ -310,39 +310,46 @@ export default function TrendingKeywordsPage() {
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                       {[...Array(10)].map((_, i) => (
-                        <tr key={i} className="animate-pulse">
+                        <tr key={i}>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-muted rounded w-32 mb-2"></div>
-                            <div className="h-3 bg-muted rounded w-20"></div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-muted rounded w-16 mb-2"></div>
-                            <div className="h-3 bg-muted rounded w-24"></div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-2 w-24 bg-muted rounded-full mr-2"></div>
-                              <div className="h-3 bg-muted rounded w-8"></div>
-                            </div>
-                            <div className="h-3 bg-muted rounded w-12 mt-1"></div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-4 w-4 bg-muted rounded mr-1"></div>
-                              <div className="h-3 bg-muted rounded w-12"></div>
+                            <div className="space-y-2 animate-pulse">
+                              <div className="h-4 bg-gray-700 rounded w-32"></div>
+                              <div className="h-3 bg-gray-700 rounded w-20"></div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-muted rounded w-12 mb-2"></div>
-                            <div className="h-3 bg-muted rounded w-16"></div>
+                            <div className="space-y-2 animate-pulse">
+                              <div className="h-4 bg-gray-700 rounded w-16"></div>
+                              <div className="h-3 bg-gray-700 rounded w-24"></div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-6 bg-muted rounded w-16"></div>
+                            <div className="space-y-2 animate-pulse">
+                              <div className="flex items-center">
+                                <div className="h-2 w-24 bg-gray-700 rounded-full mr-2"></div>
+                                <div className="h-3 bg-gray-700 rounded w-8"></div>
+                              </div>
+                              <div className="h-3 bg-gray-700 rounded w-12"></div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center animate-pulse">
+                              <div className="h-4 w-4 bg-gray-700 rounded mr-1"></div>
+                              <div className="h-3 bg-gray-700 rounded w-12"></div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="space-y-2 animate-pulse">
+                              <div className="h-4 bg-gray-700 rounded w-12"></div>
+                              <div className="h-3 bg-gray-700 rounded w-16"></div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="h-6 bg-gray-700 rounded w-16 animate-pulse"></div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end space-x-2">
-                              <div className="h-6 bg-muted rounded w-12"></div>
-                              <div className="h-6 bg-muted rounded w-10"></div>
+                              <div className="h-8 bg-gray-700 rounded w-16 animate-pulse"></div>
                             </div>
                           </td>
                         </tr>

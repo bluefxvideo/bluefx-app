@@ -381,41 +381,41 @@ export default function TopOffersPage() {
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                       {[...Array(8)].map((_, i) => (
-                        <tr key={i} className="animate-pulse">
+                        <tr key={i}>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-start">
-                              <div>
-                                <div className="h-4 bg-muted rounded w-48 mb-2"></div>
-                                <div className="h-3 bg-muted rounded w-24 mb-1"></div>
-                                <div className="h-3 bg-muted rounded w-16"></div>
+                              <div className="space-y-2 animate-pulse">
+                                <div className="h-4 bg-gray-700 rounded w-48"></div>
+                                <div className="h-3 bg-gray-700 rounded w-24"></div>
+                                <div className="h-3 bg-gray-700 rounded w-16"></div>
                               </div>
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="h-6 bg-muted rounded w-20"></div>
+                            <div className="h-6 bg-gray-700 rounded w-20 animate-pulse"></div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-4 bg-muted rounded w-12 mr-2"></div>
-                              <div className="h-3 bg-muted rounded w-8"></div>
+                            <div className="flex items-center animate-pulse">
+                              <div className="h-4 bg-gray-700 rounded w-12 mr-2"></div>
+                              <div className="h-3 bg-gray-700 rounded w-8"></div>
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-muted rounded w-12"></div>
+                            <div className="h-4 bg-gray-700 rounded w-12 animate-pulse"></div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-muted rounded w-16"></div>
+                            <div className="h-4 bg-gray-700 rounded w-16 animate-pulse"></div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <div className="h-8 bg-muted rounded w-16"></div>
-                              <div className="h-6 bg-muted rounded w-8"></div>
+                            <div className="flex items-center gap-2 animate-pulse">
+                              <div className="h-8 bg-gray-700 rounded w-16"></div>
+                              <div className="h-6 bg-gray-700 rounded w-8"></div>
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-right">
-                            <div className="flex items-center justify-end space-x-2">
-                              <div className="h-6 bg-muted rounded w-12"></div>
-                              <div className="h-6 bg-muted rounded w-6"></div>
+                            <div className="flex items-center justify-end space-x-2 animate-pulse">
+                              <div className="h-6 bg-gray-700 rounded w-12"></div>
+                              <div className="h-6 bg-gray-700 rounded w-6"></div>
                             </div>
                           </td>
                         </tr>

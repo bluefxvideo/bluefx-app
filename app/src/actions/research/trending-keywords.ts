@@ -222,20 +222,29 @@ async function getKeywordsFromPerplexity(query: string) {
     const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
     
     if (!perplexityApiKey) {
-      console.warn('PERPLEXITY_API_KEY not found, using fallback data');
+      console.warn('PERPLEXITY_API_KEY not found in environment variables');
+      console.warn('Please add PERPLEXITY_API_KEY to your .env.local file');
       return generateMockKeywords(query);
     }
 
-    const prompt = `As an SEO expert, provide 15 high-performing trending keywords related to "${query}" for 2025. For each keyword, provide:
-    - The exact keyword phrase
-    - Estimated monthly search volume (number)
-    - SEO difficulty score (0-100)
-    - Competition level (low/medium/high)  
-    - Estimated cost per click in USD
-    - Current trend status (rising/stable/declining)
-    - Search intent (informational/commercial/transactional)
+    console.log('Calling Perplexity API for query:', query);
 
-    Format as JSON array with objects containing: keyword, search_volume, difficulty_score, competition_level, cost_per_click, trend_status, search_intent`;
+    const prompt = `Generate 15 real, high-performing SEO keywords related to "${query}". These should be actual keywords people search for, not generic templates.
+
+Return ONLY a JSON array with this exact structure for each keyword:
+[
+  {
+    "keyword": "actual search phrase",
+    "search_volume": number between 100-100000,
+    "difficulty_score": number between 0-100,
+    "competition_level": "low" or "medium" or "high",
+    "cost_per_click": number between 0.1-20,
+    "trend_status": "rising" or "stable" or "declining",
+    "search_intent": "informational" or "commercial" or "transactional"
+  }
+]
+
+Important: Return ONLY the JSON array, no additional text or formatting.`;
 
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -244,11 +253,11 @@ async function getKeywordsFromPerplexity(query: string) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
-            content: 'You are an expert SEO keyword researcher. Always respond with valid JSON arrays only.'
+            content: 'You are an expert SEO keyword researcher. Always respond with valid JSON arrays only, no additional text.'
           },
           {
             role: 'user', 
@@ -261,26 +270,39 @@ async function getKeywordsFromPerplexity(query: string) {
     });
 
     if (!response.ok) {
-      console.error('Perplexity API error:', response.status);
+      const errorText = await response.text();
+      console.error('Perplexity API error:', response.status, errorText);
+      console.error('Check if your PERPLEXITY_API_KEY is valid');
       return generateMockKeywords(query);
     }
 
     const data = await response.json();
+    console.log('Perplexity API response received');
+    
     const content = data.choices?.[0]?.message?.content;
     
     if (!content) {
-      console.error('No content from Perplexity API');
+      console.error('No content from Perplexity API response:', data);
       return generateMockKeywords(query);
     }
+
+    console.log('Raw Perplexity response:', content.substring(0, 200) + '...');
 
     // Parse the JSON response
     let keywordsData;
     try {
       // Clean the response in case it has markdown formatting
       const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-      keywordsData = JSON.parse(cleanedContent);
+      
+      // Try to extract JSON array if it's embedded in text
+      const jsonMatch = cleanedContent.match(/\[[\s\S]*\]/);
+      const jsonToParse = jsonMatch ? jsonMatch[0] : cleanedContent;
+      
+      keywordsData = JSON.parse(jsonToParse);
+      console.log(`Successfully parsed ${keywordsData.length} keywords from Perplexity`);
     } catch (parseError) {
       console.error('Failed to parse Perplexity response:', parseError);
+      console.error('Content that failed to parse:', content);
       return generateMockKeywords(query);
     }
 
@@ -310,46 +332,89 @@ async function getKeywordsFromPerplexity(query: string) {
 }
 
 async function generateMockKeywords(query: string) {
-  // Generate trending keywords - if no specific query, use generic trending terms
-  const baseKeywords = query.includes('trending') || !query.trim() ? [
-    'AI tools 2025',
-    'digital marketing',
-    'affiliate marketing',
-    'content creation',
-    'social media marketing',
-    'SEO optimization',
-    'online business',
-    'passive income',
-    'cryptocurrency trading',
-    'email marketing',
-    'dropshipping business',
-    'influencer marketing',
-    'video marketing',
-    'personal branding',
-    'lead generation'
-  ] : [
-    `${query} trends 2025`,
-    `how to ${query}`,
-    `${query} tips`,
-    `best ${query} tools`,
-    `${query} for beginners`,
-    `${query} strategy`,
-    `${query} guide`,
-    `${query} tutorial`,
-    `${query} examples`,
-    `${query} software`
-  ];
+  // Map of common queries to realistic keyword suggestions
+  const keywordMap: Record<string, string[]> = {
+    'dog': [
+      'best dog breeds 2025',
+      'dog training tips',
+      'dog food reviews',
+      'puppy training guide',
+      'dog grooming near me',
+      'dog health symptoms',
+      'best dog toys',
+      'dog adoption centers',
+      'dog walking services',
+      'dog behavior problems'
+    ],
+    'ronaldo': [
+      'cristiano ronaldo stats',
+      'ronaldo transfer news',
+      'ronaldo goals 2025',
+      'ronaldo vs messi',
+      'ronaldo net worth',
+      'ronaldo saudi arabia',
+      'ronaldo age retirement',
+      'ronaldo champions league',
+      'ronaldo portugal team',
+      'ronaldo highlights video'
+    ],
+    'trending': [
+      'AI tools 2025',
+      'chatgpt alternatives',
+      'sustainable living tips',
+      'remote work trends',
+      'cryptocurrency news',
+      'climate change solutions',
+      'electric vehicles 2025',
+      'mental health awareness',
+      'social media marketing',
+      'online education platforms'
+    ]
+  };
+
+  // Check if we have specific keywords for this query
+  const queryLower = query.toLowerCase();
+  let baseKeywords: string[] = [];
+  
+  // Check for exact matches or partial matches
+  for (const [key, keywords] of Object.entries(keywordMap)) {
+    if (queryLower.includes(key) || key.includes(queryLower)) {
+      baseKeywords = keywords;
+      break;
+    }
+  }
+  
+  // If no match found, generate context-aware keywords
+  if (baseKeywords.length === 0) {
+    if (queryLower.includes('trending') || queryLower.includes('2025')) {
+      baseKeywords = keywordMap['trending'];
+    } else {
+      // Generate more contextual keywords based on the actual query
+      baseKeywords = [
+        `${query} best practices`,
+        `${query} vs alternatives`,
+        `${query} complete guide`,
+        `${query} for beginners`,
+        `${query} professional tips`,
+        `${query} latest updates`,
+        `${query} pricing comparison`,
+        `${query} user reviews`,
+        `${query} step by step`,
+        `${query} common mistakes`
+      ];
+    }
+  }
   
   return baseKeywords.map((keyword, index) => ({
-    id: `mock-${Date.now()}-${index}`,
+    id: `fallback-${Date.now()}-${index}`,
     keyword,
-    search_volume: Math.floor(Math.random() * 50000) + 1000,
-    difficulty_score: Math.floor(Math.random() * 100),
+    search_volume: Math.floor(Math.random() * 30000) + 5000,
+    difficulty_score: Math.floor(Math.random() * 80) + 20,
     competition_level: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
-    cost_per_click: Math.random() * 5 + 0.5,
+    cost_per_click: Math.random() * 4 + 1,
     current_rank: null,
     target_rank: null,
-    category: 'technology',
+    category: 'fallback-data',
     is_active: true,
     last_checked_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
