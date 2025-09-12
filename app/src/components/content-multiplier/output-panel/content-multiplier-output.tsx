@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Copy, RefreshCw, Sparkles, Check } from 'lucide-react';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { HistoryOutput } from './history-output';
@@ -104,9 +105,9 @@ export function ContentMultiplierOutput({ activeTab }: ContentMultiplierOutputPr
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* Header with platform tabs */}
-      <div className="flex-shrink-0 border-b border-border">
-        <Tabs defaultValue={platformContent[0]?.platform} className="w-full">
+      <Tabs defaultValue={platformContent[0]?.platform} className="w-full h-full flex flex-col">
+        {/* Header with platform tabs */}
+        <div className="flex-shrink-0 border-b border-border">
           <div className="p-6 pb-0">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -125,13 +126,16 @@ export function ContentMultiplierOutput({ activeTab }: ContentMultiplierOutputPr
               ))}
             </TabsList>
           </div>
-          
-          {/* Content for each platform */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hover">
-            {platformContent.map(platformData => (
-              <TabsContent key={platformData.platform} value={platformData.platform} className="p-6 pt-4 space-y-4 mt-0">
-                {/* Content Editor Panel */}
-                <div className={`${containerStyles.secondaryPanel} p-4 space-y-4`}>
+        </div>
+        
+        {/* Content for each platform */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {platformContent.map(platformData => (
+            <TabsContent key={platformData.platform} value={platformData.platform} className="h-full mt-0">
+              <ScrollArea className="h-full">
+                <div className="p-6 space-y-4">
+                    {/* Content Editor Panel */}
+                    <div className={`${containerStyles.secondaryPanel} p-4 space-y-4`}>
                   {/* Character count and status */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -202,32 +206,33 @@ export function ContentMultiplierOutput({ activeTab }: ContentMultiplierOutputPr
                       </ul>
                     </div>
                   )}
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <Button 
-                    className="flex-1"
-                    onClick={() => handleCopy(platformData.platform, editedContent[platformData.platform] || platformData.content)}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Content
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => handleRegenerate(platformData.platform)}
-                    disabled={generation_progress.is_generating}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Regenerate
-                  </Button>
-                </div>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1"
+                        onClick={() => handleCopy(platformData.platform, editedContent[platformData.platform] || platformData.content)}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Content
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleRegenerate(platformData.platform)}
+                        disabled={generation_progress.is_generating}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Regenerate
+                      </Button>
+                    </div>
+                  </div>
+                </ScrollArea>
               </TabsContent>
             ))}
           </div>
         </Tabs>
-      </div>
     </div>
   );
 }
