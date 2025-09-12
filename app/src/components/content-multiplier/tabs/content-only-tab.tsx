@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import {
   X, 
   Wand2,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import { useContentMultiplierStore } from '../store/content-multiplier-store';
 import { toast } from 'sonner';
@@ -39,6 +40,17 @@ export function ContentOnlyTab() {
     generatePlatformContent,
     togglePlatform,
   } = useContentMultiplierStore();
+
+  // Debug: Force re-render when uploaded_files change
+  useEffect(() => {
+    console.log('📁 ContentOnlyTab - Uploaded files updated:', uploaded_files.map(f => ({
+      name: f.name,
+      processing: f.processing,
+      type: f.type,
+      transcription: !!f.transcription,
+      extracted_text: !!f.extracted_text,
+    })));
+  }, [uploaded_files]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     for (const file of acceptedFiles) {
@@ -142,25 +154,54 @@ export function ContentOnlyTab() {
                 <div className="space-y-1">
                   {uploaded_files.map(file => {
                     const FileIcon = getFileIcon(file.mime_type);
+                    const isMediaFile = file.type === 'audio' || file.type === 'video';
+                    const isProcessing = Boolean(file.processing);
+                    
                     return (
                       <div
                         key={file.id}
-                        className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
+                        className={`flex items-center justify-between p-2 rounded-md transition-all ${
+                          isProcessing ? 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800' : 'bg-muted/50'
+                        }`}
                       >
                         <div className="flex items-center gap-2">
                           <FileIcon className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm truncate max-w-[200px]">{file.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ({(file.size / 1024).toFixed(1)} KB)
-                          </span>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span>({(file.size / 1024).toFixed(1)} KB)</span>
+                            {isProcessing && isMediaFile && (
+                              <span className="text-blue-500 inline-flex items-center">
+                                • Processing
+                                <span className="inline-flex ml-0.5">
+                                  <span className="animate-[pulse_1.4s_ease-in-out_infinite]">.</span>
+                                  <span className="animate-[pulse_1.4s_ease-in-out_0.2s_infinite]">.</span>
+                                  <span className="animate-[pulse_1.4s_ease-in-out_0.4s_infinite]">.</span>
+                                </span>
+                              </span>
+                            )}
+                            {file.transcription && (
+                              <span className="text-green-600">• ✓ Transcribed</span>
+                            )}
+                            {file.extracted_text && (
+                              <span className="text-green-600">• ✓ Extracted</span>
+                            )}
+                            {file.error && (
+                              <span className="text-red-500">• ⚠ Error</span>
+                            )}
+                          </div>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => removeFile(file.id)}
                           className="h-6 w-6 p-0"
+                          disabled={isProcessing}
                         >
-                          <X className="h-3 w-3" />
+                          {isProcessing ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <X className="h-3 w-3" />
+                          )}
                         </Button>
                       </div>
                     );

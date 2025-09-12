@@ -2,6 +2,9 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { toast } from 'sonner';
+import { transcribeMediaFile } from '@/actions/tools/media-transcription';
+import { generateAllPlatformContent } from '@/actions/tools/content-multiplier-generation';
 
 /**
  * Content Multiplier Zustand Store
@@ -59,6 +62,9 @@ export interface UploadedFile {
   mime_type: string;
   transcription?: string; // For audio/video files
   extracted_text?: string; // For documents/PDFs
+  summary?: string; // AI-generated summary
+  processing?: boolean; // Processing state
+  error?: string; // Error message if processing failed
   uploaded_at: string;
 }
 
@@ -421,22 +427,82 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
         uploadFile: async (file: File) => {
           const fileId = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           
-          // Mock file upload implementation
+          const fileType = file.type.startsWith('image') ? 'image' : 
+                          file.type.startsWith('video') ? 'video' :
+                          file.type.startsWith('audio') ? 'audio' : 'document';
+          
+          // Only set processing flag for files that need transcription
+          const needsProcessing = fileType === 'audio' || fileType === 'video' || fileType === 'document';
+          
+          // Create initial file entry with loading state
           const uploadedFile: UploadedFile = {
             id: fileId,
             name: file.name,
-            type: file.type.startsWith('image') ? 'image' : 
-                  file.type.startsWith('video') ? 'video' :
-                  file.type.startsWith('audio') ? 'audio' : 'document',
-            url: URL.createObjectURL(file),
+            type: fileType,
+            url: URL.createObjectURL(file), // Temporary local URL
             size: file.size,
             mime_type: file.type,
             uploaded_at: new Date().toISOString(),
+            processing: needsProcessing, // Set processing flag based on file type
           };
           
+          // Add file to state immediately with processing flag
+          console.log(`📤 File uploaded: ${file.name}, type: ${fileType}, processing: ${needsProcessing}`);
           set(state => ({
             uploaded_files: [...state.uploaded_files, uploadedFile]
           }));
+          
+          // If file doesn't need processing, return early
+          if (!needsProcessing) {
+            console.log(`✅ File ${file.name} doesn't need processing (image file)`);
+            return;
+          }
+          
+          // Process the file asynchronously
+          console.log(`⏳ Starting processing for ${file.name}...`);
+          try {
+            // Import the processing function dynamically to avoid server/client issues
+            const { processUploadedFile } = await import('@/actions/tools/media-transcription');
+            
+            // User ID will be fetched automatically in the server action
+            const result = await processUploadedFile(file);
+            
+            if (result.success) {
+              // Update file with transcription/extracted text
+              set(state => ({
+                uploaded_files: state.uploaded_files.map(f =>
+                  f.id === fileId 
+                    ? { 
+                        ...f, 
+                        transcription: result.transcription,
+                        extracted_text: result.text,
+                        summary: result.summary,
+                        processing: false,
+                      }
+                    : f
+                )
+              }));
+            } else {
+              // Handle error
+              console.error('File processing failed:', result.error);
+              set(state => ({
+                uploaded_files: state.uploaded_files.map(f =>
+                  f.id === fileId 
+                    ? { ...f, processing: false, error: result.error }
+                    : f
+                )
+              }));
+            }
+          } catch (error) {
+            console.error('Error processing file:', error);
+            set(state => ({
+              uploaded_files: state.uploaded_files.map(f =>
+                f.id === fileId 
+                  ? { ...f, processing: false, error: 'Failed to process file' }
+                  : f
+              )
+            }));
+          }
         },
         
         removeFile: (fileId: string) => {
@@ -525,6 +591,29 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
           const state = get();
           if (!state.original_input && state.uploaded_files.length === 0) return;
           
+          // Combine all content sources
+          let combinedContent = state.original_input || '';
+          
+          // Add transcribed content from uploaded files
+          for (const file of state.uploaded_files) {
+            if (file.transcription) {
+              combinedContent += (combinedContent ? '\n\n' : '') + file.transcription;
+            } else if (file.extracted_text) {
+              combinedContent += (combinedContent ? '\n\n' : '') + file.extracted_text;
+            }
+            
+            // Add summaries as context
+            if (file.summary) {
+              combinedContent += '\n\nSummary: ' + file.summary;
+            }
+          }
+          
+          // If no content at all, return
+          if (!combinedContent.trim()) {
+            console.error('No content to generate from');
+            return;
+          }
+          
           set(state => ({
             generation_progress: {
               ...state.generation_progress,
@@ -535,41 +624,34 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
           }));
           
           try {
-            // Mock content generation for each platform
-            const platformAdaptations: PlatformContent[] = [];
-            
-            for (let i = 0; i < state.selected_platforms.length; i++) {
-              const platform = state.selected_platforms[i];
-              const config = state.platform_configs[platform];
-              
-              set(state => ({
-                generation_progress: {
-                  ...state.generation_progress,
-                  current_platform: platform,
-                  total_progress: Math.round((i / state.selected_platforms.length) * 80),
-                }
-              }));
-              
-              // Simulate AI processing time
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              // Generate more realistic platform-specific content
-              const adaptedContent: PlatformContent = generateMockPlatformContent(
-                platform, 
-                state.original_input, 
-                config, 
-                state.content_settings
-              );
-              
-              if (config.supportsThreads && adaptedContent.character_count > config.maxLength) {
-                adaptedContent.thread_parts = [
-                  adaptedContent.content,
-                  'Continued in thread...'
-                ];
+            // Use AI to generate platform-specific content
+            set(state => ({
+              generation_progress: {
+                ...state.generation_progress,
+                current_step: 'generating',
+                total_progress: 20,
               }
-              
-              platformAdaptations.push(adaptedContent);
-            }
+            }));
+            
+            // Call the server action to generate content for all platforms
+            const platformAdaptations = await generateAllPlatformContent(
+              state.selected_platforms,
+              combinedContent,
+              {
+                tone: state.content_settings.tone,
+                includeHashtags: state.content_settings.include_hashtags,
+                hashtagCount: state.content_settings.hashtag_count,
+                includeCta: state.content_settings.include_cta,
+              }
+            );
+            
+            // Update progress to 80%
+            set(state => ({
+              generation_progress: {
+                ...state.generation_progress,
+                total_progress: 80,
+              }
+            }));
             
             const variant: ContentVariant = {
               id: `variant_${Date.now()}`,
@@ -597,7 +679,12 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
               }
             }));
             
+            toast.success('Content generated successfully!', {
+              description: `Created optimized content for ${platformAdaptations.length} platform(s)`,
+            });
+            
           } catch (error) {
+            console.error('Content generation error:', error);
             set(state => ({
               generation_progress: {
                 ...state.generation_progress,
@@ -605,6 +692,10 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
                 error_message: error instanceof Error ? error.message : 'Content generation failed',
               }
             }));
+            
+            toast.error('Failed to generate content', {
+              description: error instanceof Error ? error.message : 'Please try again',
+            });
           }
         },
         

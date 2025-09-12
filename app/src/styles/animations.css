@@ -1,0 +1,39 @@
+/* Animated dots for processing indicator */
+@keyframes dotPulse1 {
+  0%, 60%, 100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+@keyframes dotPulse2 {
+  0%, 60%, 100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@keyframes dotPulse3 {
+  0%, 60%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-dot-pulse-1 {
+  animation: dotPulse1 1.4s infinite ease-in-out;
+}
+
+.animate-dot-pulse-2 {
+  animation: dotPulse2 1.4s infinite ease-in-out;
+}
+
+.animate-dot-pulse-3 {
+  animation: dotPulse3 1.4s infinite ease-in-out;
+}
