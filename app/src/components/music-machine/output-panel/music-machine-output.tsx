@@ -150,9 +150,6 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {state.model_provider === 'lyria-2' ? 'Lyria-2' : 'MusicGen'}
-                  </Badge>
                   <Badge variant="secondary" className="text-xs">
                     {state.duration}s duration
                   </Badge>
