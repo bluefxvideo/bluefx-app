@@ -275,18 +275,6 @@ export default function Captions() {
         <div className="flex-1 min-h-0 overflow-hidden">
           <CaptionSegmentManager captionTracks={captionTracks} />
         </div>
-
-        <div className="border-t pt-4 flex-shrink-0">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="w-full text-xs"
-            disabled={true}
-            title="Use AI Caption Generator instead"
-          >
-            Load More Test Data (Deprecated)
-          </Button>
-        </div>
       </div>
     );
   }

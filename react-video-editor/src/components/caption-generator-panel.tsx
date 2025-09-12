@@ -157,7 +157,7 @@ export function CaptionGeneratorPanel({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mb-8">
       {/* AI Caption Generator Section */}
       <Card className="p-4 border-dashed border-2 border-primary/20">
         <div className="space-y-4">
