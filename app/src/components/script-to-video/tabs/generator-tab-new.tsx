@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -68,6 +68,7 @@ export function GeneratorTabNew({
   const router = useRouter();
   const { project, showToast } = useVideoEditorStore();
   const { generateBasic } = useScriptToVideo();
+  const ideaTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Use shared multi-step state with fallback
   const stepState = multiStepState || {
@@ -100,6 +101,16 @@ export function GeneratorTabNew({
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [isPlayingReview, setIsPlayingReview] = useState(false);
+
+  // Auto-focus textarea when component mounts or when returning to step 1
+  useEffect(() => {
+    if (stepState.currentStep === 1 && ideaTextareaRef.current) {
+      // Small delay to ensure the DOM is ready
+      setTimeout(() => {
+        ideaTextareaRef.current?.focus();
+      }, 100);
+    }
+  }, [stepState.currentStep]);
 
   // Generate script from idea
   const generateScript = async () => {
@@ -331,22 +342,19 @@ export function GeneratorTabNew({
                     </div>
                     <div>
                       <CardTitle>Your Video Idea or Script</CardTitle>
-                      <CardDescription>
-                        Describe what you want your video to be about
-                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="idea">Enter your idea or full script</Label>
                     <Textarea
+                      ref={ideaTextareaRef}
                       id="idea"
                       value={stepState.ideaText}
                       onChange={(e) => setStepState({ ...stepState, ideaText: e.target.value })}
                       placeholder="e.g., 'A 30-second video about the benefits of meditation' or paste your complete script here..."
                       rows={8}
-                      className="resize-none"
+                      className="resize min-h-[120px] font-mono text-sm"
                     />
                     <p className="text-xs text-muted-foreground">
                       You can enter a brief idea for AI to expand, or paste your complete script
@@ -430,9 +438,6 @@ export function GeneratorTabNew({
                     </div>
                     <div>
                       <CardTitle>Your Video Script</CardTitle>
-                      <CardDescription>
-                        Make any final edits to your script
-                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -444,7 +449,7 @@ export function GeneratorTabNew({
                       value={stepState.finalScript}
                       onChange={(e) => setStepState({ ...stepState, finalScript: e.target.value })}
                       rows={12}
-                      className="resize-none font-mono text-sm"
+                      className="resize font-mono text-sm"
                     />
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>{stepState.finalScript.split(' ').filter(w => w).length} words</span>
@@ -613,9 +618,6 @@ export function GeneratorTabNew({
                       <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-4 border border-border/50">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Mic className="h-6 w-6 text-primary" />
-                            </div>
                             <div>
                               <p className="font-medium">
                                 {OPENAI_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'Voice'}
