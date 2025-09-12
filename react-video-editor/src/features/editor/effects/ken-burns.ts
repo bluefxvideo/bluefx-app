@@ -50,12 +50,12 @@ export function calculateKenBurnsTransform(
     };
   }
   
-  // Calculate intensity factor (0-100 maps to 0-0.5 for reasonable zoom)
-  const intensityFactor = intensity / 200;
+  // Calculate intensity factor with speed boost
+  // Speed affects the total amount of zoom/pan to maintain motion throughout
+  const intensityFactor = (intensity / 200) * speed;
   
-  // Apply speed multiplier to frame progression
-  // Higher speed = faster progression through the animation
-  const acceleratedFrame = frame * speed;
+  // Use normal progress for full duration
+  const progress = frame / durationInFrames;
   
   // Select easing function
   const easingFn = getEasingFunction(smoothness);
@@ -69,8 +69,8 @@ export function calculateKenBurnsTransform(
   switch (preset) {
     case 'zoom-in':
       scale = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
+        progress,
+        [0, 1],
         [1, 1 + intensityFactor],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
@@ -78,8 +78,8 @@ export function calculateKenBurnsTransform(
       
     case 'zoom-out':
       scale = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
+        progress,
+        [0, 1],
         [1 + intensityFactor, 1],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
@@ -87,96 +87,96 @@ export function calculateKenBurnsTransform(
       
     case 'pan-left':
       translateX = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [0, -intensity],
+        progress,
+        [0, 1],
+        [0, -intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
       
     case 'pan-right':
       translateX = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [0, intensity],
+        progress,
+        [0, 1],
+        [0, intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
       
     case 'pan-up':
       translateY = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [0, -intensity],
+        progress,
+        [0, 1],
+        [0, -intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
       
     case 'pan-down':
       translateY = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [0, intensity],
+        progress,
+        [0, 1],
+        [0, intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
       
     case 'zoom-in-left':
       scale = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
+        progress,
+        [0, 1],
         [1, 1 + intensityFactor],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       translateX = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [0, -intensity / 2],
+        progress,
+        [0, 1],
+        [0, -intensity * speed / 2],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
       
     case 'zoom-in-right':
       scale = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
+        progress,
+        [0, 1],
         [1, 1 + intensityFactor],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       translateX = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [0, intensity / 2],
+        progress,
+        [0, 1],
+        [0, intensity * speed / 2],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
       
     case 'zoom-out-left':
       scale = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
+        progress,
+        [0, 1],
         [1 + intensityFactor, 1],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       translateX = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [intensity / 2, 0],
+        progress,
+        [0, 1],
+        [intensity * speed / 2, 0],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
       
     case 'zoom-out-right':
       scale = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
+        progress,
+        [0, 1],
         [1 + intensityFactor, 1],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       translateX = interpolate(
-        acceleratedFrame,
-        [0, durationInFrames],
-        [-intensity / 2, 0],
+        progress,
+        [0, 1],
+        [-intensity * speed / 2, 0],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -214,10 +214,10 @@ function getEasingFunction(smoothness: KenBurnsConfig['smoothness']) {
  * Default Ken Burns configuration
  */
 export const DEFAULT_KEN_BURNS_CONFIG: KenBurnsConfig = {
-  preset: 'none',
-  intensity: 20,
-  smoothness: 'ease-in-out',
-  speed: 1.0
+  preset: 'zoom-in',
+  intensity: 40,
+  smoothness: 'linear',
+  speed: 1.8
 };
 
 /**

@@ -202,10 +202,6 @@ const BasicVideo = ({
 			key: "kenburns",
 			component: (
 				<div className="flex flex-col gap-2">
-					<Label className="font-sans text-xs font-semibold flex items-center gap-2">
-						<Sparkles className="w-4 h-4" />
-						Ken Burns Effect
-					</Label>
 					<KenBurnsControl selectedItems={selectedMediaItems} />
 				</div>
 			),

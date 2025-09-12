@@ -5,7 +5,7 @@ import { dispatch } from "@designcombo/events";
 import { EDIT_OBJECT } from "@designcombo/state";
 import React, { useEffect, useState } from "react";
 import { IText, ITrackItem } from "@designcombo/types";
-import { Subtitles, Palette, Type, Eye, Zap, CornerDownRight } from "lucide-react";
+import { Subtitles, Palette, Type, Eye, Zap } from "lucide-react";
 
 interface ICaptionControlProps {
 	baseColor: string;        // Main caption text color
@@ -26,14 +26,14 @@ const BasicCaption = ({
 }) => {
 	const [properties, setProperties] = useState<ICaptionControlProps>({
 		baseColor: "#FFFFFF",
-		highlightColor: "#facc15", // Yellow to match Remotion default
-		backgroundColor: "rgba(0, 0, 0, 0.7)",
-		fontSize: 48,
-		opacity: 1,
+		highlightColor: "#FFEB3B", // Bright yellow like in screenshots
+		backgroundColor: "transparent", // No background box
+		fontSize: 80, // Professional caption size
+		opacity: 100, // Changed to 0-100 scale to match styles.ts
 		fontFamily: "Inter",
 		textShadow: true,
-		borderRadius: 8,
-		padding: 16,
+		borderRadius: 0,
+		padding: 0,
 	});
 
 	// Check if this is actually a caption track
@@ -45,14 +45,14 @@ const BasicCaption = ({
 		// Get actual colors from the track item details
 		setProperties({
 			baseColor: (trackItem.details as any)?.appearedColor || "#FFFFFF",
-			highlightColor: (trackItem.details as any)?.activeColor || "#facc15", // Yellow default
-			backgroundColor: trackItem.details.backgroundColor || "rgba(0, 0, 0, 0.7)",
-			fontSize: trackItem.details.fontSize || 48,
-			opacity: trackItem.details.opacity || 1,
+			highlightColor: (trackItem.details as any)?.activeColor || "#FFEB3B", // Bright yellow
+			backgroundColor: trackItem.details.backgroundColor || "transparent",
+			fontSize: trackItem.details.fontSize || 80,
+			opacity: trackItem.details.opacity || 100, // Use 0-100 scale
 			fontFamily: trackItem.details.fontFamily || "Inter",
 			textShadow: (trackItem.details as any)?.textShadowEnabled !== false,
-			borderRadius: (trackItem.details as any)?.borderRadius || 8,
-			padding: (trackItem.details as any)?.padding || 16,
+			borderRadius: (trackItem.details as any)?.borderRadius || 0,
+			padding: (trackItem.details as any)?.padding || 0,
 		});
 	}, [trackItem.id, isCaptionTrack]);
 
@@ -143,28 +143,6 @@ const BasicCaption = ({
 			payload: {
 				[trackItem.id]: {
 					details: { textShadowEnabled: enabled }
-				}
-			}
-		});
-	};
-
-	const handleBorderRadiusChange = (borderRadius: number) => {
-		setProperties(prev => ({ ...prev, borderRadius }));
-		dispatch(EDIT_OBJECT, {
-			payload: {
-				[trackItem.id]: {
-					details: { borderRadius }
-				}
-			}
-		});
-	};
-
-	const handlePaddingChange = (padding: number) => {
-		setProperties(prev => ({ ...prev, padding }));
-		dispatch(EDIT_OBJECT, {
-			payload: {
-				[trackItem.id]: {
-					details: { padding }
 				}
 			}
 		});
@@ -301,8 +279,8 @@ const BasicCaption = ({
 							<div className="flex items-center gap-2">
 								<input
 									type="range"
-									min="24"
-									max="120"
+									min="48"
+									max="150"
 									value={properties.fontSize}
 									onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
 									className="flex-1"
@@ -322,14 +300,14 @@ const BasicCaption = ({
 								<input
 									type="range"
 									min="0"
-									max="1"
-									step="0.1"
+									max="100"
+									step="10"
 									value={properties.opacity}
-									onChange={(e) => handleOpacityChange(parseFloat(e.target.value))}
+									onChange={(e) => handleOpacityChange(parseInt(e.target.value))}
 									className="flex-1"
 								/>
 								<span className="text-sm font-mono w-12 text-right">
-									{Math.round(properties.opacity * 100)}%
+									{properties.opacity}%
 								</span>
 							</div>
 						</div>
@@ -358,54 +336,6 @@ const BasicCaption = ({
 						</div>
 					</Card>
 
-					{/* Background Padding */}
-					<Card className="p-4">
-						<div className="space-y-3">
-							<h4 className="text-sm font-medium">Background Padding</h4>
-							<div className="flex items-center gap-2">
-								<input
-									type="range"
-									min="0"
-									max="40"
-									value={properties.padding}
-									onChange={(e) => handlePaddingChange(parseInt(e.target.value))}
-									className="flex-1"
-								/>
-								<span className="text-sm font-mono w-12 text-right">
-									{properties.padding}px
-								</span>
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Space around text inside background
-							</p>
-						</div>
-					</Card>
-
-					{/* Border Radius */}
-					<Card className="p-4">
-						<div className="space-y-3">
-							<div className="flex items-center gap-2">
-								<CornerDownRight className="h-4 w-4" />
-								<h4 className="text-sm font-medium">Border Radius</h4>
-							</div>
-							<div className="flex items-center gap-2">
-								<input
-									type="range"
-									min="0"
-									max="20"
-									value={properties.borderRadius}
-									onChange={(e) => handleBorderRadiusChange(parseInt(e.target.value))}
-									className="flex-1"
-								/>
-								<span className="text-sm font-mono w-12 text-right">
-									{properties.borderRadius}px
-								</span>
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Rounded corners for background
-							</p>
-						</div>
-					</Card>
 
 					{/* Caption Info */}
 					<Card className="p-4 bg-muted/50">

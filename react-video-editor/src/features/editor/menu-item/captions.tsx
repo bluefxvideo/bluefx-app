@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Subtitles, FileText, Wand2, Play, Edit, Clock } from "lucide-react";
 import { useState, useMemo } from "react";
 import useStore from "../store/use-store";
@@ -102,8 +103,8 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4">
-      <div className="flex items-center justify-between flex-shrink-0">
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between flex-shrink-0 mb-3">
         <h4 className="text-sm font-medium flex items-center gap-2">
           <Edit className="h-4 w-4" />
           Segments ({allSegments.length})
@@ -113,8 +114,9 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
         </Button>
       </div>
 
-      <div className="space-y-2 flex-1 overflow-y-auto">
-        {allSegments.map((segment, index) => (
+      <ScrollArea className="flex-1" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+        <div className="space-y-2 pr-3">
+          {allSegments.map((segment, index) => (
           <Card 
             key={`${segment.trackId}-${segment.segmentIndex}`}
             className={`p-2 transition-colors ${
@@ -201,7 +203,8 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
             </div>
           </Card>
         ))}
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }
@@ -246,30 +249,34 @@ export default function Captions() {
   if (captionTracks.length > 0) {
     // Caption management mode
     return (
-      <div className="flex flex-col gap-4 p-4">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="flex flex-col h-full p-4">
+        <div className="flex items-center gap-2 mb-4">
           <Subtitles className="h-5 w-5" />
           <h3 className="font-semibold">Captions</h3>
         </div>
 
         {/* AI Caption Generator */}
-        {allTrackItems.length > 0 ? (
-          <div>
-            <div className="text-xs text-green-600 mb-2">✅ Loaded {allTrackItems.length} track items (including {allTrackItems.filter(item => item.type === 'audio').length} audio tracks)</div>
-            <CaptionGeneratorPanel
-              trackItems={allTrackItems}
-              existingWhisperData={undefined} // TODO: Extract from AI asset data if available
-            />
-          </div>
-        ) : (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            ⏳ Loading timeline data... (trackItems: {allTrackItems.length})
-          </div>
-        )}
+        <div className="flex-shrink-0 mb-4">
+          {allTrackItems.length > 0 ? (
+            <div>
+              <div className="text-xs text-green-600 mb-2">✅ Loaded {allTrackItems.length} track items (including {allTrackItems.filter(item => item.type === 'audio').length} audio tracks)</div>
+              <CaptionGeneratorPanel
+                trackItems={allTrackItems}
+                existingWhisperData={undefined} // TODO: Extract from AI asset data if available
+              />
+            </div>
+          ) : (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              ⏳ Loading timeline data... (trackItems: {allTrackItems.length})
+            </div>
+          )}
+        </div>
 
-        <CaptionSegmentManager captionTracks={captionTracks} />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <CaptionSegmentManager captionTracks={captionTracks} />
+        </div>
 
-        <div className="border-t pt-4">
+        <div className="border-t pt-4 flex-shrink-0">
           <Button 
             variant="outline" 
             size="sm" 

@@ -84,14 +84,14 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 			
 			let wordColor;
 			if (currentTimeMs >= wordEnd) {
-				// Word has been spoken - use appeared color
+				// Word has been spoken - use appeared color (white)
 				wordColor = activeSegment.style?.appearedColor || (details as any).appearedColor || "#FFFFFF";
 			} else if (currentTimeMs >= wordStart && currentTimeMs < wordEnd) {
-				// Word is currently being spoken - use active color
-				wordColor = activeSegment.style?.activeColor || (details as any).activeColor || "#00FF88";
+				// Word is currently being spoken - use active color (bright yellow)
+				wordColor = activeSegment.style?.activeColor || (details as any).activeColor || "#FFEB3B";
 			} else {
-				// Word hasn't been spoken yet - use default color
-				wordColor = activeSegment.style?.color || details.color || "#E0E0E0";
+				// Word hasn't been spoken yet - use default color (white)
+				wordColor = activeSegment.style?.color || details.color || "#FFFFFF";
 			}
 
 			return (
@@ -99,7 +99,8 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 					key={index} 
 					style={{ 
 						color: wordColor,
-						transition: 'color 0.1s ease'
+						transition: 'color 0.15s ease',
+						textTransform: 'uppercase', // Make text uppercase like in screenshots
 					}}
 				>
 					{word.word}
@@ -114,22 +115,29 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 		displayContent = activeSegment.text;
 	}
 
-	// Custom styles for captions
+	// Custom styles for captions - Professional look matching screenshots
 	const captionStyles = {
 		...calculateTextStyles(details),
-		// Apply caption-specific styles
+		// Apply caption-specific styles with stronger shadow and outline
 		textShadow: (details as any).textShadowEnabled !== false 
-			? "2px 2px 4px rgba(0, 0, 0, 0.8)" 
+			? "0 0 15px rgba(0, 0, 0, 1), 0 0 30px rgba(0, 0, 0, 1), 0 0 45px rgba(0, 0, 0, 0.8), 4px 4px 8px rgba(0, 0, 0, 1)" 
 			: "none",
-		backgroundColor: details.backgroundColor || "transparent",
-		padding: `${Math.floor(((details as any).padding || 16) * 0.5)}px ${(details as any).padding || 16}px`,
-		borderRadius: `${(details as any).borderRadius || 8}px`,
+		WebkitTextStroke: "4px black", // Stronger black outline like in screenshots
+		paintOrder: "stroke fill", // Stroke behind fill
+		backgroundColor: "transparent", // No background box
+		padding: "0", // No padding
+		borderRadius: "0", // No border radius
 		display: "inline-block",
 		margin: "0 auto",
-		lineHeight: "1.3",
+		lineHeight: "1.1",
 		textAlign: details.textAlign || "center",
 		maxWidth: "90%",
 		width: "fit-content",
+		fontSize: details.fontSize || 80, // Professional caption size
+		fontWeight: "900", // Extra bold like in screenshots
+		fontFamily: details.fontFamily || "Inter, sans-serif",
+		letterSpacing: "-0.02em", // Tighter letter spacing
+		textTransform: "uppercase", // All caps like in screenshots
 	};
 
 	const children = (

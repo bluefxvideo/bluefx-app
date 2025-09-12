@@ -184,7 +184,7 @@ export function convertAIAssetsToEditorFormat(
       const selectedPreset = 'zoom-in';
       
       // Use consistent intensity for uniform effect
-      const intensity = 20; // Moderate zoom intensity for all images
+      const intensity = 40; // Stronger zoom intensity for more noticeable effect
 
       const imageTrack: ITrackItem = {
         id: generateId(),
@@ -215,7 +215,7 @@ export function convertAIAssetsToEditorFormat(
             preset: selectedPreset,
             intensity: intensity,
             smoothness: 'linear', // Linear motion for uniform effect
-            speed: 1.0
+            speed: 1.8  // Faster default speed for more dynamic effect
           }
         },
         duration: segment.duration * 1000

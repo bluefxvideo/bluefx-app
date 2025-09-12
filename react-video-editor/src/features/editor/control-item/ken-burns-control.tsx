@@ -11,7 +11,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { dispatch } from "@designcombo/events";
 import { EDIT_OBJECT } from "@designcombo/state";
-import { IImage, IVideo, ITrackItem } from "@designcombo/types";
+import { IImage, IVideo } from "@designcombo/types";
 import { Sparkles, Image as ImageIcon, Video } from "lucide-react";
 import { 
   KenBurnsPreset, 

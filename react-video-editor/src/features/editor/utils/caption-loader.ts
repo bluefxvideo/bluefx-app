@@ -107,11 +107,11 @@ export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
     type: "text",
     details: {
       text: captionTrack.details?.text || "🎬 AI Generated Captions",
-      fontSize: captionTrack.details?.fontSize || 24,
-      fontFamily: captionTrack.details?.fontFamily || "Arial, sans-serif",
-      fontWeight: captionTrack.details?.fontWeight || "bold",
-      color: captionTrack.details?.color || "#E0E0E0", // Default unspoken color
-      activeColor: captionTrack.details?.activeColor || "#facc15", // Yellow highlight
+      fontSize: captionTrack.details?.fontSize || 80, // Professional caption size
+      fontFamily: captionTrack.details?.fontFamily || "Inter, sans-serif",
+      fontWeight: captionTrack.details?.fontWeight || "900", // Extra bold
+      color: captionTrack.details?.color || "#FFFFFF", // White for unspoken
+      activeColor: captionTrack.details?.activeColor || "#FFEB3B", // Bright yellow highlight
       appearedColor: captionTrack.details?.appearedColor || "#FFFFFF", // White for spoken
       textAlign: captionTrack.details?.textAlign || "center",
       

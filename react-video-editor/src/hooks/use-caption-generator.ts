@@ -208,9 +208,9 @@ export function captionsToTrackItems(
     })),
     confidence: caption.confidence,
     style: {
-      fontSize: 60,
+      fontSize: 80,
       color: '#E0E0E0', // Unspoken words (light gray)
-      activeColor: '#facc15', // Currently speaking (yellow - matches Remotion)
+      activeColor: '#FFEB3B', // Currently speaking (bright yellow)
       appearedColor: '#FFFFFF' // Already spoken (white)
     }
   }));
@@ -242,11 +242,11 @@ export function captionsToTrackItems(
     duration: Math.round(totalDuration / 1000 * 30), // Convert to frames for timeline
     details: {
       text: '🤖 AI Generated Captions',
-      fontSize: 60,
+      fontSize: 80,
       fontFamily: 'Arial, sans-serif',
       fontWeight: 'bold',
       color: '#E0E0E0', // Default unspoken color
-      activeColor: '#facc15', // Yellow highlight for speaking
+      activeColor: '#FFEB3B', // Bright yellow highlight for speaking
       appearedColor: '#FFFFFF', // White for already spoken
       textAlign: 'center',
       isCaptionTrack: true,
