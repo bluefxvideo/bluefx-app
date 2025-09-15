@@ -183,13 +183,18 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
         maxWidth: '1200px',
         textAlign: 'center',
         padding: '16px 24px',
-        backgroundColor: style.backgroundColor || 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: 'transparent', // No background like in editor
         borderRadius: '8px',
         fontSize: style.fontSize || 48,
         fontFamily: style.fontFamily || 'Inter',
+        fontWeight: '900', // Extra bold like in editor
         color: style.color || '#FFFFFF',
-        // Enhanced text shadow with multiple layers
-        textShadow: '0 0 8px rgba(0,0,0,1), 2px 2px 4px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.8)',
+        textTransform: 'uppercase', // All caps like in editor
+        letterSpacing: '-0.02em', // Tighter letter spacing
+        // Enhanced text shadow with stronger outline like in editor
+        textShadow: '0 0 15px rgba(0, 0, 0, 1), 0 0 30px rgba(0, 0, 0, 1), 0 0 45px rgba(0, 0, 0, 0.8), 4px 4px 8px rgba(0, 0, 0, 1)',
+        WebkitTextStroke: '4px black', // Black outline like in editor
+        paintOrder: 'stroke fill', // Stroke behind fill
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
         backfaceVisibility: 'hidden',
@@ -215,9 +220,9 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
       alignItems: 'center',
       justifyContent: 'center', // Always center captions
       textAlign: 'center',
-      padding: '16px 24px',
-      backgroundColor: style.backgroundColor || 'rgba(0, 0, 0, 0.7)',
-      borderRadius: '8px',
+      padding: '0', // No padding like in editor
+      backgroundColor: 'transparent', // No background like in editor
+      borderRadius: '0', // No border radius
       willChange: 'transform',
       backfaceVisibility: 'hidden'
     }}>
@@ -239,13 +244,17 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
             style={{
               display: 'inline-block', // Important for proper spacing
               color: wordColor,
-              fontSize: style.fontSize || 48,
+              fontSize: style.fontSize || 80, // Larger size like in editor
               fontFamily: style.fontFamily || 'Inter',
-              fontWeight: style.fontWeight || '600',
+              fontWeight: '900', // Extra bold like in editor
+              textTransform: 'uppercase', // All caps like in editor
+              letterSpacing: '-0.02em', // Tighter letter spacing
               transition: 'color 0.1s ease-in-out',
-              // Enhanced text shadow with multiple layers for better visibility
-              textShadow: '0 0 8px rgba(0,0,0,1), 2px 2px 4px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.8)',
-              lineHeight: 1.2,
+              // Enhanced text shadow with stronger outline like in editor
+              textShadow: '0 0 15px rgba(0, 0, 0, 1), 0 0 30px rgba(0, 0, 0, 1), 0 0 45px rgba(0, 0, 0, 0.8), 4px 4px 8px rgba(0, 0, 0, 1)',
+              WebkitTextStroke: '4px black', // Black outline like in editor
+              paintOrder: 'stroke fill', // Stroke behind fill
+              lineHeight: 1.1,
               transform: 'translateZ(0)', // GPU acceleration for text shadow
               WebkitFontSmoothing: 'antialiased',
               MozOsxFontSmoothing: 'grayscale',
@@ -329,20 +338,12 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
   }
   
   // Calculate intensity factor (0-100 maps to 0-0.5 for reasonable zoom)
-  const intensityFactor = intensity / 200;
+  // Apply speed multiplier to intensity to increase the total zoom/pan amount
+  const intensityFactor = (intensity / 200) * speed;
   
-  // For continuous animation, use modulo to create a looping effect
-  // This prevents the animation from resetting between sequences
-  let progressFrame = frame * speed;
-  
-  if (continuous) {
-    // Don't clamp the animation - let it continue smoothly
-    // The animation will progress continuously without resetting
-    progressFrame = frame * speed;
-  } else {
-    // Apply speed multiplier to frame progression
-    progressFrame = Math.min(frame * speed, durationInFrames);
-  }
+  // Use the frame directly for interpolation to ensure full duration animation
+  // The speed is now applied to the intensity rather than the frame progression
+  let progressFrame = frame;
   
   // Select easing function
   const easingFn = getEasingFunction(smoothness);
@@ -376,7 +377,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [0, -intensity],
+        [0, -intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -385,7 +386,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [0, intensity],
+        [0, intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -394,7 +395,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateY = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [0, -intensity],
+        [0, -intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -403,7 +404,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateY = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [0, intensity],
+        [0, intensity * speed],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -418,7 +419,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [0, -intensity / 2],
+        [0, -intensity * speed / 2],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -433,7 +434,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [0, intensity / 2],
+        [0, intensity * speed / 2],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -448,7 +449,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [intensity / 2, 0],
+        [intensity * speed / 2, 0],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
@@ -463,7 +464,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
-        [-intensity / 2, 0],
+        [-intensity * speed / 2, 0],
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;

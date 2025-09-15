@@ -100,7 +100,7 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 					style={{ 
 						color: wordColor,
 						transition: 'color 0.15s ease',
-						textTransform: 'uppercase', // Make text uppercase like in screenshots
+						textTransform: 'uppercase' as const, // Make text uppercase like in screenshots
 					}}
 				>
 					{word.word}
@@ -116,7 +116,7 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 	}
 
 	// Custom styles for captions - Professional look matching screenshots
-	const captionStyles = {
+	const captionStyles: React.CSSProperties = {
 		...calculateTextStyles(details),
 		// Apply caption-specific styles with stronger shadow and outline
 		textShadow: (details as any).textShadowEnabled !== false 
@@ -137,7 +137,7 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 		fontWeight: "900", // Extra bold like in screenshots
 		fontFamily: details.fontFamily || "Inter, sans-serif",
 		letterSpacing: "-0.02em", // Tighter letter spacing
-		textTransform: "uppercase", // All caps like in screenshots
+		textTransform: "uppercase" as const, // All caps like in screenshots
 	};
 
 	const children = (
