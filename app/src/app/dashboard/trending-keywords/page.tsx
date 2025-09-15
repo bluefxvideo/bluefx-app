@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, TrendingUp, BarChart3, Target, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, TrendingUp, BarChart3, Target, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { containerStyles } from '@/lib/container-styles';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { FullWidthToolLayout } from '@/components/tools/full-width-tool-layout';
 import { getTrendingKeywords, searchKeywords } from '@/actions/research/trending-keywords';
+import { KeywordAnalyzerAIElements } from '@/components/research/keyword-analyzer-ai-elements';
 import { toast } from 'sonner';
 
 interface Keyword {
@@ -37,6 +38,8 @@ export default function TrendingKeywordsPage() {
   const [sortBy, setSortBy] = useState<string>('search_volume');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
+  const [showAnalyzer, setShowAnalyzer] = useState(false);
   const itemsPerPage = 20;
 
   const loadKeywords = useCallback(async () => {
@@ -95,6 +98,11 @@ export default function TrendingKeywordsPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleKeywordClick = (keyword: Keyword) => {
+    setSelectedKeyword(keyword);
+    setShowAnalyzer(true);
   };
 
   const getDifficultyColor = (score: number | null) => {
@@ -172,13 +180,14 @@ export default function TrendingKeywordsPage() {
   };
 
   return (
-    <StandardToolPage
-      icon={Search}
-      title="Trending Keywords"
-      description="Discover high-performing keywords for better SEO rankings"
-      iconGradient="bg-primary"
-    >
-      <FullWidthToolLayout>
+    <>
+      <StandardToolPage
+        icon={Search}
+        title="Trending Keywords"
+        description="Discover high-performing keywords for better SEO rankings"
+        iconGradient="bg-primary"
+      >
+        <FullWidthToolLayout>
         {/* Filter Bar - Horizontal */}
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
           {/* Search Input */}
@@ -412,6 +421,7 @@ export default function TrendingKeywordsPage() {
                         <tr
                           key={keyword.id}
                           className="hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => handleKeywordClick(keyword)}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="font-medium text-foreground">
@@ -468,9 +478,14 @@ export default function TrendingKeywordsPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleKeywordClick(keyword);
+                                }}
                               >
                                 Analyze
+                                <ExternalLink className="ml-1 h-3 w-3" />
                               </Button>
                             </div>
                           </td>
@@ -540,7 +555,16 @@ export default function TrendingKeywordsPage() {
             )}
           </div>
         </div>
+
       </FullWidthToolLayout>
     </StandardToolPage>
+
+    {/* Keyword Analyzer Dialog */}
+    <KeywordAnalyzerAIElements
+      keyword={selectedKeyword}
+      isOpen={showAnalyzer}
+      onClose={() => setShowAnalyzer(false)}
+    />
+    </>
   );
 }
