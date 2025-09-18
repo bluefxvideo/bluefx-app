@@ -74,28 +74,76 @@ export async function generateImagesForAllSegments(
       try {
         // Enhance prompt based on visual style
         const enhancedPrompt = enhancePromptForStyle(segment.image_prompt, request.style_settings);
-        
+
         console.log(`🎨 Generating image ${index + 1}/${request.segments.length}: "${enhancedPrompt}"`);
 
-        // Create FLUX prediction
-        const prediction = await createFluxKontextPrediction({
-          prompt: enhancedPrompt,
-          aspect_ratio: convertAspectRatio(request.style_settings.aspect_ratio),
-          output_format: 'png',
-          safety_tolerance: 2,
-          prompt_upsampling: request.style_settings.quality === 'premium',
-          seed: undefined // Random generation for variety
-        });
+        // Try generation with safe prompt first
+        let prediction;
+        let completedPrediction;
+        let attemptCount = 0;
+        const maxAttempts = 2;
+        let lastError: string | undefined;
 
-        // Wait for completion
-        const completedPrediction = await waitForFluxKontextCompletion(
-          prediction.id,
-          300000, // 5 minute timeout
-          3000    // 3 second polling
-        );
+        while (attemptCount < maxAttempts) {
+          attemptCount++;
 
-        if (completedPrediction.status !== 'succeeded' || !completedPrediction.output) {
-          throw new Error(`Image generation failed: ${completedPrediction.error || 'No output'}`);
+          try {
+            // Use progressively safer prompt if retrying
+            const promptToUse = attemptCount === 1
+              ? enhancedPrompt
+              : sanitizePromptForSafety(enhancedPrompt);
+
+            if (attemptCount > 1) {
+              console.log(`🔄 Retrying with sanitized prompt (attempt ${attemptCount}/${maxAttempts})`);
+            }
+
+            // Create FLUX prediction with higher safety tolerance
+            prediction = await createFluxKontextPrediction({
+              prompt: promptToUse,
+              aspect_ratio: convertAspectRatio(request.style_settings.aspect_ratio),
+              output_format: 'png',
+              safety_tolerance: attemptCount === 1 ? 4 : 6, // Higher tolerance since we pre-sanitize in orchestrator
+              prompt_upsampling: request.style_settings.quality === 'premium',
+              seed: undefined // Random generation for variety
+            });
+
+            // Wait for completion
+            completedPrediction = await waitForFluxKontextCompletion(
+              prediction.id,
+              300000, // 5 minute timeout
+              3000    // 3 second polling
+            );
+
+            if (completedPrediction.status === 'succeeded' && completedPrediction.output) {
+              // Success! Break out of retry loop
+              break;
+            }
+
+            // Check if it's a content policy error
+            const errorMessage = completedPrediction.error || 'No output';
+            if (errorMessage.toLowerCase().includes('sensitive') ||
+                errorMessage.toLowerCase().includes('nsfw') ||
+                errorMessage.toLowerCase().includes('safety') ||
+                errorMessage.toLowerCase().includes('content policy')) {
+              lastError = errorMessage;
+              console.warn(`⚠️ Content flagged as sensitive, will retry with sanitized prompt`);
+              // Continue to next attempt
+            } else {
+              // Non-content error, throw immediately
+              throw new Error(`Image generation failed: ${errorMessage}`);
+            }
+          } catch (error) {
+            if (attemptCount === maxAttempts) {
+              // Final attempt failed
+              throw error;
+            }
+            // Continue to next attempt
+            lastError = error instanceof Error ? error.message : String(error);
+          }
+        }
+
+        if (!completedPrediction || completedPrediction.status !== 'succeeded' || !completedPrediction.output) {
+          throw new Error(`Image generation failed after ${attemptCount} attempts: ${lastError || 'No output'}`);
         }
 
         // Download and upload to Supabase Storage
@@ -202,18 +250,45 @@ export async function regenerateSegmentImage(
 
     const enhancedPrompt = enhancePromptForStyle(image_prompt, style_settings);
 
-    const prediction = await createFluxKontextPrediction({
-      prompt: enhancedPrompt,
-      aspect_ratio: convertAspectRatio(style_settings.aspect_ratio),
-      output_format: 'png',
-      safety_tolerance: 2,
-      prompt_upsampling: style_settings.quality === 'premium'
-    });
+    // Try with normal prompt first, then sanitized if needed
+    let prediction;
+    let completedPrediction;
+    let promptToUse = enhancedPrompt;
 
-    const completedPrediction = await waitForFluxKontextCompletion(prediction.id);
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        if (attempt === 2) {
+          promptToUse = sanitizePromptForSafety(enhancedPrompt);
+          console.log(`🔄 Retrying with sanitized prompt`);
+        }
 
-    if (completedPrediction.status !== 'succeeded' || !completedPrediction.output) {
-      throw new Error(`Image regeneration failed: ${completedPrediction.error || 'No output'}`);
+        prediction = await createFluxKontextPrediction({
+          prompt: promptToUse,
+          aspect_ratio: convertAspectRatio(style_settings.aspect_ratio),
+          output_format: 'png',
+          safety_tolerance: attempt === 1 ? 4 : 6, // Higher tolerance since we pre-sanitize
+          prompt_upsampling: style_settings.quality === 'premium'
+        });
+
+        completedPrediction = await waitForFluxKontextCompletion(prediction.id);
+
+        if (completedPrediction.status === 'succeeded' && completedPrediction.output) {
+          break; // Success!
+        }
+
+        const error = completedPrediction.error || 'No output';
+        if (!error.toLowerCase().includes('sensitive') &&
+            !error.toLowerCase().includes('nsfw') &&
+            !error.toLowerCase().includes('safety')) {
+          throw new Error(`Image regeneration failed: ${error}`);
+        }
+      } catch (error) {
+        if (attempt === 2) throw error; // Final attempt failed
+      }
+    }
+
+    if (!completedPrediction || completedPrediction.status !== 'succeeded' || !completedPrediction.output) {
+      throw new Error(`Image regeneration failed after retries`);
     }
 
     const imageUrl = await uploadImageToStorage(
@@ -244,7 +319,7 @@ export async function regenerateSegmentImage(
  */
 
 function enhancePromptForStyle(
-  basePrompt: string, 
+  basePrompt: string,
   styleSettings: ImageGenerationRequest['style_settings']
 ): string {
   const styleEnhancements = {
@@ -262,11 +337,59 @@ function enhancePromptForStyle(
 
   // Add cinematic quality for diverse storytelling
   const cinematicPrompt = 'cinematic composition, professional storytelling, diverse camera angles, engaging visual narrative';
-  
+
   // Add character consistency emphasis for image generation models
   const consistencyPrompt = 'maintain character consistency, same character throughout series, consistent visual identity';
 
   return `${basePrompt}, ${cinematicPrompt}, ${consistencyPrompt}, ${styleEnhancements[styleSettings.visual_style]}, ${qualityEnhancements[styleSettings.quality]}`.trim();
+}
+
+/**
+ * Lightweight sanitizer as last-resort fallback
+ * Only used if the AI-generated prompt still triggers content filters
+ */
+function sanitizePromptForSafety(prompt: string): string {
+  console.log(`🛡️ Applying last-resort safety sanitization`);
+
+  // Since the orchestrator should already generate safe prompts,
+  // this is just a final fallback that adds extra safety tags
+  // and removes any obvious problem words that slipped through
+
+  // Quick replacements for edge cases
+  const quickFixes: Record<string, string> = {
+    'killed it': 'succeeded',
+    'dead serious': 'very serious',
+    'shooting': 'filming',
+    'shot': 'scene',
+  };
+
+  let sanitized = prompt;
+
+  // Apply quick fixes
+  for (const [pattern, replacement] of Object.entries(quickFixes)) {
+    const regex = new RegExp(`\\b${pattern}\\b`, 'gi');
+    sanitized = sanitized.replace(regex, replacement);
+  }
+
+  // Add extra safety tags if not already present
+  const safetyTags = [
+    'professional',
+    'appropriate',
+    'family-friendly',
+    'suitable for all audiences',
+    'no violence',
+    'no explicit content',
+    'safe for work'
+  ];
+
+  // Check which tags are missing and add them
+  const missingTags = safetyTags.filter(tag => !sanitized.toLowerCase().includes(tag));
+  if (missingTags.length > 0) {
+    sanitized = `${sanitized}, ${missingTags.join(', ')}`;
+  }
+
+  console.log(`✅ Applied fallback safety tags`);
+  return sanitized;
 }
 
 function convertAspectRatio(ratio: string): string {

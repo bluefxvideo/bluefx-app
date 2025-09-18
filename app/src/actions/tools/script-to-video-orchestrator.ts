@@ -3,14 +3,15 @@
 import { generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
-import { 
-  storeScriptVideoResults, 
-  createPredictionRecord, 
+import {
+  storeScriptVideoResults,
+  createPredictionRecord,
   recordGenerationMetrics,
   getUserCredits,
-  deductCredits 
+  deductCredits
 } from '../database/script-video-database';
 import { Json } from '@/types/database';
+import { generateImagesForAllSegments } from '../services/image-generation-service';
 
 /**
  * Script-to-Video AI Orchestrator
@@ -260,21 +261,88 @@ export async function generateScriptToVideo(
     // Step 6: Generate Images using the properly timed segments
     
     try {
-      const imageResults = await generateImagesForAllSegments(mockSegments, request.aspect_ratio || '16:9', request.user_id, batch_id);
-      generatedImages = imageResults;
-      total_credits += (imageResults.length * 4); // 4 credits per image
-      console.log('✅ Images generated with estimated timing:', { 
-        count: imageResults.length,
-        first_url: imageResults[0]?.url ? 'Generated' : 'NULL'
+      const imageResponse = await generateImagesForAllSegments(
+        {
+          segments: mockSegments.map(seg => ({
+            id: seg.id,
+            image_prompt: seg.image_prompt,
+            duration: seg.duration
+          })),
+          style_settings: {
+            visual_style: 'realistic',
+            aspect_ratio: (request.aspect_ratio || '16:9') as any,
+            quality: request.quality || 'standard'
+          },
+          user_id: request.user_id,
+          batch_id
+        }
+      );
+
+      // Handle partial success
+      if (imageResponse.partial_failure && imageResponse.failed_segments) {
+        console.warn(`⚠️ Partial image generation failure: ${imageResponse.failed_segments.length} segments failed`);
+        warnings.push(`${imageResponse.failed_segments.length} images failed to generate due to content policy. Using fallback images.`);
+
+        // Log specific failures for debugging
+        imageResponse.failed_segments.forEach(failed => {
+          console.log(`   🚫 Segment ${failed.segment_id}: ${failed.error}`);
+        });
+
+        // Use placeholder images for failed segments
+        const allImages: typeof generatedImages = [];
+        mockSegments.forEach((segment, idx) => {
+          const generatedImg = imageResponse.generated_images?.find(img => img.segment_id === segment.id);
+          if (generatedImg) {
+            allImages.push({
+              url: generatedImg.image_url,
+              segment_index: idx,
+              prompt: generatedImg.prompt
+            });
+          } else {
+            // Use a placeholder image for failed segments
+            allImages.push({
+              url: '/images/placeholder-video-frame.svg', // SVG placeholder for failed generations
+              segment_index: idx,
+              prompt: `[Failed to generate: ${segment.image_prompt}]`
+            });
+          }
+        });
+        generatedImages = allImages;
+      } else if (imageResponse.success && imageResponse.generated_images) {
+        // Full success
+        generatedImages = imageResponse.generated_images.map((img, idx) => ({
+          url: img.image_url,
+          segment_index: idx,
+          prompt: img.prompt
+        }));
+      } else {
+        // Complete failure - use all placeholders
+        console.error('❌ Complete image generation failure');
+        warnings.push('All images failed to generate. Using placeholder images.');
+        generatedImages = mockSegments.map((seg, idx) => ({
+          url: '/images/placeholder-video-frame.svg',
+          segment_index: idx,
+          prompt: `[Failed: ${seg.image_prompt}]`
+        }));
+      }
+
+      total_credits += imageResponse.credits_used;
+      console.log('✅ Image generation completed:', {
+        successful: generatedImages.filter(img => !img.url.includes('placeholder')).length,
+        failed: generatedImages.filter(img => img.url.includes('placeholder')).length,
+        total: generatedImages.length
       });
-      optimization_applied.push('Images generated with estimated timing');
-      
+
+      if (generatedImages.filter(img => !img.url.includes('placeholder')).length > 0) {
+        optimization_applied.push('Images generated with fallback support');
+      }
+
       // Store image metadata for structured storage
       imageMetadata = {
         generation_params: {
           aspect_ratio: request.aspect_ratio || '16:9',
           visual_style: 'realistic',
-          quality: 'standard',
+          quality: request.quality || 'standard',
           model: 'flux-kontext-pro'
         },
         consistency_settings: {
@@ -282,28 +350,54 @@ export async function generateScriptToVideo(
           visual_style: storyContext?.visual_style || 'realistic',
           setting: storyContext?.setting || 'general'
         },
-        seed_values: imageResults.map((img, idx) => ({
+        seed_values: generatedImages.map((img, idx) => ({
           segment_index: idx,
           prompt: img.prompt,
-          url: img.url
+          url: img.url,
+          is_placeholder: img.url.includes('placeholder')
         })),
         generation_timestamp: new Date().toISOString(),
-        total_images: imageResults.length,
-        credits_used: imageResults.length * 4
+        total_images: generatedImages.length,
+        successful_images: generatedImages.filter(img => !img.url.includes('placeholder')).length,
+        failed_images: generatedImages.filter(img => img.url.includes('placeholder')).length,
+        credits_used: imageResponse.credits_used
       };
     } catch (error) {
-      console.error('❌ Image generation failed completely:', error);
-      // Allow continuation with a warning instead of throwing
-      warnings.push(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
-      
-      // Set empty result to continue with other processing
-      imagesResult = {
-        success: false,
-        generated_images: [],
+      console.error('❌ Image generation service error:', error);
+      // Complete failure - use placeholders for all segments
+      warnings.push(`Image generation service error: ${error instanceof Error ? error.message : String(error)}. Using placeholder images.`);
+
+      generatedImages = mockSegments.map((seg, idx) => ({
+        url: '/images/placeholder-video-frame.png',
+        segment_index: idx,
+        prompt: `[Error: ${seg.image_prompt}]`
+      }));
+
+      imageMetadata = {
+        generation_params: {
+          aspect_ratio: request.aspect_ratio || '16:9',
+          visual_style: 'realistic',
+          quality: request.quality || 'standard',
+          model: 'flux-kontext-pro'
+        },
+        consistency_settings: {
+          characters: storyContext?.main_characters || [],
+          visual_style: storyContext?.visual_style || 'realistic',
+          setting: storyContext?.setting || 'general'
+        },
+        seed_values: generatedImages.map((img, idx) => ({
+          segment_index: idx,
+          prompt: img.prompt,
+          url: img.url,
+          is_placeholder: true
+        })),
+        generation_timestamp: new Date().toISOString(),
+        total_images: mockSegments.length,
+        successful_images: 0,
+        failed_images: mockSegments.length,
         credits_used: 0,
-            total_generation_time_ms: 0,
-            error: error instanceof Error ? error.message : String(error)
-          };
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
 
     // Note: Video assembly happens in the React Video Editor with Remotion
@@ -664,68 +758,8 @@ async function generateVoiceForAllSegments(
   };
 }
 
-async function generateImagesForAllSegments(segments: any[], aspectRatio: string, user_id: string, batch_id: string) {
-  // Import the image generation service
-  const { generateImagesForAllSegments: generateImages } = await import('../services/image-generation-service');
-  
-  // Prepare request
-  const imageRequest = {
-    segments: segments.map(s => ({
-      id: crypto.randomUUID(),
-      image_prompt: s.image_prompt,
-      duration: s.duration
-    })),
-    style_settings: {
-      visual_style: 'realistic' as const,
-      aspect_ratio: aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '4:5',
-      quality: 'standard' as const
-    },
-    user_id,
-    batch_id
-  };
-
-  // Generate images using FLUX Kontext Pro
-  const result = await generateImages(imageRequest);
-  
-  if (!result.success) {
-    console.error(`❌ Image generation failed: ${result.error}`);
-    
-    // Log details about failed segments if any
-    if (result.failed_segments && result.failed_segments.length > 0) {
-      console.log('❌ Failed segments:');
-      result.failed_segments.forEach(failed => {
-        if (failed.error.includes('sensitive')) {
-          console.log(`   🚫 Segment ${failed.segment_id}: Content flagged as sensitive`);
-        } else {
-          console.log(`   ❌ Segment ${failed.segment_id}: ${failed.error}`);
-        }
-      });
-    }
-    
-    // Return empty array instead of throwing - let the orchestrator handle it
-    return [];
-  }
-
-  // Return in expected format
-  const images = result.generated_images || [];
-  
-  // Log partial success if some images failed
-  if (result.partial_failure && result.failed_segments) {
-    console.log(`⚠️ Partial success: ${images.length} images generated, ${result.failed_segments.length} failed`);
-    result.failed_segments.forEach(failed => {
-      if (failed.error.includes('sensitive')) {
-        console.log(`   🚫 Segment ${failed.segment_id}: Content flagged as sensitive`);
-      }
-    });
-  }
-  
-  return images.map((img, index) => ({
-    url: img.image_url,
-    segment_index: index,
-    prompt: img.prompt,
-    credits_used: images.length > 0 ? result.credits_used / images.length : 0
-  }));
-}
+// This function is no longer needed as we call the service directly
+// Keeping for backward compatibility if needed elsewhere
 
 // Note: Individual segment voice generation removed in favor of batch generation for efficiency
 // If needed for editing scenarios, use the voice-generation-service directly
@@ -752,37 +786,64 @@ async function createStoryBasedSegments(script: string, _segmentAnalysis: { segm
           image_prompt: z.string().describe('Scene description that references character descriptions when characters appear')
         }))
       }),
-      prompt: `Analyze this script and create a professional visual narrative: "${script}"
+      prompt: `Analyze this script and create a professional, family-friendly visual narrative: "${script}"
 
 ${originalIdea ? `CORE CONCEPT: "${originalIdea}" - This should be central to the story and main character design.` : ''}
 
 IMPORTANT: Create EXACTLY ${segmentCount} segments. Split the narrative evenly across ${segmentCount} scenes.
 
+🛡️ CONTENT SAFETY GUIDELINES:
+You MUST ensure all content is appropriate for all audiences. This means:
+- NO violence, weapons, or conflict descriptions
+- NO medical, injury, or health-related imagery
+- NO political figures or controversial topics
+- NO suggestive or adult themes
+- Use positive, uplifting, professional language
+- Focus on constructive, educational, or entertaining content
+- Replace any potentially sensitive concepts with safe alternatives:
+  • Instead of "conflict" → use "challenge" or "obstacle"
+  • Instead of "fight/battle" → use "compete" or "overcome"
+  • Instead of "attack/assault" → use "approach" or "engage"
+  • Instead of medical terms → use general wellness terms
+  • Instead of weapons → use tools or equipment
+
 STEP 1 - CHARACTER DESIGN:
-First, extract and define the main characters with detailed, reusable visual descriptions. Include specific colors, features, clothing, and distinctive characteristics that will remain consistent whenever they appear.
+Create wholesome, professional characters with detailed visual descriptions. Include:
+- Professional or casual appropriate clothing
+- Positive, friendly expressions
+- Distinctive but appropriate characteristics
+- Specific colors and features for consistency
 
 STEP 2 - SEGMENT CREATION:
 Create exactly ${segmentCount} natural story segments by dividing the narrative evenly. For each segment, provide:
 
-TEXT_CONTENT: Pure narrative text that will be spoken by a narrator. NO segment labels, numbers, or visual descriptions. Only the actual words to be read aloud.
+TEXT_CONTENT: Pure narrative text that will be spoken by a narrator. Keep it positive and appropriate. NO segment labels, numbers, or visual descriptions. Only the actual words to be read aloud.
 
-IMAGE_PROMPT: Separate visual description for generating the scene image. CRITICAL: When characters appear, you MUST reference their exact character descriptions by name to ensure visual consistency across all segments.
+IMAGE_PROMPT: Visual description for generating the scene. MUST be family-friendly and professional. Always add these safety tags at the end: "professional, appropriate, family-friendly, suitable for all audiences"
+
+When describing scenes:
+- Use bright, positive imagery
+- Focus on constructive actions and outcomes
+- Emphasize learning, growth, or achievement
+- Avoid dark, violent, or controversial themes
+- Include diverse, inclusive representations
 
 EXAMPLES OF GOOD TEXT_CONTENT:
 ✅ "The Aurora One soars through the clouds, its sleek design cutting through the morning sky."
 ✅ "Advanced technology meets elegant craftsmanship in this revolutionary aircraft."
+✅ "The team celebrates their achievement with enthusiasm and joy."
 
-EXAMPLES OF BAD TEXT_CONTENT (DO NOT DO THIS):
-❌ "Segment 1: Opening shot - The Aurora One soars through clouds"
-❌ "Scene description: Advanced technology meets craftsmanship"
-❌ "Closing shot, the Aurora One flies into the horizon"
+EXAMPLES OF GOOD IMAGE_PROMPTS:
+✅ "Modern office with diverse professionals collaborating on a project, bright lighting, positive atmosphere, professional, appropriate, family-friendly"
+✅ "Beautiful landscape with mountains and clear blue sky, peaceful scenery, professional photography, suitable for all audiences"
 
 CRITICAL FOR CHARACTER CONSISTENCY:
 - Every image prompt featuring a character MUST include their exact visual description
-- Use specific details like colors, features, clothing, and distinctive characteristics
+- Use specific details like colors, features, appropriate clothing
 - The same character should look identical in every segment they appear in
+- All characters must be dressed appropriately and professionally
 
-Focus on natural story progression with clean narrative text that flows naturally when spoken.`
+Focus on natural story progression with clean, positive narrative text that flows naturally when spoken.`
     });
 
     console.log('✅ Storyboard created:', storyboard.segments.length, 'segments');
@@ -803,8 +864,11 @@ Focus on natural story progression with clean narrative text that flows naturall
       const characterDescriptions = storyboard.main_characters
         .map(char => `${char.name}: ${char.description}`)
         .join('. ');
-      
-      const enhancedPrompt = `${scene.image_prompt}. Characters: ${characterDescriptions}. Style: ${storyboard.visual_style}`;
+
+      // Always add safety guidelines to the enhanced prompt
+      const safetyTags = 'professional, appropriate, family-friendly, suitable for all audiences, no violence, no explicit content';
+
+      const enhancedPrompt = `${scene.image_prompt}. Characters: ${characterDescriptions}. Style: ${storyboard.visual_style}. ${safetyTags}`;
       
       console.log(`Segment ${index + 1} text: "${scene.text_content}"`);
       console.log(`Segment ${index + 1} enhanced prompt: "${enhancedPrompt}"`);
