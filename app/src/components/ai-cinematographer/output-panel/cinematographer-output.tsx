@@ -41,11 +41,11 @@ export function CinematographerOutput({
     videoUrl: result?.video?.video_url
   });
 
-  // Loading state with premium styling - but show video placeholder if we have result data (state restoration)
+  // Loading state with premium styling - show video placeholder if we have result data
   if (isGenerating) {
-    // If we have result data, show the same clean VideoPreview as completed state
+    // If we have result data from the hook, use it
     if (result && result.success && result.video) {
-      console.log('📺 Showing uniform VideoPreview for:', result.batch_id);
+      console.log('📺 Showing VideoPreview during generation for:', result.batch_id);
       return (
         <div className="h-full flex items-center justify-center overflow-auto">
           <div className="w-full max-w-4xl">
@@ -58,33 +58,13 @@ export function CinematographerOutput({
       );
     }
 
-    // Show VideoPreview card with placeholder data (uniform design)
-    console.log('⚠️ Creating placeholder result for uniform card display');
-    
-    const placeholderResult: CinematographerResponse = {
-      success: true,
-      batch_id: `initializing_${Date.now()}`,
-      generation_time_ms: 0,
-      credits_used: 0,
-      remaining_credits: 0,
-      video: {
-        id: `initializing_${Date.now()}`,
-        video_url: '', // Empty to show processing state
-        thumbnail_url: '',
-        duration: 5, // Default duration
-        aspect_ratio: '16:9',
-        prompt: 'Initializing video generation...',
-        created_at: new Date().toISOString()
-      }
-    };
-
+    // Fallback loading state (this shouldn't happen with current hook logic)
+    console.log('⏳ Showing loading state without result data');
     return (
-      <div className="h-full flex items-center justify-center overflow-auto">
-        <div className="w-full max-w-4xl">
-          <VideoPreview
-            video={placeholderResult.video}
-            batchId={placeholderResult.batch_id}
-          />
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-muted-foreground">Initializing video generation...</p>
         </div>
       </div>
     );

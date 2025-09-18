@@ -89,7 +89,7 @@ export function useAICinematographer() {
         thumbnail_url: '',
         duration: 5, // Default duration
         aspect_ratio: request.aspect_ratio || '16:9',
-        prompt: request.video_concept,
+        prompt: request.prompt,
         created_at: new Date().toISOString()
       }
     };

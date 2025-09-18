@@ -144,7 +144,7 @@ export async function executeAICinematographer(
           batch_id,
           generation_time_ms: Date.now() - startTime,
           credits_used: 0,
-          remaining_credits: currentCredits,
+          remaining_credits: creditCheck.credits || 0,
         };
       }
     }
@@ -348,7 +348,7 @@ async function handleVideoGeneration(
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,
       remaining_credits: creditDeduction.remainingCredits || 0,
-      warnings: referenceImageUrl ? undefined : ['No reference image provided - video will be generated from prompt only'],
+      warnings: undefined,
     };
 
   } catch (error) {
