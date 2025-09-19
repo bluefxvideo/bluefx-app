@@ -18,6 +18,8 @@ interface ScriptVideoHistoryItem {
   resolution?: string;
   processing_logs?: any;
   editor_data?: any;
+  editor_metadata?: any;
+  remotion_composition?: any;
 }
 
 export function HistoryOutput() {
@@ -75,11 +77,56 @@ export function HistoryOutput() {
     }
   };
 
-  const handleReEdit = (video: ScriptVideoHistoryItem) => {
-    if (video.editor_data) {
-      // TODO: Load editor state and navigate to editor
-      console.log('Re-edit video:', video.id);
-      console.log('Editor data available:', video.editor_data);
+  const handleReEdit = async (video: ScriptVideoHistoryItem) => {
+    // Every video should be editable - the editor can load from the video ID
+    console.log('Opening editor for video:', video.id);
+
+    try {
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) {
+        console.error('No user found');
+        return;
+      }
+
+      // Determine the editor URL based on environment
+      // Check for environment variable first, then fallback to detection
+      let editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL;
+
+      if (!editorBaseUrl) {
+        const hostname = window.location.hostname;
+
+        // Check different environments
+        if (hostname === 'ai.bluefx.net' || hostname === 'app.bluefx.net') {
+          // Production
+          editorBaseUrl = 'https://editor.bluefx.net';
+        } else if (hostname.includes('github.dev') || hostname.includes('app.github.dev')) {
+          // GitHub Codespaces - use port forwarding
+          const codespacePrefix = hostname.split('-')[0];
+          editorBaseUrl = `https://${codespacePrefix}-5173.app.github.dev`;
+        } else {
+          // Local development
+          editorBaseUrl = 'http://localhost:5173';
+        }
+
+        console.log('Detected editor URL:', editorBaseUrl, 'from hostname:', hostname);
+      }
+
+      // Get the current app URL for API calls
+      const apiUrl = window.location.origin;
+
+      // Build the editor URL with parameters
+      const editorUrl = new URL('/', editorBaseUrl);
+      editorUrl.searchParams.set('videoId', video.id);
+      editorUrl.searchParams.set('userId', userData.user.id);
+      editorUrl.searchParams.set('apiUrl', apiUrl);
+
+      console.log('Opening editor:', editorUrl.toString());
+
+      // Navigate to the editor
+      window.location.href = editorUrl.toString();
+    } catch (error) {
+      console.error('Error opening editor:', error);
     }
   };
 
@@ -195,9 +242,16 @@ export function HistoryOutput() {
                       {video.script_content || 'No description'}
                     </p>
                   </div>
-                  <Badge variant="outline" className="ml-2">
-                    {video.resolution || '1080p'}
-                  </Badge>
+                  <div className="flex gap-1 ml-2">
+                    <Badge variant={video.video_url ? "default" : "secondary"}>
+                      {video.video_url ? 'Exported' : 'Draft'}
+                    </Badge>
+                    {video.resolution && (
+                      <Badge variant="outline">
+                        {video.resolution}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -270,20 +324,26 @@ export function HistoryOutput() {
                         </Button>
                       </>
                     )}
-                    {video.editor_data && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleReEdit(video);
-                        }}
-                        className="flex-1"
-                      >
-                        <Edit className="w-3 h-3 mr-1" />
-                        Re-edit
-                      </Button>
-                    )}
+                    {/* Always show editing button - every video should be editable */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Edit clicked for video:', {
+                          id: video.id,
+                          hasEditorData: !!video.editor_data,
+                          hasEditorMetadata: !!video.editor_metadata,
+                          hasRemotionComposition: !!video.remotion_composition,
+                          hasVideoUrl: !!video.video_url
+                        });
+                        handleReEdit(video);
+                      }}
+                      className="flex-1"
+                    >
+                      <Edit className="w-3 h-3 mr-1" />
+                      {video.video_url ? 'Re-edit' : 'Continue Editing'}
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

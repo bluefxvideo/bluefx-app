@@ -31,6 +31,64 @@ interface DownloadState {
 
 //const baseUrl = "https://api.combo.sh/v1";
 
+// Helper function to store exported video in Supabase
+async function storeExportedVideo(videoUrl: string, renderId: string) {
+	try {
+		// Get URL parameters to identify the video
+		const urlParams = new URLSearchParams(window.location.search);
+		const videoId = urlParams.get('videoId');
+		const userId = urlParams.get('userId');
+		const apiUrl = urlParams.get('apiUrl') || window.location.origin;
+
+		if (!videoId || !userId) {
+			console.warn('Missing videoId or userId for storing export');
+			return;
+		}
+
+		// Build the full video URL from Remotion server
+		const fullVideoUrl = videoUrl.startsWith('http')
+			? videoUrl
+			: `${window.location.origin}${videoUrl}`;
+
+		console.log('📤 Storing exported video to Supabase:', {
+			videoId,
+			userId,
+			videoUrl: fullVideoUrl
+		});
+
+		// Call the store-export API endpoint
+		const response = await fetch(`${apiUrl}/api/script-video/store-export`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				video_url: fullVideoUrl,
+				video_id: videoId,
+				batch_id: renderId,
+				duration_seconds: 0, // TODO: Get actual duration
+				file_size_mb: 0, // TODO: Get actual file size
+				export_settings: {
+					format: 'mp4',
+					quality: 'high'
+				}
+			}),
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to store video');
+		}
+
+		const result = await response.json();
+		console.log('✅ Video stored successfully:', result);
+		return result;
+	} catch (error) {
+		console.error('❌ Failed to store exported video:', error);
+		// Don't throw - we don't want to fail the whole export process
+	}
+}
+
 export const useDownloadState = create<DownloadState>((set, get) => ({
 	projectId: "",
 	exporting: false,
@@ -98,8 +156,11 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 					set({ progress });
 
 					if (status === "COMPLETED") {
-						set({ 
-							exporting: false, 
+						// Store the exported video in Supabase
+						await storeExportedVideo(url, videoId);
+
+						set({
+							exporting: false,
 							output: { url, type: get().exportType },
 							activeRenderVideoId: undefined // Clear active render on completion
 						});
@@ -140,8 +201,11 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 						set({ progress });
 
 						if (status === "COMPLETED") {
-							set({ 
-								exporting: false, 
+							// Store the exported video in Supabase
+							await storeExportedVideo(url, state.activeRenderVideoId);
+
+							set({
+								exporting: false,
 								output: { url, type: get().exportType },
 								activeRenderVideoId: undefined
 							});
