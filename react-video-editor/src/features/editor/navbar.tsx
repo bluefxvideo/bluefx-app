@@ -23,7 +23,8 @@ import {
 	Settings,
 	Sparkles,
 	Loader2,
-	Check
+	Check,
+	ArrowLeft
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -171,21 +172,42 @@ export default function Navbar({
 		setTitle(e.target.value);
 	};
 
+	// Handle back navigation to main app
+	const handleBackToApp = () => {
+		const { apiUrl } = getUrlParams();
+		const mainAppUrl = apiUrl || window.location.origin;
+		// Navigate to the script-to-video page in the main app
+		const targetUrl = `${mainAppUrl}/dashboard/script-to-video`;
+		window.location.href = targetUrl;
+	};
+
 	return (
-		<nav className="flex h-14 items-center justify-between border-b border-border/80 bg-background px-4">
+		<nav className="flex h-14 items-center justify-between border-b border-border/80 bg-background px-[10px]">
 			<DownloadProgressModal />
-			
+
 			{/* Left Section - Project Info */}
-			<div className="flex items-center gap-4">
+			<div className="flex items-center gap-[10px]">
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={handleBackToApp}
+					className="text-muted-foreground hover:text-foreground"
+					title="Back to BlueFX"
+				>
+					<ArrowLeft className="h-4 w-4" />
+				</Button>
+
+				<div className="h-6 w-px bg-border/80" />
+
 				<div className="flex items-center gap-2">
 					<div className="flex h-8 w-8 items-center justify-center rounded bg-gradient-to-br from-blue-500 to-cyan-500">
 						<Sparkles className="h-4 w-4 text-white" />
 					</div>
 					<span className="text-sm font-semibold">BlueFX Editor</span>
 				</div>
-				
+
 				<div className="h-6 w-px bg-border/80" />
-				
+
 				<div className="flex items-center gap-2">
 					<Input
 						value={title}
