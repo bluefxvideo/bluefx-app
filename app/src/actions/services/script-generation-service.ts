@@ -48,11 +48,13 @@ Requirements:
 - Pacing: ${pacing}
 - Platform: Social media (TikTok/Instagram style)
 
-IMPORTANT: Return ONLY the narration text that will be spoken. 
+IMPORTANT: Return ONLY the narration text that will be spoken.
 - NO visual directions (like "opening shot", "cut to", "close-up")
 - NO stage directions or camera instructions
 - NO scene descriptions
 - Just the pure script that the narrator will speak
+- MUST include proper punctuation (periods, commas, question marks, exclamation points)
+- Every sentence MUST end with appropriate punctuation (. ! ?)
 
 Style Guidelines:
 - Use conversational language that feels natural when spoken
@@ -60,6 +62,23 @@ Style Guidelines:
 - Match ${tone} tone throughout
 - Create an engaging hook in the first sentence
 - End with a clear call-to-action
+- Use proper grammar and punctuation throughout
+
+AVOID these overused openings:
+- "Have you ever heard..."
+- "Ever wondered..."
+- "Have you ever wondered..."
+- "Did you know that..."
+- "What if I told you..."
+
+Instead, start with:
+- A surprising fact or statistic ("90% of people don't know...")
+- A bold statement ("This changes everything about...")
+- A specific scenario ("Picture this: you're standing...")
+- An action or moment ("The moment I discovered...")
+- A direct question without "ever" ("Why do successful people...")
+- A contradiction ("Everyone thinks X, but actually...")
+- An intriguing number ("3 seconds. That's all it takes to...")
 
 The script should flow naturally as spoken content, engaging viewers from start to finish.`
     });

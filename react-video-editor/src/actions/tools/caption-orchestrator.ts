@@ -10,13 +10,15 @@ import { analyzeAudioWithWhisper, WhisperAnalysisResponse } from '../../services
  */
 
 export interface CaptionGenerationOptions {
-  maxWordsPerChunk?: number;      // Default: 6 words
+  maxWordsPerChunk?: number;      // Default: 5 words (reduced for better readability)
   minChunkDuration?: number;      // Default: 0.833 seconds (5/6 second)
-  maxChunkDuration?: number;      // Default: 4.0 seconds
+  maxChunkDuration?: number;      // Default: 3.5 seconds
   frameRate?: number;             // Default: 30fps
   maxCharsPerLine?: number;       // Default: 42 characters
   contentType?: 'educational' | 'standard' | 'fast';  // Default: 'standard'
   audioDuration?: number;         // Known audio duration in seconds for boundary checking
+  segmentBoundaries?: number[];   // Image segment transition times in seconds
+  alignWithSegments?: boolean;    // Prefer caption breaks at segment boundaries
 }
 
 export interface ProfessionalCaptionChunk {
@@ -68,9 +70,9 @@ export async function generateCaptionsForAudio(
 
   // Set defaults
   const opts = {
-    maxWordsPerChunk: 6,
+    maxWordsPerChunk: 5,       // Reduced from 6 to 5 for better readability
     minChunkDuration: 0.833,  // 5/6 second minimum
-    maxChunkDuration: 4.0,
+    maxChunkDuration: 3.5,     // Reduced from 4.0 to 3.5 seconds
     frameRate: 30,
     maxCharsPerLine: 42,
     contentType: 'standard' as const,
@@ -218,16 +220,20 @@ function createProfessionalCaptionChunks(
     const word = words[i];
     currentChunk.push(word);
 
-    // Check if we should end this chunk
+    // Simple content analysis
+    const isPunctuation = word.word.match(/[.!?]$/);
+    const hasLongPause = i < words.length - 1 && words[i + 1].start - word.end > 0.3;
+
+    // Simple check: should we end this chunk?
     const shouldEndChunk = (
-      // Max words reached
+      // Reached our target word count (3-5 words)
       currentChunk.length >= options.maxWordsPerChunk ||
-      // Natural pause (gap between words > 0.5s)
-      (i < words.length - 1 && words[i + 1].start - word.end > 0.5) ||
-      // Punctuation boundary
-      word.word.match(/[.!?]$/) ||
+      // Natural pause detected
+      (hasLongPause && currentChunk.length >= 3) ||
+      // End of sentence (with at least 3 words)
+      (isPunctuation && currentChunk.length >= 3) ||
       // Max duration reached
-      (word.end - currentChunk[0].start) >= options.maxChunkDuration ||
+      (currentChunk.length > 0 && (word.end - currentChunk[0].start) >= options.maxChunkDuration) ||
       // Last word
       i === words.length - 1
     );

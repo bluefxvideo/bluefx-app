@@ -807,19 +807,20 @@ async function autoGenerateCaptions(
     
     // Import caption generation functions
     const { generateCaptionsFromRequest } = await import('../../../actions/generate-captions');
-    
-    // Generate captions using the same request format as the UI component
+
+    // Generate captions with simple, clear options
     const captionRequest = {
       audioUrl: audioUrl,
       userId: userId,
       videoId: videoData.videoId,
       options: {
-        style: 'modern' as const,
-        position: 'bottom' as const,
-        fontSize: 'medium' as const,
-        maxWordsPerLine: 6,
-        generator: 'whisper-caption-orchestrator' as const,
-        audioDuration: totalDuration // Pass audio duration for proper caption boundary checking
+        maxWordsPerChunk: 5,      // 3-5 words per chunk
+        minChunkDuration: 0.833,  // Minimum duration
+        maxChunkDuration: 3.5,    // Maximum duration
+        frameRate: 30,
+        maxCharsPerLine: 42,
+        contentType: 'standard' as const,
+        audioDuration: totalDuration // Pass audio duration for boundary checking
       }
     };
     
