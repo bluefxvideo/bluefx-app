@@ -345,14 +345,28 @@ export async function getLatestScriptVideoResults(user_id: string) {
 
 export async function getUserCredits(user_id: string) {
   try {
+    // Query the user_credits table directly like other tools do
     const { data, error } = await supabase
-      .rpc('get_user_credit_balance', { user_uuid: user_id });
+      .from('user_credits')
+      .select('available_credits')
+      .eq('user_id', user_id)
+      .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Credits fetch error:', error);
+      // If no credits record exists, return 0 credits
+      if (error.code === 'PGRST116') {
+        return {
+          success: true,
+          credits: 0
+        };
+      }
+      throw error;
+    }
 
     return {
       success: true,
-      credits: data || 0
+      credits: data?.available_credits || 0
     };
   } catch (error) {
     console.error('Error getting user credits:', error);
@@ -371,39 +385,88 @@ export async function deductCredits(
   metadata: Json
 ) {
   try {
-    // Get current balance first
-    const currentBalance = await getUserCredits(user_id);
-    
-    if (!currentBalance.success || (currentBalance.credits || 0) < amount) {
+    // First check if user has enough credits
+    const { data: credits, error: creditsError } = await supabase
+      .from('user_credits')
+      .select('available_credits, period_end')
+      .eq('user_id', user_id)
+      .single();
+
+    if (creditsError && creditsError.code !== 'PGRST116') {
+      console.error('Credits check error:', creditsError);
       return {
         success: false,
-        error: 'Insufficient credits',
-        remainingCredits: currentBalance.credits || 0
+        error: `Failed to check credits: ${creditsError.message}`,
+        remainingCredits: 0
       };
     }
 
-    // Record the debit transaction
-    const { data, error } = await supabase
+    // If no credits record or available credits < required amount or period expired, top up first
+    const needsTopup = !credits ||
+                      (credits.available_credits < amount) ||
+                      (new Date(credits.period_end) < new Date());
+
+    if (needsTopup) {
+      console.log(`Auto top-up needed for user ${user_id}. Current credits: ${credits?.available_credits || 0}`);
+
+      // Top up to 600 credits using RPC function
+      const { data: topupData, error: topupError } = await supabase
+        .rpc('topup_user_credits', {
+          p_user_id: user_id,
+          p_target_credits: 600
+        });
+
+      if (topupError || !topupData?.success) {
+        console.error('Auto top-up failed:', topupError);
+        return {
+          success: false,
+          error: 'Unable to allocate credits. Please try again or contact support.',
+          remainingCredits: credits?.available_credits || 0
+        };
+      }
+
+      console.log('Auto top-up successful:', topupData);
+    }
+
+    // Now deduct the credits
+    const { data: deductData, error: deductError } = await supabase
+      .rpc('deduct_user_credits', {
+        p_user_id: user_id,
+        p_credits_to_deduct: amount
+      });
+
+    if (deductError || !deductData?.success) {
+      console.error('Credit deduction failed:', deductError);
+      return {
+        success: false,
+        error: deductData?.message || 'Failed to deduct credits',
+        remainingCredits: deductData?.remaining_credits || 0
+      };
+    }
+
+    // Record the transaction in credit_transactions table
+    const { error: txError } = await supabase
       .from('credit_transactions')
       .insert({
         user_id,
         transaction_type: 'debit',
-        amount: -amount, // negative for deduction
-        balance_after: (currentBalance.credits || 0) - amount,
+        amount: -amount,
+        balance_after: deductData.remaining_credits,
         operation_type,
         description: `Credits used for ${operation_type}`,
         metadata,
         status: 'completed'
-      })
-      .select()
-      .single();
+      });
 
-    if (error) throw error;
+    if (txError) {
+      console.error('Transaction recording error:', txError);
+      // Don't fail the whole operation if just transaction logging fails
+    }
 
     return {
       success: true,
-      remainingCredits: data.balance_after,
-      transaction_id: data.id
+      remainingCredits: deductData.remaining_credits,
+      transaction_id: deductData.transaction_id
     };
   } catch (error) {
     console.error('Error deducting credits:', error);
