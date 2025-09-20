@@ -1,5 +1,5 @@
 # Multi-stage build for React Video Editor Next.js app
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -19,7 +19,14 @@ WORKDIR /app
 
 # Accept build arguments for environment variables
 ARG NEXT_PUBLIC_MAIN_APP_URL
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG REPLICATE_API_TOKEN
+
 ENV NEXT_PUBLIC_MAIN_APP_URL=$NEXT_PUBLIC_MAIN_APP_URL
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV REPLICATE_API_TOKEN=$REPLICATE_API_TOKEN
 
 COPY package*.json ./
 COPY yarn.lock* ./
