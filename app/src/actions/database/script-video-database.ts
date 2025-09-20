@@ -385,88 +385,37 @@ export async function deductCredits(
   metadata: Json
 ) {
   try {
-    // First check if user has enough credits
-    const { data: credits, error: creditsError } = await supabase
-      .from('user_credits')
-      .select('available_credits, period_end')
-      .eq('user_id', user_id)
-      .single();
+    // Use the same RPC function as thumbnail-machine
+    const { data, error } = await supabase
+      .rpc('deduct_user_credits', {
+        p_user_id: user_id,
+        p_amount: amount,
+        p_operation: operation_type,
+        p_metadata: metadata
+      });
 
-    if (creditsError && creditsError.code !== 'PGRST116') {
-      console.error('Credits check error:', creditsError);
+    if (error) {
+      console.error('Credit deduction RPC error:', error);
       return {
         success: false,
-        error: `Failed to check credits: ${creditsError.message}`,
+        error: `Failed to deduct credits: ${error.message}`,
         remainingCredits: 0
       };
     }
 
-    // If no credits record or available credits < required amount or period expired, top up first
-    const needsTopup = !credits ||
-                      (credits.available_credits < amount) ||
-                      (new Date(credits.period_end) < new Date());
-
-    if (needsTopup) {
-      console.log(`Auto top-up needed for user ${user_id}. Current credits: ${credits?.available_credits || 0}`);
-
-      // Top up to 600 credits using RPC function
-      const { data: topupData, error: topupError } = await supabase
-        .rpc('topup_user_credits', {
-          p_user_id: user_id,
-          p_target_credits: 600
-        });
-
-      if (topupError || !topupData?.success) {
-        console.error('Auto top-up failed:', topupError);
-        return {
-          success: false,
-          error: 'Unable to allocate credits. Please try again or contact support.',
-          remainingCredits: credits?.available_credits || 0
-        };
-      }
-
-      console.log('Auto top-up successful:', topupData);
-    }
-
-    // Now deduct the credits
-    const { data: deductData, error: deductError } = await supabase
-      .rpc('deduct_user_credits', {
-        p_user_id: user_id,
-        p_credits_to_deduct: amount
-      });
-
-    if (deductError || !deductData?.success) {
-      console.error('Credit deduction failed:', deductError);
+    // Check the result from the RPC function
+    if (!data || !data.success) {
       return {
         success: false,
-        error: deductData?.message || 'Failed to deduct credits',
-        remainingCredits: deductData?.remaining_credits || 0
+        error: data?.error || 'Credit deduction failed',
+        remainingCredits: data?.remaining_credits || 0
       };
-    }
-
-    // Record the transaction in credit_transactions table
-    const { error: txError } = await supabase
-      .from('credit_transactions')
-      .insert({
-        user_id,
-        transaction_type: 'debit',
-        amount: -amount,
-        balance_after: deductData.remaining_credits,
-        operation_type,
-        description: `Credits used for ${operation_type}`,
-        metadata,
-        status: 'completed'
-      });
-
-    if (txError) {
-      console.error('Transaction recording error:', txError);
-      // Don't fail the whole operation if just transaction logging fails
     }
 
     return {
       success: true,
-      remainingCredits: deductData.remaining_credits,
-      transaction_id: deductData.transaction_id
+      remainingCredits: data.remaining_credits,
+      transaction_id: data.transaction_id
     };
   } catch (error) {
     console.error('Error deducting credits:', error);
