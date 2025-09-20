@@ -115,11 +115,19 @@ export function HistoryOutput() {
       // Get the current app URL for API calls
       const apiUrl = window.location.origin;
 
+      // Get auth session for token
+      const { data: session } = await supabase.auth.getSession();
+
       // Build the editor URL with parameters
       const editorUrl = new URL('/', editorBaseUrl);
       editorUrl.searchParams.set('videoId', video.id);
       editorUrl.searchParams.set('userId', userData.user.id);
       editorUrl.searchParams.set('apiUrl', apiUrl);
+
+      // Pass auth token if available
+      if (session?.session?.access_token) {
+        editorUrl.searchParams.set('token', session.session.access_token);
+      }
 
       console.log('Opening editor:', editorUrl.toString());
 

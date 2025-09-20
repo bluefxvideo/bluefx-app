@@ -270,12 +270,19 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		const hasVideoId = urlParams.get('videoId');
 		const hasLegacyId = urlParams.get('loadAI');
 		const hasMockMode = urlParams.get('mock') === 'true';
-		
+
+		// Store auth token if provided
+		const tokenFromUrl = urlParams.get('token');
+		if (tokenFromUrl) {
+			localStorage.setItem('editor-auth-token', tokenFromUrl);
+			console.log('🔐 Auth token stored from URL');
+		}
+
 		if (hasVideoId || hasLegacyId || hasMockMode) {
 			console.log('🎯 AI asset URL parameters detected - starting priority loading');
 			setIsLoadingAssets(true); // Show loading state
 			setLoadingSource('AI-assets');
-			
+
 			// Load AI assets directly without pre-clearing (prevents double DESIGN_LOAD)
 			loadAIAssets();
 		}

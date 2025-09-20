@@ -154,20 +154,18 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
     try {
       // Simulate progress updates
       setProgress(30);
-      
-      // Use the main app URL from environment variable or fallback to relative URL
-      const mainAppUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || '';
-      const apiUrl = mainAppUrl ? `${mainAppUrl}/api/regenerate-image` : '/api/regenerate-image';
-      
-      // Call the regeneration API
+
+      // Use local API endpoint - no more cross-origin issues!
+      const apiUrl = '/api/regenerate';
+      console.log('Using local regeneration API');
+
+      // Call the local regeneration API
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          segment_id: selectedAIImage.metadata?.segmentId || selectedAIImage.id,
           image_prompt: prompt,
-          style_settings: options,
-          track_item_id: selectedAIImage.id
+          style_settings: options
         })
       });
       
