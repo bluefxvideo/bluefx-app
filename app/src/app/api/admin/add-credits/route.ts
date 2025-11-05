@@ -49,16 +49,17 @@ export async function POST(request: NextRequest) {
     // Check if user credits record exists
     const { data: existingCredits } = await adminClient
       .from('user_credits')
-      .select('available_credits')
+      .select('total_credits, used_credits')
       .eq('user_id', userId)
       .single()
 
     if (existingCredits) {
-      // Update existing credits
+      // Update existing credits by increasing total_credits
+      // available_credits is a generated column (total_credits - used_credits)
       const { error: updateError } = await adminClient
         .from('user_credits')
         .update({
-          available_credits: existingCredits.available_credits + credits,
+          total_credits: existingCredits.total_credits + credits,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId)
@@ -75,19 +76,19 @@ export async function POST(request: NextRequest) {
       const now = new Date()
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
-      
+
       const { error: insertError } = await adminClient
         .from('user_credits')
         .insert({
           user_id: userId,
-          available_credits: credits,
           total_credits: credits,
+          used_credits: 0,
           period_start: periodStart,
           period_end: periodEnd,
-          used_credits: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
+        // Note: available_credits is auto-calculated as (total_credits - used_credits)
 
       if (insertError) {
         console.error('Error creating credits:', insertError)
