@@ -54,25 +54,30 @@ export async function POST(request: NextRequest) {
   }]) as { amount?: string }[]
   const receipt = (payload.receipt || payload.order_id || payload.transaction_id) as string
   
-  // Filter by product ID - accept both monthly (53) and lifetime (55) products
+  // Filter by product ID - accept monthly (53, 61), yearly (68), and lifetime (55) products
   const monthlyProductId = process.env.CLICKBANK_PRODUCT_ID || '53'
+  const monthlyProductId2 = '61'
+  const yearlyProductId = '68'
   const lifetimeProductId = '55'
-  const targetProductIds = [monthlyProductId, lifetimeProductId]
+  const targetProductIds = [monthlyProductId, monthlyProductId2, yearlyProductId, lifetimeProductId]
   
-  // Parse lineItemData to check product numbers and detect lifetime
+  // Parse lineItemData to check product numbers and detect lifetime/yearly
   let hasTargetProduct = false
   let isLifetimeProduct = false
+  let isYearlyProduct = false
   if (payload.lineItemData) {
     try {
       const lineItemData = JSON.parse((payload.lineItemData as string).replace(/'/g, '"'))
       hasTargetProduct = lineItemData.some((item: { itemNo?: string }) => targetProductIds.includes(item.itemNo || ''))
       isLifetimeProduct = lineItemData.some((item: { itemNo?: string }) => item.itemNo === lifetimeProductId)
+      isYearlyProduct = lineItemData.some((item: { itemNo?: string }) => item.itemNo === yearlyProductId)
     } catch {
       // Fallback: check if product ID appears anywhere in the raw string
-      hasTargetProduct = targetProductIds.some(id => 
+      hasTargetProduct = targetProductIds.some(id =>
         (payload.lineItemData as string).includes(`'itemNo': '${id}'`)
       )
       isLifetimeProduct = (payload.lineItemData as string).includes(`'itemNo': '${lifetimeProductId}'`)
+      isYearlyProduct = (payload.lineItemData as string).includes(`'itemNo': '${yearlyProductId}'`)
     }
   }
   
@@ -89,6 +94,7 @@ export async function POST(request: NextRequest) {
     receipt,
     targetProductIds,
     isLifetimeProduct,
+    isYearlyProduct,
     rawPayload: payload
   })
 
@@ -96,7 +102,7 @@ export async function POST(request: NextRequest) {
     switch (transactionType) {
       case 'SALE':
       case 'TEST_SALE':  // Handle test transactions
-        await handleClickBankSale(customer, lineItems, receipt, isLifetimeProduct)
+        await handleClickBankSale(customer, lineItems, receipt, isLifetimeProduct, isYearlyProduct)
         break
       case 'REFUND':
       case 'TEST_REFUND':
@@ -108,7 +114,7 @@ export async function POST(request: NextRequest) {
         break
       case 'BILL':
       case 'TEST_BILL':  // Handle recurring billing
-        await handleClickBankRenewal(customer, lineItems, receipt)
+        await handleClickBankRenewal(customer, lineItems, receipt, isYearlyProduct)
         break
       default:
         console.log('Unhandled ClickBank transaction:', transactionType)
@@ -122,7 +128,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false) {
+async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false, isYearlyProduct: boolean = false) {
   const supabase = createAdminClient()
   
   // Extract customer information
@@ -159,10 +165,13 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
   // Calculate total amount and determine plan type based on product ID
   const totalAmount = lineItems.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
   const isLifetime = isLifetimeProduct // Use product ID detection (product 55)
+  const isYearly = isYearlyProduct // Use product ID detection (product 68)
   const planType = 'pro' // Everyone gets pro plan like FastSpring
   const creditsAllocation = 600 // Everyone gets 600 credits like FastSpring
 
-  console.log(`ClickBank sale: ${email} -> ${planType} (${creditsAllocation} credits) - ${isLifetime ? 'LIFETIME' : 'MONTHLY'} - Amount: $${totalAmount} - Product: ${isLifetimeProduct ? '55 (Lifetime)' : '53 (Monthly)'}`)
+  const subscriptionType = isLifetime ? 'LIFETIME' : (isYearly ? 'YEARLY' : 'MONTHLY')
+  const productInfo = isLifetime ? '55 (Lifetime)' : (isYearly ? '68 (Yearly)' : '53 or 61 (Monthly)')
+  console.log(`ClickBank sale: ${email} -> ${planType} (${creditsAllocation} credits) - ${subscriptionType} - Amount: $${totalAmount} - Product: ${productInfo}`)
 
   // Check for existing user to decide upgrade vs new user
   const { data: authUsers } = await supabase.auth.admin.listUsers()
@@ -203,13 +212,15 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       .eq('status', 'active')
       .single()
 
-    if (existingSubscription && isLifetime) {
-      console.log(`Upgrading existing subscription to lifetime for user ${userId}`)
-      
-      // Update existing subscription to lifetime terms (50 years)
+    if (existingSubscription && (isLifetime || isYearly)) {
+      const upgradeType = isLifetime ? 'lifetime' : 'yearly'
+      console.log(`Upgrading existing subscription to ${upgradeType} for user ${userId}`)
+
+      // Update existing subscription to new terms
       const currentPeriodStart = new Date()
-      const currentPeriodEnd = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000) // 50 years
-      
+      const periodDays = isLifetime ? 50 * 365 : 365 // 50 years for lifetime, 365 days for yearly
+      const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
+
       const { error: subscriptionUpdateError } = await supabase
         .from('user_subscriptions')
         .update({
@@ -226,7 +237,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
         throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
       }
 
-      // Update existing credits with new lifetime period
+      // Update existing credits with new period
       const { error: creditsUpdateError } = await supabase
         .from('user_credits')
         .update({
@@ -242,7 +253,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
         throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
       }
 
-      console.log(`✅ Upgraded subscription to lifetime for user ${email} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
+      console.log(`✅ Upgraded subscription to ${upgradeType} for user ${email} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
       return // Exit early - upgrade complete
     }
   } else {
@@ -298,7 +309,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
 
   // Create subscription (following admin pattern) - set correct period based on plan type
   const currentPeriodStart = new Date()
-  const periodDays = isLifetime ? 50 * 365 : 30 // 50 years for lifetime, 30 days for monthly
+  const periodDays = isLifetime ? 50 * 365 : (isYearly ? 365 : 30) // 50 years for lifetime, 365 days for yearly, 30 days for monthly
   const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
 
   const subscriptionData = {
@@ -389,7 +400,7 @@ async function handleClickBankRefund(customer: { email?: string }) {
     .eq('user_id', profile.id)
 }
 
-async function handleClickBankRenewal(customer: { email?: string }, lineItems: { amount?: string }[], receipt: string) {
+async function handleClickBankRenewal(customer: { email?: string }, lineItems: { amount?: string }[], receipt: string, isYearlyProduct: boolean = false) {
   const supabase = createAdminClient()
   
   const { email } = customer
@@ -434,7 +445,8 @@ async function handleClickBankRenewal(customer: { email?: string }, lineItems: {
 
   // Update subscription period - using proper date calculation
   const currentPeriodStart = new Date()
-  const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+  const periodDays = isYearlyProduct ? 365 : 30 // 365 days for yearly, 30 days for monthly
+  const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
 
   await supabase
     .from('user_subscriptions')
@@ -460,7 +472,8 @@ async function handleClickBankRenewal(customer: { email?: string }, lineItems: {
     })
     .eq('user_id', user.id)
 
-  console.log(`ClickBank renewal processed: ${searchEmail} - ${creditsAllocation} credits renewed`)
+  const renewalType = isYearlyProduct ? 'yearly' : 'monthly'
+  console.log(`ClickBank ${renewalType} renewal processed: ${searchEmail} - ${creditsAllocation} credits renewed - valid for ${periodDays} days`)
 }
 
 async function handleClickBankCancelRebill(customer: { email?: string }, receipt: string) {
