@@ -270,15 +270,25 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
   // Check output type first - if it's a video file, it's likely AI Cinematographer
   const outputUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
   const isVideoOutput = outputUrl && (outputUrl.includes('.mp4') || outputUrl.includes('.mov') || outputUrl.includes('.webm'));
-  
+
   // Check for audio output (music generation)
   const isAudioOutput = outputUrl && (outputUrl.includes('.mp3') || outputUrl.includes('.wav') || outputUrl.includes('.m4a') || outputUrl.includes('.flac'));
-  
+
   // Check for music-specific batch_id pattern
   const isMusicBatchId = analysis.batch_id && analysis.batch_id.startsWith('music_');
-  
-  // Check for AI Cinematographer first (more specific)
-  if (isVideoOutput ||
+
+  // IMPORTANT: Check Video Swap FIRST (before AI Cinematographer) since both output video
+  // Video Swap has specific inputs: video + character_image
+  if (
+    payload.version?.includes('wan-2.2-animate-replace') ||
+    payload.version?.includes('wan-video') ||
+    (payload.input?.video && payload.input?.character_image)
+  ) {
+    analysis.tool_type = 'video-swap';
+    analysis.processing_strategy = 'single_video_swap';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
+  } else if (isVideoOutput ||
       payload.version?.includes('dc91b71f6bafe90e311c8b6e03b9b5c1ce53f932b47e243c3a2ebf90d2d2a12d') || // Stable Video Diffusion
       payload.version?.includes('kling') || // Kling model
       (payload.input?.duration && payload.input?.aspect_ratio) ||
@@ -287,23 +297,13 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
     analysis.processing_strategy = 'single_video_generation';
     analysis.expected_outputs = 1;
     analysis.requires_real_time_update = true;
-  } else if (payload.version?.includes('flux-thumbnails-v2') || 
+  } else if (payload.version?.includes('flux-thumbnails-v2') ||
             payload.version?.includes('35eacd3dbd088d6421f7ee27646701b5e03ec5a9a0f68f43112fa228d6fc2522') || // Ideogram V2 Turbo
             (payload.input?.prompt && payload.input?.style_type && !payload.input?.duration)) {
     analysis.tool_type = 'thumbnail-machine';
     analysis.processing_strategy = 'batch_thumbnails';
     analysis.expected_outputs = payload.input?.num_outputs || 1;
     analysis.requires_batch_processing = true;
-    analysis.requires_real_time_update = true;
-  } else if (
-    // Video Swap (Wan 2.2 Animate Replace) - Check for video + character_image inputs
-    payload.version?.includes('wan-2.2-animate-replace') ||
-    payload.version?.includes('wan-video') ||
-    (payload.input?.video && payload.input?.character_image)
-  ) {
-    analysis.tool_type = 'video-swap';
-    analysis.processing_strategy = 'single_video_swap';
-    analysis.expected_outputs = 1;
     analysis.requires_real_time_update = true;
   } else if (payload.version?.includes('d1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111') || // Face Swap CDingram
             payload.version?.includes('face-swap') ||
