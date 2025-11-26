@@ -44,7 +44,7 @@ export interface WanVideoSwapPrediction {
 }
 
 interface CreatePredictionInput {
-  version?: string;
+  version: string;
   input: WanVideoSwapInput & {
     user_id?: string;
     job_id?: string;
@@ -53,8 +53,8 @@ interface CreatePredictionInput {
   webhook_events_filter?: string[];
 }
 
-// Model version for wan-video/wan-2.2-animate-replace
-const MODEL_VERSION = 'wan-video/wan-2.2-animate-replace';
+// Model version hash for wan-video/wan-2.2-animate-replace
+const MODEL_VERSION = 'b55667691c9d39b12fb9bf46d1dc20d7bf8a93c7bc0455449cbd4ef18c39eb0e';
 
 /**
  * Create a new video swap prediction
@@ -67,6 +67,7 @@ export async function createVideoSwapPrediction(
 ): Promise<WanVideoSwapPrediction> {
   try {
     const requestBody: CreatePredictionInput = {
+      version: MODEL_VERSION,
       input: {
         ...params,
         // Ensure defaults
@@ -93,7 +94,7 @@ export async function createVideoSwapPrediction(
       webhook: webhook ? 'YES' : 'NO',
     });
 
-    const response = await fetch(`https://api.replicate.com/v1/models/${MODEL_VERSION}/predictions`, {
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
