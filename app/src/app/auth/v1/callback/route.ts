@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -208,7 +208,7 @@ async function handleYouTubeOAuth(request: NextRequest, code: string) {
       }
     }
 
-    // Store connection in Supabase
+    // Get authenticated user
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -219,8 +219,11 @@ async function handleYouTubeOAuth(request: NextRequest, code: string) {
       );
     }
 
+    // Use admin client for database insert to bypass RLS
+    const adminClient = createAdminClient();
+
     // Store the YouTube connection
-    const { error: insertError } = await supabase
+    const { error: insertError } = await adminClient
       .from('social_platform_connections')
       .upsert({
         user_id: user.id,
