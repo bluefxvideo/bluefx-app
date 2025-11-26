@@ -684,23 +684,36 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
           set({ isConnecting: platform });
 
           try {
-            const { initiateOAuthFlow } = await import('@/actions/auth/social-oauth');
-            const { createClient } = await import('@/app/supabase/client');
+            // Use platform-specific OAuth flows
+            if (platform === 'youtube') {
+              // YouTube uses dedicated OAuth flow
+              const { initiateYouTubeOAuth } = await import('@/actions/auth/youtube-oauth');
+              const result = await initiateYouTubeOAuth();
 
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (!user) {
-              throw new Error('Please log in to connect accounts');
-            }
-
-            const result = await initiateOAuthFlow(platform, user.id);
-
-            if (result.success && result.authUrl) {
-              // Redirect to OAuth provider
-              window.location.href = result.authUrl;
+              if (result.success && result.authUrl) {
+                window.location.href = result.authUrl;
+              } else {
+                throw new Error(result.error || 'Failed to initiate YouTube OAuth');
+              }
             } else {
-              throw new Error(result.error || 'Failed to initiate OAuth');
+              // Other platforms use generic social OAuth
+              const { initiateOAuthFlow } = await import('@/actions/auth/social-oauth');
+              const { createClient } = await import('@/app/supabase/client');
+
+              const supabase = createClient();
+              const { data: { user } } = await supabase.auth.getUser();
+
+              if (!user) {
+                throw new Error('Please log in to connect accounts');
+              }
+
+              const result = await initiateOAuthFlow(platform, user.id);
+
+              if (result.success && result.authUrl) {
+                window.location.href = result.authUrl;
+              } else {
+                throw new Error(result.error || 'Failed to initiate OAuth');
+              }
             }
           } catch (error) {
             console.error('Connect account error:', error);
