@@ -1,7 +1,6 @@
 'use server';
 
 import { performVideoSwap } from '@/actions/models/wan-video-swap';
-import { uploadVideoToStorage, uploadImageToStorage } from '@/actions/supabase-storage';
 import {
   createVideoSwapJob,
   updateVideoSwapJob,
@@ -11,18 +10,16 @@ import {
 } from '@/actions/database/video-swap-database';
 import { Json } from '@/types/database';
 
-// Maximum video duration in seconds
-const MAX_VIDEO_DURATION = 30;
-
 // Credits cost for video swap
 const VIDEO_SWAP_CREDITS = 25;
 
 /**
  * Request types for Video Swap
+ * Now accepts URLs instead of Files (files uploaded via API route first)
  */
 export interface VideoSwapRequest {
-  source_video: File;
-  character_image: File;
+  source_video_url: string;
+  character_image_url: string;
   resolution?: '480' | '720';
   frames_per_second?: number;
   merge_audio?: boolean;
@@ -102,13 +99,15 @@ function validateImage(file: File): { valid: boolean; error?: string } {
  * Execute Video Swap - Main orchestrator
  *
  * Workflow:
- * 1. Validate inputs (video and image files)
+ * 1. Validate URLs are provided
  * 2. Check user credits
- * 3. Upload files to storage
+ * 3. Deduct credits
  * 4. Create job record
- * 5. Deduct credits
- * 6. Call Replicate API with webhook
- * 7. Return job ID for tracking
+ * 5. Call Replicate API with webhook
+ * 6. Return job ID for tracking
+ *
+ * Note: File uploads are now handled by the /api/upload/video-swap API route
+ * This function receives URLs instead of Files
  */
 export async function executeVideoSwap(
   request: VideoSwapRequest
@@ -120,17 +119,16 @@ export async function executeVideoSwap(
     console.log('🎬 Video Swap: Starting execution', {
       job_id,
       user_id: request.user_id,
-      video_size: request.source_video.size,
-      image_size: request.character_image.size,
+      source_video_url: request.source_video_url.substring(0, 50) + '...',
+      character_image_url: request.character_image_url.substring(0, 50) + '...',
       resolution: request.resolution || '720',
     });
 
-    // Step 1: Validate video file
-    const videoValidation = validateVideo(request.source_video);
-    if (!videoValidation.valid) {
+    // Step 1: Validate URLs are provided
+    if (!request.source_video_url) {
       return {
         success: false,
-        error: videoValidation.error,
+        error: 'Source video URL is required',
         job_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -138,12 +136,10 @@ export async function executeVideoSwap(
       };
     }
 
-    // Step 2: Validate image file
-    const imageValidation = validateImage(request.character_image);
-    if (!imageValidation.valid) {
+    if (!request.character_image_url) {
       return {
         success: false,
-        error: imageValidation.error,
+        error: 'Character image URL is required',
         job_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -151,7 +147,7 @@ export async function executeVideoSwap(
       };
     }
 
-    // Step 3: Credit Validation
+    // Step 2: Credit Validation
     const creditCheck = await getUserCredits(request.user_id);
     if (!creditCheck.success) {
       return {
@@ -177,65 +173,7 @@ export async function executeVideoSwap(
 
     console.log(`💳 Credits validated: ${creditCheck.credits} available, ${VIDEO_SWAP_CREDITS} required`);
 
-    // Step 4: Upload source video
-    console.log('📹 Uploading source video...');
-    const videoExtension = request.source_video.name.split('.').pop() || 'mp4';
-    const videoFilename = `${job_id}_source.${videoExtension}`;
-
-    const videoUpload = await uploadVideoToStorage(
-      request.source_video,
-      {
-        bucket: 'videos',
-        folder: 'video-swap',
-        filename: videoFilename,
-        contentType: request.source_video.type || 'video/mp4',
-      }
-    );
-
-    if (!videoUpload.success || !videoUpload.url) {
-      console.error('Video upload failed:', videoUpload.error);
-      return {
-        success: false,
-        error: `Failed to upload video: ${videoUpload.error}`,
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: creditCheck.credits || 0,
-      };
-    }
-
-    console.log('📹 Source video uploaded:', videoUpload.url);
-
-    // Step 5: Upload character image
-    console.log('📷 Uploading character image...');
-    const imageExtension = request.character_image.name.split('.').pop() || 'jpg';
-    const imageFilename = `${job_id}_character.${imageExtension}`;
-
-    const imageUpload = await uploadImageToStorage(
-      request.character_image,
-      {
-        bucket: 'images',
-        folder: 'video-swap',
-        filename: imageFilename,
-        contentType: request.character_image.type || 'image/jpeg',
-      }
-    );
-
-    if (!imageUpload.success || !imageUpload.url) {
-      console.error('Image upload failed:', imageUpload.error);
-      return {
-        success: false,
-        error: `Failed to upload character image: ${imageUpload.error}`,
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: creditCheck.credits || 0,
-      };
-    }
-
-    console.log('📷 Character image uploaded:', imageUpload.url);
-
-    // Step 6: Deduct credits
+    // Step 3: Deduct credits
     const deductResult = await deductCredits(
       request.user_id,
       VIDEO_SWAP_CREDITS,
@@ -260,28 +198,22 @@ export async function executeVideoSwap(
 
     console.log(`💳 Credits deducted: ${VIDEO_SWAP_CREDITS}. Remaining: ${deductResult.remainingCredits}`);
 
-    // Step 7: Create job record in database
+    // Step 4: Create job record in database
     const jobResult = await createVideoSwapJob({
       user_id: request.user_id,
-      source_video_url: videoUpload.url,
-      character_image_url: imageUpload.url,
+      source_video_url: request.source_video_url,
+      character_image_url: request.character_image_url,
       resolution: request.resolution || '720',
       frames_per_second: request.frames_per_second || 24,
       merge_audio: request.merge_audio ?? true,
       go_fast: request.go_fast ?? true,
       refert_num: request.refert_num || 1,
       seed: request.seed,
-      metadata: {
-        original_video_name: request.source_video.name,
-        original_image_name: request.character_image.name,
-        video_size_mb: (request.source_video.size / 1024 / 1024).toFixed(2),
-        image_size_mb: (request.character_image.size / 1024 / 1024).toFixed(2),
-      } as Json,
+      metadata: {} as Json,
     });
 
     if (!jobResult.success || !jobResult.job) {
       console.error('Failed to create job record:', jobResult.error);
-      // Note: Credits already deducted, but we should still return an error
       return {
         success: false,
         error: `Failed to create job record: ${jobResult.error}`,
@@ -295,18 +227,18 @@ export async function executeVideoSwap(
     const job = jobResult.job;
     console.log('📝 Job record created:', job.id);
 
-    // Step 8: Update job status to uploading -> processing
+    // Step 5: Update job status to processing
     await updateVideoSwapJob(job.id, { status: 'processing' });
 
-    // Step 9: Call Replicate API with webhook
+    // Step 6: Call Replicate API with webhook
     const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://app.bluefx.net'}/api/webhooks/replicate-ai`;
 
     console.log('🚀 Calling Replicate API...', { webhookUrl });
 
     try {
       const predictionResult = await performVideoSwap(
-        videoUpload.url,
-        imageUpload.url,
+        request.source_video_url,
+        request.character_image_url,
         {
           resolution: request.resolution || '720',
           frames_per_second: request.frames_per_second || 24,
@@ -336,8 +268,8 @@ export async function executeVideoSwap(
         job: {
           id: job.id,
           status: 'processing',
-          source_video_url: videoUpload.url,
-          character_image_url: imageUpload.url,
+          source_video_url: request.source_video_url,
+          character_image_url: request.character_image_url,
           created_at: job.created_at || new Date().toISOString(),
         },
         job_id: job.id,
@@ -360,7 +292,7 @@ export async function executeVideoSwap(
         error: `Video swap API call failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`,
         job_id: job.id,
         generation_time_ms: Date.now() - startTime,
-        credits_used: VIDEO_SWAP_CREDITS, // Credits were already deducted
+        credits_used: VIDEO_SWAP_CREDITS,
         remaining_credits: deductResult.remainingCredits || 0,
       };
     }
