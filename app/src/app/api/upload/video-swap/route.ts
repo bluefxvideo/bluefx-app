@@ -40,10 +40,14 @@ export async function POST(request: NextRequest) {
       type: file.type,
     });
 
+    // Convert File to ArrayBuffer for server-side upload
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(filePath, file, {
+      .upload(filePath, buffer, {
         contentType: file.type,
         upsert: true,
       });
