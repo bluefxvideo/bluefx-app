@@ -149,6 +149,23 @@ export function useVideoSwap() {
   }, []);
 
   /**
+   * Upload file to the server via API route
+   */
+  const uploadFile = async (file: File, type: 'video' | 'image', jobId: string): Promise<{ success: boolean; url?: string; error?: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    formData.append('jobId', jobId);
+
+    const response = await fetch('/api/upload/video-swap', {
+      method: 'POST',
+      body: formData,
+    });
+
+    return response.json();
+  };
+
+  /**
    * Start the video swap process
    */
   const startVideoSwap = useCallback(async () => {
@@ -175,9 +192,29 @@ export function useVideoSwap() {
     store.setStep('processing');
 
     try {
+      // Generate a job ID for file naming
+      const jobId = crypto.randomUUID();
+
+      // Step 1: Upload video file
+      console.log('📹 Uploading video...');
+      const videoUpload = await uploadFile(sourceVideo, 'video', jobId);
+      if (!videoUpload.success || !videoUpload.url) {
+        throw new Error(videoUpload.error || 'Failed to upload video');
+      }
+      console.log('✅ Video uploaded:', videoUpload.url);
+
+      // Step 2: Upload character image
+      console.log('📷 Uploading character image...');
+      const imageUpload = await uploadFile(characterImage, 'image', jobId);
+      if (!imageUpload.success || !imageUpload.url) {
+        throw new Error(imageUpload.error || 'Failed to upload character image');
+      }
+      console.log('✅ Character image uploaded:', imageUpload.url);
+
+      // Step 3: Call server action with URLs
       const result = await executeVideoSwap({
-        source_video: sourceVideo,
-        character_image: characterImage,
+        source_video_url: videoUpload.url,
+        character_image_url: imageUpload.url,
         resolution: settings.resolution,
         frames_per_second: settings.frames_per_second,
         merge_audio: settings.merge_audio,
