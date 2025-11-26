@@ -44,10 +44,7 @@ export interface WanVideoSwapPrediction {
 }
 
 interface CreatePredictionInput {
-  input: WanVideoSwapInput & {
-    user_id?: string;
-    job_id?: string;
-  };
+  input: WanVideoSwapInput;
   webhook?: string;
   webhook_events_filter?: string[];
 }
@@ -66,18 +63,17 @@ export async function createVideoSwapPrediction(
   job_id?: string
 ): Promise<WanVideoSwapPrediction> {
   try {
+    // Build input with only Replicate-accepted fields
     const requestBody: CreatePredictionInput = {
       input: {
-        ...params,
-        // Ensure defaults
+        video: params.video,
+        character_image: params.character_image,
         go_fast: params.go_fast ?? true,
         refert_num: params.refert_num ?? 1,
         resolution: params.resolution ?? '720',
         merge_audio: params.merge_audio ?? true,
         frames_per_second: params.frames_per_second ?? 24,
-        // Metadata for webhook processing
-        ...(user_id && { user_id }),
-        ...(job_id && { job_id }),
+        ...(params.seed && { seed: params.seed }),
       },
     };
 
