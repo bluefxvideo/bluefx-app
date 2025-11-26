@@ -4,13 +4,13 @@ import * as React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 // import NextImage from 'next/image'
-import { 
-  Image, 
-  Video, 
-  Mic, 
-  BookOpen, 
-  Palette, 
-  Music, 
+import {
+  Image,
+  Video,
+  Mic,
+  BookOpen,
+  Palette,
+  Music,
   BarChart,
   UserRound,
   Film,
@@ -25,7 +25,8 @@ import {
   Moon,
   Sun,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  Repeat
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -92,6 +93,13 @@ const toolCategories = [
         icon: UserRound,
         gradient: "bg-primary",
         description: "Create talking avatars",
+      },
+      {
+        name: "Video Swap",
+        route: "/dashboard/video-swap",
+        icon: Repeat,
+        gradient: "bg-primary",
+        description: "Swap characters in videos",
       },
     ],
   },

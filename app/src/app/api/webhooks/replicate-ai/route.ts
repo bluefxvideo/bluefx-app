@@ -63,6 +63,10 @@ interface ReplicateInput {
   script_text?: string;
   voice_id?: string;
   avatar_image_url?: string;
+  // Video Swap (Wan 2.2 Animate Replace) properties
+  video?: string;
+  character_image?: string;
+  job_id?: string;
 }
 
 interface ReplicateWebhookPayload {
@@ -291,8 +295,18 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
     analysis.expected_outputs = payload.input?.num_outputs || 1;
     analysis.requires_batch_processing = true;
     analysis.requires_real_time_update = true;
+  } else if (
+    // Video Swap (Wan 2.2 Animate Replace) - Check for video + character_image inputs
+    payload.version?.includes('wan-2.2-animate-replace') ||
+    payload.version?.includes('wan-video') ||
+    (payload.input?.video && payload.input?.character_image)
+  ) {
+    analysis.tool_type = 'video-swap';
+    analysis.processing_strategy = 'single_video_swap';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
   } else if (payload.version?.includes('d1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111') || // Face Swap CDingram
-            payload.version?.includes('face-swap') || 
+            payload.version?.includes('face-swap') ||
             (payload.input?.swap_image && payload.input?.input_image)) {
     analysis.tool_type = 'face-swap';
     analysis.processing_strategy = 'single_face_swap';
@@ -387,6 +401,10 @@ async function handleSuccessfulGeneration(
       const voiceResult = await processVoiceOverGeneration(payload, analysis);
       results_processed = voiceResult.count;
       credits_used = voiceResult.credits;
+    } else if (analysis.processing_strategy === 'single_video_swap') {
+      const videoSwapResult = await processVideoSwapGeneration(payload, analysis);
+      results_processed = videoSwapResult.count;
+      credits_used = videoSwapResult.credits;
     } else {
       console.warn(`⚠️ Unknown processing strategy: ${analysis.processing_strategy}`);
     }
@@ -1027,6 +1045,86 @@ async function processVoiceOverGeneration(payload: ReplicateWebhookPayload, anal
     }
   } catch (error) {
     console.error('❌ Voice Over processing failed:', error);
+  }
+
+  return { count: 0, credits: 0 };
+}
+
+/**
+ * Process video swap generation completion (Wan 2.2 Animate Replace)
+ */
+async function processVideoSwapGeneration(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const videoUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  if (!videoUrl) return { count: 0, credits: 0 };
+
+  console.log(`🎭 Video Swap Processing: Wan 2.2 Animate Replace`);
+
+  try {
+    // Download and upload video to our storage
+    const uploadResult = await downloadAndUploadVideo(
+      videoUrl as string,
+      'video-swap',
+      `video_swap_${payload.id}`
+    );
+
+    if (uploadResult.success && uploadResult.url) {
+      // Find the video swap job by external_job_id (prediction ID) or job_id from input
+      const { createAdminClient } = await import('@/app/supabase/server');
+      const supabase = createAdminClient();
+
+      // First try to find by external_job_id
+      let jobId = payload.input?.job_id;
+
+      if (!jobId) {
+        // Query by external_job_id if job_id not in input
+        const { data: jobRecords } = await supabase
+          .from('video_swap_jobs')
+          .select('id, user_id')
+          .eq('external_job_id', payload.id)
+          .limit(1);
+
+        if (jobRecords && jobRecords.length > 0) {
+          jobId = jobRecords[0].id;
+          // Update analysis with user_id for broadcasting
+          analysis.user_id = jobRecords[0].user_id;
+        }
+      }
+
+      console.log(`🔍 Video Swap query: prediction_id=${payload.id}, job_id=${jobId}`);
+
+      if (jobId) {
+        // Update the video swap job record
+        const { updateVideoSwapJobAdmin } = await import('@/actions/database/video-swap-database');
+
+        await updateVideoSwapJobAdmin(jobId, {
+          status: 'completed',
+          result_video_url: uploadResult.url,
+          progress_percentage: 100,
+          completed_at: new Date().toISOString(),
+        });
+
+        console.log(`✅ Video Swap Complete: Updated job ${jobId}`);
+        return { count: 1, credits: 25 }; // VIDEO_SWAP_CREDITS
+      } else {
+        console.warn(`⚠️ No video swap job found for prediction ${payload.id}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Video swap processing failed:', error);
+
+    // Try to update job status to failed
+    try {
+      const jobId = payload.input?.job_id;
+      if (jobId) {
+        const { updateVideoSwapJobAdmin } = await import('@/actions/database/video-swap-database');
+        await updateVideoSwapJobAdmin(jobId, {
+          status: 'failed',
+          error_message: error instanceof Error ? error.message : 'Processing failed',
+        });
+      }
+    } catch (updateError) {
+      console.error('Failed to update job status:', updateError);
+    }
   }
 
   return { count: 0, credits: 0 };
