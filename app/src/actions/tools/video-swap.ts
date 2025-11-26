@@ -11,7 +11,7 @@ import {
 import { Json } from '@/types/database';
 
 // Credits cost for video swap
-const VIDEO_SWAP_CREDITS = 25;
+const VIDEO_SWAP_CREDITS = 50;
 
 /**
  * Request types for Video Swap
