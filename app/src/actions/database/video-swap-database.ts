@@ -42,8 +42,8 @@ export type VideoSwapJobInsert = Omit<VideoSwapJob, 'id' | 'created_at' | 'updat
 
 export type VideoSwapJobUpdate = Partial<Omit<VideoSwapJob, 'id' | 'user_id'>>;
 
-// Credits cost for video swap
-export const VIDEO_SWAP_CREDITS = 25;
+// Credits cost for video swap (internal constant - can't export from 'use server' files)
+const VIDEO_SWAP_CREDITS = 25;
 
 /**
  * Create a new video swap job

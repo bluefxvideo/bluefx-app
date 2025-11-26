@@ -8,12 +8,14 @@ import {
   getUserCredits,
   deductCredits,
   recordVideoSwapMetrics,
-  VIDEO_SWAP_CREDITS,
 } from '@/actions/database/video-swap-database';
 import { Json } from '@/types/database';
 
 // Maximum video duration in seconds
 const MAX_VIDEO_DURATION = 30;
+
+// Credits cost for video swap
+const VIDEO_SWAP_CREDITS = 25;
 
 /**
  * Request types for Video Swap
