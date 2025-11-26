@@ -119,7 +119,7 @@ const initialState: VideoSwapState = {
   isLoading: false,
   error: null,
   availableCredits: 0,
-  creditsRequired: 25, // VIDEO_SWAP_CREDITS
+  creditsRequired: 50, // VIDEO_SWAP_CREDITS
 };
 
 // Step order for navigation
