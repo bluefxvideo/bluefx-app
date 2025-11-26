@@ -32,7 +32,7 @@ export function ProcessingStep({
       <div className="text-center">
         <h2 className="text-2xl font-bold">Generating Your Video</h2>
         <p className="text-muted-foreground mt-2">
-          This may take a few minutes. Please don't close this page.
+          This typically takes <strong>8-12 minutes</strong> for short videos. You can safely close this page and check the History tab later.
         </p>
       </div>
 
@@ -94,10 +94,11 @@ export function ProcessingStep({
         <CardContent className="pt-4">
           <div className="text-sm text-center text-muted-foreground">
             <p>
-              Video swap typically takes 2-5 minutes depending on video length and settings.
+              <strong>Why does this take so long?</strong> Video swap uses advanced AI to analyze every frame,
+              preserve motion, expressions, and lip sync while seamlessly replacing the character.
             </p>
-            <p className="mt-1">
-              You'll be notified when your video is ready.
+            <p className="mt-2">
+              Average processing time: ~2 minutes per second of video.
             </p>
           </div>
         </CardContent>

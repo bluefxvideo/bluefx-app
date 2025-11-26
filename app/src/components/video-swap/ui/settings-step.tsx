@@ -1,12 +1,13 @@
 'use client';
 
-import { Settings, Coins, AlertTriangle } from 'lucide-react';
+import { Settings, Coins, AlertTriangle, Clock, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { VideoSwapSettings } from '../store/video-swap-store';
 
 interface SettingsStepProps {
@@ -70,6 +71,17 @@ export function SettingsStep({
           </CardContent>
         </Card>
       )}
+
+      {/* Processing Time Notice */}
+      <Alert>
+        <Clock className="h-4 w-4" />
+        <AlertTitle>Processing Time</AlertTitle>
+        <AlertDescription>
+          Video swap uses advanced AI that takes <strong>8-12 minutes</strong> to process even short videos (5-10 seconds).
+          Longer videos will take proportionally more time. You can close this page and check back later -
+          your video will appear in the History tab when complete.
+        </AlertDescription>
+      </Alert>
 
       {/* Settings Card */}
       <Card>
