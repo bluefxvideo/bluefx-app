@@ -299,7 +299,7 @@ export async function executeVideoSwap(
     await updateVideoSwapJob(job.id, { status: 'processing' });
 
     // Step 9: Call Replicate API with webhook
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000'}/api/webhooks/replicate-ai`;
+    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://app.bluefx.net'}/api/webhooks/replicate-ai`;
 
     console.log('🚀 Calling Replicate API...', { webhookUrl });
 
