@@ -45,6 +45,11 @@ export async function GET(request: NextRequest) {
       return await handleEbookGoogleOAuth(request, code);
     }
 
+    // Handle YouTube OAuth for Content Multiplier
+    if (state === 'youtube_connect') {
+      return await handleYouTubeOAuth(request, code);
+    }
+
     // Handle Supabase OAuth (default behavior)
     return await handleSupabaseOAuth(request, code);
 
@@ -148,6 +153,110 @@ async function handleEbookGoogleOAuth(request: NextRequest, code: string) {
     console.error('Ebook Google OAuth error:', error);
     return NextResponse.redirect(
       new URL('/dashboard/ebook-writer/export?error=unexpected', process.env.NEXT_PUBLIC_SITE_URL || request.url)
+    );
+  }
+}
+
+/**
+ * Handle YouTube OAuth for Content Multiplier
+ */
+async function handleYouTubeOAuth(request: NextRequest, code: string) {
+  try {
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_OAUTH_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/v1/callback`,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      console.error('YouTube token exchange failed:', errorData);
+      return NextResponse.redirect(
+        new URL('/dashboard/content-multiplier?error=oauth_failed&platform=youtube', process.env.NEXT_PUBLIC_SITE_URL || request.url)
+      );
+    }
+
+    const tokens = await tokenResponse.json();
+
+    // Get YouTube channel info
+    const channelResponse = await fetch(
+      'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+      {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
+      }
+    );
+
+    let channelName = 'YouTube User';
+    let avatarUrl = null;
+
+    if (channelResponse.ok) {
+      const channelData = await channelResponse.json();
+      if (channelData.items && channelData.items.length > 0) {
+        channelName = channelData.items[0].snippet.title;
+        avatarUrl = channelData.items[0].snippet.thumbnails?.default?.url;
+      }
+    }
+
+    // Store connection in Supabase
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('User not authenticated:', authError);
+      return NextResponse.redirect(
+        new URL('/dashboard/content-multiplier?error=unauthorized&platform=youtube', process.env.NEXT_PUBLIC_SITE_URL || request.url)
+      );
+    }
+
+    // Store the YouTube connection
+    const { error: insertError } = await supabase
+      .from('social_platform_connections')
+      .upsert({
+        user_id: user.id,
+        platform: 'youtube',
+        username: channelName,
+        avatar_url: avatarUrl,
+        connection_status: 'active',
+        connected: true,
+        access_token_encrypted: Buffer.from(tokens.access_token).toString('base64'),
+        refresh_token_encrypted: tokens.refresh_token
+          ? Buffer.from(tokens.refresh_token).toString('base64')
+          : null,
+        expires_at: tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : null,
+        last_connected: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id,platform'
+      });
+
+    if (insertError) {
+      console.error('Failed to store YouTube connection:', insertError);
+      return NextResponse.redirect(
+        new URL('/dashboard/content-multiplier?error=callback_error&platform=youtube', process.env.NEXT_PUBLIC_SITE_URL || request.url)
+      );
+    }
+
+    // Success - redirect back to content multiplier
+    return NextResponse.redirect(
+      new URL('/dashboard/content-multiplier?success=connected&platform=youtube', process.env.NEXT_PUBLIC_SITE_URL || request.url)
+    );
+
+  } catch (error) {
+    console.error('YouTube OAuth error:', error);
+    return NextResponse.redirect(
+      new URL('/dashboard/content-multiplier?error=callback_error&platform=youtube', process.env.NEXT_PUBLIC_SITE_URL || request.url)
     );
   }
 }
