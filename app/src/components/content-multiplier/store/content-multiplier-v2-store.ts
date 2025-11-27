@@ -22,6 +22,8 @@ export type PostStatus = 'draft' | 'scheduled' | 'posting' | 'posted' | 'failed'
 
 export type ScheduleOption = 'now' | 'scheduled' | 'best_time';
 
+export type YouTubePrivacyStatus = 'public' | 'unlisted' | 'private';
+
 // Platform-specific content configuration
 export interface PlatformConfig {
   id: SocialPlatform;
@@ -196,6 +198,8 @@ interface ContentMultiplierV2State {
   scheduleOption: ScheduleOption;
   platformSchedules: Record<SocialPlatform, PlatformSchedule | null>;
   isPosting: boolean;
+  youtubePrivacy: YouTubePrivacyStatus;
+  postingProgress: { platform: SocialPlatform; status: 'pending' | 'posting' | 'done' | 'error'; message?: string }[];
 
   // Accounts
   connectedAccounts: Record<SocialPlatform, SocialAccount | null>;
@@ -256,6 +260,7 @@ interface ContentMultiplierV2State {
   setBestTimesForAll: () => void;
   submitPosts: () => Promise<void>;
   setIsPosting: (isPosting: boolean) => void;
+  setYouTubePrivacy: (privacy: YouTubePrivacyStatus) => void;
 
   // Accounts
   setConnectedAccount: (platform: SocialPlatform, account: SocialAccount | null) => void;
@@ -322,6 +327,8 @@ const initialState = {
   scheduleOption: 'now' as ScheduleOption,
   platformSchedules: {} as Record<SocialPlatform, PlatformSchedule | null>,
   isPosting: false,
+  youtubePrivacy: 'unlisted' as YouTubePrivacyStatus,
+  postingProgress: [] as { platform: SocialPlatform; status: 'pending' | 'posting' | 'done' | 'error'; message?: string }[],
 
   // Accounts
   connectedAccounts: {} as Record<SocialPlatform, SocialAccount | null>,
@@ -620,34 +627,110 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
             platformSchedules,
             videoUrl,
             originalDescription,
+            youtubePrivacy,
           } = get();
 
-          set({ isPosting: true, error: null });
+          set({ isPosting: true, error: null, postingProgress: [] });
 
           try {
-            const { createScheduledPosts } = await import('@/actions/tools/content-multiplier-v2-actions');
-
-            const postsToCreate = selectedPlatforms.map((platform) => ({
+            // Initialize progress for all platforms
+            const initialProgress = selectedPlatforms.map(platform => ({
               platform,
-              content: platformContent[platform]!,
-              scheduledFor: scheduleOption === 'now'
-                ? null
-                : platformSchedules[platform]?.scheduledTime || null,
-              postImmediately: scheduleOption === 'now',
+              status: 'pending' as const,
             }));
+            set({ postingProgress: initialProgress });
 
-            const result = await createScheduledPosts({
-              videoUrl: videoUrl!,
-              originalDescription,
-              posts: postsToCreate,
-            });
+            // If posting now, actually post to platforms
+            if (scheduleOption === 'now') {
+              for (const platform of selectedPlatforms) {
+                // Update progress to show we're posting this platform
+                set(state => ({
+                  postingProgress: state.postingProgress.map(p =>
+                    p.platform === platform ? { ...p, status: 'posting' as const } : p
+                  ),
+                }));
 
-            if (result.success) {
-              // Reset wizard and show success
-              get().resetWizard();
-              set({ activeMainTab: scheduleOption === 'now' ? 'posted' : 'scheduled' });
+                if (platform === 'youtube') {
+                  // Post to YouTube
+                  const { postToYouTube } = await import('@/actions/tools/youtube-posting');
+                  const content = platformContent[platform];
+
+                  if (content && videoUrl) {
+                    const result = await postToYouTube({
+                      videoUrl,
+                      title: content.title || content.caption.substring(0, 100),
+                      description: content.description || content.caption,
+                      tags: content.tags || content.hashtags,
+                      privacyStatus: youtubePrivacy,
+                    });
+
+                    if (result.success) {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'done' as const, message: `Posted: ${result.videoUrl}` }
+                            : p
+                        ),
+                      }));
+                    } else {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'error' as const, message: result.error }
+                            : p
+                        ),
+                      }));
+                    }
+                  }
+                } else {
+                  // Other platforms not implemented yet - mark as error
+                  set(state => ({
+                    postingProgress: state.postingProgress.map(p =>
+                      p.platform === platform
+                        ? { ...p, status: 'error' as const, message: 'Platform not yet supported' }
+                        : p
+                    ),
+                  }));
+                }
+              }
+
+              // Check if any posts succeeded
+              const { postingProgress } = get();
+              const anySuccess = postingProgress.some(p => p.status === 'done');
+              const allFailed = postingProgress.every(p => p.status === 'error');
+
+              if (allFailed) {
+                set({ error: 'All posts failed. Check individual errors.' });
+              } else if (anySuccess) {
+                // Reset wizard after a short delay to show results
+                setTimeout(() => {
+                  get().resetWizard();
+                  set({ activeMainTab: 'posted' });
+                }, 2000);
+              }
             } else {
-              set({ error: result.error || 'Failed to create posts' });
+              // Scheduling for later - save to database
+              const { createScheduledPosts } = await import('@/actions/tools/content-multiplier-v2-actions');
+
+              const postsToCreate = selectedPlatforms.map((platform) => ({
+                platform,
+                content: platformContent[platform]!,
+                scheduledFor: platformSchedules[platform]?.scheduledTime || null,
+                postImmediately: false,
+              }));
+
+              const result = await createScheduledPosts({
+                videoUrl: videoUrl!,
+                originalDescription,
+                posts: postsToCreate,
+              });
+
+              if (result.success) {
+                get().resetWizard();
+                set({ activeMainTab: 'scheduled' });
+              } else {
+                set({ error: result.error || 'Failed to schedule posts' });
+              }
             }
 
           } catch (error) {
@@ -659,6 +742,8 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
         },
 
         setIsPosting: (isPosting) => set({ isPosting }),
+
+        setYouTubePrivacy: (privacy) => set({ youtubePrivacy: privacy }),
 
         // ========== ACCOUNTS ==========
         setConnectedAccount: (platform, account) => set((state) => ({
