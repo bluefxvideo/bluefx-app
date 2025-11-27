@@ -372,12 +372,17 @@ export function CreateStep3Schedule() {
                           </>
                         )}
                         {progress.status === 'error' && (
-                          <>
-                            <AlertCircle className="w-4 h-4 text-red-500" />
-                            <span className="text-xs text-red-500" title={progress.message}>
-                              Failed
-                            </span>
-                          </>
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1">
+                              <AlertCircle className="w-4 h-4 text-red-500" />
+                              <span className="text-xs text-red-500">Failed</span>
+                            </div>
+                            {progress.message && (
+                              <span className="text-xs text-red-400 max-w-48 truncate" title={progress.message}>
+                                {progress.message}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
