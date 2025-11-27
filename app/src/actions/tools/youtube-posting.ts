@@ -124,16 +124,23 @@ async function refreshYouTubeToken(
 /**
  * Download video from URL and return as buffer
  */
-async function downloadVideo(videoUrl: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+async function downloadVideo(videoUrl: string): Promise<{ buffer: Buffer; contentType: string; error?: string } | null> {
   try {
+    console.log('Attempting to download video from:', videoUrl);
     const response = await fetch(videoUrl);
     if (!response.ok) {
-      console.error('Failed to download video:', response.status);
-      return null;
+      console.error('Failed to download video:', response.status, response.statusText);
+      return { buffer: Buffer.from([]), contentType: '', error: `Failed to download video: ${response.status} ${response.statusText}` };
     }
 
     const arrayBuffer = await response.arrayBuffer();
     const contentType = response.headers.get('content-type') || 'video/mp4';
+
+    console.log('Video downloaded successfully, size:', arrayBuffer.byteLength, 'content-type:', contentType);
+
+    if (arrayBuffer.byteLength === 0) {
+      return { buffer: Buffer.from([]), contentType: '', error: 'Downloaded video is empty' };
+    }
 
     return {
       buffer: Buffer.from(arrayBuffer),
@@ -141,7 +148,7 @@ async function downloadVideo(videoUrl: string): Promise<{ buffer: Buffer; conten
     };
   } catch (error) {
     console.error('Video download error:', error);
-    return null;
+    return { buffer: Buffer.from([]), contentType: '', error: error instanceof Error ? error.message : 'Video download failed' };
   }
 }
 
@@ -169,8 +176,12 @@ export async function postToYouTube(params: YouTubePostParams): Promise<YouTubeU
     console.log('Downloading video from:', params.videoUrl);
     const videoData = await downloadVideo(params.videoUrl);
 
-    if (!videoData) {
-      return { success: false, error: 'Failed to download video' };
+    if (!videoData || videoData.error) {
+      return { success: false, error: videoData?.error || 'Failed to download video' };
+    }
+
+    if (videoData.buffer.length === 0) {
+      return { success: false, error: 'Video file is empty or could not be read' };
     }
 
     console.log('Video downloaded, size:', videoData.buffer.length);
@@ -207,7 +218,22 @@ export async function postToYouTube(params: YouTubePostParams): Promise<YouTubeU
     if (!initResponse.ok) {
       const errorText = await initResponse.text();
       console.error('YouTube upload init failed:', errorText);
-      return { success: false, error: `YouTube API error: ${initResponse.status}` };
+
+      // Parse error for more details
+      let errorMessage = `YouTube API error: ${initResponse.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.message) {
+          errorMessage = errorJson.error.message;
+        }
+      } catch {
+        // Use raw error if not JSON
+        if (errorText.length < 100) {
+          errorMessage = errorText;
+        }
+      }
+
+      return { success: false, error: errorMessage };
     }
 
     // Get the upload URL from Location header
@@ -232,7 +258,22 @@ export async function postToYouTube(params: YouTubePostParams): Promise<YouTubeU
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
       console.error('YouTube video upload failed:', errorText);
-      return { success: false, error: `Video upload failed: ${uploadResponse.status}` };
+
+      // Parse error for more details
+      let errorMessage = `Video upload failed: ${uploadResponse.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.message) {
+          errorMessage = errorJson.error.message;
+        }
+      } catch {
+        // Use raw error if not JSON
+        if (errorText.length < 100) {
+          errorMessage = errorText;
+        }
+      }
+
+      return { success: false, error: errorMessage };
     }
 
     const result = await uploadResponse.json();
