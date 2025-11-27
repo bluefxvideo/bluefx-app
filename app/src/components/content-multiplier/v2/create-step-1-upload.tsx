@@ -34,6 +34,8 @@ import {
   FacebookIcon,
 } from '../components/brand-icons';
 
+import { createClient } from '@/app/supabase/client';
+
 const PLATFORM_ORDER: SocialPlatform[] = ['tiktok', 'instagram', 'youtube', 'twitter', 'linkedin', 'facebook'];
 
 const PlatformIconMap: Record<SocialPlatform, React.FC<{ className?: string; size?: number }>> = {
@@ -57,6 +59,7 @@ const PLATFORM_COLORS: Record<SocialPlatform, { bg: string; text: string }> = {
 export function CreateStep1Upload() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
 
   // Store state
   const videoFile = useContentMultiplierV2Store((s) => s.videoFile);
@@ -88,26 +91,52 @@ export function CreateStep1Upload() {
     setIsUploading(true);
 
     try {
-      // Create local URL for preview
+      // Create local URL for preview (immediate feedback)
       const localUrl = URL.createObjectURL(file);
       setVideoFile(file);
-      setVideoUrl(localUrl);
+      setLocalPreviewUrl(localUrl);
 
       // Get video duration
       const video = document.createElement('video');
       video.preload = 'metadata';
       video.onloadedmetadata = () => {
         setVideoDuration(video.duration);
-        URL.revokeObjectURL(video.src);
       };
       video.src = localUrl;
 
-      // TODO: Upload to storage for persistence
-      // const { uploadVideoForPost } = await import('@/actions/tools/content-multiplier-v2-actions');
-      // const result = await uploadVideoForPost(file);
-      // if (result.success) {
-      //   setVideoUrl(result.videoUrl);
-      // }
+      // Upload to Supabase storage for server-side access
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.error('User not authenticated');
+        setVideoUrl(localUrl); // Fallback to local URL for posting
+        return;
+      }
+
+      const fileExt = file.name.split('.').pop() || 'mp4';
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from('content-multiplier-videos')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        console.error('Storage upload error:', error);
+        setVideoUrl(localUrl); // Fallback to local URL for posting
+        return;
+      }
+
+      // Get public URL for server-side posting
+      const { data: urlData } = supabase.storage
+        .from('content-multiplier-videos')
+        .getPublicUrl(data.path);
+
+      console.log('Video uploaded to storage:', urlData.publicUrl);
+      setVideoUrl(urlData.publicUrl);
 
     } catch (error) {
       console.error('Video upload error:', error);
@@ -151,13 +180,17 @@ export function CreateStep1Upload() {
 
   // Remove video
   const handleRemoveVideo = () => {
-    if (videoUrl && videoUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(videoUrl);
+    if (localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+      setLocalPreviewUrl(null);
     }
     setVideoFile(null);
     setVideoUrl(null);
     setOriginalTranscript(null);
   };
+
+  // Use local preview for video playback, fall back to remote URL
+  const displayVideoUrl = localPreviewUrl || videoUrl;
 
   // Check if can proceed
   const canProceed = canProceedToStep2();
@@ -171,7 +204,7 @@ export function CreateStep1Upload() {
       <div>
         <Label className="text-sm font-medium mb-2 block">Video</Label>
 
-        {!videoUrl ? (
+        {!displayVideoUrl ? (
           <div
             {...getRootProps()}
             className={`
@@ -210,7 +243,7 @@ export function CreateStep1Upload() {
           <Card className="relative overflow-hidden">
             <video
               ref={videoRef}
-              src={videoUrl}
+              src={displayVideoUrl}
               className="w-full aspect-video object-cover"
               controls
             />
@@ -230,7 +263,7 @@ export function CreateStep1Upload() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-sm font-medium">What's this video about?</Label>
-          {videoUrl && (
+          {displayVideoUrl && (
             <Button
               variant="ghost"
               size="sm"
@@ -378,11 +411,15 @@ export function CreateStep1Upload() {
         </Button>
         {!canProceed && (
           <p className="text-xs text-center text-muted-foreground mt-2">
-            {!videoUrl
-              ? 'Upload a video to continue'
-              : !originalDescription.trim()
-                ? 'Add a description to continue'
-                : 'Select at least one platform'
+            {isUploading
+              ? 'Uploading video...'
+              : !videoUrl && !localPreviewUrl
+                ? 'Upload a video to continue'
+                : !videoUrl && localPreviewUrl
+                  ? 'Finishing upload...'
+                  : !originalDescription.trim()
+                    ? 'Add a description to continue'
+                    : 'Select at least one platform'
             }
           </p>
         )}
