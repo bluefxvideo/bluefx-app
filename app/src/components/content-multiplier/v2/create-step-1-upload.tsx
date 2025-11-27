@@ -199,9 +199,9 @@ export function CreateStep1Upload() {
   );
 
   return (
-    <div className="h-full flex flex-col gap-6">
+    <div className="h-full flex flex-col gap-6 overflow-y-auto">
       {/* Video Upload Section */}
-      <div>
+      <div className="flex-shrink-0">
         <Label className="text-sm font-medium mb-2 block">Video</Label>
 
         {!displayVideoUrl ? (
@@ -240,11 +240,11 @@ export function CreateStep1Upload() {
             </div>
           </div>
         ) : (
-          <Card className="relative overflow-hidden">
+          <Card className="relative overflow-hidden max-h-[300px]">
             <video
               ref={videoRef}
               src={displayVideoUrl}
-              className="w-full aspect-video object-cover"
+              className="w-full h-full object-cover"
               controls
             />
             <Button
