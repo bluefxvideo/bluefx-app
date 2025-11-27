@@ -7,6 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   ChevronLeft,
   Send,
   Calendar,
@@ -14,6 +21,10 @@ import {
   Sparkles,
   Loader2,
   Check,
+  AlertCircle,
+  Globe,
+  Lock,
+  Eye,
 } from 'lucide-react';
 import {
   useContentMultiplierV2Store,
@@ -23,6 +34,7 @@ import {
   BEST_POSTING_TIMES,
   type SocialPlatform,
   type ScheduleOption,
+  type YouTubePrivacyStatus,
 } from '../store/content-multiplier-v2-store';
 import {
   TikTokIcon,
@@ -92,6 +104,9 @@ export function CreateStep3Schedule() {
   const scheduleOption = useScheduleOption();
   const platformSchedules = useContentMultiplierV2Store((s) => s.platformSchedules);
   const isPosting = useContentMultiplierV2Store((s) => s.isPosting);
+  const youtubePrivacy = useContentMultiplierV2Store((s) => s.youtubePrivacy);
+  const postingProgress = useContentMultiplierV2Store((s) => s.postingProgress);
+  const error = useContentMultiplierV2Store((s) => s.error);
 
   // Store actions
   const setScheduleOption = useContentMultiplierV2Store((s) => s.setScheduleOption);
@@ -101,6 +116,10 @@ export function CreateStep3Schedule() {
   const submitPosts = useContentMultiplierV2Store((s) => s.submitPosts);
   const prevStep = useContentMultiplierV2Store((s) => s.prevStep);
   const canSubmit = useContentMultiplierV2Store((s) => s.canSubmit);
+  const setYouTubePrivacy = useContentMultiplierV2Store((s) => s.setYouTubePrivacy);
+
+  // Check if YouTube is selected
+  const hasYouTube = selectedPlatforms.includes('youtube');
 
   // Local state for single time picker
   const [singleScheduleTime, setSingleScheduleTime] = useState(() => {
@@ -280,25 +299,141 @@ export function CreateStep3Schedule() {
 
       {/* Summary for "Post Now" */}
       {scheduleOption === 'now' && (
-        <Card className="flex-1 p-4">
-          <h4 className="font-medium mb-3">Ready to post to:</h4>
-          <div className="space-y-2">
-            {selectedPlatforms.map((platform) => {
-              const config = PLATFORM_CONFIGS[platform];
-              const Icon = PlatformIconMap[platform];
+        <div className="flex-1 space-y-4">
+          {/* YouTube Privacy Setting */}
+          {hasYouTube && (
+            <Card className="p-4">
+              <Label className="text-sm font-medium mb-3 block">
+                YouTube Video Privacy
+              </Label>
+              <Select
+                value={youtubePrivacy}
+                onValueChange={(value) => setYouTubePrivacy(value as YouTubePrivacyStatus)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      <span>Public</span>
+                      <span className="text-xs text-muted-foreground">- Anyone can see</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="unlisted">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4" />
+                      <span>Unlisted</span>
+                      <span className="text-xs text-muted-foreground">- Only with link</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="private">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      <span>Private</span>
+                      <span className="text-xs text-muted-foreground">- Only you</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </Card>
+          )}
 
-              return (
-                <div key={platform} className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg ${PLATFORM_COLORS[platform]} flex items-center justify-center`}>
-                    <Icon className="text-white" size={14} />
-                  </div>
-                  <span className="text-sm">{config.name}</span>
-                  <Check className="w-4 h-4 text-green-500 ml-auto" />
+          {/* Posting Progress */}
+          {postingProgress.length > 0 ? (
+            <Card className="p-4">
+              <h4 className="font-medium mb-3">Posting Progress</h4>
+              <div className="space-y-3">
+                {postingProgress.map((progress) => {
+                  const config = PLATFORM_CONFIGS[progress.platform];
+                  const Icon = PlatformIconMap[progress.platform];
+
+                  return (
+                    <div key={progress.platform} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg ${PLATFORM_COLORS[progress.platform]} flex items-center justify-center`}>
+                        <Icon className="text-white" size={14} />
+                      </div>
+                      <span className="text-sm flex-1">{config.name}</span>
+                      <div className="flex items-center gap-2">
+                        {progress.status === 'pending' && (
+                          <span className="text-xs text-muted-foreground">Waiting...</span>
+                        )}
+                        {progress.status === 'posting' && (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                            <span className="text-xs text-blue-500">Uploading...</span>
+                          </>
+                        )}
+                        {progress.status === 'done' && (
+                          <>
+                            <Check className="w-4 h-4 text-green-500" />
+                            <span className="text-xs text-green-500">Posted!</span>
+                          </>
+                        )}
+                        {progress.status === 'error' && (
+                          <>
+                            <AlertCircle className="w-4 h-4 text-red-500" />
+                            <span className="text-xs text-red-500" title={progress.message}>
+                              Failed
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {postingProgress.some(p => p.status === 'done' && p.message) && (
+                <div className="mt-3 pt-3 border-t">
+                  {postingProgress
+                    .filter(p => p.status === 'done' && p.message)
+                    .map(p => (
+                      <a
+                        key={p.platform}
+                        href={p.message?.replace('Posted: ', '')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline block"
+                      >
+                        View on {PLATFORM_CONFIGS[p.platform].name}
+                      </a>
+                    ))}
                 </div>
-              );
-            })}
-          </div>
-        </Card>
+              )}
+            </Card>
+          ) : (
+            <Card className="p-4">
+              <h4 className="font-medium mb-3">Ready to post to:</h4>
+              <div className="space-y-2">
+                {selectedPlatforms.map((platform) => {
+                  const config = PLATFORM_CONFIGS[platform];
+                  const Icon = PlatformIconMap[platform];
+
+                  return (
+                    <div key={platform} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg ${PLATFORM_COLORS[platform]} flex items-center justify-center`}>
+                        <Icon className="text-white" size={14} />
+                      </div>
+                      <span className="text-sm">{config.name}</span>
+                      <Check className="w-4 h-4 text-green-500 ml-auto" />
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Error display */}
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Action Buttons */}
