@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export function ScriptGeneratorPage() {
+  const router = useRouter();
+
   // State
   const [offers, setOffers] = useState<AffiliateOffer[]>([]);
   const [selectedOffer, setSelectedOffer] = useState<AffiliateOffer | null>(null);
@@ -116,7 +119,18 @@ export function ScriptGeneratorPage() {
     <div className="h-full flex flex-col space-y-6">
       {/* Offer Selection */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-zinc-300">Select Offer</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium text-zinc-300">Select Offer</Label>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/dashboard/script-generator/manage-offers')}
+            className="h-7 px-2 text-xs text-zinc-400 hover:text-white gap-1"
+          >
+            <Settings className="w-3 h-3" />
+            Manage Offers
+          </Button>
+        </div>
         <Select
           value={selectedOffer?.id || ''}
           onValueChange={(value) => {
