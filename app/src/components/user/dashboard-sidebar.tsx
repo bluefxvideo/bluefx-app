@@ -184,6 +184,13 @@ const toolCategories = [
         gradient: "bg-primary",
         description: "Generate affiliate marketing scripts",
       },
+      {
+        name: "My Scripts",
+        route: "/dashboard/script-generator/my-scripts",
+        icon: BookOpen,
+        gradient: "bg-primary",
+        description: "Your saved scripts library",
+      },
     ],
   },
 ];

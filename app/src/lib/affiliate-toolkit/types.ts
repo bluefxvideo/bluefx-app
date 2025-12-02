@@ -93,3 +93,29 @@ export interface RefinementState {
   isRefining: boolean;
   refinementHistory: string[];
 }
+
+export interface SavedScript {
+  id: string;
+  user_id: string;
+  offer_id: string | null;
+  offer_name: string;
+  script_type: ScriptType;
+  content: string;
+  custom_angle: string | null;
+  custom_prompt: string | null;
+  is_favorite: boolean;
+  created_at: string;
+}
+
+// Helper to get type label from ScriptType
+export function getScriptTypeLabel(type: ScriptType): string {
+  const config = SCRIPT_TYPES.find(t => t.id === type);
+  return config?.name || type;
+}
+
+// Video-related script types (for showing video tool buttons)
+export const VIDEO_SCRIPT_TYPES: ScriptType[] = ['short_video', 'long_video', 'hooks'];
+
+export function isVideoScriptType(type: ScriptType): boolean {
+  return VIDEO_SCRIPT_TYPES.includes(type);
+}

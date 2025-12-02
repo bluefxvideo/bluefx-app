@@ -476,39 +476,6 @@ Create the requested content following these guidelines:
   }
 }
 
-// Wrapper function for generating multiple variations
-export function wrapWithVariations(basePrompt: string, count: number = 5): string {
-  return `${basePrompt}
-
----
-
-IMPORTANT: Generate ${count} DIFFERENT variations of this content.
-
-Each variation should:
-- Use a different angle or approach
-- Have a unique hook
-- Feel fresh and distinct from the others
-
-Format your output as:
-
-=== VARIATION 1 ===
-[First version]
-
-=== VARIATION 2 ===
-[Second version]
-
-=== VARIATION 3 ===
-[Third version]
-
-=== VARIATION 4 ===
-[Fourth version]
-
-=== VARIATION 5 ===
-[Fifth version]
-
-Make each variation genuinely different, not just slightly reworded.`;
-}
-
 export function getRefinementPrompt(
   currentScript: string,
   refinementInstructions: string
