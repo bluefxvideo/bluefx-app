@@ -27,8 +27,10 @@ import {
   PanelLeftClose,
   PanelLeft,
   Repeat,
-  FileText
+  FileText,
+  Shield
 } from 'lucide-react'
+import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -198,7 +200,25 @@ export function DashboardSidebar({
   const { setTheme } = useTheme()
   const { toggleSidebar } = useDashboardLayout()
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Check if user is admin
+  useEffect(() => {
+    async function checkAdmin() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        setIsAdmin(profile?.role === 'admin')
+      }
+    }
+    checkAdmin()
+  }, [])
 
   const isToolActive = (route: string) => {
     return pathname === route || pathname?.startsWith(route + '/')
@@ -465,6 +485,21 @@ export function DashboardSidebar({
                     <BarChart className="w-4 h-4 mr-2" />
                     Usage Analytics
                   </Button>
+
+                  {/* Admin Panel - Only visible for admins */}
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start h-auto p-2 text-base cursor-pointer text-amber-400 transition-colors hover:bg-amber-500/10"
+                      onClick={() => {
+                        setShowAccountDropdown(false);
+                        router.push("/dashboard/admin");
+                      }}
+                    >
+                      <Shield className="w-4 h-4 mr-2" />
+                      Admin Panel
+                    </Button>
+                  )}
 
                   <div className="border-t my-1" />
 
