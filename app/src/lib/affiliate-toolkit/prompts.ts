@@ -290,6 +290,153 @@ Include:
 - Suggested interests/keywords
 - A/B testing recommendations`;
 
+    case 'hooks':
+      return `${offerContext}
+
+TASK: Generate 10 scroll-stopping hooks for promoting this offer.
+
+REQUIREMENTS:
+- Each hook is 1-2 sentences maximum
+- Designed for the first 2-3 seconds of short-form video (TikTok, Reels, Shorts)
+- Must stop the scroll immediately
+- Use a VARIETY of hook styles (see below)
+- Authentic tone, no hype words
+- Each hook should be completely different from the others
+
+HOOK STYLES TO USE:
+- Question hook (provocative question)
+- Bold claim hook (surprising statement)
+- Story hook (story opener)
+- Curiosity gap hook (incomplete information)
+- Statistic hook (surprising number)
+- Controversy hook (challenges common belief)
+- Personal hook (I/my experience)
+- Pattern interrupt hook (unexpected opening)
+- Problem hook (names the pain)
+- Discovery hook (I just found out...)
+
+OUTPUT FORMAT:
+
+1. [QUESTION]
+"..."
+
+2. [BOLD CLAIM]
+"..."
+
+3. [STORY]
+"..."
+
+4. [CURIOSITY GAP]
+"..."
+
+5. [STATISTIC]
+"..."
+
+6. [CONTROVERSY]
+"..."
+
+7. [PERSONAL]
+"..."
+
+8. [PATTERN INTERRUPT]
+"..."
+
+9. [PROBLEM]
+"..."
+
+10. [DISCOVERY]
+"..."
+
+Each hook should be ready to use as-is for a video opening.`;
+
+    case 'content_calendar':
+      return `${offerContext}
+
+TASK: Create a complete 30-day content calendar for promoting this offer on social media.
+
+STRATEGY:
+- Week 1 (Days 1-7): Build AWARENESS - Introduce the problem, create curiosity
+- Week 2 (Days 8-14): Agitate PAIN POINTS - Deep dive into struggles and frustrations
+- Week 3 (Days 15-21): Present SOLUTION - Reveal the product, show benefits
+- Week 4 (Days 22-30): Drive ACTION - Social proof, urgency, final push
+
+REQUIREMENTS:
+- 30 unique content pieces (one per day)
+- Mix of formats throughout:
+  • Short video scripts (TikTok/Reels) - include hook + brief concept
+  • Text posts (Facebook/Instagram/X) - full post ready to use
+  • Story ideas - brief concept for multi-slide stories
+  • Carousel concepts - topic + slide breakdown
+- Vary the angles so content doesn't feel repetitive
+- Each piece should be actionable - ready to create or post
+- Include the content type label for each day
+
+OUTPUT FORMAT:
+
+════════════════════════════════════════
+WEEK 1: AWARENESS & CURIOSITY (Days 1-7)
+════════════════════════════════════════
+
+📅 DAY 1 - [SHORT VIDEO]
+Hook: "..."
+Concept: Brief description of the video content
+CTA: Link in bio / Follow for more
+
+---
+
+📅 DAY 2 - [TEXT POST]
+"Full post text here ready to copy and paste..."
+
+Hashtags: #relevant #hashtags
+
+---
+
+📅 DAY 3 - [CAROUSEL]
+Topic: ...
+Slide 1: ...
+Slide 2: ...
+Slide 3: ...
+Slide 4: ...
+Slide 5: CTA
+
+---
+
+📅 DAY 4 - [STORY SEQUENCE]
+Story 1: ...
+Story 2: ...
+Story 3: ...
+Story 4: CTA with link
+
+---
+
+(Continue for all 7 days of Week 1)
+
+════════════════════════════════════════
+WEEK 2: PAIN POINTS & PROBLEMS (Days 8-14)
+════════════════════════════════════════
+
+(Days 8-14 with similar format)
+
+════════════════════════════════════════
+WEEK 3: SOLUTION & BENEFITS (Days 15-21)
+════════════════════════════════════════
+
+(Days 15-21 with similar format)
+
+════════════════════════════════════════
+WEEK 4: ACTION & URGENCY (Days 22-30)
+════════════════════════════════════════
+
+(Days 22-30 with similar format)
+
+---
+
+📊 CONTENT MIX SUMMARY:
+- Short Videos: X
+- Text Posts: X
+- Carousels: X
+- Story Sequences: X`;
+
     case 'custom':
       return `${offerContext}
 
@@ -306,6 +453,39 @@ Create the requested content following these guidelines:
     default:
       return offerContext;
   }
+}
+
+// Wrapper function for generating multiple variations
+export function wrapWithVariations(basePrompt: string, count: number = 5): string {
+  return `${basePrompt}
+
+---
+
+IMPORTANT: Generate ${count} DIFFERENT variations of this content.
+
+Each variation should:
+- Use a different angle or approach
+- Have a unique hook
+- Feel fresh and distinct from the others
+
+Format your output as:
+
+=== VARIATION 1 ===
+[First version]
+
+=== VARIATION 2 ===
+[Second version]
+
+=== VARIATION 3 ===
+[Third version]
+
+=== VARIATION 4 ===
+[Fourth version]
+
+=== VARIATION 5 ===
+[Fifth version]
+
+Make each variation genuinely different, not just slightly reworded.`;
 }
 
 export function getRefinementPrompt(

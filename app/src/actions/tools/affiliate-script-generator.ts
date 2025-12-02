@@ -3,13 +3,14 @@
 import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { createClient } from '@/app/supabase/server';
-import { getPromptForScriptType, getRefinementPrompt } from '@/lib/affiliate-toolkit/prompts';
+import { getPromptForScriptType, getRefinementPrompt, wrapWithVariations } from '@/lib/affiliate-toolkit/prompts';
 import type { AffiliateOffer, ScriptType } from '@/lib/affiliate-toolkit/types';
 
 interface GenerateScriptRequest {
   offer: AffiliateOffer;
   scriptType: ScriptType;
   customPrompt?: string;
+  variations?: number;
 }
 
 interface GenerateScriptResponse {
@@ -46,19 +47,33 @@ export async function generateAffiliateScript(
     }
 
     // Build the prompt
-    const prompt = getPromptForScriptType(
+    let prompt = getPromptForScriptType(
       request.scriptType,
       request.offer,
       request.customPrompt
     );
 
-    console.log('📝 Generating script with Gemini...');
+    // Wrap with variations if requested
+    if (request.variations && request.variations > 1) {
+      prompt = wrapWithVariations(prompt, request.variations);
+    }
+
+    // Determine maxTokens based on script type and variations
+    let maxTokens = 4096;
+    if (request.scriptType === 'content_calendar') {
+      maxTokens = 8000; // 30-day calendar needs more tokens
+    }
+    if (request.variations && request.variations > 1) {
+      maxTokens = Math.min(maxTokens * 2, 8000); // Double for variations, cap at 8000
+    }
+
+    console.log('📝 Generating script with Gemini...', { scriptType: request.scriptType, variations: request.variations, maxTokens });
 
     // Generate content using Gemini 2.0 Flash
     const { text } = await generateText({
       model: google('gemini-2.0-flash-exp'),
       prompt: prompt,
-      maxTokens: 4096,
+      maxTokens: maxTokens,
       temperature: 0.7,
     });
 

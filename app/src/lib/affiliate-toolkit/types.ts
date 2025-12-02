@@ -15,6 +15,8 @@ export type ScriptType =
   | 'landing_page'
   | 'social_posts'
   | 'ad_copy'
+  | 'hooks'
+  | 'content_calendar'
   | 'custom';
 
 export interface ScriptTypeConfig {
@@ -60,6 +62,18 @@ export const SCRIPT_TYPES: ScriptTypeConfig[] = [
     name: 'Ad Copy Variations',
     description: 'Facebook/Google ad copy with multiple angles',
     icon: 'Target'
+  },
+  {
+    id: 'hooks',
+    name: 'Hooks (10)',
+    description: '10 scroll-stopping hooks for short-form video',
+    icon: 'Zap'
+  },
+  {
+    id: 'content_calendar',
+    name: '30-Day Calendar',
+    description: 'Complete 30-day content calendar by week',
+    icon: 'Calendar'
   },
   {
     id: 'custom',

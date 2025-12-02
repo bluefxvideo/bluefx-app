@@ -21,12 +21,14 @@ export async function fetchOffers(): Promise<AffiliateOffer[]> {
 export async function generateScript(
   offer: AffiliateOffer,
   scriptType: ScriptType,
-  customPrompt?: string
+  customPrompt?: string,
+  variations?: number
 ): Promise<string> {
   const result = await generateAffiliateScript({
     offer,
     scriptType,
-    customPrompt
+    customPrompt,
+    variations
   });
 
   if (!result.success || !result.script) {

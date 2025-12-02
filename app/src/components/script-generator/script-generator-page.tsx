@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings } from 'lucide-react';
+import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Layers } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,9 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Layout,
   Share2,
   Target,
-  Pencil
+  Pencil,
+  Zap,
+  Calendar
 };
 
 export function ScriptGeneratorPage() {
@@ -37,6 +39,7 @@ export function ScriptGeneratorPage() {
   const [generatedScript, setGeneratedScript] = useState<string | null>(null);
   const [refinementInput, setRefinementInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isLoadingOffers, setIsLoadingOffers] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,17 +83,22 @@ export function ScriptGeneratorPage() {
   }, []);
 
   // Handle generation
-  const handleGenerate = async () => {
+  const handleGenerate = async (variations?: number) => {
     if (!selectedOffer || !selectedScriptType) return;
 
-    setIsGenerating(true);
+    if (variations && variations > 1) {
+      setIsGeneratingVariations(true);
+    } else {
+      setIsGenerating(true);
+    }
     setError(null);
 
     try {
       const script = await generateScript(
         selectedOffer,
         selectedScriptType,
-        selectedScriptType === 'custom' ? customPrompt : undefined
+        selectedScriptType === 'custom' ? customPrompt : undefined,
+        variations
       );
       setGeneratedScript(script);
     } catch (err) {
@@ -98,6 +106,7 @@ export function ScriptGeneratorPage() {
       console.error(err);
     } finally {
       setIsGenerating(false);
+      setIsGeneratingVariations(false);
     }
   };
 
@@ -243,24 +252,45 @@ export function ScriptGeneratorPage() {
         </div>
       )}
 
-      {/* Generate Button */}
-      <Button
-        onClick={handleGenerate}
-        disabled={!selectedOffer || !selectedScriptType || isGenerating || (selectedScriptType === 'custom' && !customPrompt.trim())}
-        className="w-full bg-primary hover:bg-primary/90"
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Generating...
-          </>
-        ) : (
-          <>
-            <FileText className="w-4 h-4 mr-2" />
-            Generate Script
-          </>
-        )}
-      </Button>
+      {/* Generate Buttons */}
+      <div className="space-y-2">
+        <Button
+          onClick={() => handleGenerate()}
+          disabled={!selectedOffer || !selectedScriptType || isGenerating || isGeneratingVariations || (selectedScriptType === 'custom' && !customPrompt.trim())}
+          className="w-full bg-primary hover:bg-primary/90"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <FileText className="w-4 h-4 mr-2" />
+              Generate Script
+            </>
+          )}
+        </Button>
+
+        <Button
+          onClick={() => handleGenerate(5)}
+          disabled={!selectedOffer || !selectedScriptType || isGenerating || isGeneratingVariations || (selectedScriptType === 'custom' && !customPrompt.trim())}
+          variant="outline"
+          className="w-full border-primary/50 text-primary hover:bg-primary/10"
+        >
+          {isGeneratingVariations ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Generating 5 Variations...
+            </>
+          ) : (
+            <>
+              <Layers className="w-4 h-4 mr-2" />
+              Generate 5 Variations
+            </>
+          )}
+        </Button>
+      </div>
 
       {error && (
         <p className="text-sm text-red-400">{error}</p>
