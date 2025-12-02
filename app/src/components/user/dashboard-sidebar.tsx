@@ -26,7 +26,8 @@ import {
   Sun,
   PanelLeftClose,
   PanelLeft,
-  Repeat
+  Repeat,
+  FileText
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -167,6 +168,19 @@ const toolCategories = [
         icon: DollarSign,
         gradient: "from-yellow-500 to-amber-500",
         description: "Find the best affiliate offers",
+      },
+    ],
+  },
+  {
+    id: "affiliate",
+    name: "Affiliate Toolkit",
+    tools: [
+      {
+        name: "Script Generator",
+        route: "/dashboard/script-generator",
+        icon: FileText,
+        gradient: "bg-primary",
+        description: "Generate affiliate marketing scripts",
       },
     ],
   },
