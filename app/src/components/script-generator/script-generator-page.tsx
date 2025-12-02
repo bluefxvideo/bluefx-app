@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { AffiliateOffer, ScriptType, SCRIPT_TYPES } from '@/lib/affiliate-toolkit/types';
 import { fetchOffers, generateScript, refineScript } from '@/lib/affiliate-toolkit/service';
+import { createClient } from '@/app/supabase/client';
 
 // Icon mapping for script types
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -40,6 +41,24 @@ export function ScriptGeneratorPage() {
   const [isLoadingOffers, setIsLoadingOffers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    async function checkAdmin() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(profile?.role === 'admin');
+      }
+    }
+    checkAdmin();
+  }, []);
 
   // Load offers on mount
   useEffect(() => {
@@ -121,15 +140,17 @@ export function ScriptGeneratorPage() {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium text-zinc-300">Select Offer</Label>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/dashboard/script-generator/manage-offers')}
-            className="h-7 px-2 text-xs text-zinc-400 hover:text-white gap-1"
-          >
-            <Settings className="w-3 h-3" />
-            Manage Offers
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/dashboard/script-generator/manage-offers')}
+              className="h-7 px-2 text-xs text-zinc-400 hover:text-white gap-1"
+            >
+              <Settings className="w-3 h-3" />
+              Manage Offers
+            </Button>
+          )}
         </div>
         <Select
           value={selectedOffer?.id || ''}
