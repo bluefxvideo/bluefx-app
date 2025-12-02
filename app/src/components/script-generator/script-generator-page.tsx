@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Layers } from 'lucide-react';
+import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Layers, Mic, UserRound } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { Button } from '@/components/ui/button';
@@ -140,6 +140,30 @@ export function ScriptGeneratorPage() {
     } catch (err) {
       console.error('Failed to copy:', err);
     }
+  };
+
+  // Check if current script type is video-related
+  const isVideoScriptType = (type: ScriptType | null): boolean => {
+    return type === 'short_video' || type === 'long_video' || type === 'hooks';
+  };
+
+  // Navigate to video tools with script pre-loaded
+  const goToScriptToVideo = () => {
+    if (!generatedScript) return;
+    localStorage.setItem('prefill_script', generatedScript);
+    router.push('/dashboard/script-to-video');
+  };
+
+  const goToTalkingAvatar = () => {
+    if (!generatedScript) return;
+    localStorage.setItem('prefill_script', generatedScript);
+    router.push('/dashboard/talking-avatar');
+  };
+
+  const goToVoiceOver = () => {
+    if (!generatedScript) return;
+    localStorage.setItem('prefill_script', generatedScript);
+    router.push('/dashboard/voice-over');
   };
 
   // Input Panel
@@ -345,6 +369,42 @@ export function ScriptGeneratorPage() {
           </div>
         )}
       </div>
+
+      {/* Video Tool Buttons - Only show for video script types */}
+      {generatedScript && isVideoScriptType(selectedScriptType) && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <Label className="text-sm font-medium text-zinc-300 mb-3 block">Send to Video Tool</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToScriptToVideo}
+              className="gap-2 border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+            >
+              <Film className="w-4 h-4" />
+              Script to Video
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToTalkingAvatar}
+              className="gap-2 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+            >
+              <UserRound className="w-4 h-4" />
+              Talking Avatar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToVoiceOver}
+              className="gap-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
+            >
+              <Mic className="w-4 h-4" />
+              Voice Over
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Refinement Section */}
       {generatedScript && (

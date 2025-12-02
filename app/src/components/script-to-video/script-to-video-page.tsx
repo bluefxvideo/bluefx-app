@@ -75,7 +75,7 @@ export function ScriptToVideoPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           initializeUser(user.id);
-          
+
           // Load existing generation results if on editor tab
           if (pathname.includes('/editor')) {
             loadExistingResults(user.id);
@@ -88,6 +88,23 @@ export function ScriptToVideoPage() {
 
     loadUser();
   }, [initializeUser, loadExistingResults, pathname]);
+
+  // Check for prefilled script from Script Generator
+  useEffect(() => {
+    const prefillScript = localStorage.getItem('prefill_script');
+    if (prefillScript) {
+      // Set the script and switch to "use my script" mode, go to step 2
+      setMultiStepState((prev) => ({
+        ...prev,
+        useMyScript: true,
+        ideaText: prefillScript,
+        generatedScript: prefillScript,
+        finalScript: prefillScript,
+        currentStep: 2, // Go directly to script review step
+      }));
+      localStorage.removeItem('prefill_script'); // Clear after use
+    }
+  }, []);
 
   // Reset videoGenerated when starting new generation or going back to step 1
   useEffect(() => {

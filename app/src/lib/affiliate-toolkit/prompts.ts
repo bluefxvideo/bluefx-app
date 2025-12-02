@@ -15,70 +15,100 @@ OFFER DETAILS:
 
   switch (scriptType) {
     case 'short_video':
-      return `${offerContext}
+      return `Write a 30-60 second video script for TikTok/Reels/Shorts.
 
-Create a compelling 60-90 second video script for promoting this affiliate offer on TikTok, Instagram Reels, or YouTube Shorts.
+OFFER: ${offer.name}
+NICHE: ${offer.niche || 'General'}
 
-Requirements:
-- Hook in the first 3 seconds (pattern interrupt, bold claim, or question)
-- Problem-agitation in seconds 4-20
-- Solution introduction (the offer) in seconds 21-45
-- Social proof or credibility moment in seconds 46-60
-- Strong CTA with urgency in final 15-30 seconds
-- Include visual/scene directions in [brackets]
-- Keep language casual, conversational, and relatable
-- Include 3-5 trending-style transitions or effects suggestions
+OFFER INFORMATION:
+${offer.offer_content || 'No description provided'}
 
-Format the output with:
-1. HOOK (0-3s)
-2. PROBLEM (4-20s)
-3. SOLUTION (21-45s)
-4. PROOF (46-60s)
-5. CTA (61-90s)
+REQUIREMENTS:
+- Hook: First line must grab attention in 2-3 seconds
+- Body: Address the pain point, introduce the solution
+- CTA: End with "link in bio" or similar
+- Tone: Casual, authentic, like talking to a friend
+- Length: 30-60 seconds when spoken naturally
 
-Each section should include the spoken script AND [visual directions].`;
+OUTPUT FORMAT:
+Provide the script in this exact format, nothing else:
+
+HOOK:
+[The opening line - attention grabber]
+
+SCRIPT:
+[The main body of the script - conversational, flows naturally]
+
+CTA:
+[The closing call to action]
+
+---
+
+CRITICAL OUTPUT RULES:
+- Output ONLY the script text
+- NO markdown formatting (no **, no *, no #)
+- NO [Visual Directions] or [B-Roll] notes
+- NO section explanations or meta-commentary
+- NO "Here's your script:" introductions
+- Just the raw script, ready to paste and read aloud`;
 
     case 'long_video':
-      return `${offerContext}
+      return `Write a 5-10 minute YouTube video script.
 
-Create a detailed 5-10 minute YouTube video script for promoting this affiliate offer.
+OFFER: ${offer.name}
+NICHE: ${offer.niche || 'General'}
 
-Structure:
-1. INTRO (0-30s)
-   - Pattern interrupt hook
-   - Promise/benefit statement
-   - Credibility establishment
+OFFER INFORMATION:
+${offer.offer_content || 'No description provided'}
 
-2. STORY/CONTEXT (30s-2min)
-   - Personal story or case study setup
-   - Relatable problem narrative
-   - Emotional connection
+STRUCTURE:
+- Hook (0:00-0:30): Grab attention, promise value
+- Problem (0:30-2:00): Describe the struggle
+- Failed solutions (2:00-3:30): What doesn't work
+- Discovery (3:30-5:00): The breakthrough
+- Solution (5:00-7:00): Present the product
+- Benefits (7:00-8:30): Why it works
+- CTA (8:30-9:30): Call to action
+- Recap (9:30-10:00): Quick summary
 
-3. PROBLEM DEEP DIVE (2-4min)
-   - 3-5 specific pain points
-   - Cost of inaction
-   - Failed solutions they've tried
+OUTPUT FORMAT:
 
-4. SOLUTION REVEAL (4-6min)
-   - Introduce the offer naturally
-   - Key features as benefits
-   - How it solves each pain point
+TITLE OPTIONS:
+[3 title options, one per line]
 
-5. PROOF & RESULTS (6-8min)
-   - Testimonials or results
-   - Before/after scenarios
-   - Objection handling
+HOOK:
+[Opening that grabs attention]
 
-6. CTA & CLOSE (8-10min)
-   - Clear next step
-   - Bonuses or urgency
-   - Final value reminder
+PROBLEM:
+[Describe the pain point]
 
-Include:
-- B-roll suggestions in [brackets]
-- Engagement prompts (like/subscribe moments)
-- Timestamps for chapters
-- SEO-friendly title and description`;
+FAILED SOLUTIONS:
+[What they've tried that doesn't work]
+
+DISCOVERY:
+[The aha moment]
+
+SOLUTION:
+[Present the product]
+
+BENEFITS:
+[Why it works]
+
+CTA:
+[Call to action]
+
+RECAP:
+[Quick summary]
+
+---
+
+CRITICAL OUTPUT RULES:
+- Output ONLY the script text
+- NO markdown formatting (no ** or *)
+- NO [Visual Directions] or [B-Roll] notes
+- NO explanations or meta-commentary
+- Just clean text ready to read aloud
+- Each section flows naturally into the next`;
 
     case 'email_sequence':
       return `${offerContext}
@@ -291,63 +321,54 @@ Include:
 - A/B testing recommendations`;
 
     case 'hooks':
-      return `${offerContext}
+      return `Generate 10 scroll-stopping hooks for short-form video.
 
-TASK: Generate 10 scroll-stopping hooks for promoting this offer.
+OFFER: ${offer.name}
+NICHE: ${offer.niche || 'General'}
 
-REQUIREMENTS:
-- Each hook is 1-2 sentences maximum
-- Designed for the first 2-3 seconds of short-form video (TikTok, Reels, Shorts)
-- Must stop the scroll immediately
-- Use a VARIETY of hook styles (see below)
-- Authentic tone, no hype words
-- Each hook should be completely different from the others
+OFFER INFORMATION:
+${offer.offer_content || 'No description provided'}
 
-HOOK STYLES TO USE:
-- Question hook (provocative question)
-- Bold claim hook (surprising statement)
-- Story hook (story opener)
-- Curiosity gap hook (incomplete information)
-- Statistic hook (surprising number)
-- Controversy hook (challenges common belief)
-- Personal hook (I/my experience)
-- Pattern interrupt hook (unexpected opening)
-- Problem hook (names the pain)
-- Discovery hook (I just found out...)
+Generate 10 different hooks. Each hook is 1-2 sentences that would make someone stop scrolling.
 
-OUTPUT FORMAT:
+Use variety:
+- Questions
+- Bold claims
+- Story openers
+- Curiosity gaps
+- Statistics
+- Pattern interrupts
 
-1. [QUESTION]
-"..."
+OUTPUT FORMAT (exactly like this):
 
-2. [BOLD CLAIM]
-"..."
+1. [Hook text here]
 
-3. [STORY]
-"..."
+2. [Hook text here]
 
-4. [CURIOSITY GAP]
-"..."
+3. [Hook text here]
 
-5. [STATISTIC]
-"..."
+4. [Hook text here]
 
-6. [CONTROVERSY]
-"..."
+5. [Hook text here]
 
-7. [PERSONAL]
-"..."
+6. [Hook text here]
 
-8. [PATTERN INTERRUPT]
-"..."
+7. [Hook text here]
 
-9. [PROBLEM]
-"..."
+8. [Hook text here]
 
-10. [DISCOVERY]
-"..."
+9. [Hook text here]
 
-Each hook should be ready to use as-is for a video opening.`;
+10. [Hook text here]
+
+---
+
+CRITICAL OUTPUT RULES:
+- Just the numbered hooks
+- NO labels like [QUESTION] or [BOLD CLAIM]
+- NO explanations or meta-commentary
+- NO markdown formatting
+- Clean text only, ready to use as video openers`;
 
     case 'content_calendar':
       return `${offerContext}

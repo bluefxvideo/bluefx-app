@@ -45,6 +45,15 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
     loadAvatarTemplates();
   }, [loadAvatarTemplates]);
 
+  // Check for prefilled script from Script Generator
+  useEffect(() => {
+    const prefillScript = localStorage.getItem('prefill_script');
+    if (prefillScript) {
+      setLocalScriptText(prefillScript);
+      localStorage.removeItem('prefill_script'); // Clear after use
+    }
+  }, []);
+
   // Update local state when wizard state changes
   useEffect(() => {
     setLocalScriptText(state.scriptText);

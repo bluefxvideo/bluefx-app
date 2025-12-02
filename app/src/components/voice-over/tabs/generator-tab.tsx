@@ -125,6 +125,15 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
 
   const [localScriptText, setLocalScriptText] = useState(state.scriptText);
 
+  // Check for prefilled script from Script Generator
+  useEffect(() => {
+    const prefillScript = localStorage.getItem('prefill_script');
+    if (prefillScript) {
+      setLocalScriptText(prefillScript);
+      localStorage.removeItem('prefill_script'); // Clear after use
+    }
+  }, []);
+
   // Sync local state with global state
   useEffect(() => {
     setLocalScriptText(state.scriptText);
