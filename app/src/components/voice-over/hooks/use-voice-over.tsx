@@ -189,31 +189,40 @@ export function useVoiceOver() {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
     }
 
-    // Start new audio
-    const audio = new Audio(sampleUrl);
-    currentAudioRef.current = audio;
-    setState(prev => ({ ...prev, playingVoiceId: voiceId }));
+    // Start new audio with preload
+    const audio = new Audio();
+    audio.preload = 'auto';
 
-    // Handle audio end
+    // Set up event listeners before setting src
+    audio.addEventListener('canplaythrough', () => {
+      audio.play().catch((error) => {
+        console.error('Audio play() failed:', error);
+        currentAudioRef.current = null;
+        setState(prev => ({ ...prev, playingVoiceId: null }));
+      });
+    }, { once: true });
+
     audio.addEventListener('ended', () => {
       currentAudioRef.current = null;
       setState(prev => ({ ...prev, playingVoiceId: null }));
     });
 
-    // Handle audio error
     audio.addEventListener('error', (e) => {
-      console.error('Audio playback failed for:', sampleUrl, e);
+      console.error('Audio error for:', voiceId, sampleUrl, e);
       currentAudioRef.current = null;
       setState(prev => ({ ...prev, playingVoiceId: null }));
     });
 
-    audio.play().catch((error) => {
-      console.error('Audio playback failed:', error);
-      currentAudioRef.current = null;
-      setState(prev => ({ ...prev, playingVoiceId: null }));
-    });
+    // Set src and store reference
+    audio.src = sampleUrl;
+    currentAudioRef.current = audio;
+    setState(prev => ({ ...prev, playingVoiceId: voiceId }));
+
+    // Start loading
+    audio.load();
   }, [state.playingVoiceId]);
 
   // Generate voice
