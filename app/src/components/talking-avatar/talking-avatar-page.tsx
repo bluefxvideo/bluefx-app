@@ -62,7 +62,13 @@ export function TalkingAvatarPage() {
     >
       {avatarState.activeTab === 'history' ? (
         <div className={`h-full ${containerStyles.panel} p-4`}>
-          <HistoryOutput avatarState={avatarState} />
+          <HistoryOutput
+            videos={avatarState.state.videos}
+            isLoading={avatarState.state.isLoadingHistory}
+            onRefresh={avatarState.loadHistory}
+            onDeleteVideo={avatarState.deleteVideo}
+            onCheckStatus={avatarState.checkHistoryItemStatus}
+          />
         </div>
       ) : (
         <StandardToolLayout>
