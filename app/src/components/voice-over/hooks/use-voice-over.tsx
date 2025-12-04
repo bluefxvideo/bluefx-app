@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { executeVoiceOver, VoiceOverRequest, VoiceOption, GeneratedVoice } from '@/actions/tools/voice-over';
 import { getVoiceOverHistory, deleteGeneratedVoice } from '@/actions/database/voice-over-database';
@@ -55,7 +55,7 @@ export function useVoiceOver() {
 
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const supabase = createClient();
   
   const [state, setState] = useState<VoiceOverState>({
@@ -177,44 +177,44 @@ export function useVoiceOver() {
   // Handle voice preview playback
   const handleVoicePlayback = useCallback((voiceId: string, sampleUrl: string) => {
     // If the same voice is playing, stop it
-    if (state.playingVoiceId === voiceId && currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setCurrentAudio(null);
+    if (state.playingVoiceId === voiceId && currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
       setState(prev => ({ ...prev, playingVoiceId: null }));
       return;
     }
 
     // Stop any currently playing audio
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
     }
 
     // Start new audio
     const audio = new Audio(sampleUrl);
-    setCurrentAudio(audio);
+    currentAudioRef.current = audio;
     setState(prev => ({ ...prev, playingVoiceId: voiceId }));
 
     // Handle audio end
     audio.addEventListener('ended', () => {
-      setCurrentAudio(null);
+      currentAudioRef.current = null;
       setState(prev => ({ ...prev, playingVoiceId: null }));
     });
 
     // Handle audio error
-    audio.addEventListener('error', () => {
-      console.error('Audio playback failed for:', sampleUrl);
-      setCurrentAudio(null);
+    audio.addEventListener('error', (e) => {
+      console.error('Audio playback failed for:', sampleUrl, e);
+      currentAudioRef.current = null;
       setState(prev => ({ ...prev, playingVoiceId: null }));
     });
 
     audio.play().catch((error) => {
       console.error('Audio playback failed:', error);
-      setCurrentAudio(null);
+      currentAudioRef.current = null;
       setState(prev => ({ ...prev, playingVoiceId: null }));
     });
-  }, [state.playingVoiceId, currentAudio]);
+  }, [state.playingVoiceId]);
 
   // Generate voice
   const generateVoice = useCallback(async () => {
