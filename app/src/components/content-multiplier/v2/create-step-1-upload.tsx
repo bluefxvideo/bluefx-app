@@ -5,6 +5,7 @@ import { useDropzone } from 'react-dropzone';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -15,6 +16,8 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  Link,
+  Youtube,
 } from 'lucide-react';
 import {
   useContentMultiplierV2Store,
@@ -60,6 +63,9 @@ export function CreateStep1Upload() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [isFetchingTranscript, setIsFetchingTranscript] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
 
   // Store state
   const videoFile = useContentMultiplierV2Store((s) => s.videoFile);
@@ -178,6 +184,32 @@ export function CreateStep1Upload() {
     }
   };
 
+  // Handle YouTube URL transcript fetch
+  const handleFetchYouTubeTranscript = async () => {
+    if (!youtubeUrl.trim()) return;
+
+    setIsFetchingTranscript(true);
+    setTranscriptError(null);
+
+    try {
+      const { fetchYouTubeTranscript } = await import('@/actions/tools/youtube-transcript');
+      const result = await fetchYouTubeTranscript(youtubeUrl);
+
+      if (result.success && result.transcript) {
+        setOriginalDescription(result.transcript);
+        setOriginalTranscript(result.transcript);
+        setTranscriptError(null);
+      } else {
+        setTranscriptError(result.error || 'Failed to fetch transcript');
+      }
+    } catch (error) {
+      console.error('YouTube transcript error:', error);
+      setTranscriptError('Failed to fetch transcript');
+    } finally {
+      setIsFetchingTranscript(false);
+    }
+  };
+
   // Remove video
   const handleRemoveVideo = () => {
     if (localPreviewUrl) {
@@ -256,6 +288,52 @@ export function CreateStep1Upload() {
               <X className="w-4 h-4" />
             </Button>
           </Card>
+        )}
+      </div>
+
+      {/* YouTube URL Section - for fetching transcripts */}
+      <div className="flex-shrink-0">
+        <Label className="text-sm font-medium mb-2 block">
+          <Youtube className="w-4 h-4 inline mr-1" />
+          Or paste a YouTube URL for transcript
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            type="url"
+            value={youtubeUrl}
+            onChange={(e) => setYoutubeUrl(e.target.value)}
+            placeholder="https://www.youtube.com/watch?v=..."
+            className="flex-1"
+          />
+          <Button
+            variant="secondary"
+            onClick={handleFetchYouTubeTranscript}
+            disabled={!youtubeUrl.trim() || isFetchingTranscript}
+          >
+            {isFetchingTranscript ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Fetching...
+              </>
+            ) : (
+              <>
+                <Link className="w-4 h-4 mr-1" />
+                Get Transcript
+              </>
+            )}
+          </Button>
+        </div>
+        {transcriptError && (
+          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {transcriptError}
+          </p>
+        )}
+        {originalTranscript && youtubeUrl && (
+          <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+            <Check className="w-3 h-3" />
+            Transcript loaded successfully
+          </p>
         )}
       </div>
 
