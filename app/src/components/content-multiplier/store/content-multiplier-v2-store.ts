@@ -682,8 +682,105 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
                       }));
                     }
                   }
+                } else if (platform === 'twitter') {
+                  // Post to Twitter/X
+                  const { postToTwitter } = await import('@/actions/tools/twitter-posting');
+                  const content = platformContent[platform];
+
+                  if (content && videoUrl) {
+                    const hashtagsText = content.hashtags.map(h => `#${h}`).join(' ');
+                    const text = `${content.caption}\n\n${hashtagsText}`.trim();
+
+                    const result = await postToTwitter({
+                      videoUrl,
+                      text,
+                    });
+
+                    if (result.success) {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'done' as const, message: `Posted: ${result.tweetUrl}` }
+                            : p
+                        ),
+                      }));
+                    } else {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'error' as const, message: result.error }
+                            : p
+                        ),
+                      }));
+                    }
+                  }
+                } else if (platform === 'linkedin') {
+                  // Post to LinkedIn
+                  const { postToLinkedIn } = await import('@/actions/tools/linkedin-posting');
+                  const content = platformContent[platform];
+
+                  if (content && videoUrl) {
+                    const hashtagsText = content.hashtags.map(h => `#${h}`).join(' ');
+                    const text = `${content.caption}\n\n${hashtagsText}`.trim();
+
+                    const result = await postToLinkedIn({
+                      videoUrl,
+                      text,
+                    });
+
+                    if (result.success) {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'done' as const, message: `Posted: ${result.postUrl}` }
+                            : p
+                        ),
+                      }));
+                    } else {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'error' as const, message: result.error }
+                            : p
+                        ),
+                      }));
+                    }
+                  }
+                } else if (platform === 'facebook') {
+                  // Post to Facebook
+                  const { postToFacebook } = await import('@/actions/tools/facebook-posting');
+                  const content = platformContent[platform];
+
+                  if (content && videoUrl) {
+                    const hashtagsText = content.hashtags.map(h => `#${h}`).join(' ');
+                    const description = `${content.caption}\n\n${hashtagsText}`.trim();
+
+                    const result = await postToFacebook({
+                      videoUrl,
+                      description,
+                      title: content.title,
+                    });
+
+                    if (result.success) {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'done' as const, message: `Posted: ${result.postUrl}` }
+                            : p
+                        ),
+                      }));
+                    } else {
+                      set(state => ({
+                        postingProgress: state.postingProgress.map(p =>
+                          p.platform === platform
+                            ? { ...p, status: 'error' as const, message: result.error }
+                            : p
+                        ),
+                      }));
+                    }
+                  }
                 } else {
-                  // Other platforms not implemented yet - mark as error
+                  // TikTok and Instagram not implemented yet
                   set(state => ({
                     postingProgress: state.postingProgress.map(p =>
                       p.platform === platform
