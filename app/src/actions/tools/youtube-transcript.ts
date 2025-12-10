@@ -1,6 +1,7 @@
 'use server';
 
 import { YoutubeTranscript } from 'youtube-transcript';
+import ytdl from 'ytdl-core';
 
 interface TranscriptResult {
   success: boolean;
@@ -29,7 +30,84 @@ function extractVideoId(url: string): string | null {
 }
 
 /**
+ * Try to fetch transcript using youtube-transcript library
+ */
+async function tryYoutubeTranscript(videoId: string): Promise<string | null> {
+  try {
+    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+
+    if (!transcriptItems || transcriptItems.length === 0) {
+      return null;
+    }
+
+    return transcriptItems
+      .map(item => item.text)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  } catch (error) {
+    console.log('youtube-transcript failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Fallback: Download audio and transcribe with Whisper
+ */
+async function transcribeWithWhisper(videoId: string): Promise<string | null> {
+  try {
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    // Get video info
+    const info = await ytdl.getInfo(videoUrl);
+
+    // Find audio-only format
+    const audioFormat = ytdl.chooseFormat(info.formats, {
+      quality: 'lowestaudio',
+      filter: 'audioonly'
+    });
+
+    if (!audioFormat || !audioFormat.url) {
+      console.log('No audio format found');
+      return null;
+    }
+
+    console.log('Downloading audio for transcription...');
+
+    // Download audio
+    const audioResponse = await fetch(audioFormat.url);
+    if (!audioResponse.ok) {
+      console.log('Failed to download audio');
+      return null;
+    }
+
+    const audioBuffer = await audioResponse.arrayBuffer();
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
+
+    // Create a File object for the transcription service
+    const audioFile = new File([audioBlob], 'audio.mp4', { type: 'audio/mp4' });
+
+    console.log('Audio downloaded, size:', audioBuffer.byteLength, 'transcribing...');
+
+    // Use OpenAI Whisper for transcription
+    const OpenAI = (await import('openai')).default;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+    });
+
+    return transcription.text;
+  } catch (error) {
+    console.error('Whisper transcription failed:', error);
+    return null;
+  }
+}
+
+/**
  * Fetch transcript from a YouTube video
+ * Tries youtube-transcript first, then falls back to Whisper transcription
  */
 export async function fetchYouTubeTranscript(url: string): Promise<TranscriptResult> {
   try {
@@ -41,23 +119,7 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
 
     console.log('Fetching transcript for video:', videoId);
 
-    // Fetch transcript using youtube-transcript library
-    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
-
-    if (!transcriptItems || transcriptItems.length === 0) {
-      return { success: false, error: 'No transcript available for this video' };
-    }
-
-    // Combine all transcript segments into one text
-    const transcript = transcriptItems
-      .map(item => item.text)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    console.log('Transcript fetched, length:', transcript.length);
-
-    // Try to get video title from oEmbed API
+    // Try to get video title
     let title: string | undefined;
     try {
       const oembedResponse = await fetch(
@@ -68,8 +130,27 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
         title = oembedData.title;
       }
     } catch {
-      // Title fetch is optional, ignore errors
+      // Title fetch is optional
     }
+
+    // Method 1: Try youtube-transcript library (fastest, if captions exist)
+    console.log('Trying youtube-transcript library...');
+    let transcript = await tryYoutubeTranscript(videoId);
+
+    // Method 2: Fall back to Whisper transcription
+    if (!transcript) {
+      console.log('Captions not available, falling back to Whisper transcription...');
+      transcript = await transcribeWithWhisper(videoId);
+    }
+
+    if (!transcript) {
+      return {
+        success: false,
+        error: 'Could not get transcript. Video may be restricted or too long.'
+      };
+    }
+
+    console.log('Transcript fetched, length:', transcript.length);
 
     return {
       success: true,
@@ -78,18 +159,9 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
     };
   } catch (error) {
     console.error('YouTube transcript fetch error:', error);
-
-    // Handle specific errors
-    if (error instanceof Error) {
-      if (error.message.includes('disabled')) {
-        return { success: false, error: 'Transcripts are disabled for this video' };
-      }
-      if (error.message.includes('not found') || error.message.includes('unavailable')) {
-        return { success: false, error: 'Video not found or unavailable' };
-      }
-      return { success: false, error: error.message };
-    }
-
-    return { success: false, error: 'Failed to fetch transcript' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch transcript'
+    };
   }
 }
