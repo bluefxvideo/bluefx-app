@@ -1,6 +1,5 @@
 'use server';
 
-import { YoutubeTranscript } from 'youtube-transcript';
 import ytdl from 'ytdl-core';
 
 interface TranscriptResult {
@@ -30,23 +29,101 @@ function extractVideoId(url: string): string | null {
 }
 
 /**
- * Try to fetch transcript using youtube-transcript library
+ * Fetch captions directly from YouTube's player API
  */
-async function tryYoutubeTranscript(videoId: string): Promise<string | null> {
+async function fetchCaptionsFromYouTube(videoId: string): Promise<string | null> {
   try {
-    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+    // Get the video page to extract caption tracks
+    const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const response = await fetch(watchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    });
 
-    if (!transcriptItems || transcriptItems.length === 0) {
+    if (!response.ok) {
+      console.log('Failed to fetch YouTube page:', response.status);
       return null;
     }
 
-    return transcriptItems
-      .map(item => item.text)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const html = await response.text();
+
+    // Extract captions URL from the page
+    const captionRegex = /"captionTracks":\s*(\[.*?\])/;
+    const match = html.match(captionRegex);
+
+    if (!match) {
+      console.log('No caption tracks found in page');
+      return null;
+    }
+
+    let captionTracks;
+    try {
+      captionTracks = JSON.parse(match[1]);
+    } catch {
+      console.log('Failed to parse caption tracks');
+      return null;
+    }
+
+    if (!captionTracks || captionTracks.length === 0) {
+      console.log('Caption tracks array is empty');
+      return null;
+    }
+
+    // Prefer English captions, fall back to first available
+    let captionUrl = captionTracks.find((t: { languageCode: string }) =>
+      t.languageCode === 'en' || t.languageCode?.startsWith('en')
+    )?.baseUrl;
+
+    if (!captionUrl) {
+      captionUrl = captionTracks[0]?.baseUrl;
+    }
+
+    if (!captionUrl) {
+      console.log('No caption URL found');
+      return null;
+    }
+
+    // Fetch the caption XML
+    console.log('Fetching captions from:', captionUrl);
+    const captionResponse = await fetch(captionUrl);
+
+    if (!captionResponse.ok) {
+      console.log('Failed to fetch captions:', captionResponse.status);
+      return null;
+    }
+
+    const captionXml = await captionResponse.text();
+
+    // Parse XML to extract text
+    const textRegex = /<text[^>]*>(.*?)<\/text>/gs;
+    const texts: string[] = [];
+    let textMatch;
+
+    while ((textMatch = textRegex.exec(captionXml)) !== null) {
+      // Decode HTML entities
+      let text = textMatch[1]
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\n/g, ' ');
+      texts.push(text);
+    }
+
+    if (texts.length === 0) {
+      console.log('No text found in captions');
+      return null;
+    }
+
+    const transcript = texts.join(' ').replace(/\s+/g, ' ').trim();
+    console.log('Successfully extracted transcript, length:', transcript.length);
+    return transcript;
+
   } catch (error) {
-    console.log('youtube-transcript failed:', error);
+    console.error('Caption fetch error:', error);
     return null;
   }
 }
@@ -133,9 +210,9 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
       // Title fetch is optional
     }
 
-    // Method 1: Try youtube-transcript library (fastest, if captions exist)
-    console.log('Trying youtube-transcript library...');
-    let transcript = await tryYoutubeTranscript(videoId);
+    // Method 1: Try direct caption fetch (fastest, if captions exist)
+    console.log('Fetching captions directly from YouTube...');
+    let transcript = await fetchCaptionsFromYouTube(videoId);
 
     // Method 2: Fall back to Whisper transcription
     if (!transcript) {
