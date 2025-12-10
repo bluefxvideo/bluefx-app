@@ -29,64 +29,44 @@ function extractVideoId(url: string): string | null {
 }
 
 /**
- * Fetch captions directly from YouTube's player API
+ * Fetch captions using ytdl-core which parses YouTube's player data
  */
 async function fetchCaptionsFromYouTube(videoId: string): Promise<string | null> {
   try {
-    // Get the video page to extract caption tracks
-    const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const response = await fetch(watchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-      }
-    });
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    console.log('Getting video info with ytdl-core...');
 
-    if (!response.ok) {
-      console.log('Failed to fetch YouTube page:', response.status);
-      return null;
-    }
+    const info = await ytdl.getInfo(videoUrl);
 
-    const html = await response.text();
-
-    // Extract captions URL from the page
-    const captionRegex = /"captionTracks":\s*(\[.*?\])/;
-    const match = html.match(captionRegex);
-
-    if (!match) {
-      console.log('No caption tracks found in page');
-      return null;
-    }
-
-    let captionTracks;
-    try {
-      captionTracks = JSON.parse(match[1]);
-    } catch {
-      console.log('Failed to parse caption tracks');
-      return null;
-    }
+    // Get caption tracks from player response
+    const captionTracks = info.player_response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
 
     if (!captionTracks || captionTracks.length === 0) {
-      console.log('Caption tracks array is empty');
+      console.log('No caption tracks found in video info');
       return null;
     }
+
+    console.log('Found', captionTracks.length, 'caption tracks');
 
     // Prefer English captions, fall back to first available
-    let captionUrl = captionTracks.find((t: { languageCode: string }) =>
+    let captionTrack = captionTracks.find((t: { languageCode: string }) =>
       t.languageCode === 'en' || t.languageCode?.startsWith('en')
-    )?.baseUrl;
+    );
 
-    if (!captionUrl) {
-      captionUrl = captionTracks[0]?.baseUrl;
+    if (!captionTrack) {
+      captionTrack = captionTracks[0];
     }
 
+    const captionUrl = captionTrack?.baseUrl;
+
     if (!captionUrl) {
-      console.log('No caption URL found');
+      console.log('No caption URL found in track');
       return null;
     }
 
+    console.log('Fetching captions from:', captionUrl.substring(0, 100) + '...');
+
     // Fetch the caption XML
-    console.log('Fetching captions from:', captionUrl);
     const captionResponse = await fetch(captionUrl);
 
     if (!captionResponse.ok) {
@@ -95,6 +75,7 @@ async function fetchCaptionsFromYouTube(videoId: string): Promise<string | null>
     }
 
     const captionXml = await captionResponse.text();
+    console.log('Caption XML length:', captionXml.length);
 
     // Parse XML to extract text
     const textRegex = /<text[^>]*>(.*?)<\/text>/gs;
@@ -103,7 +84,7 @@ async function fetchCaptionsFromYouTube(videoId: string): Promise<string | null>
 
     while ((textMatch = textRegex.exec(captionXml)) !== null) {
       // Decode HTML entities
-      let text = textMatch[1]
+      const text = textMatch[1]
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
@@ -114,7 +95,7 @@ async function fetchCaptionsFromYouTube(videoId: string): Promise<string | null>
     }
 
     if (texts.length === 0) {
-      console.log('No text found in captions');
+      console.log('No text found in captions XML');
       return null;
     }
 
