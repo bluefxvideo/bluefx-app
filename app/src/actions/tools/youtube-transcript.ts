@@ -1,6 +1,6 @@
 'use server';
 
-import ytdl from 'ytdl-core';
+import ytdl from '@distube/ytdl-core';
 
 interface TranscriptResult {
   success: boolean;
