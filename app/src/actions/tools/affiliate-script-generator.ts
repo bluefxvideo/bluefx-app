@@ -4,7 +4,8 @@ import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { createClient } from '@/app/supabase/server';
 import { getPromptForScriptType, getRefinementPrompt } from '@/lib/affiliate-toolkit/prompts';
-import type { AffiliateOffer, ScriptType, SavedScript } from '@/lib/affiliate-toolkit/types';
+import type { AffiliateOffer, ScriptType, SavedScript, OfferMediaFile, OfferYouTubeTranscript } from '@/lib/affiliate-toolkit/types';
+import { aggregateOfferContent } from '@/lib/affiliate-toolkit/types';
 
 interface GenerateScriptRequest {
   offer: AffiliateOffer;
@@ -180,9 +181,16 @@ export async function fetchAffiliateOffers(): Promise<{
       };
     }
 
+    // Ensure arrays are properly initialized for each offer
+    const offers = (data || []).map(offer => ({
+      ...offer,
+      media_files: offer.media_files || [],
+      youtube_transcripts: offer.youtube_transcripts || [],
+    }));
+
     return {
       success: true,
-      offers: data || []
+      offers
     };
   } catch (error) {
     console.error('Error fetching offers:', error);
@@ -200,6 +208,8 @@ export async function createAffiliateOffer(offer: {
   name: string;
   niche: string;
   offer_content: string;
+  media_files?: OfferMediaFile[];
+  youtube_transcripts?: OfferYouTubeTranscript[];
 }): Promise<{
   success: boolean;
   offer?: AffiliateOffer;
@@ -214,9 +224,23 @@ export async function createAffiliateOffer(offer: {
       return { success: false, error: 'Authentication required' };
     }
 
+    // Build the aggregated content
+    const aggregated_content = aggregateOfferContent({
+      offer_content: offer.offer_content,
+      media_files: offer.media_files || [],
+      youtube_transcripts: offer.youtube_transcripts || [],
+    });
+
     const { data, error } = await supabase
       .from('affiliate_toolkit_offers')
-      .insert([offer])
+      .insert([{
+        name: offer.name,
+        niche: offer.niche,
+        offer_content: offer.offer_content,
+        media_files: offer.media_files || [],
+        youtube_transcripts: offer.youtube_transcripts || [],
+        aggregated_content: aggregated_content || null,
+      }])
       .select()
       .single();
 
@@ -225,7 +249,14 @@ export async function createAffiliateOffer(offer: {
       return { success: false, error: 'Failed to create offer' };
     }
 
-    return { success: true, offer: data };
+    return {
+      success: true,
+      offer: {
+        ...data,
+        media_files: data.media_files || [],
+        youtube_transcripts: data.youtube_transcripts || [],
+      }
+    };
   } catch (error) {
     console.error('Error creating offer:', error);
     return {
@@ -244,6 +275,8 @@ export async function updateAffiliateOffer(
     name?: string;
     niche?: string;
     offer_content?: string;
+    media_files?: OfferMediaFile[];
+    youtube_transcripts?: OfferYouTubeTranscript[];
   }
 ): Promise<{
   success: boolean;
@@ -259,9 +292,33 @@ export async function updateAffiliateOffer(
       return { success: false, error: 'Authentication required' };
     }
 
+    // Build the aggregated content if any content fields are being updated
+    let aggregated_content: string | undefined;
+    if (updates.offer_content !== undefined || updates.media_files !== undefined || updates.youtube_transcripts !== undefined) {
+      // Need to get current data to merge with updates
+      const { data: currentOffer } = await supabase
+        .from('affiliate_toolkit_offers')
+        .select('offer_content, media_files, youtube_transcripts')
+        .eq('id', id)
+        .single();
+
+      if (currentOffer) {
+        aggregated_content = aggregateOfferContent({
+          offer_content: updates.offer_content ?? currentOffer.offer_content,
+          media_files: updates.media_files ?? currentOffer.media_files ?? [],
+          youtube_transcripts: updates.youtube_transcripts ?? currentOffer.youtube_transcripts ?? [],
+        });
+      }
+    }
+
+    const updateData: Record<string, unknown> = { ...updates };
+    if (aggregated_content !== undefined) {
+      updateData.aggregated_content = aggregated_content || null;
+    }
+
     const { data, error } = await supabase
       .from('affiliate_toolkit_offers')
-      .update(updates)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -271,7 +328,14 @@ export async function updateAffiliateOffer(
       return { success: false, error: 'Failed to update offer' };
     }
 
-    return { success: true, offer: data };
+    return {
+      success: true,
+      offer: {
+        ...data,
+        media_files: data.media_files || [],
+        youtube_transcripts: data.youtube_transcripts || [],
+      }
+    };
   } catch (error) {
     console.error('Error updating offer:', error);
     return {

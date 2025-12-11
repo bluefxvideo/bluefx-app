@@ -1,11 +1,71 @@
 // Affiliate Toolkit Types
 
+// Media file uploaded and transcribed
+export interface OfferMediaFile {
+  id: string;
+  name: string;
+  url: string;
+  type: 'video' | 'audio';
+  transcript: string;
+  word_count: number;
+  created_at: string;
+}
+
+// YouTube URL with transcript
+export interface OfferYouTubeTranscript {
+  id: string;
+  url: string;
+  title: string | null;
+  transcript: string;
+  word_count: number;
+  created_at: string;
+}
+
 export interface AffiliateOffer {
   id: string;
   name: string;
   niche: string | null;
   offer_content: string | null;
+  media_files: OfferMediaFile[];
+  youtube_transcripts: OfferYouTubeTranscript[];
+  aggregated_content: string | null;
   created_at: string;
+}
+
+// Helper to count words in text
+export function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Helper to aggregate all content from an offer
+export function aggregateOfferContent(offer: Partial<AffiliateOffer>): string {
+  const parts: string[] = [];
+
+  // Add manual text content
+  if (offer.offer_content?.trim()) {
+    parts.push(offer.offer_content.trim());
+  }
+
+  // Add media transcriptions
+  if (offer.media_files?.length) {
+    for (const media of offer.media_files) {
+      if (media.transcript?.trim()) {
+        parts.push(`[Transcription from ${media.name}]: ${media.transcript.trim()}`);
+      }
+    }
+  }
+
+  // Add YouTube transcripts
+  if (offer.youtube_transcripts?.length) {
+    for (const yt of offer.youtube_transcripts) {
+      if (yt.transcript?.trim()) {
+        const title = yt.title || 'YouTube Video';
+        parts.push(`[Transcript from "${title}"]: ${yt.transcript.trim()}`);
+      }
+    }
+  }
+
+  return parts.join('\n\n');
 }
 
 export type ScriptType =

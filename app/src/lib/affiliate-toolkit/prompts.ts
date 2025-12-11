@@ -6,11 +6,14 @@ export function getPromptForScriptType(
   offer: AffiliateOffer,
   customPrompt?: string
 ): string {
+  // Use aggregated_content if available (includes transcriptions), otherwise fall back to offer_content
+  const fullContent = offer.aggregated_content || offer.offer_content || 'No description provided';
+
   const offerContext = `
 OFFER DETAILS:
 - Product Name: ${offer.name}
 - Niche: ${offer.niche || 'General'}
-- Offer Content/Description: ${offer.offer_content || 'No description provided'}
+- Offer Content/Description: ${fullContent}
 `;
 
   switch (scriptType) {
@@ -21,7 +24,7 @@ OFFER: ${offer.name}
 NICHE: ${offer.niche || 'General'}
 
 OFFER INFORMATION:
-${offer.offer_content || 'No description provided'}
+${fullContent}
 
 REQUIREMENTS:
 - Hook: First line must grab attention in 2-3 seconds
@@ -59,7 +62,7 @@ OFFER: ${offer.name}
 NICHE: ${offer.niche || 'General'}
 
 OFFER INFORMATION:
-${offer.offer_content || 'No description provided'}
+${fullContent}
 
 STRUCTURE:
 - Hook (0:00-0:30): Grab attention, promise value
@@ -327,7 +330,7 @@ OFFER: ${offer.name}
 NICHE: ${offer.niche || 'General'}
 
 OFFER INFORMATION:
-${offer.offer_content || 'No description provided'}
+${fullContent}
 
 Generate 10 different hooks. Each hook is 1-2 sentences that would make someone stop scrolling.
 
