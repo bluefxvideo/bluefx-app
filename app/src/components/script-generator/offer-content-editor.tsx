@@ -20,7 +20,8 @@ import {
   Plus,
   FileType,
   Clipboard,
-  Check
+  Check,
+  ImageIcon
 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ import {
   fetchUserBusinessOffer,
   createUserBusinessOffer,
   updateUserBusinessOffer,
+  uploadProductImage,
 } from '@/actions/tools/affiliate-script-generator';
 import { fetchYouTubeTranscript } from '@/actions/tools/youtube-transcript';
 import { processUploadedFile } from '@/actions/tools/media-transcription';
@@ -92,6 +94,9 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
 
   // Media upload state
   const [uploadingMedia, setUploadingMedia] = useState<{id: string; name: string; status: string}[]>([]);
+
+  // Image upload state
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Load existing offer if editing
   useEffect(() => {
@@ -363,6 +368,34 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
     ));
   };
 
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const result = await uploadProductImage(formData);
+
+      if (result.success && result.url) {
+        setOfferImageUrl(result.url);
+      } else {
+        setError(result.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setIsUploadingImage(false);
+      // Reset the input so the same file can be selected again
+      e.target.value = '';
+    }
+  };
+
   // Save offer
   const handleSave = async () => {
     if (!offerName.trim()) {
@@ -574,25 +607,69 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                 />
               </div>
               <div>
-                <Label htmlFor="image" className="text-xs text-zinc-500">Product Image URL</Label>
-                <Input
-                  id="image"
-                  value={offerImageUrl}
-                  onChange={(e) => setOfferImageUrl(e.target.value)}
-                  placeholder="https://example.com/image.jpg"
-                  className="bg-background border-border mt-1"
-                />
-                {offerImageUrl && (
-                  <div className="mt-2 relative w-full h-20 bg-zinc-800 rounded-lg overflow-hidden">
-                    <img
-                      src={offerImageUrl}
-                      alt="Product preview"
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
+                <Label className="text-xs text-zinc-500">Product Image</Label>
+                {offerImageUrl ? (
+                  <div className="mt-1 relative group">
+                    <div className="w-full h-24 bg-zinc-800 rounded-lg overflow-hidden">
+                      <img
+                        src={offerImageUrl}
+                        alt="Product preview"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={isUploadingImage}
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="pointer-events-none"
+                        >
+                          Change
+                        </Button>
+                      </label>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setOfferImageUrl('')}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
+                ) : (
+                  <label className="mt-1 flex flex-col items-center justify-center w-full h-24 border border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-500 transition-colors bg-zinc-900/50">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={isUploadingImage}
+                    />
+                    {isUploadingImage ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-xs text-zinc-400">Uploading...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-6 h-6 text-zinc-500 mb-1" />
+                        <span className="text-xs text-zinc-400">Click to upload image</span>
+                        <span className="text-xs text-zinc-600">JPG, PNG, GIF, WebP (max 5MB)</span>
+                      </>
+                    )}
+                  </label>
                 )}
               </div>
             </div>
