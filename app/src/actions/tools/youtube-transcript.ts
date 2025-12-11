@@ -66,7 +66,124 @@ function parseVttToText(vttContent: string): string {
 }
 
 /**
- * Fetch transcript using YouTube's internal API
+ * Method 1: Fetch transcript using RapidAPI YouTube Transcript API
+ * This is the most reliable method for production environments
+ */
+async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string | null; title: string | null }> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+
+  if (!apiKey) {
+    console.log('RAPIDAPI_KEY not configured, skipping RapidAPI method');
+    return { transcript: null, title: null };
+  }
+
+  try {
+    console.log('Trying RapidAPI YouTube Transcript API...');
+
+    // Using the YouTube Transcriber API from RapidAPI
+    const response = await fetch(
+      `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`,
+      {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': 'youtube-transcriptor.p.rapidapi.com',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.log('RapidAPI response not ok:', response.status);
+      // Try alternative RapidAPI endpoint
+      return await fetchWithRapidAPIAlt(videoId, apiKey);
+    }
+
+    const data = await response.json();
+
+    if (data && Array.isArray(data) && data.length > 0) {
+      // Parse transcript from array format
+      const transcriptText = data
+        .map((item: { text?: string }) => item.text || '')
+        .filter((text: string) => text.trim())
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (transcriptText.length > 50) {
+        console.log('RapidAPI transcript length:', transcriptText.length);
+        return { transcript: transcriptText, title: null };
+      }
+    }
+
+    // If first endpoint fails, try alternative
+    return await fetchWithRapidAPIAlt(videoId, apiKey);
+
+  } catch (error) {
+    console.error('RapidAPI error:', error);
+    return await fetchWithRapidAPIAlt(videoId, apiKey);
+  }
+}
+
+/**
+ * Alternative RapidAPI endpoint
+ */
+async function fetchWithRapidAPIAlt(videoId: string, apiKey: string): Promise<{ transcript: string | null; title: string | null }> {
+  try {
+    console.log('Trying alternative RapidAPI endpoint...');
+
+    // Try youtube-transcript-api endpoint
+    const response = await fetch(
+      `https://youtube-transcript3.p.rapidapi.com/api/transcript?videoId=${videoId}`,
+      {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': 'youtube-transcript3.p.rapidapi.com',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.log('Alternative RapidAPI response not ok:', response.status);
+      return { transcript: null, title: null };
+    }
+
+    const data = await response.json();
+
+    // Handle different response formats
+    let transcriptText = '';
+
+    if (data.transcript && typeof data.transcript === 'string') {
+      transcriptText = data.transcript;
+    } else if (data.transcript && Array.isArray(data.transcript)) {
+      transcriptText = data.transcript
+        .map((item: { text?: string }) => item.text || '')
+        .join(' ');
+    } else if (Array.isArray(data)) {
+      transcriptText = data
+        .map((item: { text?: string }) => item.text || '')
+        .join(' ');
+    } else if (data.text) {
+      transcriptText = data.text;
+    }
+
+    transcriptText = transcriptText.replace(/\s+/g, ' ').trim();
+
+    if (transcriptText.length > 50) {
+      console.log('Alternative RapidAPI transcript length:', transcriptText.length);
+      return { transcript: transcriptText, title: data.title || null };
+    }
+
+    return { transcript: null, title: null };
+
+  } catch (error) {
+    console.error('Alternative RapidAPI error:', error);
+    return { transcript: null, title: null };
+  }
+}
+
+/**
+ * Method 2: Fetch transcript using YouTube's internal API
  * This method parses the YouTube page to extract caption data
  */
 async function fetchTranscriptFromYouTube(videoId: string): Promise<{ transcript: string | null; title: string | null }> {
@@ -227,7 +344,7 @@ async function fetchTranscriptFromYouTube(videoId: string): Promise<{ transcript
 }
 
 /**
- * Alternative method: Use yt-dlp if available (for local development)
+ * Method 3: Use yt-dlp if available (for local development or Docker with yt-dlp)
  */
 async function fetchWithYtDlp(videoId: string): Promise<{ transcript: string | null; title: string | null }> {
   try {
@@ -280,7 +397,8 @@ async function fetchWithYtDlp(videoId: string): Promise<{ transcript: string | n
 }
 
 /**
- * Fallback: Download audio and transcribe with Whisper
+ * Method 4: Fallback - Download audio and transcribe with Whisper
+ * This is expensive but very reliable
  */
 async function transcribeWithWhisper(videoId: string): Promise<string | null> {
   try {
@@ -332,7 +450,11 @@ async function transcribeWithWhisper(videoId: string): Promise<string | null> {
 
 /**
  * Fetch transcript from a YouTube video
- * Tries multiple methods: direct API, yt-dlp (if available), then Whisper fallback
+ * Tries multiple methods in order of reliability:
+ * 1. RapidAPI (most reliable for production)
+ * 2. Direct YouTube page parsing
+ * 3. yt-dlp (if available)
+ * 4. Whisper transcription (expensive fallback)
  */
 export async function fetchYouTubeTranscript(url: string): Promise<TranscriptResult> {
   try {
@@ -344,9 +466,39 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
 
     console.log('Fetching transcript for video:', videoId);
 
-    // Method 1: Try direct YouTube page parsing (works on Vercel)
-    console.log('Method 1: Trying direct YouTube fetch...');
-    let result = await fetchTranscriptFromYouTube(videoId);
+    // Method 1: Try RapidAPI (most reliable for production)
+    console.log('Method 1: Trying RapidAPI...');
+    let result = await fetchWithRapidAPI(videoId);
+
+    if (result.transcript && result.transcript.length > 50) {
+      console.log('Successfully got transcript via RapidAPI, length:', result.transcript.length);
+
+      // Get title from oEmbed if not provided
+      let title = result.title;
+      if (!title) {
+        try {
+          const oembedResponse = await fetch(
+            `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+          );
+          if (oembedResponse.ok) {
+            const oembedData = await oembedResponse.json();
+            title = oembedData.title;
+          }
+        } catch {
+          // Title fetch is optional
+        }
+      }
+
+      return {
+        success: true,
+        transcript: result.transcript,
+        title: title || undefined,
+      };
+    }
+
+    // Method 2: Try direct YouTube page parsing
+    console.log('Method 2: Trying direct YouTube fetch...');
+    result = await fetchTranscriptFromYouTube(videoId);
 
     if (result.transcript && result.transcript.length > 50) {
       console.log('Successfully got transcript via direct fetch, length:', result.transcript.length);
@@ -357,8 +509,8 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
       };
     }
 
-    // Method 2: Try yt-dlp (only works locally)
-    console.log('Method 2: Trying yt-dlp...');
+    // Method 3: Try yt-dlp (works locally or in Docker with yt-dlp installed)
+    console.log('Method 3: Trying yt-dlp...');
     result = await fetchWithYtDlp(videoId);
 
     if (result.transcript && result.transcript.length > 50) {
@@ -370,8 +522,8 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
       };
     }
 
-    // Method 3: Fall back to Whisper transcription (expensive but reliable)
-    console.log('Method 3: Trying Whisper transcription...');
+    // Method 4: Fall back to Whisper transcription (expensive but reliable)
+    console.log('Method 4: Trying Whisper transcription...');
     const whisperTranscript = await transcribeWithWhisper(videoId);
 
     if (whisperTranscript) {
