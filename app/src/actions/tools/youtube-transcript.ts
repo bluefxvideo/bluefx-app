@@ -111,7 +111,8 @@ function parseSrtToText(srtContent: string): string {
  * This is the most reliable method for production environments
  */
 async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string | null; title: string | null }> {
-  const apiKey = process.env.RAPIDAPI_KEY;
+  // Support both RAPIDAPI_KEY and APP_RAPIDAPI_KEY (Coolify uses APP_ prefix)
+  const apiKey = process.env.RAPIDAPI_KEY || process.env.APP_RAPIDAPI_KEY;
 
   if (!apiKey) {
     console.log('RAPIDAPI_KEY not configured, skipping RapidAPI method');
