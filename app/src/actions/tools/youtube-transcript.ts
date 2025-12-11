@@ -66,7 +66,48 @@ function parseVttToText(vttContent: string): string {
 }
 
 /**
- * Method 1: Fetch transcript using RapidAPI YouTube Transcript API (thisisgazzar)
+ * Parse SRT subtitle content to plain text
+ */
+function parseSrtToText(srtContent: string): string {
+  const lines = srtContent.split('\n');
+  const textLines: string[] = [];
+  let lastText = '';
+
+  for (const line of lines) {
+    // Skip sequence numbers, timestamps, and empty lines
+    if (
+      /^\d+$/.test(line.trim()) || // Sequence numbers
+      line.includes('-->') || // Timestamps
+      line.trim() === ''
+    ) {
+      continue;
+    }
+
+    // Clean the line
+    const cleanLine = line
+      .replace(/&#39;/g, "'") // Decode HTML entities
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/<[^>]+>/g, '') // Remove any HTML tags
+      .replace(/\[Music\]/gi, '') // Remove [Music] markers
+      .replace(/\[Applause\]/gi, '')
+      .replace(/\[Laughter\]/gi, '')
+      .trim();
+
+    // Skip duplicate lines
+    if (cleanLine && cleanLine !== lastText && cleanLine.length > 0) {
+      textLines.push(cleanLine);
+      lastText = cleanLine;
+    }
+  }
+
+  return textLines.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Method 1: Fetch transcript using RapidAPI YouTube Captions Transcript API (nikzeferis)
  * This is the most reliable method for production environments
  */
 async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string | null; title: string | null }> {
@@ -78,17 +119,17 @@ async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string 
   }
 
   try {
-    console.log('Trying RapidAPI YouTube Transcript API (youtube-transcript1)...');
+    console.log('Trying RapidAPI YouTube Captions Transcript API...');
 
-    // Using the YouTube Transcript API by thisisgazzar from RapidAPI
-    // Host: youtube-transcript1.p.rapidapi.com
+    // Using the YouTube Captions Transcript Subtitles Video Combiner API by nikzeferis
+    // Host: youtube-captions-transcript-subtitles-video-combiner.p.rapidapi.com
     const response = await fetch(
-      `https://youtube-transcript1.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`,
+      `https://youtube-captions-transcript-subtitles-video-combiner.p.rapidapi.com/download-all/${videoId}?format_subtitle=srt&format_answer=json`,
       {
         method: 'GET',
         headers: {
           'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': 'youtube-transcript1.p.rapidapi.com',
+          'x-rapidapi-host': 'youtube-captions-transcript-subtitles-video-combiner.p.rapidapi.com',
         },
       }
     );
@@ -98,120 +139,38 @@ async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string 
     if (!response.ok) {
       const errorText = await response.text();
       console.log('RapidAPI error response:', errorText.substring(0, 200));
-      // Try alternative RapidAPI endpoint
-      return await fetchWithRapidAPIAlt(videoId, apiKey);
-    }
-
-    const data = await response.json();
-    console.log('RapidAPI response type:', typeof data, Array.isArray(data) ? 'array' : '');
-
-    // Handle various response formats
-    let transcriptText = '';
-
-    if (data && Array.isArray(data) && data.length > 0) {
-      // Array format: [{ text: "...", start: ..., duration: ... }, ...]
-      transcriptText = data
-        .map((item: { text?: string; transcript?: string }) => item.text || item.transcript || '')
-        .filter((text: string) => text.trim())
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    } else if (data && typeof data === 'object') {
-      // Object format: { transcript: "...", ... } or { transcription: [...] }
-      if (data.transcript && typeof data.transcript === 'string') {
-        transcriptText = data.transcript;
-      } else if (data.transcription && Array.isArray(data.transcription)) {
-        transcriptText = data.transcription
-          .map((item: { text?: string }) => item.text || '')
-          .join(' ');
-      } else if (data.text) {
-        transcriptText = data.text;
-      } else if (data.content) {
-        transcriptText = data.content;
-      }
-    }
-
-    transcriptText = transcriptText.replace(/\s+/g, ' ').trim();
-
-    if (transcriptText.length > 50) {
-      console.log('RapidAPI transcript length:', transcriptText.length);
-      return { transcript: transcriptText, title: data.title || null };
-    }
-
-    console.log('RapidAPI transcript too short or empty, trying alternative...');
-    // If first endpoint fails, try alternative
-    return await fetchWithRapidAPIAlt(videoId, apiKey);
-
-  } catch (error) {
-    console.error('RapidAPI error:', error);
-    return await fetchWithRapidAPIAlt(videoId, apiKey);
-  }
-}
-
-/**
- * Alternative RapidAPI endpoint - YouTube Captions and Transcripts
- */
-async function fetchWithRapidAPIAlt(videoId: string, apiKey: string): Promise<{ transcript: string | null; title: string | null }> {
-  try {
-    console.log('Trying alternative RapidAPI endpoint (youtube-captions-and-transcripts)...');
-
-    // Try YouTube Captions and Transcripts API
-    const response = await fetch(
-      `https://youtube-captions-and-transcripts.p.rapidapi.com/getCaptions?videoId=${videoId}&lang=en&format=text`,
-      {
-        method: 'GET',
-        headers: {
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': 'youtube-captions-and-transcripts.p.rapidapi.com',
-        },
-      }
-    );
-
-    console.log('Alternative RapidAPI response status:', response.status);
-
-    if (!response.ok) {
-      console.log('Alternative RapidAPI response not ok:', response.status);
       return { transcript: null, title: null };
     }
 
     const data = await response.json();
-    console.log('Alternative RapidAPI response type:', typeof data);
+    console.log('RapidAPI response type:', typeof data, Array.isArray(data) ? 'array length: ' + data.length : '');
 
-    // Handle different response formats
+    // The API returns an array of subtitle tracks: [{ languageCode: "en", subtitle: "SRT content" }, ...]
     let transcriptText = '';
 
-    if (data.transcript && typeof data.transcript === 'string') {
-      transcriptText = data.transcript;
-    } else if (data.transcript && Array.isArray(data.transcript)) {
-      transcriptText = data.transcript
-        .map((item: { text?: string }) => item.text || '')
-        .join(' ');
-    } else if (Array.isArray(data)) {
-      transcriptText = data
-        .map((item: { text?: string }) => item.text || '')
-        .join(' ');
-    } else if (data.text) {
-      transcriptText = data.text;
-    } else if (data.data && data.data.text) {
-      // Some APIs wrap response in data.data
-      transcriptText = data.data.text;
-    } else if (data.captions && typeof data.captions === 'string') {
-      transcriptText = data.captions;
-    } else if (data.content) {
-      transcriptText = data.content;
-    }
+    if (data && Array.isArray(data) && data.length > 0) {
+      // Find English subtitle track, or use first available
+      const englishTrack = data.find((track: { languageCode?: string }) =>
+        track.languageCode === 'en' || track.languageCode?.startsWith('en')
+      );
+      const track = englishTrack || data[0];
 
-    transcriptText = transcriptText.replace(/\s+/g, ' ').trim();
+      if (track && track.subtitle) {
+        // Parse SRT format to plain text
+        transcriptText = parseSrtToText(track.subtitle);
+      }
+    }
 
     if (transcriptText.length > 50) {
-      console.log('Alternative RapidAPI transcript length:', transcriptText.length);
-      return { transcript: transcriptText, title: data.title || null };
+      console.log('RapidAPI transcript length:', transcriptText.length);
+      return { transcript: transcriptText, title: null };
     }
 
+    console.log('RapidAPI transcript too short or empty');
     return { transcript: null, title: null };
 
   } catch (error) {
-    console.error('Alternative RapidAPI error:', error);
+    console.error('RapidAPI error:', error);
     return { transcript: null, title: null };
   }
 }
