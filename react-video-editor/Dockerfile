@@ -3,18 +3,19 @@ FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 COPY yarn.lock* ./
 
-# Install dependencies
-RUN npm ci --only=production --legacy-peer-deps
+# Install dependencies - use npm install to get correct platform binaries
+RUN npm install --legacy-peer-deps --omit=dev
 
 # Rebuild the source code only when needed
 FROM base AS builder
+RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 
 # Accept build arguments for environment variables
@@ -30,7 +31,8 @@ ENV REPLICATE_API_TOKEN=$REPLICATE_API_TOKEN
 
 COPY package*.json ./
 COPY yarn.lock* ./
-RUN npm ci --legacy-peer-deps
+# Use npm install instead of npm ci to resolve correct platform-specific binaries
+RUN npm install --legacy-peer-deps
 
 COPY . .
 
