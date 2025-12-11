@@ -71,6 +71,11 @@ WORKDIR /app
 
 ENV NODE_ENV production
 
+# Runtime environment variables (these will be overridden by Coolify's env vars)
+# Coolify prefixes env vars with APP_ so we support both naming conventions
+ENV RAPIDAPI_KEY=""
+ENV APP_RAPIDAPI_KEY=""
+
 # Install yt-dlp and its dependencies for YouTube transcript fetching
 # Also install deno for JavaScript challenge solving (required by yt-dlp for some videos)
 RUN apk add --no-cache python3 py3-pip ffmpeg curl \
