@@ -199,6 +199,20 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                   </div>
                 )}
 
+                {/* Product Image */}
+                {product.image_url && (
+                  <div className={`h-32 bg-zinc-800/50 overflow-hidden ${isAdmin ? 'ml-6' : ''}`}>
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+
                 <CardHeader className={`pb-2 ${isAdmin ? 'pl-8' : ''}`}>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">

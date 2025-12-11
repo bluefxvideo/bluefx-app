@@ -102,6 +102,19 @@ const toolCategories = [
     ],
   },
   {
+    id: "research",
+    name: "Research",
+    tools: [
+      {
+        name: "Top Offers",
+        route: "/dashboard/top-offers",
+        icon: CreditCard,
+        gradient: "bg-primary",
+        description: "Find the best affiliate offers",
+      },
+    ],
+  },
+  {
     id: "image",
     name: "Image Tools",
     tools: [

@@ -75,6 +75,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
   // Basic offer info
   const [offerName, setOfferName] = useState('');
   const [offerNiche, setOfferNiche] = useState('');
+  const [offerImageUrl, setOfferImageUrl] = useState('');
 
   // Content sources
   const [sources, setSources] = useState<ContentSource[]>([]);
@@ -114,6 +115,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
       if (result.success && offer) {
           setOfferName(offer.name);
           setOfferNiche(offer.niche || '');
+          setOfferImageUrl(offer.image_url || '');
 
           // Convert existing data to sources
           const loadedSources: ContentSource[] = [];
@@ -405,6 +407,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
       const offerData = {
         name: offerName,
         niche: offerNiche,
+        image_url: offerImageUrl || undefined,
         offer_content: textContent,
         media_files: mediaFiles,
         youtube_transcripts: youtubeTranscripts,
@@ -569,6 +572,28 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                   placeholder="e.g., Weight Loss"
                   className="bg-background border-border mt-1"
                 />
+              </div>
+              <div>
+                <Label htmlFor="image" className="text-xs text-zinc-500">Product Image URL</Label>
+                <Input
+                  id="image"
+                  value={offerImageUrl}
+                  onChange={(e) => setOfferImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  className="bg-background border-border mt-1"
+                />
+                {offerImageUrl && (
+                  <div className="mt-2 relative w-full h-20 bg-zinc-800 rounded-lg overflow-hidden">
+                    <img
+                      src={offerImageUrl}
+                      alt="Product preview"
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

@@ -205,6 +205,20 @@ export function TrainMyBusinessPage() {
                 key={offer.id}
                 className="bg-card border-border hover:border-zinc-600 transition-colors group"
               >
+                {/* Product Image */}
+                {offer.image_url && (
+                  <div className="h-32 bg-zinc-800/50 overflow-hidden">
+                    <img
+                      src={offer.image_url}
+                      alt={offer.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">

@@ -26,6 +26,7 @@ interface BaseOffer {
   id: string;
   name: string;
   niche: string | null;
+  image_url: string | null;
   offer_content: string | null;
   media_files: OfferMediaFile[];
   youtube_transcripts: OfferYouTubeTranscript[];

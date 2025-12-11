@@ -228,6 +228,7 @@ export async function fetchAffiliateOffers(): Promise<{
 export async function createLibraryProduct(product: {
   name: string;
   niche: string;
+  image_url?: string;
   offer_content: string;
   media_files?: OfferMediaFile[];
   youtube_transcripts?: OfferYouTubeTranscript[];
@@ -259,6 +260,7 @@ export async function createLibraryProduct(product: {
       .insert([{
         name: product.name,
         niche: product.niche,
+        image_url: product.image_url || null,
         offer_content: product.offer_content,
         media_files: product.media_files || [],
         youtube_transcripts: product.youtube_transcripts || [],
@@ -277,6 +279,7 @@ export async function createLibraryProduct(product: {
       success: true,
       product: {
         ...data,
+        image_url: data.image_url || null,
         media_files: data.media_files || [],
         youtube_transcripts: data.youtube_transcripts || [],
         display_order: data.display_order || 0,
@@ -322,6 +325,7 @@ export async function updateLibraryProduct(
   updates: {
     name?: string;
     niche?: string;
+    image_url?: string;
     offer_content?: string;
     media_files?: OfferMediaFile[];
     youtube_transcripts?: OfferYouTubeTranscript[];
@@ -384,6 +388,7 @@ export async function updateLibraryProduct(
       success: true,
       product: {
         ...data,
+        image_url: data.image_url || null,
         media_files: data.media_files || [],
         youtube_transcripts: data.youtube_transcripts || [],
         display_order: data.display_order || 0,
@@ -730,6 +735,7 @@ export async function fetchUserBusinessOffers(): Promise<{
 export async function createUserBusinessOffer(offer: {
   name: string;
   niche: string;
+  image_url?: string;
   offer_content: string;
   media_files?: OfferMediaFile[];
   youtube_transcripts?: OfferYouTubeTranscript[];
@@ -760,6 +766,7 @@ export async function createUserBusinessOffer(offer: {
         user_id: user.id,
         name: offer.name,
         niche: offer.niche,
+        image_url: offer.image_url || null,
         offer_content: offer.offer_content,
         media_files: offer.media_files || [],
         youtube_transcripts: offer.youtube_transcripts || [],
@@ -777,6 +784,7 @@ export async function createUserBusinessOffer(offer: {
       success: true,
       offer: {
         ...data,
+        image_url: data.image_url || null,
         media_files: data.media_files || [],
         youtube_transcripts: data.youtube_transcripts || [],
       }
@@ -798,6 +806,7 @@ export async function updateUserBusinessOffer(
   updates: {
     name?: string;
     niche?: string;
+    image_url?: string;
     offer_content?: string;
     media_files?: OfferMediaFile[];
     youtube_transcripts?: OfferYouTubeTranscript[];
@@ -859,6 +868,7 @@ export async function updateUserBusinessOffer(
       success: true,
       offer: {
         ...data,
+        image_url: data.image_url || null,
         media_files: data.media_files || [],
         youtube_transcripts: data.youtube_transcripts || [],
       }
