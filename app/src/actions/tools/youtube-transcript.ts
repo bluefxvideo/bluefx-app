@@ -123,16 +123,23 @@ async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string 
 
     // Using the YouTube Captions Transcript Subtitles Video Combiner API by nikzeferis
     // Host: youtube-captions-transcript-subtitles-video-combiner.p.rapidapi.com
+    // Adding lang=en to only fetch English captions (reduces response size significantly)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for longer videos
+
     const response = await fetch(
-      `https://youtube-captions-transcript-subtitles-video-combiner.p.rapidapi.com/download-all/${videoId}?format_subtitle=srt&format_answer=json`,
+      `https://youtube-captions-transcript-subtitles-video-combiner.p.rapidapi.com/download-all/${videoId}?format_subtitle=srt&format_answer=json&lang=en`,
       {
         method: 'GET',
         headers: {
           'x-rapidapi-key': apiKey,
           'x-rapidapi-host': 'youtube-captions-transcript-subtitles-video-combiner.p.rapidapi.com',
         },
+        signal: controller.signal,
       }
     );
+
+    clearTimeout(timeoutId);
 
     console.log('RapidAPI response status:', response.status);
 
