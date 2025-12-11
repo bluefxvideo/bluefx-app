@@ -115,9 +115,11 @@ async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string 
   const apiKey = process.env.RAPIDAPI_KEY || process.env.APP_RAPIDAPI_KEY;
 
   if (!apiKey) {
-    console.log('RAPIDAPI_KEY not configured, skipping RapidAPI method');
+    console.log('No RapidAPI key found - RAPIDAPI_KEY:', !!process.env.RAPIDAPI_KEY, 'APP_RAPIDAPI_KEY:', !!process.env.APP_RAPIDAPI_KEY);
     return { transcript: null, title: null };
   }
+
+  console.log('RapidAPI key found, key prefix:', apiKey.substring(0, 8) + '...');
 
   try {
     console.log('Trying RapidAPI YouTube Captions Transcript API...');
@@ -472,6 +474,7 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
 
     console.log('Fetching transcript for video:', videoId);
     console.log('RAPIDAPI_KEY configured:', !!process.env.RAPIDAPI_KEY);
+    console.log('APP_RAPIDAPI_KEY configured:', !!process.env.APP_RAPIDAPI_KEY);
 
     // Method 1: Try RapidAPI (most reliable for production)
     console.log('Method 1: Trying RapidAPI...');
