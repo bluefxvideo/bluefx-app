@@ -54,6 +54,54 @@ interface Tool {
 // Tool categories with their navigation data
 const toolCategories = [
   {
+    id: "business",
+    name: "Business Tools",
+    tools: [
+      {
+        name: "Train My Business",
+        route: "/dashboard/business-tools/train-my-business",
+        icon: Briefcase,
+        gradient: "bg-primary",
+        description: "Upload your products for AI training",
+      },
+      {
+        name: "Top Affiliate Products",
+        route: "/dashboard/business-tools/top-affiliate-products",
+        icon: Library,
+        gradient: "bg-primary",
+        description: "Pre-trained affiliate products",
+      },
+      {
+        name: "Content Generator",
+        route: "/dashboard/script-generator",
+        icon: Sparkles,
+        gradient: "bg-primary",
+        description: "Generate marketing content",
+      },
+      {
+        name: "My Scripts",
+        route: "/dashboard/script-generator/my-scripts",
+        icon: BookOpen,
+        gradient: "bg-primary",
+        description: "Your saved scripts library",
+      },
+      {
+        name: "Trending Keywords",
+        route: "/dashboard/trending-keywords",
+        icon: Search,
+        gradient: "bg-primary",
+        description: "Find trending keywords",
+      },
+      {
+        name: "Viral Trends",
+        route: "/dashboard/viral-trends",
+        icon: TrendingUp,
+        gradient: "bg-primary",
+        description: "Discover viral content",
+      },
+    ],
+  },
+  {
     id: "image",
     name: "Image Tools",
     tools: [
@@ -147,54 +195,6 @@ const toolCategories = [
       },
     ],
   },
-  {
-    id: "business",
-    name: "Business Tools",
-    tools: [
-      {
-        name: "Train My Business",
-        route: "/dashboard/business-tools/train-my-business",
-        icon: Briefcase,
-        gradient: "bg-primary",
-        description: "Upload your products for AI training",
-      },
-      {
-        name: "Top Affiliate Products",
-        route: "/dashboard/business-tools/top-affiliate-products",
-        icon: Library,
-        gradient: "bg-primary",
-        description: "Pre-trained affiliate products",
-      },
-      {
-        name: "Content Generator",
-        route: "/dashboard/script-generator",
-        icon: Sparkles,
-        gradient: "bg-primary",
-        description: "Generate marketing content",
-      },
-      {
-        name: "My Scripts",
-        route: "/dashboard/script-generator/my-scripts",
-        icon: BookOpen,
-        gradient: "bg-primary",
-        description: "Your saved scripts library",
-      },
-      {
-        name: "Trending Keywords",
-        route: "/dashboard/trending-keywords",
-        icon: Search,
-        gradient: "bg-primary",
-        description: "Find trending keywords",
-      },
-      {
-        name: "Viral Trends",
-        route: "/dashboard/viral-trends",
-        icon: TrendingUp,
-        gradient: "bg-primary",
-        description: "Discover viral content",
-      },
-    ],
-  },
 ];
 
 interface DashboardSidebarProps {
@@ -230,7 +230,23 @@ export function DashboardSidebar({
   }, [])
 
   const isToolActive = (route: string) => {
-    return pathname === route || pathname?.startsWith(route + '/')
+    // Exact match first
+    if (pathname === route) return true;
+
+    // For routes with children, check if pathname starts with route + '/'
+    // But exclude parent routes when a more specific child route matches
+    if (pathname?.startsWith(route + '/')) {
+      // Check if there's a more specific route that matches
+      const allRoutes = toolCategories.flatMap(c => c.tools.map(t => t.route));
+      const moreSpecificMatch = allRoutes.some(r =>
+        r !== route &&
+        r.startsWith(route) &&
+        (pathname === r || pathname?.startsWith(r + '/'))
+      );
+      return !moreSpecificMatch;
+    }
+
+    return false;
   }
 
   const handleToolClick = (route: string, disabled?: boolean) => {
