@@ -3,16 +3,19 @@
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Lazy initialization to avoid build-time errors
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+}
 
-// Initialize Supabase client for server actions
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export interface VoiceGenerationRequest {
   segments: Array<{
@@ -159,7 +162,9 @@ export async function generateVoiceForAllSegments(
   request: VoiceGenerationRequest
 ): Promise<VoiceGenerationResponse> {
   const startTime = Date.now();
-  
+  const openai = getOpenAI();
+  const supabase = getSupabaseClient();
+
   try {
     console.log(`🎤 Generating voice for ${request.segments.length} segments using ${request.voice_settings.voice_id}`);
 
@@ -307,6 +312,8 @@ export async function generateVoiceForSegments(
   const startTime = Date.now();
   const segmentAudios: Array<{ segment_id: string; audio_url: string; duration: number }> = [];
   let totalCredits = 0;
+  const openai = getOpenAI();
+  const supabase = getSupabaseClient();
 
   try {
     console.log(`🎤 Generating individual voice files for ${request.segments.length} segments`);
@@ -388,6 +395,9 @@ export async function regenerateSegmentVoice(
   voice_settings: VoiceGenerationRequest['voice_settings'],
   user_id: string
 ): Promise<{ success: boolean; audio_url?: string; error?: string }> {
+  const openai = getOpenAI();
+  const supabase = getSupabaseClient();
+
   try {
     console.log(`🔄 Regenerating voice for segment ${segment_id}`);
 

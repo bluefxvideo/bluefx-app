@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client with service role key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * API endpoint for external video editor data access
@@ -19,13 +21,14 @@ const supabase = createClient(
  * - All assets needed for video composition
  */
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     console.log('🔍 Editor API: Starting request');
     console.log('🔍 Editor API: Request origin:', request.headers.get('origin'));
-    
+
     const { user_id, videoId } = await request.json();
     console.log('🔍 Editor API: user_id =', user_id, 'videoId =', videoId);
-    
+
     if (!user_id) {
       return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
     }
@@ -238,6 +241,7 @@ export async function POST(request: NextRequest) {
  * Usage: /api/script-video/editor-data?videoId=123&userId=456
  */
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     console.log('🔍 Editor API (GET): Starting request');
     const url = new URL(request.url);

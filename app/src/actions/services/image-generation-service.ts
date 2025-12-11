@@ -1,16 +1,18 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
-import { 
-  createFluxKontextPrediction, 
-  waitForFluxKontextCompletion 
+import {
+  createFluxKontextPrediction,
+  waitForFluxKontextCompletion
 } from '../models/flux-kontext-pro';
 
-// Initialize Supabase client for server actions
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export interface ImageGenerationRequest {
   segments: Array<{
@@ -428,6 +430,7 @@ async function uploadImageToStorage(
 
     const imageBuffer = Buffer.from(await response.arrayBuffer());
     const fileName = `${userId}/images/${batchId}/${segmentId}.png`;
+    const supabase = getSupabaseClient();
 
     // Upload to Supabase Storage
     const { error: uploadError } = await supabase.storage

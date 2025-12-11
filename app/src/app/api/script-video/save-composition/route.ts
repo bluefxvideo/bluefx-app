@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client with service role key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * API endpoint for saving video editor compositions
@@ -14,12 +16,13 @@ const supabase = createClient(
  * user edits, additions, and modifications made in the React video editor.
  */
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     console.log('💾 Save Composition API: Starting request');
-    
-    const { 
-      user_id, 
-      video_id, 
+
+    const {
+      user_id,
+      video_id,
       composition_data,
       metadata = {}
     } = await request.json();
@@ -170,11 +173,12 @@ export async function OPTIONS(request: NextRequest) {
  * GET handler to load saved composition or forward to editor-data endpoint
  */
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     console.log('🔍 Save Composition GET - Request received');
     console.log('🔍 Origin:', request.headers.get('origin'));
     console.log('🔍 Environment CORS setting:', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
-    
+
     const { searchParams } = new URL(request.url);
     const video_id = searchParams.get('video_id') || searchParams.get('videoId');
     const user_id = searchParams.get('user_id') || searchParams.get('userId');

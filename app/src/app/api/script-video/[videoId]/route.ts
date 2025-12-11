@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * API endpoint for React Video Editor to fetch Script-to-Video assets
@@ -16,6 +19,7 @@ export async function GET(
 ) {
   try {
     const { videoId } = params;
+    const supabase = getSupabaseClient();
     
     if (!videoId) {
       return NextResponse.json(

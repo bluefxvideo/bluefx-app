@@ -3,11 +3,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { Json } from '@/types/database';
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * Script-to-Video Database Operations
@@ -68,6 +70,7 @@ export interface ScriptVideoRecord {
 }
 
 export async function storeScriptVideoResults(record: ScriptVideoRecord) {
+  const supabase = getSupabaseClient();
   try {
     // Store main video record with comprehensive metadata
     const { data: videoData, error: videoError } = await supabase
@@ -208,6 +211,7 @@ export async function createPredictionRecord(data: {
   status: string;
   input_data: Json;
 }) {
+  const supabase = getSupabaseClient();
   try {
     const { error } = await supabase
       .from('video_operations')
@@ -240,6 +244,7 @@ export async function recordGenerationMetrics(data: {
   complexity_score: number;
   ai_optimizations_applied: number;
 }) {
+  const supabase = getSupabaseClient();
   try {
     const { error } = await supabase
       .from('generation_metrics')
@@ -267,6 +272,7 @@ export async function recordGenerationMetrics(data: {
 }
 
 export async function getLatestScriptVideoResults(user_id: string) {
+  const supabase = getSupabaseClient();
   try {
     const { data, error } = await supabase
       .from('script_to_video_history')
@@ -344,6 +350,7 @@ export async function getLatestScriptVideoResults(user_id: string) {
 }
 
 export async function getUserCredits(user_id: string) {
+  const supabase = getSupabaseClient();
   try {
     // Query the user_credits table directly like other tools do
     const { data, error } = await supabase
@@ -384,6 +391,7 @@ export async function deductCredits(
   operation_type: string,
   metadata: Json
 ) {
+  const supabase = getSupabaseClient();
   try {
     // Use the same RPC function as thumbnail-machine
     const { data, error } = await supabase
@@ -429,6 +437,7 @@ export async function deductCredits(
 
 // Helper functions for managing segments and operations
 export async function getVideoSegments(video_id: string) {
+  const supabase = getSupabaseClient();
   try {
     const { data, error } = await supabase
       .from('video_segments')
@@ -449,6 +458,7 @@ export async function updateSegmentAsset(
   asset_type: 'image' | 'voice' | 'caption',
   asset_data: { url?: string; status?: string; [key: string]: any }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const updates: any = {};
     
@@ -488,6 +498,7 @@ export async function updateOperationProgress(
     error_details?: Json;
   }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const { error } = await supabase
       .from('video_operations')

@@ -2,11 +2,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * Editor Data Retrieval Service
@@ -24,6 +26,7 @@ export interface EditorDataResponse {
  * Get unified editor data for a specific video
  */
 export async function getEditorData(video_id: string): Promise<EditorDataResponse> {
+  const supabase = getSupabaseClient();
   try {
     const { data, error } = await supabase
       .from('script_to_video_history')

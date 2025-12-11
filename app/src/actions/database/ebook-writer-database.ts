@@ -3,11 +3,13 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Json } from '@/types/database';
 
-// Initialize Supabase client with service role key (following script-video-database pattern)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * Ebook Writer Database Operations
@@ -46,6 +48,7 @@ export async function saveEbookSession(
   },
   ebookId?: string
 ): Promise<{ success: boolean; ebook_id?: string; error?: string }> {
+  const supabase = getSupabaseClient();
   try {
     // Prepare the session metadata
     const metadata = {
@@ -110,11 +113,12 @@ export async function saveEbookSession(
  * Load ebook session data from database
  * Gets the most recent session for a user
  */
-export async function loadEbookSession(userId: string): Promise<{ 
-  success: boolean; 
-  session?: any; 
-  error?: string 
+export async function loadEbookSession(userId: string): Promise<{
+  success: boolean;
+  session?: any;
+  error?: string
 }> {
+  const supabase = getSupabaseClient();
   try {
     // Get the most recent draft ebook for this user
     const { data, error } = await supabase
@@ -169,6 +173,7 @@ export async function getUserEbookHistory(userId: string): Promise<{
   ebooks?: any[];
   error?: string;
 }> {
+  const supabase = getSupabaseClient();
   try {
     const { data, error } = await supabase
       .from('ebook_history')
@@ -195,6 +200,7 @@ export async function clearEbookSession(userId: string): Promise<{
   success: boolean;
   error?: string;
 }> {
+  const supabase = getSupabaseClient();
   try {
     // Delete all draft ebooks for this user (they can have multiple drafts)
     const { error } = await supabase
@@ -222,6 +228,7 @@ export async function deleteEbook(userId: string, ebookId: string): Promise<{
   success: boolean;
   error?: string;
 }> {
+  const supabase = getSupabaseClient();
   try {
     const { error } = await supabase
       .from('ebook_history')
@@ -254,6 +261,7 @@ export async function completeEbook(
     cover_url?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseClient();
   try {
     const { error } = await supabase
       .from('ebook_history')
@@ -297,11 +305,12 @@ export interface EbookResultsData {
   chapter_count?: number;
 }
 
-export async function storeEbookResults(data: EbookResultsData): Promise<{ 
-  success: boolean; 
-  ebook_id?: string; 
-  error?: string 
+export async function storeEbookResults(data: EbookResultsData): Promise<{
+  success: boolean;
+  ebook_id?: string;
+  error?: string
 }> {
+  const supabase = getSupabaseClient();
   try {
     const { data: result, error } = await supabase
       .from('ebook_history')
@@ -350,6 +359,7 @@ export async function recordEbookMetrics(data: {
   word_count: number;
   chapters_generated: number;
 }): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseClient();
   try {
     const { error } = await supabase
       .from('generation_metrics')
@@ -385,6 +395,7 @@ export async function getUserCredits(user_id: string): Promise<{
   credits: number;
   error?: string;
 }> {
+  const supabase = getSupabaseClient();
   try {
     const { data, error } = await supabase
       .rpc('get_user_credit_balance', { user_uuid: user_id });
@@ -419,6 +430,7 @@ export async function deductCredits(
   transaction_id?: string;
   error?: string;
 }> {
+  const supabase = getSupabaseClient();
   try {
     // Get current balance first
     const currentBalance = await getUserCredits(user_id);
