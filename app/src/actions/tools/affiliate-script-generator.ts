@@ -210,6 +210,7 @@ export async function createAffiliateOffer(offer: {
   offer_content: string;
   media_files?: OfferMediaFile[];
   youtube_transcripts?: OfferYouTubeTranscript[];
+  aggregated_content?: string; // Allow passing edited master document directly
 }): Promise<{
   success: boolean;
   offer?: AffiliateOffer;
@@ -224,8 +225,8 @@ export async function createAffiliateOffer(offer: {
       return { success: false, error: 'Authentication required' };
     }
 
-    // Build the aggregated content
-    const aggregated_content = aggregateOfferContent({
+    // Use provided aggregated_content or build from sources
+    const aggregated_content = offer.aggregated_content || aggregateOfferContent({
       offer_content: offer.offer_content,
       media_files: offer.media_files || [],
       youtube_transcripts: offer.youtube_transcripts || [],
@@ -277,6 +278,7 @@ export async function updateAffiliateOffer(
     offer_content?: string;
     media_files?: OfferMediaFile[];
     youtube_transcripts?: OfferYouTubeTranscript[];
+    aggregated_content?: string; // Allow passing edited master document directly
   }
 ): Promise<{
   success: boolean;
@@ -292,9 +294,11 @@ export async function updateAffiliateOffer(
       return { success: false, error: 'Authentication required' };
     }
 
-    // Build the aggregated content if any content fields are being updated
-    let aggregated_content: string | undefined;
-    if (updates.offer_content !== undefined || updates.media_files !== undefined || updates.youtube_transcripts !== undefined) {
+    // If aggregated_content is explicitly provided, use it directly
+    // Otherwise, rebuild from sources if any content fields are being updated
+    let aggregated_content: string | undefined = updates.aggregated_content;
+
+    if (aggregated_content === undefined && (updates.offer_content !== undefined || updates.media_files !== undefined || updates.youtube_transcripts !== undefined)) {
       // Need to get current data to merge with updates
       const { data: currentOffer } = await supabase
         .from('affiliate_toolkit_offers')
