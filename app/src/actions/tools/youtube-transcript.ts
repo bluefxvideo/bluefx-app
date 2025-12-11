@@ -66,7 +66,7 @@ function parseVttToText(vttContent: string): string {
 }
 
 /**
- * Method 1: Fetch transcript using RapidAPI YouTube Transcript API
+ * Method 1: Fetch transcript using RapidAPI YouTube Transcript API (thisisgazzar)
  * This is the most reliable method for production environments
  */
 async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string | null; title: string | null }> {
@@ -78,43 +78,67 @@ async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string 
   }
 
   try {
-    console.log('Trying RapidAPI YouTube Transcript API...');
+    console.log('Trying RapidAPI YouTube Transcript API (youtube-transcript1)...');
 
-    // Using the YouTube Transcriber API from RapidAPI
+    // Using the YouTube Transcript API by thisisgazzar from RapidAPI
+    // Host: youtube-transcript1.p.rapidapi.com
     const response = await fetch(
-      `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`,
+      `https://youtube-transcript1.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`,
       {
         method: 'GET',
         headers: {
           'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': 'youtube-transcriptor.p.rapidapi.com',
+          'x-rapidapi-host': 'youtube-transcript1.p.rapidapi.com',
         },
       }
     );
 
+    console.log('RapidAPI response status:', response.status);
+
     if (!response.ok) {
-      console.log('RapidAPI response not ok:', response.status);
+      const errorText = await response.text();
+      console.log('RapidAPI error response:', errorText.substring(0, 200));
       // Try alternative RapidAPI endpoint
       return await fetchWithRapidAPIAlt(videoId, apiKey);
     }
 
     const data = await response.json();
+    console.log('RapidAPI response type:', typeof data, Array.isArray(data) ? 'array' : '');
+
+    // Handle various response formats
+    let transcriptText = '';
 
     if (data && Array.isArray(data) && data.length > 0) {
-      // Parse transcript from array format
-      const transcriptText = data
-        .map((item: { text?: string }) => item.text || '')
+      // Array format: [{ text: "...", start: ..., duration: ... }, ...]
+      transcriptText = data
+        .map((item: { text?: string; transcript?: string }) => item.text || item.transcript || '')
         .filter((text: string) => text.trim())
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();
-
-      if (transcriptText.length > 50) {
-        console.log('RapidAPI transcript length:', transcriptText.length);
-        return { transcript: transcriptText, title: null };
+    } else if (data && typeof data === 'object') {
+      // Object format: { transcript: "...", ... } or { transcription: [...] }
+      if (data.transcript && typeof data.transcript === 'string') {
+        transcriptText = data.transcript;
+      } else if (data.transcription && Array.isArray(data.transcription)) {
+        transcriptText = data.transcription
+          .map((item: { text?: string }) => item.text || '')
+          .join(' ');
+      } else if (data.text) {
+        transcriptText = data.text;
+      } else if (data.content) {
+        transcriptText = data.content;
       }
     }
 
+    transcriptText = transcriptText.replace(/\s+/g, ' ').trim();
+
+    if (transcriptText.length > 50) {
+      console.log('RapidAPI transcript length:', transcriptText.length);
+      return { transcript: transcriptText, title: data.title || null };
+    }
+
+    console.log('RapidAPI transcript too short or empty, trying alternative...');
     // If first endpoint fails, try alternative
     return await fetchWithRapidAPIAlt(videoId, apiKey);
 
@@ -125,23 +149,25 @@ async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string 
 }
 
 /**
- * Alternative RapidAPI endpoint
+ * Alternative RapidAPI endpoint - YouTube Captions and Transcripts
  */
 async function fetchWithRapidAPIAlt(videoId: string, apiKey: string): Promise<{ transcript: string | null; title: string | null }> {
   try {
-    console.log('Trying alternative RapidAPI endpoint...');
+    console.log('Trying alternative RapidAPI endpoint (youtube-captions-and-transcripts)...');
 
-    // Try youtube-transcript-api endpoint
+    // Try YouTube Captions and Transcripts API
     const response = await fetch(
-      `https://youtube-transcript3.p.rapidapi.com/api/transcript?videoId=${videoId}`,
+      `https://youtube-captions-and-transcripts.p.rapidapi.com/getCaptions?videoId=${videoId}&lang=en&format=text`,
       {
         method: 'GET',
         headers: {
           'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': 'youtube-transcript3.p.rapidapi.com',
+          'x-rapidapi-host': 'youtube-captions-and-transcripts.p.rapidapi.com',
         },
       }
     );
+
+    console.log('Alternative RapidAPI response status:', response.status);
 
     if (!response.ok) {
       console.log('Alternative RapidAPI response not ok:', response.status);
@@ -149,6 +175,7 @@ async function fetchWithRapidAPIAlt(videoId: string, apiKey: string): Promise<{ 
     }
 
     const data = await response.json();
+    console.log('Alternative RapidAPI response type:', typeof data);
 
     // Handle different response formats
     let transcriptText = '';
@@ -165,6 +192,13 @@ async function fetchWithRapidAPIAlt(videoId: string, apiKey: string): Promise<{ 
         .join(' ');
     } else if (data.text) {
       transcriptText = data.text;
+    } else if (data.data && data.data.text) {
+      // Some APIs wrap response in data.data
+      transcriptText = data.data.text;
+    } else if (data.captions && typeof data.captions === 'string') {
+      transcriptText = data.captions;
+    } else if (data.content) {
+      transcriptText = data.content;
     }
 
     transcriptText = transcriptText.replace(/\s+/g, ' ').trim();
