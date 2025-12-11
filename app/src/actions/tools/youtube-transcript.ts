@@ -177,7 +177,12 @@ async function fetchWithRapidAPI(videoId: string): Promise<{ transcript: string 
     return { transcript: null, title: null };
 
   } catch (error) {
-    console.error('RapidAPI error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('RapidAPI error:', errorMessage);
+    // Check if it's an abort error (timeout)
+    if (errorMessage.includes('abort')) {
+      console.error('RapidAPI request timed out after 60 seconds');
+    }
     return { transcript: null, title: null };
   }
 }
@@ -465,6 +470,7 @@ export async function fetchYouTubeTranscript(url: string): Promise<TranscriptRes
     }
 
     console.log('Fetching transcript for video:', videoId);
+    console.log('RAPIDAPI_KEY configured:', !!process.env.RAPIDAPI_KEY);
 
     // Method 1: Try RapidAPI (most reliable for production)
     console.log('Method 1: Trying RapidAPI...');
