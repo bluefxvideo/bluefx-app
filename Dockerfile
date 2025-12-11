@@ -72,11 +72,17 @@ WORKDIR /app
 ENV NODE_ENV production
 
 # Install yt-dlp and its dependencies for YouTube transcript fetching
-RUN apk add --no-cache python3 py3-pip ffmpeg \
-    && pip3 install --break-system-packages yt-dlp
+# Also install deno for JavaScript challenge solving (required by yt-dlp for some videos)
+RUN apk add --no-cache python3 py3-pip ffmpeg curl \
+    && pip3 install --break-system-packages yt-dlp \
+    && curl -fsSL https://deno.land/install.sh | sh \
+    && mv /root/.deno/bin/deno /usr/local/bin/deno
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+# Create temp directory with proper permissions for yt-dlp
+RUN mkdir -p /tmp/yt-dlp && chmod 777 /tmp/yt-dlp
 
 # Copy built application
 COPY --from=builder /app/public ./public
