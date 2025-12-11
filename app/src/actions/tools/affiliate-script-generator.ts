@@ -4,7 +4,7 @@ import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { createClient } from '@/app/supabase/server';
 import { getPromptForScriptType, getRefinementPrompt } from '@/lib/affiliate-toolkit/prompts';
-import type { AffiliateOffer, ScriptType, SavedScript, OfferMediaFile, OfferYouTubeTranscript } from '@/lib/affiliate-toolkit/types';
+import type { AffiliateOffer, LibraryProduct, UserBusinessOffer, ScriptType, SavedScript, OfferMediaFile, OfferYouTubeTranscript } from '@/lib/affiliate-toolkit/types';
 import { aggregateOfferContent } from '@/lib/affiliate-toolkit/types';
 
 interface GenerateScriptRequest {
@@ -157,63 +157,85 @@ export async function refineAffiliateScript(
   }
 }
 
+// ============================================
+// AFFILIATE PRODUCT LIBRARY (Admin-managed)
+// ============================================
+
 /**
- * Server action to fetch affiliate offers
+ * Server action to fetch library products (pre-trained affiliate offers)
  */
-export async function fetchAffiliateOffers(): Promise<{
+export async function fetchLibraryProducts(): Promise<{
   success: boolean;
-  offers?: AffiliateOffer[];
+  products?: LibraryProduct[];
   error?: string;
 }> {
   try {
     const supabase = await createClient();
 
     const { data, error } = await supabase
-      .from('affiliate_toolkit_offers')
+      .from('affiliate_product_library')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('display_order', { ascending: true });
 
     if (error) {
-      console.error('Error fetching offers:', error);
+      console.error('Error fetching library products:', error);
       return {
         success: false,
-        error: 'Failed to fetch offers'
+        error: 'Failed to fetch library products'
       };
     }
 
-    // Ensure arrays are properly initialized for each offer
-    const offers = (data || []).map(offer => ({
-      ...offer,
-      media_files: offer.media_files || [],
-      youtube_transcripts: offer.youtube_transcripts || [],
+    // Ensure arrays are properly initialized for each product
+    const products = (data || []).map(product => ({
+      ...product,
+      media_files: product.media_files || [],
+      youtube_transcripts: product.youtube_transcripts || [],
+      display_order: product.display_order || 0,
     }));
 
     return {
       success: true,
-      offers
+      products
     };
   } catch (error) {
-    console.error('Error fetching offers:', error);
+    console.error('Error fetching library products:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch offers'
+      error: error instanceof Error ? error.message : 'Failed to fetch library products'
     };
   }
 }
 
 /**
- * Server action to create a new affiliate offer
+ * Legacy function - fetches from library (for backwards compatibility)
  */
-export async function createAffiliateOffer(offer: {
+export async function fetchAffiliateOffers(): Promise<{
+  success: boolean;
+  offers?: AffiliateOffer[];
+  error?: string;
+}> {
+  const result = await fetchLibraryProducts();
+  return {
+    success: result.success,
+    offers: result.products,
+    error: result.error
+  };
+}
+
+/**
+ * Server action to create a new library product (admin only)
+ */
+export async function createLibraryProduct(product: {
   name: string;
   niche: string;
   offer_content: string;
   media_files?: OfferMediaFile[];
   youtube_transcripts?: OfferYouTubeTranscript[];
-  aggregated_content?: string; // Allow passing edited master document directly
+  aggregated_content?: string;
+  display_order?: number;
 }): Promise<{
   success: boolean;
-  offer?: AffiliateOffer;
+  product?: LibraryProduct;
   error?: string;
 }> {
   try {
@@ -226,51 +248,76 @@ export async function createAffiliateOffer(offer: {
     }
 
     // Use provided aggregated_content or build from sources
-    const aggregated_content = offer.aggregated_content || aggregateOfferContent({
-      offer_content: offer.offer_content,
-      media_files: offer.media_files || [],
-      youtube_transcripts: offer.youtube_transcripts || [],
+    const aggregated_content = product.aggregated_content || aggregateOfferContent({
+      offer_content: product.offer_content,
+      media_files: product.media_files || [],
+      youtube_transcripts: product.youtube_transcripts || [],
     });
 
     const { data, error } = await supabase
-      .from('affiliate_toolkit_offers')
+      .from('affiliate_product_library')
       .insert([{
-        name: offer.name,
-        niche: offer.niche,
-        offer_content: offer.offer_content,
-        media_files: offer.media_files || [],
-        youtube_transcripts: offer.youtube_transcripts || [],
+        name: product.name,
+        niche: product.niche,
+        offer_content: product.offer_content,
+        media_files: product.media_files || [],
+        youtube_transcripts: product.youtube_transcripts || [],
         aggregated_content: aggregated_content || null,
+        display_order: product.display_order || 0,
       }])
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating offer:', error);
-      return { success: false, error: 'Failed to create offer' };
+      console.error('Error creating library product:', error);
+      return { success: false, error: 'Failed to create library product' };
     }
 
     return {
       success: true,
-      offer: {
+      product: {
         ...data,
         media_files: data.media_files || [],
         youtube_transcripts: data.youtube_transcripts || [],
+        display_order: data.display_order || 0,
       }
     };
   } catch (error) {
-    console.error('Error creating offer:', error);
+    console.error('Error creating library product:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create offer'
+      error: error instanceof Error ? error.message : 'Failed to create library product'
     };
   }
 }
 
 /**
- * Server action to update an existing affiliate offer
+ * Legacy function - creates library product (for backwards compatibility)
  */
-export async function updateAffiliateOffer(
+export async function createAffiliateOffer(offer: {
+  name: string;
+  niche: string;
+  offer_content: string;
+  media_files?: OfferMediaFile[];
+  youtube_transcripts?: OfferYouTubeTranscript[];
+  aggregated_content?: string;
+}): Promise<{
+  success: boolean;
+  offer?: AffiliateOffer;
+  error?: string;
+}> {
+  const result = await createLibraryProduct(offer);
+  return {
+    success: result.success,
+    offer: result.product,
+    error: result.error
+  };
+}
+
+/**
+ * Server action to update an existing library product (admin only)
+ */
+export async function updateLibraryProduct(
   id: string,
   updates: {
     name?: string;
@@ -278,11 +325,12 @@ export async function updateAffiliateOffer(
     offer_content?: string;
     media_files?: OfferMediaFile[];
     youtube_transcripts?: OfferYouTubeTranscript[];
-    aggregated_content?: string; // Allow passing edited master document directly
+    aggregated_content?: string;
+    display_order?: number;
   }
 ): Promise<{
   success: boolean;
-  offer?: AffiliateOffer;
+  product?: LibraryProduct;
   error?: string;
 }> {
   try {
@@ -300,17 +348,17 @@ export async function updateAffiliateOffer(
 
     if (aggregated_content === undefined && (updates.offer_content !== undefined || updates.media_files !== undefined || updates.youtube_transcripts !== undefined)) {
       // Need to get current data to merge with updates
-      const { data: currentOffer } = await supabase
-        .from('affiliate_toolkit_offers')
+      const { data: currentProduct } = await supabase
+        .from('affiliate_product_library')
         .select('offer_content, media_files, youtube_transcripts')
         .eq('id', id)
         .single();
 
-      if (currentOffer) {
+      if (currentProduct) {
         aggregated_content = aggregateOfferContent({
-          offer_content: updates.offer_content ?? currentOffer.offer_content,
-          media_files: updates.media_files ?? currentOffer.media_files ?? [],
-          youtube_transcripts: updates.youtube_transcripts ?? currentOffer.youtube_transcripts ?? [],
+          offer_content: updates.offer_content ?? currentProduct.offer_content,
+          media_files: updates.media_files ?? currentProduct.media_files ?? [],
+          youtube_transcripts: updates.youtube_transcripts ?? currentProduct.youtube_transcripts ?? [],
         });
       }
     }
@@ -321,38 +369,65 @@ export async function updateAffiliateOffer(
     }
 
     const { data, error } = await supabase
-      .from('affiliate_toolkit_offers')
+      .from('affiliate_product_library')
       .update(updateData)
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
-      console.error('Error updating offer:', error);
-      return { success: false, error: 'Failed to update offer' };
+      console.error('Error updating library product:', error);
+      return { success: false, error: 'Failed to update library product' };
     }
 
     return {
       success: true,
-      offer: {
+      product: {
         ...data,
         media_files: data.media_files || [],
         youtube_transcripts: data.youtube_transcripts || [],
+        display_order: data.display_order || 0,
       }
     };
   } catch (error) {
-    console.error('Error updating offer:', error);
+    console.error('Error updating library product:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update offer'
+      error: error instanceof Error ? error.message : 'Failed to update library product'
     };
   }
 }
 
 /**
- * Server action to delete an affiliate offer
+ * Legacy function - updates library product (for backwards compatibility)
  */
-export async function deleteAffiliateOffer(id: string): Promise<{
+export async function updateAffiliateOffer(
+  id: string,
+  updates: {
+    name?: string;
+    niche?: string;
+    offer_content?: string;
+    media_files?: OfferMediaFile[];
+    youtube_transcripts?: OfferYouTubeTranscript[];
+    aggregated_content?: string;
+  }
+): Promise<{
+  success: boolean;
+  offer?: AffiliateOffer;
+  error?: string;
+}> {
+  const result = await updateLibraryProduct(id, updates);
+  return {
+    success: result.success,
+    offer: result.product,
+    error: result.error
+  };
+}
+
+/**
+ * Server action to delete a library product (admin only)
+ */
+export async function deleteLibraryProduct(id: string): Promise<{
   success: boolean;
   error?: string;
 }> {
@@ -366,23 +441,33 @@ export async function deleteAffiliateOffer(id: string): Promise<{
     }
 
     const { error } = await supabase
-      .from('affiliate_toolkit_offers')
+      .from('affiliate_product_library')
       .delete()
       .eq('id', id);
 
     if (error) {
-      console.error('Error deleting offer:', error);
-      return { success: false, error: 'Failed to delete offer' };
+      console.error('Error deleting library product:', error);
+      return { success: false, error: 'Failed to delete library product' };
     }
 
     return { success: true };
   } catch (error) {
-    console.error('Error deleting offer:', error);
+    console.error('Error deleting library product:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete offer'
+      error: error instanceof Error ? error.message : 'Failed to delete library product'
     };
   }
+}
+
+/**
+ * Legacy function - deletes library product (for backwards compatibility)
+ */
+export async function deleteAffiliateOffer(id: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  return deleteLibraryProduct(id);
 }
 
 // ============================================
@@ -581,6 +666,397 @@ export async function deleteSavedScript(id: string): Promise<{
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete script'
+    };
+  }
+}
+
+// ============================================
+// USER BUSINESS OFFERS (User's own products)
+// ============================================
+
+/**
+ * Server action to fetch user's business offers
+ */
+export async function fetchUserBusinessOffers(): Promise<{
+  success: boolean;
+  offers?: UserBusinessOffer[];
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data, error } = await supabase
+      .from('user_business_offers')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user business offers:', error);
+      return {
+        success: false,
+        error: 'Failed to fetch your business offers'
+      };
+    }
+
+    // Ensure arrays are properly initialized
+    const offers = (data || []).map(offer => ({
+      ...offer,
+      media_files: offer.media_files || [],
+      youtube_transcripts: offer.youtube_transcripts || [],
+    }));
+
+    return {
+      success: true,
+      offers
+    };
+  } catch (error) {
+    console.error('Error fetching user business offers:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch your business offers'
+    };
+  }
+}
+
+/**
+ * Server action to create a new user business offer
+ */
+export async function createUserBusinessOffer(offer: {
+  name: string;
+  niche: string;
+  offer_content: string;
+  media_files?: OfferMediaFile[];
+  youtube_transcripts?: OfferYouTubeTranscript[];
+  aggregated_content?: string;
+}): Promise<{
+  success: boolean;
+  offer?: UserBusinessOffer;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    // Use provided aggregated_content or build from sources
+    const aggregated_content = offer.aggregated_content || aggregateOfferContent({
+      offer_content: offer.offer_content,
+      media_files: offer.media_files || [],
+      youtube_transcripts: offer.youtube_transcripts || [],
+    });
+
+    const { data, error } = await supabase
+      .from('user_business_offers')
+      .insert([{
+        user_id: user.id,
+        name: offer.name,
+        niche: offer.niche,
+        offer_content: offer.offer_content,
+        media_files: offer.media_files || [],
+        youtube_transcripts: offer.youtube_transcripts || [],
+        aggregated_content: aggregated_content || null,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating user business offer:', error);
+      return { success: false, error: 'Failed to create business offer' };
+    }
+
+    return {
+      success: true,
+      offer: {
+        ...data,
+        media_files: data.media_files || [],
+        youtube_transcripts: data.youtube_transcripts || [],
+      }
+    };
+  } catch (error) {
+    console.error('Error creating user business offer:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create business offer'
+    };
+  }
+}
+
+/**
+ * Server action to update a user business offer
+ */
+export async function updateUserBusinessOffer(
+  id: string,
+  updates: {
+    name?: string;
+    niche?: string;
+    offer_content?: string;
+    media_files?: OfferMediaFile[];
+    youtube_transcripts?: OfferYouTubeTranscript[];
+    aggregated_content?: string;
+  }
+): Promise<{
+  success: boolean;
+  offer?: UserBusinessOffer;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    // If aggregated_content is explicitly provided, use it directly
+    let aggregated_content: string | undefined = updates.aggregated_content;
+
+    if (aggregated_content === undefined && (updates.offer_content !== undefined || updates.media_files !== undefined || updates.youtube_transcripts !== undefined)) {
+      // Need to get current data to merge with updates
+      const { data: currentOffer } = await supabase
+        .from('user_business_offers')
+        .select('offer_content, media_files, youtube_transcripts')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (currentOffer) {
+        aggregated_content = aggregateOfferContent({
+          offer_content: updates.offer_content ?? currentOffer.offer_content,
+          media_files: updates.media_files ?? currentOffer.media_files ?? [],
+          youtube_transcripts: updates.youtube_transcripts ?? currentOffer.youtube_transcripts ?? [],
+        });
+      }
+    }
+
+    const updateData: Record<string, unknown> = { ...updates, updated_at: new Date().toISOString() };
+    if (aggregated_content !== undefined) {
+      updateData.aggregated_content = aggregated_content || null;
+    }
+
+    const { data, error } = await supabase
+      .from('user_business_offers')
+      .update(updateData)
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating user business offer:', error);
+      return { success: false, error: 'Failed to update business offer' };
+    }
+
+    return {
+      success: true,
+      offer: {
+        ...data,
+        media_files: data.media_files || [],
+        youtube_transcripts: data.youtube_transcripts || [],
+      }
+    };
+  } catch (error) {
+    console.error('Error updating user business offer:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update business offer'
+    };
+  }
+}
+
+/**
+ * Server action to delete a user business offer
+ */
+export async function deleteUserBusinessOffer(id: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { error } = await supabase
+      .from('user_business_offers')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error deleting user business offer:', error);
+      return { success: false, error: 'Failed to delete business offer' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting user business offer:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete business offer'
+    };
+  }
+}
+
+/**
+ * Server action to fetch a single user business offer by ID
+ */
+export async function fetchUserBusinessOffer(id: string): Promise<{
+  success: boolean;
+  offer?: UserBusinessOffer;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data, error } = await supabase
+      .from('user_business_offers')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user business offer:', error);
+      return { success: false, error: 'Business offer not found' };
+    }
+
+    return {
+      success: true,
+      offer: {
+        ...data,
+        media_files: data.media_files || [],
+        youtube_transcripts: data.youtube_transcripts || [],
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching user business offer:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch business offer'
+    };
+  }
+}
+
+/**
+ * Server action to fetch all offers for Content Generator
+ * Combines library products and user's business offers
+ */
+export async function fetchAllOffersForContentGenerator(): Promise<{
+  success: boolean;
+  libraryProducts?: LibraryProduct[];
+  userOffers?: UserBusinessOffer[];
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    // Fetch both in parallel
+    const [libraryResult, userResult] = await Promise.all([
+      supabase
+        .from('affiliate_product_library')
+        .select('*')
+        .order('display_order', { ascending: true }),
+      supabase
+        .from('user_business_offers')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+    ]);
+
+    if (libraryResult.error) {
+      console.error('Error fetching library products:', libraryResult.error);
+    }
+
+    if (userResult.error) {
+      console.error('Error fetching user business offers:', userResult.error);
+    }
+
+    // Process library products
+    const libraryProducts = (libraryResult.data || []).map(product => ({
+      ...product,
+      media_files: product.media_files || [],
+      youtube_transcripts: product.youtube_transcripts || [],
+      display_order: product.display_order || 0,
+    }));
+
+    // Process user offers
+    const userOffers = (userResult.data || []).map(offer => ({
+      ...offer,
+      media_files: offer.media_files || [],
+      youtube_transcripts: offer.youtube_transcripts || [],
+    }));
+
+    return {
+      success: true,
+      libraryProducts,
+      userOffers
+    };
+  } catch (error) {
+    console.error('Error fetching all offers:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch offers'
+    };
+  }
+}
+
+/**
+ * Server action to fetch a single library product by ID
+ */
+export async function fetchLibraryProduct(id: string): Promise<{
+  success: boolean;
+  product?: LibraryProduct;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('affiliate_product_library')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching library product:', error);
+      return { success: false, error: 'Library product not found' };
+    }
+
+    return {
+      success: true,
+      product: {
+        ...data,
+        media_files: data.media_files || [],
+        youtube_transcripts: data.youtube_transcripts || [],
+        display_order: data.display_order || 0,
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching library product:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch library product'
     };
   }
 }

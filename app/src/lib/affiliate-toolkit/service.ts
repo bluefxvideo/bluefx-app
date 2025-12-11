@@ -1,9 +1,10 @@
 // Affiliate Toolkit Service - Client-side wrapper for server actions
-import { AffiliateOffer, ScriptType } from './types';
+import { AffiliateOffer, LibraryProduct, UserBusinessOffer, ScriptType } from './types';
 import {
   generateAffiliateScript,
   refineAffiliateScript,
-  fetchAffiliateOffers
+  fetchAffiliateOffers,
+  fetchAllOffersForContentGenerator as fetchAllOffersAction
 } from '@/actions/tools/affiliate-script-generator';
 
 // Fetch all affiliate offers from Supabase
@@ -51,4 +52,21 @@ export async function refineScript(
   }
 
   return result.script;
+}
+
+// Fetch all offers from both library and user's business offers
+export async function fetchAllOffersForContentGenerator(): Promise<{
+  libraryProducts: LibraryProduct[];
+  userOffers: UserBusinessOffer[];
+}> {
+  const result = await fetchAllOffersAction();
+
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to fetch offers');
+  }
+
+  return {
+    libraryProducts: result.libraryProducts || [],
+    userOffers: result.userOffers || []
+  };
 }

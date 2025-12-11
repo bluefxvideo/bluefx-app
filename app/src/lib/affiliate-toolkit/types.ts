@@ -21,7 +21,8 @@ export interface OfferYouTubeTranscript {
   created_at: string;
 }
 
-export interface AffiliateOffer {
+// Base offer interface (shared fields)
+interface BaseOffer {
   id: string;
   name: string;
   niche: string | null;
@@ -31,6 +32,23 @@ export interface AffiliateOffer {
   aggregated_content: string | null;
   created_at: string;
 }
+
+// Library product (admin-managed, no user_id)
+export interface LibraryProduct extends BaseOffer {
+  display_order: number;
+}
+
+// User's business offer (user-specific)
+export interface UserBusinessOffer extends BaseOffer {
+  user_id: string;
+  updated_at: string;
+}
+
+// Union type for Content Generator (can use either)
+export type AnyOffer = LibraryProduct | UserBusinessOffer;
+
+// Legacy alias for backwards compatibility
+export type AffiliateOffer = BaseOffer;
 
 // Helper to count words in text
 export function countWords(text: string): number {

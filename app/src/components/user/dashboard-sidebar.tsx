@@ -17,7 +17,6 @@ import {
   Layers,
   CreditCard,
   TrendingUp,
-  DollarSign,
   Search,
   User,
   LogOut,
@@ -27,8 +26,10 @@ import {
   PanelLeftClose,
   PanelLeft,
   Repeat,
-  FileText,
-  Shield
+  Shield,
+  Briefcase,
+  Library,
+  Sparkles
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -147,9 +148,37 @@ const toolCategories = [
     ],
   },
   {
-    id: "research",
-    name: "Research",
+    id: "business",
+    name: "Business Tools",
     tools: [
+      {
+        name: "Train My Business",
+        route: "/dashboard/business-tools/train-my-business",
+        icon: Briefcase,
+        gradient: "bg-primary",
+        description: "Upload your products for AI training",
+      },
+      {
+        name: "Top Affiliate Products",
+        route: "/dashboard/business-tools/top-affiliate-products",
+        icon: Library,
+        gradient: "bg-primary",
+        description: "Pre-trained affiliate products",
+      },
+      {
+        name: "Content Generator",
+        route: "/dashboard/script-generator",
+        icon: Sparkles,
+        gradient: "bg-primary",
+        description: "Generate marketing content",
+      },
+      {
+        name: "My Scripts",
+        route: "/dashboard/script-generator/my-scripts",
+        icon: BookOpen,
+        gradient: "bg-primary",
+        description: "Your saved scripts library",
+      },
       {
         name: "Trending Keywords",
         route: "/dashboard/trending-keywords",
@@ -163,33 +192,6 @@ const toolCategories = [
         icon: TrendingUp,
         gradient: "bg-primary",
         description: "Discover viral content",
-      },
-      {
-        name: "Top Offers",
-        route: "/dashboard/top-offers",
-        icon: DollarSign,
-        gradient: "from-yellow-500 to-amber-500",
-        description: "Find the best affiliate offers",
-      },
-    ],
-  },
-  {
-    id: "affiliate",
-    name: "Affiliate Toolkit",
-    tools: [
-      {
-        name: "Script Generator",
-        route: "/dashboard/script-generator",
-        icon: FileText,
-        gradient: "bg-primary",
-        description: "Generate affiliate marketing scripts",
-      },
-      {
-        name: "My Scripts",
-        route: "/dashboard/script-generator/my-scripts",
-        icon: BookOpen,
-        gradient: "bg-primary",
-        description: "Your saved scripts library",
       },
     ],
   },

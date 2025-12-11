@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound } from 'lucide-react';
+import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { AffiliateOffer, ScriptType, SCRIPT_TYPES } from '@/lib/affiliate-toolkit/types';
-import { fetchOffers, generateScript, refineScript } from '@/lib/affiliate-toolkit/service';
+import { AffiliateOffer, LibraryProduct, UserBusinessOffer, ScriptType, SCRIPT_TYPES } from '@/lib/affiliate-toolkit/types';
+import { fetchAllOffersForContentGenerator, generateScript, refineScript } from '@/lib/affiliate-toolkit/service';
 import { createClient } from '@/app/supabase/client';
 
 // Icon mapping for script types
@@ -28,12 +28,16 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Calendar
 };
 
+// Extended offer type to track source
+type OfferWithSource = (LibraryProduct | UserBusinessOffer) & { source: 'library' | 'business' };
+
 export function ScriptGeneratorPage() {
   const router = useRouter();
 
   // State
-  const [offers, setOffers] = useState<AffiliateOffer[]>([]);
-  const [selectedOffer, setSelectedOffer] = useState<AffiliateOffer | null>(null);
+  const [libraryProducts, setLibraryProducts] = useState<LibraryProduct[]>([]);
+  const [userOffers, setUserOffers] = useState<UserBusinessOffer[]>([]);
+  const [selectedOffer, setSelectedOffer] = useState<OfferWithSource | null>(null);
   const [selectedScriptType, setSelectedScriptType] = useState<ScriptType | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [generatedScript, setGeneratedScript] = useState<string | null>(null);
@@ -66,10 +70,15 @@ export function ScriptGeneratorPage() {
   useEffect(() => {
     async function loadOffers() {
       try {
-        const data = await fetchOffers();
-        setOffers(data);
-        if (data.length > 0) {
-          setSelectedOffer(data[0]);
+        const { libraryProducts: library, userOffers: user } = await fetchAllOffersForContentGenerator();
+        setLibraryProducts(library);
+        setUserOffers(user);
+
+        // Auto-select first user offer if available, otherwise first library product
+        if (user.length > 0) {
+          setSelectedOffer({ ...user[0], source: 'business' });
+        } else if (library.length > 0) {
+          setSelectedOffer({ ...library[0], source: 'library' });
         }
       } catch (err) {
         setError('Failed to load offers');
@@ -179,27 +188,69 @@ export function ScriptGeneratorPage() {
           )}
         </div>
         <Select
-          value={selectedOffer?.id || ''}
+          value={selectedOffer ? `${selectedOffer.source}:${selectedOffer.id}` : ''}
           onValueChange={(value) => {
-            const offer = offers.find(o => o.id === value);
-            setSelectedOffer(offer || null);
+            const [source, id] = value.split(':') as ['library' | 'business', string];
+            if (source === 'library') {
+              const product = libraryProducts.find(p => p.id === id);
+              if (product) setSelectedOffer({ ...product, source: 'library' });
+            } else {
+              const offer = userOffers.find(o => o.id === id);
+              if (offer) setSelectedOffer({ ...offer, source: 'business' });
+            }
           }}
           disabled={isLoadingOffers}
         >
           <SelectTrigger className="w-full bg-card border-border">
-            <SelectValue placeholder={isLoadingOffers ? "Loading offers..." : "Select an offer"} />
+            <SelectValue placeholder={isLoadingOffers ? "Loading offers..." : "Select a product"} />
           </SelectTrigger>
           <SelectContent>
-            {offers.map((offer) => (
-              <SelectItem key={offer.id} value={offer.id}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{offer.name}</span>
-                  {offer.niche && (
-                    <span className="text-xs text-zinc-500">{offer.niche}</span>
-                  )}
-                </div>
-              </SelectItem>
-            ))}
+            {/* User's Business Offers */}
+            {userOffers.length > 0 && (
+              <SelectGroup>
+                <SelectLabel className="flex items-center gap-2 text-primary">
+                  <Briefcase className="w-3 h-3" />
+                  My Products
+                </SelectLabel>
+                {userOffers.map((offer) => (
+                  <SelectItem key={`business:${offer.id}`} value={`business:${offer.id}`}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{offer.name}</span>
+                      {offer.niche && (
+                        <span className="text-xs text-zinc-500">{offer.niche}</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )}
+
+            {/* Library Products */}
+            {libraryProducts.length > 0 && (
+              <SelectGroup>
+                <SelectLabel className="flex items-center gap-2 text-blue-400">
+                  <Library className="w-3 h-3" />
+                  Affiliate Products
+                </SelectLabel>
+                {libraryProducts.map((product) => (
+                  <SelectItem key={`library:${product.id}`} value={`library:${product.id}`}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{product.name}</span>
+                      {product.niche && (
+                        <span className="text-xs text-zinc-500">{product.niche}</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )}
+
+            {/* Empty state */}
+            {userOffers.length === 0 && libraryProducts.length === 0 && (
+              <div className="p-4 text-center text-zinc-500 text-sm">
+                No products available
+              </div>
+            )}
           </SelectContent>
         </Select>
 
@@ -207,7 +258,17 @@ export function ScriptGeneratorPage() {
         {selectedOffer && (
           <Card className="bg-card/50 border-border/50">
             <CardContent className="p-3">
-              <p className="text-xs text-zinc-500 mb-1">Offer Details:</p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-xs text-zinc-500">Product Details:</p>
+                <span className={cn(
+                  "text-xs px-1.5 py-0.5 rounded",
+                  selectedOffer.source === 'business'
+                    ? "bg-primary/20 text-primary"
+                    : "bg-blue-500/20 text-blue-400"
+                )}>
+                  {selectedOffer.source === 'business' ? 'My Product' : 'Library'}
+                </span>
+              </div>
               <p className="text-sm text-zinc-300 line-clamp-3">
                 {selectedOffer.offer_content || 'No description available'}
               </p>

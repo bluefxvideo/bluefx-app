@@ -8,5 +8,5 @@ interface EditOfferPageProps {
 
 export default async function EditOfferPage({ params }: EditOfferPageProps) {
   const { offerId } = await params;
-  return <OfferContentEditor offerId={offerId} />;
+  return <OfferContentEditor offerId={offerId} mode="library" />;
 }

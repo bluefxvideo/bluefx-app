@@ -28,12 +28,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import type { AffiliateOffer, OfferMediaFile, OfferYouTubeTranscript } from '@/lib/affiliate-toolkit/types';
+import type { AffiliateOffer, LibraryProduct, UserBusinessOffer, OfferMediaFile, OfferYouTubeTranscript } from '@/lib/affiliate-toolkit/types';
 import { countWords } from '@/lib/affiliate-toolkit/types';
 import {
-  fetchAffiliateOffers,
-  createAffiliateOffer,
-  updateAffiliateOffer,
+  fetchLibraryProduct,
+  createLibraryProduct,
+  updateLibraryProduct,
+  fetchUserBusinessOffer,
+  createUserBusinessOffer,
+  updateUserBusinessOffer,
 } from '@/actions/tools/affiliate-script-generator';
 import { fetchYouTubeTranscript } from '@/actions/tools/youtube-transcript';
 import { processUploadedFile } from '@/actions/tools/media-transcription';
@@ -55,11 +58,14 @@ interface ContentSource {
   createdAt: string;
 }
 
+type EditorMode = 'library' | 'business';
+
 interface OfferContentEditorProps {
   offerId?: string; // If provided, we're editing; otherwise creating
+  mode?: EditorMode; // 'library' for admin product library, 'business' for user's own products
 }
 
-export function OfferContentEditor({ offerId }: OfferContentEditorProps) {
+export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEditorProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(!!offerId);
   const [isSaving, setIsSaving] = useState(false);
@@ -96,10 +102,16 @@ export function OfferContentEditor({ offerId }: OfferContentEditorProps) {
   const loadOffer = async () => {
     setIsLoading(true);
     try {
-      const result = await fetchAffiliateOffers();
-      if (result.success && result.offers) {
-        const offer = result.offers.find(o => o.id === offerId);
-        if (offer) {
+      // Fetch based on mode
+      const result = mode === 'library'
+        ? await fetchLibraryProduct(offerId!)
+        : await fetchUserBusinessOffer(offerId!);
+
+      const offer = mode === 'library'
+        ? (result as { success: boolean; product?: LibraryProduct }).product
+        : (result as { success: boolean; offer?: UserBusinessOffer }).offer;
+
+      if (result.success && offer) {
           setOfferName(offer.name);
           setOfferNiche(offer.niche || '');
 
@@ -162,10 +174,11 @@ export function OfferContentEditor({ offerId }: OfferContentEditorProps) {
           } else {
             rebuildMasterDocument(loadedSources);
           }
-        }
+      } else {
+        setError(result.error || 'Failed to load');
       }
     } catch (err) {
-      setError('Failed to load offer');
+      setError('Failed to load');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -389,42 +402,50 @@ export function OfferContentEditor({ offerId }: OfferContentEditorProps) {
         .map(s => s.content)
         .join('\n\n');
 
+      const offerData = {
+        name: offerName,
+        niche: offerNiche,
+        offer_content: textContent,
+        media_files: mediaFiles,
+        youtube_transcripts: youtubeTranscripts,
+        aggregated_content: masterDocument,
+      };
+
       if (offerId) {
-        // Update existing offer
-        const result = await updateAffiliateOffer(offerId, {
-          name: offerName,
-          niche: offerNiche,
-          offer_content: textContent,
-          media_files: mediaFiles,
-          youtube_transcripts: youtubeTranscripts,
-          aggregated_content: masterDocument, // Save the edited master document
-        });
+        // Update existing
+        const result = mode === 'library'
+          ? await updateLibraryProduct(offerId, offerData)
+          : await updateUserBusinessOffer(offerId, offerData);
 
         if (result.success) {
-          setSuccessMessage('Offer saved successfully!');
+          setSuccessMessage('Saved successfully!');
           setTimeout(() => setSuccessMessage(null), 3000);
         } else {
-          setError(result.error || 'Failed to save offer');
+          setError(result.error || 'Failed to save');
         }
       } else {
-        // Create new offer
-        const result = await createAffiliateOffer({
-          name: offerName,
-          niche: offerNiche,
-          offer_content: textContent,
-          media_files: mediaFiles,
-          youtube_transcripts: youtubeTranscripts,
-          aggregated_content: masterDocument, // Save the edited master document
-        });
+        // Create new
+        const result = mode === 'library'
+          ? await createLibraryProduct(offerData)
+          : await createUserBusinessOffer(offerData);
 
-        if (result.success && result.offer) {
-          setSuccessMessage('Offer created successfully!');
-          // Redirect to edit page for the new offer
-          setTimeout(() => {
-            router.push(`/dashboard/script-generator/offers/${result.offer!.id}`);
-          }, 1000);
+        if (result.success) {
+          setSuccessMessage('Created successfully!');
+          // Redirect based on mode
+          const newId = mode === 'library'
+            ? (result as { product?: { id: string } }).product?.id
+            : (result as { offer?: { id: string } }).offer?.id;
+
+          if (newId) {
+            const redirectPath = mode === 'library'
+              ? `/dashboard/script-generator/offers/${newId}`
+              : `/dashboard/business-tools/train-my-business/${newId}`;
+            setTimeout(() => {
+              router.push(redirectPath);
+            }, 1000);
+          }
         } else {
-          setError(result.error || 'Failed to create offer');
+          setError(result.error || 'Failed to create');
         }
       }
     } catch (err) {
@@ -453,20 +474,32 @@ export function OfferContentEditor({ offerId }: OfferContentEditorProps) {
     );
   }
 
+  const pageTitle = mode === 'library'
+    ? (offerId ? 'Edit Library Product' : 'Add Library Product')
+    : (offerId ? 'Edit My Product' : 'Add My Product');
+
+  const pageDescription = mode === 'library'
+    ? 'Train AI on this affiliate product'
+    : 'Train AI on your own product or service';
+
   return (
     <StandardToolPage
       icon={FileText}
-      title={offerId ? 'Edit Offer Content' : 'Create New Offer'}
-      description="Build your offer knowledge base from multiple sources"
+      title={pageTitle}
+      description={pageDescription}
       iconGradient="bg-primary"
-      toolName="Offer Editor"
+      toolName={mode === 'library' ? 'Product Library' : 'Train My Business'}
     >
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <Button
             variant="outline"
-            onClick={() => router.push('/dashboard/script-generator/manage-offers')}
+            onClick={() => router.push(
+              mode === 'library'
+                ? '/dashboard/business-tools/top-affiliate-products'
+                : '/dashboard/business-tools/train-my-business'
+            )}
             className="gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
