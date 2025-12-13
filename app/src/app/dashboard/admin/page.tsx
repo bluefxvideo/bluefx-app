@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { AdminUserTable } from '@/components/admin/admin-user-table';
-import { UserDashboardEnhanced } from '@/components/user/user-dashboard-enhanced';
+import { ActivityFeedPanel } from '@/components/admin/activity-feed-panel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, Activity } from 'lucide-react';
 
 /**
  * Admin Page
@@ -110,7 +112,26 @@ export default function AdminPage() {
           <p className="text-muted-foreground">Loading admin data...</p>
         </div>
       ) : (
-        <AdminUserTable users={users} />
+        <Tabs defaultValue="users" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              User Management
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              Activity Feed
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users">
+            <AdminUserTable users={users} />
+          </TabsContent>
+
+          <TabsContent value="activity">
+            <ActivityFeedPanel />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
