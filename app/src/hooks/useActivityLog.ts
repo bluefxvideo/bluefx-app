@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { logActivity } from '@/actions/activity-log';
 
 /**
  * Hook to automatically log tool visits
@@ -31,11 +30,20 @@ export function useActivityLog(
   useEffect(() => {
     if (!enabled || hasLogged.current) return;
 
-    // Log the visit
+    // Mark as logged immediately to prevent duplicate calls
     hasLogged.current = true;
-    logActivity(toolName, options?.action || 'visit', options?.metadata).catch(err => {
-      console.error('Failed to log activity:', err);
-    });
+
+    // Fire-and-forget: dynamically import and call the action
+    // This ensures the app never crashes even if the action fails
+    (async () => {
+      try {
+        const { logActivity } = await import('@/actions/activity-log');
+        await logActivity(toolName, options?.action || 'visit', options?.metadata);
+      } catch (err) {
+        // Silently fail - activity logging should never break the app
+        console.warn('Activity logging failed:', err);
+      }
+    })();
   }, [toolName, options?.action, options?.metadata, enabled]);
 }
 
