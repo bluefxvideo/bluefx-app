@@ -5,21 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { 
-  Users, 
+import {
+  Users,
   Search,
   Shield,
   CreditCard,
   Download,
   Trash2,
   UserX,
-  UserCheck
+  UserCheck,
+  Eye
 } from 'lucide-react'
 import { AddCreditsDialog } from './add-credits-dialog'
 import { ChangeRoleDialog } from './change-role-dialog'
 import { SuspendUserDialog } from './suspend-user-dialog'
 import { DeleteUserDialog } from './delete-user-dialog'
 import { AdminUserCreateDialog } from './admin-user-create-dialog'
+import { UserUsageDialog } from './user-usage-dialog'
 import type { Tables } from '@/types/database'
 
 interface UserWithStats extends Tables<'profiles'> {
@@ -97,6 +99,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState(false)
   const [isSuspendUserOpen, setIsSuspendUserOpen] = useState(false)
   const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false)
+  const [isUsageDialogOpen, setIsUsageDialogOpen] = useState(false)
   
   // Filter users based on search term
   const filteredUsers = users.filter(user => 
@@ -123,6 +126,11 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
   const handleDeleteUser = (user: UserWithStats) => {
     setSelectedUser(user)
     setIsDeleteUserOpen(true)
+  }
+
+  const handleViewUsage = (user: UserWithStats) => {
+    setSelectedUser(user)
+    setIsUsageDialogOpen(true)
   }
 
   const handleSuccess = () => {
@@ -254,8 +262,17 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                   }
                 </div>
                 <div className="flex gap-1">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleViewUsage(user)}
+                    className="h-8 w-8"
+                    title="View usage details"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => handleAddCredits(user)}
                     className="h-8 w-8"
@@ -263,8 +280,8 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                   >
                     <CreditCard className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => handleChangeRole(user)}
                     className="h-8 w-8"
@@ -272,8 +289,8 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                   >
                     <Shield className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => handleSuspendUser(user)}
                     className="h-8 w-8"
@@ -285,8 +302,8 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                       <UserX className="h-4 w-4 text-orange-600" />
                     )}
                   </Button>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => handleDeleteUser(user)}
                     className="h-8 w-8 hover:text-red-600"
@@ -350,6 +367,16 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
             open={isDeleteUserOpen}
             onOpenChange={setIsDeleteUserOpen}
             onSuccess={handleSuccess}
+          />
+          <UserUsageDialog
+            user={{
+              id: selectedUser.id,
+              email: selectedUser.email,
+              username: selectedUser.username,
+              full_name: selectedUser.full_name
+            }}
+            open={isUsageDialogOpen}
+            onOpenChange={setIsUsageDialogOpen}
           />
         </>
       )}
