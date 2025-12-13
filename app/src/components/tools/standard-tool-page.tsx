@@ -5,7 +5,6 @@ import { LucideIcon, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TutorialDialog } from '@/components/ui/tutorial-dialog';
 import { cn } from '@/lib/utils';
-import { useActivityLog } from '@/hooks/useActivityLog';
 
 interface StandardToolPageProps {
   icon: LucideIcon;
@@ -28,10 +27,6 @@ export function StandardToolPage({
   className,
   toolName
 }: StandardToolPageProps) {
-  // Log tool visit for activity tracking
-  const activityToolName = toolName || title.toLowerCase().replace(/\s+/g, '-');
-  useActivityLog(activityToolName);
-
   return (
     <div className={cn("h-full bg-background", className)}>
       {/* Main Content Area */}
