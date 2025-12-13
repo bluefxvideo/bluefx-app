@@ -85,23 +85,45 @@ export function ActivityFeedPanel() {
   useEffect(() => {
     async function init() {
       setIsLoading(true);
-      await Promise.all([loadSummary(), loadFeed(), loadTools()]);
-      setIsLoading(false);
+      try {
+        const [summaryResult, feedResult, toolsResult] = await Promise.all([
+          fetchDailyActivitySummary(selectedDate),
+          fetchActivityFeed({ page: 1, limit: 30, dateFilter: selectedDate }),
+          fetchActivityToolList(),
+        ]);
+
+        if (summaryResult.success && summaryResult.data) {
+          setSummary(summaryResult.data);
+        }
+        if (feedResult.success && feedResult.data) {
+          setActivities(feedResult.data.entries);
+          setTotalPages(feedResult.data.totalPages);
+        }
+        if (toolsResult.success && toolsResult.tools) {
+          setTools(toolsResult.tools);
+        }
+      } catch (error) {
+        console.error('Failed to load activity data:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
     init();
   }, []);
 
   // Reload when date changes
   useEffect(() => {
+    if (isLoading) return; // Skip if initial load is in progress
     setPage(1);
     loadSummary();
     loadFeed();
-  }, [selectedDate, loadSummary, loadFeed]);
+  }, [selectedDate]);
 
   // Reload feed when filter or page changes
   useEffect(() => {
+    if (isLoading) return; // Skip if initial load is in progress
     loadFeed();
-  }, [page, toolFilter, loadFeed]);
+  }, [page, toolFilter]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
