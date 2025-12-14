@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: ['friendly-space-spork-9769rx65q5gjh74-3000.app.github.dev', 'localhost:3000'],
-      bodySizeLimit: '10mb', // Increased from default 1mb to handle image uploads
+      bodySizeLimit: '500mb', // Increased to handle video/audio uploads for transcription
     },
   },
   webpack: (config: any) => {
