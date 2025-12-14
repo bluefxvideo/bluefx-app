@@ -235,31 +235,40 @@ export async function extractTextFromPDF(
 
 /**
  * Process any uploaded file (router function)
+ * Accepts FormData to work properly with Next.js server actions
  */
 export async function processUploadedFile(
-  file: File,
-  userId?: string
-): Promise<{ 
-  success: boolean; 
-  text?: string; 
+  formData: FormData
+): Promise<{
+  success: boolean;
+  text?: string;
   transcription?: string;
   summary?: string;
   error?: string;
 }> {
   try {
-    // Get the actual user ID from auth if not provided
-    if (!userId) {
-      const supabase = await createClient();
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw new Error('User not authenticated');
-      }
-      userId = user.id;
+    const file = formData.get('file') as File | null;
+
+    if (!file) {
+      return {
+        success: false,
+        error: 'No file provided',
+      };
     }
-    
+
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return {
+        success: false,
+        error: 'User not authenticated',
+      };
+    }
+    const userId = user.id;
+
     const arrayBuffer = await file.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
-    
+
     // Route based on file type
     if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
       // Transcribe audio/video files
@@ -269,7 +278,7 @@ export async function processUploadedFile(
         file.type,
         userId
       );
-      
+
       if (result.success) {
         return {
           success: true,
@@ -282,7 +291,7 @@ export async function processUploadedFile(
           error: result.error,
         };
       }
-      
+
     } else if (file.type === 'application/pdf') {
       // Extract text from PDF
       const result = await extractTextFromPDF(
@@ -290,32 +299,32 @@ export async function processUploadedFile(
         fileBuffer,
         userId
       );
-      
+
       return {
         success: result.success,
         text: result.text,
         error: result.error,
       };
-      
+
     } else if (file.type.startsWith('text/')) {
       // For text files, just read the content
       const text = new TextDecoder().decode(fileBuffer);
-      
+
       return {
         success: true,
         text,
       };
-      
+
     } else {
       return {
         success: false,
         error: `Unsupported file type: ${file.type}`,
       };
     }
-    
+
   } catch (error) {
     console.error('Error processing uploaded file:', error);
-    
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

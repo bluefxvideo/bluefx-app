@@ -226,7 +226,11 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
       }]);
 
       try {
-        const result = await processUploadedFile(file);
+        // Create FormData to pass file to server action
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const result = await processUploadedFile(formData);
 
         if (result.success && result.transcription) {
           const newSource: ContentSource = {
