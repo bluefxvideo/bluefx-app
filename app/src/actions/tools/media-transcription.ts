@@ -234,6 +234,45 @@ export async function extractTextFromPDF(
 }
 
 /**
+ * Transcribe a media file from a File object (for client-side calls)
+ * This is a wrapper that handles the File -> Buffer conversion
+ */
+export async function transcribeMediaFromFile(
+  formData: FormData
+): Promise<TranscriptionResult> {
+  try {
+    const file = formData.get('file') as File | null;
+
+    if (!file) {
+      return {
+        success: false,
+        error: 'No file provided',
+      };
+    }
+
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return {
+        success: false,
+        error: 'User not authenticated',
+      };
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
+
+    return transcribeMediaFile(file.name, fileBuffer, file.type, user.id);
+  } catch (error) {
+    console.error('Error in transcribeMediaFromFile:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+/**
  * Process any uploaded file (router function)
  * Accepts FormData to work properly with Next.js server actions
  */

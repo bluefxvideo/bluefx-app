@@ -167,14 +167,19 @@ export function CreateStep1Upload() {
     setIsTranscribing(true);
 
     try {
-      const { transcribeMediaFile } = await import('@/actions/tools/media-transcription');
-      const result = await transcribeMediaFile(videoFile);
+      const { transcribeMediaFromFile } = await import('@/actions/tools/media-transcription');
 
-      if (result.success && result.transcription) {
-        setOriginalTranscript(result.transcription);
+      // Create FormData to pass file to server action
+      const formData = new FormData();
+      formData.append('file', videoFile);
+
+      const result = await transcribeMediaFromFile(formData);
+
+      if (result.success && result.text) {
+        setOriginalTranscript(result.text);
         // If description is empty, use transcript
         if (!originalDescription.trim()) {
-          setOriginalDescription(result.transcription);
+          setOriginalDescription(result.text);
         }
       }
     } catch (error) {
