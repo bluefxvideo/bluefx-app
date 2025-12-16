@@ -47,7 +47,9 @@ export function StartingShotTab({
     aspect_ratio: '16:9' as StartingShotAspectRatio,
   });
   const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
@@ -65,15 +67,14 @@ export function StartingShotTab({
     });
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
+  // Process files from either input or drag-drop
+  const processFiles = (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
     const newImages: { file: File; preview: string }[] = [];
     const remainingSlots = MAX_REFERENCE_IMAGES - referenceImages.length;
 
-    for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
-      const file = files[i];
+    for (let i = 0; i < Math.min(fileArray.length, remainingSlots); i++) {
+      const file = fileArray[i];
       if (file.type.startsWith('image/')) {
         newImages.push({
           file,
@@ -82,11 +83,56 @@ export function StartingShotTab({
       }
     }
 
-    setReferenceImages(prev => [...prev, ...newImages]);
+    if (newImages.length > 0) {
+      setReferenceImages(prev => [...prev, ...newImages]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    processFiles(files);
 
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isGenerating && referenceImages.length < MAX_REFERENCE_IMAGES) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging to false if we're leaving the drop zone entirely
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (isGenerating || referenceImages.length >= MAX_REFERENCE_IMAGES) return;
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      processFiles(files);
     }
   };
 
@@ -127,41 +173,62 @@ export function StartingShotTab({
           title="Reference Images"
           description="Optional: Upload up to 3 images for style guidance"
         >
-          <div className="space-y-3">
-            {/* Reference Image Grid */}
-            <div className="grid grid-cols-3 gap-2">
-              {referenceImages.map((img, index) => (
-                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-muted/30 group">
-                  <img
-                    src={img.preview}
-                    alt={`Reference ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 bg-background/80 hover:bg-background opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeReferenceImage(index)}
-                    disabled={isGenerating}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
+          <div
+            ref={dropZoneRef}
+            className={`space-y-3 p-3 rounded-lg transition-colors ${
+              isDragging
+                ? 'bg-primary/10 border-2 border-dashed border-primary'
+                : 'border-2 border-transparent'
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            {/* Drag overlay */}
+            {isDragging && (
+              <div className="flex items-center justify-center py-4 text-primary font-medium">
+                <Upload className="w-5 h-5 mr-2" />
+                Drop images here
+              </div>
+            )}
 
-              {/* Add Image Button */}
-              {referenceImages.length < MAX_REFERENCE_IMAGES && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isGenerating}
-                  className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Add</span>
-                </button>
-              )}
-            </div>
+            {/* Reference Image Grid */}
+            {!isDragging && (
+              <div className="grid grid-cols-3 gap-2">
+                {referenceImages.map((img, index) => (
+                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-muted/30 group">
+                    <img
+                      src={img.preview}
+                      alt={`Reference ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 bg-background/80 hover:bg-background opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeReferenceImage(index)}
+                      disabled={isGenerating}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+
+                {/* Add Image Button */}
+                {referenceImages.length < MAX_REFERENCE_IMAGES && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isGenerating}
+                    className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Add</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Hidden File Input */}
             <input
@@ -174,7 +241,7 @@ export function StartingShotTab({
             />
 
             <p className="text-xs text-muted-foreground">
-              Reference images help guide style, composition, and content. Supports JPG, PNG, WebP.
+              Drag & drop or click to add. Reference images help guide style, composition, and content.
             </p>
           </div>
         </StandardStep>
