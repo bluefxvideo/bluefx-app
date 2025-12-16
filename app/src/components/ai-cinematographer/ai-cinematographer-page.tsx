@@ -1,6 +1,7 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 import { containerStyles } from '@/lib/container-styles';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -22,6 +23,7 @@ import { StartingShotTab } from './tabs/starting-shot-tab';
 export function AICinematographerPage() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     generateVideo,
     isGenerating,
@@ -42,6 +44,16 @@ export function AICinematographerPage() {
     pendingImageForVideo,
     setImageForVideo,
   } = useAICinematographer();
+
+  // Check for image URL in search params (from Starting Shot "Make Video" button)
+  useEffect(() => {
+    const imageUrl = searchParams.get('image');
+    if (imageUrl) {
+      setImageForVideo(decodeURIComponent(imageUrl));
+      // Clean up the URL by removing the search param
+      router.replace('/dashboard/ai-cinematographer');
+    }
+  }, [searchParams, setImageForVideo, router]);
 
   // Determine active tab from URL
   const getActiveTab = () => {
@@ -74,10 +86,10 @@ export function AICinematographerPage() {
     }
   ];
 
-  // Handle "Make Video From This Image" - navigate to generator with image
+  // Handle "Make Video From This Image" - navigate to generator with image URL in params
   const handleMakeVideoFromImage = (imageUrl: string) => {
-    setImageForVideo(imageUrl);
-    router.push('/dashboard/ai-cinematographer');
+    // Pass image URL via search params so it persists across route change
+    router.push(`/dashboard/ai-cinematographer?image=${encodeURIComponent(imageUrl)}`);
   };
 
   // Render generator tab content (other tabs handled separately)
