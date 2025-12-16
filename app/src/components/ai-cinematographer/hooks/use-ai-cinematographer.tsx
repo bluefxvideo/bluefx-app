@@ -180,9 +180,9 @@ export function useAICinematographer() {
     }
   };
 
-  // Set image URL to be used for video generation
-  const setImageForVideo = (imageUrl: string) => {
-    setPendingImageForVideo(imageUrl);
+  // Set image URL to be used for video generation (pass undefined or empty to clear)
+  const setImageForVideo = (imageUrl: string | undefined) => {
+    setPendingImageForVideo(imageUrl || undefined);
   };
 
   // Clear results

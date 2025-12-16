@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Image, Video } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { StartingShotRequest, NANO_BANANA_ASPECT_RATIOS, StartingShotAspectRatio } from '@/actions/tools/ai-cinematographer';
+import { StartingShotRequest } from '@/actions/tools/ai-cinematographer';
+import { NANO_BANANA_ASPECT_RATIOS, type StartingShotAspectRatio } from '@/types/cinematographer';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 

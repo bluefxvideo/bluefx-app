@@ -10,9 +10,9 @@
  * Cost: ~$0.04 per image
  */
 
-// Valid aspect ratios for nano-banana
-export const NANO_BANANA_ASPECT_RATIOS = ['16:9', '9:16', '1:1', '4:3', '3:4'] as const;
-export type NanoBananaAspectRatio = typeof NANO_BANANA_ASPECT_RATIOS[number];
+// Import shared types (can be used by both client and server)
+import type { NanoBananaAspectRatio } from '@/types/cinematographer';
+export type { NanoBananaAspectRatio };
 
 interface ImageGenerationInput {
   prompt: string;

@@ -36,4 +36,3 @@ CREATE POLICY "Admins can view all activity" ON activity_log
 CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_tool ON activity_log(tool_name);
 CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_activity_log_date ON activity_log(DATE(created_at));
