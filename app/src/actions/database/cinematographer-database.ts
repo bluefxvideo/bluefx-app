@@ -476,6 +476,56 @@ export async function createPredictionRecord(params: {
 }
 
 /**
+ * Store Starting Shot (first frame) result
+ * Stores generated images in the same table as videos, marked as type 'image'
+ */
+export async function storeStartingShotResult(params: {
+  user_id: string;
+  batch_id: string;
+  prompt: string;
+  image_url: string;
+  aspect_ratio: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from('cinematographer_videos')
+      .insert({
+        id: params.batch_id,
+        user_id: params.user_id,
+        video_concept: params.prompt,
+        project_name: `Starting Shot - ${new Date().toISOString()}`,
+        final_video_url: params.image_url, // Store image URL in same field
+        style_preferences: {},
+        metadata: {
+          type: 'starting_shot',
+          aspect_ratio: params.aspect_ratio,
+          model: 'nano-banana'
+        } as Json,
+        status: 'completed',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Error storing starting shot result:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ Starting Shot stored for batch: ${params.batch_id}`);
+    return { success: true };
+
+  } catch (error) {
+    console.error('storeStartingShotResult error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to store result'
+    };
+  }
+}
+
+/**
  * Update a cinematographer video by ID (Admin version for webhooks)
  * Uses admin client to bypass RLS policies
  */

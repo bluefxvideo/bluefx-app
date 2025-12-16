@@ -1,15 +1,45 @@
 'use server';
 
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
+import { generateImage } from '@/actions/models/image-generation-nano-banana';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
-import { 
+import {
   getUserCredits,
   deductCredits,
   storeCinematographerResults,
+  storeStartingShotResult,
   recordCinematographerMetrics,
   createPredictionRecord
 } from '@/actions/database/cinematographer-database';
 import { Json } from '@/types/database';
+import { NANO_BANANA_ASPECT_RATIOS } from '@/actions/models/image-generation-nano-banana';
+
+// Re-export aspect ratios for UI
+export { NANO_BANANA_ASPECT_RATIOS };
+export type StartingShotAspectRatio = typeof NANO_BANANA_ASPECT_RATIOS[number];
+
+// Request/Response types for Starting Shot (First Frame Image Generation)
+export interface StartingShotRequest {
+  prompt: string;
+  aspect_ratio?: StartingShotAspectRatio;
+  user_id: string;
+}
+
+export interface StartingShotResponse {
+  success: boolean;
+  image?: {
+    id: string;
+    image_url: string;
+    prompt: string;
+    aspect_ratio: string;
+    created_at: string;
+  };
+  batch_id: string;
+  generation_time_ms: number;
+  credits_used: number;
+  remaining_credits: number;
+  error?: string;
+}
 
 // Request/Response types for the AI Cinematographer
 export interface CinematographerRequest {
@@ -436,3 +466,116 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
  * Alternative export for AI Cinematographer (helps with Server Action serialization)
  */
 export { executeAICinematographer as generateVideo };
+
+/**
+ * Starting Shot - First Frame Image Generation
+ * Uses google/nano-banana for fast, high-quality image generation
+ * Cost: 1 credit per image (~$0.04 actual cost)
+ */
+export async function executeStartingShot(
+  request: StartingShotRequest
+): Promise<StartingShotResponse> {
+  const startTime = Date.now();
+  const batch_id = crypto.randomUUID();
+  const CREDIT_COST = 1; // 1 credit per image
+
+  try {
+    // Step 1: Credit Validation
+    const creditCheck = await getUserCredits(request.user_id);
+    if (!creditCheck.success) {
+      return {
+        success: false,
+        error: 'Unable to verify credit balance',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
+    if ((creditCheck.credits || 0) < CREDIT_COST) {
+      return {
+        success: false,
+        error: `Insufficient credits. Required: ${CREDIT_COST}, Available: ${creditCheck.credits || 0}`,
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: creditCheck.credits || 0,
+      };
+    }
+
+    console.log(`🖼️ Starting Shot - Credits validated: ${creditCheck.credits} available`);
+
+    // Step 2: Generate image using nano-banana
+    const aspectRatio = request.aspect_ratio || '16:9';
+    console.log(`🖼️ Generating image with prompt: "${request.prompt.substring(0, 50)}..." aspect: ${aspectRatio}`);
+
+    const imageResult = await generateImage(request.prompt, aspectRatio);
+
+    if (!imageResult.success || !imageResult.imageUrl) {
+      return {
+        success: false,
+        error: imageResult.error || 'Image generation failed',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: creditCheck.credits || 0,
+      };
+    }
+
+    console.log(`✅ Starting Shot generated successfully: ${imageResult.imageUrl}`);
+
+    // Step 3: Store result in database
+    const storeResult = await storeStartingShotResult({
+      user_id: request.user_id,
+      batch_id,
+      prompt: request.prompt,
+      image_url: imageResult.imageUrl,
+      aspect_ratio: aspectRatio,
+    });
+
+    if (!storeResult.success) {
+      console.error('Failed to store starting shot result:', storeResult.error);
+      // Continue anyway - the image was generated successfully
+    }
+
+    // Step 4: Deduct credits
+    const creditDeduction = await deductCredits(
+      request.user_id,
+      CREDIT_COST,
+      'starting-shot',
+      { batch_id, prompt: request.prompt, aspect_ratio: aspectRatio } as Json
+    );
+
+    if (!creditDeduction.success) {
+      console.warn('Credit deduction failed:', creditDeduction.error);
+      // Continue anyway - don't fail the generation
+    }
+
+    return {
+      success: true,
+      image: {
+        id: batch_id,
+        image_url: imageResult.imageUrl,
+        prompt: request.prompt,
+        aspect_ratio: aspectRatio,
+        created_at: new Date().toISOString(),
+      },
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: CREDIT_COST,
+      remaining_credits: creditDeduction.remainingCredits || (creditCheck.credits || 0) - CREDIT_COST,
+    };
+
+  } catch (error) {
+    console.error('Starting Shot execution error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: 0,
+      remaining_credits: 0,
+    };
+  }
+}

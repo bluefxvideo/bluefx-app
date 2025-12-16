@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { containerStyles } from '@/lib/container-styles';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -8,11 +8,11 @@ import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { useAICinematographer } from './hooks/use-ai-cinematographer';
-import { Video, History } from 'lucide-react';
+import { Video, History, Image } from 'lucide-react';
 
 // Tab content components
 import { GeneratorTab } from './tabs/generator-tab';
-import { HistoryTab } from './tabs/history-tab';
+import { StartingShotTab } from './tabs/starting-shot-tab';
 
 /**
  * AI Cinematographer - Complete AI-Orchestrated Tool with Tabs
@@ -20,6 +20,7 @@ import { HistoryTab } from './tabs/history-tab';
  */
 export function AICinematographerPage() {
   const pathname = usePathname();
+  const router = useRouter();
   const {
     generateVideo,
     isGenerating,
@@ -31,12 +32,19 @@ export function AICinematographerPage() {
     loadHistory,
     credits,
     isStateRestored,
-    deleteVideo
+    deleteVideo,
+    // Starting Shot
+    generateStartingShot,
+    isGeneratingImage,
+    startingShotResult,
+    pendingImageForVideo,
+    setImageForVideo,
   } = useAICinematographer();
 
   // Determine active tab from URL
   const getActiveTab = () => {
     if (pathname.includes('/history')) return 'history';
+    if (pathname.includes('/starting-shot')) return 'starting-shot';
     return 'generate'; // default
   };
 
@@ -51,6 +59,12 @@ export function AICinematographerPage() {
       path: '/dashboard/ai-cinematographer'
     },
     {
+      id: 'starting-shot',
+      label: 'Starting Shot',
+      icon: Image,
+      path: '/dashboard/ai-cinematographer/starting-shot'
+    },
+    {
       id: 'history',
       label: 'History',
       icon: History,
@@ -58,17 +72,35 @@ export function AICinematographerPage() {
     }
   ];
 
+  // Handle "Make Video From This Image" - navigate to generator with image
+  const handleMakeVideoFromImage = (imageUrl: string) => {
+    setImageForVideo(imageUrl);
+    router.push('/dashboard/ai-cinematographer');
+  };
+
   // Render appropriate tab content
   const renderTabContent = () => {
     switch (activeTab) {
       case 'history':
         return null; // No left panel content for history
+      case 'starting-shot':
+        return (
+          <StartingShotTab
+            onGenerate={generateStartingShot}
+            isGenerating={isGeneratingImage}
+            credits={credits}
+            generatedImage={startingShotResult?.image}
+            onMakeVideo={handleMakeVideoFromImage}
+          />
+        );
       default:
         return (
           <GeneratorTab
             onGenerate={generateVideo}
             isGenerating={isGenerating}
-            credits={credits} // Now using real credits!
+            credits={credits}
+            pendingImageUrl={pendingImageForVideo}
+            onClearPendingImage={() => setImageForVideo('')}
           />
         );
     }
@@ -78,6 +110,7 @@ export function AICinematographerPage() {
     <StandardToolPage
       icon={Video}
       title="AI Cinematographer"
+      description="Create cinematic AI videos from text prompts"
       iconGradient="bg-primary"
       toolName="AI Cinematographer"
       tabs={<StandardToolTabs tabs={cinematographerTabs} activeTab={activeTab} basePath="/dashboard/ai-cinematographer" />}
@@ -99,7 +132,7 @@ export function AICinematographerPage() {
           <div className="h-full overflow-hidden">
             {renderTabContent()}
           </div>
-          
+
           {/* Right Panel - Contextual Output */}
           <ContextualOutput
             activeTab={activeTab}

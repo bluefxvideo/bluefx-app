@@ -4,13 +4,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useCredits } from '@/hooks/useCredits';
-import { executeAICinematographer, generateVideo, CinematographerRequest, CinematographerResponse } from '@/actions/tools/ai-cinematographer';
+import {
+  executeAICinematographer,
+  CinematographerRequest,
+  CinematographerResponse,
+  executeStartingShot,
+  StartingShotRequest,
+  StartingShotResponse
+} from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 
 export function useAICinematographer() {
   const { credits } = useCredits(); // Use real credits hook
-  
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CinematographerResponse | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -18,20 +25,25 @@ export function useAICinematographer() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isStateRestored, setIsStateRestored] = useState(false);
-  
+
+  // Starting Shot state
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [startingShotResult, setStartingShotResult] = useState<StartingShotResponse | undefined>();
+  const [pendingImageForVideo, setPendingImageForVideo] = useState<string | undefined>();
+
   // Use ref to track current result without causing subscription re-creation
   const resultRef = useRef<CinematographerResponse | undefined>();
   const isGeneratingRef = useRef<boolean>(false);
-  
+
   // Update refs when state changes
   useEffect(() => {
     resultRef.current = result;
   }, [result]);
-  
+
   useEffect(() => {
     isGeneratingRef.current = isGenerating;
   }, [isGenerating]);
-  
+
   const supabase = createClient();
 
   // Get current user
@@ -42,17 +54,17 @@ export function useAICinematographer() {
     };
     getUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
 
     return () => subscription?.unsubscribe();
   }, [supabase.auth]);
-  
+
   // Load video history
   const loadHistory = useCallback(async () => {
     if (!user?.id) return;
-    
+
     setIsLoadingHistory(true);
     try {
       const { videos: historyVideos } = await getCinematographerVideos(user.id);
@@ -74,9 +86,9 @@ export function useAICinematographer() {
 
     setIsGenerating(true);
     setError(undefined);
-    
+
     // Create immediate placeholder result to show video preview
-    const batch_id = `cinematographer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const batch_id = `cinematographer_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     const placeholderResult: CinematographerResponse = {
       success: true,
       batch_id,
@@ -87,33 +99,25 @@ export function useAICinematographer() {
         id: batch_id,
         video_url: '', // Empty until completed
         thumbnail_url: '',
-        duration: 5, // Default duration
-        aspect_ratio: request.aspect_ratio || '16:9',
+        duration: request.duration || 6,
+        resolution: request.resolution || '1080p',
         prompt: request.prompt,
         created_at: new Date().toISOString()
       }
     };
     setResult(placeholderResult);
-    
+
     try {
-      // Try primary export first, fallback to alternative export if server action fails
-      let response: CinematographerResponse;
-      try {
-        response = await executeAICinematographer({
-          ...request,
-          user_id: user.id,
-        });
-      } catch (serverActionError) {
-        console.warn('Primary server action failed, trying alternative:', serverActionError);
-        response = await generateVideo({
-          ...request,
-          user_id: user.id,
-        });
-      }
-      
+      const response = await executeAICinematographer({
+        ...request,
+        user_id: user.id,
+      });
+
       setResult(response);
-      
+
       if (response.success) {
+        // Clear pending image after successful video generation
+        setPendingImageForVideo(undefined);
         // Refresh history to show new video
         await loadHistory();
       } else {
@@ -135,12 +139,65 @@ export function useAICinematographer() {
     }
   };
 
+  // Generate Starting Shot (first frame image)
+  const generateStartingShot = async (request: StartingShotRequest) => {
+    if (!user?.id) {
+      setError('User must be authenticated to generate images');
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    setError(undefined);
+    setStartingShotResult(undefined);
+
+    try {
+      const response = await executeStartingShot({
+        ...request,
+        user_id: user.id,
+      });
+
+      setStartingShotResult(response);
+
+      if (response.success) {
+        // Refresh history to show new image
+        await loadHistory();
+      } else {
+        setError(response.error);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Image generation failed';
+      setError(errorMessage);
+      setStartingShotResult({
+        success: false,
+        error: errorMessage,
+        batch_id: `error_${Date.now()}`,
+        generation_time_ms: 0,
+        credits_used: 0,
+        remaining_credits: 0,
+      });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // Set image URL to be used for video generation
+  const setImageForVideo = (imageUrl: string) => {
+    setPendingImageForVideo(imageUrl);
+  };
+
   // Clear results
   const clearResults = () => {
     setResult(undefined);
     setError(undefined);
     setIsStateRestored(false);
-    setIsGenerating(false); // Also stop generating state
+    setIsGenerating(false);
+  };
+
+  // Clear Starting Shot results
+  const clearStartingShotResults = () => {
+    setStartingShotResult(undefined);
+    setError(undefined);
+    setIsGeneratingImage(false);
   };
 
   // Delete video
@@ -151,19 +208,18 @@ export function useAICinematographer() {
     }
 
     try {
-      // The existing function returns boolean and throws on error
       const success = await deleteCinematographerVideo(videoId, user.id);
-      
+
       if (success) {
         // Remove from local state
         setVideos(prev => prev.filter(video => video.id !== videoId));
-        
+
         // If this was the current result, clear it
         if (result?.batch_id === videoId) {
           clearResults();
         }
-        
-        console.log(`✅ Successfully deleted video: ${videoId}`);
+
+        console.log(`Successfully deleted video: ${videoId}`);
         return true;
       } else {
         setError('Failed to delete video');
@@ -180,49 +236,43 @@ export function useAICinematographer() {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔔 Setting up real-time subscription for user:', user.id);
+    console.log('Setting up real-time subscription for user:', user.id);
 
     const subscription = supabase
       .channel(`cinematographer_${user.id}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'cinematographer_videos',
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('🔔 Real-time update received:', {
+          console.log('Real-time update received:', {
             event: payload.eventType,
             old: payload.old,
             new: payload.new
           });
 
           const updatedVideo = payload.new as CinematographerVideo;
-          
+
           // Update current result if it matches the current generation
           const currentResult = resultRef.current;
-          const isCurrentGeneration = currentResult && currentResult.batch_id && 
-            (updatedVideo?.id === currentResult.batch_id || 
+          const isCurrentGeneration = currentResult && currentResult.batch_id &&
+            (updatedVideo?.id === currentResult.batch_id ||
              currentResult.video?.id === updatedVideo?.id);
 
-          console.log('🔍 Real-time matching check:', {
-            hasCurrentResult: !!currentResult,
-            currentBatchId: currentResult?.batch_id,
-            currentVideoId: currentResult?.video?.id,
-            updatedVideoId: updatedVideo?.id,
-            updatedVideoStatus: updatedVideo?.status,
-            isMatch: isCurrentGeneration,
-            isGenerating: isGeneratingRef.current
-          });
-
           if (isCurrentGeneration) {
-            console.log('📺 Updating current video result:', {
+            console.log('Updating current video result:', {
               batch_id: currentResult.batch_id,
               status: updatedVideo.status,
               video_url: updatedVideo.final_video_url
             });
+
+            // Extract resolution from metadata if available
+            const metadata = updatedVideo.metadata as { resolution?: string } | null;
+            const resolution = metadata?.resolution || '1080p';
 
             setResult(prev => prev ? {
               ...prev,
@@ -234,29 +284,28 @@ export function useAICinematographer() {
                 id: updatedVideo.id,
                 video_url: updatedVideo.final_video_url || '',
                 thumbnail_url: updatedVideo.preview_urls?.[0] || '',
-                duration: updatedVideo.total_duration_seconds || 5,
-                aspect_ratio: updatedVideo.aspect_ratio || '16:9',
+                duration: updatedVideo.total_duration_seconds || 6,
+                resolution: resolution,
                 prompt: updatedVideo.video_concept,
-                created_at: updatedVideo.created_at
+                created_at: updatedVideo.created_at || new Date().toISOString()
               }
             } : prev);
-            
-            // CRITICAL: Set isGenerating to false when video generation is complete
+
+            // Set isGenerating to false when video generation is complete
             if (updatedVideo.status === 'completed' || updatedVideo.status === 'failed') {
-              console.log('✅ Video generation completed, stopping loading state');
+              console.log('Video generation completed, stopping loading state');
               setIsGenerating(false);
-              setIsStateRestored(false); // Clear restored state flag
-              
-              // Clear any existing error if the video succeeded
+              setIsStateRestored(false);
+
               if (updatedVideo.status === 'completed' && updatedVideo.final_video_url) {
                 setError(undefined);
               }
             }
           }
-          
+
           // Always update the videos list for history tab
           if (payload.eventType === 'UPDATE') {
-            setVideos(prev => prev.map(video => 
+            setVideos(prev => prev.map(video =>
               video.id === updatedVideo.id ? updatedVideo : video
             ));
           } else if (payload.eventType === 'INSERT') {
@@ -265,110 +314,103 @@ export function useAICinematographer() {
         }
       )
       .subscribe((status) => {
-        console.log('🔔 Subscription status:', status);
+        console.log('Subscription status:', status);
       });
 
     return () => {
-      console.log('🔔 Unsubscribing from real-time updates');
+      console.log('Unsubscribing from real-time updates');
       subscription.unsubscribe();
     };
-  }, [user?.id, supabase]); // Remove result dependency to avoid re-subscription
+  }, [user?.id, supabase]);
 
   // Load initial history and restore any ongoing generations
   useEffect(() => {
     if (user?.id) {
       loadHistory();
-      
+
       // Check for ongoing video generations and restore state
       const checkOngoingGenerations = async () => {
         try {
           const { videos } = await getCinematographerVideos(user.id);
-          
-          // Debug: Log all video statuses
-          console.log('🔍 All videos from database:', videos.map(v => ({ 
-            id: v.id, 
-            status: v.status, 
-            created: v.created_at,
-            final_video_url: !!v.final_video_url 
-          })));
-          
-          // Only consider recent videos (within last 30 minutes) to avoid old stuck records
+
+          // Only consider recent videos (within last 30 minutes)
           const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
           const processingVideo = videos.find(v => {
             const isProcessingStatus = v.status === 'shooting' || v.status === 'planning' || v.status === 'editing';
-            const isRecent = new Date(v.created_at) > thirtyMinutesAgo;
+            const createdAt = v.created_at ? new Date(v.created_at) : new Date(0);
+            const isRecent = createdAt > thirtyMinutesAgo;
             return isProcessingStatus && isRecent;
           });
-          
+
           if (processingVideo) {
-            console.log('🔄 Restoring processing state for video:', processingVideo.id, 'status:', processingVideo.status);
-            
-            // Restore processing state
+            console.log('Restoring processing state for video:', processingVideo.id);
+
             setIsGenerating(true);
             setError(undefined);
-            
-            // Restore result state to match the ongoing generation
+
+            // Extract resolution from metadata
+            const metadata = processingVideo.metadata as { resolution?: string } | null;
+            const resolution = metadata?.resolution || '1080p';
+
             setResult({
               success: true,
               batch_id: processingVideo.id,
-              generation_time_ms: 0, // Will be updated when completed
-              credits_used: 0, // Will be updated when completed
-              remaining_credits: 0, // Will be updated when completed
+              generation_time_ms: 0,
+              credits_used: 0,
+              remaining_credits: 0,
               video: {
                 id: processingVideo.id,
-                video_url: processingVideo.final_video_url || '', // Empty until completed
+                video_url: processingVideo.final_video_url || '',
                 thumbnail_url: processingVideo.preview_urls?.[0] || '',
-                duration: processingVideo.total_duration_seconds || 5,
-                aspect_ratio: processingVideo.aspect_ratio || '16:9',
+                duration: processingVideo.total_duration_seconds || 6,
+                resolution: resolution,
                 prompt: processingVideo.video_concept,
                 created_at: processingVideo.created_at || new Date().toISOString()
               }
             });
-            
-            console.log('✅ Processing state restored - user will see "Video processing..." until completion');
+
             setIsStateRestored(true);
-          } else {
-            console.log('💡 No ongoing generations found - user is in normal state');
-            
-            // Ensure we're not in a stuck generating state
-            if (isGenerating) {
-              console.log('🛠️ Clearing stuck generating state');
-              setIsGenerating(false);
-              setResult(undefined);
-              setIsStateRestored(false);
-            }
+          } else if (isGenerating) {
+            // Clear stuck generating state
+            setIsGenerating(false);
+            setResult(undefined);
+            setIsStateRestored(false);
           }
         } catch (error) {
           console.error('Error checking ongoing generations:', error);
         }
       };
-      
+
       checkOngoingGenerations();
     }
-  }, [user?.id, loadHistory]);
-
-  // Pure real-time approach - NO POLLING!
-  // Real-time subscription handles all updates instantly via webhook -> database -> real-time
-  // This is the cleanest, most efficient approach
+  }, [user?.id, loadHistory, isGenerating]);
 
   return {
-    // Generation state
+    // Video generation state
     isGenerating,
     result,
     error,
-    isStateRestored, // New: indicates if state was restored from ongoing generation
-    
+    isStateRestored,
+
+    // Starting Shot state
+    isGeneratingImage,
+    startingShotResult,
+    pendingImageForVideo,
+
     // History state
     videos,
     isLoadingHistory,
-    
+
     // User and credits
     user,
     credits: credits?.available_credits || 0,
-    
+
     // Actions
     generateVideo,
+    generateStartingShot,
+    setImageForVideo,
     clearResults,
+    clearStartingShotResults,
     loadHistory,
     deleteVideo,
   };

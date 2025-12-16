@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Video, Volume2 } from 'lucide-react';
+import { Video, Volume2, X, Image } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
@@ -16,6 +16,8 @@ interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
   isGenerating: boolean;
   credits: number;
+  pendingImageUrl?: string; // Image URL from Starting Shot
+  onClearPendingImage?: () => void;
 }
 
 // LTX-2-Fast duration options
@@ -41,7 +43,9 @@ type Resolution = keyof typeof RESOLUTION_OPTIONS;
 export function GeneratorTab({
   onGenerate,
   isGenerating,
-  credits
+  credits,
+  pendingImageUrl,
+  onClearPendingImage,
 }: GeneratorTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -50,6 +54,9 @@ export function GeneratorTab({
     resolution: '1080p' as Resolution,
     generate_audio: true,
   });
+
+  // Track if we're using a pending image URL from Starting Shot
+  const usingPendingImage = !!pendingImageUrl && !formData.reference_image;
 
   // Durations > 10 seconds require 1080p resolution
   const availableResolutions = formData.duration > 10
@@ -87,7 +94,8 @@ export function GeneratorTab({
   // Calculate credits: duration × credits per second + image bonus
   const creditsPerSecond = RESOLUTION_OPTIONS[formData.resolution].creditsPerSecond;
   const baseCost = formData.duration * creditsPerSecond;
-  const imageCost = formData.reference_image ? 2 : 0;
+  const hasImage = formData.reference_image || usingPendingImage;
+  const imageCost = hasImage ? 2 : 0;
   const estimatedCredits = baseCost + imageCost;
 
   return (
@@ -119,18 +127,51 @@ export function GeneratorTab({
           title="Reference Image"
           description="Optional: Upload a first frame for image-to-video generation"
         >
-          <UnifiedDragDrop
-            fileType="reference"
-            selectedFile={formData.reference_image}
-            onFileSelect={handleImageUpload}
-            disabled={isGenerating}
-            title="Drop image or click to upload"
-            description="Optional - Leave empty for text-to-video mode"
-            previewSize="medium"
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            Supports JPG, PNG, WebP. Max 10MB. Reference image adds +2 credits.
-          </p>
+          {usingPendingImage ? (
+            // Show pending image from Starting Shot
+            <div className="space-y-2">
+              <div className="relative rounded-lg overflow-hidden border bg-muted/30">
+                <img
+                  src={pendingImageUrl}
+                  alt="Starting shot reference"
+                  className="w-full h-auto max-h-[200px] object-contain"
+                />
+                <div className="absolute top-2 left-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/90 text-primary-foreground text-xs font-medium">
+                    <Image className="w-3 h-3" />
+                    From Starting Shot
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-6 w-6 bg-background/80 hover:bg-background"
+                  onClick={() => onClearPendingImage?.()}
+                  disabled={isGenerating}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Using image from Starting Shot. Click X to remove and upload a different image.
+              </p>
+            </div>
+          ) : (
+            <>
+              <UnifiedDragDrop
+                fileType="reference"
+                selectedFile={formData.reference_image}
+                onFileSelect={handleImageUpload}
+                disabled={isGenerating}
+                title="Drop image or click to upload"
+                description="Optional - Leave empty for text-to-video mode"
+                previewSize="medium"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Supports JPG, PNG, WebP. Max 10MB. Reference image adds +2 credits.
+              </p>
+            </>
+          )}
         </StandardStep>
 
         {/* Step 3: Video Settings */}

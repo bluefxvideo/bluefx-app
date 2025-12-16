@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2, Video } from 'lucide-react';
+import { Download, Eye, Clock, History, Loader2, Trash2, Video, Image } from 'lucide-react';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
@@ -93,6 +93,12 @@ export function HistoryOutput({
         return bDate - aDate;
     }
   });
+
+  // Check if item is a Starting Shot image
+  const isStartingShot = (video: CinematographerVideo) => {
+    const metadata = video.metadata as { type?: string } | null;
+    return metadata?.type === 'starting_shot';
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -189,9 +195,9 @@ export function HistoryOutput({
         <Card className="p-8 max-w-sm text-center space-y-4 border-dashed">
           <Video className="w-12 h-12 text-muted-foreground mx-auto" />
           <div>
-            <h3 className="font-medium mb-2">No Videos Yet</h3>
+            <h3 className="font-medium mb-2">No Content Yet</h3>
             <p className="text-sm text-muted-foreground">
-              Your generated videos will appear here
+              Your generated videos and images will appear here
             </p>
           </div>
         </Card>
@@ -229,12 +235,24 @@ export function HistoryOutput({
               onClick={() => setSelectedHistory(selectedHistory === video.id ? null : video.id)}
             >
               <div className="space-y-2">
-                {/* Status Badge */}
+                {/* Type & Status Badge */}
                 <div className="flex items-center justify-between">
-                  <Badge className={`text-sm ${getStatusColor(video.status)}`}>
-                    {video.status}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">-</span>
+                  <div className="flex items-center gap-2">
+                    {isStartingShot(video) ? (
+                      <Badge variant="outline" className="text-sm flex items-center gap-1">
+                        <Image className="w-3 h-3" />
+                        Image
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-sm flex items-center gap-1">
+                        <Video className="w-3 h-3" />
+                        Video
+                      </Badge>
+                    )}
+                    <Badge className={`text-sm ${getStatusColor(video.status)}`}>
+                      {video.status}
+                    </Badge>
+                  </div>
                 </div>
                 
                 {/* Video Concept Preview */}
@@ -248,13 +266,20 @@ export function HistoryOutput({
                   <span>{formatDate(video.created_at || '')}</span>
                 </div>
 
-                {/* Video Preview */}
-                <div 
+                {/* Media Preview */}
+                <div
                   className="aspect-video bg-muted rounded overflow-hidden relative group"
-                  onMouseEnter={() => video.final_video_url && handleVideoHover(video.id, true)}
-                  onMouseLeave={() => video.final_video_url && handleVideoHover(video.id, false)}
+                  onMouseEnter={() => !isStartingShot(video) && video.final_video_url && handleVideoHover(video.id, true)}
+                  onMouseLeave={() => !isStartingShot(video) && video.final_video_url && handleVideoHover(video.id, false)}
                 >
-                  {video.final_video_url ? (
+                  {isStartingShot(video) && video.final_video_url ? (
+                    // Starting Shot image display
+                    <img
+                      src={video.final_video_url}
+                      alt={video.video_concept || 'Starting shot'}
+                      className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                    />
+                  ) : video.final_video_url ? (
                     <video
                       ref={(el) => videoRefs.current[video.id] = el}
                       src={video.final_video_url}
@@ -268,15 +293,19 @@ export function HistoryOutput({
                   ) : video.preview_urls && video.preview_urls.length > 0 ? (
                     <img
                       src={video.preview_urls[0]}
-                      alt={video.video_concept || 'Video preview'}
+                      alt={video.video_concept || 'Preview'}
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
-                      <Video className="w-8 h-8 text-muted-foreground" />
+                      {isStartingShot(video) ? (
+                        <Image className="w-8 h-8 text-muted-foreground" />
+                      ) : (
+                        <Video className="w-8 h-8 text-muted-foreground" />
+                      )}
                     </div>
                   )}
-                  
+
                   {/* Processing overlay */}
                   {video.status !== 'completed' && video.status !== 'failed' && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -285,8 +314,8 @@ export function HistoryOutput({
                   )}
                 </div>
 
-                {/* Video Details */}
-                {video.total_duration_seconds && (
+                {/* Details */}
+                {!isStartingShot(video) && video.total_duration_seconds && (
                   <div className="text-xs text-muted-foreground">
                     Duration: {video.total_duration_seconds}s
                   </div>
@@ -300,9 +329,9 @@ export function HistoryOutput({
                     </div>
                     <div className="flex flex-col gap-1">
                       {video.final_video_url && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-6 px-2 justify-start"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -310,43 +339,44 @@ export function HistoryOutput({
                           }}
                         >
                           <Eye className="w-3 h-3 mr-1" />
-                          <span className="text-sm">View Video</span>
+                          <span className="text-sm">
+                            {isStartingShot(video) ? 'View Image' : 'View Video'}
+                          </span>
                         </Button>
                       )}
                       {video.final_video_url && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-6 px-2 justify-start"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            
+
                             if (!video.final_video_url) return;
-                            
+
                             try {
-                              // Fetch the video blob
                               const response = await fetch(video.final_video_url);
-                              
+
                               if (!response.ok) {
-                                throw new Error(`Failed to fetch video: ${response.status}`);
+                                throw new Error(`Failed to fetch: ${response.status}`);
                               }
-                              
+
                               const blob = await response.blob();
-                              
-                              // Create blob URL and download
                               const blobUrl = URL.createObjectURL(blob);
                               const a = document.createElement('a');
                               a.href = blobUrl;
-                              a.download = `cinematographer-${video.id}-${Date.now()}.mp4`;
+
+                              // Use appropriate file extension
+                              const extension = isStartingShot(video) ? 'png' : 'mp4';
+                              const prefix = isStartingShot(video) ? 'starting-shot' : 'cinematographer';
+                              a.download = `${prefix}-${video.id}-${Date.now()}.${extension}`;
+
                               document.body.appendChild(a);
                               a.click();
                               document.body.removeChild(a);
-                              
-                              // Clean up blob URL
                               URL.revokeObjectURL(blobUrl);
                             } catch (error) {
                               console.error('Download failed:', error);
-                              // Fallback to opening in new tab
                               window.open(video.final_video_url, '_blank');
                             }
                           }}
