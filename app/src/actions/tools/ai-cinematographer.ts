@@ -442,11 +442,6 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
     const creditsPerSecond = resolution === '4k' ? 4 : resolution === '2k' ? 2 : 1;
     baseCost = duration * creditsPerSecond;
 
-    // Reference image adds small overhead (optional for LTX-2-Fast)
-    if (request.reference_image || request.reference_image_url) {
-      baseCost += 2; // +2 credits for image-to-video processing
-    }
-
   } else if (request.workflow_intent === 'audio_add') {
     baseCost = 4; // Audio integration cost (not typically needed with LTX-2-Fast built-in audio)
   }

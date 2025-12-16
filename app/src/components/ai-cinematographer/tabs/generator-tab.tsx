@@ -94,12 +94,9 @@ export function GeneratorTab({
     setFormData(prev => ({ ...prev, reference_image: file }));
   };
 
-  // Calculate credits: duration × credits per second + image bonus
+  // Calculate credits: duration × credits per second
   const creditsPerSecond = RESOLUTION_OPTIONS[formData.resolution].creditsPerSecond;
-  const baseCost = formData.duration * creditsPerSecond;
-  const hasImage = formData.reference_image || usingPendingImage;
-  const imageCost = hasImage ? 2 : 0;
-  const estimatedCredits = baseCost + imageCost;
+  const estimatedCredits = formData.duration * creditsPerSecond;
 
   return (
     <TabContentWrapper>
