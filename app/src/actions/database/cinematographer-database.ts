@@ -338,13 +338,14 @@ export async function storeCinematographerResults(params: {
   video_url?: string;
   thumbnail_url?: string;
   duration?: number;
-  aspect_ratio?: string;
+  resolution?: string; // LTX-2-Fast: 1080p, 2k, 4k
+  aspect_ratio?: string; // Legacy: kept for backwards compatibility
   settings?: Json;
   status: 'planning' | 'shooting' | 'editing' | 'completed' | 'failed';
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    
+
     const { error } = await supabase
       .from('cinematographer_videos')
       .insert({
@@ -357,6 +358,7 @@ export async function storeCinematographerResults(params: {
         total_duration_seconds: params.duration,
         style_preferences: params.settings || {},
         metadata: {
+          resolution: params.resolution,
           aspect_ratio: params.aspect_ratio,
           generation_settings: params.settings
         } as Json,
@@ -375,9 +377,9 @@ export async function storeCinematographerResults(params: {
 
   } catch (error) {
     console.error('storeCinematographerResults error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to store results' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to store results'
     };
   }
 }
@@ -391,7 +393,8 @@ export async function recordCinematographerMetrics(params: {
   model_version: string;
   video_concept: string;
   duration: number;
-  aspect_ratio: string;
+  resolution?: string; // LTX-2-Fast: 1080p, 2k, 4k
+  aspect_ratio?: string; // Legacy: kept for backwards compatibility
   generation_time_ms: number;
   credits_used: number;
   workflow_type: 'generate' | 'audio_add';
@@ -399,7 +402,7 @@ export async function recordCinematographerMetrics(params: {
 }): Promise<void> {
   try {
     const supabase = await createClient();
-    
+
     await supabase
       .from('tool_usage_metrics')
       .insert({
@@ -412,6 +415,7 @@ export async function recordCinematographerMetrics(params: {
           model_version: params.model_version,
           video_concept: params.video_concept,
           duration: params.duration,
+          resolution: params.resolution,
           aspect_ratio: params.aspect_ratio,
           generation_time_ms: params.generation_time_ms,
           has_reference_image: params.has_reference_image

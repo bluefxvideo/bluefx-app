@@ -14,10 +14,10 @@ import { Json } from '@/types/database';
 // Request/Response types for the AI Cinematographer
 export interface CinematographerRequest {
   prompt: string;
-  reference_image?: File | null;
-  duration?: 5 | 10; // Kling only accepts 5 or 10 seconds
-  aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
-  motion_scale?: number; // 0-2 (deprecated - use cfg_scale instead)
+  reference_image?: File | null; // Optional for LTX-2-Fast (text-to-video supported)
+  duration?: 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20; // LTX-2-Fast durations
+  resolution?: '1080p' | '2k' | '4k'; // Video resolution (default: 1080p)
+  generate_audio?: boolean; // Enable AI audio generation (default: true)
   workflow_intent: 'generate' | 'audio_add';
   audio_file?: File | null;
   user_id: string;
@@ -30,7 +30,7 @@ export interface CinematographerResponse {
     video_url: string;
     thumbnail_url?: string;
     duration: number;
-    aspect_ratio: string;
+    resolution: string;
     prompt: string;
     created_at: string;
   };
@@ -190,16 +190,16 @@ async function handleVideoGeneration(
   currentCredits: number
 ): Promise<CinematographerResponse> {
   try {
-    // Create video generation prediction using Kling v1.6 parameters
+    // Create video generation prediction using LTX-2-Fast
     let prediction;
     try {
-      console.log('🎬 Attempting to create Replicate prediction...');
+      console.log('🎬 Attempting to create LTX-2-Fast prediction...');
       prediction = await createVideoGenerationPrediction({
         prompt: request.prompt,
-        start_image: referenceImageUrl, // Use start_image instead of image for Kling
-        duration: request.duration && [5, 10].includes(request.duration) ? request.duration as (5 | 10) : 5, // Kling only accepts 5 or 10 seconds
-        aspect_ratio: request.aspect_ratio || '16:9',
-        cfg_scale: 0.5, // Kling flexibility parameter
+        image: referenceImageUrl, // Optional for LTX-2-Fast (text-to-video supported)
+        duration: request.duration || 6,
+        resolution: request.resolution || '1080p',
+        generate_audio: request.generate_audio !== false, // Default to true
         webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates
       });
       
@@ -259,13 +259,13 @@ async function handleVideoGeneration(
         user_id: request.user_id,
         tool_id: 'ai-cinematographer',
         service_id: 'replicate',
-        model_version: 'kling-v1.6-standard',
+        model_version: 'ltx-2-fast',
         status: 'planning',
         input_data: {
           prompt: request.prompt,
-          duration: request.duration || 4,
-          aspect_ratio: request.aspect_ratio || '16:9',
-          motion_scale: request.motion_scale || 1.0,
+          duration: request.duration || 6,
+          resolution: request.resolution || '1080p',
+          generate_audio: request.generate_audio !== false,
           reference_image: referenceImageUrl
         } as Json,
       });
@@ -280,15 +280,15 @@ async function handleVideoGeneration(
       video_concept: request.prompt,
       project_name: `Video Generation - ${new Date().toISOString()}`,
       batch_id,
-      duration: request.duration || 4,
-      aspect_ratio: request.aspect_ratio || '16:9',
+      duration: request.duration || 6,
+      resolution: request.resolution || '1080p',
       settings: {
         prediction_id: prediction.id,
         reference_image: referenceImageUrl,
         generation_params: {
-          duration: request.duration || 4,
-          aspect_ratio: request.aspect_ratio || '16:9',
-          motion_scale: request.motion_scale || 1.0
+          duration: request.duration || 6,
+          resolution: request.resolution || '1080p',
+          generate_audio: request.generate_audio !== false
         }
       } as Json,
       status: 'shooting'
@@ -322,10 +322,10 @@ async function handleVideoGeneration(
     await recordCinematographerMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'kling-v1.6-standard',
+      model_version: 'ltx-2-fast',
       video_concept: request.prompt,
-      duration: request.duration || 4,
-      aspect_ratio: request.aspect_ratio || '16:9',
+      duration: request.duration || 6,
+      resolution: request.resolution || '1080p',
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,
       workflow_type: 'generate',
@@ -339,8 +339,8 @@ async function handleVideoGeneration(
         id: batch_id,
         video_url: '', // Will be updated via webhook when complete
         thumbnail_url: undefined,
-        duration: request.duration || 4,
-        aspect_ratio: request.aspect_ratio || '16:9',
+        duration: request.duration || 6,
+        resolution: request.resolution || '1080p',
         prompt: request.prompt,
         created_at: new Date().toISOString(),
       },
@@ -391,36 +391,37 @@ async function handleAudioIntegration(
 
 /**
  * Calculate credit costs for cinematographer operations
+ * LTX-2-Fast pricing: credits per second × duration
+ * - 1080p: 1 credit/second (100 x 6s videos with 600 credits)
+ * - 2k: 2 credits/second
+ * - 4k: 4 credits/second
  */
 function calculateCinematographerCreditCost(request: CinematographerRequest) {
   let baseCost = 0;
-  
+
   if (request.workflow_intent === 'generate') {
-    // Kling v1.6 pricing structure based on duration
-    const duration = request.duration || 5;
-    
-    if (duration === 5) {
-      baseCost = 8; // Base cost for 5-second video
-    } else if (duration === 10) {
-      baseCost = 15; // Higher cost for 10-second video (almost 2x)
-    } else {
-      baseCost = 8; // Fallback to 5-second pricing
-    }
-    
-    // Reference image complexity bonus
+    const duration = request.duration || 6;
+    const resolution = request.resolution || '1080p';
+
+    // Credits per second based on resolution
+    const creditsPerSecond = resolution === '4k' ? 4 : resolution === '2k' ? 2 : 1;
+    baseCost = duration * creditsPerSecond;
+
+    // Reference image adds small overhead (optional for LTX-2-Fast)
     if (request.reference_image) {
-      baseCost += 2; // +2 credits for reference image processing
+      baseCost += 2; // +2 credits for image-to-video processing
     }
-    
+
   } else if (request.workflow_intent === 'audio_add') {
-    baseCost = 4; // Audio integration cost
+    baseCost = 4; // Audio integration cost (not typically needed with LTX-2-Fast built-in audio)
   }
-  
+
   const total = baseCost;
-  
+
   return {
     base: baseCost,
-    duration_seconds: request.duration || 5,
+    duration_seconds: request.duration || 6,
+    resolution: request.resolution || '1080p',
     total,
     breakdown: {
       video_generation: request.workflow_intent === 'generate' ? total : 0,

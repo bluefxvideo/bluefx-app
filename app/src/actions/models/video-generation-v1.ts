@@ -1,28 +1,35 @@
 'use server';
 
 /**
- * Generated from: Replicate Kling Video Generation Model v1.6
- * Model: kwaivgi/kling-v1.6-standard
+ * LTX-2-Fast Video Generation Model
+ * Model: lightricks/ltx-2-fast
  * Base URL: https://api.replicate.com/v1
- * Description: Generate cinematic videos from prompts and reference images using Kling v1.6
+ * Description: Generate high-quality videos with built-in audio using LTX-2-Fast
+ *
+ * Key Features:
+ * - Text-to-video (no reference image required)
+ * - Image-to-video (optional reference image)
+ * - Built-in AI audio generation
+ * - Multiple resolutions: 1080p, 2k, 4k
+ * - Durations: 6, 8, 10, 12, 14, 16, 18, 20 seconds
+ * - Note: Durations > 10 seconds require 1080p resolution
  */
 
 interface VideoGenerationV1Input {
   prompt: string; // Text prompt for video generation (required)
-  duration?: 5 | 10; // Duration of the video in seconds (only 5 or 10 allowed)
-  cfg_scale?: number; // Flexibility in video generation (default: 0.5)
-  start_image?: string; // First frame of the video (optional)
-  aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3' | '3:4'; // Aspect ratio (default: "16:9")
-  negative_prompt?: string; // Things you do not want to see in the video (optional)
-  reference_images?: string[]; // Reference images to use in video generation (optional)
+  duration?: 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20; // Duration in seconds
+  resolution?: '1080p' | '2k' | '4k'; // Video resolution (default: 1080p)
+  generate_audio?: boolean; // Enable AI audio generation (default: true)
+  image?: string; // Optional reference/first frame image for image-to-video mode
 }
 
 interface VideoGenerationV1Output {
   id: string;
   status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
-  version: string;
+  version?: string;
+  model?: string;
   input: VideoGenerationV1Input;
-  output?: string[]; // URLs of generated videos
+  output?: string | string[]; // URL(s) of generated video (LTX returns single string)
   error?: string;
   logs?: string;
   created_at: string;
@@ -37,44 +44,89 @@ interface VideoGenerationV1Output {
   };
 }
 
-interface CreateVideoPredictionParams extends VideoGenerationV1Input {
+interface CreateVideoPredictionParams {
+  prompt: string;
+  duration?: 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20;
+  resolution?: '1080p' | '2k' | '4k';
+  generate_audio?: boolean;
+  image?: string; // Optional reference image URL
+  start_image?: string; // Legacy field, mapped to image
   webhook?: string;
 }
 
+// Valid durations for LTX-2-Fast
+const VALID_DURATIONS = [6, 8, 10, 12, 14, 16, 18, 20] as const;
+
 /**
- * Create a new video generation prediction
+ * Create a new video generation prediction using LTX-2-Fast
  */
 export async function createVideoGenerationPrediction(
   params: CreateVideoPredictionParams
 ): Promise<VideoGenerationV1Output> {
   try {
-    const response = await fetch('https://api.replicate.com/v1/predictions', {
+    // Validate and normalize duration
+    let duration = params.duration || 6;
+    if (!VALID_DURATIONS.includes(duration as typeof VALID_DURATIONS[number])) {
+      // Find closest valid duration
+      duration = VALID_DURATIONS.reduce((prev, curr) =>
+        Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev
+      );
+    }
+
+    // Validate resolution - durations > 10s require 1080p
+    let resolution = params.resolution || '1080p';
+    if (duration > 10 && resolution !== '1080p') {
+      console.warn(`Duration ${duration}s requires 1080p resolution. Forcing 1080p.`);
+      resolution = '1080p';
+    }
+
+    // Map start_image to image for backwards compatibility
+    const imageUrl = params.image || params.start_image;
+
+    // Build input for LTX-2-Fast
+    const input: Record<string, unknown> = {
+      prompt: params.prompt,
+      duration: duration,
+      resolution: resolution,
+      generate_audio: params.generate_audio !== false, // Default to true
+    };
+
+    // Add image only if provided (text-to-video is supported without image)
+    if (imageUrl) {
+      input.image = imageUrl;
+    }
+
+    console.log('🎬 Creating LTX-2-Fast prediction with input:', {
+      ...input,
+      image: imageUrl ? '[IMAGE_URL]' : undefined
+    });
+
+    // Use the model endpoint for LTX-2-Fast
+    const response = await fetch('https://api.replicate.com/v1/models/lightricks/ltx-2-fast/predictions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+        'Prefer': 'respond-async',
       },
       body: JSON.stringify({
-        version: 'ad7e130132a2ae0c815fb3a5d31d897530cda5860e5f464f5eef48efd9ee8b4b', // Kling v1.6 Standard
-        input: {
-          prompt: params.prompt,
-          duration: params.duration && [5, 10].includes(params.duration) ? params.duration : 5, // Validate duration: only 5 or 10
-          cfg_scale: params.cfg_scale || 0.5,
-          aspect_ratio: params.aspect_ratio || '16:9',
-          ...(params.start_image && { start_image: params.start_image }),
-          ...(params.negative_prompt && { negative_prompt: params.negative_prompt }),
-          ...(params.reference_images && { reference_images: params.reference_images }),
-        },
-        ...(params.webhook && { webhook: params.webhook }),
+        input,
+        ...(params.webhook && {
+          webhook: params.webhook,
+          webhook_events_filter: ['start', 'output', 'completed', 'logs']
+        }),
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('LTX-2-Fast API error:', response.status, errorText);
       throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ LTX-2-Fast prediction created:', result.id);
+    return result;
   } catch (error) {
     console.error('createVideoGenerationPrediction error:', error);
     throw error;
@@ -138,14 +190,14 @@ export async function cancelVideoGenerationPrediction(
  */
 export async function waitForVideoGenerationCompletion(
   predictionId: string,
-  maxWaitTime: number = 600000, // 10 minutes default (videos take longer)
+  maxWaitTime: number = 600000, // 10 minutes default
   pollInterval: number = 5000 // 5 seconds default
 ): Promise<VideoGenerationV1Output> {
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitTime) {
     const prediction = await getVideoGenerationPrediction(predictionId);
-    
+
     if (prediction.status === 'succeeded' || prediction.status === 'failed' || prediction.status === 'canceled') {
       return prediction;
     }

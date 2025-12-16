@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Video } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Video, Volume2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
@@ -17,9 +18,25 @@ interface GeneratorTabProps {
   credits: number;
 }
 
+// LTX-2-Fast duration options
+const DURATION_OPTIONS = [6, 8, 10, 12, 14, 16, 18, 20] as const;
+type Duration = typeof DURATION_OPTIONS[number];
+
+// Resolution options with credit costs per second
+const RESOLUTION_OPTIONS = {
+  '1080p': { label: '1080p (Full HD)', creditsPerSecond: 1 },
+  '2k': { label: '2K', creditsPerSecond: 2 },
+  '4k': { label: '4K', creditsPerSecond: 4 },
+} as const;
+type Resolution = keyof typeof RESOLUTION_OPTIONS;
+
 /**
- * Video Generation Tab - Professional cinematic video creation
- * Following exact Thumbnail Machine pattern
+ * Video Generation Tab - LTX-2-Fast powered cinematic video creation
+ * Features:
+ * - Text-to-video (reference image optional)
+ * - Built-in AI audio generation
+ * - Multiple resolutions: 1080p, 2K, 4K
+ * - Durations: 6-20 seconds
  */
 export function GeneratorTab({
   onGenerate,
@@ -29,19 +46,35 @@ export function GeneratorTab({
   const [formData, setFormData] = useState({
     prompt: '',
     reference_image: null as File | null,
-    duration: 5, // Kling default: 5 seconds
-    aspect_ratio: '16:9' as '16:9' | '9:16' | '1:1'
+    duration: 6 as Duration,
+    resolution: '1080p' as Resolution,
+    generate_audio: true,
   });
-  // const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Durations > 10 seconds require 1080p resolution
+  const availableResolutions = formData.duration > 10
+    ? { '1080p': RESOLUTION_OPTIONS['1080p'] }
+    : RESOLUTION_OPTIONS;
+
+  // Auto-adjust resolution if duration > 10s and not 1080p
+  const handleDurationChange = (newDuration: Duration) => {
+    setFormData(prev => ({
+      ...prev,
+      duration: newDuration,
+      // Force 1080p for durations > 10s
+      resolution: newDuration > 10 ? '1080p' : prev.resolution
+    }));
+  };
 
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
-    
+
     onGenerate({
       prompt: formData.prompt,
       reference_image: formData.reference_image || undefined,
       duration: formData.duration,
-      aspect_ratio: formData.aspect_ratio,
+      resolution: formData.resolution,
+      generate_audio: formData.generate_audio,
       workflow_intent: 'generate',
       user_id: '' // Will be set by the hook with real user ID
     });
@@ -51,8 +84,9 @@ export function GeneratorTab({
     setFormData(prev => ({ ...prev, reference_image: file }));
   };
 
-  // Calculate credits based on new Kling v1.6 pricing
-  const baseCost = formData.duration === 10 ? 15 : 8; // 15 credits for 10s, 8 credits for 5s
+  // Calculate credits: duration × credits per second + image bonus
+  const creditsPerSecond = RESOLUTION_OPTIONS[formData.resolution].creditsPerSecond;
+  const baseCost = formData.duration * creditsPerSecond;
   const imageCost = formData.reference_image ? 2 : 0;
   const estimatedCredits = baseCost + imageCost;
 
@@ -67,7 +101,7 @@ export function GeneratorTab({
           description="Tell AI what cinematic video to create"
         >
           <Textarea
-            placeholder="Describe the cinematic video you want to create..."
+            placeholder="Describe the cinematic video you want to create... (e.g., 'A majestic eagle soaring over snow-capped mountains at sunset')"
             value={formData.prompt}
             onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
             className="min-h-[120px] resize-y"
@@ -79,70 +113,111 @@ export function GeneratorTab({
           </div>
         </StandardStep>
 
-        {/* Step 2: Reference Image */}
+        {/* Step 2: Reference Image (Optional) */}
         <StandardStep
           stepNumber={2}
           title="Reference Image"
-          description="Upload an optional style reference (optional)"
+          description="Optional: Upload a first frame for image-to-video generation"
         >
           <UnifiedDragDrop
             fileType="reference"
             selectedFile={formData.reference_image}
             onFileSelect={handleImageUpload}
             disabled={isGenerating}
-            title="Drop style reference or click to upload"
-            description="Optional style reference for video generation"
+            title="Drop image or click to upload"
+            description="Optional - Leave empty for text-to-video mode"
             previewSize="medium"
           />
+          <p className="text-xs text-muted-foreground mt-2">
+            Supports JPG, PNG, WebP. Max 10MB. Reference image adds +2 credits.
+          </p>
         </StandardStep>
 
         {/* Step 3: Video Settings */}
         <StandardStep
           stepNumber={3}
           title="Video Settings"
-          description="Configure your video generation preferences"
+          description="Configure duration, resolution, and audio"
         >
           <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Duration */}
+            {/* Duration Selection - Button Grid */}
             <div className="space-y-2">
               <Label>Duration</Label>
-              <Select 
-                value={formData.duration.toString()} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, duration: parseInt(value) }))}
-                disabled={isGenerating}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 seconds (8 credits)</SelectItem>
-                  <SelectItem value="10">10 seconds (15 credits)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-4 gap-2">
+                {DURATION_OPTIONS.map((d) => {
+                  const cost = d * RESOLUTION_OPTIONS[formData.resolution].creditsPerSecond;
+                  return (
+                    <Button
+                      key={d}
+                      type="button"
+                      variant={formData.duration === d ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleDurationChange(d)}
+                      disabled={isGenerating}
+                      className="flex flex-col h-auto py-2"
+                    >
+                      <span className="font-medium">{d}s</span>
+                      <span className="text-xs opacity-70">{cost} cr</span>
+                    </Button>
+                  );
+                })}
+              </div>
+              {formData.duration > 10 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Note: Durations over 10 seconds require 1080p resolution
+                </p>
+              )}
             </div>
 
-            {/* Aspect Ratio */}
+            {/* Resolution Selection */}
             <div className="space-y-2">
-              <Label>Aspect Ratio</Label>
-              <Select 
-                value={formData.aspect_ratio} 
-                onValueChange={(value: '16:9' | '9:16' | '1:1') => setFormData(prev => ({ ...prev, aspect_ratio: value }))}
-                disabled={isGenerating}
+              <Label>Resolution</Label>
+              <Select
+                value={formData.resolution}
+                onValueChange={(value: Resolution) => setFormData(prev => ({ ...prev, resolution: value }))}
+                disabled={isGenerating || formData.duration > 10}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
-                  <SelectItem value="9:16">9:16 (Vertical)</SelectItem>
-                  <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                  <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                  {Object.entries(availableResolutions).map(([key, { label, creditsPerSecond }]) => (
+                    <SelectItem key={key} value={key}>
+                      {label} ({creditsPerSecond} credits/sec)
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
+            {/* Audio Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <Label htmlFor="audio-toggle" className="cursor-pointer">AI Audio Generation</Label>
+                  <p className="text-xs text-muted-foreground">Generate ambient audio for your video</p>
+                </div>
+              </div>
+              <Switch
+                id="audio-toggle"
+                checked={formData.generate_audio}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, generate_audio: checked }))}
+                disabled={isGenerating}
+              />
+            </div>
+
+            {/* Credit Estimate */}
+            <div className="p-3 rounded-lg border bg-primary/5">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Estimated Cost</span>
+                <span className="text-lg font-bold text-primary">{estimatedCredits} credits</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {formData.duration}s × {creditsPerSecond} credits/sec = {baseCost} credits
+                {imageCost > 0 && <span> + {imageCost} (image)</span>}
+              </div>
+            </div>
           </div>
         </StandardStep>
       </TabBody>
@@ -162,14 +237,14 @@ export function GeneratorTab({
           ) : (
             <>
               <Video className="w-4 h-4 mr-2" />
-              Generate Video
+              Generate Video ({estimatedCredits} credits)
             </>
           )}
         </Button>
 
         {credits < estimatedCredits && (
           <p className="text-xs text-destructive text-center mt-2">
-            Insufficient credits. You need {estimatedCredits} credits.
+            Insufficient credits. You need {estimatedCredits} credits (you have {credits}).
           </p>
         )}
       </TabFooter>
