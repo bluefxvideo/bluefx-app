@@ -16,6 +16,7 @@ interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
   isGenerating: boolean;
   credits: number;
+  isLoadingCredits?: boolean;
   pendingImageUrl?: string; // Image URL from Starting Shot
   onClearPendingImage?: () => void;
 }
@@ -44,6 +45,7 @@ export function GeneratorTab({
   onGenerate,
   isGenerating,
   credits,
+  isLoadingCredits,
   pendingImageUrl,
   onClearPendingImage,
 }: GeneratorTabProps) {
@@ -254,7 +256,7 @@ export function GeneratorTab({
       <TabFooter>
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || credits < estimatedCredits || !formData.prompt?.trim()}
+          disabled={isGenerating || (!isLoadingCredits && credits < estimatedCredits) || !formData.prompt?.trim()}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
@@ -271,7 +273,7 @@ export function GeneratorTab({
           )}
         </Button>
 
-        {credits < estimatedCredits && (
+        {!isLoadingCredits && credits < estimatedCredits && (
           <p className="text-xs text-destructive text-center mt-2">
             Insufficient credits. You need {estimatedCredits} credits (you have {credits}).
           </p>

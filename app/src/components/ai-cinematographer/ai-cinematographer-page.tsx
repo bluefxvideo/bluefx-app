@@ -32,6 +32,7 @@ export function AICinematographerPage() {
     clearResults,
     loadHistory,
     credits,
+    isLoadingCredits,
     isStateRestored,
     deleteVideo,
     // Starting Shot
@@ -85,6 +86,7 @@ export function AICinematographerPage() {
       onGenerate={generateVideo}
       isGenerating={isGenerating}
       credits={credits}
+      isLoadingCredits={isLoadingCredits}
       pendingImageUrl={pendingImageForVideo}
       onClearPendingImage={() => setImageForVideo('')}
     />
@@ -118,6 +120,7 @@ export function AICinematographerPage() {
               onGenerate={generateStartingShot}
               isGenerating={isGeneratingImage}
               credits={credits}
+              isLoadingCredits={isLoadingCredits}
             />
           </div>
 

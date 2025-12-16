@@ -16,7 +16,7 @@ import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 
 export function useAICinematographer() {
-  const { credits } = useCredits(); // Use real credits hook
+  const { credits, isLoading: isLoadingCredits } = useCredits(); // Use real credits hook
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<CinematographerResponse | undefined>();
@@ -403,7 +403,8 @@ export function useAICinematographer() {
 
     // User and credits
     user,
-    credits: credits?.available_credits || 0,
+    credits: credits?.available_credits ?? 0,
+    isLoadingCredits,
 
     // Actions
     generateVideo,

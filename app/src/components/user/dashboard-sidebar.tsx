@@ -441,19 +441,19 @@ export function DashboardSidebar({
               <TooltipTrigger asChild>
                 <div
                   className={cn(
-                    "flex items-center rounded-lg px-3 py-2 mb-1",
+                    "flex items-center rounded-md px-2 py-1.5",
                     isCollapsed ? "justify-center" : "justify-between",
-                    "bg-primary/10 border border-primary/20"
+                    "bg-muted/50"
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <Coins className="w-4 h-4 text-primary" />
+                  <div className="flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-primary" />
                     {!isCollapsed && (
-                      <span className="text-sm text-zinc-400">Credits</span>
+                      <span className="text-xs text-zinc-500">Credits</span>
                     )}
                   </div>
                   {!isCollapsed && (
-                    <span className="text-sm font-semibold text-primary">
+                    <span className="text-xs font-medium text-zinc-400">
                       {credits.toLocaleString()}
                     </span>
                   )}

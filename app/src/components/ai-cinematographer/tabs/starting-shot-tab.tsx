@@ -14,6 +14,7 @@ interface StartingShotTabProps {
   onGenerate: (request: StartingShotRequest) => void;
   isGenerating: boolean;
   credits: number;
+  isLoadingCredits?: boolean;
 }
 
 // Aspect ratio display labels
@@ -36,6 +37,7 @@ export function StartingShotTab({
   onGenerate,
   isGenerating,
   credits,
+  isLoadingCredits,
 }: StartingShotTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -102,7 +104,7 @@ export function StartingShotTab({
       <TabFooter>
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || credits < CREDIT_COST || !formData.prompt?.trim()}
+          disabled={isGenerating || (!isLoadingCredits && credits < CREDIT_COST) || !formData.prompt?.trim()}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
@@ -119,7 +121,7 @@ export function StartingShotTab({
           )}
         </Button>
 
-        {credits < CREDIT_COST && (
+        {!isLoadingCredits && credits < CREDIT_COST && (
           <p className="text-xs text-destructive text-center mt-2">
             Insufficient credits. You need {CREDIT_COST} credit (you have {credits}).
           </p>
