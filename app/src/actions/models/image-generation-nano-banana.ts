@@ -18,6 +18,7 @@ interface ImageGenerationInput {
   prompt: string;
   aspect_ratio?: NanoBananaAspectRatio;
   num_outputs?: number; // 1-4, default 1
+  image_input?: string[]; // Reference image URLs (up to 3)
 }
 
 interface ImageGenerationOutput {
@@ -44,6 +45,7 @@ interface ImageGenerationOutput {
 interface CreateImagePredictionParams {
   prompt: string;
   aspect_ratio?: NanoBananaAspectRatio;
+  image_input?: string[]; // Reference image URLs (up to 3)
   webhook?: string;
 }
 
@@ -58,6 +60,7 @@ export async function createImageGenerationPrediction(
       prompt: params.prompt,
       aspect_ratio: params.aspect_ratio || '16:9',
       num_outputs: 1,
+      ...(params.image_input && params.image_input.length > 0 && { image_input: params.image_input }),
     };
 
     console.log('🖼️ Creating nano-banana prediction with input:', input);
@@ -146,16 +149,21 @@ export async function waitForImageGenerationCompletion(
 
 /**
  * Generate an image and wait for completion (convenience function)
+ * @param prompt - Text description of the image to generate
+ * @param aspectRatio - Aspect ratio of the output image
+ * @param referenceImages - Optional array of reference image URLs (up to 3)
  */
 export async function generateImage(
   prompt: string,
-  aspectRatio: NanoBananaAspectRatio = '16:9'
+  aspectRatio: NanoBananaAspectRatio = '16:9',
+  referenceImages?: string[]
 ): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
   try {
     // Create prediction
     const prediction = await createImageGenerationPrediction({
       prompt,
       aspect_ratio: aspectRatio,
+      image_input: referenceImages,
     });
 
     // Wait for completion

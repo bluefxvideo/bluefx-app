@@ -15,19 +15,21 @@ interface HistoryOutputProps {
   filters?: HistoryFilters;
   onRefresh?: () => void;
   onDeleteVideo?: (videoId: string) => Promise<boolean>;
+  onMakeVideoFromImage?: (imageUrl: string) => void;
 }
 
 /**
  * History Output - Shows cinematographer generation history in right panel
  * Displays past video generations with actions and details
  */
-export function HistoryOutput({ 
-  videos, 
-  isLoading, 
-  refreshTrigger, 
+export function HistoryOutput({
+  videos,
+  isLoading,
+  refreshTrigger,
   filters,
   onRefresh,
-  onDeleteVideo
+  onDeleteVideo,
+  onMakeVideoFromImage
 }: HistoryOutputProps) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
@@ -342,6 +344,20 @@ export function HistoryOutput({
                           <span className="text-sm">
                             {isStartingShot(video) ? 'View Image' : 'View Video'}
                           </span>
+                        </Button>
+                      )}
+                      {isStartingShot(video) && video.final_video_url && onMakeVideoFromImage && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 justify-start text-primary hover:text-primary/80"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMakeVideoFromImage(video.final_video_url!);
+                          }}
+                        >
+                          <Video className="w-3 h-3 mr-1" />
+                          <span className="text-sm">Make Video From This</span>
                         </Button>
                       )}
                       {video.final_video_url && (

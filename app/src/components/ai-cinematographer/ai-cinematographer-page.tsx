@@ -121,6 +121,7 @@ export function AICinematographerPage() {
             isLoading={isLoadingHistory}
             onRefresh={loadHistory}
             onDeleteVideo={deleteVideo}
+            onMakeVideoFromImage={handleMakeVideoFromImage}
           />
         </div>
       ) : activeTab === 'starting-shot' ? (

@@ -21,6 +21,8 @@ export type { StartingShotAspectRatio };
 export interface StartingShotRequest {
   prompt: string;
   aspect_ratio?: StartingShotAspectRatio;
+  reference_image_files?: File[]; // Optional reference image files to upload (up to 3)
+  reference_image_urls?: string[]; // Optional reference image URLs already uploaded (up to 3)
   user_id: string;
 }
 
@@ -44,6 +46,7 @@ export interface StartingShotResponse {
 export interface CinematographerRequest {
   prompt: string;
   reference_image?: File | null; // Optional for LTX-2-Fast (text-to-video supported)
+  reference_image_url?: string; // URL of a reference image (e.g., from Starting Shot)
   duration?: 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20; // LTX-2-Fast durations
   resolution?: '1080p' | '2k' | '4k'; // Video resolution (default: 1080p)
   generate_audio?: boolean; // Enable AI audio generation (default: true)
@@ -130,9 +133,12 @@ export async function executeAICinematographer(
     console.log(`💳 Credits validated: ${creditCheck.credits} available, ${creditCosts.total} required`);
 
     let referenceImageUrl: string | undefined;
-    
-    // Upload reference image if provided
-    if (request.reference_image) {
+
+    // Use reference image URL if provided (from Starting Shot), otherwise upload file
+    if (request.reference_image_url) {
+      referenceImageUrl = request.reference_image_url;
+      console.log('📸 Using reference image URL from Starting Shot:', referenceImageUrl);
+    } else if (request.reference_image) {
       try {
         console.log('📸 Starting reference image upload:', {
           fileName: request.reference_image.name,
@@ -437,7 +443,7 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
     baseCost = duration * creditsPerSecond;
 
     // Reference image adds small overhead (optional for LTX-2-Fast)
-    if (request.reference_image) {
+    if (request.reference_image || request.reference_image_url) {
       baseCost += 2; // +2 credits for image-to-video processing
     }
 
@@ -505,11 +511,41 @@ export async function executeStartingShot(
 
     console.log(`🖼️ Starting Shot - Credits validated: ${creditCheck.credits} available`);
 
-    // Step 2: Generate image using nano-banana
-    const aspectRatio = request.aspect_ratio || '16:9';
-    console.log(`🖼️ Generating image with prompt: "${request.prompt.substring(0, 50)}..." aspect: ${aspectRatio}`);
+    // Step 2: Upload reference images if provided as files
+    let referenceImageUrls: string[] = request.reference_image_urls || [];
 
-    const imageResult = await generateImage(request.prompt, aspectRatio);
+    if (request.reference_image_files && request.reference_image_files.length > 0) {
+      console.log(`🖼️ Uploading ${request.reference_image_files.length} reference image(s)...`);
+
+      for (const file of request.reference_image_files) {
+        try {
+          const fileExtension = file.name.split('.').pop() || 'jpg';
+          const safeFilename = `starting_shot_ref_${batch_id}_${Date.now()}.${fileExtension}`;
+
+          const uploadResult = await uploadImageToStorage(file, {
+            bucket: 'images',
+            folder: 'starting-shot-references',
+            filename: safeFilename,
+            contentType: file.type || 'image/jpeg',
+          });
+
+          if (uploadResult.success && uploadResult.url) {
+            referenceImageUrls.push(uploadResult.url);
+            console.log('📸 Reference image uploaded:', uploadResult.url);
+          }
+        } catch (error) {
+          console.error('Failed to upload reference image:', error);
+          // Continue with other images
+        }
+      }
+    }
+
+    // Step 3: Generate image using nano-banana
+    const aspectRatio = request.aspect_ratio || '16:9';
+    const hasReferenceImages = referenceImageUrls.length > 0;
+    console.log(`🖼️ Generating image with prompt: "${request.prompt.substring(0, 50)}..." aspect: ${aspectRatio}${hasReferenceImages ? `, references: ${referenceImageUrls.length}` : ''}`);
+
+    const imageResult = await generateImage(request.prompt, aspectRatio, hasReferenceImages ? referenceImageUrls : undefined);
 
     if (!imageResult.success || !imageResult.imageUrl) {
       return {

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Image } from 'lucide-react';
+import { Image, X, Upload, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { StartingShotRequest } from '@/actions/tools/ai-cinematographer';
 import { NANO_BANANA_ASPECT_RATIOS, type StartingShotAspectRatio } from '@/types/cinematographer';
@@ -33,6 +33,9 @@ const CREDIT_COST = 1; // 1 credit per image
  * Uses google/nano-banana for fast image generation
  * Generated images can be used as reference for video generation
  */
+// Max reference images allowed by nano-banana
+const MAX_REFERENCE_IMAGES = 3;
+
 export function StartingShotTab({
   onGenerate,
   isGenerating,
@@ -43,14 +46,56 @@ export function StartingShotTab({
     prompt: '',
     aspect_ratio: '16:9' as StartingShotAspectRatio,
   });
+  const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
 
+    // Pass files directly - they'll be uploaded by the server action
+    const referenceFiles = referenceImages.length > 0
+      ? referenceImages.map(img => img.file)
+      : undefined;
+
     onGenerate({
       prompt: formData.prompt,
       aspect_ratio: formData.aspect_ratio,
+      reference_image_files: referenceFiles,
       user_id: '', // Will be set by the hook with real user ID
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newImages: { file: File; preview: string }[] = [];
+    const remainingSlots = MAX_REFERENCE_IMAGES - referenceImages.length;
+
+    for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        newImages.push({
+          file,
+          preview: URL.createObjectURL(file),
+        });
+      }
+    }
+
+    setReferenceImages(prev => [...prev, ...newImages]);
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeReferenceImage = (index: number) => {
+    setReferenceImages(prev => {
+      const newImages = [...prev];
+      URL.revokeObjectURL(newImages[index].preview);
+      newImages.splice(index, 1);
+      return newImages;
     });
   };
 
@@ -76,9 +121,67 @@ export function StartingShotTab({
           </div>
         </StandardStep>
 
-        {/* Step 2: Aspect Ratio */}
+        {/* Step 2: Reference Images (Optional) */}
         <StandardStep
           stepNumber={2}
+          title="Reference Images"
+          description="Optional: Upload up to 3 images for style guidance"
+        >
+          <div className="space-y-3">
+            {/* Reference Image Grid */}
+            <div className="grid grid-cols-3 gap-2">
+              {referenceImages.map((img, index) => (
+                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-muted/30 group">
+                  <img
+                    src={img.preview}
+                    alt={`Reference ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6 bg-background/80 hover:bg-background opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeReferenceImage(index)}
+                    disabled={isGenerating}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+
+              {/* Add Image Button */}
+              {referenceImages.length < MAX_REFERENCE_IMAGES && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isGenerating}
+                  className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Add</span>
+                </button>
+              )}
+            </div>
+
+            {/* Hidden File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Reference images help guide style, composition, and content. Supports JPG, PNG, WebP.
+            </p>
+          </div>
+        </StandardStep>
+
+        {/* Step 3: Aspect Ratio */}
+        <StandardStep
+          stepNumber={3}
           title="Aspect Ratio"
           description="Choose the frame dimensions"
         >

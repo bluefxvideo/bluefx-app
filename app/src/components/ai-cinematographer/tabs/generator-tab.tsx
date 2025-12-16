@@ -81,6 +81,7 @@ export function GeneratorTab({
     onGenerate({
       prompt: formData.prompt,
       reference_image: formData.reference_image || undefined,
+      reference_image_url: usingPendingImage ? pendingImageUrl : undefined, // Pass URL from Starting Shot
       duration: formData.duration,
       resolution: formData.resolution,
       generate_audio: formData.generate_audio,
