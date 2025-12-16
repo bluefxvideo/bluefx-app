@@ -2,7 +2,7 @@
 
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { generateImage } from '@/actions/models/image-generation-nano-banana';
-import { uploadImageToStorage } from '@/actions/supabase-storage';
+import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
 import {
   getUserCredits,
   deductCredits,
@@ -555,12 +555,39 @@ export async function executeStartingShot(
 
     console.log(`✅ Starting Shot generated successfully: ${imageResult.imageUrl}`);
 
-    // Step 3: Store result in database
+    // Step 3: Download from Replicate and re-upload to Supabase for permanent storage
+    let permanentImageUrl = imageResult.imageUrl;
+
+    try {
+      console.log('📸 Re-uploading Starting Shot to Supabase storage...');
+      const uploadResult = await downloadAndUploadImage(
+        imageResult.imageUrl,
+        'starting-shot',
+        batch_id,
+        {
+          bucket: 'images',
+          folder: 'starting-shots',
+          contentType: 'image/jpeg',
+        }
+      );
+
+      if (uploadResult.success && uploadResult.url) {
+        permanentImageUrl = uploadResult.url;
+        console.log(`✅ Starting Shot saved to Supabase: ${permanentImageUrl}`);
+      } else {
+        console.warn('Failed to re-upload Starting Shot, using Replicate URL:', uploadResult.error);
+      }
+    } catch (uploadError) {
+      console.error('Error re-uploading Starting Shot:', uploadError);
+      // Continue with Replicate URL as fallback
+    }
+
+    // Step 4: Store result in database
     const storeResult = await storeStartingShotResult({
       user_id: request.user_id,
       batch_id,
       prompt: request.prompt,
-      image_url: imageResult.imageUrl,
+      image_url: permanentImageUrl,
       aspect_ratio: aspectRatio,
     });
 
@@ -586,7 +613,7 @@ export async function executeStartingShot(
       success: true,
       image: {
         id: batch_id,
-        image_url: imageResult.imageUrl,
+        image_url: permanentImageUrl,
         prompt: request.prompt,
         aspect_ratio: aspectRatio,
         created_at: new Date().toISOString(),
