@@ -12,10 +12,9 @@ import {
   createPredictionRecord
 } from '@/actions/database/cinematographer-database';
 import { Json } from '@/types/database';
-import { NANO_BANANA_ASPECT_RATIOS, type StartingShotAspectRatio } from '@/types/cinematographer';
+import type { StartingShotAspectRatio } from '@/types/cinematographer';
 
-// Re-export aspect ratios for UI (these come from shared types, safe for client import)
-export { NANO_BANANA_ASPECT_RATIOS };
+// Type re-export only (constants should be imported directly from @/types/cinematographer in client components)
 export type { StartingShotAspectRatio };
 
 // Request/Response types for Starting Shot (First Frame Image Generation)

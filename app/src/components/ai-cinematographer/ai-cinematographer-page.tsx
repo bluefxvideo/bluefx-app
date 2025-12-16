@@ -78,33 +78,16 @@ export function AICinematographerPage() {
     router.push('/dashboard/ai-cinematographer');
   };
 
-  // Render appropriate tab content
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'history':
-        return null; // No left panel content for history
-      case 'starting-shot':
-        return (
-          <StartingShotTab
-            onGenerate={generateStartingShot}
-            isGenerating={isGeneratingImage}
-            credits={credits}
-            generatedImage={startingShotResult?.image}
-            onMakeVideo={handleMakeVideoFromImage}
-          />
-        );
-      default:
-        return (
-          <GeneratorTab
-            onGenerate={generateVideo}
-            isGenerating={isGenerating}
-            credits={credits}
-            pendingImageUrl={pendingImageForVideo}
-            onClearPendingImage={() => setImageForVideo('')}
-          />
-        );
-    }
-  };
+  // Render generator tab content (other tabs handled separately)
+  const renderGeneratorTab = () => (
+    <GeneratorTab
+      onGenerate={generateVideo}
+      isGenerating={isGenerating}
+      credits={credits}
+      pendingImageUrl={pendingImageForVideo}
+      onClearPendingImage={() => setImageForVideo('')}
+    />
+  );
 
   return (
     <StandardToolPage
@@ -125,12 +108,23 @@ export function AICinematographerPage() {
             onDeleteVideo={deleteVideo}
           />
         </div>
+      ) : activeTab === 'starting-shot' ? (
+        // Starting Shot tab - Full width single panel (result shows inline)
+        <div className={`h-full ${containerStyles.panel} p-4 overflow-y-auto`}>
+          <StartingShotTab
+            onGenerate={generateStartingShot}
+            isGenerating={isGeneratingImage}
+            credits={credits}
+            generatedImage={startingShotResult?.image}
+            onMakeVideo={handleMakeVideoFromImage}
+          />
+        </div>
       ) : (
-        // Other tabs - Use standard two-panel layout
+        // Generate tab - Use standard two-panel layout
         <StandardToolLayout>
           {/* Left Panel - Content Only */}
           <div className="h-full overflow-hidden">
-            {renderTabContent()}
+            {renderGeneratorTab()}
           </div>
 
           {/* Right Panel - Contextual Output */}
