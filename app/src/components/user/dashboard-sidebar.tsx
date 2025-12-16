@@ -29,7 +29,8 @@ import {
   Shield,
   Briefcase,
   Library,
-  Sparkles
+  Sparkles,
+  Coins
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -223,7 +224,29 @@ export function DashboardSidebar({
   const { toggleSidebar } = useDashboardLayout()
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [credits, setCredits] = useState<number | null>(null)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fetch user credits
+  useEffect(() => {
+    async function fetchCredits() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from('user_credits')
+          .select('available_credits')
+          .eq('user_id', user.id)
+          .single()
+        setCredits(data?.available_credits ?? 0)
+      }
+    }
+    fetchCredits()
+
+    // Refresh credits every 30 seconds
+    const interval = setInterval(fetchCredits, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Check if user is admin
   useEffect(() => {
@@ -412,6 +435,38 @@ export function DashboardSidebar({
 
         {/* Footer with account management */}
         <div className="p-2 space-y-1 border-t border-border">
+          {/* Credits Display */}
+          {credits !== null && (
+            <Tooltip delayDuration={500}>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn(
+                    "flex items-center rounded-lg px-3 py-2 mb-1",
+                    isCollapsed ? "justify-center" : "justify-between",
+                    "bg-primary/10 border border-primary/20"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-primary" />
+                    {!isCollapsed && (
+                      <span className="text-sm text-zinc-400">Credits</span>
+                    )}
+                  </div>
+                  {!isCollapsed && (
+                    <span className="text-sm font-semibold text-primary">
+                      {credits.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right">
+                  <p>{credits.toLocaleString()} credits</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          )}
+
           {/* My Account Dropdown */}
           <div className="relative" ref={accountDropdownRef}>
             <Tooltip delayDuration={500}>

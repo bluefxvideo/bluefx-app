@@ -247,18 +247,6 @@ export function GeneratorTab({
                 disabled={isGenerating}
               />
             </div>
-
-            {/* Credit Estimate */}
-            <div className="p-3 rounded-lg border bg-primary/5">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Estimated Cost</span>
-                <span className="text-lg font-bold text-primary">{estimatedCredits} credits</span>
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {formData.duration}s × {creditsPerSecond} credits/sec = {baseCost} credits
-                {imageCost > 0 && <span> + {imageCost} (image)</span>}
-              </div>
-            </div>
           </div>
         </StandardStep>
       </TabBody>

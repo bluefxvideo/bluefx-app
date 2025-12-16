@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Image } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { StartingShotRequest } from '@/actions/tools/ai-cinematographer';
@@ -79,36 +80,23 @@ export function StartingShotTab({
           title="Aspect Ratio"
           description="Choose the frame dimensions"
         >
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {NANO_BANANA_ASPECT_RATIOS.map((ratio) => (
-              <Button
-                key={ratio}
-                type="button"
-                variant={formData.aspect_ratio === ratio ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFormData(prev => ({ ...prev, aspect_ratio: ratio }))}
-                disabled={isGenerating}
-                className="flex flex-col h-auto py-2"
-              >
-                <span className="font-medium">{ratio}</span>
-                <span className="text-xs opacity-70 hidden sm:block">
-                  {ASPECT_RATIO_LABELS[ratio].split(' ')[0]}
-                </span>
-              </Button>
-            ))}
-          </div>
+          <Select
+            value={formData.aspect_ratio}
+            onValueChange={(value: StartingShotAspectRatio) => setFormData(prev => ({ ...prev, aspect_ratio: value }))}
+            disabled={isGenerating}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {NANO_BANANA_ASPECT_RATIOS.map((ratio) => (
+                <SelectItem key={ratio} value={ratio}>
+                  {ASPECT_RATIO_LABELS[ratio]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </StandardStep>
-
-        {/* Credit Info */}
-        <div className="p-3 rounded-lg border bg-primary/5">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Cost</span>
-            <span className="text-lg font-bold text-primary">{CREDIT_COST} credit</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Fast image generation (~5 seconds)
-          </p>
-        </div>
       </TabBody>
 
       <TabFooter>
