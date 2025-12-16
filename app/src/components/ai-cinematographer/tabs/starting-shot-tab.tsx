@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Image, Video } from 'lucide-react';
+import { Image } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { StartingShotRequest } from '@/actions/tools/ai-cinematographer';
 import { NANO_BANANA_ASPECT_RATIOS, type StartingShotAspectRatio } from '@/types/cinematographer';
@@ -14,13 +13,6 @@ interface StartingShotTabProps {
   onGenerate: (request: StartingShotRequest) => void;
   isGenerating: boolean;
   credits: number;
-  generatedImage?: {
-    id: string;
-    image_url: string;
-    prompt: string;
-    aspect_ratio: string;
-  } | null;
-  onMakeVideo?: (imageUrl: string) => void;
 }
 
 // Aspect ratio display labels
@@ -43,8 +35,6 @@ export function StartingShotTab({
   onGenerate,
   isGenerating,
   credits,
-  generatedImage,
-  onMakeVideo,
 }: StartingShotTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -59,12 +49,6 @@ export function StartingShotTab({
       aspect_ratio: formData.aspect_ratio,
       user_id: '', // Will be set by the hook with real user ID
     });
-  };
-
-  const handleMakeVideo = () => {
-    if (generatedImage?.image_url && onMakeVideo) {
-      onMakeVideo(generatedImage.image_url);
-    }
   };
 
   return (
@@ -114,36 +98,6 @@ export function StartingShotTab({
             ))}
           </div>
         </StandardStep>
-
-        {/* Generated Image Preview */}
-        {generatedImage && (
-          <StandardStep
-            stepNumber={3}
-            title="Generated Image"
-            description="Your starting shot is ready"
-          >
-            <div className="space-y-4">
-              <div className="relative rounded-lg overflow-hidden border bg-muted/30">
-                <img
-                  src={generatedImage.image_url}
-                  alt={generatedImage.prompt}
-                  className="w-full h-auto max-h-[400px] object-contain"
-                />
-              </div>
-
-              {/* Make Video Button */}
-              <Button
-                onClick={handleMakeVideo}
-                variant="secondary"
-                className="w-full h-12 font-medium"
-                size="lg"
-              >
-                <Video className="w-4 h-4 mr-2" />
-                Make Video From This Image
-              </Button>
-            </div>
-          </StandardStep>
-        )}
 
         {/* Credit Info */}
         <div className="p-3 rounded-lg border bg-primary/5">

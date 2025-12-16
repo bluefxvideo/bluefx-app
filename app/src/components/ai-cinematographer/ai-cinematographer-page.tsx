@@ -7,6 +7,7 @@ import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
+import { StartingShotOutput } from './output-panel/starting-shot-output';
 import { useAICinematographer } from './hooks/use-ai-cinematographer';
 import { Video, History, Image } from 'lucide-react';
 
@@ -109,16 +110,24 @@ export function AICinematographerPage() {
           />
         </div>
       ) : activeTab === 'starting-shot' ? (
-        // Starting Shot tab - Full width single panel (result shows inline)
-        <div className={`h-full ${containerStyles.panel} p-4 overflow-y-auto`}>
-          <StartingShotTab
-            onGenerate={generateStartingShot}
+        // Starting Shot tab - Two-panel layout like Generate tab
+        <StandardToolLayout>
+          {/* Left Panel - Settings */}
+          <div className="h-full overflow-hidden">
+            <StartingShotTab
+              onGenerate={generateStartingShot}
+              isGenerating={isGeneratingImage}
+              credits={credits}
+            />
+          </div>
+
+          {/* Right Panel - Generated Image Output */}
+          <StartingShotOutput
             isGenerating={isGeneratingImage}
-            credits={credits}
             generatedImage={startingShotResult?.image}
             onMakeVideo={handleMakeVideoFromImage}
           />
-        </div>
+        </StandardToolLayout>
       ) : (
         // Generate tab - Use standard two-panel layout
         <StandardToolLayout>
