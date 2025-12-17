@@ -14,7 +14,9 @@ import {
   Trash2,
   UserX,
   UserCheck,
-  Eye
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { AddCreditsDialog } from './add-credits-dialog'
 import { ChangeRoleDialog } from './change-role-dialog'
@@ -92,21 +94,35 @@ function getSubscriptionBadge(subscription?: Tables<'user_subscriptions'> | null
   }
 }
 
+const USERS_PER_PAGE = 25
+
 export function AdminUserTable({ users }: AdminUserTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null)
   const [isAddCreditsOpen, setIsAddCreditsOpen] = useState(false)
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState(false)
   const [isSuspendUserOpen, setIsSuspendUserOpen] = useState(false)
   const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false)
   const [isUsageDialogOpen, setIsUsageDialogOpen] = useState(false)
-  
+
   // Filter users based on search term
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user =>
     user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE)
+  const startIndex = (currentPage - 1) * USERS_PER_PAGE
+  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + USERS_PER_PAGE)
+
+  // Reset to page 1 when search term changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    setCurrentPage(1)
+  }
 
   const handleAddCredits = (user: UserWithStats) => {
     setSelectedUser(user)
@@ -154,7 +170,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           <Input
             placeholder="Search users..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10 w-64"
           />
         </div>
@@ -236,7 +252,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           
           {/* Table Body */}
           <div className="divide-y">
-            {filteredUsers.map((user) => (
+            {paginatedUsers.map((user) => (
               <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr 1fr 1fr' }}>
                 <div>
                   <div className="font-medium text-foreground">{user.email || user.username}</div>
@@ -245,8 +261,8 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                 <div>
                   {getRoleBadge(user.role, user.is_suspended ?? undefined)}
                 </div>
-                <div className="text-sm font-mono truncate" title={user.subscription?.fastspring_subscription_id || 'No subscription ID'}>
-                  {user.subscription?.fastspring_subscription_id || '-'}
+                <div className="text-sm font-mono truncate" title={(user.subscription as any)?.fastspring_subscription_id || user.subscription?.stripe_subscription_id || 'No subscription ID'}>
+                  {(user.subscription as any)?.fastspring_subscription_id || user.subscription?.stripe_subscription_id || '-'}
                 </div>
                 <div>
                   {getSubscriptionBadge(user.subscription)}
@@ -329,6 +345,61 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">No users found</h3>
               <p className="text-muted-foreground">Get started by adding your first user.</p>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(startIndex + USERS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    // Show pages around current page
+                    let pageNum: number
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = currentPage - 2 + i
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setCurrentPage(pageNum)}
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
