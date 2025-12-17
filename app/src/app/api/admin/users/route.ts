@@ -12,7 +12,7 @@ interface UserWithStats extends Tables<'profiles'> {
   lastActivity?: string | null
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Use regular client to check if user is admin
     const supabase = await createClient()
@@ -30,27 +30,64 @@ export async function GET(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    // Check admin by role OR by email (for contact@bluefx.net)
+    const isAdmin = profile?.role === 'admin' || user.email === 'contact@bluefx.net'
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
-    
+
     // Now use admin client for fetching all users
     const adminClient = createAdminClient()
-    
-    // Get all users with their profiles
-    const { data: profiles, error: profilesError } = await adminClient
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100)
 
-    if (profilesError || !profiles) {
-      console.error('Error fetching profiles:', profilesError)
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+    // Get ALL profiles (no limit) - fetch in batches if needed
+    let allProfiles: Tables<'profiles'>[] = []
+    let from = 0
+    const batchSize = 1000
+
+    while (true) {
+      const { data: batch, error: batchError } = await adminClient
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + batchSize - 1)
+
+      if (batchError) {
+        console.error('Error fetching profiles batch:', batchError)
+        return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+      }
+
+      if (!batch || batch.length === 0) break
+
+      allProfiles = [...allProfiles, ...batch]
+      if (batch.length < batchSize) break
+      from += batchSize
     }
 
-    // Get all auth users to have their emails
-    const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers()
+    const profiles = allProfiles
+
+    if (!profiles || profiles.length === 0) {
+      return NextResponse.json({ users: [] })
+    }
+
+    // Get ALL auth users with pagination
+    let allAuthUsers: any[] = []
+    let page = 1
+    const perPage = 100
+
+    while (true) {
+      const { data: { users: pageUsers } } = await adminClient.auth.admin.listUsers({
+        page,
+        perPage
+      })
+
+      if (!pageUsers || pageUsers.length === 0) break
+
+      allAuthUsers = [...allAuthUsers, ...pageUsers]
+      if (pageUsers.length < perPage) break
+      page++
+    }
+
+    const authUsers = allAuthUsers
     
     // Create a map of user IDs to emails for quick lookup
     const emailMap = new Map<string, string>()
@@ -61,8 +98,8 @@ export async function GET(request: NextRequest) {
     // Get subscription and credit data for each user
     const usersWithStats: UserWithStats[] = await Promise.all(
       profiles.map(async (profile) => {
-        // Get email from auth users
-        const email = emailMap.get(profile.id) || profile.email || ''
+        // Get email from auth users (profiles table doesn't have email field)
+        const email = emailMap.get(profile.id) || ''
         
         // Get subscription (any status - take the most recent)
         const { data: subscriptions } = await adminClient
