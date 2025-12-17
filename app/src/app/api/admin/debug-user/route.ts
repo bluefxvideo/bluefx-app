@@ -29,9 +29,33 @@ export async function GET(request: NextRequest) {
     const email = request.nextUrl.searchParams.get('email') || currentUser.email
     const adminClient = createAdminClient()
 
-    // Step 1: Check auth.users
-    const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers()
-    const authUser = authUsers?.find(u => u.email === email)
+    // Step 1: Check auth.users (listUsers has pagination, default is 50)
+    // First try to find by current user ID directly
+    let authUser = null
+    let allAuthUsers: any[] = []
+
+    // Get all users with pagination
+    let page = 1
+    const perPage = 100
+    let hasMore = true
+
+    while (hasMore) {
+      const { data: { users: pageUsers } } = await adminClient.auth.admin.listUsers({
+        page,
+        perPage
+      })
+
+      if (pageUsers && pageUsers.length > 0) {
+        allAuthUsers = [...allAuthUsers, ...pageUsers]
+        hasMore = pageUsers.length === perPage
+        page++
+      } else {
+        hasMore = false
+      }
+    }
+
+    // Search case-insensitively
+    authUser = allAuthUsers.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
     // Step 2: Check profiles table by email
     const { data: profileByEmail } = await adminClient
@@ -67,8 +91,7 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .select('*', { count: 'exact', head: true })
 
-    const { count: totalAuthUsers } = await adminClient.auth.admin.listUsers()
-      .then(res => ({ count: res.data.users?.length || 0 }))
+    const totalAuthUsers = allAuthUsers.length
 
     return NextResponse.json({
       current_user: {
