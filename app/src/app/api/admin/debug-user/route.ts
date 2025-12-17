@@ -71,7 +71,13 @@ export async function GET(request: NextRequest) {
       .then(res => ({ count: res.data.users?.length || 0 }))
 
     return NextResponse.json({
-      email,
+      current_user: {
+        id: currentUser.id,
+        email: currentUser.email,
+        is_admin_by_role: adminProfile?.role === 'admin',
+        is_admin_by_email: currentUser.email === 'contact@bluefx.net',
+      },
+      searched_email: email,
       diagnosis: {
         auth_user_exists: !!authUser,
         auth_user_id: authUser?.id || null,
