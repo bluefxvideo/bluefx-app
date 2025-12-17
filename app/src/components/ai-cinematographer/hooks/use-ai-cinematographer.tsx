@@ -67,7 +67,7 @@ export function useAICinematographer() {
 
     setIsLoadingHistory(true);
     try {
-      const { videos: historyVideos } = await getCinematographerVideos(user.id);
+      const { videos: historyVideos } = await getCinematographerVideos(user.id, 500);
       setVideos(historyVideos);
     } catch (err) {
       console.error('Failed to load video history:', err);
@@ -331,7 +331,7 @@ export function useAICinematographer() {
       // Check for ongoing video generations and restore state
       const checkOngoingGenerations = async () => {
         try {
-          const { videos } = await getCinematographerVideos(user.id);
+          const { videos } = await getCinematographerVideos(user.id, 500);
 
           // Only consider recent videos (within last 30 minutes)
           const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
