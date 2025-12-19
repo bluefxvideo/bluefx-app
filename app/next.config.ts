@@ -17,7 +17,13 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['friendly-space-spork-9769rx65q5gjh74-3000.app.github.dev', 'localhost:3000'],
+      allowedOrigins: [
+        'friendly-space-spork-9769rx65q5gjh74-3000.app.github.dev',
+        'localhost:3000',
+        'app.bluefx.net',
+        'bluefx.net',
+        'www.bluefx.net'
+      ],
       bodySizeLimit: '500mb', // Increased to handle video/audio uploads for transcription
     },
   },

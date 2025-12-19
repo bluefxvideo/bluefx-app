@@ -56,9 +56,13 @@ function parseCSVLine(line: string): string[] {
  * Sync offers from CSV file upload
  */
 export async function syncFromCSV(csvData: string): Promise<SyncResult> {
-  try {
-    console.log('syncFromCSV called, data length:', csvData.length);
+  console.log('syncFromCSV called, data length:', csvData?.length || 0);
 
+  if (!csvData || typeof csvData !== 'string') {
+    return { success: false, message: 'No CSV data provided' };
+  }
+
+  try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
