@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { AdminUserTable } from '@/components/admin/admin-user-table';
 import { ActivityFeedPanel } from '@/components/admin/activity-feed-panel';
+import { TopOffersSyncPanel } from '@/components/admin/top-offers-sync-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Activity } from 'lucide-react';
+import { Users, Activity, Database } from 'lucide-react';
 
 /**
  * Admin Page
@@ -122,6 +123,10 @@ export default function AdminPage() {
               <Activity className="w-4 h-4" />
               Activity Feed
             </TabsTrigger>
+            <TabsTrigger value="top-offers" className="flex items-center gap-2">
+              <Database className="w-4 h-4" />
+              Top Offers
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -130,6 +135,10 @@ export default function AdminPage() {
 
           <TabsContent value="activity">
             <ActivityFeedPanel />
+          </TabsContent>
+
+          <TabsContent value="top-offers">
+            <TopOffersSyncPanel />
           </TabsContent>
         </Tabs>
       )}
