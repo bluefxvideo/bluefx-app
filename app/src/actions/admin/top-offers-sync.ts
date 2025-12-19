@@ -15,6 +15,134 @@ export interface SyncResult {
 }
 
 /**
+ * Parse a number from string, returning null if invalid
+ */
+function parseNum(value: string | undefined): number | null {
+  if (!value) return null;
+  const cleaned = value.replace(/[$%,]/g, '').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * Sync offers from pasted tab-separated data (from Google Sheet copy/paste)
+ */
+export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, message: 'Not authenticated' };
+    }
+
+    // Check admin
+    if (user.email !== 'contact@bluefx.net') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (profile?.role !== 'admin') {
+        return { success: false, message: 'Admin access required' };
+      }
+    }
+
+    const lines = tsvData.trim().split('\n');
+    if (lines.length < 2) {
+      return { success: false, message: 'No data rows found' };
+    }
+
+    // Parse header (first line)
+    const headers = lines[0].split('\t').map(h => h.trim());
+
+    // Find column indices
+    const cols = {
+      productName: headers.indexOf('Product Name'),
+      salesPageUrl: headers.indexOf('Sales Page URL'),
+      category: headers.indexOf('Category'),
+      subcategory: headers.indexOf('Subcategory'),
+      description: headers.indexOf('Description'),
+      affiliatePageUrl: headers.indexOf('Affiliate Page URL'),
+      contactEmail: headers.indexOf('Contact Email'),
+      avgDollarPerConversion: headers.indexOf('Average Dollar Per Conversion'),
+      cvr: headers.indexOf('Conversion Rate (CVR)'),
+      gravity: headers.indexOf('Gravity'),
+    };
+
+    if (cols.productName === -1 || cols.category === -1 || cols.gravity === -1) {
+      return { success: false, message: 'Missing required columns: Product Name, Category, or Gravity' };
+    }
+
+    // Parse data rows
+    const seenIds = new Set<string>();
+    const offers: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const values = line.split('\t');
+      const productName = values[cols.productName]?.trim();
+      if (!productName) continue;
+
+      const salesPageUrl = values[cols.salesPageUrl] || '';
+
+      // Extract vendor ID from hop.clickbank.net URL
+      const vendorMatch = salesPageUrl.match(/vendor=([A-Za-z0-9]+)/i);
+      const clickbankId = vendorMatch ? vendorMatch[1].toUpperCase() : productName.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 20);
+
+      // Skip duplicates
+      if (seenIds.has(clickbankId)) continue;
+      seenIds.add(clickbankId);
+
+      offers.push({
+        clickbank_id: clickbankId,
+        title: productName,
+        description: values[cols.description] || null,
+        category: values[cols.category] || 'Unknown',
+        subcategory: values[cols.subcategory] || null,
+        vendor_name: values[cols.contactEmail]?.split('@')[0] || clickbankId,
+        gravity_score: parseNum(values[cols.gravity]) || 0,
+        average_dollar_per_sale: parseNum(values[cols.avgDollarPerConversion]),
+        commission_rate: parseNum(values[cols.cvr]),
+        affiliate_page_url: values[cols.affiliatePageUrl] || null,
+        sales_page_url: salesPageUrl || null,
+        is_active: true,
+        last_updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (offers.length === 0) {
+      return { success: false, message: 'No valid offers found in data' };
+    }
+
+    const adminClient = createAdminClient();
+
+    // Delete all existing
+    await adminClient.from('clickbank_offers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Insert new
+    const { error } = await adminClient.from('clickbank_offers').insert(offers);
+
+    if (error) {
+      return { success: false, message: `Insert failed: ${error.message}` };
+    }
+
+    return {
+      success: true,
+      message: `Synced ${offers.length} offers successfully!`
+    };
+  } catch (error) {
+    console.error('Sync error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Check if the current user is an admin
  */
 async function isAdmin(): Promise<boolean> {
@@ -292,7 +420,7 @@ function parseNumber(value: string | undefined): number | null {
 
 /**
  * Sync offers from Google Sheet CSV data
- * Fast batch upsert - updates by title match
+ * Deletes all existing offers and inserts fresh data
  */
 export async function syncFromGoogleSheet(csvData: string): Promise<SyncResult> {
   try {
@@ -313,38 +441,52 @@ export async function syncFromGoogleSheet(csvData: string): Promise<SyncResult> 
       .filter(row => row['Product Name']?.trim())
       .map(row => {
         const productName = row['Product Name'].trim();
+        const salesPageUrl = row['Sales Page URL'] || '';
+
+        // Extract vendor ID from hop.clickbank.net URL (e.g., vendor=BRAINSONGX)
+        const vendorMatch = salesPageUrl.match(/vendor=([A-Za-z0-9]+)/i);
+        const clickbankId = vendorMatch ? vendorMatch[1].toUpperCase() : generateClickbankId(productName);
+
         return {
-          clickbank_id: generateClickbankId(productName),
+          clickbank_id: clickbankId,
           title: productName,
           description: row['Description'] || null,
           category: row['Category'] || 'Unknown',
           subcategory: row['Subcategory'] || null,
-          vendor_name: row['Contact Email']?.split('@')[0] || 'Unknown',
+          vendor_name: row['Contact Email']?.split('@')[0] || clickbankId,
           gravity_score: parseNumber(row['Gravity']) || 0,
           average_dollar_per_sale: parseNumber(row['Average Dollar Per Conversion']),
           commission_rate: parseNumber(row['Conversion Rate (CVR)']),
           affiliate_page_url: row['Affiliate Page URL'] || null,
-          sales_page_url: row['Sales Page URL'] || null,
+          sales_page_url: salesPageUrl || null,
           is_active: true,
           last_updated_at: new Date().toISOString(),
         };
       });
 
-    // Single batch upsert - update on clickbank_id conflict
-    const { error } = await adminClient
+    // Delete all existing offers first
+    const { error: deleteError } = await adminClient
       .from('clickbank_offers')
-      .upsert(offers, {
-        onConflict: 'clickbank_id',
-        ignoreDuplicates: false
-      });
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
 
-    if (error) {
-      return { success: false, message: `Sync failed: ${error.message}` };
+    if (deleteError) {
+      console.error('Delete error:', deleteError);
+      // Continue anyway - table might be empty
+    }
+
+    // Insert all offers in one batch
+    const { error: insertError } = await adminClient
+      .from('clickbank_offers')
+      .insert(offers);
+
+    if (insertError) {
+      return { success: false, message: `Insert failed: ${insertError.message}` };
     }
 
     return {
       success: true,
-      message: `Synced ${offers.length} offers`
+      message: `Synced ${offers.length} offers successfully!`
     };
   } catch (error) {
     console.error('Error syncing from Google Sheet:', error);

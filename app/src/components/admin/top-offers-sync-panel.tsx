@@ -3,22 +3,24 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCw, ExternalLink, CheckCircle, AlertTriangle } from 'lucide-react';
-import { syncFromGoogleSheetUrl } from '@/actions/admin/top-offers-sync';
+import { Loader2, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
+import { syncFromPastedData } from '@/actions/admin/top-offers-sync';
 
 export function TopOffersSyncPanel() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [googleSheetUrl, setGoogleSheetUrl] = useState(
-    'https://docs.google.com/spreadsheets/d/1Hke-Hi8ssoEMwsZh4Ml40DMP3cybBI5WeaeKKiS4h84/edit'
-  );
+  const [pastedData, setPastedData] = useState('');
 
   const handleSync = async () => {
+    if (!pastedData.trim()) {
+      setResult({ success: false, message: 'Please paste the data from Google Sheet' });
+      return;
+    }
     setIsSyncing(true);
     setResult(null);
-    const response = await syncFromGoogleSheetUrl(googleSheetUrl);
+    const response = await syncFromPastedData(pastedData);
     setResult(response);
     setIsSyncing(false);
   };
@@ -27,24 +29,21 @@ export function TopOffersSyncPanel() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Sync Top Offers from Google Sheet</CardTitle>
+          <CardTitle>Sync Top Offers</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Google Sheet URL"
-              value={googleSheetUrl}
-              onChange={(e) => setGoogleSheetUrl(e.target.value)}
-              className="flex-1"
-            />
-            <Button variant="outline" asChild>
-              <a href={googleSheetUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Copy all rows from your Google Sheet (including header) and paste below:
+          </p>
+          <Textarea
+            placeholder="Paste tab-separated data from Google Sheet here..."
+            value={pastedData}
+            onChange={(e) => setPastedData(e.target.value)}
+            rows={10}
+            className="font-mono text-xs"
+          />
 
-          <Button onClick={handleSync} disabled={isSyncing || !googleSheetUrl}>
+          <Button onClick={handleSync} disabled={isSyncing || !pastedData.trim()}>
             {isSyncing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
