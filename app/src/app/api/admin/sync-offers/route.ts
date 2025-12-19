@@ -1,5 +1,3 @@
-'use server';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/app/supabase/server';
 
