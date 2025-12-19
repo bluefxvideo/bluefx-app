@@ -292,7 +292,7 @@ function parseNumber(value: string | undefined): number | null {
 
 /**
  * Sync offers from Google Sheet CSV data
- * This will upsert offers based on clickbank_id (generated from product name)
+ * Fast batch upsert - updates by title match
  */
 export async function syncFromGoogleSheet(csvData: string): Promise<SyncResult> {
   try {
@@ -308,32 +308,13 @@ export async function syncFromGoogleSheet(csvData: string): Promise<SyncResult> 
 
     const adminClient = createAdminClient();
 
-    let inserted = 0;
-    let updated = 0;
-    let skipped = 0;
-    const errors: string[] = [];
-
-    for (const row of rows) {
-      try {
-        const productName = row['Product Name']?.trim();
-        if (!productName) {
-          skipped++;
-          continue;
-        }
-
-        // Check if offer already exists by title (case-insensitive)
-        const { data: existing } = await adminClient
-          .from('clickbank_offers')
-          .select('id, clickbank_id')
-          .ilike('title', productName)
-          .limit(1)
-          .single();
-
-        // Use existing clickbank_id or generate new one
-        const clickbankId = existing?.clickbank_id || generateClickbankId(productName);
-
-        const offerData = {
-          clickbank_id: clickbankId,
+    // Build all offer data at once
+    const offers = rows
+      .filter(row => row['Product Name']?.trim())
+      .map(row => {
+        const productName = row['Product Name'].trim();
+        return {
+          clickbank_id: generateClickbankId(productName),
           title: productName,
           description: row['Description'] || null,
           category: row['Category'] || 'Unknown',
@@ -347,43 +328,23 @@ export async function syncFromGoogleSheet(csvData: string): Promise<SyncResult> 
           is_active: true,
           last_updated_at: new Date().toISOString(),
         };
+      });
 
-        if (existing) {
-          // Update existing offer
-          const { error: updateError } = await adminClient
-            .from('clickbank_offers')
-            .update(offerData)
-            .eq('id', existing.id);
+    // Single batch upsert - update on clickbank_id conflict
+    const { error } = await adminClient
+      .from('clickbank_offers')
+      .upsert(offers, {
+        onConflict: 'clickbank_id',
+        ignoreDuplicates: false
+      });
 
-          if (updateError) {
-            errors.push(`Failed to update ${row['Product Name']}: ${updateError.message}`);
-            skipped++;
-          } else {
-            updated++;
-          }
-        } else {
-          // Insert new offer
-          const { error: insertError } = await adminClient
-            .from('clickbank_offers')
-            .insert(offerData);
-
-          if (insertError) {
-            errors.push(`Failed to insert ${row['Product Name']}: ${insertError.message}`);
-            skipped++;
-          } else {
-            inserted++;
-          }
-        }
-      } catch (rowError) {
-        errors.push(`Error processing ${row['Product Name']}: ${rowError}`);
-        skipped++;
-      }
+    if (error) {
+      return { success: false, message: `Sync failed: ${error.message}` };
     }
 
     return {
       success: true,
-      message: `Sync completed: ${inserted} inserted, ${updated} updated, ${skipped} skipped`,
-      details: { inserted, updated, skipped, errors: errors.length > 0 ? errors.slice(0, 10) : undefined }
+      message: `Synced ${offers.length} offers`
     };
   } catch (error) {
     console.error('Error syncing from Google Sheet:', error);
