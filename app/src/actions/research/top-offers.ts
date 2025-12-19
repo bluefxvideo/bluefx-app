@@ -137,21 +137,22 @@ export async function getTopOffers(
             .single();
 
           if (historyError || !historyData?.daily_data) {
-            // Fallback to mock data if no history found
+            // No history found - show only today's data point (no fake data)
             const currentGravity = offer.gravity_score || 0;
-            const change = (Math.random() - 0.5) * 20;
-            const minGravity = Math.max(0, currentGravity - Math.abs(change) - Math.random() * 10);
-            const maxGravity = currentGravity + Math.abs(change) + Math.random() * 10;
-            
+
             return {
               ...offer,
               clickbank_history: [{
-                max_gravity: maxGravity,
-                min_gravity: minGravity,
-                avg_gravity: (currentGravity + minGravity + maxGravity) / 3,
-                gravity_change: change,
-                data_points: 7,
-                daily_data: generateMockDailyData(currentGravity, minGravity, maxGravity, 7)
+                max_gravity: currentGravity,
+                min_gravity: currentGravity,
+                avg_gravity: currentGravity,
+                gravity_change: 0,
+                data_points: 1,
+                daily_data: [{
+                  gravity_score: currentGravity,
+                  recorded_at: new Date().toISOString(),
+                  date: new Date().toLocaleDateString()
+                }]
               }]
             };
           }
@@ -294,22 +295,23 @@ export async function searchOffers(
       };
     }
     
-    // Add mock chart data to search results for simplicity
+    // Add today's data point to search results (no fake historical data)
     const offersWithHistory = (existingOffers || []).map((offer) => {
       const currentGravity = offer.gravity_score || 0;
-      const change = (Math.random() - 0.5) * 20;
-      const minGravity = Math.max(0, currentGravity - Math.abs(change) - Math.random() * 10);
-      const maxGravity = currentGravity + Math.abs(change) + Math.random() * 10;
-      
+
       return {
         ...offer,
         clickbank_history: [{
-          max_gravity: maxGravity,
-          min_gravity: minGravity,
-          avg_gravity: (currentGravity + minGravity + maxGravity) / 3,
-          gravity_change: change,
-          data_points: 7,
-          daily_data: generateMockDailyData(currentGravity, minGravity, maxGravity, 7)
+          max_gravity: currentGravity,
+          min_gravity: currentGravity,
+          avg_gravity: currentGravity,
+          gravity_change: 0,
+          data_points: 1,
+          daily_data: [{
+            gravity_score: currentGravity,
+            recorded_at: new Date().toISOString(),
+            date: new Date().toLocaleDateString()
+          }]
         }]
       };
     });
@@ -394,24 +396,4 @@ export async function getOfferTrendData(_clickbankId: string): Promise<{
   }
 }
 
-// Helper function to generate mock daily data for charts
-function generateMockDailyData(currentGravity: number, minGravity: number, maxGravity: number, numDays: number) {
-  const points = [];
-  for (let i = 0; i < numDays; i++) {
-    const progress = i / (numDays - 1);
-    const variance = (Math.random() - 0.5) * 5; // Small random variance
-    const baseValue = minGravity + (maxGravity - minGravity) * progress;
-    const gravity = Math.max(0, baseValue + variance);
-    
-    const date = new Date();
-    date.setDate(date.getDate() - (numDays - 1 - i));
-    
-    points.push({
-      gravity_score: gravity,
-      recorded_at: date.toISOString(),
-      date: date.toLocaleDateString()
-    });
-  }
-  return points;
-}
 
