@@ -29,12 +29,17 @@ function parseNum(value: string | undefined): number | null {
  */
 export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
   try {
+    console.log('syncFromPastedData called, data length:', tsvData.length);
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
+      console.log('No user found');
       return { success: false, message: 'Not authenticated' };
     }
+
+    console.log('User:', user.email);
 
     // Check admin
     if (user.email !== 'contact@bluefx.net') {
@@ -49,12 +54,15 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
     }
 
     const lines = tsvData.trim().split('\n');
+    console.log('Lines count:', lines.length);
+
     if (lines.length < 2) {
       return { success: false, message: 'No data rows found' };
     }
 
     // Parse header (first line)
     const headers = lines[0].split('\t').map(h => h.trim());
+    console.log('Headers found:', headers.length, headers.slice(0, 5));
 
     // Find column indices
     const cols = {
@@ -70,8 +78,10 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
       gravity: headers.indexOf('Gravity'),
     };
 
+    console.log('Column indices:', cols);
+
     if (cols.productName === -1 || cols.category === -1 || cols.gravity === -1) {
-      return { success: false, message: 'Missing required columns: Product Name, Category, or Gravity' };
+      return { success: false, message: `Missing required columns. Found headers: ${headers.join(', ')}` };
     }
 
     // Parse data rows
@@ -113,22 +123,33 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
       });
     }
 
+    console.log('Offers parsed:', offers.length);
+
     if (offers.length === 0) {
       return { success: false, message: 'No valid offers found in data' };
     }
 
+    console.log('First offer:', JSON.stringify(offers[0], null, 2));
+
     const adminClient = createAdminClient();
 
     // Delete all existing
-    await adminClient.from('clickbank_offers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    console.log('Deleting existing offers...');
+    const { error: deleteError } = await adminClient.from('clickbank_offers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (deleteError) {
+      console.log('Delete error (continuing):', deleteError.message);
+    }
 
     // Insert new
+    console.log('Inserting', offers.length, 'offers...');
     const { error } = await adminClient.from('clickbank_offers').insert(offers);
 
     if (error) {
+      console.error('Insert error:', error);
       return { success: false, message: `Insert failed: ${error.message}` };
     }
 
+    console.log('Insert successful!');
     return {
       success: true,
       message: `Synced ${offers.length} offers successfully!`
