@@ -200,8 +200,8 @@ interface GoogleSheetRow {
   'Affiliate Page URL'?: string;
   'Contact Email'?: string;
   'Average Dollar Per Conversion'?: string;
-  'Conversion Rate'?: string;
-  'EPC'?: string;
+  'Conversion Rate (CVR)'?: string;
+  'Earnings Per Click (EPC)'?: string;
   'Gravity': string;
   'Rank'?: string;
 }
@@ -315,25 +315,33 @@ export async function syncFromGoogleSheet(csvData: string): Promise<SyncResult> 
 
     for (const row of rows) {
       try {
-        const clickbankId = generateClickbankId(row['Product Name']);
+        const productName = row['Product Name']?.trim();
+        if (!productName) {
+          skipped++;
+          continue;
+        }
 
-        // Check if offer already exists
+        // Check if offer already exists by title (case-insensitive)
         const { data: existing } = await adminClient
           .from('clickbank_offers')
-          .select('id')
-          .eq('clickbank_id', clickbankId)
+          .select('id, clickbank_id')
+          .ilike('title', productName)
+          .limit(1)
           .single();
+
+        // Use existing clickbank_id or generate new one
+        const clickbankId = existing?.clickbank_id || generateClickbankId(productName);
 
         const offerData = {
           clickbank_id: clickbankId,
-          title: row['Product Name'],
+          title: productName,
           description: row['Description'] || null,
-          category: row['Category'],
+          category: row['Category'] || 'Unknown',
           subcategory: row['Subcategory'] || null,
           vendor_name: row['Contact Email']?.split('@')[0] || 'Unknown',
           gravity_score: parseNumber(row['Gravity']) || 0,
           average_dollar_per_sale: parseNumber(row['Average Dollar Per Conversion']),
-          commission_rate: parseNumber(row['Conversion Rate']),
+          commission_rate: parseNumber(row['Conversion Rate (CVR)']),
           affiliate_page_url: row['Affiliate Page URL'] || null,
           sales_page_url: row['Sales Page URL'] || null,
           is_active: true,
