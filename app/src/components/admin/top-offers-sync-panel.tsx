@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
-import { syncFromCSV } from '@/actions/admin/top-offers-sync';
 
 export function TopOffersSyncPanel() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -25,8 +24,16 @@ export function TopOffersSyncPanel() {
       const text = await file.text();
       console.log('CSV text length:', text.length);
       console.log('First 500 chars:', text.substring(0, 500));
-      const response = await syncFromCSV(text);
-      setResult(response);
+
+      // Use API route instead of server action
+      const response = await fetch('/api/admin/sync-offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvData: text }),
+      });
+
+      const data = await response.json();
+      setResult(data);
     } catch (err) {
       console.error('File sync error:', err);
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
