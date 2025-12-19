@@ -23,10 +23,14 @@ export function TopOffersSyncPanel() {
 
     try {
       const text = await file.text();
+      console.log('CSV text length:', text.length);
+      console.log('First 500 chars:', text.substring(0, 500));
       const response = await syncFromCSV(text);
       setResult(response);
     } catch (err) {
-      setResult({ success: false, message: 'Failed to read file' });
+      console.error('File sync error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      setResult({ success: false, message: `Error: ${errorMsg}` });
     }
 
     setIsSyncing(false);
