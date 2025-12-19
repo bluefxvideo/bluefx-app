@@ -25,21 +25,46 @@ function parseNum(value: string | undefined): number | null {
 }
 
 /**
- * Sync offers from pasted tab-separated data (from Google Sheet copy/paste)
+ * Parse CSV line handling quoted values with commas inside
  */
-export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/**
+ * Sync offers from CSV file upload
+ */
+export async function syncFromCSV(csvData: string): Promise<SyncResult> {
   try {
-    console.log('syncFromPastedData called, data length:', tsvData.length);
+    console.log('syncFromCSV called, data length:', csvData.length);
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      console.log('No user found');
       return { success: false, message: 'Not authenticated' };
     }
-
-    console.log('User:', user.email);
 
     // Check admin
     if (user.email !== 'contact@bluefx.net') {
@@ -53,16 +78,16 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
       }
     }
 
-    const lines = tsvData.trim().split('\n');
+    const lines = csvData.trim().split('\n');
     console.log('Lines count:', lines.length);
 
     if (lines.length < 2) {
       return { success: false, message: 'No data rows found' };
     }
 
-    // Parse header (first line)
-    const headers = lines[0].split('\t').map(h => h.trim());
-    console.log('Headers found:', headers.length, headers.slice(0, 5));
+    // Parse header (first line) - CSV uses commas
+    const headers = parseCSVLine(lines[0]);
+    console.log('Headers found:', headers);
 
     // Find column indices
     const cols = {
@@ -81,7 +106,7 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
     console.log('Column indices:', cols);
 
     if (cols.productName === -1 || cols.category === -1 || cols.gravity === -1) {
-      return { success: false, message: `Missing required columns. Found headers: ${headers.join(', ')}` };
+      return { success: false, message: `Missing required columns. Found: ${headers.join(', ')}` };
     }
 
     // Parse data rows
@@ -92,7 +117,7 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
       const line = lines[i].trim();
       if (!line) continue;
 
-      const values = line.split('\t');
+      const values = parseCSVLine(line);
       const productName = values[cols.productName]?.trim();
       if (!productName) continue;
 
@@ -126,7 +151,7 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
     console.log('Offers parsed:', offers.length);
 
     if (offers.length === 0) {
-      return { success: false, message: 'No valid offers found in data' };
+      return { success: false, message: 'No valid offers found in CSV' };
     }
 
     console.log('First offer:', JSON.stringify(offers[0], null, 2));
@@ -135,10 +160,7 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
 
     // Delete all existing
     console.log('Deleting existing offers...');
-    const { error: deleteError } = await adminClient.from('clickbank_offers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (deleteError) {
-      console.log('Delete error (continuing):', deleteError.message);
-    }
+    await adminClient.from('clickbank_offers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
     // Insert new
     console.log('Inserting', offers.length, 'offers...');
@@ -149,7 +171,6 @@ export async function syncFromPastedData(tsvData: string): Promise<SyncResult> {
       return { success: false, message: `Insert failed: ${error.message}` };
     }
 
-    console.log('Insert successful!');
     return {
       success: true,
       message: `Synced ${offers.length} offers successfully!`

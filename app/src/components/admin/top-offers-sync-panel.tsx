@@ -1,28 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
-import { syncFromPastedData } from '@/actions/admin/top-offers-sync';
+import { Loader2, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
+import { syncFromCSV } from '@/actions/admin/top-offers-sync';
 
 export function TopOffersSyncPanel() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [pastedData, setPastedData] = useState('');
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSync = async () => {
-    if (!pastedData.trim()) {
-      setResult({ success: false, message: 'Please paste the data from Google Sheet' });
-      return;
-    }
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
     setIsSyncing(true);
     setResult(null);
-    const response = await syncFromPastedData(pastedData);
-    setResult(response);
+
+    try {
+      const text = await file.text();
+      const response = await syncFromCSV(text);
+      setResult(response);
+    } catch (err) {
+      setResult({ success: false, message: 'Failed to read file' });
+    }
+
     setIsSyncing(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -33,26 +41,31 @@ export function TopOffersSyncPanel() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Copy all rows from your Google Sheet (including header) and paste below:
+            Download your Google Sheet as CSV (File → Download → CSV), then upload it here.
           </p>
-          <Textarea
-            placeholder="Paste tab-separated data from Google Sheet here..."
-            value={pastedData}
-            onChange={(e) => setPastedData(e.target.value)}
-            rows={10}
-            className="font-mono text-xs"
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileSelect}
+            className="hidden"
           />
 
-          <Button onClick={handleSync} disabled={isSyncing || !pastedData.trim()}>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSyncing}
+            className="w-full"
+          >
             {isSyncing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Syncing...
+                Syncing {fileName}...
               </>
             ) : (
               <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Sync Now
+                <Upload className="mr-2 h-4 w-4" />
+                Upload CSV File
               </>
             )}
           </Button>
