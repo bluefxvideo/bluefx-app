@@ -81,6 +81,7 @@ export function TopOffersSyncPanel() {
           category: offer['Category'] || 'Unknown',
           subcategory: offer['Subcategory'] || null,
           vendor_name: offer['Contact Email']?.split('@')[0] || vendorId,
+          vendor_contact_email: offer['Contact Email'] || null,
           gravity_score: parseNumber(offer['Gravity']) || 0,
           average_dollar_per_sale: parseNumber(offer['Average Dollar Per Conversion']),
           commission_rate: (parseNumber(offer['Conversion Rate (CVR)']) || 0) / 100,

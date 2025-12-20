@@ -18,6 +18,8 @@ import {
   Flame,
   DollarSign,
   ExternalLink,
+  UserPlus,
+  Mail,
 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Button } from '@/components/ui/button';
@@ -261,34 +263,63 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                 <CardContent className={isAdmin ? 'pl-8' : ''}>
                   {/* ClickBank Stats */}
                   {product.clickbank_stats && (
-                    <div className="flex items-center gap-4 mb-3 p-2 bg-zinc-800/50 rounded-lg">
-                      <div className="flex items-center gap-1.5">
-                        <Flame className="w-4 h-4 text-orange-500" />
-                        <span className="text-sm font-semibold text-orange-400">
-                          {product.clickbank_stats.gravity_score.toFixed(1)}
-                        </span>
-                        <span className="text-xs text-zinc-500">gravity</span>
-                      </div>
-                      {product.clickbank_stats.average_dollar_per_sale && (
+                    <div className="mb-3 p-2 bg-zinc-800/50 rounded-lg space-y-2">
+                      {/* Stats row */}
+                      <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">
-                          <DollarSign className="w-4 h-4 text-green-500" />
-                          <span className="text-sm font-semibold text-green-400">
-                            ${product.clickbank_stats.average_dollar_per_sale.toFixed(0)}
+                          <Flame className="w-4 h-4 text-orange-500" />
+                          <span className="text-sm font-semibold text-orange-400">
+                            {product.clickbank_stats.gravity_score.toFixed(1)}
                           </span>
-                          <span className="text-xs text-zinc-500">/sale</span>
+                          <span className="text-xs text-zinc-500">gravity</span>
                         </div>
-                      )}
-                      {product.clickbank_stats.sales_page_url && (
-                        <a
-                          href={product.clickbank_stats.sales_page_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-auto text-zinc-400 hover:text-white transition-colors"
-                          title="View Sales Page"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      )}
+                        {product.clickbank_stats.average_dollar_per_sale && (
+                          <div className="flex items-center gap-1.5">
+                            <DollarSign className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-semibold text-green-400">
+                              ${product.clickbank_stats.average_dollar_per_sale.toFixed(0)}
+                            </span>
+                            <span className="text-xs text-zinc-500">/sale</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Action buttons row */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-zinc-700/50">
+                        {product.clickbank_stats.sales_page_url && (
+                          <a
+                            href={product.clickbank_stats.sales_page_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                            title="View Sales Page"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            See Offer
+                          </a>
+                        )}
+                        {product.clickbank_stats.affiliate_page_url && (
+                          <a
+                            href={product.clickbank_stats.affiliate_page_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                            title="Become an Affiliate"
+                          >
+                            <UserPlus className="w-3 h-3" />
+                            Become Affiliate
+                          </a>
+                        )}
+                        {product.clickbank_stats.vendor_contact_email && (
+                          <a
+                            href={`mailto:${product.clickbank_stats.vendor_contact_email}`}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                            title="Contact Seller"
+                          >
+                            <Mail className="w-3 h-3" />
+                            Contact
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
 

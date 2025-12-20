@@ -45,6 +45,7 @@ export interface LibraryProduct extends BaseOffer {
     sales_page_url: string | null;
     affiliate_page_url: string | null;
     category: string | null;
+    vendor_contact_email: string | null;
   } | null;
 }
 

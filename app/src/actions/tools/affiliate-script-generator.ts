@@ -199,12 +199,13 @@ export async function fetchLibraryProducts(): Promise<{
       sales_page_url: string | null;
       affiliate_page_url: string | null;
       category: string | null;
+      vendor_contact_email: string | null;
     }> = {};
 
     if (clickbankIds.length > 0) {
       const { data: cbData } = await supabase
         .from('clickbank_offers')
-        .select('clickbank_id, gravity_score, average_dollar_per_sale, sales_page_url, affiliate_page_url, category')
+        .select('clickbank_id, gravity_score, average_dollar_per_sale, sales_page_url, affiliate_page_url, category, vendor_contact_email')
         .in('clickbank_id', clickbankIds);
 
       if (cbData) {
@@ -215,6 +216,7 @@ export async function fetchLibraryProducts(): Promise<{
             sales_page_url: offer.sales_page_url,
             affiliate_page_url: offer.affiliate_page_url,
             category: offer.category,
+            vendor_contact_email: offer.vendor_contact_email,
           };
           return acc;
         }, {} as typeof clickbankStatsMap);
