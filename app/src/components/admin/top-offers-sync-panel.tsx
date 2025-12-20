@@ -86,7 +86,6 @@ export function TopOffersSyncPanel() {
           commission_rate: parseNumber(offer['Conversion Rate (CVR)']),
           affiliate_page_url: offer['Affiliate Page URL'] || null,
           sales_page_url: offer['Sales Page URL'] || null,
-          image_url: offer['Product Image'] || null,
           is_active: true,
           last_updated_at: today,
         };
