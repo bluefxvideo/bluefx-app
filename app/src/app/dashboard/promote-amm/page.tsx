@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 export default function PromoteAMMPage() {
   const [referrals, setReferrals] = useState(10);
   const [copied, setCopied] = useState(false);
+  const [clickbankId, setClickbankId] = useState('');
 
   // AMM affiliate stats
   const monthlyPrice = 37;
@@ -37,8 +38,12 @@ export default function PromoteAMMPage() {
   const yearlyEarnings = monthlyEarnings * 12;
   const lifetimeValue = referrals * monthlyPrice * commissionRate * avgRetentionMonths;
 
+  const affiliateLink = clickbankId.trim()
+    ? `https://bluefx.net/amm/ai-media-machine/?affiliate=${clickbankId.trim()}`
+    : 'https://bluefx.net/amm/ai-media-machine/';
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText('https://bluefx.net/amm/ai-media-machine/');
+    navigator.clipboard.writeText(affiliateLink);
     setCopied(true);
     toast.success('Affiliate link copied!');
     setTimeout(() => setCopied(false), 2000);
@@ -148,40 +153,61 @@ export default function PromoteAMMPage() {
 
         {/* Get Your Link */}
         <Card className="bg-primary/5 border-primary/30">
-          <CardContent className="p-6">
+          <CardContent className="p-6 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-xl font-semibold text-white mb-2">Ready to Start Earning?</h3>
-                <p className="text-zinc-400">Sign up to ClickBank first, then get your unique affiliate link.</p>
+                <p className="text-zinc-400">Sign up to ClickBank first, then generate your unique affiliate link.</p>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => window.open('https://www.clickbank.com/', '_blank')}
-                  className="gap-2"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Sign Up to ClickBank
-                </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => window.open('https://www.clickbank.com/', '_blank')}
+                className="gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Sign Up to ClickBank
+              </Button>
+            </div>
+
+            {/* Affiliate Link Generator */}
+            <div className="p-4 bg-zinc-800/50 rounded-lg space-y-3">
+              <label className="block text-sm text-zinc-400">
+                Enter your ClickBank ID to generate your affiliate link:
+              </label>
+              <div className="flex gap-3">
+                <Input
+                  type="text"
+                  placeholder="Your ClickBank ID"
+                  value={clickbankId}
+                  onChange={(e) => setClickbankId(e.target.value)}
+                  className="flex-1"
+                />
                 <Button
                   onClick={handleCopyLink}
                   className="gap-2"
-                  size="lg"
+                  disabled={!clickbankId.trim()}
                 >
                   {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? 'Copied!' : 'Copy Affiliate Link'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => window.open('https://bluefx.net/affiliates/', '_blank')}
-                  className="gap-2"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Affiliate Resources
+                  {copied ? 'Copied!' : 'Copy Link'}
                 </Button>
               </div>
+              {clickbankId.trim() && (
+                <p className="text-xs text-zinc-500 break-all">
+                  Your link: <span className="text-primary">{affiliateLink}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => window.open('https://bluefx.net/affiliates/', '_blank')}
+                className="gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Affiliate Resources
+              </Button>
             </div>
           </CardContent>
         </Card>
