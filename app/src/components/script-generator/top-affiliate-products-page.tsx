@@ -20,6 +20,9 @@ import {
   ExternalLink,
   UserPlus,
   Mail,
+  Star,
+  TrendingUp,
+  ArrowRight,
 } from 'lucide-react';
 import {
   DndContext,
@@ -438,6 +441,45 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
               Add New Product
             </Button>
           )}
+        </div>
+
+        {/* AMM Promotion Banner */}
+        <div className="mb-6 p-4 bg-gradient-to-r from-primary/20 via-purple-500/20 to-pink-500/20 border border-primary/30 rounded-xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-primary/20 rounded-lg">
+                <Star className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  Promote AI Media Machine
+                  <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">
+                    50% Recurring
+                  </span>
+                </h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Earn ~$18.50/month per referral. 7.2% conversion rate. 6+ month avg retention.
+                </p>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1 text-xs text-zinc-500">
+                    <TrendingUp className="w-3 h-3 text-green-500" />
+                    <span>$111+ per customer</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-zinc-500">
+                    <Sparkles className="w-3 h-3 text-purple-500" />
+                    <span>Use our YouTube videos</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={() => router.push('/dashboard/promote-amm')}
+              className="gap-2 bg-primary hover:bg-primary/90 shrink-0"
+            >
+              Learn More
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Error Display */}
