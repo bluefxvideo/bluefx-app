@@ -506,6 +506,47 @@ export async function updateAffiliateOffer(
 }
 
 /**
+ * Server action to reorder library products (admin only)
+ */
+export async function reorderLibraryProducts(
+  orderedIds: string[]
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    // Check if user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    // Update each product's display_order based on its position in the array
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await supabase
+        .from('affiliate_product_library')
+        .update({ display_order: i })
+        .eq('id', orderedIds[i]);
+
+      if (error) {
+        console.error('Error updating display order:', error);
+        return { success: false, error: `Failed to update order for product ${i}` };
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error reordering products:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to reorder products'
+    };
+  }
+}
+
+/**
  * Server action to delete a library product (admin only)
  */
 export async function deleteLibraryProduct(id: string): Promise<{

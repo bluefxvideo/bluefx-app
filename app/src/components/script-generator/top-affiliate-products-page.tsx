@@ -21,6 +21,23 @@ import {
   UserPlus,
   Mail,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,11 +53,232 @@ import type { LibraryProduct } from '@/lib/affiliate-toolkit/types';
 import { countWords } from '@/lib/affiliate-toolkit/types';
 import {
   fetchLibraryProducts,
-  deleteLibraryProduct
+  deleteLibraryProduct,
+  reorderLibraryProducts
 } from '@/actions/tools/affiliate-script-generator';
 
 interface TopAffiliateProductsPageProps {
   isAdmin?: boolean;
+}
+
+// Sortable Product Card Component
+interface SortableProductCardProps {
+  product: LibraryProduct;
+  isAdmin: boolean;
+  onEdit: (product: LibraryProduct) => void;
+  onDelete: (product: LibraryProduct) => void;
+  onUse: (product: LibraryProduct) => void;
+  isProductTrained: (product: LibraryProduct) => boolean;
+  getContentIcons: (product: LibraryProduct) => React.ReactNode[];
+  getProductContentSummary: (product: LibraryProduct) => string;
+}
+
+function SortableProductCard({
+  product,
+  isAdmin,
+  onEdit,
+  onDelete,
+  onUse,
+  isProductTrained,
+  getContentIcons,
+  getProductContentSummary,
+}: SortableProductCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: product.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 'auto',
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className="bg-card border-border hover:border-zinc-600 transition-colors group relative"
+    >
+      {/* Admin drag handle */}
+      {isAdmin && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 p-1 hover:bg-zinc-700/50 rounded"
+        >
+          <GripVertical className="w-4 h-4 text-zinc-500" />
+        </div>
+      )}
+
+      {/* Product Image */}
+      {product.image_url && (
+        <div className={`h-32 bg-zinc-800/50 overflow-hidden ${isAdmin ? 'ml-6' : ''}`}>
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+
+      <CardHeader className={`pb-2 ${isAdmin ? 'pl-8' : ''}`}>
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg text-white line-clamp-1">
+              {product.name}
+            </CardTitle>
+            {isProductTrained(product) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/20 text-green-400 rounded-full">
+                <Sparkles className="w-3 h-3" />
+                Trained
+              </span>
+            )}
+          </div>
+
+          {/* Admin buttons */}
+          {isAdmin && (
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit(product)}
+                className="h-8 w-8 p-0"
+              >
+                <Pencil className="w-4 h-4 text-zinc-400 hover:text-white" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(product)}
+                className="h-8 w-8 p-0"
+              >
+                <Trash2 className="w-4 h-4 text-zinc-400 hover:text-red-400" />
+              </Button>
+            </div>
+          )}
+        </div>
+        {product.niche && (
+          <span className="inline-block px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full">
+            {product.niche}
+          </span>
+        )}
+      </CardHeader>
+      <CardContent className={isAdmin ? 'pl-8' : ''}>
+        {/* ClickBank Stats */}
+        {product.clickbank_stats && (
+          <div className="mb-3 p-2 bg-zinc-800/50 rounded-lg space-y-2">
+            {/* Stats row */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="text-sm font-semibold text-orange-400">
+                  {product.clickbank_stats.gravity_score.toFixed(1)}
+                </span>
+                <span className="text-xs text-zinc-500">gravity</span>
+              </div>
+              {product.clickbank_stats.average_dollar_per_sale && (
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-semibold text-green-400">
+                    ${product.clickbank_stats.average_dollar_per_sale.toFixed(0)}
+                  </span>
+                  <span className="text-xs text-zinc-500">/sale</span>
+                </div>
+              )}
+            </div>
+            {/* Action buttons row */}
+            <div className="flex items-center gap-2 pt-1 border-t border-zinc-700/50">
+              {product.clickbank_stats.sales_page_url && (
+                <a
+                  href={product.clickbank_stats.sales_page_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                  title="View Sales Page"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  See Offer
+                </a>
+              )}
+              {product.clickbank_stats.affiliate_page_url && (
+                <a
+                  href={product.clickbank_stats.affiliate_page_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                  title="Become an Affiliate"
+                >
+                  <UserPlus className="w-3 h-3" />
+                  Become Affiliate
+                </a>
+              )}
+              {product.clickbank_stats.vendor_contact_email && (
+                <a
+                  href={`mailto:${product.clickbank_stats.vendor_contact_email}`}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                  title="Contact Seller"
+                >
+                  <Mail className="w-3 h-3" />
+                  Contact
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        <p className="text-sm text-zinc-400 line-clamp-2">
+          {product.offer_content || 'No description'}
+        </p>
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center gap-2">
+            {getContentIcons(product)}
+            <span className="text-xs text-zinc-500">{getProductContentSummary(product)}</span>
+          </div>
+          {product.aggregated_content && (
+            <span className="text-xs font-medium text-primary">
+              {countWords(product.aggregated_content).toLocaleString()} words
+            </span>
+          )}
+        </div>
+
+        {/* Use Product button (for non-admin users) */}
+        {!isAdmin && (
+          <Button
+            onClick={() => onUse(product)}
+            className="w-full mt-4 gap-2"
+            disabled={!isProductTrained(product)}
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate Content
+          </Button>
+        )}
+
+        {/* Admin: quick generate button */}
+        {isAdmin && (
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onUse(product)}
+              className="flex-1 gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Generate
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProductsPageProps) {
@@ -53,6 +291,18 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<LibraryProduct | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Load products on mount
   useEffect(() => {
@@ -135,8 +385,30 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
   };
 
   // Check if product is "trained" (has aggregated content)
-  const isProductTrained = (product: LibraryProduct) => {
-    return product.aggregated_content && countWords(product.aggregated_content) > 100;
+  const isProductTrained = (product: LibraryProduct): boolean => {
+    return !!(product.aggregated_content && countWords(product.aggregated_content) > 100);
+  };
+
+  // Handle drag end for reordering
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = products.findIndex((p) => p.id === active.id);
+      const newIndex = products.findIndex((p) => p.id === over.id);
+
+      const newProducts = arrayMove(products, oldIndex, newIndex);
+      setProducts(newProducts);
+
+      // Save new order to database
+      const orderedIds = newProducts.map((p) => p.id);
+      const result = await reorderLibraryProducts(orderedIds);
+      if (!result.success) {
+        setError('Failed to save new order');
+        // Revert on error
+        loadProducts();
+      }
+    }
   };
 
   return (
@@ -190,204 +462,53 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
             <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
           </div>
         ) : (
-          /* Products Grid */
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
-              <Card
-                key={product.id}
-                className="bg-card border-border hover:border-zinc-600 transition-colors group relative"
-              >
-                {/* Admin drag handle */}
-                {isAdmin && (
-                  <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab">
-                    <GripVertical className="w-4 h-4 text-zinc-600" />
-                  </div>
-                )}
+          /* Products Grid with Drag and Drop */
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={products.map((p) => p.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {products.map((product) => (
+                  <SortableProductCard
+                    key={product.id}
+                    product={product}
+                    isAdmin={isAdmin}
+                    onEdit={(p) => router.push(`/dashboard/script-generator/offers/${p.id}`)}
+                    onDelete={confirmDelete}
+                    onUse={handleUseProduct}
+                    isProductTrained={isProductTrained}
+                    getContentIcons={getContentIcons}
+                    getProductContentSummary={getProductContentSummary}
+                  />
+                ))}
 
-                {/* Product Image */}
-                {product.image_url && (
-                  <div className={`h-32 bg-zinc-800/50 overflow-hidden ${isAdmin ? 'ml-6' : ''}`}>
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-
-                <CardHeader className={`pb-2 ${isAdmin ? 'pl-8' : ''}`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg text-white line-clamp-1">
-                        {product.name}
-                      </CardTitle>
-                      {isProductTrained(product) && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/20 text-green-400 rounded-full">
-                          <Sparkles className="w-3 h-3" />
-                          Trained
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Admin buttons */}
-                    {isAdmin && (
-                      <div className="flex gap-1">
+                {products.length === 0 && (
+                  <div className="col-span-full text-center py-12">
+                    <Library className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                    {isAdmin ? (
+                      <>
+                        <p className="text-zinc-500 mb-4">No products in the library yet. Add your first product.</p>
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/dashboard/script-generator/offers/${product.id}`)}
-                          className="h-8 w-8 p-0"
+                          onClick={() => router.push('/dashboard/script-generator/offers/new')}
+                          className="gap-2"
                         >
-                          <Pencil className="w-4 h-4 text-zinc-400 hover:text-white" />
+                          <Plus className="w-4 h-4" />
+                          Add New Product
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => confirmDelete(product)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Trash2 className="w-4 h-4 text-zinc-400 hover:text-red-400" />
-                        </Button>
-                      </div>
+                      </>
+                    ) : (
+                      <p className="text-zinc-500">No products available yet. Check back soon!</p>
                     )}
                   </div>
-                  {product.niche && (
-                    <span className="inline-block px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full">
-                      {product.niche}
-                    </span>
-                  )}
-                </CardHeader>
-                <CardContent className={isAdmin ? 'pl-8' : ''}>
-                  {/* ClickBank Stats */}
-                  {product.clickbank_stats && (
-                    <div className="mb-3 p-2 bg-zinc-800/50 rounded-lg space-y-2">
-                      {/* Stats row */}
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                          <Flame className="w-4 h-4 text-orange-500" />
-                          <span className="text-sm font-semibold text-orange-400">
-                            {product.clickbank_stats.gravity_score.toFixed(1)}
-                          </span>
-                          <span className="text-xs text-zinc-500">gravity</span>
-                        </div>
-                        {product.clickbank_stats.average_dollar_per_sale && (
-                          <div className="flex items-center gap-1.5">
-                            <DollarSign className="w-4 h-4 text-green-500" />
-                            <span className="text-sm font-semibold text-green-400">
-                              ${product.clickbank_stats.average_dollar_per_sale.toFixed(0)}
-                            </span>
-                            <span className="text-xs text-zinc-500">/sale</span>
-                          </div>
-                        )}
-                      </div>
-                      {/* Action buttons row */}
-                      <div className="flex items-center gap-2 pt-1 border-t border-zinc-700/50">
-                        {product.clickbank_stats.sales_page_url && (
-                          <a
-                            href={product.clickbank_stats.sales_page_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
-                            title="View Sales Page"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            See Offer
-                          </a>
-                        )}
-                        {product.clickbank_stats.affiliate_page_url && (
-                          <a
-                            href={product.clickbank_stats.affiliate_page_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
-                            title="Become an Affiliate"
-                          >
-                            <UserPlus className="w-3 h-3" />
-                            Become Affiliate
-                          </a>
-                        )}
-                        {product.clickbank_stats.vendor_contact_email && (
-                          <a
-                            href={`mailto:${product.clickbank_stats.vendor_contact_email}`}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
-                            title="Contact Seller"
-                          >
-                            <Mail className="w-3 h-3" />
-                            Contact
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <p className="text-sm text-zinc-400 line-clamp-2">
-                    {product.offer_content || 'No description'}
-                  </p>
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-2">
-                      {getContentIcons(product)}
-                      <span className="text-xs text-zinc-500">{getProductContentSummary(product)}</span>
-                    </div>
-                    {product.aggregated_content && (
-                      <span className="text-xs font-medium text-primary">
-                        {countWords(product.aggregated_content).toLocaleString()} words
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Use Product button (for non-admin users) */}
-                  {!isAdmin && (
-                    <Button
-                      onClick={() => handleUseProduct(product)}
-                      className="w-full mt-4 gap-2"
-                      disabled={!isProductTrained(product)}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Generate Content
-                    </Button>
-                  )}
-
-                  {/* Admin: quick generate button */}
-                  {isAdmin && (
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUseProduct(product)}
-                        className="flex-1 gap-2"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Generate
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-
-            {products.length === 0 && (
-              <div className="col-span-full text-center py-12">
-                <Library className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                {isAdmin ? (
-                  <>
-                    <p className="text-zinc-500 mb-4">No products in the library yet. Add your first product.</p>
-                    <Button
-                      onClick={() => router.push('/dashboard/script-generator/offers/new')}
-                      className="gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add New Product
-                    </Button>
-                  </>
-                ) : (
-                  <p className="text-zinc-500">No products available yet. Check back soon!</p>
                 )}
               </div>
-            )}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
 
         {/* Delete Confirmation Dialog (Admin only) */}
