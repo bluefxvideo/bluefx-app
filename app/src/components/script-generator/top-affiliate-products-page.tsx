@@ -15,6 +15,9 @@ import {
   Youtube,
   Sparkles,
   GripVertical,
+  Flame,
+  DollarSign,
+  ExternalLink,
 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Button } from '@/components/ui/button';
@@ -256,6 +259,39 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                   )}
                 </CardHeader>
                 <CardContent className={isAdmin ? 'pl-8' : ''}>
+                  {/* ClickBank Stats */}
+                  {product.clickbank_stats && (
+                    <div className="flex items-center gap-4 mb-3 p-2 bg-zinc-800/50 rounded-lg">
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="w-4 h-4 text-orange-500" />
+                        <span className="text-sm font-semibold text-orange-400">
+                          {product.clickbank_stats.gravity_score.toFixed(1)}
+                        </span>
+                        <span className="text-xs text-zinc-500">gravity</span>
+                      </div>
+                      {product.clickbank_stats.average_dollar_per_sale && (
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign className="w-4 h-4 text-green-500" />
+                          <span className="text-sm font-semibold text-green-400">
+                            ${product.clickbank_stats.average_dollar_per_sale.toFixed(0)}
+                          </span>
+                          <span className="text-xs text-zinc-500">/sale</span>
+                        </div>
+                      )}
+                      {product.clickbank_stats.sales_page_url && (
+                        <a
+                          href={product.clickbank_stats.sales_page_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-auto text-zinc-400 hover:text-white transition-colors"
+                          title="View Sales Page"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-sm text-zinc-400 line-clamp-2">
                     {product.offer_content || 'No description'}
                   </p>
@@ -279,7 +315,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                       disabled={!isProductTrained(product)}
                     >
                       <Sparkles className="w-4 h-4" />
-                      Use Product
+                      Generate Content
                     </Button>
                   )}
 

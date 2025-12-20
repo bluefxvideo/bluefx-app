@@ -37,6 +37,15 @@ interface BaseOffer {
 // Library product (admin-managed, no user_id)
 export interface LibraryProduct extends BaseOffer {
   display_order: number;
+  clickbank_id?: string | null;
+  // Stats from linked clickbank_offers (joined at query time)
+  clickbank_stats?: {
+    gravity_score: number;
+    average_dollar_per_sale: number | null;
+    sales_page_url: string | null;
+    affiliate_page_url: string | null;
+    category: string | null;
+  } | null;
 }
 
 // User's business offer (user-specific)

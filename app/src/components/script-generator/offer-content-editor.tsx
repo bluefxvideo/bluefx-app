@@ -39,6 +39,7 @@ import {
   createUserBusinessOffer,
   updateUserBusinessOffer,
   uploadProductImage,
+  fetchClickBankOffersForDropdown,
 } from '@/actions/tools/affiliate-script-generator';
 import { fetchYouTubeTranscript } from '@/actions/tools/youtube-transcript';
 import { processUploadedFile } from '@/actions/tools/media-transcription';
@@ -78,6 +79,15 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
   const [offerName, setOfferName] = useState('');
   const [offerNiche, setOfferNiche] = useState('');
   const [offerImageUrl, setOfferImageUrl] = useState('');
+  const [selectedClickBankId, setSelectedClickBankId] = useState<string | null>(null);
+
+  // ClickBank offers for dropdown (admin only)
+  const [clickBankOffers, setClickBankOffers] = useState<Array<{
+    clickbank_id: string;
+    title: string;
+    gravity_score: number;
+    category: string | null;
+  }>>([]);
 
   // Content sources
   const [sources, setSources] = useState<ContentSource[]>([]);
@@ -105,6 +115,20 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
     }
   }, [offerId]);
 
+  // Load ClickBank offers for dropdown (admin/library mode only)
+  useEffect(() => {
+    if (mode === 'library') {
+      loadClickBankOffers();
+    }
+  }, [mode]);
+
+  const loadClickBankOffers = async () => {
+    const result = await fetchClickBankOffersForDropdown();
+    if (result.success && result.offers) {
+      setClickBankOffers(result.offers);
+    }
+  };
+
   const loadOffer = async () => {
     setIsLoading(true);
     try {
@@ -121,6 +145,10 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
           setOfferName(offer.name);
           setOfferNiche(offer.niche || '');
           setOfferImageUrl(offer.image_url || '');
+          // Load clickbank_id for library products
+          if (mode === 'library' && 'clickbank_id' in offer) {
+            setSelectedClickBankId((offer as LibraryProduct).clickbank_id || null);
+          }
 
           // Convert existing data to sources
           const loadedSources: ContentSource[] = [];
@@ -449,6 +477,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
         media_files: mediaFiles,
         youtube_transcripts: youtubeTranscripts,
         aggregated_content: masterDocument,
+        ...(mode === 'library' && { clickbank_id: selectedClickBankId }),
       };
 
       if (offerId) {
@@ -610,6 +639,30 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                   className="bg-background border-border mt-1"
                 />
               </div>
+              {/* ClickBank Link Dropdown (Library mode only) */}
+              {mode === 'library' && clickBankOffers.length > 0 && (
+                <div>
+                  <Label htmlFor="clickbank" className="text-xs text-zinc-500">Link to ClickBank Offer</Label>
+                  <select
+                    id="clickbank"
+                    value={selectedClickBankId || ''}
+                    onChange={(e) => setSelectedClickBankId(e.target.value || null)}
+                    className="w-full mt-1 px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground"
+                  >
+                    <option value="">-- Not linked --</option>
+                    {clickBankOffers.map((offer) => (
+                      <option key={offer.clickbank_id} value={offer.clickbank_id}>
+                        {offer.title} ({offer.gravity_score.toFixed(0)})
+                      </option>
+                    ))}
+                  </select>
+                  {selectedClickBankId && (
+                    <p className="text-xs text-green-500 mt-1">
+                      Stats will be shown on product card
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <Label className="text-xs text-zinc-500">Product Image</Label>
                 {offerImageUrl ? (

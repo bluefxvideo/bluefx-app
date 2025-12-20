@@ -163,6 +163,7 @@ export async function refineAffiliateScript(
 
 /**
  * Server action to fetch library products (pre-trained affiliate offers)
+ * Now includes stats from linked clickbank_offers
  */
 export async function fetchLibraryProducts(): Promise<{
   success: boolean;
@@ -172,6 +173,7 @@ export async function fetchLibraryProducts(): Promise<{
   try {
     const supabase = await createClient();
 
+    // Fetch library products
     const { data, error } = await supabase
       .from('affiliate_product_library')
       .select('*')
@@ -185,12 +187,47 @@ export async function fetchLibraryProducts(): Promise<{
       };
     }
 
-    // Ensure arrays are properly initialized for each product
+    // Get all clickbank_ids that are linked
+    const clickbankIds = (data || [])
+      .map(p => p.clickbank_id)
+      .filter(Boolean);
+
+    // Fetch ClickBank stats for linked products
+    let clickbankStatsMap: Record<string, {
+      gravity_score: number;
+      average_dollar_per_sale: number | null;
+      sales_page_url: string | null;
+      affiliate_page_url: string | null;
+      category: string | null;
+    }> = {};
+
+    if (clickbankIds.length > 0) {
+      const { data: cbData } = await supabase
+        .from('clickbank_offers')
+        .select('clickbank_id, gravity_score, average_dollar_per_sale, sales_page_url, affiliate_page_url, category')
+        .in('clickbank_id', clickbankIds);
+
+      if (cbData) {
+        clickbankStatsMap = cbData.reduce((acc, offer) => {
+          acc[offer.clickbank_id] = {
+            gravity_score: offer.gravity_score,
+            average_dollar_per_sale: offer.average_dollar_per_sale,
+            sales_page_url: offer.sales_page_url,
+            affiliate_page_url: offer.affiliate_page_url,
+            category: offer.category,
+          };
+          return acc;
+        }, {} as typeof clickbankStatsMap);
+      }
+    }
+
+    // Merge products with their ClickBank stats
     const products = (data || []).map(product => ({
       ...product,
       media_files: product.media_files || [],
       youtube_transcripts: product.youtube_transcripts || [],
       display_order: product.display_order || 0,
+      clickbank_stats: product.clickbank_id ? clickbankStatsMap[product.clickbank_id] || null : null,
     }));
 
     return {
@@ -223,6 +260,40 @@ export async function fetchAffiliateOffers(): Promise<{
 }
 
 /**
+ * Fetch ClickBank offers for dropdown selection (admin linking)
+ */
+export async function fetchClickBankOffersForDropdown(): Promise<{
+  success: boolean;
+  offers?: Array<{
+    clickbank_id: string;
+    title: string;
+    gravity_score: number;
+    category: string | null;
+  }>;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('clickbank_offers')
+      .select('clickbank_id, title, gravity_score, category')
+      .eq('is_active', true)
+      .order('gravity_score', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching ClickBank offers:', error);
+      return { success: false, error: 'Failed to fetch offers' };
+    }
+
+    return { success: true, offers: data || [] };
+  } catch (error) {
+    console.error('Error fetching ClickBank offers:', error);
+    return { success: false, error: 'Failed to fetch offers' };
+  }
+}
+
+/**
  * Server action to create a new library product (admin only)
  */
 export async function createLibraryProduct(product: {
@@ -234,6 +305,7 @@ export async function createLibraryProduct(product: {
   youtube_transcripts?: OfferYouTubeTranscript[];
   aggregated_content?: string;
   display_order?: number;
+  clickbank_id?: string;
 }): Promise<{
   success: boolean;
   product?: LibraryProduct;
@@ -266,6 +338,7 @@ export async function createLibraryProduct(product: {
         youtube_transcripts: product.youtube_transcripts || [],
         aggregated_content: aggregated_content || null,
         display_order: product.display_order || 0,
+        clickbank_id: product.clickbank_id || null,
       }])
       .select()
       .single();
@@ -331,6 +404,7 @@ export async function updateLibraryProduct(
     youtube_transcripts?: OfferYouTubeTranscript[];
     aggregated_content?: string;
     display_order?: number;
+    clickbank_id?: string | null;
   }
 ): Promise<{
   success: boolean;
