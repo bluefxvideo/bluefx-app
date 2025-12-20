@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, AlertTriangle, RefreshCw, Library } from 'lucide-react';
 import { createClient } from '@/app/supabase/client';
 
 interface ClickBankOffer {
@@ -25,6 +25,7 @@ interface ClickBankOffer {
 
 export function TopOffersSyncPanel() {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [jsonInput, setJsonInput] = useState('');
 
@@ -175,6 +176,111 @@ export function TopOffersSyncPanel() {
     setIsSyncing(false);
   };
 
+  // Bulk import to affiliate_product_library
+  const handleBulkImport = async () => {
+    if (!jsonInput.trim()) {
+      setResult({ success: false, message: 'Please paste JSON data first' });
+      return;
+    }
+
+    setIsImporting(true);
+    setResult(null);
+
+    try {
+      let offers: ClickBankOffer[];
+      try {
+        offers = JSON.parse(jsonInput);
+      } catch {
+        setResult({ success: false, message: 'Invalid JSON format' });
+        setIsImporting(false);
+        return;
+      }
+
+      if (!Array.isArray(offers) || offers.length === 0) {
+        setResult({ success: false, message: 'JSON must be an array of offers' });
+        setIsImporting(false);
+        return;
+      }
+
+      const supabase = createClient();
+
+      // Get existing library products to avoid duplicates
+      const { data: existingProducts } = await supabase
+        .from('affiliate_product_library')
+        .select('clickbank_id');
+
+      const existingClickbankIds = new Set(
+        (existingProducts || []).map(p => p.clickbank_id).filter(Boolean)
+      );
+
+      // Filter out offers that already exist in library
+      const newOffers = offers.filter(offer => {
+        const vendorId = extractVendorId(offer['Sales Page URL']) ||
+          offer['Product Name'].toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 20);
+        return !existingClickbankIds.has(vendorId);
+      });
+
+      if (newOffers.length === 0) {
+        setResult({ success: true, message: 'All products already exist in library. Nothing to import.' });
+        setIsImporting(false);
+        return;
+      }
+
+      // Get max display_order
+      const { data: maxOrderData } = await supabase
+        .from('affiliate_product_library')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1);
+
+      let nextOrder = (maxOrderData?.[0]?.display_order || 0) + 1;
+
+      // Create library entries
+      const libraryEntries = newOffers.map((offer) => {
+        const vendorId = extractVendorId(offer['Sales Page URL']) ||
+          offer['Product Name'].toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 20);
+
+        return {
+          name: offer['Product Name'],
+          niche: offer['Category'] || null,
+          image_url: offer['Product Image'] || null,
+          offer_content: offer['Description'] || null,
+          media_files: [],
+          youtube_transcripts: [],
+          aggregated_content: null,
+          display_order: nextOrder++,
+          clickbank_id: vendorId,
+        };
+      });
+
+      // Insert into library
+      const { error: insertError } = await supabase
+        .from('affiliate_product_library')
+        .insert(libraryEntries);
+
+      if (insertError) {
+        console.error('Library insert error:', insertError);
+        setResult({ success: false, message: `Import failed: ${insertError.message}` });
+        setIsImporting(false);
+        return;
+      }
+
+      setResult({
+        success: true,
+        message: `Imported ${libraryEntries.length} products to library. ${offers.length - newOffers.length} already existed.`
+      });
+
+    } catch (err) {
+      console.error('Import error:', err);
+      setResult({
+        success: false,
+        message: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`
+      });
+    }
+
+    setIsImporting(false);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -219,23 +325,44 @@ Example:
             )}
           </div>
 
-          <Button
-            onClick={handleSync}
-            disabled={isSyncing || !jsonInput.trim()}
-            className="w-full"
-          >
-            {isSyncing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Sync Offers
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSync}
+              disabled={isSyncing || isImporting || !jsonInput.trim()}
+              className="flex-1"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Sync Offers
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={handleBulkImport}
+              disabled={isSyncing || isImporting || !jsonInput.trim()}
+              variant="secondary"
+              className="flex-1"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Library className="mr-2 h-4 w-4" />
+                  Import to Library
+                </>
+              )}
+            </Button>
+          </div>
 
           {result && (
             <Alert variant={result.success ? 'default' : 'destructive'}>
