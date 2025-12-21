@@ -6,22 +6,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/app/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import {
-  Image,
-  UserRound,
-  Film,
-  Video,
-  Layers,
-  Mic,
-  BookOpen,
-  Palette,
-  Music,
   BarChart,
-  FileText,
-  Facebook,
   Upload,
   Edit3,
   Trash2,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { LiveChatButton } from '@/components/dashboard/live-chat-button';
-import { ToolsGridSkeleton, CreditBalanceSkeleton, TutorialsSkeleton } from '@/components/dashboard/dashboard-skeletons';
+import { CreditBalanceSkeleton, TutorialsSkeleton } from '@/components/dashboard/dashboard-skeletons';
 import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
 import type { User } from '@supabase/supabase-js';
@@ -42,70 +32,6 @@ type UserProfile = User & {
 };
 
 type Tutorial = Tables<'tutorials'>;
-
-// Legacy-style tools array
-const availableTools = [
-  {
-    name: "Thumbnail Machine",
-    icon: Image,
-    route: "/dashboard/thumbnail-machine",
-    gradient: "from-blue-400 to-cyan-300",
-  },
-  {
-    name: "Talking Avatar", 
-    icon: UserRound,
-    route: "/dashboard/talking-avatar",
-    gradient: "from-blue-500 to-cyan-500",
-  },
-  {
-    name: "Script Writer",
-    icon: FileText,
-    route: "/dashboard/script-writer",
-    gradient: "from-blue-500 to-cyan-500",
-  },
-  {
-    name: "Script to Video",
-    icon: Film,
-    route: "/dashboard/script-to-video",
-    gradient: "from-red-400 to-orange-300",
-  },
-  {
-    name: "AI Cinematographer",
-    icon: Video,
-    route: "/dashboard/ai-cinematographer",
-    gradient: "from-blue-500 to-cyan-500",
-  },
-  {
-    name: "Content Multiplier",
-    icon: Layers,
-    route: "/dashboard/content-multiplier",
-    gradient: "from-blue-500 to-cyan-500",
-  },
-  {
-    name: "Voice Over",
-    icon: Mic,
-    route: "/dashboard/voice-over",
-    gradient: "from-yellow-400 to-amber-300",
-  },
-  {
-    name: "Ebook Writer",
-    icon: BookOpen,
-    route: "/dashboard/ebook-writer",
-    gradient: "from-teal-400 to-cyan-300",
-  },
-  {
-    name: "Logo Generator",
-    icon: Palette,
-    route: "/dashboard/logo-generator",
-    gradient: "from-pink-400 to-rose-300",
-  },
-  {
-    name: "Music Maker",
-    icon: Music,
-    route: "/dashboard/music-maker",
-    gradient: "from-blue-500 to-cyan-500",
-  },
-];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -209,10 +135,6 @@ export default function DashboardPage() {
   useEffect(() => {
     setCurrentUser(userProfile || null);
   }, [userProfile]);
-
-  const handleToolClick = (route: string) => {
-    router.push(route);
-  };
 
   const handleViewUsage = () => {
     router.push('/dashboard/usage');
@@ -370,45 +292,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Tools Grid */}
-        <div className="mb-8">
-          {isLoadingProfile ? (
-            <ToolsGridSkeleton />
-          ) : (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Your Tools</CardTitle>
-                  <CardDescription>Access your creative toolkit</CardDescription>
-                </div>
-                <span className="px-3 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full">
-                  Active
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {availableTools.map((tool, index) => (
-                  <div 
-                    key={index} 
-                    className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg bg-secondary hover:bg-secondary/80 transition-all hover:scale-105"
-                    onClick={() => handleToolClick(tool.route)}
-                  >
-                    <div className={`relative bg-gradient-to-br ${tool.gradient} w-12 h-12 flex items-center justify-center text-white rounded-lg shadow-sm`}>
-                      <tool.icon className="w-6 h-6" />
-                    </div>
-                    <span className="text-xs mt-2 text-center font-medium text-muted-foreground whitespace-nowrap">
-                      {tool.name.split(' ')[0]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          )}
-        </div>
-
         {/* Credit Balance and Community Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {isLoadingCredits ? (
@@ -472,25 +355,27 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Join Our Community</CardTitle>
+                  <CardTitle>Join AI Creators Club</CardTitle>
                   <CardDescription>Connect with other creators</CardDescription>
                 </div>
-                <Facebook className="w-8 h-8 text-blue-500" />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
             <p className="text-foreground mb-4">
-              Get support, share your creations, and collaborate with other users in our active Facebook community.
+              Get support, share your creations, and collaborate with other users in our active community.
             </p>
             <div className="space-y-3">
-              <a 
-                href="https://web.facebook.com/groups/1920880798699387" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="https://www.skool.com/ai-creators-club-1525"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block"
               >
                 <Button variant="outline" className="w-full">
-                  View Community
+                  Join AI Creators Club
                 </Button>
               </a>
               <div className="flex justify-center">
