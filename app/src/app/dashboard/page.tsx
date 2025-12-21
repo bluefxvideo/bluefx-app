@@ -369,6 +369,33 @@ export default function DashboardPage() {
           </Card>
         </div>
 
+        {/* Featured Tutorial */}
+        <Card className="mb-8 overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl">Full App Walkthrough</CardTitle>
+                <CardDescription>Learn everything about AI Media Machine in one video</CardDescription>
+              </div>
+              <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                Featured
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+              <iframe
+                src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
+                title="Full App Walkthrough"
+                className="w-full h-full"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Tool Tutorials */}
         <h2 className="text-xl font-semibold mb-4">Tool Tutorials</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
