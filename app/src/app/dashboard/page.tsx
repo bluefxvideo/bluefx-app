@@ -163,10 +163,28 @@ export default function DashboardPage() {
       const { data, error } = await supabase
         .from('tutorials')
         .select('*')
+        .neq('tool_name', 'featured') // Exclude featured tutorial from regular list
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
+    }
+  });
+
+  // Fetch featured tutorial separately
+  const { data: featuredTutorial } = useQuery<Tutorial | null>({
+    queryKey: ['featured-tutorial'],
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tutorials')
+        .select('*')
+        .eq('tool_name', 'featured')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
+      return data || null;
     }
   });
 
@@ -370,31 +388,55 @@ export default function DashboardPage() {
         </div>
 
         {/* Featured Tutorial */}
-        <Card className="mb-8 overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">Full App Walkthrough</CardTitle>
-                <CardDescription>Learn everything about AI Media Machine in one video</CardDescription>
+        {featuredTutorial && featuredTutorial.video_url && (
+          <Card className="mb-8 overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">{featuredTutorial.title}</CardTitle>
+                  <CardDescription>{featuredTutorial.description || 'Learn everything about AI Media Machine in one video'}</CardDescription>
+                </div>
+                <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                  Featured
+                </span>
               </div>
-              <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                Featured
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-              <iframe
-                src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
-                title="Full App Walkthrough"
-                className="w-full h-full"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+                {getYouTubeVideoId(featuredTutorial.video_url) ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${getYouTubeVideoId(featuredTutorial.video_url)}`}
+                    title={featuredTutorial.title}
+                    className="w-full h-full"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-zinc-500">
+                    Invalid video URL
+                  </div>
+                )}
+                {currentUser?.profile?.role === 'admin' && (
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <button
+                      className="p-2 bg-zinc-800/80 text-white rounded-full hover:bg-zinc-700 transition-colors shadow-lg"
+                      title="Edit Tutorial"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                      title="Delete Tutorial"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Tool Tutorials */}
         <h2 className="text-xl font-semibold mb-4">Tool Tutorials</h2>
