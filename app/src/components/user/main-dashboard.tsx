@@ -3,23 +3,23 @@
 import * as React from 'react'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Image, 
-  UserRound, 
-  Film, 
-  Video, 
-  Layers, 
-  Mic, 
-  BookOpen, 
-  Palette, 
-  Music, 
+import {
+  Image,
+  UserRound,
+  Film,
+  Video,
+  Layers,
+  Mic,
+  BookOpen,
+  Palette,
+  Music,
   BarChart,
   FileText,
-  Facebook,
   Upload,
   Edit3,
   Trash2,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/app/supabase/client'
@@ -157,13 +157,13 @@ export function MainDashboard() {
           <div>
             <h1 className="text-4xl font-bold mb-2">Welcome back!</h1>
             <p className="text-muted-foreground">Join our community and get help from fellow members.</p>
-            <a 
-              href="https://web.facebook.com/groups/1920880798699387" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href="https://www.skool.com/ai-creators-club-1525"
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-2 inline-block"
             >
-              <Button variant="outline">Join our Facebook Group</Button>
+              <Button variant="outline">Join AI Creators Club</Button>
             </a>
           </div>
         </div>
@@ -253,24 +253,26 @@ export function MainDashboard() {
         {/* Community & Support */}
         <Card className="flex flex-col bg-background border-border/30 shadow-md">
           <CardHeader>
-            <CardTitle>Join Our Facebook Community</CardTitle>
+            <CardTitle>Join AI Creators Club</CardTitle>
             <CardDescription>
               Stay connected and grow with our community.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">
             <div className="flex items-center">
-              <Facebook className="w-10 h-10 mr-4 text-blue-600" />
+              <div className="w-10 h-10 mr-4 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                <Users className="w-5 h-5 text-white" />
+              </div>
               <p className="text-muted-foreground">
                 Get support, share your creations, and collaborate with other users.
               </p>
             </div>
           </CardContent>
           <CardFooter>
-            <a 
-              href="https://web.facebook.com/groups/1920880798699387" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href="https://www.skool.com/ai-creators-club-1525"
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full"
             >
               <Button variant="outline" className="w-full">View Community</Button>

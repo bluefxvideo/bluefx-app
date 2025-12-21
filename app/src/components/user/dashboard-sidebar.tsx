@@ -30,7 +30,8 @@ import {
   Briefcase,
   Library,
   Sparkles,
-  Coins
+  Coins,
+  Home
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -348,6 +349,61 @@ export function DashboardSidebar({
               <PanelLeftClose className="h-5 w-5 text-zinc-400 group-hover:text-white transition-colors" />
             )}
           </button>
+        </div>
+
+        {/* Start Here Button */}
+        <div className="p-2 border-b border-border">
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "group w-full h-12 justify-start rounded-lg transition-all duration-300 bg-green-500/20 hover:bg-green-500/30",
+                  isCollapsed ? "p-2" : "p-3"
+                )}
+                onClick={() => router.push('/dashboard')}
+              >
+                <div className="flex items-center w-full relative">
+                  <div
+                    className={cn(
+                      "flex items-center justify-center rounded-lg transition-all duration-300 ease-in-out",
+                      "aspect-square shrink-0 bg-green-500",
+                      isCollapsed ? "w-8 h-8" : "w-10 h-10"
+                    )}
+                  >
+                    <Home
+                      className={cn(
+                        "transition-all duration-300",
+                        "w-5 h-5 text-white"
+                      )}
+                    />
+                  </div>
+
+                  <div
+                    className={cn(
+                      "flex-1 text-left ml-3 overflow-hidden transition-all duration-300 ease-in-out",
+                      isCollapsed
+                        ? "opacity-0 max-w-0"
+                        : "opacity-100 max-w-full"
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-base font-medium leading-none whitespace-nowrap transition-all duration-300 text-green-500"
+                      )}
+                    >
+                      Start Here
+                    </p>
+                  </div>
+                </div>
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">
+                <p className="font-medium">Start Here</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
         </div>
 
         {/* Tool categories */}
