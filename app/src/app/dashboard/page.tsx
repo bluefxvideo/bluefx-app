@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
-import { LiveChatButton } from '@/components/dashboard/live-chat-button';
 import { CreditBalanceSkeleton, TutorialsSkeleton } from '@/components/dashboard/dashboard-skeletons';
 import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
@@ -365,23 +364,19 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
             <p className="text-foreground mb-4">
-              Get support, share your creations, and collaborate with other users in our active community.
+              Share your creations and collaborate with other creators in our community. Need technical help? Email{' '}
+              <a href="mailto:support@bluefx.net" className="text-primary hover:underline">support@bluefx.net</a>
             </p>
-            <div className="space-y-3">
-              <a
-                href="https://www.skool.com/ai-creators-club-1525"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Button variant="outline" className="w-full">
-                  Join AI Creators Club
-                </Button>
-              </a>
-              <div className="flex justify-center">
-                <LiveChatButton />
-              </div>
-            </div>
+            <a
+              href="https://www.skool.com/ai-creators-club-1525"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <Button className="w-full">
+                Join AI Creators Club
+              </Button>
+            </a>
             </CardContent>
           </Card>
         </div>
