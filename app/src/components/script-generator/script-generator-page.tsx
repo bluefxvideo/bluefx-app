@@ -428,7 +428,7 @@ export function ScriptGeneratorPage() {
                     {msg.role === 'assistant' ? 'AI Response' : 'Your Refinement Request'}
                   </span>
                 </div>
-                <div className="prose prose-sm prose-invert max-w-none prose-p:text-zinc-300 prose-p:my-3 prose-headings:text-white prose-headings:mt-6 prose-headings:mb-3 prose-strong:text-white prose-li:text-zinc-300 prose-li:my-1 prose-ul:my-3 prose-ol:my-3 prose-hr:my-4 [&>*:first-child]:mt-0">
+                <div className="prose prose-sm prose-invert max-w-none leading-relaxed prose-p:text-zinc-300 prose-p:my-4 prose-p:leading-7 prose-headings:text-white prose-headings:mt-8 prose-headings:mb-4 prose-strong:text-white prose-strong:font-semibold prose-li:text-zinc-300 prose-li:my-2 prose-ul:my-4 prose-ol:my-4 prose-hr:my-6 [&>*:first-child]:mt-0 [&_br]:block [&_br]:my-2">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               </div>
