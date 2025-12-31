@@ -101,11 +101,7 @@ export type ScriptType =
   | 'short_video'
   | 'long_video'
   | 'email_sequence'
-  | 'landing_page'
-  | 'social_posts'
-  | 'ad_copy'
   | 'hooks'
-  | 'content_calendar'
   | 'custom';
 
 export interface ScriptTypeConfig {
@@ -141,34 +137,10 @@ export const SCRIPT_TYPES: ScriptTypeConfig[] = [
     icon: 'Mail'
   },
   {
-    id: 'landing_page',
-    name: 'Landing Page Copy',
-    description: 'Full landing page with headline, benefits, CTA',
-    icon: 'Layout'
-  },
-  {
-    id: 'social_posts',
-    name: 'Social Media Posts',
-    description: '5 posts optimized for different platforms',
-    icon: 'Share2'
-  },
-  {
-    id: 'ad_copy',
-    name: 'Ad Copy Variations',
-    description: 'Facebook/Google ad copy with multiple angles',
-    icon: 'Target'
-  },
-  {
     id: 'hooks',
     name: 'Hooks (10)',
     description: '10 scroll-stopping hooks for short-form video',
     icon: 'Zap'
-  },
-  {
-    id: 'content_calendar',
-    name: '30-Day Calendar',
-    description: 'Complete 30-day content calendar by week',
-    icon: 'Calendar'
   }
 ];
 
