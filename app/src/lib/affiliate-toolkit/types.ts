@@ -117,6 +117,12 @@ export interface ScriptTypeConfig {
 
 export const SCRIPT_TYPES: ScriptTypeConfig[] = [
   {
+    id: 'custom',
+    name: 'Custom Prompt',
+    description: 'Write your own prompt for custom output',
+    icon: 'Pencil'
+  },
+  {
     id: 'short_video',
     name: 'Short Video Script',
     description: '60-90 second video script for TikTok, Reels, Shorts',
@@ -163,12 +169,6 @@ export const SCRIPT_TYPES: ScriptTypeConfig[] = [
     name: '30-Day Calendar',
     description: 'Complete 30-day content calendar by week',
     icon: 'Calendar'
-  },
-  {
-    id: 'custom',
-    name: 'Custom Prompt',
-    description: 'Write your own prompt for custom output',
-    icon: 'Pencil'
   }
 ];
 

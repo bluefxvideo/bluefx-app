@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library } from 'lucide-react';
+import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library, Bot, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 // Extended offer type to track source
 type OfferWithSource = (LibraryProduct | UserBusinessOffer) & { source: 'library' | 'business' };
 
+// Conversation message type for chat history
+interface ConversationMessage {
+  role: 'assistant' | 'user';
+  content: string;
+}
+
 export function ScriptGeneratorPage() {
   const router = useRouter();
 
@@ -42,6 +49,7 @@ export function ScriptGeneratorPage() {
   const [customPrompt, setCustomPrompt] = useState('');
   const [generatedScript, setGeneratedScript] = useState<string | null>(null);
   const [refinementInput, setRefinementInput] = useState('');
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isLoadingOffers, setIsLoadingOffers] = useState(true);
@@ -96,6 +104,7 @@ export function ScriptGeneratorPage() {
 
     setIsGenerating(true);
     setError(null);
+    setConversationHistory([]); // Reset conversation on new generation
 
     try {
       const script = await generateScript(
@@ -104,6 +113,8 @@ export function ScriptGeneratorPage() {
         selectedScriptType === 'custom' ? customPrompt : undefined
       );
       setGeneratedScript(script);
+      // Initialize conversation with first AI response
+      setConversationHistory([{ role: 'assistant', content: script }]);
     } catch (err) {
       setError('Failed to generate script. Please try again.');
       console.error(err);
@@ -116,13 +127,19 @@ export function ScriptGeneratorPage() {
   const handleRefine = async () => {
     if (!generatedScript || !refinementInput.trim()) return;
 
+    const userRequest = refinementInput.trim();
+
+    // Add user's refinement request to conversation history
+    setConversationHistory(prev => [...prev, { role: 'user', content: userRequest }]);
+    setRefinementInput('');
     setIsRefining(true);
     setError(null);
 
     try {
-      const refined = await refineScript(generatedScript, refinementInput);
+      const refined = await refineScript(generatedScript, userRequest);
       setGeneratedScript(refined);
-      setRefinementInput('');
+      // Add AI response to conversation history
+      setConversationHistory(prev => [...prev, { role: 'assistant', content: refined }]);
     } catch (err) {
       setError('Failed to refine script. Please try again.');
       console.error(err);
@@ -383,13 +400,47 @@ export function ScriptGeneratorPage() {
         )}
       </div>
 
-      {/* Output Content */}
+      {/* Output Content - Conversation History */}
       <div className="flex-1 min-h-0 overflow-auto">
-        {generatedScript ? (
-          <div className="bg-card border border-border rounded-lg p-4">
-            <pre className="whitespace-pre-wrap text-sm text-zinc-300 font-mono">
-              {generatedScript}
-            </pre>
+        {conversationHistory.length > 0 ? (
+          <div className="space-y-4">
+            {conversationHistory.map((msg, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "rounded-lg p-4",
+                  msg.role === 'assistant'
+                    ? "bg-card border border-border"
+                    : "bg-primary/10 border border-primary/30"
+                )}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  {msg.role === 'assistant' ? (
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                      <Bot className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-zinc-300" />
+                    </div>
+                  )}
+                  <span className="text-xs font-medium text-zinc-400">
+                    {msg.role === 'assistant' ? 'AI Response' : 'Your Refinement Request'}
+                  </span>
+                </div>
+                <div className="prose prose-sm prose-invert max-w-none prose-p:text-zinc-300 prose-headings:text-white prose-strong:text-white prose-li:text-zinc-300">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              </div>
+            ))}
+            {isRefining && (
+              <div className="rounded-lg p-4 bg-card border border-border">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-sm text-zinc-400">Refining your script...</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="h-full flex items-center justify-center bg-card/50 border border-border/50 rounded-lg">
@@ -404,7 +455,7 @@ export function ScriptGeneratorPage() {
       </div>
 
       {/* Video Tool Buttons - Only show for video script types */}
-      {generatedScript && isVideoScriptType(selectedScriptType) && (
+      {conversationHistory.length > 0 && isVideoScriptType(selectedScriptType) && (
         <div className="mt-4 pt-4 border-t border-border">
           <Label className="text-sm font-medium text-zinc-300 mb-3 block">Send to Video Tool</Label>
           <div className="flex flex-wrap gap-2">
@@ -440,7 +491,7 @@ export function ScriptGeneratorPage() {
       )}
 
       {/* Refinement Section */}
-      {generatedScript && (
+      {conversationHistory.length > 0 && (
         <div className="mt-4 pt-4 border-t border-border space-y-3">
           <Label className="text-sm font-medium text-zinc-300">Refine Output</Label>
           <div className="flex gap-2">
