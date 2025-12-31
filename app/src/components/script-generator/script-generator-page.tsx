@@ -38,6 +38,14 @@ interface ConversationMessage {
   content: string;
 }
 
+// Format content for better readability - add line breaks before common labels
+function formatContentForDisplay(content: string): string {
+  // Add double line break before common section labels (WORD: or Word:)
+  return content
+    .replace(/([.!?"])\s*(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION)(\s*\d*)?:/gi, '$1\n\n$2$3:')
+    .replace(/^(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION)(\s*\d*)?:/gim, '\n\n$1$2:');
+}
+
 export function ScriptGeneratorPage() {
   const router = useRouter();
 
@@ -428,8 +436,8 @@ export function ScriptGeneratorPage() {
                     {msg.role === 'assistant' ? 'AI Response' : 'Your Refinement Request'}
                   </span>
                 </div>
-                <div className="prose prose-sm prose-invert max-w-none leading-relaxed prose-p:text-zinc-300 prose-p:my-4 prose-p:leading-7 prose-headings:text-white prose-headings:mt-8 prose-headings:mb-4 prose-strong:text-white prose-strong:font-semibold prose-li:text-zinc-300 prose-li:my-2 prose-ul:my-4 prose-ol:my-4 prose-hr:my-6 [&>*:first-child]:mt-0 [&_br]:block [&_br]:my-2 [&_strong]:after:content-[''] [&_p>strong:first-child]:block [&_p>strong:first-child]:mt-5 [&_p>strong:first-child]:mb-1">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <div className="prose prose-sm prose-invert max-w-none leading-relaxed prose-p:text-zinc-300 prose-p:my-4 prose-p:leading-7 prose-headings:text-white prose-headings:mt-8 prose-headings:mb-4 prose-strong:text-white prose-strong:font-semibold prose-li:text-zinc-300 prose-li:my-2 prose-ul:my-4 prose-ol:my-4 prose-hr:my-6 [&>*:first-child]:mt-0">
+                  <ReactMarkdown>{formatContentForDisplay(msg.content)}</ReactMarkdown>
                 </div>
               </div>
             ))}
