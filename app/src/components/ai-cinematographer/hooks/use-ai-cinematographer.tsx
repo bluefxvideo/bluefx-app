@@ -17,6 +17,7 @@ import {
   StoryboardResponse,
   FrameExtractionRequest,
   ExtractedFrame,
+  uploadGridImageToStorage,
 } from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
@@ -366,29 +367,28 @@ export function useAICinematographer() {
     setExtractedFrames([]);
 
     try {
-      // Create a preview URL for the uploaded image
-      const previewUrl = URL.createObjectURL(file);
-      const gridId = `uploaded_${Date.now()}`;
+      // Upload the image to Supabase storage so the server can access it
+      const uploadResult = await uploadGridImageToStorage(file, user.id);
 
-      // Set the storyboard result with the uploaded image
+      if (!uploadResult.success || !uploadResult.grid_image_url) {
+        throw new Error(uploadResult.error || 'Failed to upload grid image');
+      }
+
+      // Set the storyboard result with the uploaded image URL
       setStoryboardResult({
         success: true,
         storyboard: {
-          id: gridId,
-          grid_image_url: previewUrl,
+          id: uploadResult.grid_id || `uploaded_${Date.now()}`,
+          grid_image_url: uploadResult.grid_image_url,
           prompt: '[Uploaded Grid Image]',
           visual_style: 'custom',
           created_at: new Date().toISOString(),
         },
-        batch_id: gridId,
+        batch_id: uploadResult.grid_id || `uploaded_${Date.now()}`,
         generation_time_ms: 0,
         credits_used: 0,
         remaining_credits: 0,
       });
-
-      // Note: The actual extraction will use the preview URL which works
-      // because we're on the client side. For server-side extraction,
-      // we would need to upload to Supabase first.
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to process uploaded grid';
       setError(errorMessage);

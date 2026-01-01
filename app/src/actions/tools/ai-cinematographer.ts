@@ -1053,3 +1053,59 @@ export async function executeFrameExtraction(
     };
   }
 }
+
+// ============================================================================
+// GRID IMAGE UPLOAD - For extracting frames from user-uploaded grids
+// ============================================================================
+
+export interface UploadGridImageResponse {
+  success: boolean;
+  grid_image_url?: string;
+  grid_id?: string;
+  error?: string;
+}
+
+/**
+ * Upload a grid image to Supabase storage for frame extraction
+ * This allows users to upload their own 3x3 grid images
+ */
+export async function uploadGridImageToStorage(
+  file: File,
+  _userId: string
+): Promise<UploadGridImageResponse> {
+  try {
+    const gridId = `uploaded_grid_${Date.now()}`;
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const safeFilename = `${gridId}.${fileExtension}`;
+
+    console.log(`📤 Uploading grid image: ${safeFilename}`);
+
+    const uploadResult = await uploadImageToStorage(file, {
+      bucket: 'images',
+      folder: 'storyboard-grids',
+      filename: safeFilename,
+      contentType: file.type || 'image/jpeg',
+    });
+
+    if (!uploadResult.success || !uploadResult.url) {
+      return {
+        success: false,
+        error: uploadResult.error || 'Failed to upload grid image',
+      };
+    }
+
+    console.log(`✅ Grid image uploaded: ${uploadResult.url}`);
+
+    return {
+      success: true,
+      grid_image_url: uploadResult.url,
+      grid_id: gridId,
+    };
+  } catch (error) {
+    console.error('uploadGridImageToStorage error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to upload grid image',
+    };
+  }
+}
