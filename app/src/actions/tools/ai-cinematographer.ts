@@ -2,6 +2,7 @@
 
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { generateImage } from '@/actions/models/image-generation-nano-banana';
+import { generateImageWithPro } from '@/actions/models/image-generation-nano-banana-pro';
 import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
 import {
   getUserCredits,
@@ -782,9 +783,9 @@ Visual Style: ${visualStylePrompt}`;
 
     console.log(`📊 Generating storyboard with prompt length: ${storyboardPrompt.length}`);
 
-    // Step 4: Generate image using nano-banana
+    // Step 4: Generate image using nano-banana-pro for higher quality storyboard grids
     const hasReferenceImages = referenceImageUrls.length > 0;
-    const imageResult = await generateImage(
+    const imageResult = await generateImageWithPro(
       storyboardPrompt,
       '1:1', // Square for 3x3 grid
       hasReferenceImages ? referenceImageUrls : undefined
