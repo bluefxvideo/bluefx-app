@@ -490,6 +490,8 @@ CRITICAL REQUIREMENTS:
 
 OUTPUT FORMAT (follow this exact structure):
 
+3x3 cinematic contact sheet with 9 landscape-oriented 16:9 frames arranged in grid format. Each individual panel must be 16:9 widescreen aspect ratio.
+
 CINEMATIC STORYBOARD
 
 STORY: [Brief 1-2 sentence story summary]
@@ -539,6 +541,7 @@ HIGH ANGLE SHOT:
 TECHNICAL SPECIFICATIONS:
 Camera System: Shot on Arri Alexa LF cinema camera
 Image Quality: Ultra-photorealistic, professional cinematography, 8k resolution, highly detailed
+Grid Format: 3x3 layout where each individual frame is 16:9 widescreen (horizontal/landscape orientation), NOT square panels
 Lighting: [Specific lighting description based on environment - e.g., "Natural golden hour sunlight", "Soft overcast daylight", "Interior fluorescent and window light mix", etc.]
 Color Grading: [Specific color palette - e.g., "Natural desaturated tones with warm amber highlights", "Cool blue-gray tones", "Rich saturated colors", etc.]
 Texture Detail: Authentic skin texture and fabric detail, realistic material surfaces, natural imperfections
@@ -546,7 +549,6 @@ Depth of Field: Realistic cinema lens bokeh, shallow depth on close-ups, natural
 Film Characteristics: Film grain texture, natural photographic quality
 Consistency: Same character appearance across all 9 frames (identical face, hair, clothing, environment), same lighting and time of day throughout
 Aesthetic: Documentary realism style, 100% photographic reality, zero cartoon or illustration qualities
-Aspect Ratio: 16:9 cinematic widescreen format
 
 DIALOGUE/NARRATION NOTES: (Optional - only include if story requires it)
 Frame [number]: "[Dialogue or narration text]"
