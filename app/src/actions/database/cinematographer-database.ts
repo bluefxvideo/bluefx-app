@@ -329,6 +329,7 @@ export async function deductCredits(
 
 /**
  * Store cinematographer video results
+ * Uses admin client to bypass RLS policies for server-side inserts
  */
 export async function storeCinematographerResults(params: {
   user_id: string;
@@ -344,7 +345,8 @@ export async function storeCinematographerResults(params: {
   status: 'planning' | 'shooting' | 'editing' | 'completed' | 'failed';
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
+    // Use admin client to bypass RLS policies for server-side inserts
+    const supabase = createAdminClient();
 
     const { error } = await supabase
       .from('cinematographer_videos')
@@ -478,6 +480,7 @@ export async function createPredictionRecord(params: {
 /**
  * Store Starting Shot (first frame) result
  * Stores generated images in the same table as videos, marked as type 'image'
+ * Uses admin client to bypass RLS policies for server-side inserts
  */
 export async function storeStartingShotResult(params: {
   user_id: string;
@@ -487,7 +490,8 @@ export async function storeStartingShotResult(params: {
   aspect_ratio: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
+    // Use admin client to bypass RLS policies for server-side inserts
+    const supabase = createAdminClient();
 
     const { error } = await supabase
       .from('cinematographer_videos')
