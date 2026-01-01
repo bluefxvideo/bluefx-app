@@ -102,6 +102,7 @@ export type ScriptType =
   | 'long_video'
   | 'email_sequence'
   | 'hooks'
+  | 'cinematic_storyboard'
   | 'custom';
 
 export interface ScriptTypeConfig {
@@ -117,6 +118,12 @@ export const SCRIPT_TYPES: ScriptTypeConfig[] = [
     name: 'Custom Prompt',
     description: 'Write your own prompt for custom output',
     icon: 'Pencil'
+  },
+  {
+    id: 'cinematic_storyboard',
+    name: 'Cinematic Storyboard',
+    description: 'Generate a 9-panel visual storyboard for video production',
+    icon: 'Clapperboard'
   },
   {
     id: 'short_video',
@@ -175,7 +182,7 @@ export function getScriptTypeLabel(type: ScriptType): string {
 }
 
 // Video-related script types (for showing video tool buttons)
-export const VIDEO_SCRIPT_TYPES: ScriptType[] = ['short_video', 'long_video', 'hooks'];
+export const VIDEO_SCRIPT_TYPES: ScriptType[] = ['short_video', 'long_video', 'hooks', 'cinematic_storyboard'];
 
 export function isVideoScriptType(type: ScriptType): boolean {
   return VIDEO_SCRIPT_TYPES.includes(type);

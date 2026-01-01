@@ -461,6 +461,76 @@ WEEK 4: ACTION & URGENCY (Days 22-30)
 - Carousels: X
 - Story Sequences: X`;
 
+    case 'cinematic_storyboard':
+      return `Generate a professional 9-panel cinematic storyboard for video production.
+
+${offer.name !== 'Custom Content' ? `PRODUCT/OFFER CONTEXT:
+- Product: ${offer.name}
+- Niche: ${offer.niche || 'General'}
+- Details: ${fullContent}
+
+` : ''}USER'S STORY DESCRIPTION:
+${customPrompt || 'Please describe your story concept.'}
+
+TASK: Create a complete 9-panel storyboard with detailed visual descriptions optimized for AI image generation.
+
+CRITICAL REQUIREMENTS:
+1. Each frame description MUST be 200-300 characters
+2. Include visual style keywords: "photorealistic, cinematic lighting, [mood], [color palette]"
+3. Maintain consistency across all 9 frames (same characters, environment, lighting)
+4. Each description should work as a standalone AI image prompt
+
+SHOT TYPE PROGRESSION:
+- Frames 1-3: Establishing shots (wide to medium-wide)
+- Frames 4-6: Core coverage (medium to close)
+- Frames 7-9: Details and angles (extreme close, low angle, high angle)
+
+OUTPUT FORMAT (follow exactly):
+
+STORY: [One sentence summary of the story]
+
+STORYBOARD SEQUENCE:
+
+Frame 1 (ELS - Extreme Long Shot):
+[Detailed visual description - environment, lighting, mood, composition. End with: "photorealistic, cinematic lighting, [mood descriptor]"]
+
+Frame 2 (LS - Long Shot):
+[Detailed visual description showing full subject in environment]
+
+Frame 3 (MLS - Medium Long Shot):
+[Subject from knees up, showing action and environment context]
+
+Frame 4 (MS - Medium Shot):
+[Subject from waist up, showing emotion and gesture]
+
+Frame 5 (MCU - Medium Close-Up):
+[Subject from chest up, focus on expression and detail]
+
+Frame 6 (CU - Close-Up):
+[Face or important object, emotional focus]
+
+Frame 7 (ECU - Extreme Close-Up):
+[Eyes, hands, or crucial detail - maximum emotional impact]
+
+Frame 8 (Low Angle):
+[Looking up at subject - conveys power, importance, or drama]
+
+Frame 9 (High Angle):
+[Looking down at subject or scene - conveys vulnerability or overview]
+
+DIALOGUE/NARRATION NOTES:
+- Frame X: "Dialogue or narration text here"
+- Frame Y: "More dialogue or narration"
+[Include 3-5 key dialogue/narration moments]
+
+---
+
+CRITICAL OUTPUT RULES:
+- NO markdown formatting (no ** or *)
+- Keep each frame description on its own line
+- Make descriptions detailed enough for AI image generation
+- Maintain visual consistency (lighting, style, color palette) across all frames`;
+
     case 'custom':
       return `${offerContext}
 

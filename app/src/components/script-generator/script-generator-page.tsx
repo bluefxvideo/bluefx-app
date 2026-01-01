@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library, Bot, User } from 'lucide-react';
+import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library, Bot, User, Clapperboard, Ban } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { AffiliateOffer, LibraryProduct, UserBusinessOffer, ScriptType, SCRIPT_TYPES } from '@/lib/affiliate-toolkit/types';
+import { LibraryProduct, UserBusinessOffer, ScriptType, SCRIPT_TYPES } from '@/lib/affiliate-toolkit/types';
 import { fetchAllOffersForContentGenerator, generateScript, refineScript } from '@/lib/affiliate-toolkit/service';
 import { createClient } from '@/app/supabase/client';
 
@@ -26,7 +26,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Target,
   Pencil,
   Zap,
-  Calendar
+  Calendar,
+  Clapperboard
 };
 
 // Extended offer type to track source
@@ -42,8 +43,8 @@ interface ConversationMessage {
 function formatContentForDisplay(content: string): string {
   // Add double line break before common section labels (WORD: or Word:)
   return content
-    .replace(/([.!?"])\s*(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION)(\s*\d*)?:/gi, '$1\n\n$2$3:')
-    .replace(/^(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION)(\s*\d*)?:/gim, '\n\n$1$2:');
+    .replace(/([.!?"])\s*(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION|STORY|DIALOGUE|Frame)(\s*\d*)?(\s*\([^)]+\))?:/gi, '$1\n\n$2$3$4:')
+    .replace(/^(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION|STORY|DIALOGUE|Frame)(\s*\d*)?(\s*\([^)]+\))?:/gim, '\n\n$1$2$3:');
 }
 
 export function ScriptGeneratorPage() {
@@ -108,17 +109,30 @@ export function ScriptGeneratorPage() {
 
   // Handle generation
   const handleGenerate = async () => {
-    if (!selectedOffer || !selectedScriptType) return;
+    if (!selectedScriptType) return;
 
     setIsGenerating(true);
     setError(null);
     setConversationHistory([]); // Reset conversation on new generation
 
     try {
+      // Create a placeholder offer if none selected
+      const offerToUse = selectedOffer || {
+        id: 'none',
+        name: 'Custom Content',
+        niche: null,
+        image_url: null,
+        offer_content: null,
+        media_files: [],
+        youtube_transcripts: [],
+        aggregated_content: null,
+        created_at: new Date().toISOString()
+      };
+
       const script = await generateScript(
-        selectedOffer,
+        offerToUse,
         selectedScriptType,
-        selectedScriptType === 'custom' ? customPrompt : undefined
+        (selectedScriptType === 'custom' || selectedScriptType === 'cinematic_storyboard') ? customPrompt : undefined
       );
       setGeneratedScript(script);
       // Initialize conversation with first AI response
@@ -213,8 +227,12 @@ export function ScriptGeneratorPage() {
           )}
         </div>
         <Select
-          value={selectedOffer ? `${selectedOffer.source}:${selectedOffer.id}` : ''}
+          value={selectedOffer ? `${selectedOffer.source}:${selectedOffer.id}` : 'none'}
           onValueChange={(value) => {
+            if (value === 'none') {
+              setSelectedOffer(null);
+              return;
+            }
             const [source, id] = value.split(':') as ['library' | 'business', string];
             if (source === 'library') {
               const product = libraryProducts.find(p => p.id === id);
@@ -230,6 +248,14 @@ export function ScriptGeneratorPage() {
             <SelectValue placeholder={isLoadingOffers ? "Loading offers..." : "Select a product"} />
           </SelectTrigger>
           <SelectContent>
+            {/* None option - start from scratch */}
+            <SelectItem value="none">
+              <div className="flex items-center gap-2">
+                <Ban className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="font-medium text-zinc-300">None (Start from scratch)</span>
+              </div>
+            </SelectItem>
+
             {/* User's Business Offers */}
             {userOffers.length > 0 && (
               <SelectGroup>
@@ -268,13 +294,6 @@ export function ScriptGeneratorPage() {
                   </SelectItem>
                 ))}
               </SelectGroup>
-            )}
-
-            {/* Empty state */}
-            {userOffers.length === 0 && libraryProducts.length === 0 && (
-              <div className="p-4 text-center text-zinc-500 text-sm">
-                No products available
-              </div>
             )}
           </SelectContent>
         </Select>
@@ -342,14 +361,19 @@ export function ScriptGeneratorPage() {
         </div>
       </div>
 
-      {/* Custom Prompt (only shown when custom is selected) */}
-      {selectedScriptType === 'custom' && (
+      {/* Custom Prompt (shown for custom and cinematic_storyboard) */}
+      {(selectedScriptType === 'custom' || selectedScriptType === 'cinematic_storyboard') && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-zinc-300">Custom Prompt</Label>
+          <Label className="text-sm font-medium text-zinc-300">
+            {selectedScriptType === 'cinematic_storyboard' ? 'Story Description' : 'Custom Prompt'}
+          </Label>
           <Textarea
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder="Describe what kind of content you want to generate..."
+            placeholder={selectedScriptType === 'cinematic_storyboard'
+              ? "Describe your story: What's it about? Setting/environment? Mood/tone (epic, mysterious, uplifting)? Visual style preferences?"
+              : "Describe what kind of content you want to generate..."
+            }
             className="min-h-[100px] bg-card border-border resize-none"
           />
         </div>
@@ -358,7 +382,7 @@ export function ScriptGeneratorPage() {
       {/* Generate Button */}
       <Button
         onClick={handleGenerate}
-        disabled={!selectedOffer || !selectedScriptType || isGenerating || (selectedScriptType === 'custom' && !customPrompt.trim())}
+        disabled={!selectedScriptType || isGenerating || ((selectedScriptType === 'custom' || selectedScriptType === 'cinematic_storyboard') && !customPrompt.trim())}
         className="w-full bg-primary hover:bg-primary/90"
       >
         {isGenerating ? (
