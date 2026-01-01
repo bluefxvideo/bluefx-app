@@ -74,11 +74,11 @@ const toolCategories = [
         description: "Pre-trained affiliate products",
       },
       {
-        name: "Content Generator",
+        name: "Script Generator",
         route: "/dashboard/script-generator",
         icon: Sparkles,
         gradient: "bg-primary",
-        description: "Generate marketing content",
+        description: "Generate marketing scripts",
       },
       {
         name: "My Scripts",
