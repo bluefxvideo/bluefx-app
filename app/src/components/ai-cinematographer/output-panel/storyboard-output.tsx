@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, Download, RefreshCw, Check, Loader2, Film, X, RotateCcw } from 'lucide-react';
+import { LayoutGrid, Download, RefreshCw, Check, Loader2, Film, X, RotateCcw, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -52,6 +52,7 @@ interface StoryboardOutputProps {
   onRegenerateFrame?: (frameNumber: number) => void;
   onMakeVideo: (imageUrl: string) => void;
   onDownload: (imageUrl: string, filename: string) => void;
+  onUploadGrid?: (file: File) => void;
 }
 
 export function StoryboardOutput({
@@ -65,11 +66,28 @@ export function StoryboardOutput({
   onRegenerateFrame,
   onMakeVideo,
   onDownload,
+  onUploadGrid,
 }: StoryboardOutputProps) {
   const [selectedFrames, setSelectedFrames] = useState<number[]>([]);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [regenerateGridDialogOpen, setRegenerateGridDialogOpen] = useState(false);
   const [frameToRegenerate, setFrameToRegenerate] = useState<number | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    uploadInputRef.current?.click();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUploadGrid) {
+      onUploadGrid(file);
+    }
+    // Reset input
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = '';
+    }
+  };
 
   const toggleFrame = (frameNumber: number) => {
     setSelectedFrames(prev =>
@@ -123,9 +141,37 @@ export function StoryboardOutput({
             <LayoutGrid className="w-8 h-8 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium text-foreground mb-2">No Storyboard Yet</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mb-4">
             Describe your scene and generate a 3x3 cinematic storyboard grid with 9 different camera angles.
           </p>
+          {onUploadGrid && (
+            <>
+              <div className="flex items-center gap-2 my-4">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUploadClick}
+                className="w-full"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Existing Grid
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Upload a 3x3 grid image to extract individual frames
+              </p>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </>
+          )}
         </div>
       </div>
     );

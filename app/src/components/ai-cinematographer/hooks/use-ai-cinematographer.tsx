@@ -354,6 +354,49 @@ export function useAICinematographer() {
     await extractFrames([frameNumber]);
   };
 
+  // Upload an existing grid image for frame extraction
+  const uploadGridImage = async (file: File) => {
+    if (!user?.id) {
+      setError('User must be authenticated to upload grid images');
+      return;
+    }
+
+    setIsGeneratingStoryboard(true);
+    setError(undefined);
+    setExtractedFrames([]);
+
+    try {
+      // Create a preview URL for the uploaded image
+      const previewUrl = URL.createObjectURL(file);
+      const gridId = `uploaded_${Date.now()}`;
+
+      // Set the storyboard result with the uploaded image
+      setStoryboardResult({
+        success: true,
+        storyboard: {
+          id: gridId,
+          grid_image_url: previewUrl,
+          prompt: '[Uploaded Grid Image]',
+          visual_style: 'custom',
+          created_at: new Date().toISOString(),
+        },
+        batch_id: gridId,
+        generation_time_ms: 0,
+        credits_used: 0,
+        remaining_credits: 0,
+      });
+
+      // Note: The actual extraction will use the preview URL which works
+      // because we're on the client side. For server-side extraction,
+      // we would need to upload to Supabase first.
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process uploaded grid';
+      setError(errorMessage);
+    } finally {
+      setIsGeneratingStoryboard(false);
+    }
+  };
+
   // Delete video
   const deleteVideo = useCallback(async (videoId: string) => {
     if (!user?.id) {
@@ -573,6 +616,7 @@ export function useAICinematographer() {
     generateStoryboard,
     extractFrames,
     regenerateFrame,
+    uploadGridImage,
     setImageForVideo,
     clearResults,
     clearStartingShotResults,

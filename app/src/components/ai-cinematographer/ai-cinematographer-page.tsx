@@ -54,6 +54,7 @@ export function AICinematographerPage() {
     extractingProgress,
     extractFrames,
     regenerateFrame,
+    uploadGridImage,
   } = useAICinematographer();
 
   // Check for image URL in search params (from Starting Shot "Make Video" button)
@@ -214,6 +215,7 @@ export function AICinematographerPage() {
                 window.open(url, '_blank');
               }
             }}
+            onUploadGrid={uploadGridImage}
           />
         </StandardToolLayout>
       ) : (

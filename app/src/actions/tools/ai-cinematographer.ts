@@ -983,6 +983,20 @@ export async function executeFrameExtraction(
             status: 'completed',
           });
 
+          // Save extracted frame to history (as starting shot type for consistency)
+          try {
+            await storeStartingShotResult({
+              user_id: request.user_id,
+              batch_id: frameId,
+              prompt: `[STORYBOARD FRAME ${frameNum}] Extracted from storyboard ${request.storyboard_id}`,
+              image_url: permanentUrl,
+              aspect_ratio: '16:9',
+            });
+            console.log(`📦 Frame ${frameNum} saved to history`);
+          } catch (storeError) {
+            console.error(`Failed to save frame ${frameNum} to history:`, storeError);
+          }
+
           // Deduct credit for this frame
           await deductCredits(
             request.user_id,
