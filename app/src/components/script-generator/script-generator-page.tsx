@@ -42,9 +42,12 @@ interface ConversationMessage {
 // Format content for better readability - add line breaks before common labels
 function formatContentForDisplay(content: string): string {
   // Add double line break before common section labels (WORD: or Word:)
+  // Extended for cinematic storyboard format
+  const sectionLabels = 'HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION|STORY|DIALOGUE|Frame|CINEMATIC STORYBOARD|SUBJECT DESCRIPTION|ENVIRONMENT DESCRIPTION|CAMERA COVERAGE|EXTREME LONG SHOT|LONG SHOT|MEDIUM LONG SHOT|MEDIUM SHOT|MEDIUM CLOSE-UP|CLOSE-UP|EXTREME CLOSE-UP|LOW ANGLE SHOT|HIGH ANGLE SHOT|TECHNICAL SPECIFICATIONS|DIALOGUE\\/NARRATION NOTES|USAGE NOTES|Row \\d+';
+
   return content
-    .replace(/([.!?"])\s*(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION|STORY|DIALOGUE|Frame)(\s*\d*)?(\s*\([^)]+\))?:/gi, '$1\n\n$2$3$4:')
-    .replace(/^(HOOK|PROBLEM|SOLUTION|DISCOVERY|FAILED SOLUTIONS|TITLE|SCENE|VISUALS?|AUDIO|TEXT OVERLAY|NARRATION|CTA|CALL TO ACTION|OPENING|CLOSING|SUBJECT|BODY|EMAIL|SHOT|STORYBOARD|OPTION|STORY|DIALOGUE|Frame)(\s*\d*)?(\s*\([^)]+\))?:/gim, '\n\n$1$2$3:');
+    .replace(new RegExp(`([.!?"])\\s*(${sectionLabels})(\\s*\\d*)?(\\s*\\([^)]+\\))?:`, 'gi'), '$1\n\n$2$3$4:')
+    .replace(new RegExp(`^(${sectionLabels})(\\s*\\d*)?(\\s*\\([^)]+\\))?:`, 'gim'), '\n\n$1$2$3:');
 }
 
 export function ScriptGeneratorPage() {

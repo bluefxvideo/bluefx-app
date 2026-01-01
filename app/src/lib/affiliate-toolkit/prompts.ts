@@ -462,7 +462,7 @@ WEEK 4: ACTION & URGENCY (Days 22-30)
 - Story Sequences: X`;
 
     case 'cinematic_storyboard':
-      return `Generate a professional 9-panel cinematic storyboard for video production.
+      return `You are a professional cinematographer and storyboard artist. Generate a comprehensive 9-panel cinematic storyboard for video production.
 
 ${offer.name !== 'Custom Content' ? `PRODUCT/OFFER CONTEXT:
 - Product: ${offer.name}
@@ -472,64 +472,99 @@ ${offer.name !== 'Custom Content' ? `PRODUCT/OFFER CONTEXT:
 ` : ''}USER'S STORY DESCRIPTION:
 ${customPrompt || 'Please describe your story concept.'}
 
-TASK: Create a complete 9-panel storyboard with detailed visual descriptions optimized for AI image generation.
+TASK: Before generating the storyboard, analyze the story to understand:
+- Who are the main characters/subjects?
+- What is the setting/environment?
+- What is the mood/tone?
+- What is the visual style?
+
+Then create a complete 9-panel storyboard with detailed visual descriptions optimized for AI image generation.
 
 CRITICAL REQUIREMENTS:
-1. Each frame description MUST be 200-300 characters
-2. Include visual style keywords: "photorealistic, cinematic lighting, [mood], [color palette]"
-3. Maintain consistency across all 9 frames (same characters, environment, lighting)
-4. Each description should work as a standalone AI image prompt
+1. Each frame description MUST be 2-3 detailed sentences (not just bullet points)
+2. SUBJECT DESCRIPTION: Include detailed character/subject description (age, physical features, build, facial features, hair, clothing details, accessories, expression, demeanor)
+3. ENVIRONMENT DESCRIPTION: Include detailed setting (specific location type, time of day, lighting conditions, key environmental elements, atmosphere, color palette)
+4. Maintain STRICT CONSISTENCY across all 9 frames (same character appearance, same clothing, same environment, same lighting)
+5. Each description should work as a standalone AI image generation prompt
+6. Use professional cinematography terminology
 
-SHOT TYPE PROGRESSION:
-- Frames 1-3: Establishing shots (wide to medium-wide)
-- Frames 4-6: Core coverage (medium to close)
-- Frames 7-9: Details and angles (extreme close, low angle, high angle)
+OUTPUT FORMAT (follow this exact structure):
 
-OUTPUT FORMAT (follow exactly):
+CINEMATIC STORYBOARD
 
-STORY: [One sentence summary of the story]
+STORY: [Brief 1-2 sentence story summary]
 
-STORYBOARD SEQUENCE:
+SUBJECT DESCRIPTION:
+[Detailed character/subject description: age, physical features, build, facial features, hair, clothing details, accessories, expression, demeanor - 3-4 sentences with specific visual details]
 
-Frame 1 (ELS - Extreme Long Shot):
-[Detailed visual description - environment, lighting, mood, composition. End with: "photorealistic, cinematic lighting, [mood descriptor]"]
+ENVIRONMENT DESCRIPTION:
+[Detailed setting: specific location type, time of day, lighting conditions (golden hour/overcast/interior/etc.), key environmental elements, atmosphere, color palette, architectural details - 3-4 sentences with specific visual details]
 
-Frame 2 (LS - Long Shot):
-[Detailed visual description showing full subject in environment]
+CAMERA COVERAGE:
 
-Frame 3 (MLS - Medium Long Shot):
-[Subject from knees up, showing action and environment context]
+Row 1 (Establishing Wide Shots):
 
-Frame 4 (MS - Medium Shot):
-[Subject from waist up, showing emotion and gesture]
+EXTREME LONG SHOT (ELS):
+[Detailed scene description showing subject small within vast environment, spatial context, environmental scope, wide perspective - 2-3 sentences]
 
-Frame 5 (MCU - Medium Close-Up):
-[Subject from chest up, focus on expression and detail]
+LONG SHOT (LS):
+[Full body head-to-toe view, complete subject visible, surrounding environment context, natural positioning - 2-3 sentences]
 
-Frame 6 (CU - Close-Up):
-[Face or important object, emotional focus]
+MEDIUM LONG SHOT (MLS):
+[Subject framed from knees up, three-quarter or American shot style, action beginning to be visible, environmental context still present - 2-3 sentences]
 
-Frame 7 (ECU - Extreme Close-Up):
-[Eyes, hands, or crucial detail - maximum emotional impact]
+Row 2 (Core Character Coverage):
 
-Frame 8 (Low Angle):
-[Looking up at subject - conveys power, importance, or drama]
+MEDIUM SHOT (MS):
+[Waist-up framing, focus on action and interaction, upper body clearly visible, specific action description, environmental elements in background - 2-3 sentences]
 
-Frame 9 (High Angle):
-[Looking down at subject or scene - conveys vulnerability or overview]
+MEDIUM CLOSE-UP (MCU):
+[Chest-up framing, intimate character view, facial expression details, emotional state visible, shallow depth of field beginning - 2-3 sentences]
 
-DIALOGUE/NARRATION NOTES:
-- Frame X: "Dialogue or narration text here"
-- Frame Y: "More dialogue or narration"
-[Include 3-5 key dialogue/narration moments]
+CLOSE-UP (CU):
+[Tight face framing only, detailed facial features, authentic human expression, emotional nuance, skin texture visible, shallow depth of field with background bokeh - 2-3 sentences]
+
+Row 3 (Details & Perspective):
+
+EXTREME CLOSE-UP (ECU):
+[Macro detail shot of specific element: hands, eyes, object, texture - extreme detail description, tactile quality, minute details visible - 2-3 sentences]
+
+LOW ANGLE SHOT:
+[Worm's eye view looking upward at subject, heroic or imposing perspective, environmental context above, perspective distortion noted - 2-3 sentences]
+
+HIGH ANGLE SHOT:
+[Bird's eye view looking down on subject, overhead perspective, spatial relationship visible, top-down composition - 2-3 sentences]
+
+
+TECHNICAL SPECIFICATIONS:
+Camera System: Shot on Arri Alexa LF cinema camera
+Image Quality: Ultra-photorealistic, professional cinematography, 8k resolution, highly detailed
+Lighting: [Specific lighting description based on environment - e.g., "Natural golden hour sunlight", "Soft overcast daylight", "Interior fluorescent and window light mix", etc.]
+Color Grading: [Specific color palette - e.g., "Natural desaturated tones with warm amber highlights", "Cool blue-gray tones", "Rich saturated colors", etc.]
+Texture Detail: Authentic skin texture and fabric detail, realistic material surfaces, natural imperfections
+Depth of Field: Realistic cinema lens bokeh, shallow depth on close-ups, natural focus fall-off
+Film Characteristics: Film grain texture, natural photographic quality
+Consistency: Same character appearance across all 9 frames (identical face, hair, clothing, environment), same lighting and time of day throughout
+Aesthetic: Documentary realism style, 100% photographic reality, zero cartoon or illustration qualities
+Aspect Ratio: 16:9 cinematic widescreen format
+
+DIALOGUE/NARRATION NOTES: (Optional - only include if story requires it)
+Frame [number]: "[Dialogue or narration text]"
+Frame [number]: "[Dialogue or narration text]"
+[Include 2-5 key dialogue/narration moments if applicable]
+
+USAGE NOTES:
+Copy this entire storyboard script into the AI Cinematographer Storyboard tab to generate your 9-panel visual storyboard grid.
 
 ---
 
 CRITICAL OUTPUT RULES:
-- NO markdown formatting (no ** or *)
-- Keep each frame description on its own line
-- Make descriptions detailed enough for AI image generation
-- Maintain visual consistency (lighting, style, color palette) across all frames`;
+- NO markdown formatting (no ** or *, no # headers)
+- Each frame description must be 2-3 detailed sentences, not abbreviated
+- Be highly specific with visual details for AI image generation
+- Maintain visual consistency (subject appearance, lighting, style, color palette) across ALL frames
+- Use professional cinematography terminology throughout
+- The output will be used directly to generate AI images, so clarity and detail are essential`;
 
     case 'custom':
       return `${offerContext}
