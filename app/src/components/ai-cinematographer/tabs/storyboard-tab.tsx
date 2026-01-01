@@ -37,7 +37,7 @@ interface StoryboardTabProps {
 
 const CREDIT_COST = 1; // 1 credit per storyboard grid
 const MAX_REFERENCE_IMAGES = 3;
-const MAX_STORY_LENGTH = 2000;
+const MAX_STORY_LENGTH = 20000;
 
 export function StoryboardTab({
   onGenerate,
