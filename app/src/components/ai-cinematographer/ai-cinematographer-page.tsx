@@ -10,11 +10,13 @@ import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { StartingShotOutput } from './output-panel/starting-shot-output';
 import { useAICinematographer } from './hooks/use-ai-cinematographer';
-import { Video, History, Image } from 'lucide-react';
+import { Video, History, Image, LayoutGrid } from 'lucide-react';
 
 // Tab content components
 import { GeneratorTab } from './tabs/generator-tab';
 import { StartingShotTab } from './tabs/starting-shot-tab';
+import { StoryboardTab } from './tabs/storyboard-tab';
+import { StoryboardOutput } from './output-panel/storyboard-output';
 
 /**
  * AI Cinematographer - Complete AI-Orchestrated Tool with Tabs
@@ -43,6 +45,14 @@ export function AICinematographerPage() {
     startingShotResult,
     pendingImageForVideo,
     setImageForVideo,
+    // Storyboard
+    generateStoryboard,
+    isGeneratingStoryboard,
+    storyboardResult,
+    extractedFrames,
+    isExtractingFrames,
+    extractingProgress,
+    extractFrames,
   } = useAICinematographer();
 
   // Check for image URL in search params (from Starting Shot "Make Video" button)
@@ -59,6 +69,7 @@ export function AICinematographerPage() {
   const getActiveTab = () => {
     if (pathname.includes('/history')) return 'history';
     if (pathname.includes('/starting-shot')) return 'starting-shot';
+    if (pathname.includes('/storyboard')) return 'storyboard';
     return 'generate'; // default
   };
 
@@ -77,6 +88,12 @@ export function AICinematographerPage() {
       label: 'Starting Shot',
       icon: Image,
       path: '/dashboard/ai-cinematographer/starting-shot'
+    },
+    {
+      id: 'storyboard',
+      label: 'Storyboard',
+      icon: LayoutGrid,
+      path: '/dashboard/ai-cinematographer/storyboard'
     },
     {
       id: 'history',
@@ -142,6 +159,49 @@ export function AICinematographerPage() {
             isGenerating={isGeneratingImage}
             generatedImage={startingShotResult?.image}
             onMakeVideo={handleMakeVideoFromImage}
+          />
+        </StandardToolLayout>
+      ) : activeTab === 'storyboard' ? (
+        // Storyboard tab - Two-panel layout
+        <StandardToolLayout>
+          {/* Left Panel - Settings */}
+          <div className="h-full overflow-hidden">
+            <StoryboardTab
+              onGenerate={generateStoryboard}
+              isGenerating={isGeneratingStoryboard}
+              credits={credits}
+              isLoadingCredits={isLoadingCredits}
+            />
+          </div>
+
+          {/* Right Panel - Storyboard Output */}
+          <StoryboardOutput
+            isGenerating={isGeneratingStoryboard}
+            storyboardResult={storyboardResult?.storyboard}
+            extractedFrames={extractedFrames}
+            isExtractingFrames={isExtractingFrames}
+            extractingProgress={extractingProgress}
+            onExtractFrames={extractFrames}
+            onRegenerateGrid={() => {
+              // Re-trigger generation with last prompt
+              if (storyboardResult?.storyboard) {
+                generateStoryboard({
+                  story_description: storyboardResult.storyboard.prompt,
+                  visual_style: storyboardResult.storyboard.visual_style,
+                  user_id: '',
+                });
+              }
+            }}
+            onMakeVideo={handleMakeVideoFromImage}
+            onDownload={(url, filename) => {
+              // Download image
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
           />
         </StandardToolLayout>
       ) : (

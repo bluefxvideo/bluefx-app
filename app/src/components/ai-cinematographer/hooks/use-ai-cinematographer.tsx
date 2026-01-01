@@ -10,7 +10,13 @@ import {
   CinematographerResponse,
   executeStartingShot,
   StartingShotRequest,
-  StartingShotResponse
+  StartingShotResponse,
+  executeStoryboardGeneration,
+  executeFrameExtraction,
+  StoryboardRequest,
+  StoryboardResponse,
+  FrameExtractionRequest,
+  ExtractedFrame,
 } from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
@@ -30,6 +36,13 @@ export function useAICinematographer() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [startingShotResult, setStartingShotResult] = useState<StartingShotResponse | undefined>();
   const [pendingImageForVideo, setPendingImageForVideo] = useState<string | undefined>();
+
+  // Storyboard state
+  const [isGeneratingStoryboard, setIsGeneratingStoryboard] = useState(false);
+  const [storyboardResult, setStoryboardResult] = useState<StoryboardResponse | undefined>();
+  const [extractedFrames, setExtractedFrames] = useState<ExtractedFrame[]>([]);
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+  const [extractingProgress, setExtractingProgress] = useState({ current: 0, total: 0 });
 
   // Use ref to track current result without causing subscription re-creation
   const resultRef = useRef<CinematographerResponse | undefined>();
@@ -198,6 +211,128 @@ export function useAICinematographer() {
     setStartingShotResult(undefined);
     setError(undefined);
     setIsGeneratingImage(false);
+  };
+
+  // Generate Storyboard (3x3 grid)
+  const generateStoryboard = async (request: StoryboardRequest) => {
+    if (!user?.id) {
+      setError('User must be authenticated to generate storyboards');
+      return;
+    }
+
+    setIsGeneratingStoryboard(true);
+    setError(undefined);
+    setStoryboardResult(undefined);
+    setExtractedFrames([]); // Clear any previous extracted frames
+
+    try {
+      const response = await executeStoryboardGeneration({
+        ...request,
+        user_id: user.id,
+      });
+
+      setStoryboardResult(response);
+
+      if (response.success) {
+        // Refresh history to show new storyboard
+        await loadHistory();
+      } else {
+        setError(response.error);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Storyboard generation failed';
+      setError(errorMessage);
+      setStoryboardResult({
+        success: false,
+        error: errorMessage,
+        batch_id: `error_${Date.now()}`,
+        generation_time_ms: 0,
+        credits_used: 0,
+        remaining_credits: 0,
+      });
+    } finally {
+      setIsGeneratingStoryboard(false);
+    }
+  };
+
+  // Extract frames from storyboard grid
+  const extractFrames = async (frameNumbers: number[]) => {
+    if (!user?.id) {
+      setError('User must be authenticated to extract frames');
+      return;
+    }
+
+    if (!storyboardResult?.storyboard) {
+      setError('No storyboard available for frame extraction');
+      return;
+    }
+
+    setIsExtractingFrames(true);
+    setError(undefined);
+    setExtractingProgress({ current: 0, total: frameNumbers.length });
+
+    // Add pending frames to the list
+    const pendingFrames: ExtractedFrame[] = frameNumbers.map(num => ({
+      id: `pending_${num}`,
+      frame_number: num,
+      image_url: '',
+      status: 'pending' as const,
+    }));
+    setExtractedFrames(prev => [...prev, ...pendingFrames]);
+
+    try {
+      const response = await executeFrameExtraction({
+        storyboard_id: storyboardResult.storyboard.id,
+        grid_image_url: storyboardResult.storyboard.grid_image_url,
+        frame_numbers: frameNumbers,
+        user_id: user.id,
+      });
+
+      if (response.success) {
+        // Replace pending frames with actual results
+        setExtractedFrames(prev => {
+          const existingCompleted = prev.filter(f =>
+            f.status === 'completed' && !frameNumbers.includes(f.frame_number)
+          );
+          return [...existingCompleted, ...response.frames];
+        });
+        // Refresh history
+        await loadHistory();
+      } else {
+        setError(response.error);
+        // Mark pending frames as failed
+        setExtractedFrames(prev =>
+          prev.map(f =>
+            frameNumbers.includes(f.frame_number) && f.status === 'pending'
+              ? { ...f, status: 'failed' as const, error: response.error }
+              : f
+          )
+        );
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Frame extraction failed';
+      setError(errorMessage);
+      // Mark pending frames as failed
+      setExtractedFrames(prev =>
+        prev.map(f =>
+          frameNumbers.includes(f.frame_number) && f.status === 'pending'
+            ? { ...f, status: 'failed' as const, error: errorMessage }
+            : f
+        )
+      );
+    } finally {
+      setIsExtractingFrames(false);
+      setExtractingProgress({ current: 0, total: 0 });
+    }
+  };
+
+  // Clear Storyboard results
+  const clearStoryboardResults = () => {
+    setStoryboardResult(undefined);
+    setExtractedFrames([]);
+    setError(undefined);
+    setIsGeneratingStoryboard(false);
+    setIsExtractingFrames(false);
   };
 
   // Delete video
@@ -397,6 +532,13 @@ export function useAICinematographer() {
     startingShotResult,
     pendingImageForVideo,
 
+    // Storyboard state
+    isGeneratingStoryboard,
+    storyboardResult,
+    extractedFrames,
+    isExtractingFrames,
+    extractingProgress,
+
     // History state
     videos,
     isLoadingHistory,
@@ -409,9 +551,12 @@ export function useAICinematographer() {
     // Actions
     generateVideo,
     generateStartingShot,
+    generateStoryboard,
+    extractFrames,
     setImageForVideo,
     clearResults,
     clearStartingShotResults,
+    clearStoryboardResults,
     loadHistory,
     deleteVideo,
   };

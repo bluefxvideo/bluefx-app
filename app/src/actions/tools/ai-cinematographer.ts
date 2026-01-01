@@ -636,3 +636,405 @@ export async function executeStartingShot(
     };
   }
 }
+
+// ============================================================================
+// STORYBOARD - 3x3 Grid Generation & Frame Extraction
+// ============================================================================
+
+// Visual style labels for prompt construction
+const VISUAL_STYLE_PROMPTS: Record<string, string> = {
+  cinematic_realism: 'photorealistic, cinematic lighting, film-quality',
+  film_noir: 'high contrast black and white, dramatic shadows, film noir aesthetic',
+  sci_fi: 'futuristic, neon lighting, cyberpunk aesthetic, sci-fi',
+  fantasy_epic: 'epic fantasy, dramatic lighting, magical atmosphere',
+  documentary: 'documentary style, natural lighting, candid feel',
+  custom: '', // Will use custom_style from request
+};
+
+// Request/Response types for Storyboard
+export interface StoryboardRequest {
+  story_description: string;
+  visual_style: string;
+  custom_style?: string;
+  reference_image_files?: File[];
+  reference_image_urls?: string[];
+  user_id: string;
+}
+
+export interface StoryboardResponse {
+  success: boolean;
+  storyboard?: {
+    id: string;
+    grid_image_url: string;
+    prompt: string;
+    visual_style: string;
+    created_at: string;
+  };
+  batch_id: string;
+  generation_time_ms: number;
+  credits_used: number;
+  remaining_credits: number;
+  error?: string;
+}
+
+export interface FrameExtractionRequest {
+  storyboard_id: string;
+  grid_image_url: string;
+  frame_numbers: number[]; // 1-9
+  user_id: string;
+}
+
+export interface ExtractedFrame {
+  id: string;
+  frame_number: number;
+  image_url: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+}
+
+export interface FrameExtractionResponse {
+  success: boolean;
+  frames: ExtractedFrame[];
+  batch_id: string;
+  generation_time_ms: number;
+  credits_used: number;
+  remaining_credits: number;
+  error?: string;
+}
+
+/**
+ * Generate Storyboard - 3x3 Cinematic Grid
+ * Uses google/nano-banana for image generation
+ * Cost: 1 credit per storyboard grid
+ */
+export async function executeStoryboardGeneration(
+  request: StoryboardRequest
+): Promise<StoryboardResponse> {
+  const startTime = Date.now();
+  const batch_id = crypto.randomUUID();
+  const CREDIT_COST = 1;
+
+  try {
+    // Step 1: Credit Validation
+    const creditCheck = await getUserCredits(request.user_id);
+    if (!creditCheck.success) {
+      return {
+        success: false,
+        error: 'Unable to verify credit balance',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
+    if ((creditCheck.credits || 0) < CREDIT_COST) {
+      return {
+        success: false,
+        error: `Insufficient credits. Required: ${CREDIT_COST}, Available: ${creditCheck.credits || 0}`,
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: creditCheck.credits || 0,
+      };
+    }
+
+    console.log(`📊 Storyboard - Credits validated: ${creditCheck.credits} available`);
+
+    // Step 2: Upload reference images if provided as files
+    let referenceImageUrls: string[] = request.reference_image_urls || [];
+
+    if (request.reference_image_files && request.reference_image_files.length > 0) {
+      console.log(`📊 Uploading ${request.reference_image_files.length} reference image(s)...`);
+
+      for (const file of request.reference_image_files) {
+        try {
+          const fileExtension = file.name.split('.').pop() || 'jpg';
+          const safeFilename = `storyboard_ref_${batch_id}_${Date.now()}.${fileExtension}`;
+
+          const uploadResult = await uploadImageToStorage(file, {
+            bucket: 'images',
+            folder: 'storyboard-references',
+            filename: safeFilename,
+            contentType: file.type || 'image/jpeg',
+          });
+
+          if (uploadResult.success && uploadResult.url) {
+            referenceImageUrls.push(uploadResult.url);
+            console.log('📸 Reference image uploaded:', uploadResult.url);
+          }
+        } catch (error) {
+          console.error('Failed to upload reference image:', error);
+        }
+      }
+    }
+
+    // Step 3: Construct the storyboard prompt
+    const visualStylePrompt = request.visual_style === 'custom'
+      ? request.custom_style || ''
+      : VISUAL_STYLE_PROMPTS[request.visual_style] || VISUAL_STYLE_PROMPTS.cinematic_realism;
+
+    const storyboardPrompt = `Analyze the entire movie scene. Identify ALL key subjects present (whether it's a single person, a group/couple, a vehicle, or a specific object) and their spatial relationship/interaction. Generate a cohesive 3x3 grid "Cinematic Contact Sheet" featuring 9 distinct camera shots of exactly these subjects in the same environment. You must adapt the standard cinematic shot types to fit the content (e.g., if a group, keep the group together; if an object, frame the whole object): Row 1 (Establishing Context): 1. Extreme Long Shot (ELS): The subject(s) are seen small within the vast environment. 2. Long Shot (LS): The complete subject(s) or group is visible from top to bottom (head to toe / wheels to roof). 3. Medium Long Shot (American/3-4): Framed from knees up (for people) or a 3/4 view (for objects). Row 2 (The Core Coverage): 4. Medium Shot (MS): Framed from the waist up (or the central core of the object). Focus on interaction/action. 5. Medium Close-Up (MCU): Framed from chest up. Intimate framing of the main subject(s). 6. Close-Up (CU): Tight framing on the face(s) or the "front" of the object. Row 3 (Details & Angles): 7. Extreme Close-Up (ECU): Macro detail focusing intensely on a key feature (eyes, hands, logo, texture). 8. Low Angle Shot (Worm's Eye): Looking up at the subject(s) from the ground (imposing/heroic). 9. High Angle Shot (Bird's Eye): Looking down on the subject(s) from above. Ensure strict consistency: The same people/objects, same clothes, and same lighting across all 9 panels. The depth of field should shift realistically (bokeh in close-ups). A professional 3x3 cinematic storyboard grid containing 9 panels. The grid showcases the specific subjects/scene from the input image in a comprehensive range of focal lengths. Top Row: Wide environmental shot, Full view, 3/4 cut. Middle Row: Waist-up view, Chest-up view, Face/Front close-up. Bottom Row: Macro detail, Low Angle, High Angle. All frames feature photorealistic textures, consistent cinematic color grading, and correct framing for the specific number of subjects or objects analyzed.
+
+SCENE INPUT: ${request.story_description}
+
+Visual Style: ${visualStylePrompt}`;
+
+    console.log(`📊 Generating storyboard with prompt length: ${storyboardPrompt.length}`);
+
+    // Step 4: Generate image using nano-banana
+    const hasReferenceImages = referenceImageUrls.length > 0;
+    const imageResult = await generateImage(
+      storyboardPrompt,
+      '1:1', // Square for 3x3 grid
+      hasReferenceImages ? referenceImageUrls : undefined
+    );
+
+    if (!imageResult.success || !imageResult.imageUrl) {
+      return {
+        success: false,
+        error: imageResult.error || 'Storyboard generation failed',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: creditCheck.credits || 0,
+      };
+    }
+
+    console.log(`✅ Storyboard generated successfully: ${imageResult.imageUrl}`);
+
+    // Step 5: Re-upload to Supabase for permanent storage
+    let permanentImageUrl = imageResult.imageUrl;
+
+    try {
+      console.log('📊 Re-uploading storyboard to Supabase storage...');
+      const uploadResult = await downloadAndUploadImage(
+        imageResult.imageUrl,
+        'storyboard-grid',
+        batch_id,
+        {
+          bucket: 'images',
+          folder: 'storyboards',
+          contentType: 'image/jpeg',
+        }
+      );
+
+      if (uploadResult.success && uploadResult.url) {
+        permanentImageUrl = uploadResult.url;
+        console.log(`✅ Storyboard saved to Supabase: ${permanentImageUrl}`);
+      } else {
+        console.warn('Failed to re-upload storyboard, using Replicate URL:', uploadResult.error);
+      }
+    } catch (uploadError) {
+      console.error('Error re-uploading storyboard:', uploadError);
+    }
+
+    // Step 6: Store result in database (using the same pattern as Starting Shot)
+    // Note: We store storyboards as starting shots since they use the same table structure
+    // The type is differentiated by project_name prefix
+    const storeResult = await storeStartingShotResult({
+      user_id: request.user_id,
+      batch_id,
+      prompt: `[STORYBOARD] ${request.story_description} | Style: ${request.visual_style}${request.custom_style ? ` | Custom: ${request.custom_style}` : ''}`,
+      image_url: permanentImageUrl,
+      aspect_ratio: '1:1',
+    });
+
+    if (!storeResult.success) {
+      console.error('Failed to store storyboard result:', storeResult.error);
+    }
+
+    // Step 7: Deduct credits
+    const creditDeduction = await deductCredits(
+      request.user_id,
+      CREDIT_COST,
+      'storyboard-generation',
+      { batch_id, prompt: request.story_description, visual_style: request.visual_style } as Json
+    );
+
+    if (!creditDeduction.success) {
+      console.warn('Credit deduction failed:', creditDeduction.error);
+    }
+
+    return {
+      success: true,
+      storyboard: {
+        id: batch_id,
+        grid_image_url: permanentImageUrl,
+        prompt: request.story_description,
+        visual_style: request.visual_style,
+        created_at: new Date().toISOString(),
+      },
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: CREDIT_COST,
+      remaining_credits: creditDeduction.remainingCredits || (creditCheck.credits || 0) - CREDIT_COST,
+    };
+
+  } catch (error) {
+    console.error('Storyboard generation error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: 0,
+      remaining_credits: 0,
+    };
+  }
+}
+
+/**
+ * Extract Individual Frame from Storyboard Grid
+ * Sends each frame to Nano-Banana for high-res extraction
+ * Cost: 1 credit per frame
+ */
+export async function executeFrameExtraction(
+  request: FrameExtractionRequest
+): Promise<FrameExtractionResponse> {
+  const startTime = Date.now();
+  const batch_id = crypto.randomUUID();
+  const CREDIT_PER_FRAME = 1;
+  const totalCreditCost = request.frame_numbers.length * CREDIT_PER_FRAME;
+
+  try {
+    // Step 1: Credit Validation
+    const creditCheck = await getUserCredits(request.user_id);
+    if (!creditCheck.success) {
+      return {
+        success: false,
+        frames: [],
+        error: 'Unable to verify credit balance',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
+    if ((creditCheck.credits || 0) < totalCreditCost) {
+      return {
+        success: false,
+        frames: [],
+        error: `Insufficient credits. Required: ${totalCreditCost}, Available: ${creditCheck.credits || 0}`,
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: creditCheck.credits || 0,
+      };
+    }
+
+    console.log(`🎞️ Frame Extraction - Credits validated: ${creditCheck.credits} available, extracting ${request.frame_numbers.length} frames`);
+
+    const extractedFrames: ExtractedFrame[] = [];
+    let creditsUsed = 0;
+
+    // Frame position mapping (1-9 to row/column)
+    const getFramePosition = (frameNum: number) => {
+      const row = Math.ceil(frameNum / 3);
+      const col = ((frameNum - 1) % 3) + 1;
+      return { row, col };
+    };
+
+    // Process frames sequentially
+    for (const frameNum of request.frame_numbers) {
+      const frameId = `${batch_id}_frame_${frameNum}`;
+      const { row, col } = getFramePosition(frameNum);
+
+      try {
+        console.log(`🎞️ Extracting frame ${frameNum} (row ${row}, column ${col})...`);
+
+        // Construct extraction prompt
+        const extractPrompt = `Extract the image from row ${row}, column ${col} of this 3x3 grid. Output only that single panel as a high quality, detailed image. Maintain the exact visual style, lighting, and content of that specific frame.`;
+
+        const imageResult = await generateImage(
+          extractPrompt,
+          '16:9', // Standard video aspect ratio for extracted frames
+          [request.grid_image_url] // Use the grid as reference
+        );
+
+        if (imageResult.success && imageResult.imageUrl) {
+          // Re-upload to Supabase
+          let permanentUrl = imageResult.imageUrl;
+          try {
+            const uploadResult = await downloadAndUploadImage(
+              imageResult.imageUrl,
+              'storyboard-frame',
+              frameId,
+              {
+                bucket: 'images',
+                folder: 'storyboard-frames',
+                contentType: 'image/jpeg',
+              }
+            );
+
+            if (uploadResult.success && uploadResult.url) {
+              permanentUrl = uploadResult.url;
+            }
+          } catch (uploadError) {
+            console.error(`Failed to re-upload frame ${frameNum}:`, uploadError);
+          }
+
+          extractedFrames.push({
+            id: frameId,
+            frame_number: frameNum,
+            image_url: permanentUrl,
+            status: 'completed',
+          });
+
+          // Deduct credit for this frame
+          await deductCredits(
+            request.user_id,
+            CREDIT_PER_FRAME,
+            'storyboard-frame-extraction',
+            { batch_id, frame_number: frameNum, storyboard_id: request.storyboard_id } as Json
+          );
+          creditsUsed += CREDIT_PER_FRAME;
+
+          console.log(`✅ Frame ${frameNum} extracted successfully`);
+        } else {
+          extractedFrames.push({
+            id: frameId,
+            frame_number: frameNum,
+            image_url: '',
+            status: 'failed',
+            error: imageResult.error || 'Extraction failed',
+          });
+          console.error(`❌ Frame ${frameNum} extraction failed:`, imageResult.error);
+        }
+      } catch (error) {
+        extractedFrames.push({
+          id: frameId,
+          frame_number: frameNum,
+          image_url: '',
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        console.error(`❌ Frame ${frameNum} extraction error:`, error);
+      }
+    }
+
+    const remainingCredits = (creditCheck.credits || 0) - creditsUsed;
+
+    return {
+      success: extractedFrames.some(f => f.status === 'completed'),
+      frames: extractedFrames,
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: creditsUsed,
+      remaining_credits: remainingCredits,
+    };
+
+  } catch (error) {
+    console.error('Frame extraction error:', error);
+    return {
+      success: false,
+      frames: [],
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: 0,
+      remaining_credits: 0,
+    };
+  }
+}
