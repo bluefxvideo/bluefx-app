@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,8 +33,6 @@ export function HistoryOutput({
 }: HistoryOutputProps) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
-  const [hoveredVideo, setHoveredVideo] = useState<string | null>(null);
-  const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
   // Apply filters when videos or filters change
   const filteredVideos = videos.filter(video => {
@@ -124,27 +122,6 @@ export function HistoryOutput({
     } else {
       const diffInDays = Math.floor(diffInHours / 24);
       return `${diffInDays}d ago`;
-    }
-  };
-
-  // Video hover handlers
-  const handleVideoHover = async (videoId: string, shouldPlay: boolean) => {
-    const videoElement = videoRefs.current[videoId];
-    if (!videoElement) return;
-
-    if (shouldPlay) {
-      setHoveredVideo(videoId);
-      try {
-        // Reset video to start and play
-        videoElement.currentTime = 0;
-        await videoElement.play();
-      } catch (error) {
-        console.log('Video autoplay prevented:', error);
-      }
-    } else {
-      setHoveredVideo(null);
-      videoElement.pause();
-      videoElement.currentTime = 0; // Reset to beginning
     }
   };
 
@@ -269,11 +246,7 @@ export function HistoryOutput({
                 </div>
 
                 {/* Media Preview */}
-                <div
-                  className="aspect-video bg-muted rounded overflow-hidden relative group"
-                  onMouseEnter={() => !isStartingShot(video) && video.final_video_url && handleVideoHover(video.id, true)}
-                  onMouseLeave={() => !isStartingShot(video) && video.final_video_url && handleVideoHover(video.id, false)}
-                >
+                <div className="aspect-video bg-muted rounded overflow-hidden relative group">
                   {isStartingShot(video) && video.final_video_url ? (
                     // Starting Shot image display - lazy loaded
                     <img
@@ -285,14 +258,11 @@ export function HistoryOutput({
                     />
                   ) : video.final_video_url ? (
                     <video
-                      ref={(el) => videoRefs.current[video.id] = el}
                       src={video.final_video_url}
-                      className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                      className="w-full h-full object-cover"
                       poster={video.preview_urls?.[0] || undefined}
                       preload="metadata"
-                      controls={hoveredVideo === video.id}
-                      muted
-                      loop
+                      controls
                     />
                   ) : video.preview_urls && video.preview_urls.length > 0 ? (
                     <img
