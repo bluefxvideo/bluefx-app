@@ -275,19 +275,21 @@ export function HistoryOutput({
                   onMouseLeave={() => !isStartingShot(video) && video.final_video_url && handleVideoHover(video.id, false)}
                 >
                   {isStartingShot(video) && video.final_video_url ? (
-                    // Starting Shot image display
+                    // Starting Shot image display - lazy loaded
                     <img
                       src={video.final_video_url}
                       alt={video.video_concept || 'Starting shot'}
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : video.final_video_url ? (
                     <video
                       ref={(el) => videoRefs.current[video.id] = el}
-                      src={video.final_video_url}
+                      src={hoveredVideo === video.id ? video.final_video_url : undefined}
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                       poster={video.preview_urls?.[0] || undefined}
-                      preload="metadata"
+                      preload="none"
                       controls={hoveredVideo === video.id}
                       muted
                       loop
@@ -297,6 +299,8 @@ export function HistoryOutput({
                       src={video.preview_urls[0]}
                       alt={video.video_concept || 'Preview'}
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">

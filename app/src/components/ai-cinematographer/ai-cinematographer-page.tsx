@@ -195,14 +195,24 @@ export function AICinematographerPage() {
             }}
             onRegenerateFrame={regenerateFrame}
             onMakeVideo={handleMakeVideoFromImage}
-            onDownload={(url, filename) => {
-              // Download image
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = filename;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
+            onDownload={async (url, filename) => {
+              // Download image by fetching as blob (works with cross-origin URLs)
+              try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+              } catch (error) {
+                console.error('Download failed:', error);
+                // Fallback: open in new tab
+                window.open(url, '_blank');
+              }
             }}
           />
         </StandardToolLayout>

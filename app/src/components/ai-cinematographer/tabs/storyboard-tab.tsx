@@ -35,7 +35,7 @@ interface StoryboardTabProps {
   isLoadingCredits?: boolean;
 }
 
-const CREDIT_COST = 1; // 1 credit per storyboard grid
+const CREDIT_COST = 3; // 3 credits for Nano Banana Pro grid generation
 const MAX_REFERENCE_IMAGES = 14;
 const MAX_STORY_LENGTH = 20000;
 

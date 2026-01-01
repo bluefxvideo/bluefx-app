@@ -224,7 +224,7 @@ export function StoryboardOutput({
                   disabled={isGenerating || isExtractingFrames}
                 >
                   <RefreshCw className="w-4 h-4 mr-1" />
-                  Regenerate (1 credit)
+                  Regenerate (3 credits)
                 </Button>
                 <Button
                   onClick={handleExtract}
@@ -344,7 +344,7 @@ export function StoryboardOutput({
             <DialogTitle>Regenerate Storyboard Grid?</DialogTitle>
             <DialogDescription>
               This will generate a new 3x3 storyboard grid using the same prompt and settings.
-              The current grid will be replaced. This costs 1 credit.
+              The current grid will be replaced. This costs 3 credits.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -352,7 +352,7 @@ export function StoryboardOutput({
               Cancel
             </Button>
             <Button onClick={handleConfirmRegenerateGrid}>
-              Regenerate (1 credit)
+              Regenerate (3 credits)
             </Button>
           </DialogFooter>
         </DialogContent>
