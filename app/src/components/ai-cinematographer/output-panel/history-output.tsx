@@ -286,10 +286,10 @@ export function HistoryOutput({
                   ) : video.final_video_url ? (
                     <video
                       ref={(el) => videoRefs.current[video.id] = el}
-                      src={hoveredVideo === video.id ? video.final_video_url : undefined}
+                      src={video.final_video_url}
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                       poster={video.preview_urls?.[0] || undefined}
-                      preload="none"
+                      preload="metadata"
                       controls={hoveredVideo === video.id}
                       muted
                       loop
