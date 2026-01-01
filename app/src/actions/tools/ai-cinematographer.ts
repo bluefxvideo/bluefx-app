@@ -941,7 +941,8 @@ export async function executeFrameExtraction(
 
     // Process frames sequentially
     for (const frameNum of request.frame_numbers) {
-      const frameId = `${batch_id}_frame_${frameNum}`;
+      // Generate a proper UUID for each frame (database requires UUID format)
+      const frameId = crypto.randomUUID();
       const { row, col } = getFramePosition(frameNum);
 
       try {
