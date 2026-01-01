@@ -490,38 +490,51 @@ export async function storeStartingShotResult(params: {
   aspect_ratio: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log(`🔄 storeStartingShotResult called with:`, {
+      user_id: params.user_id,
+      batch_id: params.batch_id,
+      prompt: params.prompt.substring(0, 50) + '...',
+      image_url: params.image_url.substring(0, 50) + '...',
+      aspect_ratio: params.aspect_ratio
+    });
+
     // Use admin client to bypass RLS policies for server-side inserts
     const supabase = createAdminClient();
 
-    const { error } = await supabase
+    const insertData = {
+      id: params.batch_id,
+      user_id: params.user_id,
+      video_concept: params.prompt,
+      project_name: `Starting Shot - ${new Date().toISOString()}`,
+      final_video_url: params.image_url,
+      style_preferences: {},
+      metadata: {
+        type: 'starting_shot',
+        aspect_ratio: params.aspect_ratio,
+        model: 'nano-banana'
+      } as Json,
+      status: 'completed',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    console.log(`📝 Inserting into cinematographer_videos:`, { id: insertData.id, user_id: insertData.user_id });
+
+    const { data, error } = await supabase
       .from('cinematographer_videos')
-      .insert({
-        id: params.batch_id,
-        user_id: params.user_id,
-        video_concept: params.prompt,
-        project_name: `Starting Shot - ${new Date().toISOString()}`,
-        final_video_url: params.image_url, // Store image URL in same field
-        style_preferences: {},
-        metadata: {
-          type: 'starting_shot',
-          aspect_ratio: params.aspect_ratio,
-          model: 'nano-banana'
-        } as Json,
-        status: 'completed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      .insert(insertData)
+      .select();
 
     if (error) {
-      console.error('Error storing starting shot result:', error);
+      console.error('❌ Error storing starting shot result:', error);
       return { success: false, error: error.message };
     }
 
-    console.log(`✅ Starting Shot stored for batch: ${params.batch_id}`);
+    console.log(`✅ Starting Shot stored successfully:`, { batch_id: params.batch_id, inserted: data });
     return { success: true };
 
   } catch (error) {
-    console.error('storeStartingShotResult error:', error);
+    console.error('❌ storeStartingShotResult exception:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to store result'
