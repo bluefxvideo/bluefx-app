@@ -261,7 +261,7 @@ export function HistoryOutput({
                       src={video.final_video_url}
                       className="w-full h-full object-cover"
                       poster={video.preview_urls?.[0] || undefined}
-                      preload="metadata"
+                      preload="none"
                       controls
                     />
                   ) : video.preview_urls && video.preview_urls.length > 0 ? (
