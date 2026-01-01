@@ -36,7 +36,7 @@ interface StoryboardTabProps {
 }
 
 const CREDIT_COST = 1; // 1 credit per storyboard grid
-const MAX_REFERENCE_IMAGES = 3;
+const MAX_REFERENCE_IMAGES = 14;
 const MAX_STORY_LENGTH = 20000;
 
 export function StoryboardTab({
@@ -174,7 +174,7 @@ export function StoryboardTab({
         <StandardStep
           stepNumber={2}
           title="Reference Images"
-          description="Optional: Upload up to 3 images for style guidance"
+          description="Optional: Upload up to 14 images for style, character, or environment reference"
         >
           <div
             ref={dropZoneRef}
@@ -196,7 +196,7 @@ export function StoryboardTab({
             )}
 
             {!isDragging && (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-2">
                 {referenceImages.map((img, index) => (
                   <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-muted/30 group">
                     <img
@@ -207,7 +207,7 @@ export function StoryboardTab({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute top-1 right-1 h-6 w-6 bg-background/80 hover:bg-background opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 h-5 w-5 bg-background/80 hover:bg-background opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => removeReferenceImage(index)}
                       disabled={isGenerating}
                     >
@@ -223,8 +223,8 @@ export function StoryboardTab({
                     disabled={isGenerating}
                     className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Plus className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Add</span>
+                    <Plus className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">Add</span>
                   </button>
                 )}
               </div>

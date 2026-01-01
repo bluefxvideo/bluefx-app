@@ -335,6 +335,25 @@ export function useAICinematographer() {
     setIsExtractingFrames(false);
   };
 
+  // Regenerate a single frame (re-extract it from the grid)
+  const regenerateFrame = async (frameNumber: number) => {
+    if (!user?.id) {
+      setError('User must be authenticated to regenerate frames');
+      return;
+    }
+
+    if (!storyboardResult?.storyboard) {
+      setError('No storyboard available for frame regeneration');
+      return;
+    }
+
+    // Remove the existing frame from extractedFrames first
+    setExtractedFrames(prev => prev.filter(f => f.frame_number !== frameNumber));
+
+    // Call extractFrames with just this one frame
+    await extractFrames([frameNumber]);
+  };
+
   // Delete video
   const deleteVideo = useCallback(async (videoId: string) => {
     if (!user?.id) {
@@ -553,6 +572,7 @@ export function useAICinematographer() {
     generateStartingShot,
     generateStoryboard,
     extractFrames,
+    regenerateFrame,
     setImageForVideo,
     clearResults,
     clearStartingShotResults,

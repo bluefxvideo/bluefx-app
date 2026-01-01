@@ -53,6 +53,7 @@ export function AICinematographerPage() {
     isExtractingFrames,
     extractingProgress,
     extractFrames,
+    regenerateFrame,
   } = useAICinematographer();
 
   // Check for image URL in search params (from Starting Shot "Make Video" button)
@@ -192,6 +193,7 @@ export function AICinematographerPage() {
                 });
               }
             }}
+            onRegenerateFrame={regenerateFrame}
             onMakeVideo={handleMakeVideoFromImage}
             onDownload={(url, filename) => {
               // Download image

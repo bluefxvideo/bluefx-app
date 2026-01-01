@@ -2,8 +2,16 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, Download, RefreshCw, Check, Loader2, Film, X } from 'lucide-react';
+import { LayoutGrid, Download, RefreshCw, Check, Loader2, Film, X, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Frame labels for the 3x3 grid
 const FRAME_LABELS = [
@@ -41,6 +49,7 @@ interface StoryboardOutputProps {
   extractingProgress: { current: number; total: number };
   onExtractFrames: (frameNumbers: number[]) => void;
   onRegenerateGrid: () => void;
+  onRegenerateFrame?: (frameNumber: number) => void;
   onMakeVideo: (imageUrl: string) => void;
   onDownload: (imageUrl: string, filename: string) => void;
 }
@@ -53,10 +62,14 @@ export function StoryboardOutput({
   extractingProgress,
   onExtractFrames,
   onRegenerateGrid,
+  onRegenerateFrame,
   onMakeVideo,
   onDownload,
 }: StoryboardOutputProps) {
   const [selectedFrames, setSelectedFrames] = useState<number[]>([]);
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+  const [regenerateGridDialogOpen, setRegenerateGridDialogOpen] = useState(false);
+  const [frameToRegenerate, setFrameToRegenerate] = useState<number | null>(null);
 
   const toggleFrame = (frameNumber: number) => {
     setSelectedFrames(prev =>
@@ -77,6 +90,28 @@ export function StoryboardOutput({
     if (storyboardResult?.grid_image_url) {
       onDownload(storyboardResult.grid_image_url, `storyboard_grid_${storyboardResult.id}.jpg`);
     }
+  };
+
+  const handleRegenerateFrameClick = (frameNumber: number) => {
+    setFrameToRegenerate(frameNumber);
+    setRegenerateDialogOpen(true);
+  };
+
+  const handleConfirmRegenerateFrame = () => {
+    if (frameToRegenerate && onRegenerateFrame) {
+      onRegenerateFrame(frameToRegenerate);
+    }
+    setRegenerateDialogOpen(false);
+    setFrameToRegenerate(null);
+  };
+
+  const handleRegenerateGridClick = () => {
+    setRegenerateGridDialogOpen(true);
+  };
+
+  const handleConfirmRegenerateGrid = () => {
+    onRegenerateGrid();
+    setRegenerateGridDialogOpen(false);
   };
 
   // Empty state
@@ -185,7 +220,7 @@ export function StoryboardOutput({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={onRegenerateGrid}
+                  onClick={handleRegenerateGridClick}
                   disabled={isGenerating || isExtractingFrames}
                 >
                   <RefreshCw className="w-4 h-4 mr-1" />
@@ -274,8 +309,19 @@ export function StoryboardOutput({
                       onClick={() => onMakeVideo(frame.image_url)}
                     >
                       <Film className="w-3 h-3 mr-1" />
-                      Use in Video
+                      Video
                     </Button>
+                    {onRegenerateFrame && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => handleRegenerateFrameClick(frame.frame_number)}
+                        disabled={isExtractingFrames}
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -290,6 +336,48 @@ export function StoryboardOutput({
           <span>{extractedFrames.filter(f => f.status === 'failed').length} frame(s) failed to extract. You can try again.</span>
         </div>
       )}
+
+      {/* Regenerate Grid Confirmation Dialog */}
+      <Dialog open={regenerateGridDialogOpen} onOpenChange={setRegenerateGridDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate Storyboard Grid?</DialogTitle>
+            <DialogDescription>
+              This will generate a new 3x3 storyboard grid using the same prompt and settings.
+              The current grid will be replaced. This costs 1 credit.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerateGridDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRegenerateGrid}>
+              Regenerate (1 credit)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Regenerate Frame Confirmation Dialog */}
+      <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate Frame {frameToRegenerate}?</DialogTitle>
+            <DialogDescription>
+              This will extract a new high-quality version of Frame {frameToRegenerate} from the storyboard grid.
+              The current frame will be replaced. This costs 1 credit.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRegenerateFrame}>
+              Regenerate (1 credit)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
