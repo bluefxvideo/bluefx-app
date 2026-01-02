@@ -283,7 +283,7 @@ export function StoryboardOutput({
                       Extracting...
                     </>
                   ) : (
-                    `Extract${selectedFrames.length > 0 ? ` (${selectedFrames.length} credit${selectedFrames.length !== 1 ? 's' : ''})` : ''}`
+                    `Extract${selectedFrames.length > 0 ? ` (${selectedFrames.length * 3} credits)` : ''}`
                   )}
                 </Button>
               </div>
@@ -411,7 +411,7 @@ export function StoryboardOutput({
             <DialogTitle>Regenerate Frame {frameToRegenerate}?</DialogTitle>
             <DialogDescription>
               This will extract a new high-quality version of Frame {frameToRegenerate} from the storyboard grid.
-              The current frame will be replaced. This costs 1 credit.
+              The current frame will be replaced. This costs 3 credits.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -419,7 +419,7 @@ export function StoryboardOutput({
               Cancel
             </Button>
             <Button onClick={handleConfirmRegenerateFrame}>
-              Regenerate (1 credit)
+              Regenerate (3 credits)
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -770,18 +770,25 @@ export async function executeStoryboardGeneration(
       }
     }
 
-    // Step 3: Construct the storyboard prompt
+    // Step 3: Construct the storyboard prompt (VERSION 2 - Film Strip Style)
     const visualStylePrompt = request.visual_style === 'custom'
       ? request.custom_style || ''
       : VISUAL_STYLE_PROMPTS[request.visual_style] || VISUAL_STYLE_PROMPTS.cinematic_realism;
 
-    const storyboardPrompt = `3x3 cinematic contact sheet with 9 landscape-oriented 16:9 frames arranged in grid format. Each individual panel must be 16:9 widescreen aspect ratio (horizontal/landscape orientation), NOT square panels.
+    const storyboardPrompt = `Professional cinematography contact sheet displaying 9 frames from the same scene. Think film strip or movie storyboard - each frame is a horizontal widescreen rectangle (16:9 aspect ratio), arranged in 3 rows of 3 frames each.
 
-Analyze the entire movie scene. Identify ALL key subjects present (whether it's a single person, a group/couple, a vehicle, or a specific object) and their spatial relationship/interaction. Generate a cohesive 3x3 grid featuring 9 distinct camera shots of exactly these subjects in the same environment. You must adapt the standard cinematic shot types to fit the content (e.g., if a group, keep the group together; if an object, frame the whole object): Row 1 (Establishing Context): 1. Extreme Long Shot (ELS): The subject(s) are seen small within the vast environment. 2. Long Shot (LS): The complete subject(s) or group is visible from top to bottom (head to toe / wheels to roof). 3. Medium Long Shot (American/3-4): Framed from knees up (for people) or a 3/4 view (for objects). Row 2 (The Core Coverage): 4. Medium Shot (MS): Framed from the waist up (or the central core of the object). Focus on interaction/action. 5. Medium Close-Up (MCU): Framed from chest up. Intimate framing of the main subject(s). 6. Close-Up (CU): Tight framing on the face(s) or the "front" of the object. Row 3 (Details & Angles): 7. Extreme Close-Up (ECU): Macro detail focusing intensely on a key feature (eyes, hands, logo, texture). 8. Low Angle Shot (Worm's Eye): Looking up at the subject(s) from the ground (imposing/heroic). 9. High Angle Shot (Bird's Eye): Looking down on the subject(s) from above. Ensure strict consistency: The same people/objects, same clothes, and same lighting across all 9 panels. The depth of field should shift realistically (bokeh in close-ups). Grid Format: 3x3 layout where each individual frame is 16:9 widescreen (horizontal/landscape orientation). Top Row: Wide environmental shot, Full view, 3/4 cut. Middle Row: Waist-up view, Chest-up view, Face/Front close-up. Bottom Row: Macro detail, Low Angle, High Angle. All frames feature photorealistic textures, consistent cinematic color grading, and correct framing for the specific number of subjects or objects analyzed.
+DO NOT create square frames. Each frame must be landscape-oriented 16:9 widescreen format (wider than tall, like a cinema screen).
 
-SCENE INPUT: ${request.story_description}
+${request.story_description}
 
-Visual Style: ${visualStylePrompt}`;
+Shot progression:
+Row 1: Establishing shots - wide environmental view, full subject view, 3/4 framing
+Row 2: Core coverage - waist-up medium shot, chest-up close shot, face/detail close-up
+Row 3: Creative angles - extreme detail/macro, low angle looking up, high angle looking down
+
+Technical: Ultra-photorealistic, shot on Arri Alexa cinema camera, 8k detail, natural lighting, film grain, documentary realism. ${visualStylePrompt}
+
+CRITICAL FORMATTING: Output must be a grid where each of the 9 individual frames maintains 16:9 cinematic widescreen proportions (horizontal rectangles, not squares). The overall composition will be wider than tall.`;
 
     console.log(`📊 Generating storyboard with prompt length: ${storyboardPrompt.length}`);
 
@@ -789,8 +796,10 @@ Visual Style: ${visualStylePrompt}`;
     const hasReferenceImages = referenceImageUrls.length > 0;
     const imageResult = await generateImageWithPro(
       storyboardPrompt,
-      '1:1', // Square for 3x3 grid
-      hasReferenceImages ? referenceImageUrls : undefined
+      '16:9', // Widescreen for film strip style grid
+      hasReferenceImages ? referenceImageUrls : undefined,
+      '2K', // 2K resolution
+      'jpg' // JPG format
     );
 
     if (!imageResult.success || !imageResult.imageUrl) {
@@ -889,15 +898,15 @@ Visual Style: ${visualStylePrompt}`;
 
 /**
  * Extract Individual Frame from Storyboard Grid
- * Sends each frame to Nano-Banana for high-res extraction
- * Cost: 1 credit per frame
+ * Sends each frame to Nano-Banana Pro for high-res extraction
+ * Cost: 3 credits per frame (using Pro model for reliable extraction)
  */
 export async function executeFrameExtraction(
   request: FrameExtractionRequest
 ): Promise<FrameExtractionResponse> {
   const startTime = Date.now();
   const batch_id = crypto.randomUUID();
-  const CREDIT_PER_FRAME = 1;
+  const CREDIT_PER_FRAME = 3; // Pro model costs 3 credits
   const totalCreditCost = request.frame_numbers.length * CREDIT_PER_FRAME;
 
   try {
@@ -946,15 +955,18 @@ export async function executeFrameExtraction(
       const { row, col } = getFramePosition(frameNum);
 
       try {
-        console.log(`🎞️ Extracting frame ${frameNum} (row ${row}, column ${col})...`);
+        console.log(`🎞️ Extracting frame ${frameNum} (row ${row}, column ${col}) using Pro model...`);
 
-        // Construct extraction prompt
-        const extractPrompt = `Extract the image from row ${row}, column ${col} of this 3x3 grid. Output only that single panel as a high quality, detailed image. Maintain the exact visual style, lighting, and content of that specific frame.`;
+        // Simple extraction prompt for Pro model
+        const extractPrompt = `Crop out frame in row ${row}, column ${col}. Return only that frame, high quality.`;
 
-        const imageResult = await generateImage(
+        // Use Pro model for reliable extraction
+        const imageResult = await generateImageWithPro(
           extractPrompt,
           '16:9', // Standard video aspect ratio for extracted frames
-          [request.grid_image_url] // Use the grid as reference
+          [request.grid_image_url], // Use the grid as reference
+          '2K', // 2K resolution
+          'jpg' // JPG format
         );
 
         if (imageResult.success && imageResult.imageUrl) {

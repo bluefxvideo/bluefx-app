@@ -45,6 +45,8 @@ interface ImageGenerationOutput {
 interface CreateImagePredictionParams {
   prompt: string;
   aspect_ratio?: NanoBananaAspectRatio;
+  resolution?: '1K' | '2K' | '4K';
+  output_format?: 'jpg' | 'png' | 'webp';
   image_input?: string[]; // Reference image URLs
   webhook?: string;
 }
@@ -59,6 +61,8 @@ export async function createNanoBananaProPrediction(
     const input: Record<string, unknown> = {
       prompt: params.prompt,
       aspect_ratio: params.aspect_ratio || '16:9',
+      resolution: params.resolution || '2K',
+      output_format: params.output_format || 'jpg',
       num_outputs: 1,
       ...(params.image_input && params.image_input.length > 0 && { image_input: params.image_input }),
     };
@@ -66,6 +70,8 @@ export async function createNanoBananaProPrediction(
     console.log('🖼️ Creating nano-banana-pro prediction with input:', {
       prompt: params.prompt.substring(0, 100) + '...',
       aspect_ratio: params.aspect_ratio,
+      resolution: params.resolution || '2K',
+      output_format: params.output_format || 'jpg',
       reference_images: params.image_input?.length || 0
     });
 
@@ -169,17 +175,23 @@ export async function waitForNanoBananaProCompletion(
  * @param prompt - Text description of the image to generate
  * @param aspectRatio - Aspect ratio of the output image
  * @param referenceImages - Optional array of reference image URLs
+ * @param resolution - Output resolution (1K, 2K, 4K) - defaults to 2K
+ * @param outputFormat - Output format (jpg, png, webp) - defaults to jpg
  */
 export async function generateImageWithPro(
   prompt: string,
   aspectRatio: NanoBananaAspectRatio = '16:9',
-  referenceImages?: string[]
+  referenceImages?: string[],
+  resolution: '1K' | '2K' | '4K' = '2K',
+  outputFormat: 'jpg' | 'png' | 'webp' = 'jpg'
 ): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
   try {
     // Create prediction
     const prediction = await createNanoBananaProPrediction({
       prompt,
       aspect_ratio: aspectRatio,
+      resolution,
+      output_format: outputFormat,
       image_input: referenceImages,
     });
 
