@@ -365,7 +365,7 @@ async function generateTitles(topic: string, uploadedDocuments?: UploadedDocumen
 
   // Gemini 2.0 Flash is dramatically cheaper: $0.075/1M tokens vs $15/1M for O1-preview
   const result = await generateObject({
-    model: google('gemini-2.0-flash-exp'),
+    model: google('gemini-2.5-flash'),
     schema: TitleGenerationSchema,
     prompt: `
       Generate 10 compelling, professional ebook titles for the topic: "${topic}"
@@ -427,7 +427,7 @@ async function generateOutline(request: EbookWriterRequest): Promise<EbookOutlin
   // O1-preview: $15/1M input tokens
   // Gemini 2.0 Flash: $0.075/1M input tokens
   const result = await generateObject({
-    model: google('gemini-2.0-flash-exp'),
+    model: google('gemini-2.5-flash'),
     schema: OutlineGenerationSchema,
     prompt: `
       Create a comprehensive outline for an ebook titled: "${title}"
@@ -578,7 +578,7 @@ async function generateSectionContent(params: {
   // O1-mini: $3/1M input, $12/1M output
   // Gemini: $0.075/1M input, $0.30/1M output
   const result = await generateObject({
-    model: google('gemini-2.0-flash-exp'),
+    model: google('gemini-2.5-flash'),
     schema: ContentGenerationSchema,
     prompt: `
       Write comprehensive content for this ebook section:

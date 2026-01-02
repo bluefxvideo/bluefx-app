@@ -63,7 +63,7 @@ export async function generateAffiliateScript(
 
     // Generate content using Gemini 2.0 Flash
     const { text } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
+      model: google('gemini-2.5-flash'),
       prompt: prompt,
       maxTokens: maxTokens,
       temperature: 0.7,
@@ -135,7 +135,7 @@ export async function refineAffiliateScript(
 
     // Generate refined content using Gemini 2.0 Flash
     const { text } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
+      model: google('gemini-2.5-flash'),
       prompt: prompt,
       maxTokens: 4096,
       temperature: 0.7,
