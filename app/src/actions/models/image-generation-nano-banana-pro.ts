@@ -132,8 +132,8 @@ export async function getNanoBananaProPrediction(
  */
 export async function waitForNanoBananaProCompletion(
   predictionId: string,
-  maxWaitTime: number = 120000, // 2 minutes default (higher quality takes longer)
-  pollInterval: number = 2000 // 2 seconds default
+  maxWaitTime: number = 300000, // 5 minutes default (storyboard grids can take 4+ minutes)
+  pollInterval: number = 3000 // 3 seconds between polls
 ): Promise<ImageGenerationOutput> {
   const startTime = Date.now();
   let pollCount = 0;
