@@ -136,11 +136,23 @@ export async function waitForNanoBananaProCompletion(
   pollInterval: number = 2000 // 2 seconds default
 ): Promise<ImageGenerationOutput> {
   const startTime = Date.now();
+  let pollCount = 0;
+
+  console.log(`⏳ Starting to poll for prediction ${predictionId}...`);
 
   while (Date.now() - startTime < maxWaitTime) {
+    pollCount++;
     const prediction = await getNanoBananaProPrediction(predictionId);
 
-    if (prediction.status === 'succeeded' || prediction.status === 'failed' || prediction.status === 'canceled') {
+    console.log(`📊 Poll #${pollCount} - Status: ${prediction.status}, Output: ${prediction.output ? 'YES' : 'NO'}`);
+
+    if (prediction.status === 'succeeded') {
+      console.log(`✅ Prediction succeeded after ${pollCount} polls, output:`, prediction.output);
+      return prediction;
+    }
+
+    if (prediction.status === 'failed' || prediction.status === 'canceled') {
+      console.log(`❌ Prediction ${prediction.status}:`, prediction.error);
       return prediction;
     }
 
@@ -148,6 +160,7 @@ export async function waitForNanoBananaProCompletion(
     await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
 
+  console.error(`⏰ Prediction ${predictionId} timed out after ${pollCount} polls (${maxWaitTime}ms)`);
   throw new Error(`Image prediction ${predictionId} did not complete within ${maxWaitTime}ms`);
 }
 
