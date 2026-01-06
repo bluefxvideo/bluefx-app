@@ -5,6 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,6 +27,10 @@ import {
   BarChart3,
   Download,
   RefreshCw,
+  Calendar,
+  Clock,
+  ChevronRight,
+  X,
 } from 'lucide-react';
 import {
   LineChart,
@@ -68,6 +78,43 @@ interface TopUser {
   lastActive: string | null;
 }
 
+interface UserDetails {
+  user: {
+    id: string;
+    username: string | null;
+    fullName: string | null;
+    email: string | null;
+    role: string | null;
+    createdAt: string | null;
+  };
+  credits: {
+    available: number;
+    total: number;
+    used: number;
+  };
+  subscription: {
+    plan: string;
+    status: string;
+    periodStart: string | null;
+    periodEnd: string | null;
+  } | null;
+  toolBreakdown: {
+    toolId: string;
+    toolName: string;
+    credits: number;
+    uses: number;
+  }[];
+  dailyUsage: {
+    date: string;
+    credits: number;
+  }[];
+  recentActivity: {
+    date: string;
+    tool: string;
+    credits: number;
+  }[];
+}
+
 const CHART_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#84CC16'];
 
 export function PlatformUsagePanel() {
@@ -78,6 +125,11 @@ export function PlatformUsagePanel() {
   const [dailyTrends, setDailyTrends] = useState<DailyUsageTrend[]>([]);
   const [topUsers, setTopUsers] = useState<TopUser[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // User detail modal state
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -109,6 +161,32 @@ export function PlatformUsagePanel() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const loadUserDetails = async (userId: string) => {
+    setSelectedUserId(userId);
+    setIsLoadingUser(true);
+    setUserDetails(null);
+
+    try {
+      const response = await fetch(`/api/admin/user-details?userId=${userId}`);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setUserDetails(result);
+      } else {
+        console.error('Failed to load user details:', result.error);
+      }
+    } catch (err) {
+      console.error('Error loading user details:', err);
+    } finally {
+      setIsLoadingUser(false);
+    }
+  };
+
+  const closeUserDetails = () => {
+    setSelectedUserId(null);
+    setUserDetails(null);
+  };
 
   const handleExport = () => {
     const csvData = [
@@ -407,7 +485,11 @@ export function PlatformUsagePanel() {
                     </thead>
                     <tbody className="divide-y">
                       {topUsers.map((user, index) => (
-                        <tr key={user.userId} className="hover:bg-muted/30">
+                        <tr
+                          key={user.userId}
+                          className="hover:bg-muted/30 cursor-pointer transition-colors"
+                          onClick={() => loadUserDetails(user.userId)}
+                        >
                           <td className="p-3">
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground w-5">#{index + 1}</span>
@@ -426,9 +508,12 @@ export function PlatformUsagePanel() {
                             {user.generations.toLocaleString()}
                           </td>
                           <td className="p-3 text-right text-muted-foreground text-sm">
-                            {user.lastActive
-                              ? new Date(user.lastActive).toLocaleDateString()
-                              : 'Never'}
+                            <div className="flex items-center justify-end gap-2">
+                              {user.lastActive
+                                ? new Date(user.lastActive).toLocaleDateString()
+                                : 'Never'}
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -444,6 +529,148 @@ export function PlatformUsagePanel() {
           </Card>
         </>
       )}
+
+      {/* User Details Modal */}
+      <Dialog open={selectedUserId !== null} onOpenChange={(open) => !open && closeUserDetails()}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              User Details
+            </DialogTitle>
+          </DialogHeader>
+
+          {isLoadingUser ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : userDetails ? (
+            <div className="space-y-6">
+              {/* User Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Account</h3>
+                  <div className="space-y-1 text-sm">
+                    <div><span className="text-muted-foreground">Username:</span> {userDetails.user.username || 'Not set'}</div>
+                    <div><span className="text-muted-foreground">Name:</span> {userDetails.user.fullName || 'Not set'}</div>
+                    <div><span className="text-muted-foreground">Email:</span> {userDetails.user.email || 'Not set'}</div>
+                    <div><span className="text-muted-foreground">Role:</span> <Badge variant="outline">{userDetails.user.role || 'user'}</Badge></div>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">Joined:</span> {userDetails.user.createdAt ? new Date(userDetails.user.createdAt).toLocaleDateString() : 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Credits</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-green-500" />
+                      <span className="text-muted-foreground">Available:</span>
+                      <span className="font-medium text-green-500">{userDetails.credits.available.toLocaleString()}</span>
+                    </div>
+                    <div><span className="text-muted-foreground">Total Allocated:</span> {userDetails.credits.total.toLocaleString()}</div>
+                    <div><span className="text-muted-foreground">Used:</span> {userDetails.credits.used.toLocaleString()}</div>
+                  </div>
+
+                  {userDetails.subscription && (
+                    <div className="mt-4">
+                      <h3 className="font-semibold mb-2">Subscription</h3>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Plan:</span>
+                          <Badge>{userDetails.subscription.plan}</Badge>
+                        </div>
+                        <div><span className="text-muted-foreground">Status:</span> <Badge variant={userDetails.subscription.status === 'active' ? 'default' : 'secondary'}>{userDetails.subscription.status}</Badge></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tool Breakdown */}
+              {userDetails.toolBreakdown.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Tool Usage Breakdown</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left p-2">Tool</th>
+                          <th className="text-right p-2">Credits</th>
+                          <th className="text-right p-2">Uses</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {userDetails.toolBreakdown.map((tool) => (
+                          <tr key={tool.toolId} className="hover:bg-muted/30">
+                            <td className="p-2">{tool.toolName}</td>
+                            <td className="p-2 text-right">
+                              <Badge variant="secondary">{tool.credits.toLocaleString()}</Badge>
+                            </td>
+                            <td className="p-2 text-right text-muted-foreground">{tool.uses}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Usage Chart */}
+              {userDetails.dailyUsage.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Daily Usage (Last 30 Days)</h3>
+                  <ResponsiveContainer width="100%" height={150}>
+                    <LineChart data={userDetails.dailyUsage}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip
+                        labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                        formatter={(value) => [`${value} credits`, 'Credits Used']}
+                      />
+                      <Line type="monotone" dataKey="credits" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Recent Activity */}
+              {userDetails.recentActivity.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Recent Activity</h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {userDetails.recentActivity.map((activity, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm p-2 rounded bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            {new Date(activity.date).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>{activity.tool}</span>
+                          <Badge variant="secondary">{activity.credits} credits</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Failed to load user details
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
