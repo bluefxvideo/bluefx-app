@@ -58,7 +58,9 @@ export function PlatformUsagePanel() {
     setError(null);
 
     try {
+      console.log('Fetching platform stats for date range:', dateRange);
       const result = await fetchPlatformUsageStats(dateRange);
+      console.log('Platform stats result:', result);
 
       if (result.success) {
         setSummary(result.summary || null);
@@ -66,11 +68,12 @@ export function PlatformUsagePanel() {
         setDailyTrends(result.dailyTrends || []);
         setTopUsers(result.topUsers || []);
       } else {
+        console.error('Platform stats failed:', result.error);
         setError(result.error || 'Failed to load data');
       }
     } catch (err) {
       console.error('Error loading platform stats:', err);
-      setError('Failed to load platform statistics');
+      setError(err instanceof Error ? err.message : 'Failed to load platform statistics');
     } finally {
       setIsLoading(false);
     }

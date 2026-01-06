@@ -93,17 +93,23 @@ export async function fetchPlatformUsageStats(
   dateRange: '7d' | '30d' | '90d' | 'all' = '30d'
 ): Promise<PlatformUsageResponse> {
   try {
+    console.log('📊 fetchPlatformUsageStats called with dateRange:', dateRange);
+
     const adminCheck = await verifyAdmin();
+    console.log('📊 Admin check result:', adminCheck);
+
     if (!adminCheck.isAdmin) {
       return { success: false, error: adminCheck.error };
     }
 
     // Use admin client to bypass RLS for aggregate queries
     const supabase = createAdminClient();
+    console.log('📊 Admin client created');
 
     // Calculate date range
     const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365 * 10;
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    console.log('📊 Fetching data from:', startDate);
 
     // Fetch all credit usage in date range (using credit_usage table like user-usage.ts)
     const { data: usageData, error: usageError } = await supabase
@@ -111,6 +117,8 @@ export async function fetchPlatformUsageStats(
       .select('user_id, service_type, credits_used, created_at')
       .gte('created_at', startDate)
       .order('created_at', { ascending: false });
+
+    console.log('📊 Credit usage query result - error:', usageError, 'count:', usageData?.length);
 
     if (usageError) {
       console.error('Error fetching credit usage:', usageError);
