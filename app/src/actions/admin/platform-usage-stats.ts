@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 
 // Tool name mapping for human-readable display
 export const TOOL_NAMES: Record<string, string> = {
@@ -98,7 +98,8 @@ export async function fetchPlatformUsageStats(
       return { success: false, error: adminCheck.error };
     }
 
-    const supabase = await createClient();
+    // Use admin client to bypass RLS for aggregate queries
+    const supabase = createAdminClient();
 
     // Calculate date range
     const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365 * 10;
