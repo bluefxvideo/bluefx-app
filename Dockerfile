@@ -79,11 +79,10 @@ ENV RAPIDAPI_KEY=""
 ENV APP_RAPIDAPI_KEY=""
 
 # Install yt-dlp and its dependencies for YouTube transcript fetching
-# Also install deno for JavaScript challenge solving (required by yt-dlp for some videos)
+# Deno is optional for yt-dlp (only needed for some JS challenges) - skip if install fails
 RUN apk add --no-cache python3 py3-pip ffmpeg curl \
     && pip3 install --break-system-packages yt-dlp \
-    && curl -fsSL https://deno.land/install.sh | sh \
-    && mv /root/.deno/bin/deno /usr/local/bin/deno
+    && (curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh || echo "Deno install failed, continuing without it")
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
