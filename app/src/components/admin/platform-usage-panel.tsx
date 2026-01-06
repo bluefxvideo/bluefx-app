@@ -34,13 +34,39 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import {
-  fetchPlatformUsageStats,
-  type PlatformSummaryStats,
-  type ToolUsageStat,
-  type DailyUsageTrend,
-  type TopUser,
-} from '@/actions/admin/platform-usage-stats';
+// Types for platform usage stats
+interface PlatformSummaryStats {
+  totalCreditsUsed: number;
+  totalGenerations: number;
+  activeUsers: number;
+  newUsers: number;
+  totalUsers: number;
+}
+
+interface ToolUsageStat {
+  toolId: string;
+  toolName: string;
+  totalCredits: number;
+  totalUses: number;
+  uniqueUsers: number;
+}
+
+interface DailyUsageTrend {
+  date: string;
+  creditsUsed: number;
+  generations: number;
+  activeUsers: number;
+}
+
+interface TopUser {
+  userId: string;
+  email: string | null;
+  username: string | null;
+  fullName: string | null;
+  creditsUsed: number;
+  generations: number;
+  lastActive: string | null;
+}
 
 const CHART_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#84CC16'];
 
@@ -59,10 +85,11 @@ export function PlatformUsagePanel() {
 
     try {
       console.log('Fetching platform stats for date range:', dateRange);
-      const result = await fetchPlatformUsageStats(dateRange);
+      const response = await fetch(`/api/admin/platform-stats?range=${dateRange}`);
+      const result = await response.json();
       console.log('Platform stats result:', result);
 
-      if (result.success) {
+      if (response.ok && result.success) {
         setSummary(result.summary || null);
         setToolUsage(result.toolUsage || []);
         setDailyTrends(result.dailyTrends || []);
