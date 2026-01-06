@@ -6,8 +6,9 @@ import { createClient } from '@/app/supabase/client';
 import { AdminUserTable } from '@/components/admin/admin-user-table';
 import { ActivityFeedPanel } from '@/components/admin/activity-feed-panel';
 import { TopOffersSyncPanel } from '@/components/admin/top-offers-sync-panel';
+import { PlatformUsagePanel } from '@/components/admin/platform-usage-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Activity, Database } from 'lucide-react';
+import { Users, Activity, Database, BarChart3 } from 'lucide-react';
 
 /**
  * Admin Page
@@ -115,6 +116,10 @@ export default function AdminPage() {
       ) : (
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="usage" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Usage Overview
+            </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               User Management
@@ -128,6 +133,10 @@ export default function AdminPage() {
               Top Offers
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="usage">
+            <PlatformUsagePanel />
+          </TabsContent>
 
           <TabsContent value="users">
             <AdminUserTable users={users} />
