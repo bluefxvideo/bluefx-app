@@ -105,17 +105,16 @@ export async function fetchPlatformUsageStats(
     const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365 * 10;
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    // Fetch all credit transactions in date range
-    const { data: transactions, error: txError } = await supabase
-      .from('credit_transactions')
-      .select('user_id, amount, operation_type, created_at')
-      .eq('transaction_type', 'debit')
+    // Fetch all credit usage in date range (using credit_usage table like user-usage.ts)
+    const { data: usageData, error: usageError } = await supabase
+      .from('credit_usage')
+      .select('user_id, service_type, credits_used, created_at')
       .gte('created_at', startDate)
       .order('created_at', { ascending: false });
 
-    if (txError) {
-      console.error('Error fetching transactions:', txError);
-      return { success: false, error: 'Failed to fetch usage data' };
+    if (usageError) {
+      console.error('Error fetching credit usage:', usageError);
+      return { success: false, error: `Failed to fetch usage data: ${usageError.message}` };
     }
 
     // Fetch total user count
@@ -130,20 +129,20 @@ export async function fetchPlatformUsageStats(
       .gte('created_at', startDate);
 
     // Calculate summary stats
-    const txList = transactions || [];
-    const totalCreditsUsed = txList.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-    const totalGenerations = txList.length;
-    const uniqueActiveUsers = new Set(txList.map(tx => tx.user_id));
+    const entries = usageData || [];
+    const totalCreditsUsed = entries.reduce((sum, entry) => sum + (entry.credits_used || 0), 0);
+    const totalGenerations = entries.length;
+    const uniqueActiveUsers = new Set(entries.map(entry => entry.user_id));
     const activeUsers = uniqueActiveUsers.size;
 
     // Calculate tool usage stats
     const toolMap = new Map<string, { credits: number; uses: number; users: Set<string> }>();
-    for (const tx of txList) {
-      const toolId = tx.operation_type || 'unknown';
+    for (const entry of entries) {
+      const toolId = entry.service_type || 'unknown';
       const existing = toolMap.get(toolId) || { credits: 0, uses: 0, users: new Set<string>() };
-      existing.credits += Math.abs(tx.amount);
+      existing.credits += (entry.credits_used || 0);
       existing.uses += 1;
-      existing.users.add(tx.user_id);
+      existing.users.add(entry.user_id);
       toolMap.set(toolId, existing);
     }
 
@@ -159,12 +158,12 @@ export async function fetchPlatformUsageStats(
 
     // Calculate daily trends
     const dailyMap = new Map<string, { credits: number; generations: number; users: Set<string> }>();
-    for (const tx of txList) {
-      const dateKey = tx.created_at.split('T')[0];
+    for (const entry of entries) {
+      const dateKey = entry.created_at.split('T')[0];
       const existing = dailyMap.get(dateKey) || { credits: 0, generations: 0, users: new Set<string>() };
-      existing.credits += Math.abs(tx.amount);
+      existing.credits += (entry.credits_used || 0);
       existing.generations += 1;
-      existing.users.add(tx.user_id);
+      existing.users.add(entry.user_id);
       dailyMap.set(dateKey, existing);
     }
 
@@ -185,14 +184,14 @@ export async function fetchPlatformUsageStats(
 
     // Calculate top users
     const userMap = new Map<string, { credits: number; generations: number; lastActive: string }>();
-    for (const tx of txList) {
-      const existing = userMap.get(tx.user_id) || { credits: 0, generations: 0, lastActive: tx.created_at };
-      existing.credits += Math.abs(tx.amount);
+    for (const entry of entries) {
+      const existing = userMap.get(entry.user_id) || { credits: 0, generations: 0, lastActive: entry.created_at };
+      existing.credits += (entry.credits_used || 0);
       existing.generations += 1;
-      if (tx.created_at > existing.lastActive) {
-        existing.lastActive = tx.created_at;
+      if (entry.created_at > existing.lastActive) {
+        existing.lastActive = entry.created_at;
       }
-      userMap.set(tx.user_id, existing);
+      userMap.set(entry.user_id, existing);
     }
 
     // Get top 10 users by credits
