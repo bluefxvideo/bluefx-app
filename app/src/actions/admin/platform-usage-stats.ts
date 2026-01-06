@@ -111,12 +111,14 @@ export async function fetchPlatformUsageStats(
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     console.log('📊 Fetching data from:', startDate);
 
-    // Fetch all credit usage in date range (using credit_usage table like user-usage.ts)
+    // Fetch credit usage in date range with a reasonable limit
+    // Using limit of 10000 to prevent memory issues while still getting comprehensive data
     const { data: usageData, error: usageError } = await supabase
       .from('credit_usage')
       .select('user_id, service_type, credits_used, created_at')
       .gte('created_at', startDate)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(10000);
 
     console.log('📊 Credit usage query result - error:', usageError, 'count:', usageData?.length);
 
@@ -136,11 +138,15 @@ export async function fetchPlatformUsageStats(
       .select('*', { count: 'exact', head: true })
       .gte('created_at', startDate);
 
+    console.log('📊 Total users:', totalUsers, 'New users:', newUsers);
+
     // Calculate summary stats
     const entries = usageData || [];
+    console.log('📊 Processing', entries.length, 'entries');
+
     const totalCreditsUsed = entries.reduce((sum, entry) => sum + (entry.credits_used || 0), 0);
     const totalGenerations = entries.length;
-    const uniqueActiveUsers = new Set(entries.map(entry => entry.user_id));
+    const uniqueActiveUsers = new Set(entries.map(entry => entry.user_id).filter(Boolean));
     const activeUsers = uniqueActiveUsers.size;
 
     // Calculate tool usage stats
@@ -167,6 +173,7 @@ export async function fetchPlatformUsageStats(
     // Calculate daily trends
     const dailyMap = new Map<string, { credits: number; generations: number; users: Set<string> }>();
     for (const entry of entries) {
+      if (!entry.created_at) continue;
       const dateKey = entry.created_at.split('T')[0];
       const existing = dailyMap.get(dateKey) || { credits: 0, generations: 0, users: new Set<string>() };
       existing.credits += (entry.credits_used || 0);
@@ -208,13 +215,17 @@ export async function fetchPlatformUsageStats(
       .slice(0, 10)
       .map(([userId]) => userId);
 
-    // Fetch user details for top users
-    const { data: userProfiles } = await supabase
-      .from('profiles')
-      .select('id, email, username, full_name')
-      .in('id', topUserIds);
+    // Fetch user details for top users (only if there are users to fetch)
+    let userProfiles: { id: string; email: string | null; username: string | null; full_name: string | null }[] = [];
+    if (topUserIds.length > 0) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, email, username, full_name')
+        .in('id', topUserIds);
+      userProfiles = data || [];
+    }
 
-    const profileMap = new Map(userProfiles?.map(p => [p.id, p]) || []);
+    const profileMap = new Map(userProfiles.map(p => [p.id, p]));
 
     const topUsers: TopUser[] = topUserIds.map(userId => {
       const userData = userMap.get(userId)!;
@@ -229,6 +240,8 @@ export async function fetchPlatformUsageStats(
         lastActive: userData.lastActive,
       };
     });
+
+    console.log('📊 Returning success with', toolUsage.length, 'tools,', dailyTrends.length, 'days,', topUsers.length, 'top users');
 
     return {
       success: true,
