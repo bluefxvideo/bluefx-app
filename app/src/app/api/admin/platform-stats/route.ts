@@ -58,10 +58,12 @@ export async function GET(request: NextRequest) {
     // Use admin client
     const adminClient = createAdminClient();
 
-    // Fetch credit usage data
+    // Fetch credit transactions data (this is where user usage is stored)
+    // Same table that user-dashboard-enhanced.tsx uses
     const { data: usageData, error: usageError } = await adminClient
-      .from('credit_usage')
-      .select('user_id, service_type, credits_used, created_at')
+      .from('credit_transactions')
+      .select('user_id, operation_type, amount, created_at')
+      .eq('transaction_type', 'debit')
       .gte('created_at', startDate)
       .order('created_at', { ascending: false })
       .limit(10000);
@@ -89,9 +91,9 @@ export async function GET(request: NextRequest) {
 
     console.log('📊 New users:', newUsers, 'error:', newUsersError?.message);
 
-    // Process data
+    // Process data - using operation_type and amount from credit_transactions
     const entries = usageData || [];
-    const totalCreditsUsed = entries.reduce((sum, entry) => sum + (entry.credits_used || 0), 0);
+    const totalCreditsUsed = entries.reduce((sum, entry) => sum + Math.abs(entry.amount || 0), 0);
     const totalGenerations = entries.length;
     const uniqueUserIds = [...new Set(entries.map(e => e.user_id).filter(Boolean))];
     const activeUsers = uniqueUserIds.length;
@@ -99,9 +101,9 @@ export async function GET(request: NextRequest) {
     // Tool usage breakdown
     const toolMap = new Map<string, { credits: number; uses: number; userIds: string[] }>();
     for (const entry of entries) {
-      const toolId = entry.service_type || 'unknown';
+      const toolId = entry.operation_type || 'unknown';
       const existing = toolMap.get(toolId) || { credits: 0, uses: 0, userIds: [] };
-      existing.credits += (entry.credits_used || 0);
+      existing.credits += Math.abs(entry.amount || 0);
       existing.uses += 1;
       if (entry.user_id && !existing.userIds.includes(entry.user_id)) {
         existing.userIds.push(entry.user_id);
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
       if (!entry.created_at) continue;
       const dateKey = entry.created_at.split('T')[0];
       const existing = dailyMap.get(dateKey) || { credits: 0, generations: 0, userIds: [] };
-      existing.credits += (entry.credits_used || 0);
+      existing.credits += Math.abs(entry.amount || 0);
       existing.generations += 1;
       if (entry.user_id && !existing.userIds.includes(entry.user_id)) {
         existing.userIds.push(entry.user_id);
@@ -152,7 +154,7 @@ export async function GET(request: NextRequest) {
     for (const entry of entries) {
       if (!entry.user_id) continue;
       const existing = userMap.get(entry.user_id) || { credits: 0, generations: 0, lastActive: entry.created_at };
-      existing.credits += (entry.credits_used || 0);
+      existing.credits += Math.abs(entry.amount || 0);
       existing.generations += 1;
       if (entry.created_at > existing.lastActive) {
         existing.lastActive = entry.created_at;
