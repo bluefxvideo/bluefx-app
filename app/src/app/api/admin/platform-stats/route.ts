@@ -2,21 +2,50 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/app/supabase/server';
 
 // Tool name mapping for human-readable display
+// These match the operation types passed to deductCredits() across the codebase
 const TOOL_NAMES: Record<string, string> = {
+  // AI Cinematographer operations
+  'video-generation': 'Cinematographer Video',
+  'starting-shot': 'Starting Shot',
+  'storyboard-generation': 'Storyboard Generation',
+  'storyboard-frame-extraction': 'Frame Extraction',
+
+  // Script to Video
+  'script-to-video-generation': 'Script to Video',
+  'video-export': 'Video Export',
+
+  // Voice & Audio
+  'voice_over_generation': 'Voice Over',
+  'music_generation': 'Music Generation',
+
+  // Avatar
+  'talking_avatar_generation': 'Talking Avatar',
+
+  // Thumbnail Machine
+  'thumbnail-generation': 'Thumbnail Generation',
+  'face-swap-only': 'Face Swap Only',
+  'recreation': 'Thumbnail Recreation',
+  'title-generation': 'Title Generation',
+
+  // Ebook
+  'ebook_generation': 'Ebook Writer',
+  'ebook_cover_generation': 'Ebook Cover',
+
+  // Logo
+  'logo-generation': 'Logo Generation',
+
+  // Video Swap
+  'video-swap': 'Video Swap',
+
+  // Legacy/alternative names (for backwards compatibility)
   'voice_over': 'Voice Over',
   'media_generation': 'AI Cinematographer',
   'content_generation': 'Content Multiplier',
   'avatar_video': 'Talking Avatar',
   'ai_prediction': 'Thumbnail Machine',
   'script_to_video': 'Script to Video',
-  'music_generation': 'Music Maker',
   'logo_generation': 'Logo Generator',
-  'ebook_generation': 'Ebook Writer',
   'video_swap': 'Video Swap',
-  'starting-shot': 'Starting Shot',
-  'video-generation': 'Video Generation',
-  'storyboard-generation': 'Storyboard',
-  'storyboard-frame-extraction': 'Frame Extraction',
 };
 
 export async function GET(request: NextRequest) {
@@ -114,7 +143,7 @@ export async function GET(request: NextRequest) {
     const toolUsage = Array.from(toolMap.entries())
       .map(([toolId, data]) => ({
         toolId,
-        toolName: TOOL_NAMES[toolId] || toolId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        toolName: TOOL_NAMES[toolId] || toolId.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
         totalCredits: data.credits,
         totalUses: data.uses,
         uniqueUsers: data.userIds.length,
