@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, CreditCard, Zap, Star, Crown, ExternalLink } from 'lucide-react'
+import { createClient } from '@/app/supabase/client'
+import { useEffect, useState } from 'react'
 
 interface BuyCreditsDialogProps {
   open: boolean
@@ -53,6 +55,26 @@ const CREDIT_PACKAGES = [
 
 export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) {
   const { isPurchasing, credits } = useCredits()
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Get current user ID to pass to FastSpring
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserId(user.id)
+      }
+    })
+  }, [])
+
+  // Build purchase URL with user ID tag for webhook identification
+  const buildPurchaseUrl = (baseUrl: string) => {
+    if (userId) {
+      // FastSpring supports tags parameter to pass custom data
+      return `${baseUrl}?tags=userId:${userId}`
+    }
+    return baseUrl
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,7 +136,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
                   </div>
 
                   <a
-                    href={pkg.url}
+                    href={buildPurchaseUrl(pkg.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`inline-flex items-center justify-center w-full bg-gradient-to-r ${pkg.gradient} hover:opacity-90 text-white border-0 h-9 rounded-md text-sm font-medium`}

@@ -645,78 +645,107 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
 
   console.log('📦 Credit pack data:', JSON.stringify(data, null, 2))
 
-  // Try multiple locations for customer email (FastSpring format varies)
-  let customerEmail = ''
+  // Priority 1: Check for user ID in tags (passed from buy-credits-dialog)
+  let userId: string | null = null
+  const rawData = data as Record<string, unknown>
+  const tags = rawData.tags as Record<string, string> | undefined
 
-  // Check account.contact.email (most common for order.completed)
-  if (typeof data.account === 'object' && data.account?.contact?.email) {
-    customerEmail = data.account.contact.email
-    console.log('📧 Found email at account.contact.email:', customerEmail)
-  }
-  // Also check customer.email
-  else if (data.customer?.email) {
-    customerEmail = data.customer.email
-    console.log('📧 Found email at customer.email:', customerEmail)
-  }
-  // Check if there's a direct customer object in the payload
-  else if ((data as Record<string, unknown>).customer && typeof (data as Record<string, unknown>).customer === 'object') {
-    const customer = (data as Record<string, unknown>).customer as { email?: string }
-    if (customer.email) {
-      customerEmail = customer.email
-      console.log('📧 Found email at top-level customer.email:', customerEmail)
+  if (tags && tags.userId) {
+    userId = tags.userId
+    console.log('🏷️ Found userId in tags:', userId)
+
+    // Verify this user exists
+    const { data: userData } = await supabase.auth.admin.getUserById(userId)
+    if (!userData.user) {
+      console.warn('⚠️ User ID from tag not found in auth, falling back to email')
+      userId = null
+    } else {
+      console.log('✅ Verified user from tag:', userData.user.email)
     }
   }
 
-  console.log('📧 Final customerEmail:', customerEmail || 'NOT FOUND')
+  // Priority 2: Fall back to email lookup
+  let customerEmail = ''
 
-  // If still no email and we have account ID, try to fetch from API
-  const accountId = typeof data.account === 'string' ? data.account : ''
-  if (!customerEmail && accountId) {
-    console.log('Email not in webhook, fetching from FastSpring API for account:', accountId)
-    const fastSpringUsername = process.env.FASTSPRING_USERNAME
-    const fastSpringApiKey = process.env.FASTSPRING_API_KEY
+  if (!userId) {
+    // Check account.contact.email (most common for order.completed)
+    if (typeof data.account === 'object' && data.account?.contact?.email) {
+      customerEmail = data.account.contact.email
+      console.log('📧 Found email at account.contact.email:', customerEmail)
+    }
+    // Also check customer.email
+    else if (data.customer?.email) {
+      customerEmail = data.customer.email
+      console.log('📧 Found email at customer.email:', customerEmail)
+    }
+    // Check if there's a direct customer object in the payload
+    else if ((data as Record<string, unknown>).customer && typeof (data as Record<string, unknown>).customer === 'object') {
+      const customer = (data as Record<string, unknown>).customer as { email?: string }
+      if (customer.email) {
+        customerEmail = customer.email
+        console.log('📧 Found email at top-level customer.email:', customerEmail)
+      }
+    }
 
-    if (fastSpringUsername && fastSpringApiKey) {
-      try {
-        const auth = Buffer.from(`${fastSpringUsername}:${fastSpringApiKey}`).toString('base64')
-        const accountResponse = await fetch(`https://api.fastspring.com/accounts/${accountId}`, {
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Accept': 'application/json'
+    console.log('📧 Final customerEmail:', customerEmail || 'NOT FOUND')
+
+    // If still no email and we have account ID, try to fetch from API
+    const accountId = typeof data.account === 'string' ? data.account : ''
+    if (!customerEmail && accountId) {
+      console.log('Email not in webhook, fetching from FastSpring API for account:', accountId)
+      const fastSpringUsername = process.env.FASTSPRING_USERNAME
+      const fastSpringApiKey = process.env.FASTSPRING_API_KEY
+
+      if (fastSpringUsername && fastSpringApiKey) {
+        try {
+          const auth = Buffer.from(`${fastSpringUsername}:${fastSpringApiKey}`).toString('base64')
+          const accountResponse = await fetch(`https://api.fastspring.com/accounts/${accountId}`, {
+            headers: {
+              'Authorization': `Basic ${auth}`,
+              'Accept': 'application/json'
+            }
+          })
+
+          if (accountResponse.ok) {
+            const accountData = await accountResponse.json()
+            customerEmail = accountData.contact?.email || accountData.email || ''
+            console.log('Retrieved email from FastSpring API:', customerEmail)
           }
-        })
-
-        if (accountResponse.ok) {
-          const accountData = await accountResponse.json()
-          customerEmail = accountData.contact?.email || accountData.email || ''
-          console.log('Retrieved email from FastSpring API:', customerEmail)
+        } catch (apiError) {
+          console.error('Failed to fetch account from FastSpring API:', apiError)
         }
-      } catch (apiError) {
-        console.error('Failed to fetch account from FastSpring API:', apiError)
       }
     }
   }
 
-  if (!customerEmail) {
-    console.error('Customer email not found in FastSpring credit pack order:', data)
-    // Log event for debugging
-    await supabase
-      .from('webhook_events')
-      .insert({
-        event_id: `credit_pack_${data.id || Date.now()}`,
-        event_type: 'CREDIT_PACK_ERROR',
-        processor: 'fastspring',
-        payload: { data, error: 'Could not find customer email' } as unknown as Json
-      })
-    return
+  // Find user - either by ID (from tag) or by email
+  let user: { id: string; email?: string } | null = null
+
+  if (userId) {
+    // We already verified the user exists above
+    const { data: userData } = await supabase.auth.admin.getUserById(userId)
+    if (userData.user) {
+      user = { id: userData.user.id, email: userData.user.email }
+      console.log('👤 Using user from tag:', user.email)
+    }
+  } else if (customerEmail) {
+    // Find user by email via profiles table (direct query, indexed)
+    console.log('🔍 Looking up user by email:', customerEmail)
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .ilike('email', customerEmail)
+      .single()
+
+    if (profile) {
+      user = { id: profile.id, email: profile.email }
+      console.log('👤 Found user:', user.email)
+    }
   }
 
-  // Find user by email
-  const { data: authUsers } = await supabase.auth.admin.listUsers()
-  const user = authUsers.users.find(u => u.email === customerEmail)
-
   if (!user) {
-    console.error('User not found for FastSpring credit pack purchase:', customerEmail)
+    console.error('❌ User not found for FastSpring credit pack purchase. Email:', customerEmail, 'UserId tag:', userId)
     // Log event for debugging
     await supabase
       .from('webhook_events')
@@ -724,7 +753,7 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
         event_id: `credit_pack_${data.id || Date.now()}_no_user`,
         event_type: 'CREDIT_PACK_ERROR',
         processor: 'fastspring',
-        payload: { data, customerEmail, error: 'User not found' } as unknown as Json
+        payload: { data, customerEmail, userId, error: 'User not found' } as unknown as Json
       })
     return
   }
@@ -811,7 +840,7 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
     throw new Error(`Failed to update credits: ${updateError.message}`)
   }
 
-  console.log(`✅ FastSpring credit pack processed: ${customerEmail} +${totalCreditsToAdd} credits (available: ${newAvailableCredits}, total: ${newTotalCredits})`)
+  console.log(`✅ FastSpring credit pack processed: ${user.email} +${totalCreditsToAdd} credits (available: ${newAvailableCredits}, total: ${newTotalCredits})`)
 }
 
 async function handleFastSpringCancellation(data: FastSpringEventData) {
