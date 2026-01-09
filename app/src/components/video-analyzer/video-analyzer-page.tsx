@@ -16,7 +16,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // Analysis type options
 const ANALYSIS_TYPES = [
-  { value: 'full_breakdown', label: 'Full SEALCaM Breakdown', description: 'Complete scene-by-scene analysis with all details' },
+  { value: 'full_breakdown', label: 'Full Breakdown', description: 'Complete scene-by-scene analysis with all details' },
   { value: 'shot_list', label: 'Shot List Only', description: 'Focus on shots, camera work, and timing' },
   { value: 'script_extraction', label: 'Script/Dialogue Extraction', description: 'Extract narration, dialogue, and on-screen text' },
   { value: 'custom_only', label: 'Custom Prompt Only', description: 'Use only your custom instructions' },
@@ -518,7 +518,7 @@ export function VideoAnalyzerPage() {
                   {isAnalyzing ? (
                     <div className="flex flex-col items-center justify-center h-full gap-4">
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <p className="text-zinc-400">Analyzing video with Gemini AI...</p>
+                      <p className="text-zinc-400">Analyzing video...</p>
                       <p className="text-zinc-500 text-sm">This may take a minute for longer videos</p>
                     </div>
                   ) : analysisResult ? (
