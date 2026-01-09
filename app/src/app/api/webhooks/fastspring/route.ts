@@ -91,20 +91,32 @@ export async function POST(request: NextRequest) {
     console.warn('FASTSPRING_WEBHOOK_SECRET not set - skipping signature verification')
   }
 
-  // FastSpring sends events array
-  if (!payload.events || !Array.isArray(payload.events) || payload.events.length === 0) {
-    console.log('FastSpring webhook received without events array')
+  // FastSpring can send webhooks in two formats:
+  // 1. Events array: { events: [{ type: "order.completed", data: {...} }] }
+  // 2. Direct order object: { order: "...", id: "...", items: [...], account: {...}, ... }
+
+  let eventType: string
+  let eventData: FastSpringEventData
+
+  // Check if this is a direct order payload (has 'order' or 'items' at top level)
+  const directPayload = payload as unknown as Record<string, unknown>
+  if (directPayload.order || directPayload.items || directPayload.account) {
+    // Direct order format - this IS the order data
+    console.log('FastSpring webhook received in direct order format')
+    eventType = 'order.completed'
+    eventData = directPayload as unknown as FastSpringEventData
+  } else if (payload.events && Array.isArray(payload.events) && payload.events.length > 0) {
+    // Events array format
+    console.log(`Processing ${payload.events.length} FastSpring event(s)...`)
+    const event = payload.events[0]
+    eventType = event?.type || ''
+    eventData = event?.data as FastSpringEventData
+  } else {
+    console.log('FastSpring webhook received without recognizable format:', Object.keys(directPayload))
     return NextResponse.json({ message: 'No events to process' }, { status: 200 })
   }
 
-  console.log(`Processing ${payload.events.length} FastSpring event(s)...`)
-  
   try {
-    // Process the first event (most webhooks contain single events)
-    const event = payload.events[0]
-    const eventType = event?.type
-    const eventData = event?.data
-
     if (!eventType || !eventData) {
       console.error('Missing event type or data:', { eventType, hasData: !!eventData })
       return NextResponse.json({ error: 'Invalid event format' }, { status: 400 })
@@ -112,8 +124,9 @@ export async function POST(request: NextRequest) {
 
     console.log('FastSpring webhook payload received:', {
       eventType,
-      subscriptionId: eventData.id,
+      orderId: eventData.id || (eventData as Record<string, unknown>).order,
       customerEmail: typeof eventData.account === 'object' ? eventData.account?.contact?.email : undefined,
+      items: eventData.items,
       rawPayload: payload
     })
 
@@ -123,21 +136,21 @@ export async function POST(request: NextRequest) {
       case 'subscription.charge.completed':
         await handleFastSpringSubscription(eventData)
         break
-      
+
       case 'subscription.updated':
         await handleFastSpringRenewal(eventData)
         break
-      
+
       case 'order.completed':
         // Handle one-time credit pack purchases
         await handleFastSpringCreditPack(eventData)
         break
-      
+
       case 'subscription.canceled':
       case 'subscription.deactivated':
         await handleFastSpringCancellation(eventData)
         break
-      
+
       default:
         console.log('Unhandled FastSpring event type:', eventType)
         // Don't throw error for unknown event types, just acknowledge
