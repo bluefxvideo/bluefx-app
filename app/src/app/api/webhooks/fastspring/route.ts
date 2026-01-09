@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import type { Json } from '@/types/database'
+import crypto from 'crypto'
 
 // FastSpring webhook payload interfaces
 interface FastSpringContact {
@@ -44,28 +45,50 @@ interface FastSpringPayload {
 
 export async function POST(request: NextRequest) {
   let payload: FastSpringPayload
-  
+  let rawBody: string
+
   try {
     // FastSpring always sends JSON
     const contentType = request.headers.get('content-type')
-    
+
     if (!contentType?.includes('application/json')) {
       console.error('Invalid content type:', contentType)
       return NextResponse.json({ error: 'Invalid content type' }, { status: 400 })
     }
-    
-    payload = await request.json()
-    
+
+    // Read raw body for signature verification
+    rawBody = await request.text()
+    payload = JSON.parse(rawBody)
+
   } catch (error) {
     console.error('Failed to parse FastSpring webhook payload:', error)
     return NextResponse.json({ error: 'Invalid payload format' }, { status: 400 })
   }
-  
-  // Optional: FastSpring signature verification
+
+  // FastSpring HMAC SHA256 signature verification
   const signature = request.headers.get('x-fs-signature')
-  if (process.env.FASTSPRING_WEBHOOK_SECRET && signature) {
-    // TODO: Implement FastSpring signature verification if needed
-    console.log('FastSpring signature verification skipped (implement if needed)')
+  const webhookSecret = process.env.FASTSPRING_WEBHOOK_SECRET
+
+  if (webhookSecret) {
+    if (!signature) {
+      console.error('Missing x-fs-signature header')
+      return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
+    }
+
+    // Verify HMAC SHA256 signature using the raw body
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('base64')
+
+    if (signature !== expectedSignature) {
+      console.error('Invalid FastSpring webhook signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    console.log('FastSpring webhook signature verified successfully')
+  } else {
+    console.warn('FASTSPRING_WEBHOOK_SECRET not set - skipping signature verification')
   }
 
   // FastSpring sends events array
