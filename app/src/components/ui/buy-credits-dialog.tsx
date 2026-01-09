@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import { useCredits } from '@/hooks/useCredits'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, CreditCard, Zap, Star, Crown } from 'lucide-react'
+import { Loader2, CreditCard, Zap, Star, Crown, ExternalLink } from 'lucide-react'
 
 interface BuyCreditsDialogProps {
   open: boolean
@@ -15,7 +14,6 @@ interface BuyCreditsDialogProps {
 
 const CREDIT_PACKAGES = [
   {
-    id: '100-ai-credit-pack',
     credits: 100,
     price: '$9.99',
     popular: false,
@@ -25,7 +23,6 @@ const CREDIT_PACKAGES = [
     url: 'https://bluefx.onfastspring.com/100-ai-credit-pack'
   },
   {
-    id: '300-ai-credit-pack',
     credits: 300,
     price: '$24.99',
     popular: true,
@@ -35,7 +32,6 @@ const CREDIT_PACKAGES = [
     url: 'https://bluefx.onfastspring.com/300-ai-credit-pack'
   },
   {
-    id: '600-ai-credit-pack',
     credits: 600,
     price: '$44.99',
     popular: false,
@@ -45,7 +41,6 @@ const CREDIT_PACKAGES = [
     url: 'https://bluefx.onfastspring.com/600-ai-credit-pack'
   },
   {
-    id: '1000-ai-credit-pack',
     credits: 1000,
     price: '$69.99',
     popular: false,
@@ -58,51 +53,6 @@ const CREDIT_PACKAGES = [
 
 export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) {
   const { isPurchasing, credits } = useCredits()
-  const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null)
-
-  const handlePurchase = (packageId: string, packageUrl: string) => {
-    setPurchasingPackage(packageId)
-
-    try {
-      // Check if FastSpring is loaded
-      if (typeof window !== 'undefined' && window.fastspring) {
-        console.log('Launching FastSpring checkout for:', packageId)
-
-        // Set up the FastSpring checkout
-        window.fastspring.builder.reset()
-        window.fastspring.builder.add(packageId)
-
-        // Set user email if logged in (you might want to get this from your auth context)
-        const userEmail = localStorage.getItem('user-email')
-        if (userEmail) {
-          window.fastspring.builder.secure({
-            contact_email: userEmail
-          })
-        }
-
-        // Launch checkout
-        window.fastspring.builder.checkout()
-
-        // Close dialog after launching checkout
-        onOpenChange(false)
-      } else {
-        console.warn('FastSpring not loaded, using fallback URL')
-        // Fallback: open FastSpring storefront in new window
-        window.open(packageUrl, '_blank', 'width=600,height=700')
-        onOpenChange(false)
-      }
-    } catch (error) {
-      console.error('Error launching FastSpring checkout:', error)
-      // Fallback: open storefront URL
-      window.open(packageUrl, '_blank', 'width=600,height=700')
-      onOpenChange(false)
-    } finally {
-      // Reset purchasing state after a delay
-      setTimeout(() => {
-        setPurchasingPackage(null)
-      }, 2000)
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -110,7 +60,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Buy More Credits</DialogTitle>
           <DialogDescription>
-            Choose a credit package to continue creating amazing content. 
+            Choose a credit package to continue creating amazing content.
             {credits && (
               <span className="font-medium text-foreground">
                 {' '}Current balance: {credits.available_credits} credits
@@ -131,14 +81,13 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
           {CREDIT_PACKAGES.map((pkg) => {
             const Icon = pkg.icon
-            const isCurrentlyPurchasing = purchasingPackage === pkg.id
-            
+
             return (
-              <Card 
-                key={pkg.id} 
+              <Card
+                key={pkg.credits}
                 className={`relative transition-all hover:shadow-lg ${
-                  pkg.popular 
-                    ? 'ring-2 ring-green-500 scale-[1.02]' 
+                  pkg.popular
+                    ? 'ring-2 ring-green-500 scale-[1.02]'
                     : ''
                 }`}
               >
@@ -147,7 +96,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
                     Most Popular
                   </Badge>
                 )}
-                
+
                 <CardHeader className="text-center">
                   <div className={`mx-auto w-12 h-12 rounded-full bg-gradient-to-r ${pkg.gradient} flex items-center justify-center mb-2`}>
                     <Icon className="w-6 h-6 text-white" />
@@ -155,7 +104,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
                   <CardTitle className="text-lg">{pkg.credits.toLocaleString()} Credits</CardTitle>
                   <CardDescription className="text-xs">{pkg.description}</CardDescription>
                 </CardHeader>
-                
+
                 <CardContent className="text-center py-2">
                   <div className="mb-2">
                     <span className="text-2xl font-bold">{pkg.price}</span>
@@ -163,30 +112,17 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
                       ${(parseFloat(pkg.price.replace('$', '')) / pkg.credits * 100).toFixed(2)} per 100 credits
                     </div>
                   </div>
-                  
-                  <Button
-                    onClick={() => handlePurchase(pkg.id, pkg.url)}
-                    disabled={isPurchasing || isCurrentlyPurchasing}
-                    className={`w-full bg-gradient-to-r ${pkg.gradient} hover:opacity-90 text-white border-0 h-9`}
-                    size="sm"
+
+                  <a
+                    href={pkg.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center justify-center w-full bg-gradient-to-r ${pkg.gradient} hover:opacity-90 text-white border-0 h-9 rounded-md text-sm font-medium`}
                   >
-                    {isCurrentlyPurchasing ? (
-                      <>
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                        Launching...
-                      </>
-                    ) : isPurchasing ? (
-                      <>
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="mr-2 h-3 w-3" />
-                        Purchase Now
-                      </>
-                    )}
-                  </Button>
+                    <CreditCard className="mr-2 h-3 w-3" />
+                    Purchase Now
+                    <ExternalLink className="ml-2 h-3 w-3" />
+                  </a>
                 </CardContent>
               </Card>
             )
@@ -200,8 +136,8 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
         </div>
 
         <div className="flex justify-end mt-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isPurchasing}
             size="sm"
@@ -212,18 +148,4 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
       </DialogContent>
     </Dialog>
   )
-}
-
-// Extend Window interface for FastSpring
-declare global {
-  interface Window {
-    fastspring?: {
-      builder: {
-        reset(): void
-        add(productId: string): void
-        secure(options: { contact_email: string }): void
-        checkout(): void
-      }
-    }
-  }
 }
