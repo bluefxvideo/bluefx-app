@@ -31,7 +31,8 @@ import {
   Library,
   Sparkles,
   Coins,
-  Home
+  Home,
+  ScanSearch
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -100,6 +101,13 @@ const toolCategories = [
         icon: TrendingUp,
         gradient: "bg-primary",
         description: "Discover viral content",
+      },
+      {
+        name: "Video Analyzer",
+        route: "/dashboard/video-analyzer",
+        icon: ScanSearch,
+        gradient: "bg-primary",
+        description: "Analyze and break down videos",
       },
     ],
   },

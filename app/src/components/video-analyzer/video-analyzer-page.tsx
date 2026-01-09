@@ -1,0 +1,420 @@
+'use client';
+
+import { useState, useRef } from 'react';
+import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History } from 'lucide-react';
+import { StandardToolPage } from '@/components/tools/standard-tool-page';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { useCredits } from '@/hooks/useCredits';
+import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
+import { toast } from 'sonner';
+import { analyzeVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+interface VideoAnalysis {
+  id: string;
+  title: string;
+  video_url: string | null;
+  video_duration_seconds: number | null;
+  analysis_result: string;
+  custom_prompt: string | null;
+  credits_used: number;
+  created_at: string;
+}
+
+export function VideoAnalyzerPage() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const queryClient = useQueryClient();
+
+  const { credits, deductCredits, hasEnoughCredits, isLoading: creditsLoading } = useCredits();
+
+  // Fetch saved analyses
+  const { data: savedAnalyses, isLoading: historyLoading } = useQuery({
+    queryKey: ['video-analyses'],
+    queryFn: async () => {
+      const result = await fetchVideoAnalyses();
+      if (result.success) {
+        return result.analyses || [];
+      }
+      return [];
+    },
+  });
+
+  // Calculate credits needed (3 per minute, minimum 3)
+  const calculateCreditsNeeded = (durationSeconds: number): number => {
+    const minutes = Math.ceil(durationSeconds / 60);
+    return Math.max(3, minutes * 3);
+  };
+
+  const creditsNeeded = videoDuration ? calculateCreditsNeeded(videoDuration) : 3;
+
+  const handleFileSelect = (file: File) => {
+    // Validate file type
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid video file (MP4, WebM, MOV, AVI)');
+      return;
+    }
+
+    // Validate file size (100MB max)
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('Video file is too large. Maximum size is 100MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    setAnalysisResult(null);
+
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setVideoPreviewUrl(url);
+
+    // Get video duration
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      // Validate duration (max 3 minutes = 180 seconds)
+      if (duration > 180) {
+        toast.error('Video is too long. Maximum duration is 3 minutes');
+        setSelectedFile(null);
+        setVideoPreviewUrl(null);
+        URL.revokeObjectURL(url);
+        return;
+      }
+      setVideoDuration(duration);
+      URL.revokeObjectURL(video.src);
+    };
+    video.src = url;
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a video file first');
+      return;
+    }
+
+    if (!hasEnoughCredits(creditsNeeded)) {
+      setShowBuyCredits(true);
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    try {
+      // Deduct credits first
+      deductCredits({ credits: creditsNeeded, service: 'video_analyzer' });
+
+      // Convert file to base64 (browser-compatible)
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      uint8Array.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      const base64 = btoa(binary);
+
+      const result = await analyzeVideo({
+        videoBase64: base64,
+        videoMimeType: selectedFile.type,
+        videoDurationSeconds: videoDuration || 0,
+        customPrompt: customPrompt || undefined,
+        title: selectedFile.name,
+      });
+
+      if (result.success && result.analysis) {
+        setAnalysisResult(result.analysis);
+        toast.success('Video analysis complete!');
+        // Refresh history
+        queryClient.invalidateQueries({ queryKey: ['video-analyses'] });
+      } else {
+        toast.error(result.error || 'Failed to analyze video');
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast.error('Failed to analyze video');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!analysisResult) return;
+    await navigator.clipboard.writeText(analysisResult);
+    setCopied(true);
+    toast.success('Copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDeleteAnalysis = async (id: string) => {
+    const result = await deleteVideoAnalysis(id);
+    if (result.success) {
+      toast.success('Analysis deleted');
+      queryClient.invalidateQueries({ queryKey: ['video-analyses'] });
+    } else {
+      toast.error('Failed to delete analysis');
+    }
+  };
+
+  const loadAnalysis = (analysis: VideoAnalysis) => {
+    setAnalysisResult(analysis.analysis_result);
+    setShowHistory(false);
+    toast.success('Analysis loaded');
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <StandardToolPage
+      icon={ScanSearch}
+      title="Video Analyzer"
+      description="Break down videos with AI-powered scene analysis"
+      toolName="Video Analyzer"
+    >
+      <div className="flex-1 p-4 lg:p-6 overflow-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+          {/* Left Panel - Upload & Settings */}
+          <div className="space-y-4">
+            {/* Video Upload */}
+            <Card
+              className="relative p-6 border border-border/50 cursor-pointer transition-all duration-300
+                       backdrop-blur-sm hover:border-border group/upload overflow-hidden"
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+
+              {selectedFile && videoPreviewUrl ? (
+                <div className="space-y-4">
+                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                    <video
+                      ref={videoRef}
+                      src={videoPreviewUrl}
+                      className="w-full h-full object-contain"
+                      controls
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-semibold truncate max-w-[200px]">{selectedFile.name}</p>
+                      <p className="text-zinc-400 text-sm flex items-center gap-2">
+                        <Clock className="w-3 h-3" />
+                        {videoDuration ? formatDuration(videoDuration) : 'Loading...'}
+                        <span className="text-zinc-500">•</span>
+                        {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFile(null);
+                        setVideoPreviewUrl(null);
+                        setVideoDuration(null);
+                        setAnalysisResult(null);
+                      }}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-secondary/50 to-card/50 rounded-2xl flex items-center justify-center
+                                 border border-border/30 group-hover/upload:border-border/70 transition-all duration-300">
+                    <Upload className="w-7 h-7 text-zinc-400 group-hover/upload:text-zinc-300 transition-colors duration-300" />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <p className="text-zinc-200 font-semibold text-lg">Upload your video</p>
+                    <p className="text-zinc-400">MP4, WebM, MOV, AVI • Max 3 minutes • Max 100MB</p>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Custom Prompt */}
+            <Card className="p-4 border border-border/50">
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                Custom Instructions (Optional)
+              </label>
+              <Textarea
+                placeholder="Add specific instructions for the analysis... (e.g., 'Focus on the product placement moments' or 'Pay attention to the color grading')"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                className="min-h-[100px] bg-background border-border"
+              />
+            </Card>
+
+            {/* Credits Info & Analyze Button */}
+            <Card className="p-4 border border-border/50">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm text-zinc-400">
+                  Credits needed: <span className="text-white font-semibold">{creditsNeeded}</span>
+                </div>
+                <div className="text-sm text-zinc-400">
+                  Available: <span className="text-primary font-semibold">{credits?.available_credits || 0}</span>
+                </div>
+              </div>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleAnalyze}
+                disabled={!selectedFile || isAnalyzing || creditsLoading}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing Video...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Analyze Video
+                  </>
+                )}
+              </Button>
+            </Card>
+
+            {/* History Button */}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              <History className="w-4 h-4 mr-2" />
+              {showHistory ? 'Hide' : 'View'} Analysis History
+            </Button>
+          </div>
+
+          {/* Right Panel - Results or History */}
+          <div className="space-y-4">
+            {showHistory ? (
+              <Card className="p-4 border border-border/50 h-full overflow-auto">
+                <h3 className="text-lg font-semibold text-white mb-4">Saved Analyses</h3>
+                {historyLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+                  </div>
+                ) : savedAnalyses && savedAnalyses.length > 0 ? (
+                  <div className="space-y-3">
+                    {savedAnalyses.map((analysis: VideoAnalysis) => (
+                      <div
+                        key={analysis.id}
+                        className="p-3 bg-secondary/30 rounded-lg border border-border/30 hover:border-border/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-medium truncate">{analysis.title}</p>
+                            <p className="text-zinc-400 text-sm">
+                              {new Date(analysis.created_at).toLocaleDateString()} • {analysis.credits_used} credits
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => loadAnalysis(analysis)}
+                            >
+                              View
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteAnalysis(analysis.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-zinc-400 text-center py-8">No saved analyses yet</p>
+                )}
+              </Card>
+            ) : (
+              <Card className="p-4 border border-border/50 h-full flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Analysis Result</h3>
+                  {analysisResult && (
+                    <Button variant="outline" size="sm" onClick={handleCopy}>
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-auto">
+                  {isAnalyzing ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-zinc-400">Analyzing video with Gemini AI...</p>
+                      <p className="text-zinc-500 text-sm">This may take a minute for longer videos</p>
+                    </div>
+                  ) : analysisResult ? (
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <pre className="whitespace-pre-wrap text-zinc-300 text-sm font-sans leading-relaxed">
+                        {analysisResult}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <ScanSearch className="w-12 h-12 text-zinc-600 mb-4" />
+                      <p className="text-zinc-400">Upload a video and click analyze to get started</p>
+                      <p className="text-zinc-500 text-sm mt-2">
+                        Get detailed breakdowns of scenes, shots, lighting, and more
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <BuyCreditsDialog open={showBuyCredits} onOpenChange={setShowBuyCredits} />
+    </StandardToolPage>
+  );
+}
