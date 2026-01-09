@@ -706,14 +706,14 @@ export interface FrameExtractionResponse {
 /**
  * Generate Storyboard - 3x3 Cinematic Grid
  * Uses google/nano-banana-pro for higher quality image generation
- * Cost: 3 credits per storyboard grid
+ * Cost: 6 credits per storyboard grid
  */
 export async function executeStoryboardGeneration(
   request: StoryboardRequest
 ): Promise<StoryboardResponse> {
   const startTime = Date.now();
   const batch_id = crypto.randomUUID();
-  const CREDIT_COST = 3; // 3 credits for Nano Banana Pro grid generation
+  const CREDIT_COST = 6; // 6 credits for Nano Banana Pro grid generation
 
   try {
     // Step 1: Credit Validation

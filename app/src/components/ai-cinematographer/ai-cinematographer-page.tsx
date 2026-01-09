@@ -60,6 +60,8 @@ export function AICinematographerPage() {
     extractFrames,
     regenerateFrame,
     uploadGridImage,
+    // User
+    user,
   } = useAICinematographer();
 
   // Check for image URL in search params (from Starting Shot "Make Video" button)
@@ -187,6 +189,7 @@ export function AICinematographerPage() {
               isGenerating={isGeneratingStoryboard}
               storyboardResult={storyboardResult?.storyboard}
               projectId={storyboardResult?.storyboard?.id}
+              userId={user?.id}
               gridConfig={{ columns: 3, rows: 3 }}
               onRegenerateGrid={() => {
                 if (storyboardResult?.storyboard) {

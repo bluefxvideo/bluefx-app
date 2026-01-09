@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
+import { getUserCredits, deductCredits } from '@/actions/database/cinematographer-database';
+import { Json } from '@/types/database';
 
 /**
  * Grid Frame Extractor
@@ -301,6 +303,158 @@ export async function upscaleImage(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Upscale failed',
+    };
+  }
+}
+
+/**
+ * Credit cost per frame extraction (includes upscaling)
+ */
+const CREDIT_PER_FRAME = 1;
+
+/**
+ * Process a single frame - for progressive extraction
+ * Cost: 1 credit per frame
+ * This allows calling from client one at a time for progressive UI updates
+ */
+export async function processSingleFrame(
+  projectId: string,
+  userId: string,
+  frame: {
+    frameNumber: number;
+    row: number;
+    col: number;
+    base64Data: string;
+    width: number;
+    height: number;
+  },
+  shouldUpscale: boolean = true
+): Promise<{
+  success: boolean;
+  frame?: ExtractedFrame;
+  error?: string;
+  remainingCredits?: number;
+}> {
+  try {
+    // Step 1: Credit Validation
+    const creditCheck = await getUserCredits(userId);
+    if (!creditCheck.success) {
+      return {
+        success: false,
+        error: 'Unable to verify credit balance',
+      };
+    }
+
+    if ((creditCheck.credits || 0) < CREDIT_PER_FRAME) {
+      return {
+        success: false,
+        error: `Insufficient credits. Required: ${CREDIT_PER_FRAME}, Available: ${creditCheck.credits || 0}`,
+        remainingCredits: creditCheck.credits || 0,
+      };
+    }
+
+    console.log(`Processing frame ${frame.frameNumber} for project ${projectId}`);
+
+    // Step 2: Upload cropped frame to storage
+    const originalUrl = await uploadFrameToStorage(
+      frame.base64Data,
+      projectId,
+      frame.frameNumber
+    );
+
+    const extractedFrame: ExtractedFrame = {
+      frameNumber: frame.frameNumber,
+      row: frame.row,
+      col: frame.col,
+      originalUrl,
+      width: frame.width,
+      height: frame.height,
+    };
+
+    // Step 3: Upscale if requested
+    if (shouldUpscale) {
+      console.log(`Upscaling frame ${frame.frameNumber} (2x scale)`);
+      const upscaledTempUrl = await upscaleFrame(originalUrl, 2);
+
+      // Save upscaled to permanent storage
+      extractedFrame.upscaledUrl = await saveUpscaledFrame(
+        upscaledTempUrl,
+        projectId,
+        frame.frameNumber
+      );
+      extractedFrame.width = frame.width * 2;
+      extractedFrame.height = frame.height * 2;
+    }
+
+    // Step 4: Deduct credit for this frame
+    const creditDeduction = await deductCredits(
+      userId,
+      CREDIT_PER_FRAME,
+      'storyboard-frame-extraction',
+      { projectId, frameNumber: frame.frameNumber } as Json
+    );
+
+    if (!creditDeduction.success) {
+      console.warn('Credit deduction failed:', creditDeduction.error);
+      // Continue anyway - frame was already processed
+    }
+
+    return {
+      success: true,
+      frame: extractedFrame,
+      remainingCredits: creditDeduction.remainingCredits || (creditCheck.credits || 0) - CREDIT_PER_FRAME,
+    };
+  } catch (error) {
+    console.error('Single frame processing error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during frame processing',
+    };
+  }
+}
+
+/**
+ * Check credits before batch extraction
+ * Returns available credits and whether user can afford the extraction
+ */
+export async function checkExtractionCredits(
+  userId: string,
+  frameCount: number
+): Promise<{
+  success: boolean;
+  canAfford: boolean;
+  availableCredits: number;
+  requiredCredits: number;
+  error?: string;
+}> {
+  try {
+    const creditCheck = await getUserCredits(userId);
+    if (!creditCheck.success) {
+      return {
+        success: false,
+        canAfford: false,
+        availableCredits: 0,
+        requiredCredits: frameCount * CREDIT_PER_FRAME,
+        error: 'Unable to verify credit balance',
+      };
+    }
+
+    const availableCredits = creditCheck.credits || 0;
+    const requiredCredits = frameCount * CREDIT_PER_FRAME;
+
+    return {
+      success: true,
+      canAfford: availableCredits >= requiredCredits,
+      availableCredits,
+      requiredCredits,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      canAfford: false,
+      availableCredits: 0,
+      requiredCredits: frameCount * CREDIT_PER_FRAME,
+      error: error instanceof Error ? error.message : 'Credit check failed',
     };
   }
 }

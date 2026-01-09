@@ -39,6 +39,7 @@ interface StoryboardOutputV2Props {
   isGenerating: boolean;
   storyboardResult?: StoryboardResult;
   projectId?: string; // For saving to ad_projects
+  userId?: string; // For credit deduction during extraction
   gridConfig?: { columns: number; rows: number };
   onRegenerateGrid: () => void;
   onMakeVideo: (imageUrl: string, frameNumber: number) => void;
@@ -51,7 +52,8 @@ export function StoryboardOutputV2({
   isGenerating,
   storyboardResult,
   projectId,
-  gridConfig = { columns: 4, rows: 4 },
+  userId,
+  gridConfig = { columns: 3, rows: 3 },
   onRegenerateGrid,
   onMakeVideo,
   onDownload,
@@ -65,7 +67,7 @@ export function StoryboardOutputV2({
 
   const totalFrames = gridConfig.columns * gridConfig.rows;
 
-  // Use the new grid extraction hook
+  // Use the new grid extraction hook with userId for credit deduction
   const {
     isExtracting,
     extractedFrames,
@@ -74,7 +76,7 @@ export function StoryboardOutputV2({
     extractAllFrames,
     extractSelectedFrames,
     clearFrames,
-  } = useGridExtraction({ gridConfig, shouldUpscale: true });
+  } = useGridExtraction({ gridConfig, shouldUpscale: true, userId });
 
   // Notify parent when frames are extracted
   useEffect(() => {
@@ -338,14 +340,14 @@ export function StoryboardOutputV2({
                   variant="outline"
                   size="sm"
                   onClick={() => setExtractAllDialogOpen(true)}
-                  disabled={isExtracting || !projectId}
+                  disabled={isExtracting || !projectId || !userId}
                 >
                   <Scissors className="w-4 h-4 mr-1" />
-                  Extract All
+                  Extract All ({totalFrames} credits)
                 </Button>
                 <Button
                   onClick={handleExtractSelected}
-                  disabled={selectedFrames.length === 0 || isExtracting || !projectId}
+                  disabled={selectedFrames.length === 0 || isExtracting || !projectId || !userId}
                   size="sm"
                 >
                   {isExtracting ? (
@@ -368,16 +370,16 @@ export function StoryboardOutputV2({
 
       {/* Section 2: Extraction Progress */}
       {isExtracting && (
-        <div className="space-y-3 p-4 rounded-lg border bg-muted/10">
+        <div className="space-y-3 p-4 rounded-lg border bg-primary/10">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">{progress.stage}</p>
             <span className="text-xs text-muted-foreground">
-              {progress.current}/{progress.total}
+              {progress.current}/{progress.total} frames
             </span>
           </div>
-          <Progress value={(progress.current / progress.total) * 100} />
+          <Progress value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0} className="h-2" />
           <p className="text-xs text-muted-foreground">
-            Cropping frames and upscaling to 1920×1080...
+            Cropping and upscaling to 2560×1440 (2K). 1 credit per frame.
           </p>
         </div>
       )}
@@ -474,10 +476,13 @@ export function StoryboardOutputV2({
               This will:
               <ul className="list-disc ml-4 mt-2 space-y-1">
                 <li>Crop all {totalFrames} frames from the grid</li>
-                <li>Upscale each to 1920×1080 (HD)</li>
+                <li>Upscale each to 2560×1440 (2K)</li>
                 <li>Save them to your project</li>
               </ul>
-              <p className="mt-2">This may take 1-2 minutes.</p>
+              <p className="mt-2 font-medium text-foreground">
+                Cost: {totalFrames} credits (1 credit per frame)
+              </p>
+              <p className="mt-1 text-xs">This may take 1-2 minutes. Frames will appear as they complete.</p>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

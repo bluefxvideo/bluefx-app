@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { cropGridToFrames } from '@/lib/utils/grid-cropper';
-import { processExtractedFrames } from '@/actions/tools/grid-frame-extractor';
+import { processSingleFrame, checkExtractionCredits } from '@/actions/tools/grid-frame-extractor';
 
 export interface ExtractedFrameResult {
   frameNumber: number;
@@ -22,14 +22,17 @@ interface UseGridExtractionOptions {
     rows: number;
   };
   shouldUpscale?: boolean;
+  userId?: string;
 }
 
 /**
  * Hook for extracting frames from a storyboard grid
  * Uses client-side canvas cropping + server-side upscaling
+ * Processes frames one at a time for progressive UI updates
+ * Cost: 1 credit per frame
  */
 export function useGridExtraction(options: UseGridExtractionOptions = {}) {
-  const { gridConfig = { columns: 4, rows: 4 }, shouldUpscale = true } = options;
+  const { gridConfig = { columns: 3, rows: 3 }, shouldUpscale = true, userId } = options;
 
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedFrames, setExtractedFrames] = useState<ExtractedFrameResult[]>([]);
@@ -37,83 +40,159 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Extract all frames from a grid image
+   * Extract all frames from a grid image - one at a time with progressive updates
    */
   const extractAllFrames = useCallback(async (
     gridImageUrl: string,
-    projectId: string
+    projectId: string,
+    userIdOverride?: string
   ) => {
+    const effectiveUserId = userIdOverride || userId;
+    if (!effectiveUserId) {
+      setError('User ID is required for extraction');
+      return { success: false, error: 'User ID is required' };
+    }
+
     setIsExtracting(true);
     setError(null);
     setExtractedFrames([]);
 
     const totalFrames = gridConfig.columns * gridConfig.rows;
-    setProgress({ current: 0, total: totalFrames, stage: 'Preparing...' });
+    setProgress({ current: 0, total: totalFrames, stage: 'Checking credits...' });
 
     try {
+      // Step 0: Check if user has enough credits
+      const creditCheck = await checkExtractionCredits(effectiveUserId, totalFrames);
+      if (!creditCheck.success || !creditCheck.canAfford) {
+        const errorMsg = creditCheck.error ||
+          `Insufficient credits. Required: ${creditCheck.requiredCredits}, Available: ${creditCheck.availableCredits}`;
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
       // Step 1: Client-side canvas crop
       setProgress({ current: 0, total: totalFrames, stage: 'Cropping frames...' });
-
       const croppedFrames = await cropGridToFrames(gridImageUrl, gridConfig);
 
-      // Update UI with cropped frames (pending upload)
+      // Initialize UI with all frames as pending
       setExtractedFrames(croppedFrames.map(f => ({
         ...f,
         originalUrl: f.base64Data, // Temporary base64 preview
-        status: 'cropping' as const,
+        status: 'pending' as const,
         width: f.width,
         height: f.height,
       })));
 
-      setProgress({ current: totalFrames, total: totalFrames, stage: 'Uploading & upscaling...' });
+      // Step 2: Process each frame one at a time for progressive updates
+      const completedFrames: ExtractedFrameResult[] = [];
 
-      // Step 2: Server-side upload + upscale
-      const result = await processExtractedFrames(
-        projectId,
-        croppedFrames,
-        shouldUpscale
-      );
+      for (let i = 0; i < croppedFrames.length; i++) {
+        const frame = croppedFrames[i];
+        setProgress({
+          current: i,
+          total: totalFrames,
+          stage: `Processing frame ${frame.frameNumber}/${totalFrames}...`
+        });
 
-      if (result.success && result.frames) {
-        setExtractedFrames(result.frames.map(f => ({
-          ...f,
-          status: 'completed' as const,
-        })));
-        setProgress({ current: totalFrames, total: totalFrames, stage: 'Complete!' });
-      } else {
-        throw new Error(result.error || 'Extraction failed');
+        // Mark current frame as uploading
+        setExtractedFrames(prev => prev.map(f =>
+          f.frameNumber === frame.frameNumber
+            ? { ...f, status: 'uploading' as const }
+            : f
+        ));
+
+        // Process single frame on server (includes credit deduction)
+        const result = await processSingleFrame(
+          projectId,
+          effectiveUserId,
+          frame,
+          shouldUpscale
+        );
+
+        if (result.success && result.frame) {
+          const completedFrame: ExtractedFrameResult = {
+            ...result.frame,
+            status: 'completed' as const,
+          };
+          completedFrames.push(completedFrame);
+
+          // Update UI immediately with this completed frame
+          setExtractedFrames(prev => prev.map(f =>
+            f.frameNumber === frame.frameNumber
+              ? completedFrame
+              : f
+          ));
+
+          // Update progress after each frame
+          setProgress({
+            current: i + 1,
+            total: totalFrames,
+            stage: `Completed ${i + 1}/${totalFrames} frames`
+          });
+        } else {
+          // Mark frame as failed but continue with others
+          setExtractedFrames(prev => prev.map(f =>
+            f.frameNumber === frame.frameNumber
+              ? { ...f, status: 'failed' as const, error: result.error }
+              : f
+          ));
+          console.error(`Frame ${frame.frameNumber} failed:`, result.error);
+        }
       }
 
-      return result;
+      setProgress({ current: totalFrames, total: totalFrames, stage: 'Complete!' });
+
+      return {
+        success: completedFrames.length > 0,
+        frames: completedFrames,
+        error: completedFrames.length === 0 ? 'All frames failed to extract' : undefined
+      };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Frame extraction failed';
       setError(errorMessage);
       setExtractedFrames(prev => prev.map(f => ({
         ...f,
-        status: 'failed' as const,
-        error: errorMessage,
+        status: f.status === 'completed' ? 'completed' : 'failed' as const,
+        error: f.status === 'completed' ? undefined : errorMessage,
       })));
       return { success: false, error: errorMessage };
     } finally {
       setIsExtracting(false);
     }
-  }, [gridConfig, shouldUpscale]);
+  }, [gridConfig, shouldUpscale, userId]);
 
   /**
-   * Extract specific frames only
+   * Extract specific frames only - one at a time with progressive updates
    */
   const extractSelectedFrames = useCallback(async (
     gridImageUrl: string,
     projectId: string,
-    frameNumbers: number[]
+    frameNumbers: number[],
+    userIdOverride?: string
   ) => {
+    const effectiveUserId = userIdOverride || userId;
+    if (!effectiveUserId) {
+      setError('User ID is required for extraction');
+      return { success: false, error: 'User ID is required' };
+    }
+
     setIsExtracting(true);
     setError(null);
 
-    setProgress({ current: 0, total: frameNumbers.length, stage: 'Preparing...' });
+    setProgress({ current: 0, total: frameNumbers.length, stage: 'Checking credits...' });
 
     try {
+      // Step 0: Check if user has enough credits
+      const creditCheck = await checkExtractionCredits(effectiveUserId, frameNumbers.length);
+      if (!creditCheck.success || !creditCheck.canAfford) {
+        const errorMsg = creditCheck.error ||
+          `Insufficient credits. Required: ${creditCheck.requiredCredits}, Available: ${creditCheck.availableCredits}`;
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
       // Step 1: Crop all frames client-side
+      setProgress({ current: 0, total: frameNumbers.length, stage: 'Cropping frames...' });
       const allCroppedFrames = await cropGridToFrames(gridImageUrl, gridConfig);
 
       // Filter to only the selected frame numbers
@@ -121,41 +200,79 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
         frameNumbers.includes(f.frameNumber)
       );
 
-      // Update UI
-      setExtractedFrames(prev => [
-        ...prev.filter(f => !frameNumbers.includes(f.frameNumber)),
-        ...selectedFrames.map(f => ({
+      // Initialize selected frames as pending
+      setExtractedFrames(prev => {
+        const unchanged = prev.filter(f => !frameNumbers.includes(f.frameNumber));
+        const newPending = selectedFrames.map(f => ({
           ...f,
           originalUrl: f.base64Data,
-          status: 'cropping' as const,
+          status: 'pending' as const,
           width: f.width,
           height: f.height,
-        })),
-      ]);
+        }));
+        return [...unchanged, ...newPending].sort((a, b) => a.frameNumber - b.frameNumber);
+      });
 
-      setProgress({ current: selectedFrames.length, total: frameNumbers.length, stage: 'Uploading & upscaling...' });
+      // Step 2: Process each frame one at a time
+      const completedFrames: ExtractedFrameResult[] = [];
 
-      // Step 2: Server-side upload + upscale
-      const result = await processExtractedFrames(
-        projectId,
-        selectedFrames,
-        shouldUpscale
-      );
-
-      if (result.success && result.frames) {
-        setExtractedFrames(prev => {
-          const unchanged = prev.filter(f => !frameNumbers.includes(f.frameNumber));
-          const updated = result.frames!.map(f => ({
-            ...f,
-            status: 'completed' as const,
-          }));
-          return [...unchanged, ...updated].sort((a, b) => a.frameNumber - b.frameNumber);
+      for (let i = 0; i < selectedFrames.length; i++) {
+        const frame = selectedFrames[i];
+        setProgress({
+          current: i,
+          total: frameNumbers.length,
+          stage: `Processing frame ${frame.frameNumber}...`
         });
-      } else {
-        throw new Error(result.error || 'Extraction failed');
+
+        // Mark current frame as uploading
+        setExtractedFrames(prev => prev.map(f =>
+          f.frameNumber === frame.frameNumber
+            ? { ...f, status: 'uploading' as const }
+            : f
+        ));
+
+        // Process single frame on server
+        const result = await processSingleFrame(
+          projectId,
+          effectiveUserId,
+          frame,
+          shouldUpscale
+        );
+
+        if (result.success && result.frame) {
+          const completedFrame: ExtractedFrameResult = {
+            ...result.frame,
+            status: 'completed' as const,
+          };
+          completedFrames.push(completedFrame);
+
+          // Update UI immediately
+          setExtractedFrames(prev => prev.map(f =>
+            f.frameNumber === frame.frameNumber
+              ? completedFrame
+              : f
+          ));
+
+          setProgress({
+            current: i + 1,
+            total: frameNumbers.length,
+            stage: `Completed ${i + 1}/${frameNumbers.length} frames`
+          });
+        } else {
+          setExtractedFrames(prev => prev.map(f =>
+            f.frameNumber === frame.frameNumber
+              ? { ...f, status: 'failed' as const, error: result.error }
+              : f
+          ));
+        }
       }
 
-      return result;
+      setProgress({ current: frameNumbers.length, total: frameNumbers.length, stage: 'Complete!' });
+
+      return {
+        success: completedFrames.length > 0,
+        frames: completedFrames
+      };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Frame extraction failed';
       setError(errorMessage);
@@ -163,7 +280,7 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
     } finally {
       setIsExtracting(false);
     }
-  }, [gridConfig, shouldUpscale]);
+  }, [gridConfig, shouldUpscale, userId]);
 
   /**
    * Clear all extracted frames
