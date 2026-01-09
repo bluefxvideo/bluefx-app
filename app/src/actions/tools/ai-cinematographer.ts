@@ -770,25 +770,20 @@ export async function executeStoryboardGeneration(
       }
     }
 
-    // Step 3: Construct the storyboard prompt (VERSION 2 - Film Strip Style)
+    // Step 3: Construct the storyboard prompt (VERSION 3 - 4x4 Grid, No Borders)
     const visualStylePrompt = request.visual_style === 'custom'
       ? request.custom_style || ''
       : VISUAL_STYLE_PROMPTS[request.visual_style] || VISUAL_STYLE_PROMPTS.cinematic_realism;
 
-    const storyboardPrompt = `Professional cinematography contact sheet displaying 9 frames from the same scene. Think film strip or movie storyboard - each frame is a horizontal widescreen rectangle (16:9 aspect ratio), arranged in 3 rows of 3 frames each.
+    const storyboardPrompt = `Create a 4x4 cinematic storyboard grid (4 columns, 4 rows = 16 frames).
 
-DO NOT create square frames. Each frame must be landscape-oriented 16:9 widescreen format (wider than tall, like a cinema screen).
+CRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.
+
+Each frame must be 16:9 aspect ratio. NO TEXT OR DIALOGUE ON ANY FRAME.
 
 ${request.story_description}
 
-Shot progression:
-Row 1: Establishing shots - wide environmental view, full subject view, 3/4 framing
-Row 2: Core coverage - waist-up medium shot, chest-up close shot, face/detail close-up
-Row 3: Creative angles - extreme detail/macro, low angle looking up, high angle looking down
-
-Technical: Ultra-photorealistic, shot on Arri Alexa cinema camera, 8k detail, natural lighting, film grain, documentary realism. ${visualStylePrompt}
-
-CRITICAL FORMATTING: Output must be a grid where each of the 9 individual frames maintains 16:9 cinematic widescreen proportions (horizontal rectangles, not squares). The overall composition will be wider than tall.`;
+STYLE: ${visualStylePrompt}, consistent characters throughout all frames, seamless edge-to-edge grid, NO borders between frames.`;
 
     console.log(`📊 Generating storyboard with prompt length: ${storyboardPrompt.length}`);
 
