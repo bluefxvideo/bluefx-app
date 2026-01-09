@@ -1,16 +1,28 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History } from 'lucide-react';
+import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, Youtube, FileVideo } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCredits } from '@/hooks/useCredits';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { toast } from 'sonner';
-import { analyzeVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
+import { analyzeVideo, analyzeYouTubeVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+// Analysis type options
+const ANALYSIS_TYPES = [
+  { value: 'full_breakdown', label: 'Full SEALCaM Breakdown', description: 'Complete scene-by-scene analysis with all details' },
+  { value: 'shot_list', label: 'Shot List Only', description: 'Focus on shots, camera work, and timing' },
+  { value: 'script_extraction', label: 'Script/Dialogue Extraction', description: 'Extract narration, dialogue, and on-screen text' },
+  { value: 'custom_only', label: 'Custom Prompt Only', description: 'Use only your custom instructions' },
+] as const;
+
+type AnalysisType = typeof ANALYSIS_TYPES[number]['value'];
 
 interface VideoAnalysis {
   id: string;
@@ -23,10 +35,15 @@ interface VideoAnalysis {
   created_at: string;
 }
 
+type InputMode = 'file' | 'youtube';
+
 export function VideoAnalyzerPage() {
+  const [inputMode, setInputMode] = useState<InputMode>('file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [analysisType, setAnalysisType] = useState<AnalysisType>('full_breakdown');
   const [customPrompt, setCustomPrompt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
@@ -106,9 +123,32 @@ export function VideoAnalyzerPage() {
     if (file) handleFileSelect(file);
   };
 
+  // Validate YouTube URL
+  const isValidYoutubeUrl = (url: string): boolean => {
+    const patterns = [
+      /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
+      /^https?:\/\/youtu\.be\/[\w-]+/,
+      /^https?:\/\/(www\.)?youtube\.com\/shorts\/[\w-]+/,
+    ];
+    return patterns.some(pattern => pattern.test(url));
+  };
+
   const handleAnalyze = async () => {
-    if (!selectedFile) {
+    // Validate input based on mode
+    if (inputMode === 'file' && !selectedFile) {
       toast.error('Please select a video file first');
+      return;
+    }
+    if (inputMode === 'youtube' && !youtubeUrl) {
+      toast.error('Please enter a YouTube URL');
+      return;
+    }
+    if (inputMode === 'youtube' && !isValidYoutubeUrl(youtubeUrl)) {
+      toast.error('Please enter a valid YouTube URL');
+      return;
+    }
+    if (analysisType === 'custom_only' && !customPrompt.trim()) {
+      toast.error('Please enter custom instructions when using "Custom Prompt Only" mode');
       return;
     }
 
@@ -124,22 +164,34 @@ export function VideoAnalyzerPage() {
       // Deduct credits first
       deductCredits({ credits: creditsNeeded, service: 'video_analyzer' });
 
-      // Convert file to base64 (browser-compatible)
-      const arrayBuffer = await selectedFile.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = '';
-      uint8Array.forEach((byte) => {
-        binary += String.fromCharCode(byte);
-      });
-      const base64 = btoa(binary);
+      let result;
 
-      const result = await analyzeVideo({
-        videoBase64: base64,
-        videoMimeType: selectedFile.type,
-        videoDurationSeconds: videoDuration || 0,
-        customPrompt: customPrompt || undefined,
-        title: selectedFile.name,
-      });
+      if (inputMode === 'youtube') {
+        // Analyze YouTube video
+        result = await analyzeYouTubeVideo({
+          youtubeUrl,
+          analysisType,
+          customPrompt: customPrompt || undefined,
+        });
+      } else {
+        // Analyze uploaded file
+        const arrayBuffer = await selectedFile!.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binary = '';
+        uint8Array.forEach((byte) => {
+          binary += String.fromCharCode(byte);
+        });
+        const base64 = btoa(binary);
+
+        result = await analyzeVideo({
+          videoBase64: base64,
+          videoMimeType: selectedFile!.type,
+          videoDurationSeconds: videoDuration || 0,
+          analysisType,
+          customPrompt: customPrompt || undefined,
+          title: selectedFile!.name,
+        });
+      }
 
       if (result.success && result.analysis) {
         setAnalysisResult(result.analysis);
@@ -198,82 +250,159 @@ export function VideoAnalyzerPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
           {/* Left Panel - Upload & Settings */}
           <div className="space-y-4">
-            {/* Video Upload */}
-            <Card
-              className="relative p-6 border border-border/50 cursor-pointer transition-all duration-300
-                       backdrop-blur-sm hover:border-border group/upload overflow-hidden"
-              onClick={() => fileInputRef.current?.click()}
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
-                className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-              />
+            {/* Input Mode Toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={inputMode === 'file' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setInputMode('file')}
+              >
+                <FileVideo className="w-4 h-4 mr-2" />
+                Upload File
+              </Button>
+              <Button
+                variant={inputMode === 'youtube' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setInputMode('youtube')}
+              >
+                <Youtube className="w-4 h-4 mr-2" />
+                YouTube URL
+              </Button>
+            </div>
 
-              {selectedFile && videoPreviewUrl ? (
-                <div className="space-y-4">
-                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                    <video
-                      ref={videoRef}
-                      src={videoPreviewUrl}
-                      className="w-full h-full object-contain"
-                      controls
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-semibold truncate max-w-[200px]">{selectedFile.name}</p>
-                      <p className="text-zinc-400 text-sm flex items-center gap-2">
-                        <Clock className="w-3 h-3" />
-                        {videoDuration ? formatDuration(videoDuration) : 'Loading...'}
-                        <span className="text-zinc-500">•</span>
-                        {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
-                      </p>
+            {/* Video Input - File Upload or YouTube URL */}
+            {inputMode === 'file' ? (
+              <Card
+                className="relative p-6 border border-border/50 cursor-pointer transition-all duration-300
+                         backdrop-blur-sm hover:border-border group/upload overflow-hidden"
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                />
+
+                {selectedFile && videoPreviewUrl ? (
+                  <div className="space-y-4">
+                    <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                      <video
+                        ref={videoRef}
+                        src={videoPreviewUrl}
+                        className="w-full h-full object-contain"
+                        controls
+                      />
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedFile(null);
-                        setVideoPreviewUrl(null);
-                        setVideoDuration(null);
-                        setAnalysisResult(null);
-                      }}
-                    >
-                      Change
-                    </Button>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white font-semibold truncate max-w-[200px]">{selectedFile.name}</p>
+                        <p className="text-zinc-400 text-sm flex items-center gap-2">
+                          <Clock className="w-3 h-3" />
+                          {videoDuration ? formatDuration(videoDuration) : 'Loading...'}
+                          <span className="text-zinc-500">•</span>
+                          {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(null);
+                          setVideoPreviewUrl(null);
+                          setVideoDuration(null);
+                          setAnalysisResult(null);
+                        }}
+                      >
+                        Change
+                      </Button>
+                    </div>
                   </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4 py-8">
+                    <div className="w-16 h-16 bg-gradient-to-br from-secondary/50 to-card/50 rounded-2xl flex items-center justify-center
+                                   border border-border/30 group-hover/upload:border-border/70 transition-all duration-300">
+                      <Upload className="w-7 h-7 text-zinc-400 group-hover/upload:text-zinc-300 transition-colors duration-300" />
+                    </div>
+                    <div className="text-center space-y-2">
+                      <p className="text-zinc-200 font-semibold text-lg">Upload your video</p>
+                      <p className="text-zinc-400">MP4, WebM, MOV, AVI • Max 3 minutes • Max 100MB</p>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            ) : (
+              <Card className="p-6 border border-border/50">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
+                      <Youtube className="w-6 h-6 text-red-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold">YouTube Video</p>
+                      <p className="text-zinc-400 text-sm">Paste a YouTube video URL to analyze</p>
+                    </div>
+                  </div>
+                  <Input
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    className="bg-background border-border"
+                  />
+                  {youtubeUrl && isValidYoutubeUrl(youtubeUrl) && (
+                    <p className="text-green-400 text-sm flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Valid YouTube URL
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <div className="flex flex-col items-center gap-4 py-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-secondary/50 to-card/50 rounded-2xl flex items-center justify-center
-                                 border border-border/30 group-hover/upload:border-border/70 transition-all duration-300">
-                    <Upload className="w-7 h-7 text-zinc-400 group-hover/upload:text-zinc-300 transition-colors duration-300" />
-                  </div>
-                  <div className="text-center space-y-2">
-                    <p className="text-zinc-200 font-semibold text-lg">Upload your video</p>
-                    <p className="text-zinc-400">MP4, WebM, MOV, AVI • Max 3 minutes • Max 100MB</p>
-                  </div>
-                </div>
-              )}
+              </Card>
+            )}
+
+            {/* Analysis Type Dropdown */}
+            <Card className="p-4 border border-border/50">
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                Analysis Type
+              </label>
+              <Select value={analysisType} onValueChange={(v) => setAnalysisType(v as AnalysisType)}>
+                <SelectTrigger className="bg-background border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ANALYSIS_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div className="flex flex-col">
+                        <span>{type.label}</span>
+                        <span className="text-xs text-zinc-400">{type.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Card>
 
             {/* Custom Prompt */}
             <Card className="p-4 border border-border/50">
               <label className="block text-sm font-medium text-zinc-300 mb-2">
-                Custom Instructions (Optional)
+                {analysisType === 'custom_only' ? 'Custom Instructions (Required)' : 'Additional Instructions (Optional)'}
               </label>
               <Textarea
-                placeholder="Add specific instructions for the analysis... (e.g., 'Focus on the product placement moments' or 'Pay attention to the color grading')"
+                placeholder={analysisType === 'custom_only'
+                  ? "Enter your custom analysis instructions..."
+                  : "Add specific focus areas... (e.g., 'Focus on the product placement moments' or 'Pay attention to the color grading')"
+                }
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 className="min-h-[100px] bg-background border-border"
               />
+              {analysisType !== 'custom_only' && (
+                <p className="text-xs text-zinc-500 mt-2">
+                  These instructions will be added to the {ANALYSIS_TYPES.find(t => t.value === analysisType)?.label} analysis
+                </p>
+              )}
             </Card>
 
             {/* Credits Info & Analyze Button */}
@@ -290,7 +419,7 @@ export function VideoAnalyzerPage() {
                 className="w-full"
                 size="lg"
                 onClick={handleAnalyze}
-                disabled={!selectedFile || isAnalyzing || creditsLoading}
+                disabled={(inputMode === 'file' ? !selectedFile : !youtubeUrl) || isAnalyzing || creditsLoading}
               >
                 {isAnalyzing ? (
                   <>
