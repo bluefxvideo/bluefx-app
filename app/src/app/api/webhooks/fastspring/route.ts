@@ -10,6 +10,7 @@ interface FastSpringContact {
 }
 
 interface FastSpringAccount {
+  id?: string
   contact?: FastSpringContact
 }
 
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     console.log('FastSpring webhook payload received:', {
       eventType,
       subscriptionId: eventData.id,
-      customerEmail: eventData.account?.contact?.email,
+      customerEmail: typeof eventData.account === 'object' ? eventData.account?.contact?.email : undefined,
       rawPayload: payload
     })
 
@@ -267,7 +268,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     })
 
   // Determine plan type and credits based on product - handle both formats
-  const productId = data.product?.product || data.product || ''
+  const productId = typeof data.product === 'object' ? (data.product?.product || '') : (data.product || '')
   const intervalUnit = data.intervalUnit || ''
   const isYearlyPlan = productId.includes('yearly') || intervalUnit === 'year'
   
@@ -524,8 +525,8 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
 
 async function handleFastSpringRenewal(data: FastSpringEventData) {
   const supabase = createAdminClient()
-  
-  const customerEmail = data.account?.contact?.email || ''
+
+  const customerEmail = typeof data.account === 'object' ? (data.account?.contact?.email || '') : ''
   const subscriptionId = data.id || data.reference || 'unknown'
 
   if (!customerEmail) {
@@ -597,11 +598,56 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
 
 async function handleFastSpringCreditPack(data: FastSpringEventData) {
   const supabase = createAdminClient()
-  
-  const customerEmail = data.customer?.email
+
+  console.log('Processing FastSpring credit pack order:', JSON.stringify(data, null, 2))
+
+  // Try multiple locations for customer email (FastSpring format varies)
+  let customerEmail = ''
+  if (typeof data.account === 'object' && data.account?.contact?.email) {
+    customerEmail = data.account.contact.email
+  } else if (data.customer?.email) {
+    customerEmail = data.customer.email
+  }
+
+  // If still no email and we have account ID, try to fetch from API
+  const accountId = typeof data.account === 'string' ? data.account : ''
+  if (!customerEmail && accountId) {
+    console.log('Email not in webhook, fetching from FastSpring API for account:', accountId)
+    const fastSpringUsername = process.env.FASTSPRING_USERNAME
+    const fastSpringApiKey = process.env.FASTSPRING_API_KEY
+
+    if (fastSpringUsername && fastSpringApiKey) {
+      try {
+        const auth = Buffer.from(`${fastSpringUsername}:${fastSpringApiKey}`).toString('base64')
+        const accountResponse = await fetch(`https://api.fastspring.com/accounts/${accountId}`, {
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Accept': 'application/json'
+          }
+        })
+
+        if (accountResponse.ok) {
+          const accountData = await accountResponse.json()
+          customerEmail = accountData.contact?.email || accountData.email || ''
+          console.log('Retrieved email from FastSpring API:', customerEmail)
+        }
+      } catch (apiError) {
+        console.error('Failed to fetch account from FastSpring API:', apiError)
+      }
+    }
+  }
 
   if (!customerEmail) {
     console.error('Customer email not found in FastSpring credit pack order:', data)
+    // Log event for debugging
+    await supabase
+      .from('webhook_events')
+      .insert({
+        event_id: `credit_pack_${data.id || Date.now()}`,
+        event_type: 'CREDIT_PACK_ERROR',
+        processor: 'fastspring',
+        payload: { data, error: 'Could not find customer email' } as unknown as Json
+      })
     return
   }
 
@@ -611,38 +657,75 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
 
   if (!user) {
     console.error('User not found for FastSpring credit pack purchase:', customerEmail)
+    // Log event for debugging
+    await supabase
+      .from('webhook_events')
+      .insert({
+        event_id: `credit_pack_${data.id || Date.now()}_no_user`,
+        event_type: 'CREDIT_PACK_ERROR',
+        processor: 'fastspring',
+        payload: { data, customerEmail, error: 'User not found' } as unknown as Json
+      })
     return
   }
 
   // Process credit pack items (from legacy code mapping)
   const items = (data.items as Array<{ product?: string }>) || []
   let totalCreditsToAdd = 0
-  
-  // Map FastSpring product IDs to credit amounts (from legacy code)
+
+  // Map FastSpring product IDs to credit amounts
   const creditPackMapping: Record<string, number> = {
     '100-ai-credit-pack': 100,
     '300-ai-credit-pack': 300,
     '600-ai-credit-pack': 600,
     '1000-ai-credit-pack': 1000,
   }
-  
+
   for (const item of items) {
     const productId = item.product
     if (!productId) continue
     const creditsToAdd = creditPackMapping[productId]
-    
+
     if (creditsToAdd) {
       totalCreditsToAdd += creditsToAdd
       console.log(`User ${user.email} purchased ${creditsToAdd} credits via product ${productId}`)
     }
   }
 
+  // If no items array, check if product is directly in data
+  if (totalCreditsToAdd === 0 && data.product) {
+    const productId = typeof data.product === 'string' ? data.product : data.product.product
+    if (productId && creditPackMapping[productId]) {
+      totalCreditsToAdd = creditPackMapping[productId]
+      console.log(`User ${user.email} purchased ${totalCreditsToAdd} credits via direct product ${productId}`)
+    }
+  }
+
   if (totalCreditsToAdd === 0) {
-    console.log('No recognized credit packs found in FastSpring order')
+    console.log('No recognized credit packs found in FastSpring order:', data)
+    // Log event for debugging
+    await supabase
+      .from('webhook_events')
+      .insert({
+        event_id: `credit_pack_${data.id || Date.now()}_no_product`,
+        event_type: 'CREDIT_PACK_ERROR',
+        processor: 'fastspring',
+        payload: { data, customerEmail, error: 'No recognized credit pack product' } as unknown as Json
+      })
     return
   }
 
-  // Get current credits and add new ones (matches legacy logic)
+  // Log successful webhook event
+  await supabase
+    .from('webhook_events')
+    .insert({
+      event_id: `credit_pack_${data.id || Date.now()}`,
+      event_type: 'CREDIT_PACK',
+      processor: 'fastspring',
+      payload: { data, customerEmail, creditsToAdd: totalCreditsToAdd } as unknown as Json
+    })
+
+  // Get current credits and add new ones
   const { data: userCredits } = await supabase
     .from('user_credits')
     .select('total_credits')
@@ -652,7 +735,7 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
   const currentCredits = userCredits?.total_credits || 0
   const newTotalCredits = currentCredits + totalCreditsToAdd
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('user_credits')
     .update({
       total_credits: newTotalCredits,
@@ -660,13 +743,18 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
     })
     .eq('user_id', user.id)
 
-  console.log(`FastSpring credit pack processed: ${customerEmail} +${totalCreditsToAdd} credits (total: ${newTotalCredits})`)
+  if (updateError) {
+    console.error('Failed to update credits:', updateError)
+    throw new Error(`Failed to update credits: ${updateError.message}`)
+  }
+
+  console.log(`✅ FastSpring credit pack processed: ${customerEmail} +${totalCreditsToAdd} credits (total: ${newTotalCredits})`)
 }
 
 async function handleFastSpringCancellation(data: FastSpringEventData) {
   const supabase = createAdminClient()
-  
-  const customerEmail = data.account?.contact?.email || ''
+
+  const customerEmail = typeof data.account === 'object' ? (data.account?.contact?.email || '') : ''
 
   if (!customerEmail) {
     console.error('Customer email not found in FastSpring cancellation:', data)
