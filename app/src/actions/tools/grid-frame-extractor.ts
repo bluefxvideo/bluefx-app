@@ -78,13 +78,14 @@ async function uploadFrameToStorage(
  * Model: philz1337x/clarity-upscaler
  */
 async function createUpscalePrediction(imageUrl: string, scale: number = 2): Promise<ReplicatePrediction> {
-  const response = await fetch('https://api.replicate.com/v1/models/philz1337x/clarity-upscaler/predictions', {
+  const response = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
     },
     body: JSON.stringify({
+      version: 'dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e',
       input: {
         image: imageUrl,
         scale_factor: scale,
