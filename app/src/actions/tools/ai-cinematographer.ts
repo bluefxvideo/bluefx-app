@@ -770,12 +770,13 @@ export async function executeStoryboardGeneration(
       }
     }
 
-    // Step 3: Construct the storyboard prompt (VERSION 3 - 4x4 Grid, No Borders)
+    // Step 3: Construct the storyboard prompt (VERSION 4 - 3x3 Grid for better quality)
+    // 3x3 at 4K = 1280x720 per frame, much better source quality for upscaling
     const visualStylePrompt = request.visual_style === 'custom'
       ? request.custom_style || ''
       : VISUAL_STYLE_PROMPTS[request.visual_style] || VISUAL_STYLE_PROMPTS.cinematic_realism;
 
-    const storyboardPrompt = `Create a 4x4 cinematic storyboard grid (4 columns, 4 rows = 16 frames).
+    const storyboardPrompt = `Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).
 
 CRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.
 

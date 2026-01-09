@@ -187,7 +187,7 @@ export function AICinematographerPage() {
               isGenerating={isGeneratingStoryboard}
               storyboardResult={storyboardResult?.storyboard}
               projectId={storyboardResult?.storyboard?.id}
-              gridConfig={{ columns: 4, rows: 4 }}
+              gridConfig={{ columns: 3, rows: 3 }}
               onRegenerateGrid={() => {
                 if (storyboardResult?.storyboard) {
                   generateStoryboard({
