@@ -73,9 +73,9 @@ async function uploadFrameToStorage(
 }
 
 /**
- * Create upscale prediction using Clarity Upscaler on Replicate
- * Better quality than Real-ESRGAN, especially for faces
- * Model: philz1337x/clarity-upscaler
+ * Create upscale prediction using Crystal Upscaler on Replicate
+ * Optimized for portraits, faces, and products
+ * Model: philz1337x/crystal-upscaler
  */
 async function createUpscalePrediction(imageUrl: string, scale: number = 2): Promise<ReplicatePrediction> {
   const response = await fetch('https://api.replicate.com/v1/predictions', {
@@ -85,14 +85,12 @@ async function createUpscalePrediction(imageUrl: string, scale: number = 2): Pro
       'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
     },
     body: JSON.stringify({
-      version: 'dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e',
+      version: '5d917b1444c89ed91055f3052d27e1ad433a1218599a36544510e1dfa9ac26c8',
       input: {
         image: imageUrl,
         scale_factor: scale,
-        resemblance: 0.6, // Balance between input fidelity and enhancement
-        creativity: 0.35, // Lower = more faithful to original
-        prompt: "cinematic film still, high quality, detailed faces, sharp focus",
-        negative_prompt: "blurry, distorted, deformed faces, low quality",
+        creativity: 0, // 0 = most faithful to original
+        output_format: 'png',
       },
     }),
   });
