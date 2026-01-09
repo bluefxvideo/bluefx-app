@@ -35,7 +35,7 @@ interface StoryboardTabProps {
   isLoadingCredits?: boolean;
 }
 
-const CREDIT_COST = 3; // 3 credits for Nano Banana Pro grid generation
+const CREDIT_COST = 6; // 6 credits for Nano Banana Pro grid generation
 const MAX_REFERENCE_IMAGES = 14;
 const MAX_STORY_LENGTH = 20000;
 
@@ -298,14 +298,14 @@ export function StoryboardTab({
           ) : (
             <>
               <LayoutGrid className="w-4 h-4 mr-2" />
-              Generate Storyboard ({CREDIT_COST} credit)
+              Generate Storyboard ({CREDIT_COST} credits)
             </>
           )}
         </Button>
 
         {!isLoadingCredits && credits < CREDIT_COST && (
           <p className="text-xs text-destructive text-center mt-2">
-            Insufficient credits. You need {CREDIT_COST} credit (you have {credits}).
+            Insufficient credits. You need {CREDIT_COST} credits (you have {credits}).
           </p>
         )}
       </TabFooter>
