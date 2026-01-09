@@ -846,21 +846,21 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
     })
 
   // Get current credits and add new ones
+  // Note: available_credits is a generated column (total_credits - used_credits)
+  // So we only update total_credits, and available_credits is computed automatically
   const { data: userCredits } = await supabase
     .from('user_credits')
-    .select('available_credits, total_credits')
+    .select('total_credits, used_credits')
     .eq('user_id', user.id)
     .single()
 
-  const currentAvailable = userCredits?.available_credits || 0
   const currentTotal = userCredits?.total_credits || 0
-  const newAvailableCredits = currentAvailable + totalCreditsToAdd
+  const currentUsed = userCredits?.used_credits || 0
   const newTotalCredits = currentTotal + totalCreditsToAdd
 
   const { error: updateError } = await supabase
     .from('user_credits')
     .update({
-      available_credits: newAvailableCredits,
       total_credits: newTotalCredits,
       updated_at: new Date().toISOString()
     })
@@ -871,6 +871,7 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
     throw new Error(`Failed to update credits: ${updateError.message}`)
   }
 
+  const newAvailableCredits = newTotalCredits - currentUsed
   console.log(`✅ FastSpring credit pack processed: ${user.email} +${totalCreditsToAdd} credits (available: ${newAvailableCredits}, total: ${newTotalCredits})`)
 }
 
