@@ -751,16 +751,19 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
   // Get current credits and add new ones
   const { data: userCredits } = await supabase
     .from('user_credits')
-    .select('total_credits')
+    .select('available_credits, total_credits')
     .eq('user_id', user.id)
     .single()
 
-  const currentCredits = userCredits?.total_credits || 0
-  const newTotalCredits = currentCredits + totalCreditsToAdd
+  const currentAvailable = userCredits?.available_credits || 0
+  const currentTotal = userCredits?.total_credits || 0
+  const newAvailableCredits = currentAvailable + totalCreditsToAdd
+  const newTotalCredits = currentTotal + totalCreditsToAdd
 
   const { error: updateError } = await supabase
     .from('user_credits')
     .update({
+      available_credits: newAvailableCredits,
       total_credits: newTotalCredits,
       updated_at: new Date().toISOString()
     })
@@ -771,7 +774,7 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
     throw new Error(`Failed to update credits: ${updateError.message}`)
   }
 
-  console.log(`✅ FastSpring credit pack processed: ${customerEmail} +${totalCreditsToAdd} credits (total: ${newTotalCredits})`)
+  console.log(`✅ FastSpring credit pack processed: ${customerEmail} +${totalCreditsToAdd} credits (available: ${newAvailableCredits}, total: ${newTotalCredits})`)
 }
 
 async function handleFastSpringCancellation(data: FastSpringEventData) {
