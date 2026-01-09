@@ -30,7 +30,6 @@ export function AICinematographerPage() {
 
   // Toggle between old 3x3 mode and new 4x4 mode with math extraction
   const [use4x4Grid, setUse4x4Grid] = useState(true); // Default to new 4x4 mode
-  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
 
   const {
     generateVideo,
@@ -187,7 +186,7 @@ export function AICinematographerPage() {
             <StoryboardOutputV2
               isGenerating={isGeneratingStoryboard}
               storyboardResult={storyboardResult?.storyboard}
-              projectId={currentProjectId}
+              projectId={storyboardResult?.storyboard?.id}
               gridConfig={{ columns: 4, rows: 4 }}
               onRegenerateGrid={() => {
                 if (storyboardResult?.storyboard) {

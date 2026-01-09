@@ -798,7 +798,7 @@ CRITICAL FORMATTING: Output must be a grid where each of the 9 individual frames
       storyboardPrompt,
       '16:9', // Widescreen for film strip style grid
       hasReferenceImages ? referenceImageUrls : undefined,
-      '2K', // 2K resolution
+      '4K', // 4K resolution for 4x4 grid extraction (3840x2160)
       'jpg' // JPG format
     );
 
