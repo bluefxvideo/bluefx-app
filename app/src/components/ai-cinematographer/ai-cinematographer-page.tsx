@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { containerStyles } from '@/lib/container-styles';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -17,6 +17,7 @@ import { GeneratorTab } from './tabs/generator-tab';
 import { StartingShotTab } from './tabs/starting-shot-tab';
 import { StoryboardTab } from './tabs/storyboard-tab';
 import { StoryboardOutput } from './output-panel/storyboard-output';
+import { StoryboardOutputV2 } from './output-panel/storyboard-output-v2';
 
 /**
  * AI Cinematographer - Complete AI-Orchestrated Tool with Tabs
@@ -26,6 +27,11 @@ export function AICinematographerPage() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Toggle between old 3x3 mode and new 4x4 mode with math extraction
+  const [use4x4Grid, setUse4x4Grid] = useState(true); // Default to new 4x4 mode
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
+
   const {
     generateVideo,
     isGenerating,
@@ -177,46 +183,83 @@ export function AICinematographerPage() {
           </div>
 
           {/* Right Panel - Storyboard Output */}
-          <StoryboardOutput
-            isGenerating={isGeneratingStoryboard}
-            storyboardResult={storyboardResult?.storyboard}
-            extractedFrames={extractedFrames}
-            isExtractingFrames={isExtractingFrames}
-            extractingProgress={extractingProgress}
-            onExtractFrames={extractFrames}
-            onRegenerateGrid={() => {
-              // Re-trigger generation with last prompt
-              if (storyboardResult?.storyboard) {
-                generateStoryboard({
-                  story_description: storyboardResult.storyboard.prompt,
-                  visual_style: storyboardResult.storyboard.visual_style,
-                  user_id: '',
-                });
-              }
-            }}
-            onRegenerateFrame={regenerateFrame}
-            onMakeVideo={handleMakeVideoFromImage}
-            onDownload={async (url, filename) => {
-              // Download image by fetching as blob (works with cross-origin URLs)
-              try {
-                const response = await fetch(url);
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(blobUrl);
-              } catch (error) {
-                console.error('Download failed:', error);
-                // Fallback: open in new tab
-                window.open(url, '_blank');
-              }
-            }}
-            onUploadGrid={uploadGridImage}
-          />
+          {use4x4Grid ? (
+            <StoryboardOutputV2
+              isGenerating={isGeneratingStoryboard}
+              storyboardResult={storyboardResult?.storyboard}
+              projectId={currentProjectId}
+              gridConfig={{ columns: 4, rows: 4 }}
+              onRegenerateGrid={() => {
+                if (storyboardResult?.storyboard) {
+                  generateStoryboard({
+                    story_description: storyboardResult.storyboard.prompt,
+                    visual_style: storyboardResult.storyboard.visual_style,
+                    user_id: '',
+                  });
+                }
+              }}
+              onMakeVideo={(imageUrl) => handleMakeVideoFromImage(imageUrl)}
+              onDownload={async (url, filename) => {
+                try {
+                  const response = await fetch(url);
+                  const blob = await response.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = blobUrl;
+                  link.download = filename;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(blobUrl);
+                } catch (error) {
+                  console.error('Download failed:', error);
+                  window.open(url, '_blank');
+                }
+              }}
+              onUploadGrid={uploadGridImage}
+              onFramesExtracted={(frames) => {
+                console.log('Frames extracted:', frames.length);
+              }}
+            />
+          ) : (
+            <StoryboardOutput
+              isGenerating={isGeneratingStoryboard}
+              storyboardResult={storyboardResult?.storyboard}
+              extractedFrames={extractedFrames}
+              isExtractingFrames={isExtractingFrames}
+              extractingProgress={extractingProgress}
+              onExtractFrames={extractFrames}
+              onRegenerateGrid={() => {
+                if (storyboardResult?.storyboard) {
+                  generateStoryboard({
+                    story_description: storyboardResult.storyboard.prompt,
+                    visual_style: storyboardResult.storyboard.visual_style,
+                    user_id: '',
+                  });
+                }
+              }}
+              onRegenerateFrame={regenerateFrame}
+              onMakeVideo={handleMakeVideoFromImage}
+              onDownload={async (url, filename) => {
+                try {
+                  const response = await fetch(url);
+                  const blob = await response.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = blobUrl;
+                  link.download = filename;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(blobUrl);
+                } catch (error) {
+                  console.error('Download failed:', error);
+                  window.open(url, '_blank');
+                }
+              }}
+              onUploadGrid={uploadGridImage}
+            />
+          )}
         </StandardToolLayout>
       ) : (
         // Generate tab - Use standard two-panel layout
