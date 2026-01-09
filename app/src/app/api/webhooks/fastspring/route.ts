@@ -729,18 +729,21 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
       console.log('👤 Using user from tag:', user.email)
     }
   } else if (customerEmail) {
-    // Find user by email via profiles table (direct query, indexed)
+    // Find user by email via auth.users (the source of truth for email)
     console.log('🔍 Looking up user by email:', customerEmail)
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .ilike('email', customerEmail)
-      .single()
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers()
 
-    if (profile) {
-      user = { id: profile.id, email: profile.email }
-      console.log('👤 Found user:', user.email)
+    if (authError) {
+      console.error('❌ Error listing users:', authError)
+    } else if (authData?.users) {
+      const foundUser = authData.users.find(u =>
+        u.email?.toLowerCase() === customerEmail.toLowerCase()
+      )
+      if (foundUser) {
+        user = { id: foundUser.id, email: foundUser.email }
+        console.log('👤 Found user:', user.email)
+      }
     }
   }
 
