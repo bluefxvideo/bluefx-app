@@ -1,11 +1,6 @@
 'use server';
 
-import Replicate from 'replicate';
-import { createClient } from '@/lib/supabase/server';
-
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
+import { createClient } from '@/app/supabase/server';
 
 /**
  * Grid Frame Extractor
@@ -18,13 +13,6 @@ const replicate = new Replicate({
  * The actual cropping happens client-side using canvas for speed.
  * This server action handles storage and upscaling.
  */
-
-interface GridConfig {
-  columns: number;
-  rows: number;
-  width: number;  // Total grid width (e.g., 3840)
-  height: number; // Total grid height (e.g., 2160)
-}
 
 interface ExtractedFrame {
   frameNumber: number;
@@ -42,50 +30,11 @@ interface ExtractionResult {
   error?: string;
 }
 
-// Default config for 4x4 grid at 4K 16:9
-export const DEFAULT_GRID_CONFIG: GridConfig = {
-  columns: 4,
-  rows: 4,
-  width: 3840,
-  height: 2160,
-};
-
-/**
- * Calculate crop coordinates for each frame in the grid
- * Used by client-side canvas to know where to crop
- */
-export function getFrameCoordinates(config: GridConfig = DEFAULT_GRID_CONFIG) {
-  const { columns, rows, width, height } = config;
-  const frameWidth = Math.floor(width / columns);
-  const frameHeight = Math.floor(height / rows);
-
-  const frames: Array<{
-    frameNumber: number;
-    row: number;
-    col: number;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }> = [];
-
-  let frameNumber = 1;
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < columns; col++) {
-      frames.push({
-        frameNumber,
-        row,
-        col,
-        x: col * frameWidth,
-        y: row * frameHeight,
-        width: frameWidth,
-        height: frameHeight,
-      });
-      frameNumber++;
-    }
-  }
-
-  return { frames, frameWidth, frameHeight };
+interface ReplicatePrediction {
+  id: string;
+  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  output?: string | string[];
+  error?: string;
 }
 
 /**
@@ -104,7 +53,7 @@ async function uploadFrameToStorage(
 
   const fileName = `projects/${projectId}/frames/frame_${frameNumber.toString().padStart(2, '0')}.png`;
 
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from('ad-projects')
     .upload(fileName, buffer, {
       contentType: 'image/png',
@@ -124,29 +73,82 @@ async function uploadFrameToStorage(
 }
 
 /**
+ * Create upscale prediction using Real-ESRGAN on Replicate
+ */
+async function createUpscalePrediction(imageUrl: string, scale: number = 2): Promise<ReplicatePrediction> {
+  const response = await fetch('https://api.replicate.com/v1/predictions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+    },
+    body: JSON.stringify({
+      version: 'f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa',
+      input: {
+        image: imageUrl,
+        scale: scale,
+        face_enhance: true,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Replicate API error: ${response.status} - ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Poll for prediction completion
+ */
+async function waitForPrediction(predictionId: string, maxWaitMs: number = 120000): Promise<ReplicatePrediction> {
+  const startTime = Date.now();
+  const pollInterval = 2000;
+
+  while (Date.now() - startTime < maxWaitMs) {
+    const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+      headers: {
+        'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get prediction status: ${response.status}`);
+    }
+
+    const prediction: ReplicatePrediction = await response.json();
+
+    if (prediction.status === 'succeeded') {
+      return prediction;
+    }
+
+    if (prediction.status === 'failed' || prediction.status === 'canceled') {
+      throw new Error(`Prediction ${prediction.status}: ${prediction.error || 'Unknown error'}`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+
+  throw new Error('Prediction timed out');
+}
+
+/**
  * Upscale a single frame using Real-ESRGAN on Replicate
  * 960x540 → 1920x1080 (2x scale)
  */
 async function upscaleFrame(imageUrl: string, scale: number = 2): Promise<string> {
   try {
-    const output = await replicate.run(
-      'nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa',
-      {
-        input: {
-          image: imageUrl,
-          scale: scale,
-          face_enhance: true, // Enable face enhancement for character consistency
-        },
-      }
-    );
+    const prediction = await createUpscalePrediction(imageUrl, scale);
+    const completedPrediction = await waitForPrediction(prediction.id);
 
-    if (typeof output === 'string') {
-      return output;
+    if (typeof completedPrediction.output === 'string') {
+      return completedPrediction.output;
     }
 
-    // Handle array output
-    if (Array.isArray(output) && output.length > 0) {
-      return output[0] as string;
+    if (Array.isArray(completedPrediction.output) && completedPrediction.output.length > 0) {
+      return completedPrediction.output[0];
     }
 
     throw new Error('Unexpected output format from upscaler');
@@ -172,7 +174,7 @@ async function saveUpscaledFrame(
 
   const fileName = `projects/${projectId}/frames/frame_${frameNumber.toString().padStart(2, '0')}_upscaled.png`;
 
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from('ad-projects')
     .upload(fileName, buffer, {
       contentType: 'image/png',
@@ -280,23 +282,15 @@ export async function upscaleImage(
   enhanceFaces: boolean = true
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const output = await replicate.run(
-      'nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa',
-      {
-        input: {
-          image: imageUrl,
-          scale: scale,
-          face_enhance: enhanceFaces,
-        },
-      }
-    );
+    const prediction = await createUpscalePrediction(imageUrl, scale);
+    const completedPrediction = await waitForPrediction(prediction.id);
 
-    if (typeof output === 'string') {
-      return { success: true, url: output };
+    if (typeof completedPrediction.output === 'string') {
+      return { success: true, url: completedPrediction.output };
     }
 
-    if (Array.isArray(output) && output.length > 0) {
-      return { success: true, url: output[0] as string };
+    if (Array.isArray(completedPrediction.output) && completedPrediction.output.length > 0) {
+      return { success: true, url: completedPrediction.output[0] };
     }
 
     return { success: false, error: 'Unexpected output format' };
