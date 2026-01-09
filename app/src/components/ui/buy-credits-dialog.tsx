@@ -14,41 +14,45 @@ interface BuyCreditsDialogProps {
 }
 
 const CREDIT_PACKAGES = [
-  { 
-    id: '100-ai-credit-pack',  // Updated to match webhook mapping
-    credits: 100, 
+  {
+    id: '100-ai-credit-pack',
+    credits: 100,
     price: '$9.99',
     popular: false,
     description: 'Perfect for trying out features',
     icon: CreditCard,
-    gradient: 'from-blue-500 to-cyan-500'
+    gradient: 'from-blue-500 to-cyan-500',
+    url: 'https://bluefx.onfastspring.com/100-ai-credit-pack'
   },
-  { 
-    id: '300-ai-credit-pack',  // Updated to match webhook mapping (was 500)
-    credits: 300, 
-    price: '$24.99',  // Adjusted price for 300 credits
+  {
+    id: '300-ai-credit-pack',
+    credits: 300,
+    price: '$24.99',
     popular: true,
     description: 'Most popular choice',
     icon: Zap,
-    gradient: 'from-blue-500 to-cyan-500'
+    gradient: 'from-blue-500 to-cyan-500',
+    url: 'https://bluefx.onfastspring.com/300-ai-credit-pack'
   },
-  { 
-    id: '600-ai-credit-pack',  // Updated to match webhook mapping (was 1000)
-    credits: 600, 
-    price: '$44.99',  // Adjusted price for 600 credits
+  {
+    id: '600-ai-credit-pack',
+    credits: 600,
+    price: '$44.99',
     popular: false,
     description: 'Great for regular users',
     icon: Star,
-    gradient: 'from-blue-500 to-cyan-500'
+    gradient: 'from-blue-500 to-cyan-500',
+    url: 'https://bluefx.onfastspring.com/600-ai-credit-pack'
   },
-  { 
-    id: '1000-ai-credit-pack',  // Updated to match webhook mapping (was 2500)
-    credits: 1000, 
-    price: '$69.99',  // Adjusted price for 1000 credits
+  {
+    id: '1000-ai-credit-pack',
+    credits: 1000,
+    price: '$69.99',
     popular: false,
     description: 'Best value for power users',
     icon: Crown,
-    gradient: 'from-blue-500 to-cyan-500'
+    gradient: 'from-blue-500 to-cyan-500',
+    url: 'https://bluefx.onfastspring.com/1000-ai-credit-pack'
   },
 ]
 
@@ -56,18 +60,18 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
   const { isPurchasing, credits } = useCredits()
   const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null)
 
-  const handlePurchase = (packageId: string) => {
+  const handlePurchase = (packageId: string, packageUrl: string) => {
     setPurchasingPackage(packageId)
-    
+
     try {
       // Check if FastSpring is loaded
       if (typeof window !== 'undefined' && window.fastspring) {
         console.log('Launching FastSpring checkout for:', packageId)
-        
+
         // Set up the FastSpring checkout
         window.fastspring.builder.reset()
         window.fastspring.builder.add(packageId)
-        
+
         // Set user email if logged in (you might want to get this from your auth context)
         const userEmail = localStorage.getItem('user-email')
         if (userEmail) {
@@ -75,24 +79,22 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
             contact_email: userEmail
           })
         }
-        
+
         // Launch checkout
         window.fastspring.builder.checkout()
-        
+
         // Close dialog after launching checkout
         onOpenChange(false)
       } else {
         console.warn('FastSpring not loaded, using fallback URL')
         // Fallback: open FastSpring storefront in new window
-        const fallbackUrl = `https://bluefx.onfastspring.com/popup-${packageId}`
-        window.open(fallbackUrl, '_blank', 'width=600,height=700')
+        window.open(packageUrl, '_blank', 'width=600,height=700')
         onOpenChange(false)
       }
     } catch (error) {
       console.error('Error launching FastSpring checkout:', error)
       // Fallback: open storefront URL
-      const fallbackUrl = `https://bluefx.onfastspring.com/popup-${packageId}`
-      window.open(fallbackUrl, '_blank', 'width=600,height=700')
+      window.open(packageUrl, '_blank', 'width=600,height=700')
       onOpenChange(false)
     } finally {
       // Reset purchasing state after a delay
@@ -163,7 +165,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
                   </div>
                   
                   <Button
-                    onClick={() => handlePurchase(pkg.id)}
+                    onClick={() => handlePurchase(pkg.id, pkg.url)}
                     disabled={isPurchasing || isCurrentlyPurchasing}
                     className={`w-full bg-gradient-to-r ${pkg.gradient} hover:opacity-90 text-white border-0 h-9`}
                     size="sm"
