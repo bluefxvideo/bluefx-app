@@ -78,14 +78,14 @@ async function uploadFrameToStorage(
  * Model: philz1337x/crystal-upscaler
  */
 async function createUpscalePrediction(imageUrl: string, scale: number = 2): Promise<ReplicatePrediction> {
-  const response = await fetch('https://api.replicate.com/v1/predictions', {
+  // Use the official model endpoint (doesn't require version hash)
+  const response = await fetch('https://api.replicate.com/v1/models/philz1337x/crystal-upscaler/predictions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+      'Authorization': `Bearer ${process.env.REPLICATE_API_TOKEN}`,
     },
     body: JSON.stringify({
-      version: '5d917b1444c89ed91055f3052d27e1ad433a1218599a36544510e1dfa9ac26c8',
       input: {
         image: imageUrl,
         scale_factor: scale,
