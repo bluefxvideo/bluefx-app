@@ -30,7 +30,6 @@ import {
   Calendar,
   Clock,
   ChevronRight,
-  X,
 } from 'lucide-react';
 import {
   LineChart,
@@ -118,7 +117,7 @@ interface UserDetails {
 const CHART_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#84CC16'];
 
 export function PlatformUsagePanel() {
-  const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [dateRange, setDateRange] = useState<'1d' | '7d' | '30d' | '90d' | 'all'>('30d');
   const [isLoading, setIsLoading] = useState(true);
   const [summary, setSummary] = useState<PlatformSummaryStats | null>(null);
   const [toolUsage, setToolUsage] = useState<ToolUsageStat[]>([]);
@@ -246,6 +245,7 @@ export function PlatformUsagePanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="1d">Today</SelectItem>
               <SelectItem value="7d">Last 7 days</SelectItem>
               <SelectItem value="30d">Last 30 days</SelectItem>
               <SelectItem value="90d">Last 90 days</SelectItem>
@@ -396,7 +396,7 @@ export function PlatformUsagePanel() {
                         cy="50%"
                         outerRadius={80}
                         dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                         labelLine={false}
                       >
                         {pieChartData.map((entry, index) => (

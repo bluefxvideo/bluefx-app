@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     // Get date range from query params
     const searchParams = request.nextUrl.searchParams;
     const dateRange = searchParams.get('range') || '30d';
-    const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365 * 10;
+    const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365 * 10;
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
     console.log('📊 Date range:', dateRange, 'Start date:', startDate);
