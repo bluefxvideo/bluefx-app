@@ -730,20 +730,48 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
     }
   } else if (customerEmail) {
     // Find user by email via auth.users (the source of truth for email)
+    // Must paginate through all users since listUsers() default only returns 50
     console.log('🔍 Looking up user by email:', customerEmail)
 
-    const { data: authData, error: authError } = await supabase.auth.admin.listUsers()
+    let page = 1
+    const perPage = 1000
+    let foundUser = null
 
-    if (authError) {
-      console.error('❌ Error listing users:', authError)
-    } else if (authData?.users) {
-      const foundUser = authData.users.find(u =>
+    while (!foundUser) {
+      const { data: authData, error: authError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage
+      })
+
+      if (authError) {
+        console.error('❌ Error listing users:', authError)
+        break
+      }
+
+      if (!authData?.users || authData.users.length === 0) {
+        console.log(`🔍 No more users to search (checked ${(page - 1) * perPage} users)`)
+        break
+      }
+
+      console.log(`🔍 Searching page ${page} (${authData.users.length} users)`)
+
+      foundUser = authData.users.find(u =>
         u.email?.toLowerCase() === customerEmail.toLowerCase()
       )
+
       if (foundUser) {
         user = { id: foundUser.id, email: foundUser.email }
-        console.log('👤 Found user:', user.email)
+        console.log('�� Found user:', user.email)
+        break
       }
+
+      // If we got fewer than perPage, we've reached the last page
+      if (authData.users.length < perPage) {
+        console.log(`🔍 Reached last page, user not found after checking ${(page - 1) * perPage + authData.users.length} users`)
+        break
+      }
+
+      page++
     }
   }
 
