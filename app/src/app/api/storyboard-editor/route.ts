@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       // Fetch project data from ad_projects table
       const { data: project, error: projectError } = await supabase
         .from('ad_projects')
-        .select('id, extracted_frames, prompt, visual_style, status, created_at')
+        .select('id, extracted_frames, status, created_at')
         .eq('id', projectId)
         .eq('user_id', userId)
         .single();
@@ -313,7 +313,7 @@ export async function GET(request: NextRequest) {
     // No saved composition, fetch frames and create new one
     const { data: project, error: projectError } = await supabase
       .from('ad_projects')
-      .select('id, extracted_frames, prompt, visual_style, status')
+      .select('id, extracted_frames, status')
       .eq('id', projectId)
       .eq('user_id', userId)
       .single();
