@@ -192,7 +192,9 @@ export function StoryboardOutputV2({
         // Open editor with storyboard data
         // The editor URL can be configured via environment variable
         const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || '/editor';
-        const editorUrl = `${editorBaseUrl}?storyboardId=${projectId}&userId=${userId}`;
+        // Pass the current origin as apiUrl so the editor knows where to fetch storyboard data
+        const currentOrigin = window.location.origin;
+        const editorUrl = `${editorBaseUrl}?storyboardId=${projectId}&userId=${userId}&apiUrl=${encodeURIComponent(currentOrigin)}`;
         window.open(editorUrl, '_blank');
       } else {
         console.error('Failed to prepare editor:', data.error);

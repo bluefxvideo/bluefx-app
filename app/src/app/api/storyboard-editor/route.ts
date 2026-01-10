@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// CORS headers for cross-origin requests from the video editor
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning',
+};
+
+// Handle OPTIONS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+// Helper to create JSON response with CORS headers
+function jsonResponse(data: any, status: number = 200) {
+  return NextResponse.json(data, { status, headers: corsHeaders });
+}
+
 // Lazy initialization to avoid build-time errors
 function getSupabaseClient() {
   return createClient(
@@ -23,9 +40,9 @@ export async function POST(request: NextRequest) {
     const { projectId, userId, frames } = await request.json();
 
     if (!projectId || !userId) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Project ID and User ID are required' },
-        { status: 400 }
+        400
       );
     }
 
@@ -43,16 +60,16 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (projectError || !project) {
-        return NextResponse.json(
+        return jsonResponse(
           { success: false, error: 'Project not found' },
-          { status: 404 }
+          404
         );
       }
 
       if (!project.extracted_frames || project.extracted_frames.length === 0) {
-        return NextResponse.json(
+        return jsonResponse(
           { success: false, error: 'No extracted frames found. Please extract frames first.' },
-          { status: 400 }
+          400
         );
       }
 
@@ -207,7 +224,7 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to save composition (non-blocking):', saveError);
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         compositionId,
@@ -222,12 +239,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error formatting storyboard for editor:', error);
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to format storyboard for editor'
       },
-      { status: 500 }
+      500
     );
   }
 }
@@ -244,9 +261,9 @@ export async function GET(request: NextRequest) {
     const userId = url.searchParams.get('userId');
 
     if (!projectId || !userId) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Project ID and User ID are required' },
-        { status: 400 }
+        400
       );
     }
 
@@ -262,7 +279,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (composition?.composition_data) {
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         data: {
           compositionId: composition.id,
@@ -282,16 +299,16 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (projectError || !project) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Project not found' },
-        { status: 404 }
+        404
       );
     }
 
     if (!project.extracted_frames || project.extracted_frames.length === 0) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'No extracted frames found' },
-        { status: 400 }
+        400
       );
     }
 
@@ -361,7 +378,7 @@ export async function GET(request: NextRequest) {
       structure: ['storyboard-track'],
     };
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         projectId,
@@ -372,9 +389,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching storyboard editor data:', error);
-    return NextResponse.json(
+    return jsonResponse(
       { success: false, error: 'Failed to fetch storyboard data' },
-      { status: 500 }
+      500
     );
   }
 }
