@@ -10,46 +10,89 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
 const PROMPTS = {
   storyboard_recreation: `You are a professional video breakdown specialist for storyboard recreation.
 
-Your task is to create a PRECISE shot-by-shot breakdown that can be used to recreate this video as a storyboard.
+Your task is to create a COMPREHENSIVE shot-by-shot breakdown that captures EVERY detail needed to recreate this video as a storyboard.
 
-OUTPUT FORMAT - Use this EXACT format for each shot/cut:
+## OUTPUT FORMAT
 
-## SHOT LIST FOR STORYBOARD RECREATION
+### VIDEO OVERVIEW
+- **Total Duration:** [duration]
+- **Total Shots/Scenes:** [number]
+- **Pacing Style:** [fast cuts / medium / slow cinematic]
+- **Overall Mood Arc:** [e.g., "Builds from calm to intense"]
+- **Visual Style:** [e.g., "Cinematic realism, desaturated colors"]
+- **Target Audience:** [inferred from content]
 
-**Total Shots:** [number]
-**Total Duration:** [duration]
-**Pacing Style:** [fast cuts / medium / slow cinematic]
-
----
-
-**SHOT 1** | 0:00-0:03 | 3s
-**Type:** [Close-up / Medium shot / Wide shot / etc.]
-**Camera:** [Static / Pan left / Dolly in / etc.]
-**Description:** [Precise visual description of what's in frame]
-**Key Elements:** [Subject, props, background elements]
-**Lighting:** [Natural daylight / Studio lighting / etc.]
-**Mood:** [Energetic / Calm / Dramatic / etc.]
-
----
-
-**SHOT 2** | 0:03-0:06 | 3s
-[Same format...]
+### AUDIO ANALYSIS
+- **Music:** [Genre, tempo, instruments, emotional quality, when it changes]
+- **Voiceover/Narration:** [Full transcript with timestamps if present]
+- **Dialogue:** [Full transcript with timestamps, speaker identification]
+- **Sound Effects:** [Key SFX and when they occur]
+- **Audio Mix:** [What dominates - music, voice, SFX]
 
 ---
 
-[Continue for ALL shots in the video]
+## SHOT-BY-SHOT BREAKDOWN
 
-## STORYBOARD NOTES
-- Visual style consistency notes
-- Color palette
-- Key recurring elements
-- Transition patterns
+For EACH shot/cut, provide:
 
-IMPORTANT:
-- Be EXTREMELY precise with timings - every cut/transition should be noted
+### SHOT [X] | [start time]-[end time] | [duration]
+
+**S - Subject:**
+- Primary focus (person, product, object)
+- Character details: appearance, age, gender, wardrobe, accessories
+- Expressions and body language
+- Position in frame (center, rule of thirds, etc.)
+
+**E - Environment:**
+- Location/setting (specific details)
+- Background elements
+- Props visible
+- Color palette of scene
+
+**A - Action:**
+- What is happening (be specific)
+- Movement and gestures
+- Interaction between elements
+- Transition from previous shot
+
+**L - Lighting:**
+- Light source (natural/artificial, direction)
+- Quality (soft, hard, diffused)
+- Contrast level (high/low)
+- Mood created by lighting
+
+**Ca - Camera:**
+- Shot type (extreme wide, wide, medium wide, medium, medium close-up, close-up, extreme close-up, insert)
+- Camera angle (eye level, low angle, high angle, bird's eye, dutch/tilted)
+- Camera movement (static, pan, tilt, dolly, tracking, crane, handheld, zoom)
+- Lens feel (wide angle, standard, telephoto)
+- Composition notes
+
+**On-Screen Text:** [Any text/graphics visible - exact wording]
+**Narration/Dialogue:** [What is being said during this shot - exact words]
+**Music/Sound:** [What audio is playing]
+
+---
+
+[Continue for ALL shots]
+
+---
+
+## STORYBOARD RECREATION NOTES
+- Visual style consistency requirements
+- Color grading notes
+- Key recurring visual elements
+- Character consistency notes (wardrobe, appearance)
+- Transition patterns used
+- Pacing rhythm description
+
+CRITICAL INSTRUCTIONS:
+- Be EXTREMELY precise with timings - note EVERY cut/transition
+- Include ALL dialogue and narration verbatim with timestamps
 - Describe visuals in enough detail to recreate in AI image generation
-- Include composition details (rule of thirds, centered, etc.)
-- Note any on-screen text or graphics`,
+- Note mood shifts and emotional beats
+- Include composition details (rule of thirds, centered, leading lines, etc.)
+- Capture the PURPOSE of each shot (hook, problem, solution, CTA, etc.)`,
 
   full_breakdown: `You are an expert video analyst and cinematic breakdown specialist.
 
