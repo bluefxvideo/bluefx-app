@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { analyzeVideo, analyzeYouTubeVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
 import { generateStoryboardPrompts, Shot, StoryboardPrompt } from '@/actions/tools/ad-recreator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 
 // Analysis type options
 const ANALYSIS_TYPES = [
@@ -41,7 +40,6 @@ interface VideoAnalysis {
 type InputMode = 'file' | 'youtube';
 
 export function VideoAnalyzerPage() {
-  const router = useRouter();
   const [inputMode, setInputMode] = useState<InputMode>('file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -286,11 +284,10 @@ export function VideoAnalyzerPage() {
     setTimeout(() => setCopiedPromptIndex(null), 2000);
   };
 
-  // Send prompt to Storyboard Generator
+  // Send prompt to Storyboard Generator (opens in new tab to preserve current state)
   const handleSendToStoryboard = (prompt: string) => {
-    // Encode the prompt and navigate to storyboard tab
     const encodedPrompt = encodeURIComponent(prompt);
-    router.push(`/dashboard/ai-cinematographer/storyboard?prompt=${encodedPrompt}`);
+    window.open(`/dashboard/ai-cinematographer/storyboard?prompt=${encodedPrompt}`, '_blank');
   };
 
   const formatDuration = (seconds: number) => {
