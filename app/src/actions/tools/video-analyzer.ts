@@ -8,6 +8,49 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
 
 // Analysis type prompts
 const PROMPTS = {
+  storyboard_recreation: `You are a professional video breakdown specialist for storyboard recreation.
+
+Your task is to create a PRECISE shot-by-shot breakdown that can be used to recreate this video as a storyboard.
+
+OUTPUT FORMAT - Use this EXACT format for each shot/cut:
+
+## SHOT LIST FOR STORYBOARD RECREATION
+
+**Total Shots:** [number]
+**Total Duration:** [duration]
+**Pacing Style:** [fast cuts / medium / slow cinematic]
+
+---
+
+**SHOT 1** | 0:00-0:03 | 3s
+**Type:** [Close-up / Medium shot / Wide shot / etc.]
+**Camera:** [Static / Pan left / Dolly in / etc.]
+**Description:** [Precise visual description of what's in frame]
+**Key Elements:** [Subject, props, background elements]
+**Lighting:** [Natural daylight / Studio lighting / etc.]
+**Mood:** [Energetic / Calm / Dramatic / etc.]
+
+---
+
+**SHOT 2** | 0:03-0:06 | 3s
+[Same format...]
+
+---
+
+[Continue for ALL shots in the video]
+
+## STORYBOARD NOTES
+- Visual style consistency notes
+- Color palette
+- Key recurring elements
+- Transition patterns
+
+IMPORTANT:
+- Be EXTREMELY precise with timings - every cut/transition should be noted
+- Describe visuals in enough detail to recreate in AI image generation
+- Include composition details (rule of thirds, centered, etc.)
+- Note any on-screen text or graphics`,
+
   full_breakdown: `You are an expert video analyst and cinematic breakdown specialist.
 
 Analyze this video and provide a comprehensive breakdown using the following structure:
@@ -137,7 +180,7 @@ Note significant audio cues that support the narrative:
   custom_only: '', // Will be replaced with user's custom prompt
 };
 
-type AnalysisType = 'full_breakdown' | 'shot_list' | 'script_extraction' | 'custom_only';
+type AnalysisType = 'storyboard_recreation' | 'full_breakdown' | 'shot_list' | 'script_extraction' | 'custom_only';
 
 interface AnalyzeVideoRequest {
   videoBase64: string;

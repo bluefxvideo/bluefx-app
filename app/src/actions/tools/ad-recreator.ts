@@ -7,99 +7,88 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
 
 // Types
-export interface GenerateScenePromptsRequest {
+export interface GenerateStoryboardPromptsRequest {
   // The raw analysis text from Video Analyzer
   analysisText: string;
-  // User's product/offer details
-  productDescription: string;
-  productName?: string;
-  // Custom instructions for adaptation
-  customInstructions?: string;
-  // Visual style preference
+  // Visual style preference (optional)
   visualStyle?: string;
 }
 
-export interface Scene {
-  sceneNumber: number;
+export interface Shot {
+  shotNumber: number;
   startTime: string;
   endTime: string;
   duration: string;
-  originalDescription: string;
-  adaptedDescription: string;
-  purpose: string; // Hook, Agitate, Solution, CTA, etc.
+  shotType: string;
+  camera: string;
+  description: string;
 }
 
 export interface StoryboardPrompt {
   gridNumber: number;
-  scenesCovered: string; // "1-9" or "10-12"
+  shotsCovered: string; // "1-9" or "10-18"
   prompt: string;
 }
 
-export interface GenerateScenePromptsResponse {
+export interface GenerateStoryboardPromptsResponse {
   success: boolean;
   // Summary
   videoSummary?: string;
-  totalDuration?: string;
-  sceneCount?: number;
+  totalShots?: number;
   gridsNeeded?: number;
   // Structured data
-  scenes?: Scene[];
+  shots?: Shot[];
   storyboardPrompts?: StoryboardPrompt[];
   // Error handling
   error?: string;
 }
 
-const SCENE_PROMPT_SYSTEM = `You are an expert ad recreation specialist. Your job is to analyze a video breakdown and help users recreate similar ads for their own products.
+const STORYBOARD_PROMPT_SYSTEM = `You are a storyboard prompt generator. Your job is to convert video shot breakdowns into ready-to-use AI storyboard generation prompts.
 
-You will receive:
-1. A detailed video analysis (scene breakdown, shots, timing)
-2. The user's product/offer description
-3. Optional custom instructions
+You will receive a video analysis with shot-by-shot breakdown.
 
 Your task:
-1. Extract all distinct scenes from the analysis
-2. Identify the PURPOSE of each scene (Hook, Problem, Agitate, Solution, Benefit, Social Proof, CTA, etc.)
-3. Adapt each scene description for the user's product while keeping the same structure/purpose
-4. Group scenes into 3x3 grids (9 scenes per grid)
-5. Generate ready-to-use storyboard prompts
+1. Extract all distinct shots from the analysis with their exact timings
+2. Group shots into 3x3 grids (9 shots per grid)
+3. Generate ready-to-use storyboard prompts that EXACTLY recreate each shot
 
 CRITICAL RULES FOR STORYBOARD PROMPTS:
 - Each grid prompt must describe exactly 9 frames
 - Use "Frame 1:", "Frame 2:", etc. format
-- Include visual style consistency notes
+- Copy the EXACT visual descriptions from the analysis - do NOT change or "adapt" anything
+- Keep all the same subjects, actions, camera angles, lighting
+- Include style consistency notes from the original video
 - Add "NO gaps, NO borders, NO black bars between frames" instruction
-- Make prompts detailed enough for AI image generation
-- If the video has fewer than 9 scenes, create additional supporting frames (variations, alternate angles, B-roll concepts)
-- If the video has more than 9 scenes, create multiple grid prompts
+- If the video has fewer than 9 shots, duplicate/extend key shots or add slight variations
+- If the video has more than 9 shots, create multiple grid prompts
 
 Output your response as valid JSON matching this exact structure:
 {
-  "videoSummary": "Brief summary of the original video style and approach",
-  "totalDuration": "Estimated total duration",
-  "scenes": [
+  "videoSummary": "Brief summary of the video style (e.g., 'Fast-paced fitness ad, 12 shots, dynamic camera work')",
+  "shots": [
     {
-      "sceneNumber": 1,
+      "shotNumber": 1,
       "startTime": "0:00",
       "endTime": "0:03",
       "duration": "3s",
-      "originalDescription": "What happens in the original",
-      "adaptedDescription": "How to recreate for user's product",
-      "purpose": "Hook"
+      "shotType": "Close-up",
+      "camera": "Static",
+      "description": "Exact visual description from the analysis"
     }
   ],
   "storyboardPrompts": [
     {
       "gridNumber": 1,
-      "scenesCovered": "1-9",
-      "prompt": "Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).\\n\\nCRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.\\n\\nFrame 1: [detailed description]\\nFrame 2: [detailed description]\\n...\\nFrame 9: [detailed description]\\n\\nSTYLE: [visual style notes], consistent characters throughout all frames."
+      "shotsCovered": "1-9",
+      "prompt": "Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).\\n\\nCRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.\\n\\nFrame 1: [exact description from shot 1]\\nFrame 2: [exact description from shot 2]\\n...\\nFrame 9: [exact description from shot 9]\\n\\nSTYLE: [style notes from the original video], maintain visual consistency across all frames."
     }
   ]
 }`;
 
-export async function generateScenePrompts(
-  request: GenerateScenePromptsRequest
-): Promise<GenerateScenePromptsResponse> {
-  console.log('🎬 Server Action: generateScenePrompts called');
+export async function generateStoryboardPrompts(
+  request: GenerateStoryboardPromptsRequest
+): Promise<GenerateStoryboardPromptsResponse> {
+  console.log('🎬 Server Action: generateStoryboardPrompts called');
 
   try {
     // Get authenticated user
@@ -118,20 +107,15 @@ export async function generateScenePrompts(
     const userPrompt = `## VIDEO ANALYSIS
 ${request.analysisText}
 
-## USER'S PRODUCT/OFFER
-${request.productName ? `Product Name: ${request.productName}\n` : ''}${request.productDescription}
+${request.visualStyle ? `## PREFERRED VISUAL STYLE\nUse this style: ${request.visualStyle}` : ''}
 
-${request.customInstructions ? `## CUSTOM INSTRUCTIONS\n${request.customInstructions}` : ''}
-
-${request.visualStyle ? `## PREFERRED VISUAL STYLE\n${request.visualStyle}` : ''}
-
-Now analyze this video breakdown and generate:
-1. A scene-by-scene breakdown adapted for the user's product
-2. Ready-to-use 3x3 storyboard grid prompts
+Convert this video analysis into ready-to-use storyboard prompts.
+IMPORTANT: Keep the EXACT shot descriptions - do NOT adapt or change anything.
+We want to recreate the original video as closely as possible.
 
 Remember: Output valid JSON only, no markdown code blocks.`;
 
-    console.log('📝 Generating scene prompts with Gemini...');
+    console.log('📝 Generating storyboard prompts with Gemini...');
 
     // Use Gemini 2.0 Flash for fast generation
     const model = genAI.getGenerativeModel({
@@ -142,7 +126,7 @@ Remember: Output valid JSON only, no markdown code blocks.`;
     });
 
     const result = await model.generateContent([
-      { text: SCENE_PROMPT_SYSTEM },
+      { text: STORYBOARD_PROMPT_SYSTEM },
       { text: userPrompt }
     ]);
 
@@ -156,7 +140,7 @@ Remember: Output valid JSON only, no markdown code blocks.`;
       };
     }
 
-    console.log('✅ Scene prompts generated successfully');
+    console.log('✅ Storyboard prompts generated successfully');
 
     // Parse the JSON response
     let parsedResponse;
@@ -185,69 +169,81 @@ Remember: Output valid JSON only, no markdown code blocks.`;
     return {
       success: true,
       videoSummary: parsedResponse.videoSummary,
-      totalDuration: parsedResponse.totalDuration,
-      sceneCount: parsedResponse.scenes?.length || 0,
+      totalShots: parsedResponse.shots?.length || 0,
       gridsNeeded: parsedResponse.storyboardPrompts?.length || 0,
-      scenes: parsedResponse.scenes,
+      shots: parsedResponse.shots,
       storyboardPrompts: parsedResponse.storyboardPrompts,
     };
 
   } catch (error) {
-    console.error('💥 Scene prompt generation error:', error);
+    console.error('💥 Storyboard prompt generation error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate scene prompts'
+      error: error instanceof Error ? error.message : 'Failed to generate storyboard prompts'
     };
   }
 }
 
-/**
- * Save ad recreation project to database
- */
-export async function saveAdRecreatorProject(data: {
-  name: string;
-  sourceAnalysisId?: string;
+// Keep old function for backwards compatibility but redirect to new one
+export interface GenerateScenePromptsRequest {
+  analysisText: string;
   productDescription: string;
+  productName?: string;
   customInstructions?: string;
-  scenes: Scene[];
-  storyboardPrompts: StoryboardPrompt[];
-}): Promise<{ success: boolean; projectId?: string; error?: string }> {
-  try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+  visualStyle?: string;
+}
 
-    if (authError || !user) {
-      return { success: false, error: 'Authentication required' };
-    }
+export interface Scene {
+  sceneNumber: number;
+  startTime: string;
+  endTime: string;
+  duration: string;
+  originalDescription: string;
+  adaptedDescription: string;
+  purpose: string;
+}
 
-    const { data: project, error: insertError } = await supabase
-      .from('ad_projects')
-      .insert({
-        user_id: user.id,
-        name: data.name,
-        status: 'scripting',
-        source_type: data.sourceAnalysisId ? 'video_analyzer' : 'manual',
-        source_video_analysis_id: data.sourceAnalysisId || null,
-        script_content: JSON.stringify({
-          scenes: data.scenes,
-          storyboardPrompts: data.storyboardPrompts,
-        }),
-        storyboard_prompt: data.storyboardPrompts[0]?.prompt || '',
-      })
-      .select('id')
-      .single();
+export interface GenerateScenePromptsResponse {
+  success: boolean;
+  videoSummary?: string;
+  totalDuration?: string;
+  sceneCount?: number;
+  gridsNeeded?: number;
+  scenes?: Scene[];
+  storyboardPrompts?: StoryboardPrompt[];
+  error?: string;
+}
 
-    if (insertError) {
-      console.error('Error saving project:', insertError);
-      return { success: false, error: 'Failed to save project' };
-    }
+// Legacy function - kept for backwards compatibility
+export async function generateScenePrompts(
+  request: GenerateScenePromptsRequest
+): Promise<GenerateScenePromptsResponse> {
+  // Just call the new simplified function
+  const result = await generateStoryboardPrompts({
+    analysisText: request.analysisText,
+    visualStyle: request.visualStyle,
+  });
 
-    return { success: true, projectId: project.id };
-  } catch (error) {
-    console.error('Error saving ad recreator project:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to save project'
-    };
-  }
+  // Transform the response to match old format
+  return {
+    success: result.success,
+    videoSummary: result.videoSummary,
+    sceneCount: result.totalShots,
+    gridsNeeded: result.gridsNeeded,
+    scenes: result.shots?.map(shot => ({
+      sceneNumber: shot.shotNumber,
+      startTime: shot.startTime,
+      endTime: shot.endTime,
+      duration: shot.duration,
+      originalDescription: shot.description,
+      adaptedDescription: shot.description, // No adaptation - exact match
+      purpose: shot.shotType,
+    })),
+    storyboardPrompts: result.storyboardPrompts?.map(p => ({
+      gridNumber: p.gridNumber,
+      scenesCovered: p.shotsCovered,
+      prompt: p.prompt,
+    })),
+    error: result.error,
+  };
 }

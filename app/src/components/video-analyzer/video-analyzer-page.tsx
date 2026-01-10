@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, Youtube, FileVideo, Wand2, ChevronDown, ChevronUp, Send, Sparkles, LayoutGrid } from 'lucide-react';
+import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, Youtube, FileVideo, Wand2, ChevronDown, ChevronUp, Send, LayoutGrid } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,13 @@ import { useCredits } from '@/hooks/useCredits';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { toast } from 'sonner';
 import { analyzeVideo, analyzeYouTubeVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
-import { generateScenePrompts, Scene, StoryboardPrompt } from '@/actions/tools/ad-recreator';
+import { generateStoryboardPrompts, Shot, StoryboardPrompt } from '@/actions/tools/ad-recreator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
 // Analysis type options
 const ANALYSIS_TYPES = [
+  { value: 'storyboard_recreation', label: 'Storyboard Recreation', description: 'Precise timecoded shots for recreating as storyboard' },
   { value: 'full_breakdown', label: 'Full Breakdown', description: 'Complete scene-by-scene analysis with all details' },
   { value: 'shot_list', label: 'Shot List Only', description: 'Focus on shots, camera work, and timing' },
   { value: 'script_extraction', label: 'Script/Dialogue Extraction', description: 'Extract narration, dialogue, and on-screen text' },
@@ -46,7 +47,7 @@ export function VideoAnalyzerPage() {
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [analysisType, setAnalysisType] = useState<AnalysisType>('full_breakdown');
+  const [analysisType, setAnalysisType] = useState<AnalysisType>('storyboard_recreation');
   const [customPrompt, setCustomPrompt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
@@ -57,14 +58,10 @@ export function VideoAnalyzerPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const queryClient = useQueryClient();
 
-  // Create My Version state
-  const [showCreateVersion, setShowCreateVersion] = useState(false);
-  const [productDescription, setProductDescription] = useState('');
-  const [productName, setProductName] = useState('');
-  const [adaptationInstructions, setAdaptationInstructions] = useState('');
-  const [visualStyle, setVisualStyle] = useState('cinematic_realism');
+  // Create Storyboard Prompts state
+  const [showStoryboardPrompts, setShowStoryboardPrompts] = useState(false);
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState(false);
-  const [generatedScenes, setGeneratedScenes] = useState<Scene[]>([]);
+  const [generatedShots, setGeneratedShots] = useState<Shot[]>([]);
   const [generatedPrompts, setGeneratedPrompts] = useState<StoryboardPrompt[]>([]);
   const [videoSummary, setVideoSummary] = useState<string>('');
   const [copiedPromptIndex, setCopiedPromptIndex] = useState<number | null>(null);
@@ -248,36 +245,28 @@ export function VideoAnalyzerPage() {
     toast.success('Analysis loaded');
   };
 
-  // Generate scene prompts for "Create My Version"
+  // Generate storyboard prompts from analysis
   const handleGeneratePrompts = async () => {
     if (!analysisResult) {
       toast.error('Please analyze a video first');
       return;
     }
-    if (!productDescription.trim()) {
-      toast.error('Please describe your product/offer');
-      return;
-    }
 
     setIsGeneratingPrompts(true);
-    setGeneratedScenes([]);
+    setGeneratedShots([]);
     setGeneratedPrompts([]);
     setVideoSummary('');
 
     try {
-      const result = await generateScenePrompts({
+      const result = await generateStoryboardPrompts({
         analysisText: analysisResult,
-        productDescription,
-        productName: productName || undefined,
-        customInstructions: adaptationInstructions || undefined,
-        visualStyle,
       });
 
       if (result.success) {
-        setGeneratedScenes(result.scenes || []);
+        setGeneratedShots(result.shots || []);
         setGeneratedPrompts(result.storyboardPrompts || []);
         setVideoSummary(result.videoSummary || '');
-        toast.success(`Generated ${result.gridsNeeded} storyboard prompt(s) from ${result.sceneCount} scenes!`);
+        toast.success(`Generated ${result.gridsNeeded} storyboard prompt(s) from ${result.totalShots} shots!`);
       } else {
         toast.error(result.error || 'Failed to generate prompts');
       }
@@ -301,8 +290,7 @@ export function VideoAnalyzerPage() {
   const handleSendToStoryboard = (prompt: string) => {
     // Encode the prompt and navigate to storyboard tab
     const encodedPrompt = encodeURIComponent(prompt);
-    const encodedStyle = encodeURIComponent(visualStyle);
-    router.push(`/dashboard/ai-cinematographer/storyboard?prompt=${encodedPrompt}&style=${encodedStyle}`);
+    router.push(`/dashboard/ai-cinematographer/storyboard?prompt=${encodedPrompt}`);
   };
 
   const formatDuration = (seconds: number) => {
@@ -614,195 +602,162 @@ export function VideoAnalyzerPage() {
           </div>
         </div>
 
-        {/* Create My Version Section - Full Width */}
+        {/* Create Storyboard Prompts Section - Full Width */}
         {analysisResult && (
           <div className="mt-6 border-t border-border/50 pt-6">
             {/* Toggle Button */}
             <Button
               variant="outline"
               className="w-full mb-4 justify-between"
-              onClick={() => setShowCreateVersion(!showCreateVersion)}
+              onClick={() => setShowStoryboardPrompts(!showStoryboardPrompts)}
             >
               <span className="flex items-center gap-2">
-                <Wand2 className="w-4 h-4" />
-                Create My Version
+                <LayoutGrid className="w-4 h-4" />
+                Create Storyboard Prompts
                 <span className="text-xs text-muted-foreground ml-2">
-                  Generate storyboard prompts for your product
+                  Convert shots to ready-to-use 3x3 grid prompts
                 </span>
               </span>
-              {showCreateVersion ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {showStoryboardPrompts ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
 
-            {showCreateVersion && (
+            {showStoryboardPrompts && (
               <div className="space-y-6">
-                {/* Input Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left: Product Info */}
-                  <Card className="p-4 border border-border/50 space-y-4">
-                    <h4 className="font-semibold text-white flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Your Product/Offer
-                    </h4>
-
-                    <div>
-                      <label className="block text-sm text-zinc-400 mb-1">Product Name (optional)</label>
-                      <Input
-                        placeholder="e.g., FitPro App, SkinGlow Serum..."
-                        value={productName}
-                        onChange={(e) => setProductName(e.target.value)}
-                        className="bg-background border-border"
-                      />
+                {/* Generate Button + Info */}
+                {generatedPrompts.length === 0 && !isGeneratingPrompts && (
+                  <Card className="p-6 border border-border/50">
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 mx-auto bg-primary/10 rounded-2xl flex items-center justify-center">
+                        <LayoutGrid className="w-8 h-8 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-white text-lg">Generate Storyboard Prompts</h4>
+                        <p className="text-zinc-400 text-sm mt-1">
+                          Convert the shot breakdown into ready-to-use 3x3 grid prompts.
+                          <br />
+                          You can edit the prompts in the Storyboard Generator before generating.
+                        </p>
+                      </div>
+                      <Button
+                        size="lg"
+                        onClick={handleGeneratePrompts}
+                        disabled={isGeneratingPrompts}
+                      >
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        Generate Storyboard Prompts
+                      </Button>
                     </div>
-
-                    <div>
-                      <label className="block text-sm text-zinc-400 mb-1">Product Description *</label>
-                      <Textarea
-                        placeholder="Describe your product, its benefits, target audience, and what makes it unique..."
-                        value={productDescription}
-                        onChange={(e) => setProductDescription(e.target.value)}
-                        className="min-h-[120px] bg-background border-border"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-zinc-400 mb-1">Custom Instructions (optional)</label>
-                      <Textarea
-                        placeholder="Any specific changes you want? e.g., 'Include my face', 'Use blue color scheme', 'Make it more energetic'..."
-                        value={adaptationInstructions}
-                        onChange={(e) => setAdaptationInstructions(e.target.value)}
-                        className="min-h-[80px] bg-background border-border"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-zinc-400 mb-1">Visual Style</label>
-                      <Select value={visualStyle} onValueChange={setVisualStyle}>
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cinematic_realism">Cinematic Realism</SelectItem>
-                          <SelectItem value="film_noir">Film Noir</SelectItem>
-                          <SelectItem value="sci_fi">Sci-Fi</SelectItem>
-                          <SelectItem value="fantasy_epic">Fantasy Epic</SelectItem>
-                          <SelectItem value="documentary">Documentary Style</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Button
-                      className="w-full"
-                      onClick={handleGeneratePrompts}
-                      disabled={isGeneratingPrompts || !productDescription.trim()}
-                    >
-                      {isGeneratingPrompts ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Generating Prompts...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="w-4 h-4 mr-2" />
-                          Generate Storyboard Prompts
-                        </>
-                      )}
-                    </Button>
                   </Card>
+                )}
 
-                  {/* Right: Scene Breakdown */}
-                  <Card className="p-4 border border-border/50">
-                    <h4 className="font-semibold text-white mb-4">Scene Breakdown</h4>
+                {/* Loading State */}
+                {isGeneratingPrompts && (
+                  <Card className="p-8 border border-border/50">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-zinc-400">Converting shots to storyboard prompts...</p>
+                    </div>
+                  </Card>
+                )}
 
-                    {isGeneratingPrompts ? (
-                      <div className="flex flex-col items-center justify-center py-12 gap-4">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        <p className="text-zinc-400">Analyzing scenes and adapting for your product...</p>
-                      </div>
-                    ) : generatedScenes.length > 0 ? (
-                      <div className="space-y-2 max-h-[400px] overflow-auto">
-                        {videoSummary && (
-                          <p className="text-sm text-zinc-400 mb-4 p-2 bg-secondary/30 rounded">
-                            {videoSummary}
-                          </p>
-                        )}
-                        {generatedScenes.map((scene) => (
-                          <div
-                            key={scene.sceneNumber}
-                            className="p-3 bg-secondary/20 rounded-lg border border-border/30"
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-medium text-primary">
-                                Scene {scene.sceneNumber} • {scene.purpose}
-                              </span>
-                              <span className="text-xs text-zinc-500">
-                                {scene.startTime} - {scene.endTime} ({scene.duration})
-                              </span>
-                            </div>
-                            <p className="text-sm text-zinc-300">{scene.adaptedDescription}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <LayoutGrid className="w-10 h-10 text-zinc-600 mb-3" />
-                        <p className="text-zinc-400 text-sm">
-                          Enter your product details and click generate
-                        </p>
-                        <p className="text-zinc-500 text-xs mt-1">
-                          AI will adapt each scene for your product
-                        </p>
+                {/* Shot Breakdown + Generated Prompts */}
+                {generatedPrompts.length > 0 && (
+                  <>
+                    {/* Summary */}
+                    {videoSummary && (
+                      <div className="p-3 bg-secondary/30 rounded-lg border border-border/30">
+                        <p className="text-sm text-zinc-300">{videoSummary}</p>
                       </div>
                     )}
-                  </Card>
-                </div>
 
-                {/* Generated Prompts Section */}
-                {generatedPrompts.length > 0 && (
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-white flex items-center gap-2">
-                      <LayoutGrid className="w-4 h-4" />
-                      Ready-to-Use Storyboard Prompts ({generatedPrompts.length} grid{generatedPrompts.length > 1 ? 's' : ''})
-                    </h4>
-
-                    {generatedPrompts.map((promptData, index) => (
-                      <Card key={index} className="p-4 border border-primary/30 bg-primary/5">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="font-medium text-white">
-                            Grid {promptData.gridNumber} - Scenes {promptData.scenesCovered}
-                          </span>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCopyPrompt(promptData.prompt, index)}
+                    {/* Two Column Layout: Shots + Prompts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left: Shot List */}
+                      <Card className="p-4 border border-border/50">
+                        <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          Shot Breakdown ({generatedShots.length} shots)
+                        </h4>
+                        <div className="space-y-2 max-h-[400px] overflow-auto">
+                          {generatedShots.map((shot) => (
+                            <div
+                              key={shot.shotNumber}
+                              className="p-3 bg-secondary/20 rounded-lg border border-border/30"
                             >
-                              {copiedPromptIndex === index ? (
-                                <>
-                                  <Check className="w-3 h-3 mr-1" />
-                                  Copied
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3 mr-1" />
-                                  Copy
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleSendToStoryboard(promptData.prompt)}
-                            >
-                              <Send className="w-3 h-3 mr-1" />
-                              Send to Storyboard
-                            </Button>
-                          </div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-primary">
+                                  Shot {shot.shotNumber} • {shot.shotType}
+                                </span>
+                                <span className="text-xs text-zinc-500">
+                                  {shot.startTime} - {shot.endTime} ({shot.duration})
+                                </span>
+                              </div>
+                              <p className="text-sm text-zinc-300">{shot.description}</p>
+                            </div>
+                          ))}
                         </div>
-                        <pre className="text-xs text-zinc-300 whitespace-pre-wrap bg-black/20 p-3 rounded max-h-[200px] overflow-auto">
-                          {promptData.prompt}
-                        </pre>
                       </Card>
-                    ))}
-                  </div>
+
+                      {/* Right: Generated Prompts */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-white flex items-center gap-2">
+                          <LayoutGrid className="w-4 h-4" />
+                          Storyboard Prompts ({generatedPrompts.length} grid{generatedPrompts.length > 1 ? 's' : ''})
+                        </h4>
+
+                        {generatedPrompts.map((promptData, index) => (
+                          <Card key={index} className="p-4 border border-primary/30 bg-primary/5">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="font-medium text-white">
+                                Grid {promptData.gridNumber} - Shots {promptData.shotsCovered}
+                              </span>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCopyPrompt(promptData.prompt, index)}
+                                >
+                                  {copiedPromptIndex === index ? (
+                                    <>
+                                      <Check className="w-3 h-3 mr-1" />
+                                      Copied
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3 mr-1" />
+                                      Copy
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSendToStoryboard(promptData.prompt)}
+                                >
+                                  <Send className="w-3 h-3 mr-1" />
+                                  Send to Storyboard
+                                </Button>
+                              </div>
+                            </div>
+                            <pre className="text-xs text-zinc-300 whitespace-pre-wrap bg-black/20 p-3 rounded max-h-[200px] overflow-auto">
+                              {promptData.prompt}
+                            </pre>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Regenerate Button */}
+                    <div className="flex justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={handleGeneratePrompts}
+                        disabled={isGeneratingPrompts}
+                      >
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        Regenerate Prompts
+                      </Button>
+                    </div>
+                  </>
                 )}
               </div>
             )}
