@@ -206,7 +206,14 @@ export async function POST(request: NextRequest) {
     // Store this as a video editor composition for later retrieval
     const compositionId = `storyboard-${projectId}-${Date.now()}`;
 
-    // Optionally save to video_editor_compositions table
+    console.log('POST /api/storyboard-editor - Saving composition:', {
+      compositionId,
+      projectId,
+      userId,
+      frameCount: extractedFrames.length
+    });
+
+    // Save to video_editor_compositions table
     // This allows the editor to reload the project later
     const { error: saveError } = await supabase
       .from('video_editor_compositions')
@@ -221,7 +228,9 @@ export async function POST(request: NextRequest) {
       });
 
     if (saveError) {
-      console.warn('Failed to save composition (non-blocking):', saveError);
+      console.error('Failed to save composition:', saveError);
+    } else {
+      console.log('Successfully saved composition:', compositionId);
     }
 
     return jsonResponse({
@@ -267,8 +276,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    console.log('GET /api/storyboard-editor - Checking for composition:', { projectId, userId });
+
     // Check for existing composition first
-    const { data: composition } = await supabase
+    const { data: composition, error: compositionError } = await supabase
       .from('video_editor_compositions')
       .select('*')
       .eq('project_id', projectId)
@@ -278,7 +289,14 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .single();
 
+    console.log('Composition lookup result:', {
+      found: !!composition,
+      error: compositionError?.message,
+      compositionId: composition?.id
+    });
+
     if (composition?.composition_data) {
+      console.log('Returning saved composition');
       return jsonResponse({
         success: true,
         data: {
@@ -290,6 +308,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    console.log('No saved composition, checking ad_projects for extracted_frames');
+
     // No saved composition, fetch frames and create new one
     const { data: project, error: projectError } = await supabase
       .from('ad_projects')
@@ -298,9 +318,16 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .single();
 
+    console.log('ad_projects lookup result:', {
+      found: !!project,
+      error: projectError?.message,
+      hasFrames: !!project?.extracted_frames?.length
+    });
+
     if (projectError || !project) {
+      console.log('Project not found in ad_projects');
       return jsonResponse(
-        { success: false, error: 'Project not found' },
+        { success: false, error: 'Project not found', details: projectError?.message },
         404
       );
     }
