@@ -48,9 +48,19 @@ const STORYBOARD_PROMPT_SYSTEM = `You are a storyboard prompt generator. Your jo
 You will receive a video analysis with shot-by-shot breakdown.
 
 Your task:
-1. Extract all distinct shots from the analysis with their exact timings
-2. Group shots into 3x3 grids (9 shots per grid)
-3. Generate ready-to-use storyboard prompts that EXACTLY recreate each shot
+1. FIRST: Extract detailed CHARACTER PROFILES for ALL recurring characters in the video
+2. Extract all distinct shots from the analysis with their exact timings
+3. Group shots into 3x3 grids (9 shots per grid)
+4. Generate ready-to-use storyboard prompts that EXACTLY recreate each shot
+
+## CHARACTER CONSISTENCY (CRITICAL)
+Before generating prompts, identify ALL characters that appear in multiple shots and create detailed profiles:
+- Assign each character a consistent identifier (e.g., "MAIN CHARACTER", "CHARACTER A", "CHARACTER B")
+- Document: age, gender, ethnicity, hair (color, length, style), facial features, body type
+- Document: clothing/wardrobe for each scene (be VERY specific about colors, styles)
+- Document: any distinguishing features (scars, glasses, jewelry, tattoos, etc.)
+
+These character profiles MUST be included at the TOP of EVERY grid prompt to ensure the AI generates consistent characters across all grids.
 
 CRITICAL RULES FOR STORYBOARD PROMPTS:
 - Each grid prompt must describe exactly 9 frames
@@ -61,10 +71,21 @@ CRITICAL RULES FOR STORYBOARD PROMPTS:
 - Add "NO gaps, NO borders, NO black bars between frames" instruction
 - If the video has fewer than 9 shots, duplicate/extend key shots or add slight variations
 - If the video has more than 9 shots, create multiple grid prompts
+- ALWAYS include the CHARACTER PROFILES section at the start of each prompt
 
 Output your response as valid JSON matching this exact structure:
 {
   "videoSummary": "Brief summary of the video style (e.g., 'Fast-paced fitness ad, 12 shots, dynamic camera work')",
+  "characterProfiles": [
+    {
+      "id": "MAIN CHARACTER",
+      "description": "35-year-old Caucasian male, short brown hair with slight wave, light stubble, athletic build, blue eyes"
+    },
+    {
+      "id": "CHARACTER A",
+      "description": "40-year-old African male, bald, muscular build, warm brown eyes, wearing earth-toned clothing"
+    }
+  ],
   "shots": [
     {
       "shotNumber": 1,
@@ -80,7 +101,7 @@ Output your response as valid JSON matching this exact structure:
     {
       "gridNumber": 1,
       "shotsCovered": "1-9",
-      "prompt": "Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).\\n\\nCRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.\\n\\nFrame 1: [exact description from shot 1]\\nFrame 2: [exact description from shot 2]\\n...\\nFrame 9: [exact description from shot 9]\\n\\nSTYLE: [style notes from the original video], maintain visual consistency across all frames."
+      "prompt": "Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).\\n\\nCRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.\\n\\n## CONSISTENT CHARACTERS (maintain these EXACT appearances in ALL frames):\\n- MAIN CHARACTER: [full character description]\\n- CHARACTER A: [full character description]\\n\\nFrame 1: [exact description, referencing characters by their ID]\\nFrame 2: [exact description]\\n...\\nFrame 9: [exact description]\\n\\nSTYLE: [style notes], maintain visual consistency across all frames. Characters must look IDENTICAL in every frame they appear."
     }
   ]
 }`;
@@ -241,7 +262,7 @@ export async function generateScenePrompts(
     })),
     storyboardPrompts: result.storyboardPrompts?.map(p => ({
       gridNumber: p.gridNumber,
-      scenesCovered: p.shotsCovered,
+      shotsCovered: p.shotsCovered,
       prompt: p.prompt,
     })),
     error: result.error,
