@@ -74,6 +74,17 @@ export function AICinematographerPage() {
     }
   }, [searchParams, setImageForVideo, router]);
 
+  // Check for storyboard prompt in search params (from Video Analyzer "Send to Storyboard" button)
+  const storyboardPromptFromUrl = searchParams.get('prompt');
+  const storyboardStyleFromUrl = searchParams.get('style');
+
+  // Auto-switch to storyboard tab if prompt param is present
+  useEffect(() => {
+    if (storyboardPromptFromUrl && searchParams.get('tab') === 'storyboard') {
+      router.replace('/dashboard/ai-cinematographer/storyboard');
+    }
+  }, [storyboardPromptFromUrl, searchParams, router]);
+
   // Determine active tab from URL
   const getActiveTab = () => {
     if (pathname.includes('/history')) return 'history';
@@ -180,6 +191,8 @@ export function AICinematographerPage() {
               isGenerating={isGeneratingStoryboard}
               credits={credits}
               isLoadingCredits={isLoadingCredits}
+              initialPrompt={storyboardPromptFromUrl ? decodeURIComponent(storyboardPromptFromUrl) : undefined}
+              initialStyle={storyboardStyleFromUrl ? decodeURIComponent(storyboardStyleFromUrl) : undefined}
             />
           </div>
 

@@ -33,6 +33,9 @@ interface StoryboardTabProps {
   isGenerating: boolean;
   credits: number;
   isLoadingCredits?: boolean;
+  // Pre-fill values (e.g., from Video Analyzer "Send to Storyboard" button)
+  initialPrompt?: string;
+  initialStyle?: string;
 }
 
 const CREDIT_COST = 6; // 6 credits for Nano Banana Pro grid generation
@@ -44,10 +47,12 @@ export function StoryboardTab({
   isGenerating,
   credits,
   isLoadingCredits,
+  initialPrompt,
+  initialStyle,
 }: StoryboardTabProps) {
   const [formData, setFormData] = useState({
-    story_description: '',
-    visual_style: 'cinematic_realism' as VisualStyle,
+    story_description: initialPrompt || '',
+    visual_style: (initialStyle as VisualStyle) || 'cinematic_realism' as VisualStyle,
     custom_style: '',
   });
   const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([]);
