@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
 
     // If frames are provided directly, use them; otherwise fetch from ad_projects
     let extractedFrames = frames;
-    let projectData = null;
 
     if (!extractedFrames) {
       // Fetch project data from ad_projects table
@@ -74,7 +73,6 @@ export async function POST(request: NextRequest) {
       }
 
       extractedFrames = project.extracted_frames;
-      projectData = project;
     }
 
     // Calculate timeline duration based on frames
@@ -215,17 +213,20 @@ export async function POST(request: NextRequest) {
 
     // Save to video_editor_compositions table
     // This allows the editor to reload the project later
+    // Note: Using video_id column to store storyboard projectId (table schema reuse)
     const { error: saveError } = await supabase
       .from('video_editor_compositions')
       .upsert({
         id: compositionId,
         user_id: userId,
-        project_id: projectId,
+        video_id: projectId, // Store storyboard projectId in video_id column
         composition_data: editorPayload,
-        source_type: 'storyboard',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+        metadata: {
+          source_type: 'storyboard',
+          frame_count: extractedFrames.length,
+        },
+        version: 1,
+      }, { onConflict: 'id' });
 
     if (saveError) {
       console.error('Failed to save composition:', saveError);
@@ -279,12 +280,12 @@ export async function GET(request: NextRequest) {
     console.log('GET /api/storyboard-editor - Checking for composition:', { projectId, userId });
 
     // Check for existing composition first
+    // Note: Using video_id column to store storyboard projectId (table schema reuse)
     const { data: composition, error: compositionError } = await supabase
       .from('video_editor_compositions')
       .select('*')
-      .eq('project_id', projectId)
+      .eq('video_id', projectId) // storyboard projectId stored in video_id column
       .eq('user_id', userId)
-      .eq('source_type', 'storyboard')
       .order('updated_at', { ascending: false })
       .limit(1)
       .single();
@@ -292,7 +293,8 @@ export async function GET(request: NextRequest) {
     console.log('Composition lookup result:', {
       found: !!composition,
       error: compositionError?.message,
-      compositionId: composition?.id
+      compositionId: composition?.id,
+      metadata: composition?.metadata
     });
 
     if (composition?.composition_data) {
