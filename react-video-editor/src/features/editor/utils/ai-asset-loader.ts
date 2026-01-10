@@ -166,13 +166,42 @@ export function loadAIAssetsFromURL(): Promise<any> {
       
       console.log('🔍 STEP 2: Parsed BlueFX parameters:', { videoId, userId, apiUrl });
       
+      // Check for storyboard format
+      const storyboardId = urlParams.get('storyboardId');
+
       // Check for legacy format
       const legacyVideoId = urlParams.get('loadAI');
       const mockMode = urlParams.get('mock') === 'true';
-      
-      console.log('🔍 STEP 3: Legacy parameters:', { legacyVideoId, mockMode });
-      
-      if (videoId && userId && apiUrl) {
+
+      console.log('🔍 STEP 3: Legacy/Storyboard parameters:', { legacyVideoId, mockMode, storyboardId });
+
+      // Check for storyboard loading first
+      if (storyboardId && userId) {
+        console.log('🎬 Loading storyboard frames:', { storyboardId, userId });
+        isLoading = true;
+
+        loadStoryboardFrames({
+          storyboardId,
+          userId,
+          apiUrl: apiUrl || window.location.origin,
+          onProgress: (stage, progress) => {
+            console.log(`📊 Storyboard Loading progress: ${stage} (${progress}%)`);
+          },
+          onSuccess: (id) => {
+            console.log('🎉 Storyboard loading completed:', id);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            resolve({ success: true, video_id: id, source: 'storyboard' });
+          },
+          onError: (error) => {
+            console.error('❌ Storyboard loading failed:', error);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            reject(new Error(error));
+          }
+        });
+
+      } else if (videoId && userId && apiUrl) {
         // BlueFX format - fetch from BlueFX API
         console.log('🔗 Loading AI assets from BlueFX:', { videoId, userId, apiUrl });
         isLoading = true;
@@ -481,6 +510,96 @@ async function loadAIAssetsFromBlueFX({
       stack: error instanceof Error ? error.stack : 'No stack trace'
     });
     
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    onError?.(errorMessage);
+    throw error;
+  }
+}
+
+/**
+ * Load storyboard frames into the editor
+ * Fetches pre-formatted editor data from the storyboard-editor API
+ */
+async function loadStoryboardFrames({
+  storyboardId,
+  userId,
+  apiUrl,
+  onProgress,
+  onSuccess,
+  onError
+}: {
+  storyboardId: string;
+  userId: string;
+  apiUrl: string;
+  onProgress?: (stage: string, progress: number) => void;
+  onSuccess?: (storyboard_id: string) => void;
+  onError?: (error: string) => void;
+}) {
+  console.log('🎬 Starting storyboard frame loading:', { storyboardId, userId, apiUrl });
+
+  try {
+    onProgress?.('Fetching storyboard data...', 20);
+
+    // Ensure no double slashes in URL construction
+    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    const storyboardUrl = `${cleanApiUrl}/api/storyboard-editor?projectId=${storyboardId}&userId=${userId}`;
+
+    console.log('🔗 Fetching storyboard data from:', storyboardUrl);
+
+    const response = await fetch(storyboardUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Storyboard API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch storyboard data');
+    }
+
+    onProgress?.('Loading frames into editor...', 60);
+
+    const editorPayload = data.data.editorPayload;
+
+    console.log('✅ Storyboard data received:', {
+      frameCount: data.data.frameCount,
+      trackItems: editorPayload?.trackItems?.length || 0,
+      duration: editorPayload?.duration
+    });
+
+    // Dispatch the storyboard composition to the editor
+    console.log('📤 Dispatching DESIGN_LOAD for storyboard frames...');
+    dispatch(DESIGN_LOAD, { payload: editorPayload });
+
+    // Resize canvas to match storyboard frame dimensions
+    if (editorPayload?.size) {
+      setTimeout(() => {
+        console.log('📐 Dispatching DESIGN_RESIZE for storyboard:', editorPayload.size);
+        dispatch(DESIGN_RESIZE, {
+          payload: {
+            width: editorPayload.size.width,
+            height: editorPayload.size.height,
+            name: `${editorPayload.size.width}x${editorPayload.size.height}`
+          }
+        });
+      }, 500);
+    }
+
+    onProgress?.('Complete!', 100);
+    onSuccess?.(storyboardId);
+
+    console.log('🎉 Storyboard frames loaded successfully into editor!');
+
+  } catch (error) {
+    console.error('❌ Failed to load storyboard frames:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     onError?.(errorMessage);
     throw error;

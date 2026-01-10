@@ -14,6 +14,8 @@ import {
   Scissors,
   ZoomIn,
   Grid3X3,
+  PlayCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -46,6 +48,7 @@ interface StoryboardOutputV2Props {
   onDownload: (imageUrl: string, filename: string) => void;
   onUploadGrid?: (file: File) => void;
   onFramesExtracted?: (frames: ExtractedFrameResult[]) => void;
+  onOpenInEditor?: (projectId: string, frames: ExtractedFrameResult[]) => void;
 }
 
 export function StoryboardOutputV2({
@@ -59,10 +62,12 @@ export function StoryboardOutputV2({
   onDownload,
   onUploadGrid,
   onFramesExtracted,
+  onOpenInEditor,
 }: StoryboardOutputV2Props) {
   const [selectedFrames, setSelectedFrames] = useState<number[]>([]);
   const [regenerateGridDialogOpen, setRegenerateGridDialogOpen] = useState(false);
   const [extractAllDialogOpen, setExtractAllDialogOpen] = useState(false);
+  const [isOpeningEditor, setIsOpeningEditor] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const totalFrames = gridConfig.columns * gridConfig.rows;
@@ -147,6 +152,56 @@ export function StoryboardOutputV2({
     onRegenerateGrid();
     clearFrames();
     setRegenerateGridDialogOpen(false);
+  };
+
+  const handleOpenInEditor = async () => {
+    const completedFrames = extractedFrames.filter(f => f.status === 'completed');
+    if (!projectId || completedFrames.length === 0) return;
+
+    setIsOpeningEditor(true);
+
+    try {
+      // If custom handler is provided, use it
+      if (onOpenInEditor) {
+        onOpenInEditor(projectId, completedFrames);
+        return;
+      }
+
+      // Default behavior: Call API and open editor in new tab
+      const response = await fetch('/api/storyboard-editor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          userId,
+          frames: completedFrames.map(f => ({
+            frameNumber: f.frameNumber,
+            row: f.row,
+            col: f.col,
+            originalUrl: f.originalUrl,
+            upscaledUrl: f.upscaledUrl,
+            width: f.width,
+            height: f.height,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Open editor with storyboard data
+        // The editor URL can be configured via environment variable
+        const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || '/editor';
+        const editorUrl = `${editorBaseUrl}?storyboardId=${projectId}&userId=${userId}`;
+        window.open(editorUrl, '_blank');
+      } else {
+        console.error('Failed to prepare editor:', data.error);
+      }
+    } catch (error) {
+      console.error('Error opening editor:', error);
+    } finally {
+      setIsOpeningEditor(false);
+    }
   };
 
   const getFrameLabel = (frameNumber: number) => {
@@ -395,9 +450,29 @@ export function StoryboardOutputV2({
       {/* Section 3: Extracted Frames Gallery */}
       {extractedFrames.filter(f => f.status === 'completed').length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">
-            Extracted Frames ({extractedFrames.filter(f => f.status === 'completed').length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">
+              Extracted Frames ({extractedFrames.filter(f => f.status === 'completed').length})
+            </h3>
+            <Button
+              onClick={handleOpenInEditor}
+              disabled={isOpeningEditor || !projectId}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {isOpeningEditor ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Opening...
+                </>
+              ) : (
+                <>
+                  <PlayCircle className="w-4 h-4 mr-2" />
+                  Open in Video Editor
+                  <ExternalLink className="w-3 h-3 ml-2" />
+                </>
+              )}
+            </Button>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {extractedFrames
               .filter(f => f.status === 'completed')
