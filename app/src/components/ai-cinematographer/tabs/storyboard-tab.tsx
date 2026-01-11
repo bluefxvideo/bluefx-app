@@ -7,7 +7,7 @@ import { LayoutGrid, X, Upload, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
-import { PromptCustomizer, AssetReference } from '../components/prompt-customizer';
+import { PromptCustomizer } from '../components/prompt-customizer';
 
 // Visual style options for storyboard generation
 const VISUAL_STYLES = [
@@ -27,16 +27,6 @@ export interface StoryboardRequest {
   custom_style?: string;
   reference_image_files?: File[];
   user_id: string;
-  // New: asset references for cross-grid consistency
-  asset_references?: AssetReference[];
-}
-
-// Stored asset reference (after upload, has URL instead of File)
-export interface StoredAssetReference {
-  id: string;
-  label: string;
-  type: 'character' | 'product' | 'environment' | 'other';
-  url: string;
 }
 
 interface StoryboardTabProps {
@@ -47,9 +37,6 @@ interface StoryboardTabProps {
   // Pre-fill values (e.g., from Video Analyzer "Send to Storyboard" button)
   initialPrompt?: string;
   initialStyle?: string;
-  // Stored asset references for cross-grid consistency
-  storedAssetReferences?: StoredAssetReference[];
-  onAssetReferencesChange?: (assets: StoredAssetReference[]) => void;
 }
 
 const CREDIT_COST = 6; // 6 credits for Nano Banana Pro grid generation
@@ -63,8 +50,6 @@ export function StoryboardTab({
   isLoadingCredits,
   initialPrompt,
   initialStyle,
-  storedAssetReferences = [],
-  onAssetReferencesChange,
 }: StoryboardTabProps) {
   // Original prompt (from video analyzer or user input)
   const [originalPrompt, setOriginalPrompt] = useState(initialPrompt || '');
@@ -73,9 +58,6 @@ export function StoryboardTab({
 
   // Reference images for Nano Banana (the main image generation input)
   const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([]);
-
-  // Asset references for AI prompt rewriting (optional, for labeling assets)
-  const [assetReferences, setAssetReferences] = useState<AssetReference[]>([]);
 
   // Is AI rewriting the prompt
   const [isRewriting, setIsRewriting] = useState(false);
@@ -95,9 +77,6 @@ export function StoryboardTab({
       setCustomizedPrompt(initialPrompt);
     }
   }, [initialPrompt]);
-
-  // Show indicator if there are stored assets from previous grids
-  const hasStoredAssets = storedAssetReferences.length > 0;
 
   const handlePromptChange = (newPrompt: string) => {
     // Update both original and customized when user types directly
@@ -121,11 +100,7 @@ export function StoryboardTab({
         body: JSON.stringify({
           originalPrompt: customizedPrompt, // Use current customized version as base
           instruction,
-          assets: assetReferences.map(a => ({
-            label: a.label,
-            type: a.type,
-            description: a.description,
-          })),
+          referenceImageCount: referenceImages.length,
         }),
       });
 
@@ -221,26 +196,17 @@ export function StoryboardTab({
     const promptToUse = customizedPrompt.trim() || originalPrompt.trim();
     if (!promptToUse) return;
 
-    // Use reference images from Step 2 (main reference images for Nano Banana)
-    // Plus any additional images from PromptCustomizer assets
-    const allReferenceFiles: File[] = [
-      ...referenceImages.map(img => img.file),
-      ...assetReferences.map(asset => asset.file),
-    ];
+    // Use reference images from Step 2 (sent directly to Nano Banana)
+    const referenceFiles = referenceImages.map(img => img.file);
 
-    console.log('📤 Submitting storyboard with reference images:', {
-      fromStep2: referenceImages.length,
-      fromPromptCustomizer: assetReferences.length,
-      total: allReferenceFiles.length
-    });
+    console.log('📤 Submitting storyboard with reference images:', referenceFiles.length);
 
     onGenerate({
       story_description: promptToUse,
       visual_style: formData.visual_style,
       custom_style: formData.visual_style === 'custom' ? formData.custom_style : undefined,
-      reference_image_files: allReferenceFiles.length > 0 ? allReferenceFiles : undefined,
+      reference_image_files: referenceFiles.length > 0 ? referenceFiles : undefined,
       user_id: '', // Will be set by the hook
-      asset_references: assetReferences,
     });
   };
 
@@ -349,52 +315,16 @@ export function StoryboardTab({
           <StandardStep
             stepNumber={3}
             title="AI Prompt Customizer"
-            description={
-              hasStoredAssets
-                ? `Optional: Refine your prompt with AI. ${storedAssetReferences.length} asset(s) saved for consistency.`
-                : "Optional: Use AI to rewrite your prompt to incorporate specific assets"
-            }
+            description="Optional: Use AI to rewrite your prompt to better incorporate your reference images"
           >
-            {/* Show stored assets from previous grids */}
-            {hasStoredAssets && (
-              <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-sm text-primary font-medium mb-2">
-                  Stored Assets (used for consistency)
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {storedAssetReferences.map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="flex items-center gap-2 px-2 py-1 rounded bg-primary/10 text-xs"
-                    >
-                      <img
-                        src={asset.url}
-                        alt={asset.label}
-                        className="w-6 h-6 rounded object-cover"
-                      />
-                      <span>{asset.label}</span>
-                      <span className="text-muted-foreground">({asset.type})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <PromptCustomizer
               originalPrompt={originalPrompt}
               customizedPrompt={customizedPrompt}
               onPromptChange={handleCustomizedPromptChange}
-              assets={assetReferences}
-              onAssetsChange={(newAssets) => {
-                setAssetReferences(newAssets);
-                // Notify parent about asset changes for cross-grid persistence
-                if (onAssetReferencesChange && newAssets.length > 0) {
-                  // Convert to stored format (would need upload, but for now just track)
-                  // The actual URL storage happens after generation
-                }
-              }}
               onRewriteWithAI={handleRewriteWithAI}
               isRewriting={isRewriting}
               disabled={isGenerating}
+              referenceImageCount={referenceImages.length}
             />
           </StandardStep>
         )}

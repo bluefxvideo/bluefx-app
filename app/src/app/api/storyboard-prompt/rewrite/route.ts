@@ -1,30 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-interface AssetInfo {
-  label: string;
-  type: 'character' | 'product' | 'environment' | 'other';
-  description?: string;
-}
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
 
 interface RewriteRequest {
   originalPrompt: string;
   instruction: string;
-  assets: AssetInfo[];
+  referenceImageCount?: number;
 }
 
 /**
  * AI-powered prompt rewriter for storyboard customization
- * Takes the original prompt, user instruction, and uploaded asset info
- * Returns a rewritten prompt that incorporates the user's assets
+ * Uses Gemini 2.0 Flash to rewrite prompts based on user instructions
  */
 export async function POST(request: NextRequest) {
   try {
-    const { originalPrompt, instruction, assets }: RewriteRequest = await request.json();
+    const { originalPrompt, instruction, referenceImageCount = 0 }: RewriteRequest = await request.json();
 
     if (!originalPrompt || !instruction) {
       return NextResponse.json(
@@ -33,45 +24,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build context about the user's assets
-    const assetContext = assets.length > 0
-      ? `\n\nThe user has uploaded the following reference assets that should be used in the storyboard:\n${assets.map(a => `- "${a.label}" (${a.type})${a.description ? `: ${a.description}` : ''}`).join('\n')}`
+    // Build context about reference images
+    const referenceContext = referenceImageCount > 0
+      ? `\n\nThe user has uploaded ${referenceImageCount} reference image(s) that will be sent to the image generator. These images contain the user's product, character, or environment that should appear in the storyboard.`
       : '';
 
-    const systemPrompt = `You are a storyboard prompt editor. Your job is to rewrite storyboard generation prompts to incorporate the user's specific assets and requirements.
+    const systemPrompt = `You are a storyboard prompt editor. Your job is to rewrite storyboard generation prompts to incorporate the user's specific requirements and reference images.
 
 Rules:
 1. Preserve the overall story structure and flow
-2. Replace generic references with the user's specific assets where appropriate
-3. Add explicit instructions to use the uploaded reference images for character/product consistency
-4. Keep the same visual style and mood
+2. Incorporate the user's instruction into the prompt naturally
+3. If the user mentions using their product/character/reference, add explicit instructions like "use the uploaded reference image for the product" or "match the character to the reference photo"
+4. Keep the same visual style and mood unless the user asks to change it
 5. Ensure the prompt still works for a 3x3 grid (9 frames) storyboard generation
-6. Be specific about which frames should feature which assets
-7. Add "REFERENCE IMAGE: [asset label]" tags where the AI should use uploaded references
+6. Be specific about which frames should feature which elements
+7. Keep the rewritten prompt concise but complete
 
-Output ONLY the rewritten prompt, no explanations.`;
+Output ONLY the rewritten prompt, no explanations or preamble.`;
 
     const userMessage = `Original storyboard prompt:
 """
 ${originalPrompt}
 """
-${assetContext}
+${referenceContext}
 
 User's instruction: "${instruction}"
 
-Rewrite the prompt to incorporate the user's instruction and assets. The rewritten prompt should explicitly reference the uploaded assets where needed.`;
+Rewrite the prompt to incorporate the user's instruction. Make the changes seamlessly.`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: systemPrompt + '\n\n' + userMessage }],
+        },
       ],
-      temperature: 0.7,
-      max_tokens: 2000,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2000,
+      },
     });
 
-    const rewrittenPrompt = response.choices[0]?.message?.content?.trim();
+    const rewrittenPrompt = result.response.text()?.trim();
 
     if (!rewrittenPrompt) {
       return NextResponse.json(
