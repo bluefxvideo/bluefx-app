@@ -292,7 +292,7 @@ export async function analyzeVideo(request: AnalyzeVideoRequest): Promise<Analyz
     const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
 
     // Use Gemini 2.0 Flash for video analysis
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const result = await model.generateContent([
       {
@@ -379,7 +379,7 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
 
     // Use Gemini 2.0 Flash for video analysis
     // Gemini can analyze YouTube URLs directly
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const result = await model.generateContent([
       {
