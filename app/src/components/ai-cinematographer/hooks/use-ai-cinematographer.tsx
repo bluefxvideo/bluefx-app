@@ -45,6 +45,15 @@ export function useAICinematographer() {
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   const [extractingProgress, setExtractingProgress] = useState({ current: 0, total: 0 });
 
+  // Stored asset references for cross-grid consistency
+  // These persist across multiple grid generations to maintain character/product consistency
+  const [storedAssetReferences, setStoredAssetReferences] = useState<Array<{
+    id: string;
+    label: string;
+    type: 'character' | 'product' | 'environment' | 'other';
+    url: string; // Stored URL after upload
+  }>>([]);
+
   // Use ref to track current result without causing subscription re-creation
   const resultRef = useRef<CinematographerResponse | undefined>();
   const isGeneratingRef = useRef<boolean>(false);
@@ -582,6 +591,21 @@ export function useAICinematographer() {
     }
   }, [user?.id, loadHistory, isGenerating]);
 
+  // Update stored asset references (for cross-grid consistency)
+  const updateStoredAssetReferences = useCallback((assets: Array<{
+    id: string;
+    label: string;
+    type: 'character' | 'product' | 'environment' | 'other';
+    url: string;
+  }>) => {
+    setStoredAssetReferences(assets);
+  }, []);
+
+  // Clear stored asset references
+  const clearStoredAssetReferences = useCallback(() => {
+    setStoredAssetReferences([]);
+  }, []);
+
   return {
     // Video generation state
     isGenerating,
@@ -600,6 +624,7 @@ export function useAICinematographer() {
     extractedFrames,
     isExtractingFrames,
     extractingProgress,
+    storedAssetReferences, // For cross-grid consistency
 
     // History state
     videos,
@@ -621,6 +646,8 @@ export function useAICinematographer() {
     clearResults,
     clearStartingShotResults,
     clearStoryboardResults,
+    updateStoredAssetReferences,
+    clearStoredAssetReferences,
     loadHistory,
     deleteVideo,
   };
