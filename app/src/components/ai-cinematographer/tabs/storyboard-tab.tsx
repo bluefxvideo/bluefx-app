@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, X, Upload, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
@@ -53,6 +53,7 @@ interface StoryboardTabProps {
 }
 
 const CREDIT_COST = 6; // 6 credits for Nano Banana Pro grid generation
+const MAX_REFERENCE_IMAGES = 14;
 const MAX_STORY_LENGTH = 20000;
 
 export function StoryboardTab({
@@ -69,10 +70,18 @@ export function StoryboardTab({
   const [originalPrompt, setOriginalPrompt] = useState(initialPrompt || '');
   // Customized prompt (after AI rewriting)
   const [customizedPrompt, setCustomizedPrompt] = useState(initialPrompt || '');
-  // Asset references for character/product consistency (new uploads in this session)
+
+  // Reference images for Nano Banana (the main image generation input)
+  const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([]);
+
+  // Asset references for AI prompt rewriting (optional, for labeling assets)
   const [assetReferences, setAssetReferences] = useState<AssetReference[]>([]);
+
   // Is AI rewriting the prompt
   const [isRewriting, setIsRewriting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     visual_style: (initialStyle as VisualStyle) || 'cinematic_realism' as VisualStyle,
@@ -134,20 +143,102 @@ export function StoryboardTab({
     }
   };
 
+  // Process files from either input or drag-drop (for reference images)
+  const processFiles = (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    const newImages: { file: File; preview: string }[] = [];
+    const remainingSlots = MAX_REFERENCE_IMAGES - referenceImages.length;
+
+    for (let i = 0; i < Math.min(fileArray.length, remainingSlots); i++) {
+      const file = fileArray[i];
+      if (file.type.startsWith('image/')) {
+        newImages.push({
+          file,
+          preview: URL.createObjectURL(file),
+        });
+      }
+    }
+
+    if (newImages.length > 0) {
+      setReferenceImages(prev => [...prev, ...newImages]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    processFiles(files);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isGenerating && referenceImages.length < MAX_REFERENCE_IMAGES) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (isGenerating || referenceImages.length >= MAX_REFERENCE_IMAGES) return;
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      processFiles(files);
+    }
+  };
+
+  const removeReferenceImage = (index: number) => {
+    setReferenceImages(prev => {
+      const newImages = [...prev];
+      URL.revokeObjectURL(newImages[index].preview);
+      newImages.splice(index, 1);
+      return newImages;
+    });
+  };
+
   const handleSubmit = () => {
     const promptToUse = customizedPrompt.trim() || originalPrompt.trim();
     if (!promptToUse) return;
 
-    // Combine asset reference files with any additional styling
-    const referenceFiles = assetReferences.length > 0
-      ? assetReferences.map(asset => asset.file)
-      : undefined;
+    // Use reference images from Step 2 (main reference images for Nano Banana)
+    // Plus any additional images from PromptCustomizer assets
+    const allReferenceFiles: File[] = [
+      ...referenceImages.map(img => img.file),
+      ...assetReferences.map(asset => asset.file),
+    ];
+
+    console.log('📤 Submitting storyboard with reference images:', {
+      fromStep2: referenceImages.length,
+      fromPromptCustomizer: assetReferences.length,
+      total: allReferenceFiles.length
+    });
 
     onGenerate({
       story_description: promptToUse,
       visual_style: formData.visual_style,
       custom_style: formData.visual_style === 'custom' ? formData.custom_style : undefined,
-      reference_image_files: referenceFiles,
+      reference_image_files: allReferenceFiles.length > 0 ? allReferenceFiles : undefined,
       user_id: '', // Will be set by the hook
       asset_references: assetReferences,
     });
@@ -178,15 +269,90 @@ export function StoryboardTab({
           </div>
         </StandardStep>
 
-        {/* Step 2: Customize with Your Assets (NEW) */}
+        {/* Step 2: Reference Images - MAIN input for Nano Banana */}
+        <StandardStep
+          stepNumber={2}
+          title="Reference Images"
+          description="Upload images of your product, character, or environment. These go directly to the AI image generator."
+        >
+          <div
+            ref={dropZoneRef}
+            className={`space-y-3 p-3 rounded-lg transition-colors ${
+              isDragging
+                ? 'bg-primary/10 border-2 border-dashed border-primary'
+                : 'border-2 border-transparent'
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            {isDragging && (
+              <div className="flex items-center justify-center py-4 text-primary font-medium">
+                <Upload className="w-5 h-5 mr-2" />
+                Drop images here
+              </div>
+            )}
+
+            {!isDragging && (
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-2">
+                {referenceImages.map((img, index) => (
+                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-muted/30 group">
+                    <img
+                      src={img.preview}
+                      alt={`Reference ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-1 right-1 h-5 w-5 bg-background/80 hover:bg-background opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeReferenceImage(index)}
+                      disabled={isGenerating}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+
+                {referenceImages.length < MAX_REFERENCE_IMAGES && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isGenerating}
+                    className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">Add</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Drag & drop or click to add up to {MAX_REFERENCE_IMAGES} images. These reference images are sent directly to the image generator for visual consistency.
+            </p>
+          </div>
+        </StandardStep>
+
+        {/* Step 3: AI Prompt Customizer (Optional) */}
         {hasPrompt && (
           <StandardStep
-            stepNumber={2}
-            title="Customize with Your Assets"
+            stepNumber={3}
+            title="AI Prompt Customizer"
             description={
               hasStoredAssets
-                ? `${storedAssetReferences.length} asset(s) saved for consistency across grids`
-                : "Optional: Upload your face, product, or environment to personalize the storyboard"
+                ? `Optional: Refine your prompt with AI. ${storedAssetReferences.length} asset(s) saved for consistency.`
+                : "Optional: Use AI to rewrite your prompt to incorporate specific assets"
             }
           >
             {/* Show stored assets from previous grids */}
@@ -233,9 +399,9 @@ export function StoryboardTab({
           </StandardStep>
         )}
 
-        {/* Step 3: Visual Style */}
+        {/* Step 4: Visual Style */}
         <StandardStep
-          stepNumber={hasPrompt ? 3 : 2}
+          stepNumber={hasPrompt ? 4 : 3}
           title="Visual Style"
           description="Choose the visual aesthetic for your storyboard"
         >
