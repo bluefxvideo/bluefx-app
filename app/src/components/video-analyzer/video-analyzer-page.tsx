@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { analyzeVideo, analyzeYouTubeVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
 import { generateStoryboardPrompts, Shot, StoryboardPrompt } from '@/actions/tools/ad-recreator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { PromptRefiner } from './prompt-refiner';
 
 // Analysis type options
 const ANALYSIS_TYPES = [
@@ -63,6 +64,8 @@ export function VideoAnalyzerPage() {
   const [generatedPrompts, setGeneratedPrompts] = useState<StoryboardPrompt[]>([]);
   const [videoSummary, setVideoSummary] = useState<string>('');
   const [copiedPromptIndex, setCopiedPromptIndex] = useState<number | null>(null);
+  // Track modified prompts (key: grid index, value: modified prompt)
+  const [modifiedPrompts, setModifiedPrompts] = useState<Record<number, string>>({});
 
   const { credits, deductCredits, hasEnoughCredits, isLoading: creditsLoading } = useCredits();
 
@@ -254,6 +257,7 @@ export function VideoAnalyzerPage() {
     setGeneratedShots([]);
     setGeneratedPrompts([]);
     setVideoSummary('');
+    setModifiedPrompts({});
 
     try {
       const result = await generateStoryboardPrompts({
@@ -702,44 +706,66 @@ export function VideoAnalyzerPage() {
                           Storyboard Prompts ({generatedPrompts.length} grid{generatedPrompts.length > 1 ? 's' : ''})
                         </h4>
 
-                        {generatedPrompts.map((promptData, index) => (
-                          <Card key={index} className="p-4 border border-primary/30 bg-primary/5">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="font-medium text-white">
-                                Grid {promptData.gridNumber} - Shots {promptData.shotsCovered}
-                              </span>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleCopyPrompt(promptData.prompt, index)}
-                                >
-                                  {copiedPromptIndex === index ? (
-                                    <>
-                                      <Check className="w-3 h-3 mr-1" />
-                                      Copied
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3 h-3 mr-1" />
-                                      Copy
-                                    </>
+                        {generatedPrompts.map((promptData, index) => {
+                          const currentPrompt = modifiedPrompts[index] ?? promptData.prompt;
+                          const isModified = modifiedPrompts[index] !== undefined;
+
+                          return (
+                            <Card key={index} className={`p-4 border ${isModified ? 'border-green-500/30 bg-green-500/5' : 'border-primary/30 bg-primary/5'}`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="font-medium text-white flex items-center gap-2">
+                                  Grid {promptData.gridNumber} - Shots {promptData.shotsCovered}
+                                  {isModified && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
+                                      Modified
+                                    </span>
                                   )}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSendToStoryboard(promptData.prompt)}
-                                >
-                                  <Send className="w-3 h-3 mr-1" />
-                                  Send to Storyboard
-                                </Button>
+                                </span>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCopyPrompt(currentPrompt, index)}
+                                  >
+                                    {copiedPromptIndex === index ? (
+                                      <>
+                                        <Check className="w-3 h-3 mr-1" />
+                                        Copied
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3 mr-1" />
+                                        Copy
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSendToStoryboard(currentPrompt)}
+                                  >
+                                    <Send className="w-3 h-3 mr-1" />
+                                    Send to Storyboard
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                            <pre className="text-xs text-zinc-300 whitespace-pre-wrap bg-black/20 p-3 rounded max-h-[200px] overflow-auto">
-                              {promptData.prompt}
-                            </pre>
-                          </Card>
-                        ))}
+                              <pre className="text-xs text-zinc-300 whitespace-pre-wrap bg-black/20 p-3 rounded max-h-[200px] overflow-auto">
+                                {currentPrompt}
+                              </pre>
+
+                              {/* AI Prompt Customizer */}
+                              <PromptRefiner
+                                prompt={currentPrompt}
+                                onPromptChange={(newPrompt) => {
+                                  setModifiedPrompts(prev => ({
+                                    ...prev,
+                                    [index]: newPrompt,
+                                  }));
+                                }}
+                                disabled={isGeneratingPrompts}
+                              />
+                            </Card>
+                          );
+                        })}
                       </div>
                     </div>
 
