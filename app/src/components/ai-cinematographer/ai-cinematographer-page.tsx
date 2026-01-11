@@ -75,15 +75,27 @@ export function AICinematographerPage() {
   }, [searchParams, setImageForVideo, router]);
 
   // Check for storyboard prompt in search params (from Video Analyzer "Send to Storyboard" button)
-  const storyboardPromptFromUrl = searchParams.get('prompt');
+  // Supports both direct prompt param (short prompts) and promptId param (long prompts via sessionStorage)
+  const [storyboardPromptFromUrl, setStoryboardPromptFromUrl] = useState<string | undefined>(undefined);
   const storyboardStyleFromUrl = searchParams.get('style');
 
-  // Auto-switch to storyboard tab if prompt param is present
+  // Load prompt from URL param or sessionStorage
   useEffect(() => {
-    if (storyboardPromptFromUrl && searchParams.get('tab') === 'storyboard') {
-      router.replace('/dashboard/ai-cinematographer/storyboard');
+    const directPrompt = searchParams.get('prompt');
+    const promptId = searchParams.get('promptId');
+
+    if (directPrompt) {
+      setStoryboardPromptFromUrl(decodeURIComponent(directPrompt));
+    } else if (promptId) {
+      // Retrieve prompt from sessionStorage (used for long prompts to avoid HTTP 431)
+      const storedPrompt = sessionStorage.getItem(promptId);
+      if (storedPrompt) {
+        setStoryboardPromptFromUrl(storedPrompt);
+        // Clean up sessionStorage after retrieving
+        sessionStorage.removeItem(promptId);
+      }
     }
-  }, [storyboardPromptFromUrl, searchParams, router]);
+  }, [searchParams]);
 
   // Determine active tab from URL
   const getActiveTab = () => {
@@ -191,7 +203,7 @@ export function AICinematographerPage() {
               isGenerating={isGeneratingStoryboard}
               credits={credits}
               isLoadingCredits={isLoadingCredits}
-              initialPrompt={storyboardPromptFromUrl ? decodeURIComponent(storyboardPromptFromUrl) : undefined}
+              initialPrompt={storyboardPromptFromUrl}
               initialStyle={storyboardStyleFromUrl ? decodeURIComponent(storyboardStyleFromUrl) : undefined}
             />
           </div>

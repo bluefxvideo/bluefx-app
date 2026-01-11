@@ -290,8 +290,10 @@ export function VideoAnalyzerPage() {
 
   // Send prompt to Storyboard Generator (opens in new tab to preserve current state)
   const handleSendToStoryboard = (prompt: string) => {
-    const encodedPrompt = encodeURIComponent(prompt);
-    window.open(`/dashboard/ai-cinematographer/storyboard?prompt=${encodedPrompt}`, '_blank');
+    // Store prompt in sessionStorage to avoid URL length limits (HTTP 431 error)
+    const promptId = `storyboard-prompt-${Date.now()}`;
+    sessionStorage.setItem(promptId, prompt);
+    window.open(`/dashboard/ai-cinematographer/storyboard?promptId=${promptId}`, '_blank');
   };
 
   const formatDuration = (seconds: number) => {
