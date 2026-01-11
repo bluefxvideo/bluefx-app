@@ -7,7 +7,6 @@ import { LayoutGrid, X, Upload, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
-import { PromptCustomizer } from '../components/prompt-customizer';
 
 // Visual style options for storyboard generation
 const VISUAL_STYLES = [
@@ -51,16 +50,12 @@ export function StoryboardTab({
   initialPrompt,
   initialStyle,
 }: StoryboardTabProps) {
-  // Original prompt (from video analyzer or user input)
-  const [originalPrompt, setOriginalPrompt] = useState(initialPrompt || '');
-  // Customized prompt (after AI rewriting)
-  const [customizedPrompt, setCustomizedPrompt] = useState(initialPrompt || '');
+  // Story description prompt (user can edit directly)
+  const [storyPrompt, setStoryPrompt] = useState(initialPrompt || '');
 
   // Reference images for Nano Banana (the main image generation input)
   const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([]);
 
-  // Is AI rewriting the prompt
-  const [isRewriting, setIsRewriting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -70,53 +65,12 @@ export function StoryboardTab({
     custom_style: '',
   });
 
-  // Update original prompt when initialPrompt changes (from URL params)
+  // Update prompt when initialPrompt changes (from URL params)
   useEffect(() => {
     if (initialPrompt) {
-      setOriginalPrompt(initialPrompt);
-      setCustomizedPrompt(initialPrompt);
+      setStoryPrompt(initialPrompt);
     }
   }, [initialPrompt]);
-
-  const handlePromptChange = (newPrompt: string) => {
-    // Update both original and customized when user types directly
-    setOriginalPrompt(newPrompt);
-    setCustomizedPrompt(newPrompt);
-  };
-
-  const handleCustomizedPromptChange = (newPrompt: string) => {
-    // Only update customized prompt (preserve original)
-    setCustomizedPrompt(newPrompt);
-  };
-
-  const handleRewriteWithAI = async (instruction: string) => {
-    if (!originalPrompt.trim()) return;
-
-    setIsRewriting(true);
-    try {
-      const response = await fetch('/api/storyboard-prompt/rewrite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          originalPrompt: customizedPrompt, // Use current customized version as base
-          instruction,
-          referenceImageCount: referenceImages.length,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.rewrittenPrompt) {
-        setCustomizedPrompt(data.rewrittenPrompt);
-      } else {
-        console.error('Failed to rewrite prompt:', data.error);
-      }
-    } catch (error) {
-      console.error('Error rewriting prompt:', error);
-    } finally {
-      setIsRewriting(false);
-    }
-  };
 
   // Process files from either input or drag-drop (for reference images)
   const processFiles = (files: FileList | File[]) => {
@@ -193,7 +147,7 @@ export function StoryboardTab({
   };
 
   const handleSubmit = () => {
-    const promptToUse = customizedPrompt.trim() || originalPrompt.trim();
+    const promptToUse = storyPrompt.trim();
     if (!promptToUse) return;
 
     // Use reference images from Step 2 (sent directly to Nano Banana)
@@ -210,8 +164,7 @@ export function StoryboardTab({
     });
   };
 
-  const effectivePrompt = customizedPrompt.trim() || originalPrompt.trim();
-  const hasPrompt = effectivePrompt.length > 0;
+  const hasPrompt = storyPrompt.trim().length > 0;
 
   return (
     <TabContentWrapper>
@@ -224,14 +177,14 @@ export function StoryboardTab({
         >
           <Textarea
             placeholder="Describe your scene or paste storyboard script from Script Generator..."
-            value={originalPrompt}
-            onChange={(e) => handlePromptChange(e.target.value.slice(0, MAX_STORY_LENGTH))}
+            value={storyPrompt}
+            onChange={(e) => setStoryPrompt(e.target.value.slice(0, MAX_STORY_LENGTH))}
             className="min-h-[150px] resize-y"
             disabled={isGenerating}
           />
           <div className="flex justify-between text-sm text-muted-foreground mt-1">
             <span>Be specific about setting, mood, and characters</span>
-            <span>{originalPrompt.length}/{MAX_STORY_LENGTH}</span>
+            <span>{storyPrompt.length}/{MAX_STORY_LENGTH}</span>
           </div>
         </StandardStep>
 
@@ -310,28 +263,9 @@ export function StoryboardTab({
           </div>
         </StandardStep>
 
-        {/* Step 3: AI Prompt Customizer (Optional) */}
-        {hasPrompt && (
-          <StandardStep
-            stepNumber={3}
-            title="AI Prompt Customizer"
-            description="Optional: Use AI to rewrite your prompt to better incorporate your reference images"
-          >
-            <PromptCustomizer
-              originalPrompt={originalPrompt}
-              customizedPrompt={customizedPrompt}
-              onPromptChange={handleCustomizedPromptChange}
-              onRewriteWithAI={handleRewriteWithAI}
-              isRewriting={isRewriting}
-              disabled={isGenerating}
-              referenceImageCount={referenceImages.length}
-            />
-          </StandardStep>
-        )}
-
-        {/* Step 4: Visual Style */}
+        {/* Step 3: Visual Style */}
         <StandardStep
-          stepNumber={hasPrompt ? 4 : 3}
+          stepNumber={3}
           title="Visual Style"
           description="Choose the visual aesthetic for your storyboard"
         >
