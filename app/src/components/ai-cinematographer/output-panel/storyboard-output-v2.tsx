@@ -34,6 +34,7 @@ export interface StoryboardResult {
   grid_image_url: string;
   prompt: string;
   visual_style: string;
+  frame_aspect_ratio?: '16:9' | '9:16';
   created_at: string;
 }
 

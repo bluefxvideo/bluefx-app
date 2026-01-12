@@ -24,8 +24,6 @@ type VisualStyle = typeof VISUAL_STYLES[number]['id'];
 const ASPECT_RATIOS = [
   { id: '16:9', label: '16:9 Landscape', description: 'YouTube, TV, desktop' },
   { id: '9:16', label: '9:16 Vertical', description: 'TikTok, Reels, Shorts' },
-  { id: '1:1', label: '1:1 Square', description: 'Instagram posts' },
-  { id: '4:5', label: '4:5 Portrait', description: 'Instagram feed' },
 ] as const;
 
 type AspectRatio = typeof ASPECT_RATIOS[number]['id'];
