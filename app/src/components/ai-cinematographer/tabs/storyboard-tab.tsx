@@ -20,10 +20,21 @@ const VISUAL_STYLES = [
 
 type VisualStyle = typeof VISUAL_STYLES[number]['id'];
 
+// Aspect ratio options for individual frames
+const ASPECT_RATIOS = [
+  { id: '16:9', label: '16:9 Landscape', description: 'YouTube, TV, desktop' },
+  { id: '9:16', label: '9:16 Vertical', description: 'TikTok, Reels, Shorts' },
+  { id: '1:1', label: '1:1 Square', description: 'Instagram posts' },
+  { id: '4:5', label: '4:5 Portrait', description: 'Instagram feed' },
+] as const;
+
+type AspectRatio = typeof ASPECT_RATIOS[number]['id'];
+
 export interface StoryboardRequest {
   story_description: string;
   visual_style: VisualStyle;
   custom_style?: string;
+  aspect_ratio: AspectRatio;
   reference_image_files?: File[];
   user_id: string;
 }
@@ -63,6 +74,7 @@ export function StoryboardTab({
   const [formData, setFormData] = useState({
     visual_style: (initialStyle as VisualStyle) || 'cinematic_realism' as VisualStyle,
     custom_style: '',
+    aspect_ratio: '16:9' as AspectRatio,
   });
 
   // Update prompt when initialPrompt changes (from URL params)
@@ -159,6 +171,7 @@ export function StoryboardTab({
       story_description: promptToUse,
       visual_style: formData.visual_style,
       custom_style: formData.visual_style === 'custom' ? formData.custom_style : undefined,
+      aspect_ratio: formData.aspect_ratio,
       reference_image_files: referenceFiles.length > 0 ? referenceFiles : undefined,
       user_id: '', // Will be set by the hook
     });
@@ -263,9 +276,35 @@ export function StoryboardTab({
           </div>
         </StandardStep>
 
-        {/* Step 3: Visual Style */}
+        {/* Step 3: Frame Aspect Ratio */}
         <StandardStep
           stepNumber={3}
+          title="Frame Aspect Ratio"
+          description="Choose the aspect ratio for each frame in the storyboard"
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {ASPECT_RATIOS.map((ratio) => (
+              <button
+                key={ratio.id}
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, aspect_ratio: ratio.id }))}
+                disabled={isGenerating}
+                className={`p-3 rounded-lg border-2 transition-all text-left ${
+                  formData.aspect_ratio === ratio.id
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                } disabled:opacity-50`}
+              >
+                <div className="font-medium text-sm">{ratio.label}</div>
+                <div className="text-xs text-muted-foreground">{ratio.description}</div>
+              </button>
+            ))}
+          </div>
+        </StandardStep>
+
+        {/* Step 4: Visual Style */}
+        <StandardStep
+          stepNumber={4}
           title="Visual Style"
           description="Choose the visual aesthetic for your storyboard"
         >

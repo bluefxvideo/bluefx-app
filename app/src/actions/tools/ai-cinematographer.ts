@@ -657,6 +657,7 @@ export interface StoryboardRequest {
   story_description: string;
   visual_style: string;
   custom_style?: string;
+  aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:5';
   reference_image_files?: File[];
   reference_image_urls?: string[];
   user_id: string;
@@ -776,11 +777,20 @@ export async function executeStoryboardGeneration(
       ? request.custom_style || ''
       : VISUAL_STYLE_PROMPTS[request.visual_style] || VISUAL_STYLE_PROMPTS.cinematic_realism;
 
+    // Frame aspect ratio - defaults to 16:9 if not specified
+    const frameAspectRatio = request.aspect_ratio || '16:9';
+    const aspectRatioDescription = {
+      '16:9': '16:9 landscape (horizontal)',
+      '9:16': '9:16 vertical/portrait (tall, like TikTok/Reels)',
+      '1:1': '1:1 square',
+      '4:5': '4:5 portrait (Instagram feed style)',
+    }[frameAspectRatio];
+
     const storyboardPrompt = `Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).
 
 CRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.
 
-Each frame must be 16:9 aspect ratio. NO TEXT OR DIALOGUE ON ANY FRAME.
+Each individual frame within the grid must be ${aspectRatioDescription} aspect ratio. NO TEXT OR DIALOGUE ON ANY FRAME.
 
 ${request.story_description}
 
