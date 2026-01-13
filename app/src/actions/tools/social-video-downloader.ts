@@ -74,11 +74,15 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
     let input: Record<string, unknown>;
 
     if (platform === 'instagram') {
+      // Normalize Instagram URL: /reels/ -> /reel/ (actor expects singular form)
+      let normalizedUrl = url.replace('/reels/', '/reel/');
+
       // Instagram video downloader input format: urls array with url objects
       input = {
-        urls: [{ url }],
+        urls: [{ url: normalizedUrl }],
         quality: '720',
       };
+      console.log(`📎 Normalized Instagram URL: ${normalizedUrl}`);
     } else if (platform === 'tiktok') {
       // TikTok video downloader input format: single url string
       input = {
