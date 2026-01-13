@@ -74,14 +74,16 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
     let input: Record<string, unknown>;
 
     if (platform === 'instagram') {
-      // Instagram video downloader input format
+      // Instagram video downloader input format: urls array with url objects
       input = {
-        directUrls: [url],
+        urls: [{ url }],
+        quality: '720p',
       };
     } else if (platform === 'tiktok') {
-      // TikTok video downloader input format
+      // TikTok video downloader input format: single url string
       input = {
-        postURLs: [url],
+        url,
+        apiVersion: 'v1',
       };
     } else {
       input = { url };
