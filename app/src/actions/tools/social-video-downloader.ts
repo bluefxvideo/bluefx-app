@@ -12,6 +12,7 @@ const client = new ApifyClient({
 const ACTOR_IDS: Record<string, string> = {
   instagram: 'EYxjTNaAMlqUePwza', // igview-owner/instagram-video-downloader - $0.005/video, NO subscription
   tiktok: 'Uyv5cLfgesW6cROPV',    // wilcode/fast-tiktok-downloader-without-watermark - $0.005/request
+  facebook: 'PBJEdJdctLHQaqdfe',  // igview-owner/facebook-media-downloader - $0.005/video, NO subscription
 };
 
 export interface SocialVideoDownloadResult {
@@ -45,10 +46,10 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
     };
   }
 
-  if (platform === 'facebook' || platform === 'twitter') {
+  if (platform === 'twitter') {
     return {
       success: false,
-      error: `${platform.charAt(0).toUpperCase() + platform.slice(1)} videos are not currently supported. Please use TikTok, Instagram, or YouTube URLs.`,
+      error: 'Twitter/X videos are not currently supported. Please use TikTok, Instagram, Facebook, or YouTube URLs.',
     };
   }
 
@@ -82,6 +83,12 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
         instagram_urls: [normalizedUrl],
       };
       console.log(`📎 Normalized Instagram URL: ${normalizedUrl}`);
+    } else if (platform === 'facebook') {
+      // igview-owner/facebook-media-downloader input format
+      input = {
+        urls: [url],
+      };
+      console.log(`📘 Facebook URL: ${url}`);
     } else if (platform === 'tiktok') {
       // Check if it's a Creative Center URL - extract video URL directly from page
       if (url.includes('ads.tiktok.com') || url.includes('creativecenter')) {
@@ -159,6 +166,11 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       videoUrl = (result.videoUrl || result.video_url || result.displayUrl) as string | undefined;
       title = (result.caption || result.title) as string | undefined;
       thumbnail = (result.displayUrl || result.thumbnail) as string | undefined;
+    } else if (platform === 'facebook') {
+      // Facebook downloader returns: videoUrl, hdVideoUrl, etc.
+      videoUrl = (result.hdVideoUrl || result.videoUrl || result.video_url || result.sdVideoUrl) as string | undefined;
+      title = (result.title || result.description) as string | undefined;
+      thumbnail = (result.thumbnail || result.thumbnailUrl) as string | undefined;
     } else if (platform === 'tiktok') {
       // TikTok downloader returns nested structure: result.video.playAddr[]
       const tiktokResult = result.result as Record<string, unknown> | undefined;
