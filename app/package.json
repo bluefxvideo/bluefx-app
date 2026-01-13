@@ -52,6 +52,7 @@
     "@tanstack/react-query-devtools": "^5.83.0",
     "@types/lodash": "^4.17.20",
     "ai": "^5.0.44",
+    "apify-client": "^2.21.0",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "class-variance-authority": "^0.7.1",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, Youtube, FileVideo, Wand2, ChevronDown, ChevronUp, Send, LayoutGrid } from 'lucide-react';
+import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, Youtube, FileVideo, Wand2, ChevronDown, ChevronUp, Send, LayoutGrid, Link } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCredits } from '@/hooks/useCredits';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { toast } from 'sonner';
-import { analyzeVideo, analyzeYouTubeVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
+import { analyzeVideo, analyzeYouTubeVideo, analyzeSocialMediaVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
+import { detectPlatform, isSupportedSocialUrl } from '@/actions/tools/social-video-downloader';
 import { generateStoryboardPrompts, Shot, StoryboardPrompt } from '@/actions/tools/ad-recreator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PromptRefiner } from './prompt-refiner';
@@ -38,14 +39,14 @@ interface VideoAnalysis {
   created_at: string;
 }
 
-type InputMode = 'file' | 'youtube';
+type InputMode = 'file' | 'url';
 
 export function VideoAnalyzerPage() {
   const [inputMode, setInputMode] = useState<InputMode>('file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
-  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [analysisType, setAnalysisType] = useState<AnalysisType>('storyboard_recreation');
   const [customPrompt, setCustomPrompt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -152,13 +153,16 @@ export function VideoAnalyzerPage() {
       toast.error('Please select a video file first');
       return;
     }
-    if (inputMode === 'youtube' && !youtubeUrl) {
-      toast.error('Please enter a YouTube URL');
+    if (inputMode === 'url' && !videoUrl) {
+      toast.error('Please enter a video URL');
       return;
     }
-    if (inputMode === 'youtube' && !isValidYoutubeUrl(youtubeUrl)) {
-      toast.error('Please enter a valid YouTube URL');
-      return;
+    if (inputMode === 'url') {
+      const platform = detectPlatform(videoUrl);
+      if (platform === 'unknown') {
+        toast.error('Please enter a valid YouTube, TikTok, Instagram, or Facebook URL');
+        return;
+      }
     }
     if (analysisType === 'custom_only' && !customPrompt.trim()) {
       toast.error('Please enter custom instructions when using "Custom Prompt Only" mode');
@@ -179,13 +183,24 @@ export function VideoAnalyzerPage() {
 
       let result;
 
-      if (inputMode === 'youtube') {
-        // Analyze YouTube video
-        result = await analyzeYouTubeVideo({
-          youtubeUrl,
-          analysisType,
-          customPrompt: customPrompt || undefined,
-        });
+      if (inputMode === 'url') {
+        const platform = detectPlatform(videoUrl);
+
+        if (platform === 'youtube') {
+          // Analyze YouTube video (native Gemini support)
+          result = await analyzeYouTubeVideo({
+            youtubeUrl: videoUrl,
+            analysisType,
+            customPrompt: customPrompt || undefined,
+          });
+        } else {
+          // Analyze social media video via Apify download
+          result = await analyzeSocialMediaVideo({
+            socialUrl: videoUrl,
+            analysisType,
+            customPrompt: customPrompt || undefined,
+          });
+        }
       } else {
         // Analyze uploaded file
         const arrayBuffer = await selectedFile!.arrayBuffer();
@@ -324,12 +339,12 @@ export function VideoAnalyzerPage() {
                 Upload File
               </Button>
               <Button
-                variant={inputMode === 'youtube' ? 'default' : 'outline'}
+                variant={inputMode === 'url' ? 'default' : 'outline'}
                 className="flex-1"
-                onClick={() => setInputMode('youtube')}
+                onClick={() => setInputMode('url')}
               >
-                <Youtube className="w-4 h-4 mr-2" />
-                YouTube URL
+                <Link className="w-4 h-4 mr-2" />
+                Video URL
               </Button>
             </div>
 
@@ -402,25 +417,36 @@ export function VideoAnalyzerPage() {
               <Card className="p-6 border border-border/50">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
-                      <Youtube className="w-6 h-6 text-red-400" />
+                    <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                      <Link className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <p className="text-white font-semibold">YouTube Video</p>
-                      <p className="text-zinc-400 text-sm">Paste a YouTube video URL to analyze</p>
+                      <p className="text-white font-semibold">Video URL</p>
+                      <p className="text-zinc-400 text-sm">YouTube, TikTok, Instagram, or Facebook</p>
                     </div>
                   </div>
                   <Input
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    placeholder="Paste video URL from YouTube, TikTok, Instagram, or Facebook..."
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
                     className="bg-background border-border"
                   />
-                  {youtubeUrl && isValidYoutubeUrl(youtubeUrl) && (
-                    <p className="text-green-400 text-sm flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Valid YouTube URL
-                    </p>
-                  )}
+                  {videoUrl && (() => {
+                    const platform = detectPlatform(videoUrl);
+                    if (platform === 'unknown') return null;
+                    const platformLabels: Record<string, string> = {
+                      youtube: 'YouTube',
+                      tiktok: 'TikTok',
+                      instagram: 'Instagram',
+                      facebook: 'Facebook',
+                      twitter: 'Twitter/X',
+                    };
+                    return (
+                      <p className="text-green-400 text-sm flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Valid {platformLabels[platform]} URL
+                      </p>
+                    );
+                  })()}
                 </div>
               </Card>
             )}
@@ -482,7 +508,7 @@ export function VideoAnalyzerPage() {
                 className="w-full"
                 size="lg"
                 onClick={handleAnalyze}
-                disabled={(inputMode === 'file' ? !selectedFile : !youtubeUrl) || isAnalyzing || creditsLoading}
+                disabled={(inputMode === 'file' ? !selectedFile : !videoUrl) || isAnalyzing || creditsLoading}
               >
                 {isAnalyzing ? (
                   <>

@@ -440,6 +440,117 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
   }
 }
 
+// Social Media Video Analysis (TikTok, Instagram, Facebook, Twitter)
+export interface AnalyzeSocialVideoRequest {
+  socialUrl: string;
+  analysisType: string;
+  customPrompt?: string;
+}
+
+export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest): Promise<AnalyzeVideoResponse> {
+  console.log('🎬 Server Action: analyzeSocialMediaVideo called');
+
+  // Import the social video downloader
+  const { downloadSocialVideo, detectPlatform } = await import('./social-video-downloader');
+
+  const platform = detectPlatform(request.socialUrl);
+
+  try {
+    // Get authenticated user
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('❌ Authentication failed:', authError);
+      return {
+        success: false,
+        error: 'Authentication required'
+      };
+    }
+
+    // For social videos, we charge 6 credits (same as YouTube)
+    const creditsUsed = 6;
+
+    console.log(`📥 Downloading ${platform} video...`);
+
+    // Step 1: Download the video using Apify
+    const downloadResult = await downloadSocialVideo(request.socialUrl);
+
+    if (!downloadResult.success || !downloadResult.videoUrl) {
+      return {
+        success: false,
+        error: downloadResult.error || 'Failed to download video'
+      };
+    }
+
+    console.log(`✅ Video downloaded, analyzing with Gemini...`);
+
+    // Step 2: Build the prompt based on analysis type
+    const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
+
+    // Step 3: Use Gemini to analyze the video URL
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const result = await model.generateContent([
+      {
+        fileData: {
+          mimeType: 'video/mp4',
+          fileUri: downloadResult.videoUrl
+        }
+      },
+      { text: finalPrompt }
+    ]);
+
+    const response = await result.response;
+    const analysisText = response.text();
+
+    if (!analysisText) {
+      return {
+        success: false,
+        error: 'No analysis generated'
+      };
+    }
+
+    console.log(`✅ ${platform} video analysis generated successfully`);
+
+    // Generate a title for the analysis
+    const title = downloadResult.title
+      ? `${platform.charAt(0).toUpperCase() + platform.slice(1)}: ${downloadResult.title.slice(0, 50)}`
+      : `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`;
+
+    // Save to database
+    const { error: saveError } = await supabase
+      .from('video_analyses')
+      .insert({
+        user_id: user.id,
+        title,
+        video_url: request.socialUrl,
+        analysis_prompt: request.analysisType,
+        custom_prompt: request.customPrompt || null,
+        analysis_result: analysisText,
+        credits_used: creditsUsed,
+      });
+
+    if (saveError) {
+      console.error('⚠️ Failed to save analysis (non-blocking):', saveError);
+    } else {
+      console.log('💾 Analysis saved to database');
+    }
+
+    return {
+      success: true,
+      analysis: analysisText
+    };
+
+  } catch (error) {
+    console.error(`💥 ${platform} video analysis error:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Social media video analysis failed'
+    };
+  }
+}
+
 interface VideoAnalysis {
   id: string;
   title: string;
