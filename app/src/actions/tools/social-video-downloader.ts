@@ -84,11 +84,70 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       };
       console.log(`📎 Normalized Instagram URL: ${normalizedUrl}`);
     } else if (platform === 'facebook') {
+      // Normalize Facebook URL for the Apify actor
+      // Actor requires: www.facebook.com with /watch?v=, /reel/, or /photo paths
+      let normalizedUrl = url;
+
+      // Convert web.facebook.com to www.facebook.com
+      normalizedUrl = normalizedUrl.replace('web.facebook.com', 'www.facebook.com');
+      normalizedUrl = normalizedUrl.replace('m.facebook.com', 'www.facebook.com');
+
+      // Handle fb.watch short URLs - these need to be resolved
+      if (url.includes('fb.watch')) {
+        console.log(`🔗 Resolving fb.watch short URL: ${url}`);
+        try {
+          const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+          normalizedUrl = response.url;
+          normalizedUrl = normalizedUrl.replace('web.facebook.com', 'www.facebook.com');
+          normalizedUrl = normalizedUrl.replace('m.facebook.com', 'www.facebook.com');
+          console.log(`✅ Resolved to: ${normalizedUrl}`);
+        } catch (e) {
+          console.log(`⚠️ Could not resolve fb.watch URL, using original`);
+        }
+      }
+
+      // Handle /share/v/ URLs - these need to be resolved to canonical format
+      if (normalizedUrl.includes('/share/v/') || normalizedUrl.includes('/share/r/')) {
+        console.log(`🔗 Resolving Facebook share URL: ${normalizedUrl}`);
+        try {
+          const response = await fetch(normalizedUrl, { method: 'HEAD', redirect: 'follow' });
+          normalizedUrl = response.url;
+          normalizedUrl = normalizedUrl.replace('web.facebook.com', 'www.facebook.com');
+          normalizedUrl = normalizedUrl.replace('m.facebook.com', 'www.facebook.com');
+          console.log(`✅ Resolved to: ${normalizedUrl}`);
+        } catch (e) {
+          console.log(`⚠️ Could not resolve share URL, trying to extract video directly`);
+          // Try fetching the page and extracting the canonical URL or video
+          try {
+            const pageResponse = await fetch(url);
+            const html = await pageResponse.text();
+
+            // Look for canonical URL in the page
+            const canonicalMatch = html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/);
+            if (canonicalMatch) {
+              normalizedUrl = canonicalMatch[1].replace('web.facebook.com', 'www.facebook.com');
+              console.log(`✅ Found canonical URL: ${normalizedUrl}`);
+            }
+
+            // Also look for og:url meta tag
+            if (!canonicalMatch) {
+              const ogUrlMatch = html.match(/<meta[^>]+property="og:url"[^>]+content="([^"]+)"/);
+              if (ogUrlMatch) {
+                normalizedUrl = ogUrlMatch[1].replace('web.facebook.com', 'www.facebook.com');
+                console.log(`✅ Found og:url: ${normalizedUrl}`);
+              }
+            }
+          } catch (fetchError) {
+            console.error('Failed to fetch share page:', fetchError);
+          }
+        }
+      }
+
       // igview-owner/facebook-media-downloader input format
       input = {
-        urls: [url],
+        urls: [normalizedUrl],
       };
-      console.log(`📘 Facebook URL: ${url}`);
+      console.log(`📘 Facebook URL (normalized): ${normalizedUrl}`);
     } else if (platform === 'tiktok') {
       // Check if it's a Creative Center URL - extract video URL directly from page
       if (url.includes('ads.tiktok.com') || url.includes('creativecenter')) {
