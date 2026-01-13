@@ -484,19 +484,36 @@ export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest
       };
     }
 
-    console.log(`✅ Video downloaded, analyzing with Gemini...`);
+    console.log(`✅ Video URL obtained: ${downloadResult.videoUrl.slice(0, 100)}...`);
 
-    // Step 2: Build the prompt based on analysis type
+    // Step 2: Download the video content and convert to base64
+    // Gemini doesn't support arbitrary URLs, so we need to fetch and send as inline data
+    console.log(`📥 Fetching video content...`);
+    const videoResponse = await fetch(downloadResult.videoUrl);
+
+    if (!videoResponse.ok) {
+      return {
+        success: false,
+        error: `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`
+      };
+    }
+
+    const videoBuffer = await videoResponse.arrayBuffer();
+    const videoBase64 = Buffer.from(videoBuffer).toString('base64');
+
+    console.log(`✅ Video fetched (${(videoBuffer.byteLength / 1024 / 1024).toFixed(2)} MB), analyzing with Gemini...`);
+
+    // Step 3: Build the prompt based on analysis type
     const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
 
-    // Step 3: Use Gemini to analyze the video URL
+    // Step 4: Use Gemini to analyze the video as inline base64 data
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const result = await model.generateContent([
       {
-        fileData: {
+        inlineData: {
           mimeType: 'video/mp4',
-          fileUri: downloadResult.videoUrl
+          data: videoBase64
         }
       },
       { text: finalPrompt }
