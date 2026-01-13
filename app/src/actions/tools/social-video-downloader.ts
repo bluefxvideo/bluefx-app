@@ -8,9 +8,9 @@ const client = new ApifyClient({
   token: process.env.APIFY_API_TOKEN || '',
 });
 
-// Platform-specific Actor IDs (pay-per-use, no subscription required)
+// Platform-specific Actor IDs (pay-per-use, NO monthly subscription)
 const ACTOR_IDS: Record<string, string> = {
-  instagram: 'apify/instagram-reel-scraper', // Official Apify actor - $0.0026/result
+  instagram: 'EYxjTNaAMlqUePwza', // igview-owner/instagram-video-downloader - $0.005/video, NO subscription
   tiktok: 'Uyv5cLfgesW6cROPV',    // wilcode/fast-tiktok-downloader-without-watermark - $0.005/request
 };
 
@@ -77,10 +77,9 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       // Normalize Instagram URL: /reels/ -> /reel/ (actor expects singular form)
       let normalizedUrl = url.replace('/reels/', '/reel/');
 
-      // Official Apify instagram-reel-scraper input format
+      // igview-owner/instagram-video-downloader input format
       input = {
-        directUrls: [normalizedUrl],
-        resultsLimit: 1,
+        instagram_urls: [normalizedUrl],
       };
       console.log(`📎 Normalized Instagram URL: ${normalizedUrl}`);
     } else if (platform === 'tiktok') {
