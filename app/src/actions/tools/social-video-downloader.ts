@@ -123,10 +123,23 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       title = (result.caption || result.title) as string | undefined;
       thumbnail = (result.displayUrl || result.thumbnail) as string | undefined;
     } else if (platform === 'tiktok') {
-      // TikTok downloader returns: downloadUrl, videoUrl, etc.
-      videoUrl = (result.downloadUrl || result.videoUrl || result.video_url || result.playAddr) as string | undefined;
-      title = (result.text || result.desc || result.title) as string | undefined;
-      thumbnail = (result.cover || result.thumbnail || result.originCover) as string | undefined;
+      // TikTok downloader returns nested structure: result.video.playAddr[]
+      const tiktokResult = result.result as Record<string, unknown> | undefined;
+      if (tiktokResult) {
+        const video = tiktokResult.video as Record<string, unknown> | undefined;
+        if (video?.playAddr && Array.isArray(video.playAddr) && video.playAddr.length > 0) {
+          videoUrl = video.playAddr[0] as string;
+        }
+        title = tiktokResult.desc as string | undefined;
+        const author = tiktokResult.author as Record<string, unknown> | undefined;
+        thumbnail = author?.avatar as string | undefined;
+      }
+      // Fallback to flat structure
+      if (!videoUrl) {
+        videoUrl = (result.downloadUrl || result.videoUrl || result.video_url || result.playAddr) as string | undefined;
+        title = title || (result.text || result.desc || result.title) as string | undefined;
+        thumbnail = thumbnail || (result.cover || result.thumbnail || result.originCover) as string | undefined;
+      }
       if (result.duration) {
         duration = typeof result.duration === 'number' ? result.duration : parseFloat(result.duration as string);
       }
