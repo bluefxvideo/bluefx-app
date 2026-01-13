@@ -25,9 +25,13 @@ export function detectPlatform(url: string): 'tiktok' | 'instagram' | 'facebook'
 
 /**
  * Check if a URL is a supported social media video URL
+ * Currently supports TikTok and Instagram (pay-per-use via Apify)
+ * YouTube is handled natively by Gemini
  */
 export function isSupportedSocialUrl(url: string): boolean {
   const platform = detectPlatform(url);
-  // YouTube is handled natively by Gemini, so we don't need Apify for it
-  return platform !== 'unknown' && platform !== 'youtube';
+  // Only TikTok and Instagram are supported via Apify
+  // YouTube is handled natively by Gemini
+  // Facebook and Twitter are not currently supported
+  return platform === 'tiktok' || platform === 'instagram';
 }

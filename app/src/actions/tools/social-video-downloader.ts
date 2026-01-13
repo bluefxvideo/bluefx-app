@@ -8,8 +8,11 @@ const client = new ApifyClient({
   token: process.env.APIFY_API_TOKEN || '',
 });
 
-// Actor ID for the All Social Media Video Downloader
-const ACTOR_ID = 'hVlkT1FrZB15YsUDo';
+// Platform-specific Actor IDs (pay-per-use, no subscription required)
+const ACTOR_IDS: Record<string, string> = {
+  instagram: 'HdIgDrTBLWvnLoFiJ', // bytepulselabs/instagram-video-downloader - $0.006/request
+  tiktok: 'Uyv5cLfgesW6cROPV',    // wilcode/fast-tiktok-downloader-without-watermark - $0.005/request
+};
 
 export interface SocialVideoDownloadResult {
   success: boolean;
@@ -22,7 +25,7 @@ export interface SocialVideoDownloadResult {
 }
 
 /**
- * Download a video from TikTok, Instagram, Facebook, or Twitter using Apify
+ * Download a video from TikTok or Instagram using Apify
  * Returns the direct video URL that can be used for analysis
  */
 export async function downloadSocialVideo(url: string): Promise<SocialVideoDownloadResult> {
@@ -31,7 +34,7 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
   if (platform === 'unknown') {
     return {
       success: false,
-      error: 'Unsupported URL. Please use TikTok, Instagram, Facebook, or Twitter video URLs.',
+      error: 'Unsupported URL. Please use TikTok or Instagram video URLs.',
     };
   }
 
@@ -42,6 +45,13 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
     };
   }
 
+  if (platform === 'facebook' || platform === 'twitter') {
+    return {
+      success: false,
+      error: `${platform.charAt(0).toUpperCase() + platform.slice(1)} videos are not currently supported. Please use TikTok, Instagram, or YouTube URLs.`,
+    };
+  }
+
   if (!process.env.APIFY_API_TOKEN) {
     return {
       success: false,
@@ -49,22 +59,36 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
     };
   }
 
-  console.log(`📥 Downloading ${platform} video via Apify: ${url}`);
+  const actorId = ACTOR_IDS[platform];
+  if (!actorId) {
+    return {
+      success: false,
+      error: `No downloader available for ${platform}.`,
+    };
+  }
+
+  console.log(`📥 Downloading ${platform} video via Apify (Actor: ${actorId}): ${url}`);
 
   try {
-    // Prepare Actor input
-    const input = {
-      url,
-      proxySettings: {
-        useApifyProxy: true,
-        apifyProxyGroups: ['RESIDENTIAL'],
-        apifyProxyCountry: 'US',
-      },
-      mergeAV: true, // Merge audio and video for Instagram/Facebook
-    };
+    // Prepare Actor input based on platform
+    let input: Record<string, unknown>;
+
+    if (platform === 'instagram') {
+      // Instagram video downloader input format
+      input = {
+        directUrls: [url],
+      };
+    } else if (platform === 'tiktok') {
+      // TikTok video downloader input format
+      input = {
+        postURLs: [url],
+      };
+    } else {
+      input = { url };
+    }
 
     // Run the Actor and wait for it to finish
-    const run = await client.actor(ACTOR_ID).call(input, {
+    const run = await client.actor(actorId).call(input, {
       timeout: 120, // 2 minute timeout
     });
 
@@ -87,44 +111,65 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
     let thumbnail: string | undefined;
     let duration: number | undefined;
 
-    // Try different field names that Apify might return
-    if (result.videoUrl) {
-      videoUrl = result.videoUrl as string;
-    } else if (result.video_url) {
-      videoUrl = result.video_url as string;
-    } else if (result.downloadUrl) {
-      videoUrl = result.downloadUrl as string;
-    } else if (result.download_url) {
-      videoUrl = result.download_url as string;
-    } else if (result.url && typeof result.url === 'string' && result.url.includes('.mp4')) {
-      videoUrl = result.url as string;
-    } else if (result.formats && Array.isArray(result.formats)) {
-      // Find the best quality video format
-      const formats = result.formats as Array<{ url?: string; ext?: string; quality?: string; height?: number }>;
-      const videoFormats = formats.filter(f => f.ext === 'mp4' || f.url?.includes('.mp4'));
-      if (videoFormats.length > 0) {
-        // Sort by quality/height if available
-        videoFormats.sort((a, b) => (b.height || 0) - (a.height || 0));
-        videoUrl = videoFormats[0].url;
+    // Extract video URL based on platform-specific response formats
+    if (platform === 'instagram') {
+      // Instagram downloader returns: videoUrl, displayUrl, etc.
+      videoUrl = (result.videoUrl || result.video_url || result.displayUrl) as string | undefined;
+      title = (result.caption || result.title) as string | undefined;
+      thumbnail = (result.displayUrl || result.thumbnail) as string | undefined;
+    } else if (platform === 'tiktok') {
+      // TikTok downloader returns: downloadUrl, videoUrl, etc.
+      videoUrl = (result.downloadUrl || result.videoUrl || result.video_url || result.playAddr) as string | undefined;
+      title = (result.text || result.desc || result.title) as string | undefined;
+      thumbnail = (result.cover || result.thumbnail || result.originCover) as string | undefined;
+      if (result.duration) {
+        duration = typeof result.duration === 'number' ? result.duration : parseFloat(result.duration as string);
       }
     }
 
-    // Get title
-    if (result.title) {
-      title = result.title as string;
-    } else if (result.description) {
-      title = (result.description as string).slice(0, 100);
+    // Fallback: try common field names if platform-specific extraction failed
+    if (!videoUrl) {
+      if (result.videoUrl) {
+        videoUrl = result.videoUrl as string;
+      } else if (result.video_url) {
+        videoUrl = result.video_url as string;
+      } else if (result.downloadUrl) {
+        videoUrl = result.downloadUrl as string;
+      } else if (result.download_url) {
+        videoUrl = result.download_url as string;
+      } else if (result.url && typeof result.url === 'string' && result.url.includes('.mp4')) {
+        videoUrl = result.url as string;
+      } else if (result.formats && Array.isArray(result.formats)) {
+        // Find the best quality video format
+        const formats = result.formats as Array<{ url?: string; ext?: string; quality?: string; height?: number }>;
+        const videoFormats = formats.filter(f => f.ext === 'mp4' || f.url?.includes('.mp4'));
+        if (videoFormats.length > 0) {
+          videoFormats.sort((a, b) => (b.height || 0) - (a.height || 0));
+          videoUrl = videoFormats[0].url;
+        }
+      }
     }
 
-    // Get thumbnail
-    if (result.thumbnail) {
-      thumbnail = result.thumbnail as string;
-    } else if (result.thumbnail_url) {
-      thumbnail = result.thumbnail_url as string;
+    // Fallback title extraction if not set by platform-specific code
+    if (!title) {
+      if (result.title) {
+        title = result.title as string;
+      } else if (result.description) {
+        title = (result.description as string).slice(0, 100);
+      }
     }
 
-    // Get duration
-    if (result.duration) {
+    // Fallback thumbnail extraction
+    if (!thumbnail) {
+      if (result.thumbnail) {
+        thumbnail = result.thumbnail as string;
+      } else if (result.thumbnail_url) {
+        thumbnail = result.thumbnail_url as string;
+      }
+    }
+
+    // Fallback duration extraction
+    if (!duration && result.duration) {
       duration = typeof result.duration === 'number' ? result.duration : parseFloat(result.duration as string);
     }
 
