@@ -12,7 +12,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { toast } from 'sonner';
 import { analyzeVideo, analyzeYouTubeVideo, analyzeSocialMediaVideo, fetchVideoAnalyses, deleteVideoAnalysis } from '@/actions/tools/video-analyzer';
-import { detectPlatform, isSupportedSocialUrl } from '@/actions/tools/social-video-downloader';
+import { detectPlatform } from '@/lib/social-video-utils';
 import { generateStoryboardPrompts, Shot, StoryboardPrompt } from '@/actions/tools/ad-recreator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PromptRefiner } from './prompt-refiner';

@@ -450,8 +450,9 @@ export interface AnalyzeSocialVideoRequest {
 export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest): Promise<AnalyzeVideoResponse> {
   console.log('🎬 Server Action: analyzeSocialMediaVideo called');
 
-  // Import the social video downloader
-  const { downloadSocialVideo, detectPlatform } = await import('./social-video-downloader');
+  // Import the social video downloader and utils
+  const { downloadSocialVideo } = await import('./social-video-downloader');
+  const { detectPlatform } = await import('@/lib/social-video-utils');
 
   const platform = detectPlatform(request.socialUrl);
 
