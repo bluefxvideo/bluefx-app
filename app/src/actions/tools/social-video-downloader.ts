@@ -77,7 +77,7 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       // Instagram video downloader input format: urls array with url objects
       input = {
         urls: [{ url }],
-        quality: '720p',
+        quality: '720',
       };
     } else if (platform === 'tiktok') {
       // TikTok video downloader input format: single url string
