@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase.rpc('deduct_user_credits', {
       p_user_id: user.id,
       p_amount: credits,
-      p_service_type: service_type || 'video_analyzer',
+      p_operation: service_type || 'video_analyzer',
+      p_metadata: { source: 'api' },
     });
 
     if (error) {
