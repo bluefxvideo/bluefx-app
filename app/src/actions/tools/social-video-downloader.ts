@@ -83,6 +83,43 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       };
       console.log(`📎 Normalized Instagram URL: ${normalizedUrl}`);
     } else if (platform === 'tiktok') {
+      // Check if it's a Creative Center URL - extract video URL directly from page
+      if (url.includes('ads.tiktok.com') || url.includes('creativecenter')) {
+        console.log(`🎯 Detected TikTok Creative Center URL, extracting video directly...`);
+        try {
+          const response = await fetch(url);
+          const html = await response.text();
+
+          // Look for video URLs in the page (720p preferred, then 540p, then 480p)
+          const videoUrlMatch = html.match(/https:\/\/v16m[^"'\s]+tiktokcdn\.com[^"'\s]+/g);
+
+          if (videoUrlMatch && videoUrlMatch.length > 0) {
+            // Get the longest URL (usually highest quality)
+            const bestUrl = videoUrlMatch.sort((a, b) => b.length - a.length)[0];
+            // Clean up any HTML entities
+            const cleanUrl = bestUrl.replace(/\\u002F/g, '/').replace(/&amp;/g, '&');
+            console.log(`✅ Extracted Creative Center video URL: ${cleanUrl.slice(0, 80)}...`);
+            return {
+              success: true,
+              videoUrl: cleanUrl,
+              title: 'TikTok Ad',
+              platform: 'tiktok',
+            };
+          }
+
+          return {
+            success: false,
+            error: 'Could not extract video URL from Creative Center page. Try downloading the video manually.',
+          };
+        } catch (fetchError) {
+          console.error('Creative Center fetch error:', fetchError);
+          return {
+            success: false,
+            error: 'Failed to fetch Creative Center page. Please download the video manually.',
+          };
+        }
+      }
+
       // TikTok video downloader input format: single url string
       input = {
         url,
