@@ -74,3 +74,49 @@ export type ProDuration = typeof VIDEO_MODEL_CONFIG.pro.durations[number];
 export type FastResolution = typeof VIDEO_MODEL_CONFIG.fast.resolutions[number];
 export type ProResolution = '720p' | '1080p'; // 720p native, 1080p with upscale
 export type ProAspectRatio = typeof VIDEO_MODEL_CONFIG.pro.aspectRatios[number];
+
+// ============================================
+// Request/Response Types (shared between client and server)
+// ============================================
+
+// Request type for AI Cinematographer video generation
+export interface CinematographerRequest {
+  prompt: string;
+  reference_image?: File | null; // Optional for LTX-2-Fast (text-to-video supported)
+  reference_image_url?: string; // URL of a reference image (e.g., from Starting Shot)
+  duration?: number; // Duration in seconds (model-specific ranges)
+  resolution?: '720p' | '1080p' | '2k' | '4k'; // Video resolution
+  generate_audio?: boolean; // Enable AI audio generation (default: true)
+  workflow_intent: 'generate' | 'audio_add';
+  audio_file?: File | null;
+  user_id: string;
+  // Model selection
+  model?: VideoModel; // 'fast' = LTX-2-Fast, 'pro' = Seedance 1.5 Pro
+  // Pro model specific options
+  aspect_ratio?: ProAspectRatio;
+  last_frame_image?: File | null; // Ending frame for Pro model
+  last_frame_image_url?: string; // URL of ending frame
+  seed?: number; // Seed for reproducibility (Pro only)
+  camera_fixed?: boolean; // Lock camera movement (Pro only)
+  upscale?: boolean; // Upscale 720p to 1080p (Pro only)
+}
+
+// Response type for AI Cinematographer
+export interface CinematographerResponse {
+  success: boolean;
+  video?: {
+    id: string;
+    video_url: string;
+    thumbnail_url?: string;
+    duration: number;
+    resolution: string;
+    prompt: string;
+    created_at: string;
+  };
+  batch_id: string;
+  generation_time_ms: number;
+  credits_used: number;
+  remaining_credits: number;
+  warnings?: string[];
+  error?: string;
+}

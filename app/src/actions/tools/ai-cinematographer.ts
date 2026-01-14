@@ -16,10 +16,10 @@ import {
   createPredictionRecord
 } from '@/actions/database/cinematographer-database';
 import { Json } from '@/types/database';
-import type { StartingShotAspectRatio } from '@/types/cinematographer';
+import type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 
-// Type re-export only (constants should be imported directly from @/types/cinematographer in client components)
-export type { StartingShotAspectRatio };
+// Re-export types for consumers (import from @/types/cinematographer for client components)
+export type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse };
 
 // Request/Response types for Starting Shot (First Frame Image Generation)
 export interface StartingShotRequest {
@@ -46,46 +46,8 @@ export interface StartingShotResponse {
   error?: string;
 }
 
-// Request/Response types for the AI Cinematographer
-export interface CinematographerRequest {
-  prompt: string;
-  reference_image?: File | null; // Optional for LTX-2-Fast (text-to-video supported)
-  reference_image_url?: string; // URL of a reference image (e.g., from Starting Shot)
-  duration?: number; // Duration in seconds (model-specific ranges)
-  resolution?: '720p' | '1080p' | '2k' | '4k'; // Video resolution
-  generate_audio?: boolean; // Enable AI audio generation (default: true)
-  workflow_intent: 'generate' | 'audio_add';
-  audio_file?: File | null;
-  user_id: string;
-  // Model selection
-  model?: 'fast' | 'pro'; // 'fast' = LTX-2-Fast, 'pro' = Seedance 1.5 Pro
-  // Pro model specific options
-  aspect_ratio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | '9:21';
-  last_frame_image?: File | null; // Ending frame for Pro model
-  last_frame_image_url?: string; // URL of ending frame
-  seed?: number; // Seed for reproducibility (Pro only)
-  camera_fixed?: boolean; // Lock camera movement (Pro only)
-  upscale?: boolean; // Upscale 720p to 1080p (Pro only)
-}
-
-export interface CinematographerResponse {
-  success: boolean;
-  video?: {
-    id: string;
-    video_url: string;
-    thumbnail_url?: string;
-    duration: number;
-    resolution: string;
-    prompt: string;
-    created_at: string;
-  };
-  batch_id: string;
-  generation_time_ms: number;
-  credits_used: number;
-  remaining_credits: number;
-  warnings?: string[];
-  error?: string;
-}
+// CinematographerRequest and CinematographerResponse types are now in @/types/cinematographer
+// and re-exported above for backwards compatibility
 
 /**
  * AI Cinematographer - Single orchestrator replacing 7 legacy edge functions

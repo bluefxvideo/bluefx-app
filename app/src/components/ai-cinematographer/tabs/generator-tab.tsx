@@ -8,11 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Video, Volume2, X, Image, Zap, Sparkles, Lock, Mic } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
-import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio } from '@/types/cinematographer';
+import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, CinematographerRequest } from '@/types/cinematographer';
 
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
