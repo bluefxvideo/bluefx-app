@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { UserPlus, Loader2, CheckCircle, AlertCircle, RefreshCw, Copy } from 'lucide-react'
-import { createUserWithAdminAPI } from '@/actions/auth'
 
 // Password generation utility
 function generateSecurePassword(length = 12): string {
@@ -80,24 +79,29 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
     setMessage(null)
 
     try {
-      // Create user via Admin API
-      const result = await createUserWithAdminAPI({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          email_verified: true,
-          phone_verified: false,
-          full_name: formData.full_name
-        },
-        app_metadata: {
-          provider: 'email',
-          providers: ['email'],
-          plan_type: 'pro'
-        }
+      // Create user via Admin API route
+      const authResult = await fetch('/api/admin/create-auth-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          user_metadata: {
+            email_verified: true,
+            phone_verified: false,
+            full_name: formData.full_name
+          },
+          app_metadata: {
+            provider: 'email',
+            providers: ['email'],
+            plan_type: 'pro'
+          }
+        })
       })
 
-      if (!result.success) {
+      const result = await authResult.json()
+
+      if (!authResult.ok || !result.success) {
         setMessage({ type: 'error', text: result.error || 'Failed to create auth user' })
         return
       }
