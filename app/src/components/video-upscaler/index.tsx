@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Maximize2, Sparkles, Upload, Loader2, Video, CheckCircle, AlertCircle } from 'lucide-react';
-import { useCredits } from '@/hooks/use-credits';
+import { useCredits } from '@/hooks/useCredits';
 import { executeVideoUpscale, UpscaleResolution } from '@/actions/tools/video-upscaler';
-import { useUser } from '@/hooks/use-user';
+import { createClient } from '@/app/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 interface UpscaleJob {
   id: string;
@@ -21,8 +22,19 @@ interface UpscaleJob {
 }
 
 export function VideoUpscaler() {
-  const { user } = useUser();
+  const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null);
   const { credits, isLoading: isLoadingCredits } = useCredits();
+  const availableCredits = credits?.available_credits ?? 0;
+
+  // Get current user on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+  }, [supabase]);
   const [videoUrl, setVideoUrl] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [targetResolution, setTargetResolution] = useState<UpscaleResolution>('1080p');
@@ -92,8 +104,8 @@ export function VideoUpscaler() {
       return;
     }
 
-    if (credits < estimatedCredits) {
-      setError(`Insufficient credits. You need ${estimatedCredits} credits but have ${credits}.`);
+    if (availableCredits < estimatedCredits) {
+      setError(`Insufficient credits. You need ${estimatedCredits} credits but have ${availableCredits}.`);
       return;
     }
 
@@ -277,8 +289,8 @@ export function VideoUpscaler() {
             </div>
             <div className="flex justify-between text-sm">
               <span>Your Balance:</span>
-              <span className={`font-medium ${credits < estimatedCredits ? 'text-red-500' : ''}`}>
-                {isLoadingCredits ? '...' : `${credits} credits`}
+              <span className={`font-medium ${availableCredits < estimatedCredits ? 'text-red-500' : ''}`}>
+                {isLoadingCredits ? '...' : `${availableCredits} credits`}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -320,7 +332,7 @@ export function VideoUpscaler() {
           {/* Submit Button */}
           <Button
             onClick={handleUpscale}
-            disabled={isProcessing || (!videoUrl && !videoFile) || credits < estimatedCredits}
+            disabled={isProcessing || (!videoUrl && !videoFile) || availableCredits < estimatedCredits}
             className="w-full"
             size="lg"
           >
