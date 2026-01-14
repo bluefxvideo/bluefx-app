@@ -1,6 +1,8 @@
 'use server';
 
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
+import { createSeedancePrediction, type SeedanceAspectRatio, type SeedanceDuration } from '@/actions/models/video-generation-seedance';
+import { createVideoUpscalePrediction } from '@/actions/models/video-upscale';
 import { generateImage } from '@/actions/models/image-generation-nano-banana';
 import { generateImageWithPro } from '@/actions/models/image-generation-nano-banana-pro';
 import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
@@ -48,12 +50,21 @@ export interface CinematographerRequest {
   prompt: string;
   reference_image?: File | null; // Optional for LTX-2-Fast (text-to-video supported)
   reference_image_url?: string; // URL of a reference image (e.g., from Starting Shot)
-  duration?: 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20; // LTX-2-Fast durations
-  resolution?: '1080p' | '2k' | '4k'; // Video resolution (default: 1080p)
+  duration?: number; // Duration in seconds (model-specific ranges)
+  resolution?: '720p' | '1080p' | '2k' | '4k'; // Video resolution
   generate_audio?: boolean; // Enable AI audio generation (default: true)
   workflow_intent: 'generate' | 'audio_add';
   audio_file?: File | null;
   user_id: string;
+  // Model selection
+  model?: 'fast' | 'pro'; // 'fast' = LTX-2-Fast, 'pro' = Seedance 1.5 Pro
+  // Pro model specific options
+  aspect_ratio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | '9:21';
+  last_frame_image?: File | null; // Ending frame for Pro model
+  last_frame_image_url?: string; // URL of ending frame
+  seed?: number; // Seed for reproducibility (Pro only)
+  camera_fixed?: boolean; // Lock camera movement (Pro only)
+  upscale?: boolean; // Upscale 720p to 1080p (Pro only)
 }
 
 export interface CinematographerResponse {
@@ -185,9 +196,52 @@ export async function executeAICinematographer(
       }
     }
 
+    // Handle last frame image upload (Pro model only)
+    let lastFrameImageUrl: string | undefined;
+    if (request.model === 'pro') {
+      if (request.last_frame_image_url) {
+        lastFrameImageUrl = request.last_frame_image_url;
+        console.log('📸 Using last frame image URL:', lastFrameImageUrl);
+      } else if (request.last_frame_image) {
+        try {
+          console.log('📸 Starting last frame image upload:', {
+            fileName: request.last_frame_image.name,
+            fileSize: request.last_frame_image.size,
+            fileType: request.last_frame_image.type,
+            batch_id
+          });
+
+          const fileExtension = request.last_frame_image.name.split('.').pop() || 'jpg';
+          const safeFilename = `${batch_id}_last_frame.${fileExtension}`;
+
+          const uploadResult = await uploadImageToStorage(
+            request.last_frame_image,
+            {
+              bucket: 'images',
+              folder: 'cinematographer',
+              filename: safeFilename,
+              contentType: request.last_frame_image.type || 'image/jpeg',
+            }
+          );
+
+          if (!uploadResult.success) {
+            console.error('Last frame upload failed with error:', uploadResult.error);
+            throw new Error(uploadResult.error || 'Upload failed');
+          }
+
+          lastFrameImageUrl = uploadResult.url;
+          console.log('📸 Last frame image uploaded successfully:', lastFrameImageUrl);
+        } catch (error) {
+          console.error('Last frame image upload failed:', error);
+          // Don't fail the entire request, just continue without last frame
+          console.warn('Continuing without last frame image');
+        }
+      }
+    }
+
     // Handle different workflow intents
     if (request.workflow_intent === 'generate') {
-      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total, creditCheck.credits || 0);
+      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total, creditCheck.credits || 0, lastFrameImageUrl);
     } else if (request.workflow_intent === 'audio_add') {
       return await handleAudioIntegration(request, batch_id, startTime, creditCosts.total);
     }
@@ -216,6 +270,7 @@ export async function executeAICinematographer(
 
 /**
  * Handle video generation workflow
+ * Supports both Fast (LTX-2-Fast) and Pro (Seedance 1.5 Pro) models
  */
 async function handleVideoGeneration(
   request: CinematographerRequest,
@@ -223,36 +278,67 @@ async function handleVideoGeneration(
   startTime: number,
   referenceImageUrl: string | undefined,
   creditCost: number,
-  currentCredits: number
+  currentCredits: number,
+  lastFrameImageUrl?: string
 ): Promise<CinematographerResponse> {
   try {
-    // Create video generation prediction using LTX-2-Fast
+    const model = request.model || 'fast';
+    const modelVersion = model === 'fast' ? 'ltx-2-fast' : 'seedance-1.5-pro';
+
+    // Create video generation prediction based on model selection
     let prediction;
     try {
-      console.log('🎬 Attempting to create LTX-2-Fast prediction...');
-      prediction = await createVideoGenerationPrediction({
-        prompt: request.prompt,
-        image: referenceImageUrl, // Optional for LTX-2-Fast (text-to-video supported)
-        duration: request.duration || 6,
-        resolution: request.resolution || '1080p',
-        generate_audio: request.generate_audio !== false, // Default to true
-        webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai` // For status updates
-      });
-      
+      if (model === 'fast') {
+        // LTX-2-Fast model
+        console.log('🎬 Attempting to create LTX-2-Fast prediction...');
+
+        // Validate duration for Fast model (6, 8, 10, 12, 14, 16, 18, 20)
+        const fastDuration = (request.duration || 6) as 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20;
+        const fastResolution = (request.resolution || '1080p') as '1080p' | '2k' | '4k';
+
+        prediction = await createVideoGenerationPrediction({
+          prompt: request.prompt,
+          image: referenceImageUrl,
+          duration: fastDuration,
+          resolution: fastResolution,
+          generate_audio: request.generate_audio !== false,
+          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+        });
+      } else {
+        // Seedance 1.5 Pro model
+        console.log('🎬 Attempting to create Seedance 1.5 Pro prediction...');
+
+        // Validate duration for Pro model (2-12)
+        const proDuration = Math.max(2, Math.min(12, request.duration || 5)) as SeedanceDuration;
+        const proAspectRatio = (request.aspect_ratio || '16:9') as SeedanceAspectRatio;
+
+        prediction = await createSeedancePrediction({
+          prompt: request.prompt,
+          image: referenceImageUrl,
+          last_frame_image: lastFrameImageUrl,
+          duration: proDuration,
+          aspect_ratio: proAspectRatio,
+          seed: request.seed,
+          camera_fixed: request.camera_fixed,
+          generate_audio: request.generate_audio !== false,
+          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+        });
+      }
+
       // Validate prediction response
       if (!prediction || !prediction.id) {
         throw new Error('Invalid prediction response: missing prediction ID');
       }
-      
-      console.log('✅ Replicate prediction created successfully:', prediction.id);
+
+      console.log(`✅ ${modelVersion} prediction created successfully:`, prediction.id);
     } catch (error) {
       console.error('❌ Replicate prediction creation failed:', error);
       console.error('❌ Error type:', typeof error);
       console.error('❌ Error details:', JSON.stringify(error, null, 2));
-      
+
       // Handle content moderation failures (E005) and other Replicate errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown prediction error';
-      
+
       // Check for common content moderation patterns
       if (errorMessage.includes('flagged') || errorMessage.includes('sensitive') || errorMessage.includes('E005')) {
         return {
@@ -264,7 +350,7 @@ async function handleVideoGeneration(
           remaining_credits: currentCredits,
         };
       }
-      
+
       return {
         success: false,
         error: `Video generation failed: ${errorMessage}`,
@@ -289,20 +375,31 @@ async function handleVideoGeneration(
     }
 
     // Create prediction tracking record
+    const effectiveDuration = model === 'fast' ? (request.duration || 6) : Math.max(2, Math.min(12, request.duration || 5));
+    const effectiveResolution = model === 'fast' ? (request.resolution || '1080p') : (request.upscale ? '1080p' : '720p');
+
     try {
       await createPredictionRecord({
         prediction_id: prediction.id,
         user_id: request.user_id,
         tool_id: 'ai-cinematographer',
         service_id: 'replicate',
-        model_version: 'ltx-2-fast',
+        model_version: modelVersion,
         status: 'planning',
         input_data: {
           prompt: request.prompt,
-          duration: request.duration || 6,
-          resolution: request.resolution || '1080p',
+          model,
+          duration: effectiveDuration,
+          resolution: effectiveResolution,
           generate_audio: request.generate_audio !== false,
-          reference_image: referenceImageUrl
+          reference_image: referenceImageUrl,
+          ...(model === 'pro' && {
+            aspect_ratio: request.aspect_ratio || '16:9',
+            last_frame_image: lastFrameImageUrl,
+            seed: request.seed,
+            camera_fixed: request.camera_fixed,
+            upscale: request.upscale,
+          })
         } as Json,
       });
     } catch (error) {
@@ -314,17 +411,26 @@ async function handleVideoGeneration(
     const storeResult = await storeCinematographerResults({
       user_id: request.user_id,
       video_concept: request.prompt,
-      project_name: `Video Generation - ${new Date().toISOString()}`,
+      project_name: `${model === 'pro' ? 'Pro' : 'Fast'} Video - ${new Date().toISOString()}`,
       batch_id,
-      duration: request.duration || 6,
-      resolution: request.resolution || '1080p',
+      duration: effectiveDuration,
+      resolution: effectiveResolution,
       settings: {
         prediction_id: prediction.id,
+        model,
         reference_image: referenceImageUrl,
         generation_params: {
-          duration: request.duration || 6,
-          resolution: request.resolution || '1080p',
-          generate_audio: request.generate_audio !== false
+          model,
+          duration: effectiveDuration,
+          resolution: effectiveResolution,
+          generate_audio: request.generate_audio !== false,
+          ...(model === 'pro' && {
+            aspect_ratio: request.aspect_ratio || '16:9',
+            last_frame_image: lastFrameImageUrl,
+            seed: request.seed,
+            camera_fixed: request.camera_fixed,
+            upscale: request.upscale,
+          })
         }
       } as Json,
       status: 'shooting'
@@ -346,7 +452,7 @@ async function handleVideoGeneration(
       request.user_id,
       creditCost,
       'video-generation',
-      { batch_id, video_concept: request.prompt, workflow: 'generate' } as Json
+      { batch_id, video_concept: request.prompt, workflow: 'generate', model } as Json
     );
 
     if (!creditDeduction.success) {
@@ -358,10 +464,10 @@ async function handleVideoGeneration(
     await recordCinematographerMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'ltx-2-fast',
+      model_version: modelVersion,
       video_concept: request.prompt,
-      duration: request.duration || 6,
-      resolution: request.resolution || '1080p',
+      duration: effectiveDuration,
+      resolution: effectiveResolution,
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,
       workflow_type: 'generate',
@@ -375,8 +481,8 @@ async function handleVideoGeneration(
         id: batch_id,
         video_url: '', // Will be updated via webhook when complete
         thumbnail_url: undefined,
-        duration: request.duration || 6,
-        resolution: request.resolution || '1080p',
+        duration: effectiveDuration,
+        resolution: effectiveResolution,
         prompt: request.prompt,
         created_at: new Date().toISOString(),
       },
@@ -384,7 +490,7 @@ async function handleVideoGeneration(
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,
       remaining_credits: creditDeduction.remainingCredits || 0,
-      warnings: undefined,
+      warnings: request.upscale ? ['Video will be upscaled from 720p to 1080p after generation'] : undefined,
     };
 
   } catch (error) {
@@ -427,32 +533,46 @@ async function handleAudioIntegration(
 
 /**
  * Calculate credit costs for cinematographer operations
- * LTX-2-Fast pricing: credits per second × duration
+ *
+ * Fast Mode (LTX-2-Fast) pricing:
  * - 1080p: 1 credit/second (100 x 6s videos with 600 credits)
  * - 2k: 2 credits/second
  * - 4k: 4 credits/second
+ *
+ * Pro Mode (Seedance 1.5 Pro) pricing:
+ * - 720p: 2 credits/second (2x Fast mode)
+ * - 1080p (upscaled): 3 credits/second (+1 for upscale)
  */
 function calculateCinematographerCreditCost(request: CinematographerRequest) {
   let baseCost = 0;
+  const model = request.model || 'fast';
 
   if (request.workflow_intent === 'generate') {
-    const duration = request.duration || 6;
-    const resolution = request.resolution || '1080p';
+    const duration = request.duration || (model === 'fast' ? 6 : 4);
+    const resolution = request.resolution || (model === 'fast' ? '1080p' : '720p');
 
-    // Credits per second based on resolution
-    const creditsPerSecond = resolution === '4k' ? 4 : resolution === '2k' ? 2 : 1;
-    baseCost = duration * creditsPerSecond;
+    if (model === 'fast') {
+      // Fast mode: 1/2/4 credits per second based on resolution
+      const creditsPerSecond = resolution === '4k' ? 4 : resolution === '2k' ? 2 : 1;
+      baseCost = duration * creditsPerSecond;
+    } else {
+      // Pro mode: 2 credits/sec base, +1 if upscaling to 1080p
+      const baseCreditsPerSecond = 2;
+      const upscaleBonus = request.upscale ? 1 : 0;
+      baseCost = duration * (baseCreditsPerSecond + upscaleBonus);
+    }
 
   } else if (request.workflow_intent === 'audio_add') {
-    baseCost = 4; // Audio integration cost (not typically needed with LTX-2-Fast built-in audio)
+    baseCost = 4; // Audio integration cost
   }
 
   const total = baseCost;
 
   return {
     base: baseCost,
-    duration_seconds: request.duration || 6,
-    resolution: request.resolution || '1080p',
+    model,
+    duration_seconds: request.duration || (model === 'fast' ? 6 : 4),
+    resolution: request.resolution || (model === 'fast' ? '1080p' : '720p'),
     total,
     breakdown: {
       video_generation: request.workflow_intent === 'generate' ? total : 0,
