@@ -130,6 +130,14 @@ export function useAICinematographer() {
     setResult(placeholderResult);
 
     try {
+      // Debug: Log the request being sent
+      console.log('🎥 Sending to executeAICinematographer:', {
+        ...request,
+        user_id: user.id,
+        reference_image: request.reference_image ? `File: ${request.reference_image.name} (${request.reference_image.size} bytes)` : undefined,
+        last_frame_image: request.last_frame_image ? `File: ${request.last_frame_image.name} (${request.last_frame_image.size} bytes)` : undefined,
+      });
+
       const response = await executeAICinematographer({
         ...request,
         user_id: user.id,
