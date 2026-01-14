@@ -184,7 +184,7 @@ export function GeneratorTab({
           >
             <Sparkles className="w-4 h-4" />
             <span className="font-medium">Pro</span>
-            <span className="text-xs opacity-70 hidden sm:inline">2-12s • Lip Sync</span>
+            <span className="text-xs opacity-70 hidden sm:inline">5-10s • Higher Quality</span>
           </Button>
         </div>
 
@@ -192,13 +192,14 @@ export function GeneratorTab({
         <div className="text-xs text-muted-foreground mb-4 p-2 rounded bg-muted/30">
           {formData.model === 'fast' ? (
             <>
-              <strong>Fast Mode:</strong> Quick generation (15-30s), longer videos up to 20s, 1080p/2K/4K resolutions.
-              Best for landscapes, abstract, and fast turnaround.
+              <strong>Fast Mode:</strong> Quick generation (15-30s wait), longer videos up to 20s, 1080p/2K/4K resolutions.
+              Good for landscapes, abstract scenes, and fast turnaround. Has basic lip sync support.
             </>
           ) : (
             <>
-              <strong>Pro Mode:</strong> Higher quality, lip sync support, singing mode, first & last frame control,
-              seed for reproducibility. 2-12s duration at 720p (upscalable to 1080p). 2x credit cost.
+              <strong>Pro Mode:</strong> Higher quality output, enhanced lip sync, singing mode with audio sync,
+              first & last frame control, seed for reproducibility. 5-10s duration at 720p (upscalable to 1080p).
+              Slower generation but better results for people and complex motion. 2x credit cost.
             </>
           )}
         </div>

@@ -308,8 +308,8 @@ async function handleVideoGeneration(
         // Seedance 1.5 Pro model
         console.log('🎬 Attempting to create Seedance 1.5 Pro prediction...');
 
-        // Validate duration for Pro model (2-12)
-        const proDuration = Math.max(2, Math.min(12, request.duration || 5)) as SeedanceDuration;
+        // Validate duration for Pro model (5-10 seconds)
+        const proDuration = Math.max(5, Math.min(10, request.duration || 5)) as SeedanceDuration;
         const proAspectRatio = (request.aspect_ratio || '16:9') as SeedanceAspectRatio;
 
         prediction = await createSeedancePrediction({
@@ -375,7 +375,7 @@ async function handleVideoGeneration(
     }
 
     // Create prediction tracking record
-    const effectiveDuration = model === 'fast' ? (request.duration || 6) : Math.max(2, Math.min(12, request.duration || 5));
+    const effectiveDuration = model === 'fast' ? (request.duration || 6) : Math.max(5, Math.min(10, request.duration || 5));
     const effectiveResolution = model === 'fast' ? (request.resolution || '1080p') : (request.upscale ? '1080p' : '720p');
 
     try {
@@ -548,7 +548,8 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
   const model = request.model || 'fast';
 
   if (request.workflow_intent === 'generate') {
-    const duration = request.duration || (model === 'fast' ? 6 : 4);
+    // Pro model: 5-10 seconds, Fast model: 6-20 seconds
+    const duration = request.duration || (model === 'fast' ? 6 : 5);
     const resolution = request.resolution || (model === 'fast' ? '1080p' : '720p');
 
     if (model === 'fast') {
@@ -571,7 +572,7 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
   return {
     base: baseCost,
     model,
-    duration_seconds: request.duration || (model === 'fast' ? 6 : 4),
+    duration_seconds: request.duration || (model === 'fast' ? 6 : 5),
     resolution: request.resolution || (model === 'fast' ? '1080p' : '720p'),
     total,
     breakdown: {

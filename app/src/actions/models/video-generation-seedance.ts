@@ -4,28 +4,28 @@
  * Seedance 1.5 Pro Video Generation Model
  * Model: bytedance/seedance-1.5-pro
  * Base URL: https://api.replicate.com/v1
- * Description: High-quality video generation with lip sync, singing, first/last frame control
+ * Description: High-quality video generation with enhanced lip sync, singing, first/last frame control
  *
  * Key Features:
  * - Text-to-video (no reference image required)
  * - Image-to-video (optional first frame image)
  * - Last frame image support (for scene transitions)
- * - Built-in AI audio generation with lip sync
- * - Singing capability
- * - Seed control for consistency
+ * - Built-in AI audio generation with enhanced lip sync
+ * - Singing capability with audio synchronization
+ * - Seed control for reproducibility
  * - Multiple aspect ratios: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9, 9:21
- * - Durations: 2-12 seconds
+ * - Durations: 5-10 seconds (validated by Replicate API)
  * - Resolution: 1280x720 (720p)
  */
 
 export type SeedanceAspectRatio = '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | '9:21';
-export type SeedanceDuration = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+export type SeedanceDuration = 5 | 6 | 7 | 8 | 9 | 10;
 
 interface SeedanceVideoInput {
   prompt: string; // Text prompt for video generation (required)
   image?: string; // Optional first frame image for image-to-video mode
   last_frame_image?: string; // Optional last frame image (requires first frame)
-  duration?: SeedanceDuration; // Duration in seconds (2-12, default: 5)
+  duration?: SeedanceDuration; // Duration in seconds (5-10, default: 5)
   aspect_ratio?: SeedanceAspectRatio; // Aspect ratio (default: 16:9)
   seed?: number | null; // Seed for reproducible generation
   camera_fixed?: boolean; // Lock camera position (default: false)
@@ -65,8 +65,8 @@ interface CreateSeedancePredictionParams {
   webhook?: string;
 }
 
-// Valid durations for Seedance 1.5 Pro (2-12 seconds)
-const VALID_SEEDANCE_DURATIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+// Valid durations for Seedance 1.5 Pro (5-10 seconds)
+const VALID_SEEDANCE_DURATIONS = [5, 6, 7, 8, 9, 10] as const;
 
 // Valid aspect ratios
 const VALID_ASPECT_RATIOS = ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', '9:21'] as const;
@@ -78,11 +78,12 @@ export async function createSeedancePrediction(
   params: CreateSeedancePredictionParams
 ): Promise<SeedanceVideoOutput> {
   try {
-    // Validate and normalize duration (2-12 seconds)
+    // Validate and normalize duration (5-10 seconds)
     let duration = params.duration || 5;
     if (!VALID_SEEDANCE_DURATIONS.includes(duration as typeof VALID_SEEDANCE_DURATIONS[number])) {
-      // Clamp to valid range
-      duration = Math.max(2, Math.min(12, Math.round(duration))) as SeedanceDuration;
+      // Clamp to valid range (5-10)
+      duration = Math.max(5, Math.min(10, Math.round(duration))) as SeedanceDuration;
+      console.log(`⚠️ Duration adjusted to valid range: ${duration}s`);
     }
 
     // Validate aspect ratio

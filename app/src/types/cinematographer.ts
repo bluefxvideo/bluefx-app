@@ -38,6 +38,7 @@ export const VIDEO_MODEL_CONFIG = {
       firstFrame: true,
       lastFrame: false,
       seed: false,
+      lipSync: true, // Basic lip sync support
       singing: false,
       upscale: false,
     },
@@ -45,11 +46,11 @@ export const VIDEO_MODEL_CONFIG = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    description: 'Better quality, lip sync, singing, frame control',
+    description: 'Higher quality, better lip sync, singing, frame control',
     model: 'bytedance/seedance-1.5-pro',
-    maxDuration: 12,
-    minDuration: 2,
-    durations: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const,
+    maxDuration: 10,
+    minDuration: 5,
+    durations: [5, 6, 7, 8, 9, 10] as const, // Valid range: 5-10 seconds
     resolutions: ['720p'] as const, // Base resolution, can be upscaled
     aspectRatios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', '9:21'] as const,
     creditsPerSecond: {
@@ -60,7 +61,8 @@ export const VIDEO_MODEL_CONFIG = {
       firstFrame: true,
       lastFrame: true,
       seed: true,
-      singing: true,
+      lipSync: true, // Enhanced lip sync with audio generation
+      singing: true, // Singing mode support
       upscale: true,
     },
   },
