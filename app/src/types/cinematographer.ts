@@ -84,6 +84,7 @@ export interface CinematographerRequest {
   prompt: string;
   reference_image?: File | null; // Optional for LTX-2-Fast (text-to-video supported)
   reference_image_url?: string; // URL of a reference image (e.g., from Starting Shot)
+  reference_image_base64?: string; // Base64 encoded image (alternative to File for reliable serialization)
   duration?: number; // Duration in seconds (model-specific ranges)
   resolution?: '720p' | '1080p' | '2k' | '4k'; // Video resolution
   generate_audio?: boolean; // Enable AI audio generation (default: true)
@@ -96,6 +97,7 @@ export interface CinematographerRequest {
   aspect_ratio?: ProAspectRatio;
   last_frame_image?: File | null; // Ending frame for Pro model
   last_frame_image_url?: string; // URL of ending frame
+  last_frame_image_base64?: string; // Base64 encoded last frame (alternative to File)
   seed?: number; // Seed for reproducibility (Pro only)
   camera_fixed?: boolean; // Lock camera movement (Pro only)
   upscale?: boolean; // Upscale 720p to 1080p (Pro only)

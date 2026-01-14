@@ -80,10 +80,12 @@ export async function executeAICinematographer(
     model: request.model,
     duration: request.duration,
     resolution: request.resolution,
-    hasReferenceImage: !!request.reference_image,
+    hasReferenceImageBase64: !!request.reference_image_base64,
     hasReferenceImageUrl: !!request.reference_image_url,
-    hasLastFrameImage: !!request.last_frame_image,
+    hasReferenceImageFile: !!request.reference_image,
+    hasLastFrameImageBase64: !!request.last_frame_image_base64,
     hasLastFrameImageUrl: !!request.last_frame_image_url,
+    hasLastFrameImageFile: !!request.last_frame_image,
     workflow_intent: request.workflow_intent,
   });
 
@@ -122,11 +124,48 @@ export async function executeAICinematographer(
 
     let referenceImageUrl: string | undefined;
 
-    // Use reference image URL if provided (from Starting Shot), otherwise upload file
+    // Use reference image URL if provided (from Starting Shot), otherwise upload from base64 or file
     if (request.reference_image_url) {
       referenceImageUrl = request.reference_image_url;
       console.log('📸 Using reference image URL from Starting Shot:', referenceImageUrl);
+    } else if (request.reference_image_base64) {
+      // Handle base64 encoded image (preferred method for reliable serialization)
+      try {
+        console.log('📸 Starting reference image upload from base64...');
+        const safeFilename = `${batch_id}_reference.jpg`;
+
+        const uploadResult = await uploadImageToStorage(
+          request.reference_image_base64,
+          {
+            bucket: 'images',
+            folder: 'cinematographer',
+            filename: safeFilename,
+          }
+        );
+
+        console.log('📸 Upload result:', uploadResult);
+
+        if (!uploadResult.success) {
+          console.error('Upload failed with error:', uploadResult.error);
+          throw new Error(uploadResult.error || 'Upload failed');
+        }
+
+        referenceImageUrl = uploadResult.url;
+        console.log('📸 Reference image uploaded successfully:', referenceImageUrl);
+      } catch (error) {
+        console.error('Reference image upload failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown upload error';
+        return {
+          success: false,
+          error: `Failed to upload reference image: ${errorMessage}`,
+          batch_id,
+          generation_time_ms: Date.now() - startTime,
+          credits_used: 0,
+          remaining_credits: creditCheck.credits || 0,
+        };
+      }
     } else if (request.reference_image) {
+      // Legacy fallback: Handle File object directly (may not work reliably across server action boundaries)
       try {
         // Safely access file properties (File object may be serialized differently in server actions)
         const refImage = request.reference_image as File | { name?: string; size?: number; type?: string };
@@ -134,7 +173,7 @@ export async function executeAICinematographer(
         const fileSize = refImage.size || 0;
         const fileType = refImage.type || 'image/jpeg';
 
-        console.log('📸 Starting reference image upload:', {
+        console.log('📸 Starting reference image upload (File object):', {
           fileName,
           fileSize,
           fileType,
@@ -154,14 +193,14 @@ export async function executeAICinematographer(
             contentType: fileType,
           }
         );
-        
+
         console.log('📸 Upload result:', uploadResult);
-        
+
         if (!uploadResult.success) {
           console.error('Upload failed with error:', uploadResult.error);
           throw new Error(uploadResult.error || 'Upload failed');
         }
-        
+
         referenceImageUrl = uploadResult.url;
         console.log('📸 Reference image uploaded successfully:', referenceImageUrl);
       } catch (error) {
@@ -184,7 +223,35 @@ export async function executeAICinematographer(
       if (request.last_frame_image_url) {
         lastFrameImageUrl = request.last_frame_image_url;
         console.log('📸 Using last frame image URL:', lastFrameImageUrl);
+      } else if (request.last_frame_image_base64) {
+        // Handle base64 encoded last frame (preferred method for reliable serialization)
+        try {
+          console.log('📸 Starting last frame image upload from base64...');
+          const safeFilename = `${batch_id}_last_frame.jpg`;
+
+          const uploadResult = await uploadImageToStorage(
+            request.last_frame_image_base64,
+            {
+              bucket: 'images',
+              folder: 'cinematographer',
+              filename: safeFilename,
+            }
+          );
+
+          if (!uploadResult.success) {
+            console.error('Last frame upload failed with error:', uploadResult.error);
+            throw new Error(uploadResult.error || 'Upload failed');
+          }
+
+          lastFrameImageUrl = uploadResult.url;
+          console.log('📸 Last frame image uploaded successfully:', lastFrameImageUrl);
+        } catch (error) {
+          console.error('Last frame image upload failed:', error);
+          // Don't fail the entire request, just continue without last frame
+          console.warn('Continuing without last frame image');
+        }
       } else if (request.last_frame_image) {
+        // Legacy fallback: Handle File object directly
         try {
           // Safely access file properties (File object may be serialized differently in server actions)
           const lastImage = request.last_frame_image as File | { name?: string; size?: number; type?: string };
@@ -192,7 +259,7 @@ export async function executeAICinematographer(
           const fileSize = lastImage.size || 0;
           const fileType = lastImage.type || 'image/jpeg';
 
-          console.log('📸 Starting last frame image upload:', {
+          console.log('📸 Starting last frame image upload (File object):', {
             fileName,
             fileSize,
             fileType,

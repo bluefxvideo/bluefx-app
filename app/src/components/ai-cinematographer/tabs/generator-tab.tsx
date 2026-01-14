@@ -112,12 +112,39 @@ export function GeneratorTab({
     }));
   };
 
-  const handleSubmit = () => {
+  // Helper to convert File to base64 data URL
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSubmit = async () => {
     if (!formData.prompt?.trim()) return;
+
+    // Convert files to base64 for reliable server action serialization
+    let referenceImageBase64: string | undefined;
+    let lastFrameImageBase64: string | undefined;
+
+    try {
+      if (formData.reference_image) {
+        referenceImageBase64 = await fileToBase64(formData.reference_image);
+      }
+      if (formData.model === 'pro' && formData.last_frame_image) {
+        lastFrameImageBase64 = await fileToBase64(formData.last_frame_image);
+      }
+    } catch (err) {
+      console.error('Failed to convert image to base64:', err);
+      return;
+    }
 
     onGenerate({
       prompt: formData.prompt,
-      reference_image: formData.reference_image || undefined,
+      // Pass base64 instead of File for reliable serialization
+      reference_image_base64: referenceImageBase64,
       reference_image_url: usingPendingImage ? pendingImageUrl : undefined,
       duration: formData.duration as any,
       resolution: formData.resolution as any,
@@ -127,7 +154,7 @@ export function GeneratorTab({
       // Pro model specific fields
       model: formData.model,
       aspect_ratio: formData.model === 'pro' ? formData.aspect_ratio : undefined,
-      last_frame_image: formData.model === 'pro' ? formData.last_frame_image || undefined : undefined,
+      last_frame_image_base64: lastFrameImageBase64,
       seed: formData.model === 'pro' && formData.seed ? parseInt(formData.seed) : undefined,
       camera_fixed: formData.model === 'pro' ? formData.camera_fixed : undefined,
       upscale: formData.model === 'pro' ? formData.upscale : undefined,
