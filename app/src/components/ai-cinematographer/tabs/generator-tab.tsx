@@ -116,23 +116,41 @@ export function GeneratorTab({
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
 
-    onGenerate({
+    // Build base request
+    const request: any = {
       prompt: formData.prompt,
-      reference_image: formData.reference_image || undefined,
-      reference_image_url: usingPendingImage ? pendingImageUrl : undefined,
-      duration: formData.duration as any,
-      resolution: formData.resolution as any,
+      duration: formData.duration,
+      resolution: formData.resolution,
       generate_audio: formData.generate_audio,
       workflow_intent: 'generate',
-      user_id: '', // Will be set by the hook with real user ID
-      // Pro model specific fields
+      user_id: '',
       model: formData.model,
-      aspect_ratio: formData.model === 'pro' ? formData.aspect_ratio : undefined,
-      last_frame_image: formData.model === 'pro' ? formData.last_frame_image || undefined : undefined,
-      seed: formData.model === 'pro' && formData.seed ? parseInt(formData.seed) : undefined,
-      camera_fixed: formData.model === 'pro' ? formData.camera_fixed : undefined,
-      upscale: formData.model === 'pro' ? formData.upscale : undefined,
-    });
+    };
+
+    // Add reference image only if present
+    if (formData.reference_image) {
+      request.reference_image = formData.reference_image;
+    } else if (usingPendingImage && pendingImageUrl) {
+      request.reference_image_url = pendingImageUrl;
+    }
+
+    // Add Pro model specific fields only when in Pro mode
+    if (formData.model === 'pro') {
+      request.aspect_ratio = formData.aspect_ratio;
+      request.camera_fixed = formData.camera_fixed;
+      request.upscale = formData.upscale;
+
+      // Only add last_frame_image if actually present
+      if (formData.last_frame_image) {
+        request.last_frame_image = formData.last_frame_image;
+      }
+      // Only add seed if actually set
+      if (formData.seed) {
+        request.seed = parseInt(formData.seed);
+      }
+    }
+
+    onGenerate(request);
   };
 
   const handleImageUpload = (file: File | null) => {
