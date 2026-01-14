@@ -11,7 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
-import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, CinematographerRequest } from '@/types/cinematographer';
+import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
+import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio } from '@/types/cinematographer';
 
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
@@ -115,38 +116,23 @@ export function GeneratorTab({
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
 
-    // Build request object - only include fields with actual values
-    const request: CinematographerRequest = {
+    onGenerate({
       prompt: formData.prompt,
-      duration: formData.duration,
-      resolution: formData.resolution as '720p' | '1080p' | '2k' | '4k',
+      reference_image: formData.reference_image || undefined,
+      reference_image_url: usingPendingImage ? pendingImageUrl : undefined,
+      duration: formData.duration as any,
+      resolution: formData.resolution as any,
       generate_audio: formData.generate_audio,
       workflow_intent: 'generate',
       user_id: '', // Will be set by the hook with real user ID
+      // Pro model specific fields
       model: formData.model,
-    };
-
-    // Add reference image (File or URL)
-    if (formData.reference_image) {
-      request.reference_image = formData.reference_image;
-    } else if (usingPendingImage && pendingImageUrl) {
-      request.reference_image_url = pendingImageUrl;
-    }
-
-    // Add Pro model specific fields only when in Pro mode
-    if (formData.model === 'pro') {
-      request.aspect_ratio = formData.aspect_ratio;
-      if (formData.last_frame_image) {
-        request.last_frame_image = formData.last_frame_image;
-      }
-      if (formData.seed) {
-        request.seed = parseInt(formData.seed);
-      }
-      request.camera_fixed = formData.camera_fixed;
-      request.upscale = formData.upscale;
-    }
-
-    onGenerate(request);
+      aspect_ratio: formData.model === 'pro' ? formData.aspect_ratio : undefined,
+      last_frame_image: formData.model === 'pro' ? formData.last_frame_image || undefined : undefined,
+      seed: formData.model === 'pro' && formData.seed ? parseInt(formData.seed) : undefined,
+      camera_fixed: formData.model === 'pro' ? formData.camera_fixed : undefined,
+      upscale: formData.model === 'pro' ? formData.upscale : undefined,
+    });
   };
 
   const handleImageUpload = (file: File | null) => {

@@ -4,20 +4,19 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useCredits } from '@/hooks/useCredits';
-import type { CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 import {
   executeAICinematographer,
+  CinematographerRequest,
+  CinematographerResponse,
   executeStartingShot,
-  executeStoryboardGeneration,
-  executeFrameExtraction,
-  uploadGridImageToStorage,
-} from '@/actions/tools/ai-cinematographer';
-import type {
   StartingShotRequest,
   StartingShotResponse,
+  executeStoryboardGeneration,
+  executeFrameExtraction,
   StoryboardRequest,
   StoryboardResponse,
   ExtractedFrame,
+  uploadGridImageToStorage,
 } from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
