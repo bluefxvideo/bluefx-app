@@ -74,6 +74,18 @@ export async function POST(request: NextRequest) {
       console.log(`✅ Created profile for user ${email}`)
 
       // Create subscription based on payment type
+      const getSubscriptionId = () => {
+        switch (payment_type) {
+          case 'fastspring':
+            return `manual_fs_${user_id}_${Date.now()}`
+          case 'clickbank':
+            return `manual_cb_${user_id}_${Date.now()}`
+          case 'manual':
+          default:
+            return `manual_${user_id}_${Date.now()}`
+        }
+      }
+
       const subscriptionData = {
         user_id,
         plan_type: 'pro', // Always pro as requested
@@ -84,14 +96,7 @@ export async function POST(request: NextRequest) {
         max_concurrent_jobs: 5, // Pro plan gets 5 concurrent jobs
         created_at: currentTime,
         updated_at: currentTime,
-        // For now, use fastspring_subscription_id for both types until ClickBank fields are added
-        ...(payment_type === 'fastspring' ? {
-          fastspring_subscription_id: `manual_fs_${user_id}_${Date.now()}`
-        } : {
-          // For ClickBank, we'll store it in fastspring_subscription_id with a different prefix
-          // until proper ClickBank fields are added to the database
-          fastspring_subscription_id: `manual_cb_${user_id}_${Date.now()}`
-        })
+        fastspring_subscription_id: getSubscriptionId()
       }
 
       const { error: subscriptionError } = await adminClient

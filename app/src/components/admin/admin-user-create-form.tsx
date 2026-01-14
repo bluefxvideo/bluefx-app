@@ -50,7 +50,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
     password: '',
     username: '',
     full_name: '',
-    payment_type: 'clickbank' as 'fastspring' | 'clickbank',
+    payment_type: 'manual' as 'fastspring' | 'clickbank' | 'manual',
     credits: 600
   })
 
@@ -97,8 +97,8 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
         }
       })
 
-      if (result.error) {
-        setMessage({ type: 'error', text: result.error })
+      if (!result.success) {
+        setMessage({ type: 'error', text: result.error || 'Failed to create auth user' })
         return
       }
 
@@ -107,7 +107,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: result.data.id,
+          user_id: result.data!.id,
           email: formData.email,
           username: formData.username,
           full_name: formData.full_name,
@@ -141,7 +141,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
         password: '',
         username: '',
         full_name: '',
-        payment_type: 'clickbank',
+        payment_type: 'manual',
         credits: 600
       })
 
@@ -152,7 +152,8 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
 
     } catch (error) {
       console.error('User creation error:', error)
-      setMessage({ type: 'error', text: 'An unexpected error occurred' })
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+      setMessage({ type: 'error', text: errorMessage })
     } finally {
       setLoading(false)
     }
@@ -269,9 +270,9 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="payment_type">Payment Type</Label>
-                <Select 
-                  value={formData.payment_type} 
-                  onValueChange={(value: 'fastspring' | 'clickbank') => 
+                <Select
+                  value={formData.payment_type}
+                  onValueChange={(value: 'fastspring' | 'clickbank' | 'manual') =>
                     setFormData(prev => ({ ...prev, payment_type: value }))
                   }
                 >
@@ -279,6 +280,7 @@ export function AdminUserCreateForm({ onSuccess, onCancel }: AdminUserCreateForm
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="manual">Manual</SelectItem>
                     <SelectItem value="fastspring">FastSpring</SelectItem>
                     <SelectItem value="clickbank">ClickBank</SelectItem>
                   </SelectContent>
