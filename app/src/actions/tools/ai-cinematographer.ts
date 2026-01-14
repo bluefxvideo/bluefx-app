@@ -72,20 +72,30 @@ export interface StartingShotResponse {
 export async function executeAICinematographer(
   request: CinematographerRequest
 ): Promise<CinematographerResponse> {
+  console.log('🎬 SERVER ACTION ENTRY - executeAICinematographer');
   const startTime = Date.now();
 
-  // Log request info for debugging (without file contents)
-  console.log('🎬 executeAICinematographer called with:', {
-    prompt: request.prompt?.substring(0, 50) + '...',
-    model: request.model,
-    duration: request.duration,
-    resolution: request.resolution,
-    hasReferenceImage: !!request.reference_image,
-    hasReferenceImageUrl: !!request.reference_image_url,
-    hasLastFrameImage: !!request.last_frame_image,
-    hasLastFrameImageUrl: !!request.last_frame_image_url,
-    workflow_intent: request.workflow_intent,
-  });
+  // Safely log request info for debugging
+  try {
+    console.log('🎬 Request received:', {
+      prompt: typeof request.prompt === 'string' ? request.prompt?.substring(0, 50) + '...' : 'NO PROMPT',
+      model: request.model,
+      duration: request.duration,
+      resolution: request.resolution,
+      hasReferenceImage: !!request.reference_image,
+      referenceImageType: request.reference_image ? typeof request.reference_image : 'none',
+      hasReferenceImageUrl: !!request.reference_image_url,
+      hasLastFrameImage: !!request.last_frame_image,
+      hasLastFrameImageUrl: !!request.last_frame_image_url,
+      workflow_intent: request.workflow_intent,
+      aspect_ratio: request.aspect_ratio,
+      camera_fixed: request.camera_fixed,
+      upscale: request.upscale,
+      seed: request.seed,
+    });
+  } catch (logError) {
+    console.error('🎬 Error logging request:', logError);
+  }
 
   try {
     // Generate unique batch ID for this operation
