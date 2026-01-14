@@ -73,7 +73,20 @@ export async function executeAICinematographer(
   request: CinematographerRequest
 ): Promise<CinematographerResponse> {
   const startTime = Date.now();
-  
+
+  // Log request info for debugging (without file contents)
+  console.log('🎬 executeAICinematographer called with:', {
+    prompt: request.prompt?.substring(0, 50) + '...',
+    model: request.model,
+    duration: request.duration,
+    resolution: request.resolution,
+    hasReferenceImage: !!request.reference_image,
+    hasReferenceImageUrl: !!request.reference_image_url,
+    hasLastFrameImage: !!request.last_frame_image,
+    hasLastFrameImageUrl: !!request.last_frame_image_url,
+    workflow_intent: request.workflow_intent,
+  });
+
   try {
     // Generate unique batch ID for this operation
     const batch_id = crypto.randomUUID();
@@ -115,15 +128,21 @@ export async function executeAICinematographer(
       console.log('📸 Using reference image URL from Starting Shot:', referenceImageUrl);
     } else if (request.reference_image) {
       try {
+        // Safely access file properties (File object may be serialized differently in server actions)
+        const refImage = request.reference_image as File | { name?: string; size?: number; type?: string };
+        const fileName = refImage.name || 'upload.jpg';
+        const fileSize = refImage.size || 0;
+        const fileType = refImage.type || 'image/jpeg';
+
         console.log('📸 Starting reference image upload:', {
-          fileName: request.reference_image.name,
-          fileSize: request.reference_image.size,
-          fileType: request.reference_image.type,
+          fileName,
+          fileSize,
+          fileType,
           batch_id
         });
 
         // Ensure file extension handling is robust
-        const fileExtension = request.reference_image.name.split('.').pop() || 'jpg';
+        const fileExtension = fileName.split('.').pop() || 'jpg';
         const safeFilename = `${batch_id}_reference.${fileExtension}`;
 
         const uploadResult = await uploadImageToStorage(
@@ -132,7 +151,7 @@ export async function executeAICinematographer(
             bucket: 'images',
             folder: 'cinematographer',
             filename: safeFilename,
-            contentType: request.reference_image.type || 'image/jpeg',
+            contentType: fileType,
           }
         );
         
@@ -167,14 +186,20 @@ export async function executeAICinematographer(
         console.log('📸 Using last frame image URL:', lastFrameImageUrl);
       } else if (request.last_frame_image) {
         try {
+          // Safely access file properties (File object may be serialized differently in server actions)
+          const lastImage = request.last_frame_image as File | { name?: string; size?: number; type?: string };
+          const fileName = lastImage.name || 'last_frame.jpg';
+          const fileSize = lastImage.size || 0;
+          const fileType = lastImage.type || 'image/jpeg';
+
           console.log('📸 Starting last frame image upload:', {
-            fileName: request.last_frame_image.name,
-            fileSize: request.last_frame_image.size,
-            fileType: request.last_frame_image.type,
+            fileName,
+            fileSize,
+            fileType,
             batch_id
           });
 
-          const fileExtension = request.last_frame_image.name.split('.').pop() || 'jpg';
+          const fileExtension = fileName.split('.').pop() || 'jpg';
           const safeFilename = `${batch_id}_last_frame.${fileExtension}`;
 
           const uploadResult = await uploadImageToStorage(
@@ -183,7 +208,7 @@ export async function executeAICinematographer(
               bucket: 'images',
               folder: 'cinematographer',
               filename: safeFilename,
-              contentType: request.last_frame_image.type || 'image/jpeg',
+              contentType: fileType,
             }
           );
 
