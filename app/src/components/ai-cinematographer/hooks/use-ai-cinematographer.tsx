@@ -4,20 +4,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useCredits } from '@/hooks/useCredits';
+import type { CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 import {
   executeAICinematographer,
-  CinematographerRequest,
-  CinematographerResponse,
   executeStartingShot,
-  StartingShotRequest,
-  StartingShotResponse,
   executeStoryboardGeneration,
   executeFrameExtraction,
+  uploadGridImageToStorage,
+} from '@/actions/tools/ai-cinematographer';
+import type {
+  StartingShotRequest,
+  StartingShotResponse,
   StoryboardRequest,
   StoryboardResponse,
-  FrameExtractionRequest,
   ExtractedFrame,
-  uploadGridImageToStorage,
 } from '@/actions/tools/ai-cinematographer';
 import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
@@ -55,7 +55,7 @@ export function useAICinematographer() {
   }>>([]);
 
   // Use ref to track current result without causing subscription re-creation
-  const resultRef = useRef<CinematographerResponse | undefined>();
+  const resultRef = useRef<CinematographerResponse | undefined>(undefined);
   const isGeneratingRef = useRef<boolean>(false);
 
   // Update refs when state changes
@@ -391,6 +391,7 @@ export function useAICinematographer() {
           grid_image_url: uploadResult.grid_image_url,
           prompt: '[Uploaded Grid Image]',
           visual_style: 'custom',
+          frame_aspect_ratio: '16:9',
           created_at: new Date().toISOString(),
         },
         batch_id: uploadResult.grid_id || `uploaded_${Date.now()}`,
