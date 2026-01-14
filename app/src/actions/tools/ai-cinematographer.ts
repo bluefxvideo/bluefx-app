@@ -2,7 +2,8 @@
 
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { createSeedancePrediction, type SeedanceAspectRatio, type SeedanceDuration } from '@/actions/models/video-generation-seedance';
-import { createVideoUpscalePrediction } from '@/actions/models/video-upscale';
+// Note: createVideoUpscalePrediction will be used for Pro mode upscaling when video is complete
+// import { createVideoUpscalePrediction } from '@/actions/models/video-upscale';
 import { generateImage } from '@/actions/models/image-generation-nano-banana';
 import { generateImageWithPro } from '@/actions/models/image-generation-nano-banana-pro';
 import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
