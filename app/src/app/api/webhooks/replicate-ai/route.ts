@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { downloadAndUploadImage, downloadAndUploadVideo, downloadAndUploadAudio } from '@/actions/supabase-storage';
-import { 
-  updatePredictionRecord, 
+import {
+  updatePredictionRecord,
   updatePredictionRecordAdmin,
-  storeThumbnailResults, 
-  recordGenerationMetrics 
+  storeThumbnailResults,
+  recordGenerationMetrics
 } from '@/actions/database/thumbnail-database';
 import { updateCinematographerVideo } from '@/actions/database/cinematographer-database';
 import { storeLogoResults, recordLogoMetrics } from '@/actions/database/logo-database';
 import { updateMusicRecord } from '@/actions/database/music-database';
+import { createVideoUpscalePrediction } from '@/actions/models/video-upscale';
 // import { updateScriptVideoRecord } from '@/actions/database/script-video-database';
 import type { Json } from '@/types/database';
 
@@ -67,6 +68,9 @@ interface ReplicateInput {
   video?: string;
   character_image?: string;
   job_id?: string;
+  // Video Upscale (Topaz Labs) properties
+  target_resolution?: string;
+  target_fps?: number;
 }
 
 interface ReplicateWebhookPayload {
@@ -277,9 +281,19 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
   // Check for music-specific batch_id pattern
   const isMusicBatchId = analysis.batch_id && analysis.batch_id.startsWith('music_');
 
-  // IMPORTANT: Check Video Swap FIRST (before AI Cinematographer) since both output video
-  // Video Swap has specific inputs: video + character_image
+  // IMPORTANT: Check Video Upscale FIRST - Topaz video upscale has specific version
   if (
+    payload.version?.includes('topazlabs/video-upscale') ||
+    payload.version?.includes('topazlabs') ||
+    (payload.input?.video && payload.input?.target_resolution && !payload.input?.character_image)
+  ) {
+    analysis.tool_type = 'video-upscale';
+    analysis.processing_strategy = 'single_video_upscale';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
+  } else if (
+    // Check Video Swap (before AI Cinematographer) since both output video
+    // Video Swap has specific inputs: video + character_image
     payload.version?.includes('wan-2.2-animate-replace') ||
     payload.version?.includes('wan-video') ||
     (payload.input?.video && payload.input?.character_image)
@@ -405,6 +419,10 @@ async function handleSuccessfulGeneration(
       const videoSwapResult = await processVideoSwapGeneration(payload, analysis);
       results_processed = videoSwapResult.count;
       credits_used = videoSwapResult.credits;
+    } else if (analysis.processing_strategy === 'single_video_upscale') {
+      const upscaleResult = await processVideoUpscale(payload, analysis);
+      results_processed = upscaleResult.count;
+      credits_used = upscaleResult.credits;
     } else {
       console.warn(`⚠️ Unknown processing strategy: ${analysis.processing_strategy}`);
     }
@@ -736,37 +754,81 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
   if (!videoUrl) return { count: 0, credits: 0 };
 
   console.log(`🎬 Video Processing: AI Cinematographer`);
-  
+
   try {
     // Download and upload video to our storage using proper video upload function
     const uploadResult = await downloadAndUploadVideo(
-      videoUrl as string, 
-      'ai-cinematographer', 
+      videoUrl as string,
+      'ai-cinematographer',
       `video_${payload.id}`
     );
-    
+
     if (uploadResult.success && uploadResult.url) {
       // Find the cinematographer video record by prediction_id
       // We need to query by metadata->generation_settings->prediction_id since we stored it there
       // Use admin client to bypass RLS policies since webhooks don't have user context
       const { createAdminClient } = await import('@/app/supabase/server');
       const supabase = createAdminClient();
-      
+
+      // Query full record to check for upscale flag
       const { data: videoRecords, error: queryError } = await supabase
         .from('cinematographer_videos')
-        .select('id')
+        .select('id, user_id, metadata')
         .contains('metadata', { generation_settings: { prediction_id: payload.id } });
-      
+
       console.log(`🔍 Cinematographer query: prediction_id=${payload.id}, found=${videoRecords?.length || 0} records`);
       if (queryError) {
         console.error('🔍 Cinematographer query error:', queryError);
       }
-      
+
       if (videoRecords && videoRecords.length > 0) {
-        const videoId = videoRecords[0].id;
-        
-        // Update the video record with final URL and completed status
+        const videoRecord = videoRecords[0];
+        const videoId = videoRecord.id;
+        const metadata = videoRecord.metadata as Record<string, unknown> | null;
+        const generationSettings = metadata?.generation_settings as Record<string, unknown> | undefined;
+        const shouldUpscale = generationSettings?.upscale === true;
+
         const { updateCinematographerVideoAdmin } = await import('@/actions/database/cinematographer-database');
+
+        if (shouldUpscale) {
+          // Trigger upscale API instead of completing
+          console.log(`🔍 Video needs upscaling - triggering Topaz upscale...`);
+
+          try {
+            const upscalePrediction = await createVideoUpscalePrediction({
+              video: uploadResult.url,
+              target_resolution: '1080p',
+              target_fps: 30,
+              webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+            });
+
+            // Update record with upscaling status and store both prediction IDs
+            await updateCinematographerVideoAdmin(videoId, {
+              status: 'upscaling',
+              final_video_url: uploadResult.url, // Store 720p version as fallback
+              total_duration_seconds: payload.input?.duration || 4,
+              progress_percentage: 80, // 80% done, upscaling remaining
+              ai_director_notes: `Video generated, now upscaling to 1080p...`,
+              metadata: {
+                ...metadata,
+                generation_settings: {
+                  ...generationSettings,
+                  upscale_prediction_id: upscalePrediction.id,
+                  original_video_url: uploadResult.url,
+                }
+              } as Json,
+              updated_at: new Date().toISOString()
+            });
+
+            console.log(`🔍 Upscale prediction created: ${upscalePrediction.id}`);
+            return { count: 1, credits: 8 }; // Video cost, upscale credits deducted when complete
+          } catch (upscaleError) {
+            console.error('❌ Failed to trigger upscale:', upscaleError);
+            // Fall through to complete without upscale
+          }
+        }
+
+        // Update the video record with final URL and completed status
         await updateCinematographerVideoAdmin(videoId, {
           status: 'completed',
           final_video_url: uploadResult.url,
@@ -775,7 +837,7 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
           ai_director_notes: `Video generated successfully with ${payload.input?.motion_scale || 1.0} motion scale`,
           updated_at: new Date().toISOString()
         });
-        
+
         console.log(`✅ Video Complete: Updated cinematographer record ${videoId}`);
         return { count: 1, credits: 8 }; // Standard video generation cost
       } else {
@@ -784,6 +846,79 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
     }
   } catch (error) {
     console.error('❌ Video processing failed:', error);
+  }
+
+  return { count: 0, credits: 0 };
+}
+
+/**
+ * Process video upscale completion for AI Cinematographer
+ */
+async function processVideoUpscale(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const videoUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  if (!videoUrl) return { count: 0, credits: 0 };
+
+  console.log(`🔍 Video Upscale Processing: Topaz Labs`);
+
+  try {
+    // Download and upload upscaled video to our storage
+    const uploadResult = await downloadAndUploadVideo(
+      videoUrl as string,
+      'ai-cinematographer',
+      `video_upscaled_${payload.id}`
+    );
+
+    if (uploadResult.success && uploadResult.url) {
+      const { createAdminClient } = await import('@/app/supabase/server');
+      const supabase = createAdminClient();
+
+      // Find video record by upscale_prediction_id
+      const { data: videoRecords, error: queryError } = await supabase
+        .from('cinematographer_videos')
+        .select('id, user_id, metadata')
+        .contains('metadata', { generation_settings: { upscale_prediction_id: payload.id } });
+
+      console.log(`🔍 Upscale query: prediction_id=${payload.id}, found=${videoRecords?.length || 0} records`);
+      if (queryError) {
+        console.error('🔍 Upscale query error:', queryError);
+      }
+
+      if (videoRecords && videoRecords.length > 0) {
+        const videoRecord = videoRecords[0];
+        const videoId = videoRecord.id;
+        const metadata = videoRecord.metadata as Record<string, unknown> | null;
+        const generationSettings = metadata?.generation_settings as Record<string, unknown> | undefined;
+
+        const { updateCinematographerVideoAdmin } = await import('@/actions/database/cinematographer-database');
+
+        // Update with upscaled video URL
+        await updateCinematographerVideoAdmin(videoId, {
+          status: 'completed',
+          final_video_url: uploadResult.url, // Replace with upscaled version
+          progress_percentage: 100,
+          ai_director_notes: `Video upscaled to 1080p successfully`,
+          metadata: {
+            ...metadata,
+            generation_settings: {
+              ...generationSettings,
+              upscaled_video_url: uploadResult.url,
+              upscale_completed: true,
+            }
+          } as Json,
+          updated_at: new Date().toISOString()
+        });
+
+        // Update analysis with user_id for broadcasting
+        analysis.user_id = videoRecord.user_id;
+
+        console.log(`✅ Video Upscale Complete: Updated cinematographer record ${videoId}`);
+        return { count: 1, credits: 0 }; // Credits already deducted at generation time
+      } else {
+        console.warn(`⚠️ No cinematographer video record found for upscale prediction ${payload.id}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Video upscale processing failed:', error);
   }
 
   return { count: 0, credits: 0 };
