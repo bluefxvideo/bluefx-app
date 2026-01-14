@@ -112,7 +112,55 @@ export function GeneratorTab({
     }));
   };
 
-  const handleSubmit = () => {
+  // Compress/resize image to avoid server action payload limits
+  const compressImage = async (file: File, maxWidth = 1920, quality = 0.85): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      // If file is small enough (<1MB) and not a large image, skip compression
+      if (file.size < 1024 * 1024) {
+        resolve(file);
+        return;
+      }
+
+      const img = new window.Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      img.onload = () => {
+        // Calculate new dimensions
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              console.log(`📸 Compressed image: ${file.size} -> ${compressedFile.size} bytes`);
+              resolve(compressedFile);
+            } else {
+              reject(new Error('Failed to compress image'));
+            }
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image for compression'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleSubmit = async () => {
     if (!formData.prompt?.trim()) return;
 
     // Build request object - only include fields with actual values
@@ -126,9 +174,14 @@ export function GeneratorTab({
       model: formData.model,
     };
 
-    // Add reference image (File or URL)
+    // Add reference image (File or URL) - compress large images
     if (formData.reference_image) {
-      request.reference_image = formData.reference_image;
+      try {
+        request.reference_image = await compressImage(formData.reference_image);
+      } catch (err) {
+        console.error('Failed to compress reference image:', err);
+        request.reference_image = formData.reference_image; // Fall back to original
+      }
     } else if (usingPendingImage && pendingImageUrl) {
       request.reference_image_url = pendingImageUrl;
     }
@@ -137,7 +190,12 @@ export function GeneratorTab({
     if (formData.model === 'pro') {
       request.aspect_ratio = formData.aspect_ratio;
       if (formData.last_frame_image) {
-        request.last_frame_image = formData.last_frame_image;
+        try {
+          request.last_frame_image = await compressImage(formData.last_frame_image);
+        } catch (err) {
+          console.error('Failed to compress last frame image:', err);
+          request.last_frame_image = formData.last_frame_image; // Fall back to original
+        }
       }
       if (formData.seed) {
         request.seed = parseInt(formData.seed);
