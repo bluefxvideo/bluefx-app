@@ -149,8 +149,8 @@ export async function POST(request: NextRequest) {
         break
 
       case 'order.completed':
-        // Handle one-time credit pack purchases
-        await handleFastSpringCreditPack(eventData)
+        // Handle order.completed - could be credit packs OR subscription upgrades
+        await handleFastSpringOrderCompleted(eventData)
         break
 
       case 'subscription.canceled':
@@ -637,6 +637,89 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
     .eq('user_id', user.id)
 
   console.log(`FastSpring renewal processed: ${customerEmail} - 600 credits renewed`)
+}
+
+async function handleFastSpringOrderCompleted(data: FastSpringEventData) {
+  console.log('🛒 handleFastSpringOrderCompleted called!')
+
+  // Check if this order contains subscription products or credit packs
+  const items = (data.items as Array<{ product?: string }>) || []
+
+  // Subscription product patterns
+  const subscriptionProductPatterns = [
+    'ai-media-machine',
+    'bluefx',
+    'subscription'
+  ]
+
+  // Credit pack product patterns
+  const creditPackPatterns = [
+    'credit-pack',
+    'credits'
+  ]
+
+  let hasSubscriptionProduct = false
+  let hasCreditPackProduct = false
+
+  // Check items array
+  for (const item of items) {
+    const productId = (item.product || '').toLowerCase()
+
+    if (subscriptionProductPatterns.some(pattern => productId.includes(pattern))) {
+      hasSubscriptionProduct = true
+      console.log('📦 Found subscription product in items:', productId)
+    }
+
+    if (creditPackPatterns.some(pattern => productId.includes(pattern))) {
+      hasCreditPackProduct = true
+      console.log('📦 Found credit pack product in items:', productId)
+    }
+  }
+
+  // Also check direct product field
+  if (data.product) {
+    const productId = (typeof data.product === 'string' ? data.product : data.product.product || '').toLowerCase()
+
+    if (subscriptionProductPatterns.some(pattern => productId.includes(pattern))) {
+      hasSubscriptionProduct = true
+      console.log('📦 Found subscription product in direct product field:', productId)
+    }
+
+    if (creditPackPatterns.some(pattern => productId.includes(pattern))) {
+      hasCreditPackProduct = true
+      console.log('📦 Found credit pack product in direct product field:', productId)
+    }
+  }
+
+  console.log('📊 Order analysis:', { hasSubscriptionProduct, hasCreditPackProduct, items })
+
+  // Route to appropriate handler
+  if (hasSubscriptionProduct) {
+    console.log('➡️ Routing to subscription handler for order.completed with subscription product')
+    await handleFastSpringSubscription(data)
+  }
+
+  if (hasCreditPackProduct) {
+    console.log('➡️ Routing to credit pack handler')
+    await handleFastSpringCreditPack(data)
+  }
+
+  if (!hasSubscriptionProduct && !hasCreditPackProduct) {
+    console.log('⚠️ Order contains neither recognized subscription nor credit pack products')
+    console.log('📦 Items:', JSON.stringify(items, null, 2))
+    console.log('📦 Direct product:', data.product)
+
+    // Log for debugging but don't error - might be other product types
+    const supabase = createAdminClient()
+    await supabase
+      .from('webhook_events')
+      .insert({
+        event_id: `order_${data.id || Date.now()}_unknown_product`,
+        event_type: 'ORDER_UNKNOWN_PRODUCT',
+        processor: 'fastspring',
+        payload: { data, items, product: data.product, note: 'Order with unrecognized product type' } as unknown as Json
+      })
+  }
 }
 
 async function handleFastSpringCreditPack(data: FastSpringEventData) {
