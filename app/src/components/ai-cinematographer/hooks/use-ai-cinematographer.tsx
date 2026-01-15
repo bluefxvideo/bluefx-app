@@ -133,6 +133,7 @@ export function useAICinematographer() {
 
     setIsGenerating(true);
     setError(undefined);
+    setResult(undefined); // Clear previous result to prevent flash of old content
 
     // Generate batch_id upfront for file uploads
     const batch_id = `cinematographer_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
