@@ -134,25 +134,8 @@ export function useAICinematographer() {
     setIsGenerating(true);
     setError(undefined);
 
-    // Create immediate placeholder result to show video preview
+    // Generate batch_id upfront for file uploads
     const batch_id = `cinematographer_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    const placeholderResult: CinematographerResponse = {
-      success: true,
-      batch_id,
-      generation_time_ms: 0,
-      credits_used: 0,
-      remaining_credits: 0,
-      video: {
-        id: batch_id,
-        video_url: '', // Empty until completed
-        thumbnail_url: '',
-        duration: request.duration || 6,
-        resolution: request.resolution || '1080p',
-        prompt: request.prompt,
-        created_at: new Date().toISOString()
-      }
-    };
-    setResult(placeholderResult);
 
     try {
       // Upload files via API route first (File objects don't serialize through server actions)
@@ -201,6 +184,8 @@ export function useAICinematographer() {
         last_frame_image_url: lastFrameImageUrl,
       });
 
+      // Only set result once - when server returns the job info
+      // This avoids the flash caused by replacing placeholder with server response
       setResult(response);
 
       if (response.success) {
