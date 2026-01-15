@@ -208,8 +208,13 @@ export function useAICinematographer() {
         setPendingImageForVideo(undefined);
         // Refresh history to show new video
         await loadHistory();
+        // Keep isGenerating = true - the real-time subscription will set it to false
+        // when the webhook updates the video status to 'completed' or 'failed'
+        console.log('🎬 Video generation started successfully, keeping loading state until webhook completes');
       } else {
         setError(response.error);
+        // Only stop generating state on failure
+        setIsGenerating(false);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Video generation failed';
@@ -222,7 +227,7 @@ export function useAICinematographer() {
         credits_used: 0,
         remaining_credits: 0,
       });
-    } finally {
+      // Only stop generating state on error
       setIsGenerating(false);
     }
   };
