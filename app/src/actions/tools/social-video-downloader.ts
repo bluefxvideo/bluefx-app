@@ -106,6 +106,15 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
         }
       }
 
+      // Convert /videos/ format to /watch?v= format
+      // e.g., /61577097980033/videos/1157004793172520/ -> /watch?v=1157004793172520
+      const videosMatch = normalizedUrl.match(/\/videos\/(\d+)/);
+      if (videosMatch) {
+        const videoId = videosMatch[1];
+        normalizedUrl = `https://www.facebook.com/watch?v=${videoId}`;
+        console.log(`🔄 Converted /videos/ URL to /watch?v= format: ${normalizedUrl}`);
+      }
+
       // Handle /share/v/ URLs - these need to be resolved to canonical format
       if (normalizedUrl.includes('/share/v/') || normalizedUrl.includes('/share/r/')) {
         console.log(`🔗 Resolving Facebook share URL: ${normalizedUrl}`);
