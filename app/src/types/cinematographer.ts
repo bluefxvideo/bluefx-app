@@ -22,23 +22,21 @@ export const VIDEO_MODEL_CONFIG = {
   fast: {
     id: 'fast',
     name: 'Fast',
-    description: 'Quick generation, longer videos, higher resolutions',
-    model: 'lightricks/ltx-2-fast',
-    maxDuration: 20,
+    description: 'Quick generation with aspect ratio support',
+    model: 'lightricks/ltx-2-distilled',
+    maxDuration: 10,
     minDuration: 6,
-    durations: [6, 8, 10, 12, 14, 16, 18, 20] as const,
-    resolutions: ['1080p', '2k', '4k'] as const,
-    aspectRatios: null, // Fixed by resolution
+    durations: [6, 8, 10] as const, // LTX-2 Distilled supports up to ~10s (241 frames at 24fps)
+    resolutions: ['1080p'] as const, // LTX-2 Distilled outputs 1080p by default
+    aspectRatios: ['16:9', '9:16', '4:3', '3:4', '1:1', '21:9'] as const,
     creditsPerSecond: {
       '1080p': 1,
-      '2k': 2,
-      '4k': 4,
     },
     features: {
       firstFrame: true,
       lastFrame: false,
-      seed: false,
-      lipSync: true, // Basic lip sync support
+      seed: true, // LTX-2 Distilled supports seed
+      lipSync: true, // Built-in synchronized audio
       singing: false,
     },
   },
@@ -70,6 +68,7 @@ export type FastDuration = typeof VIDEO_MODEL_CONFIG.fast.durations[number];
 export type ProDuration = typeof VIDEO_MODEL_CONFIG.pro.durations[number];
 export type FastResolution = typeof VIDEO_MODEL_CONFIG.fast.resolutions[number];
 export type ProResolution = '720p'; // 720p native resolution
+export type FastAspectRatio = typeof VIDEO_MODEL_CONFIG.fast.aspectRatios[number];
 export type ProAspectRatio = typeof VIDEO_MODEL_CONFIG.pro.aspectRatios[number];
 
 // ============================================

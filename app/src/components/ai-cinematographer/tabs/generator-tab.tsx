@@ -12,7 +12,7 @@ import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-co
 import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
-import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio } from '@/types/cinematographer';
+import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, FastAspectRatio } from '@/types/cinematographer';
 
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
@@ -58,18 +58,13 @@ export function GeneratorTab({
   // Get available durations for the selected model
   const availableDurations = config.durations as readonly number[];
 
-  // For Fast model: Durations > 10 seconds require 1080p resolution
-  const availableResolutions = formData.model === 'fast' && formData.duration > 10
-    ? { '1080p': { label: '1080p (Full HD)', creditsPerSecond: 1 } }
-    : formData.model === 'fast'
-      ? {
-          '1080p': { label: '1080p (Full HD)', creditsPerSecond: 1 },
-          '2k': { label: '2K', creditsPerSecond: 2 },
-          '4k': { label: '4K', creditsPerSecond: 4 },
-        }
-      : {
-          '720p': { label: '720p', creditsPerSecond: 2 },
-        };
+  // Fast model uses LTX-2 Distilled (1080p only), Pro uses 720p
+  const availableResolutions = formData.model === 'fast'
+    ? { '1080p': { label: '1080p', creditsPerSecond: 1 } }
+    : { '720p': { label: '720p', creditsPerSecond: 2 } };
+
+  // Aspect ratios - available for both Fast and Pro modes now
+  const availableAspectRatios = config.aspectRatios || ['16:9'];
 
   // Handle model change
   const handleModelChange = (newModel: VideoModel) => {
@@ -81,12 +76,14 @@ export function GeneratorTab({
       duration: newConfig.durations[0],
       // Reset resolution based on model
       resolution: newModel === 'fast' ? '1080p' : '720p',
-      // Reset aspect ratio for Pro model
-      aspect_ratio: newModel === 'pro' ? '16:9' : prev.aspect_ratio,
+      // Keep aspect ratio (both models now support it)
+      aspect_ratio: prev.aspect_ratio,
       // Clear last frame image if switching to Fast mode (not supported)
       last_frame_image: newModel === 'fast' ? null : prev.last_frame_image,
-      // Clear seed if switching to Fast mode (not supported)
-      seed: newModel === 'fast' ? '' : prev.seed,
+      // Keep seed (both models now support it)
+      seed: prev.seed,
+      // Clear camera_fixed if switching to Fast mode (not supported)
+      camera_fixed: newModel === 'fast' ? false : prev.camera_fixed,
     }));
   };
 
@@ -95,8 +92,6 @@ export function GeneratorTab({
     setFormData(prev => ({
       ...prev,
       duration: newDuration,
-      // Force 1080p for Fast mode durations > 10s
-      resolution: formData.model === 'fast' && newDuration > 10 ? '1080p' : prev.resolution
     }));
   };
 
@@ -111,11 +106,12 @@ export function GeneratorTab({
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
 
-    // Build base request
+    // Build base request - aspect_ratio is now supported by both models
     const request: any = {
       prompt: formData.prompt,
       duration: formData.duration,
       resolution: formData.resolution,
+      aspect_ratio: formData.aspect_ratio,
       generate_audio: formData.generate_audio,
       workflow_intent: 'generate',
       user_id: '',
@@ -129,18 +125,18 @@ export function GeneratorTab({
       request.reference_image_url = pendingImageUrl;
     }
 
+    // Add seed if set (now supported by both models)
+    if (formData.seed) {
+      request.seed = parseInt(formData.seed);
+    }
+
     // Add Pro model specific fields only when in Pro mode
     if (formData.model === 'pro') {
-      request.aspect_ratio = formData.aspect_ratio;
       request.camera_fixed = formData.camera_fixed;
 
       // Only add last_frame_image if actually present
       if (formData.last_frame_image) {
         request.last_frame_image = formData.last_frame_image;
-      }
-      // Only add seed if actually set
-      if (formData.seed) {
-        request.seed = parseInt(formData.seed);
       }
     }
 
@@ -183,7 +179,7 @@ export function GeneratorTab({
           >
             <Zap className="w-4 h-4" />
             <span className="font-medium">Fast</span>
-            <span className="text-xs opacity-70 hidden sm:inline">6-20s • Up to 4K</span>
+            <span className="text-xs opacity-70 hidden sm:inline">6-10s • 1080p</span>
           </Button>
           <Button
             type="button"
@@ -202,13 +198,13 @@ export function GeneratorTab({
         <div className="text-xs text-muted-foreground mb-4 p-2 rounded bg-muted/30">
           {formData.model === 'fast' ? (
             <>
-              <strong>Fast Mode:</strong> Quick generation (15-30s wait), longer videos up to 20s, 1080p/2K/4K resolutions.
-              Good for landscapes, abstract scenes, and fast turnaround. Has basic lip sync support.
+              <strong>Fast Mode:</strong> Quick generation (15-30s wait), up to 10s duration at 1080p.
+              Supports both 16:9 (YouTube) and 9:16 (TikTok/Reels) formats. Great for landscapes, abstract scenes, and fast turnaround.
             </>
           ) : (
             <>
               <strong>Pro Mode:</strong> Higher quality output, enhanced lip sync, singing mode with audio sync,
-              first & last frame control, seed for reproducibility. 5-10s duration at 720p (upscalable to 1080p).
+              first & last frame control, seed for reproducibility. 5-10s duration at 720p.
               Slower generation but better results for people and complex motion. 2x credit cost.
             </>
           )}
@@ -324,13 +320,13 @@ export function GeneratorTab({
           description="Configure duration, resolution, and audio"
         >
           <div className="space-y-4">
-            {/* Aspect Ratio (Pro mode only) */}
-            {formData.model === 'pro' && config.aspectRatios && (
+            {/* Aspect Ratio - Available for both Fast and Pro modes */}
+            {config.aspectRatios && config.aspectRatios.length > 0 && (
               <div className="space-y-2">
                 <Label>Aspect Ratio</Label>
                 <Select
                   value={formData.aspect_ratio}
-                  onValueChange={(value: ProAspectRatio) => setFormData(prev => ({ ...prev, aspect_ratio: value }))}
+                  onValueChange={(value: ProAspectRatio | FastAspectRatio) => setFormData(prev => ({ ...prev, aspect_ratio: value as ProAspectRatio }))}
                   disabled={isGenerating}
                 >
                   <SelectTrigger>
@@ -339,17 +335,24 @@ export function GeneratorTab({
                   <SelectContent>
                     {config.aspectRatios.map((ratio) => (
                       <SelectItem key={ratio} value={ratio}>
-                        {ratio === '16:9' && '16:9 (Landscape)'}
-                        {ratio === '9:16' && '9:16 (Portrait/TikTok)'}
+                        {ratio === '16:9' && '16:9 (Landscape/YouTube)'}
+                        {ratio === '9:16' && '9:16 (Portrait/TikTok/Reels)'}
                         {ratio === '1:1' && '1:1 (Square)'}
                         {ratio === '4:3' && '4:3 (Classic)'}
                         {ratio === '3:4' && '3:4 (Portrait Classic)'}
-                        {ratio === '21:9' && '21:9 (Ultrawide)'}
+                        {ratio === '21:9' && '21:9 (Ultrawide/Cinema)'}
                         {ratio === '9:21' && '9:21 (Tall)'}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {formData.model === 'fast' && (
+                  <p className="text-xs text-muted-foreground">
+                    {formData.aspect_ratio === '9:16' ? 'Perfect for TikTok, Instagram Reels, YouTube Shorts' :
+                     formData.aspect_ratio === '16:9' ? 'Standard YouTube/landscape format' :
+                     'Select the format that fits your platform'}
+                  </p>
+                )}
               </div>
             )}
 
@@ -410,28 +413,28 @@ export function GeneratorTab({
               )}
             </div>
 
+            {/* Seed Input - Available for both Fast and Pro modes */}
+            {config.features.seed && (
+              <div className="space-y-2">
+                <Label htmlFor="seed">Seed (Optional)</Label>
+                <Input
+                  id="seed"
+                  type="number"
+                  placeholder="Leave empty for random"
+                  value={formData.seed}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seed: e.target.value }))}
+                  disabled={isGenerating}
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use the same seed to reproduce similar results
+                </p>
+              </div>
+            )}
+
             {/* Pro Mode Advanced Controls */}
             {formData.model === 'pro' && (
               <>
-                {/* Seed Input */}
-                {config.features.seed && (
-                  <div className="space-y-2">
-                    <Label htmlFor="seed">Seed (Optional)</Label>
-                    <Input
-                      id="seed"
-                      type="number"
-                      placeholder="Leave empty for random"
-                      value={formData.seed}
-                      onChange={(e) => setFormData(prev => ({ ...prev, seed: e.target.value }))}
-                      disabled={isGenerating}
-                      className="font-mono"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Use the same seed to reproduce similar results
-                    </p>
-                  </div>
-                )}
-
                 {/* Camera Lock Toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                   <div className="flex items-center gap-2">
