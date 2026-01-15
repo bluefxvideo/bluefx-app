@@ -1,6 +1,6 @@
 'use server';
 
-import { createLTX2DistilledPrediction, type LTX2DistilledAspectRatio } from '@/actions/models/video-generation-ltx2-distilled';
+import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { createSeedancePrediction, type SeedanceAspectRatio, type SeedanceDuration } from '@/actions/models/video-generation-seedance';
 import { generateImage } from '@/actions/models/image-generation-nano-banana';
 import { generateImageWithPro } from '@/actions/models/image-generation-nano-banana-pro';
@@ -258,7 +258,7 @@ export async function executeAICinematographer(
 
 /**
  * Handle video generation workflow
- * Supports both Fast (LTX-2 Distilled) and Pro (Seedance 1.5 Pro) models
+ * Supports both Fast (LTX-2-Fast) and Pro (Seedance 1.5 Pro) models
  */
 async function handleVideoGeneration(
   request: CinematographerRequest,
@@ -271,25 +271,25 @@ async function handleVideoGeneration(
 ): Promise<CinematographerResponse> {
   try {
     const model = request.model || 'fast';
-    const modelVersion = model === 'fast' ? 'ltx-2-distilled' : 'seedance-1.5-pro';
+    const modelVersion = model === 'fast' ? 'ltx-2-fast' : 'seedance-1.5-pro';
 
     // Create video generation prediction based on model selection
     let prediction;
     try {
       if (model === 'fast') {
-        // LTX-2 Distilled model (with aspect ratio support)
-        console.log('🎬 Attempting to create LTX-2 Distilled prediction...');
+        // LTX-2-Fast model
+        console.log('🎬 Attempting to create LTX-2-Fast prediction...');
 
-        // Validate duration for Fast model (6, 8, 10)
-        const fastDuration = Math.min(10, Math.max(6, request.duration || 6));
-        const fastAspectRatio = (request.aspect_ratio || '16:9') as LTX2DistilledAspectRatio;
+        // Validate duration for Fast model (6, 8, 10, 12, 14, 16, 18, 20)
+        const fastDuration = (request.duration || 6) as 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20;
+        const fastResolution = (request.resolution || '1080p') as '1080p' | '2k' | '4k';
 
-        prediction = await createLTX2DistilledPrediction({
+        prediction = await createVideoGenerationPrediction({
           prompt: request.prompt,
           image: referenceImageUrl,
           duration: fastDuration,
-          aspect_ratio: fastAspectRatio,
-          seed: request.seed,
+          resolution: fastResolution,
+          generate_audio: request.generate_audio !== false,
           webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
         });
       } else {
@@ -363,9 +363,8 @@ async function handleVideoGeneration(
     }
 
     // Create prediction tracking record
-    const effectiveDuration = model === 'fast' ? Math.min(10, Math.max(6, request.duration || 6)) : Math.max(5, Math.min(10, request.duration || 5));
-    const effectiveResolution = model === 'fast' ? '1080p' : '720p';
-    const effectiveAspectRatio = request.aspect_ratio || '16:9';
+    const effectiveDuration = model === 'fast' ? (request.duration || 6) : Math.max(5, Math.min(10, request.duration || 5));
+    const effectiveResolution = model === 'fast' ? (request.resolution || '1080p') : '720p';
 
     try {
       await createPredictionRecord({
@@ -380,13 +379,10 @@ async function handleVideoGeneration(
           model,
           duration: effectiveDuration,
           resolution: effectiveResolution,
-          aspect_ratio: effectiveAspectRatio,
           generate_audio: request.generate_audio !== false,
           reference_image: referenceImageUrl,
-          ...(model === 'fast' && {
-            seed: request.seed,
-          }),
           ...(model === 'pro' && {
+            aspect_ratio: request.aspect_ratio || '16:9',
             last_frame_image: lastFrameImageUrl,
             seed: request.seed,
             camera_fixed: request.camera_fixed,
@@ -414,12 +410,9 @@ async function handleVideoGeneration(
           model,
           duration: effectiveDuration,
           resolution: effectiveResolution,
-          aspect_ratio: effectiveAspectRatio,
           generate_audio: request.generate_audio !== false,
-          ...(model === 'fast' && {
-            seed: request.seed,
-          }),
           ...(model === 'pro' && {
+            aspect_ratio: request.aspect_ratio || '16:9',
             last_frame_image: lastFrameImageUrl,
             seed: request.seed,
             camera_fixed: request.camera_fixed,
