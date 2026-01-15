@@ -130,7 +130,19 @@ export function CinematographerOutput({
     );
   }
 
-  // Normal empty state
+  // Normal empty state - but don't show if generation was just triggered
+  // (prevents flash of example video during state transition)
+  if (isGenerating) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-muted-foreground">Starting video generation...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
       <div className="relative z-10 flex-1 flex flex-col">
