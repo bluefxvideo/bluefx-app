@@ -1,6 +1,6 @@
 'use server';
 
-import { createIdeogramV2aPrediction, waitForIdeogramV2aCompletion, generateMultipleThumbnails } from '../models/ideogram-v2-turbo';
+import { createImageGenerationPrediction, waitForImageGenerationCompletion } from '../models/image-generation-nano-banana';
 import { performFaceSwap } from '../models/face-swap-cdingram';
 import { generateYouTubeTitles, analyzeImageForRecreation, createChatCompletion } from '../models/openai-chat';
 import { recreateLogo as recreateWithOpenAI } from '../models/openai-image';
@@ -144,7 +144,13 @@ export interface ThumbnailMachineRequest {
   title_style?: 'emotional' | 'professional' | 'shocking' | 'educational' | 'engaging';
   title_count?: number; // Number of title variations (default: 10)
   target_keywords?: string; // For SEO optimization in titles-only mode
-  
+
+  // Prompt enhancement options
+  skip_prompt_enhancement?: boolean; // Skip OpenAI prompt enhancement if true
+
+  // Reference image for image-to-image generation
+  image_input?: string[]; // Reference image URLs for nano-banana (up to 3)
+
   // User context (ENHANCED - for credit system)
   user_id: string; // Now required for credit validation
 }
@@ -275,43 +281,38 @@ export async function generateThumbnails(
     const selectedStyle = request.thumbnail_style || 'clickbait'; // Default to clickbait style
     const styleConfig = THUMBNAIL_STYLES[selectedStyle];
     let combinedPrompt = `${styleConfig.systemPrompt}\n\nUser's request: ${request.prompt}`;
-    
-    console.log(`🎨 Using ${selectedStyle} style for thumbnail generation`);
-    
-    // Step 2: AI Enhancement using OpenAI (like legacy system)
-    const enhancedPrompt = await enhanceThumbnailPrompt(combinedPrompt, request.user_id);
-    
-    console.log('📝 Final enhanced prompt:', enhancedPrompt.substring(0, 200) + '...');
 
-    // For single thumbnail generation, use direct function instead of multiple
-    let predictions;
-    if (numOutputs === 1) {
-      const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`;
-      console.log('🔗 Using webhook URL:', webhookUrl);
-      
-      const singlePrediction = await createIdeogramV2aPrediction({
-        prompt: enhancedPrompt, // Use the enhanced prompt instead of raw user prompt
-        aspect_ratio: request.aspect_ratio || '16:9',
-        style_type: request.style_type || 'Auto',
-        magic_prompt_option: request.magic_prompt_option || 'On',
-        seed: request.seed,
-        webhook: webhookUrl,
-        user_id: request.user_id, // Add user_id for webhook processing
-        batch_id: batch_id, // Add batch_id for webhook processing
-      });
-      predictions = [singlePrediction];
+    console.log(`🎨 Using ${selectedStyle} style for thumbnail generation`);
+
+    // Step 2: AI Enhancement using OpenAI (unless skipped)
+    let enhancedPrompt: string;
+    if (request.skip_prompt_enhancement) {
+      console.log('⏭️ Skipping prompt enhancement (user requested)');
+      enhancedPrompt = request.prompt || ''; // Use raw prompt without style prefix
     } else {
-      // Fallback for multiple thumbnails (if needed in future)
-      predictions = await generateMultipleThumbnails(
-        enhancedPrompt, // Use enhanced prompt here too
-        numOutputs,
-        {
-          aspectRatio: request.aspect_ratio || '16:9',
-          styleType: request.style_type || 'Auto',
-          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`,
-        }
-      );
+      enhancedPrompt = await enhanceThumbnailPrompt(combinedPrompt, request.user_id);
     }
+
+    console.log('📝 Final prompt:', enhancedPrompt.substring(0, 200) + '...');
+
+    // Generate thumbnail using nano-banana (faster than Ideogram)
+    // Only use webhook if we have an HTTPS URL (Replicate requires HTTPS for webhooks)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const webhookUrl = siteUrl.startsWith('https://')
+      ? `${siteUrl}/api/webhooks/replicate-ai`
+      : undefined;
+    console.log('🔗 Using webhook URL:', webhookUrl || 'None (polling mode)');
+
+    // Map aspect ratio - nano-banana supports same ratios as Ideogram
+    const aspectRatio = request.aspect_ratio || '16:9';
+
+    const singlePrediction = await createImageGenerationPrediction({
+      prompt: enhancedPrompt,
+      aspect_ratio: aspectRatio as any, // nano-banana supports: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
+      ...(webhookUrl && { webhook: webhookUrl }),
+      ...(request.image_input && request.image_input.length > 0 && { image_input: request.image_input }),
+    });
+    const predictions = [singlePrediction];
 
     // Create a single prediction record with the main Replicate prediction ID
     // This allows us to track and poll if webhooks fail
@@ -321,19 +322,19 @@ export async function generateThumbnails(
       user_id: request.user_id,
       tool_id: 'thumbnail-machine',
       service_id: 'generate',
-      model_version: 'ideogram-v2-turbo',
+      model_version: 'nano-banana',
       status: 'processing',
       input_data: request as unknown as Json,
       external_id: predictionIds[0], // Store the main prediction ID for webhook matching
     });
 
     // Step 5: Wait for All Completions
-    console.log(`⏳ Waiting for ${predictions.length} Ideogram V2a completions`);
+    console.log(`⏳ Waiting for ${predictions.length} nano-banana completions`);
     console.log(`📝 Replicate prediction IDs available for polling:`, predictionIds);
     const completed_predictions = await Promise.all(
-      predictions.map(p => waitForIdeogramV2aCompletion(p.id))
+      predictions.map(p => waitForImageGenerationCompletion(p.id))
     );
-    
+
     // Check for any failures
     const failed_predictions = completed_predictions.filter(p => p.status !== 'succeeded');
     if (failed_predictions.length > 0) {
@@ -498,7 +499,6 @@ export async function generateThumbnails(
     }
 
     // Step 10: Store Results in Database
-    const aspectRatio = request.aspect_ratio || '16:9';
     const { width, height, dimensions } = calculateDimensionsFromAspectRatio(aspectRatio);
     
     const thumbnailRecords = thumbnails.map((thumb) => ({
@@ -508,8 +508,8 @@ export async function generateThumbnails(
       dimensions,
       height,
       width,
-      model_name: 'ideogram-v2-turbo',
-      model_version: 'ideogram-v2-turbo',
+      model_name: 'nano-banana',
+      model_version: 'nano-banana',
       batch_id: thumb.batch_id,
       generation_settings: request as unknown as Json,
       metadata: {
@@ -530,13 +530,25 @@ export async function generateThumbnails(
     await recordGenerationMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'ideogram-v2-turbo',
+      model_version: 'nano-banana',
       style_type: selectedStyle, // Use the selected style instead of 'auto'
       num_variations: thumbnails.length,
       generation_time_ms: Date.now() - startTime,
       total_credits_used: total_credits,
       prompt_length: enhancedPrompt.length, // Use enhanced prompt length for analytics
       has_advanced_options: hasAdvancedOptions(request),
+    });
+
+    // Step 12: Update prediction status to succeeded
+    await updatePredictionRecord(batch_id, {
+      status: 'succeeded',
+      output_data: {
+        thumbnails: thumbnails.map(t => ({
+          id: t.batch_id,
+          url: t.url,
+          variation_index: t.variation_index,
+        }))
+      } as unknown as Json
     });
 
     const generation_time_ms = Date.now() - startTime;
@@ -775,14 +787,12 @@ async function executeFaceSwapOnlyWorkflow(
     // If generation fails, fallback to using the uploaded target image directly
     if (request.aspect_ratio && request.aspect_ratio !== '16:9') {
       console.log(`🎨 Attempting to generate base thumbnail with aspect ratio: ${request.aspect_ratio}`);
-      
+
       try {
-        // Create a base thumbnail with the desired aspect ratio
-        const baseThumbnailPrediction = await createIdeogramV2aPrediction({
+        // Create a base thumbnail with the desired aspect ratio using nano-banana
+        const baseThumbnailPrediction = await createImageGenerationPrediction({
           prompt: 'professional headshot, clean background, high quality portrait',
-          aspect_ratio: request.aspect_ratio,
-          style_type: 'Realistic',
-          magic_prompt_option: 'On'
+          aspect_ratio: request.aspect_ratio as any,
         });
 
         if (!baseThumbnailPrediction.id) {
@@ -790,29 +800,32 @@ async function executeFaceSwapOnlyWorkflow(
         }
 
         // Wait for completion
-        const completedBasePrediction = await waitForIdeogramV2aCompletion(baseThumbnailPrediction.id);
+        const completedBasePrediction = await waitForImageGenerationCompletion(baseThumbnailPrediction.id);
         if (completedBasePrediction.status === 'failed') {
           throw new Error(`Base thumbnail generation failed: ${completedBasePrediction.error || 'Unknown error'}`);
         }
-        
+
         if (!completedBasePrediction.output) {
           throw new Error('Base thumbnail generation completed but no output received');
         }
 
-        targetImageUrl = completedBasePrediction.output;
+        // nano-banana output can be string or array
+        targetImageUrl = Array.isArray(completedBasePrediction.output)
+          ? completedBasePrediction.output[0]
+          : completedBasePrediction.output;
         console.log('✅ Generated base thumbnail:', targetImageUrl);
-        
+
         // Add small delay to ensure image is fully available on CDN
-        console.log('⏳ Waiting 2 seconds for Ideogram image to be available on CDN...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('⏳ Waiting 1 second for nano-banana image to be available on CDN...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (baseGenerationError) {
         console.warn('⚠️ Base thumbnail generation failed, falling back to uploaded target image:', baseGenerationError);
-        
+
         // Fallback: Check if user provided a target image to use directly
         if (!request.face_swap.target_image) {
           throw new Error(`Cannot generate base thumbnail (${baseGenerationError instanceof Error ? baseGenerationError.message : 'service unavailable'}) and no target image provided. Please upload a target image or try again later.`);
         }
-        
+
         // Use the uploaded target image directly as fallback
         if (typeof request.face_swap.target_image === 'string' && request.face_swap.target_image.startsWith('http')) {
           targetImageUrl = request.face_swap.target_image;

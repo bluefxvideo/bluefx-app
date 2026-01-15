@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { CinematographerResponse } from '@/actions/tools/ai-cinematographer';
+import type { CinematographerResponse } from '@/types/cinematographer';
 import { VideoPreview } from './video-preview';
 import { GenerateEmptyState, HistoryEmptyState } from './tab-empty-states';
 import { Clock, CheckCircle, AlertCircle, Zap, Video } from 'lucide-react';

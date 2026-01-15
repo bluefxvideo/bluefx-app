@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
-import { CinematographerRequest } from '@/actions/tools/ai-cinematographer';
+import type { CinematographerRequest } from '@/types/cinematographer';
 import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio } from '@/types/cinematographer';
 
 interface GeneratorTabProps {

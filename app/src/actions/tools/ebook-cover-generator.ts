@@ -1,6 +1,6 @@
 'use server';
 
-import { createIdeogramV2aPrediction, waitForIdeogramV2aCompletion } from '../models/ideogram-v2-turbo';
+import { createImageGenerationPrediction, waitForImageGenerationCompletion } from '../models/image-generation-nano-banana';
 import { createChatCompletion } from '../models/openai-chat';
 import { downloadAndUploadImage } from '../supabase-storage';
 import { getUserCredits, deductCredits } from '../database/thumbnail-database';
@@ -186,28 +186,28 @@ export async function generateEbookCover(params: GenerateCoverParams): Promise<G
     
     console.log('📝 Enhanced prompt:', enhancedPrompt);
     
-    // Create prediction with Ideogram V2 Turbo
-    const prediction = await createIdeogramV2aPrediction({
+    // Create prediction with nano-banana (faster than Ideogram)
+    const prediction = await createImageGenerationPrediction({
       prompt: enhancedPrompt,
       aspect_ratio: '2:3', // Standard book cover aspect ratio
-      style_type: 'Design', // Use Design style for book covers
-      magic_prompt_option: 'Auto',
-      negative_prompt: 'blurry, low quality, distorted text, unreadable text, pixelated'
     });
-    
+
     // Wait for completion
-    const result = await waitForIdeogramV2aCompletion(prediction.id, 60000); // 60 second timeout
-    
+    const result = await waitForImageGenerationCompletion(prediction.id, 60000); // 60 second timeout
+
     if (result.status !== 'succeeded' || !result.output) {
       throw new Error(result.error || 'Cover generation failed');
     }
+
+    // nano-banana output can be string or array
+    const outputUrl = Array.isArray(result.output) ? result.output[0] : result.output;
     
     // Upload to Supabase storage
     const timestamp = new Date().toISOString().replace(/[:.]/g, '');
     const safeTitle = params.title.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 30);
     const fileName = `ebook_cover_${safeTitle}_${timestamp}.jpg`;
     
-    const storageResult = await downloadAndUploadImage(result.output, fileName);
+    const storageResult = await downloadAndUploadImage(outputUrl, fileName);
     
     if (!storageResult.success || !storageResult.url) {
       throw new Error('Failed to upload cover image to storage');

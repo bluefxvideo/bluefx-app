@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Image, X, Upload, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { StartingShotRequest } from '@/actions/tools/ai-cinematographer';
+import type { StartingShotRequest } from '@/actions/tools/ai-cinematographer';
 import { NANO_BANANA_ASPECT_RATIOS, type StartingShotAspectRatio } from '@/types/cinematographer';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';

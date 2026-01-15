@@ -1,6 +1,6 @@
 'use client';
 
-import { CinematographerResponse } from '@/actions/tools/ai-cinematographer';
+import type { CinematographerResponse } from '@/types/cinematographer';
 import { CinematographerOutput } from './cinematographer-output';
 import { HistoryOutput } from './history-output';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';

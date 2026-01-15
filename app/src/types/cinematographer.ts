@@ -4,8 +4,8 @@
  */
 
 // Valid aspect ratios for Starting Shot (nano-banana)
-export const NANO_BANANA_ASPECT_RATIOS = ['16:9', '9:16', '1:1', '4:3', '3:4'] as const;
-export type NanoBananaAspectRatio = typeof NANO_BANANA_ASPECT_RATIOS[number];
+export type NanoBananaAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '2:3' | '3:2' | '21:9';
+export const NANO_BANANA_ASPECT_RATIOS: readonly NanoBananaAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4'];
 
 // Alias for Starting Shot
 export type StartingShotAspectRatio = NanoBananaAspectRatio;

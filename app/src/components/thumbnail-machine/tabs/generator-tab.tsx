@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Wand2} from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Wand2, Upload, X, Image } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter, TabError } from '@/components/tools/tab-content-wrapper';
 import { ThumbnailMachineRequest, ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { PromptSection } from '../input-panel/prompt-section';
 import { StandardStep } from '@/components/tools/standard-step';
+import { uploadImageToStorage } from '@/actions/supabase-storage';
 
 interface GeneratorTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
@@ -36,7 +39,13 @@ export function GeneratorTab({
     style_type: 'Auto' as 'None' | 'Auto' | 'General' | 'Realistic' | 'Design' | 'Render 3D' | 'Anime',
     magic_prompt_option: 'On' as 'Auto' | 'On' | 'Off',
     seed: undefined as number | undefined,
+    // New options
+    skip_prompt_enhancement: false,
   });
+
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
+  const [isUploadingRef, setIsUploadingRef] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Thumbnail styles from legacy implementation
   const thumbnailStyles = {
@@ -95,13 +104,18 @@ export function GeneratorTab({
 
   const handleSubmit = async () => {
     if (!formData.prompt?.trim()) return;
-    
-    // Enhance prompt with selected style
-    const selectedStyleConfig = thumbnailStyles[formData.selectedStyle];
-    const enhancedPrompt = `${selectedStyleConfig.systemPrompt}\n\nUser's request: ${formData.prompt}`;
-    
+
+    // Build prompt based on whether enhancement is skipped
+    let finalPrompt: string;
+    if (formData.skip_prompt_enhancement) {
+      finalPrompt = formData.prompt;
+    } else {
+      const selectedStyleConfig = thumbnailStyles[formData.selectedStyle];
+      finalPrompt = `${selectedStyleConfig.systemPrompt}\n\nUser's request: ${formData.prompt}`;
+    }
+
     await onGenerate({
-      prompt: enhancedPrompt,
+      prompt: finalPrompt,
       num_outputs: formData.num_outputs,
       aspect_ratio: formData.aspect_ratio,
       reference_image: formData.reference_image || undefined,
@@ -110,11 +124,44 @@ export function GeneratorTab({
       magic_prompt_option: formData.magic_prompt_option,
       seed: formData.seed,
       user_id: 'current-user',
+      // New options
+      skip_prompt_enhancement: formData.skip_prompt_enhancement,
+      image_input: referenceImageUrl ? [referenceImageUrl] : undefined,
     });
   };
 
   const handleStyleSelect = (style: 'clickbait' | 'professional' | 'minimal') => {
     setFormData(prev => ({ ...prev, selectedStyle: style }));
+  };
+
+  const handleReferenceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingRef(true);
+    try {
+      const result = await uploadImageToStorage(file, {
+        folder: 'reference-images',
+        contentType: file.type as 'image/png' | 'image/jpeg' | 'image/webp',
+      });
+
+      if (result.success && result.url) {
+        setReferenceImageUrl(result.url);
+      } else {
+        console.error('Failed to upload reference image:', result.error);
+      }
+    } catch (error) {
+      console.error('Error uploading reference image:', error);
+    } finally {
+      setIsUploadingRef(false);
+    }
+  };
+
+  const removeReferenceImage = () => {
+    setReferenceImageUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const estimatedCredits = formData.num_outputs * 2;
@@ -169,6 +216,82 @@ export function GeneratorTab({
             onChange={(prompt) => setFormData((prev) => ({ ...prev, prompt }))}
             ref={promptInputRef}
           />
+        </StandardStep>
+
+        {/* Step 3: Reference Image (Optional) */}
+        <StandardStep
+          stepNumber={3}
+          title="Reference Image"
+          description="Upload an image to guide the generation (optional)"
+        >
+          <div className="space-y-3">
+            {referenceImageUrl ? (
+              <div className="relative inline-block">
+                <img
+                  src={referenceImageUrl}
+                  alt="Reference"
+                  className="h-24 w-auto rounded-lg border border-border object-cover"
+                />
+                <button
+                  onClick={removeReferenceImage}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-white rounded-full flex items-center justify-center hover:bg-destructive/90"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleReferenceImageUpload}
+                  className="hidden"
+                  id="reference-image-upload"
+                />
+                <label
+                  htmlFor="reference-image-upload"
+                  className={`flex items-center gap-2 px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
+                    isUploadingRef ? 'opacity-50 pointer-events-none' : ''
+                  }`}
+                >
+                  {isUploadingRef ? (
+                    <span className="text-sm text-muted-foreground">Uploading...</span>
+                  ) : (
+                    <>
+                      <Image className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Upload reference image</span>
+                    </>
+                  )}
+                </label>
+              </div>
+            )}
+          </div>
+        </StandardStep>
+
+        {/* Step 4: Options */}
+        <StandardStep
+          stepNumber={4}
+          title="Options"
+          description="Fine-tune your generation settings"
+        >
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border/50">
+            <div className="space-y-0.5">
+              <Label htmlFor="skip-enhancement" className="text-sm font-medium">
+                Use Raw Prompt
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Skip AI prompt enhancement for more literal results
+              </p>
+            </div>
+            <Switch
+              id="skip-enhancement"
+              checked={formData.skip_prompt_enhancement}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, skip_prompt_enhancement: checked }))
+              }
+            />
+          </div>
         </StandardStep>
       </TabBody>
 

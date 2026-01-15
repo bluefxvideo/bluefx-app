@@ -10,9 +10,8 @@
  * Supports higher resolution outputs compared to standard nano-banana
  */
 
-// Import shared types
-import type { NanoBananaAspectRatio } from '@/types/cinematographer';
-export type { NanoBananaAspectRatio };
+// Aspect ratio type for nano-banana-pro
+export type NanoBananaAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '2:3' | '3:2' | '21:9';
 
 interface ImageGenerationInput {
   prompt: string;

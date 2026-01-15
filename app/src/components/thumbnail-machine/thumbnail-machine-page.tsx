@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useRef, useState, useEffect } from 'react';
-import { Image as ImageIcon, Wand2, RotateCcw, FileText, History, UserCheck } from 'lucide-react';
+import { Image as ImageIcon, Wand2, RotateCcw, History, UserCheck } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -19,7 +19,6 @@ const useThumbnailMachine = USE_V2_HOOK ? useThumbnailMachineV2 : useThumbnailMa
 import { GeneratorTab } from './tabs/generator-tab';
 import { FaceSwapTab } from './tabs/face-swap-tab';
 import { RecreateTab } from './tabs/recreate-tab';
-import { TitleGeneratorTab } from './tabs/title-generator-tab';
 import { HistoryTab } from './tabs/history-tab';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
@@ -53,7 +52,6 @@ export function ThumbnailMachinePage() {
   const getActiveTab = () => {
     if (pathname.includes('/face-swap')) return 'face-swap';
     if (pathname.includes('/recreate')) return 'recreate';
-    if (pathname.includes('/titles')) return 'titles';
     if (pathname.includes('/history')) return 'history';
     return 'generate'; // default
   };
@@ -79,12 +77,6 @@ export function ThumbnailMachinePage() {
       label: 'Recreate',
       icon: RotateCcw,
       path: '/dashboard/thumbnail-machine/recreate'
-    },
-    {
-      id: 'titles',
-      label: 'Titles',
-      icon: FileText,
-      path: '/dashboard/thumbnail-machine/titles'
     },
     {
       id: 'history',
@@ -114,15 +106,6 @@ export function ThumbnailMachinePage() {
             credits={credits ? { available_credits: credits.available_credits } : null}
             error={error}
             onReferenceImageChange={setHasReferenceImage}
-          />
-        );
-      case 'titles':
-        return (
-          <TitleGeneratorTab
-            onGenerate={generate}
-            isGenerating={isGenerating}
-            credits={credits ? { available_credits: credits.available_credits } : null}
-            error={error}
           />
         );
       case 'history':

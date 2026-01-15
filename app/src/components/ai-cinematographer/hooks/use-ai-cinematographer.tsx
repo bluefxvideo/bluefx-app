@@ -6,8 +6,6 @@ import { User } from '@supabase/supabase-js';
 import { useCredits } from '@/hooks/useCredits';
 import {
   executeAICinematographer,
-  CinematographerRequest,
-  CinematographerResponse,
   executeStartingShot,
   StartingShotRequest,
   StartingShotResponse,
@@ -18,6 +16,7 @@ import {
   ExtractedFrame,
   uploadGridImageToStorage,
 } from '@/actions/tools/ai-cinematographer';
+import type { CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 

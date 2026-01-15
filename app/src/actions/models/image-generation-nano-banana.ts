@@ -10,9 +10,8 @@
  * Cost: ~$0.04 per image
  */
 
-// Import shared types (can be used by both client and server)
-import type { NanoBananaAspectRatio } from '@/types/cinematographer';
-export type { NanoBananaAspectRatio };
+// Aspect ratio type for nano-banana
+export type NanoBananaAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '2:3' | '3:2' | '21:9';
 
 interface ImageGenerationInput {
   prompt: string;

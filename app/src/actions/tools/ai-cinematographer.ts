@@ -16,8 +16,8 @@ import {
 import { Json } from '@/types/database';
 import type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 
-// Re-export types for consumers (import from @/types/cinematographer for client components)
-export type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse };
+// Note: Types are NOT re-exported from server actions due to Turbopack issues
+// Import types directly from @/types/cinematographer in client components
 
 // Request/Response types for Starting Shot (First Frame Image Generation)
 export interface StartingShotRequest {

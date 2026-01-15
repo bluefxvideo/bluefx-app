@@ -4,7 +4,6 @@ import { ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
 import { ThumbnailMachineOutput } from './thumbnail-machine-output';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { HistoryOutput } from './history-output';
-import { TitleGeneratorOutput } from './title-generator-output';
 import { CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
@@ -93,9 +92,6 @@ export function ContextualOutput({
         if (activeTab === 'recreate') {
           return 'recreate';
         }
-        if (activeTab === 'titles') {
-          return 'titles';
-        }
       }
       
       // Check if we have face swap results or in progress
@@ -108,13 +104,6 @@ export function ContextualOutput({
       }
       if (result?.batch_id?.includes('recreate')) {
         return 'recreate';
-      }
-      if (result?.batch_id?.includes('title')) {
-        return 'titles';
-      }
-      // Check if it's title generation based on results
-      if (result?.titles && result.titles.length > 0) {
-        return 'titles';
       }
       // Default to thumbnail generation
       return 'thumbnail';
@@ -135,46 +124,6 @@ export function ContextualOutput({
         empty={<HistoryOutput filters={historyFilters} currentGeneration={currentGeneration} />}
       >
         <HistoryOutput filters={historyFilters} currentGeneration={currentGeneration} />
-      </OutputPanelShell>
-    );
-  }
-
-  if (activeTab === 'titles') {
-    const titleTitle = result?.titles?.length 
-      ? `${result.titles.length} Titles Generated!`
-      : 'Title Results';
-    const titleSubtitle = result?.titles?.length 
-      ? 'Your YouTube titles are ready'
-      : undefined;
-    const titleIcon = result?.titles?.length
-      ? (
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-          <CheckCircle className="w-5 h-5 text-white" />
-        </div>
-      )
-      : undefined;
-
-    return (
-      <OutputPanelShell
-        title={titleTitle}
-        subtitle={titleSubtitle}
-        icon={titleIcon}
-        status={isGenerating ? 'loading' : error ? 'error' : (result?.titles?.length ? 'ready' : 'idle')}
-        errorMessage={getCleanErrorMessage(error)}
-        actions={result?.titles?.length ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearResults}
-            className="h-10 px-4 hover:bg-zinc-800/50 transition-all duration-300 hover:scale-105 text-zinc-400 hover:text-zinc-300"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Clear Results
-          </Button>
-        ) : undefined}
-        empty={<TitleGeneratorOutput titles={[]} isGenerating={false} error={undefined} />}
-      >
-        <TitleGeneratorOutput titles={result?.titles} isGenerating={false} error={undefined} />
       </OutputPanelShell>
     );
   }
