@@ -40,7 +40,6 @@ export const VIDEO_MODEL_CONFIG = {
       seed: false,
       lipSync: true, // Basic lip sync support
       singing: false,
-      upscale: false,
     },
   },
   pro: {
@@ -51,11 +50,10 @@ export const VIDEO_MODEL_CONFIG = {
     maxDuration: 10,
     minDuration: 5,
     durations: [5, 6, 7, 8, 9, 10] as const, // Valid range: 5-10 seconds
-    resolutions: ['720p'] as const, // Base resolution, can be upscaled
+    resolutions: ['720p'] as const, // Native 720p resolution
     aspectRatios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', '9:21'] as const,
     creditsPerSecond: {
       '720p': 2, // 2x Fast mode
-      '1080p': 3, // 720p + upscale
     },
     features: {
       firstFrame: true,
@@ -63,7 +61,6 @@ export const VIDEO_MODEL_CONFIG = {
       seed: true,
       lipSync: true, // Enhanced lip sync with audio generation
       singing: true, // Singing mode support
-      upscale: true,
     },
   },
 } as const;
@@ -72,7 +69,7 @@ export const VIDEO_MODEL_CONFIG = {
 export type FastDuration = typeof VIDEO_MODEL_CONFIG.fast.durations[number];
 export type ProDuration = typeof VIDEO_MODEL_CONFIG.pro.durations[number];
 export type FastResolution = typeof VIDEO_MODEL_CONFIG.fast.resolutions[number];
-export type ProResolution = '720p' | '1080p'; // 720p native, 1080p with upscale
+export type ProResolution = '720p'; // 720p native resolution
 export type ProAspectRatio = typeof VIDEO_MODEL_CONFIG.pro.aspectRatios[number];
 
 // ============================================
@@ -98,7 +95,6 @@ export interface CinematographerRequest {
   last_frame_image_url?: string; // URL of ending frame
   seed?: number; // Seed for reproducibility (Pro only)
   camera_fixed?: boolean; // Lock camera movement (Pro only)
-  upscale?: boolean; // Upscale 720p to 1080p (Pro only)
 }
 
 // Response type for AI Cinematographer

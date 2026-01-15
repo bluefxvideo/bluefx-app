@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Clock, History, Loader2, Trash2, Video, Image, Maximize2 } from 'lucide-react';
+import { Download, Eye, Clock, History, Loader2, Trash2, Video, Image } from 'lucide-react';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
-import { executeVideoUpscale } from '@/actions/tools/video-upscaler';
 
 interface HistoryOutputProps {
   videos: CinematographerVideo[];
@@ -34,7 +33,6 @@ export function HistoryOutput({
 }: HistoryOutputProps) {
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
-  const [upscalingItems, setUpscalingItems] = useState<Set<string>>(new Set());
 
   // Apply filters when videos or filters change
   const filteredVideos = videos.filter(video => {
@@ -125,53 +123,6 @@ export function HistoryOutput({
     } else {
       const diffInDays = Math.floor(diffInHours / 24);
       return `${diffInDays}d ago`;
-    }
-  };
-
-  // Handle video upscale
-  const handleUpscaleVideo = async (video: CinematographerVideo) => {
-    if (!video.final_video_url) return;
-
-    // Check if already upscaled
-    const metadata = video.metadata as Record<string, unknown> | null;
-    const generationSettings = metadata?.generation_settings as Record<string, unknown> | undefined;
-    if (generationSettings?.upscale_completed) {
-      alert('This video has already been upscaled.');
-      return;
-    }
-
-    // Confirm upscale
-    if (!window.confirm('Upscale this video to 1080p? This will use credits based on video duration.')) {
-      return;
-    }
-
-    setUpscalingItems(prev => new Set(prev).add(video.id));
-
-    try {
-      // Get user_id from video record
-      const result = await executeVideoUpscale({
-        video_url: video.final_video_url,
-        video_id: video.id,
-        target_resolution: '1080p',
-        estimated_duration: video.total_duration_seconds || 10,
-        user_id: video.user_id,
-      });
-
-      if (result.success) {
-        alert('Upscale started! The video will be updated when processing completes.');
-        onRefresh?.();
-      } else {
-        alert(`Upscale failed: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error upscaling video:', error);
-      alert('Failed to start upscale. Please try again.');
-    } finally {
-      setUpscalingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(video.id);
-        return newSet;
-      });
     }
   };
 
@@ -423,33 +374,6 @@ export function HistoryOutput({
                         >
                           <Download className="w-3 h-3 mr-1" />
                           <span className="text-sm">Download</span>
-                        </Button>
-                      )}
-                      {/* Upscale button - only for completed videos, not starting shots */}
-                      {!isStartingShot(video) && video.final_video_url && video.status === 'completed' && (() => {
-                        const meta = video.metadata as Record<string, unknown> | null;
-                        const genSettings = meta?.generation_settings as Record<string, unknown> | undefined;
-                        const alreadyUpscaled = genSettings?.upscale_completed === true;
-                        return !alreadyUpscaled;
-                      })() && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpscaleVideo(video);
-                          }}
-                          disabled={upscalingItems.has(video.id)}
-                        >
-                          {upscalingItems.has(video.id) ? (
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          ) : (
-                            <Maximize2 className="w-3 h-3 mr-1" />
-                          )}
-                          <span className="text-sm">
-                            {upscalingItems.has(video.id) ? 'Starting...' : 'Upscale to 1080p'}
-                          </span>
                         </Button>
                       )}
                       {onRefresh && (

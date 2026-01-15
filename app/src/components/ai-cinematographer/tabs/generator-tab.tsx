@@ -48,7 +48,6 @@ export function GeneratorTab({
     generate_audio: true,
     seed: '' as string,
     camera_fixed: false,
-    upscale: false,
   });
 
   const config = VIDEO_MODEL_CONFIG[formData.model];
@@ -70,7 +69,6 @@ export function GeneratorTab({
         }
       : {
           '720p': { label: '720p', creditsPerSecond: 2 },
-          '1080p': { label: '1080p (Upscaled)', creditsPerSecond: 3 },
         };
 
   // Handle model change
@@ -89,8 +87,6 @@ export function GeneratorTab({
       last_frame_image: newModel === 'fast' ? null : prev.last_frame_image,
       // Clear seed if switching to Fast mode (not supported)
       seed: newModel === 'fast' ? '' : prev.seed,
-      // Reset upscale flag
-      upscale: newModel === 'pro' && prev.resolution === '1080p',
     }));
   };
 
@@ -104,12 +100,11 @@ export function GeneratorTab({
     }));
   };
 
-  // Handle resolution change for Pro mode (enables upscale)
+  // Handle resolution change
   const handleResolutionChange = (newResolution: string) => {
     setFormData(prev => ({
       ...prev,
       resolution: newResolution,
-      upscale: formData.model === 'pro' && newResolution === '1080p',
     }));
   };
 
@@ -138,7 +133,6 @@ export function GeneratorTab({
     if (formData.model === 'pro') {
       request.aspect_ratio = formData.aspect_ratio;
       request.camera_fixed = formData.camera_fixed;
-      request.upscale = formData.upscale;
 
       // Only add last_frame_image if actually present
       if (formData.last_frame_image) {
@@ -167,10 +161,8 @@ export function GeneratorTab({
       const creditsPerSecond = formData.resolution === '4k' ? 4 : formData.resolution === '2k' ? 2 : 1;
       return formData.duration * creditsPerSecond;
     } else {
-      // Pro model: 2 credits/sec base, +1 for upscale
-      const baseCredits = formData.duration * 2;
-      const upscaleCredits = formData.upscale ? formData.duration * 1 : 0;
-      return baseCredits + upscaleCredits;
+      // Pro model: 2 credits/sec
+      return formData.duration * 2;
     }
   };
 
@@ -368,7 +360,7 @@ export function GeneratorTab({
                 {availableDurations.map((d) => {
                   const cost = formData.model === 'fast'
                     ? d * (formData.resolution === '4k' ? 4 : formData.resolution === '2k' ? 2 : 1)
-                    : d * (formData.upscale ? 3 : 2);
+                    : d * 2; // Pro model: 2 credits/sec
                   return (
                     <Button
                       key={d}

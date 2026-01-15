@@ -2,8 +2,6 @@
 
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { createSeedancePrediction, type SeedanceAspectRatio, type SeedanceDuration } from '@/actions/models/video-generation-seedance';
-// Note: createVideoUpscalePrediction will be used for Pro mode upscaling when video is complete
-// import { createVideoUpscalePrediction } from '@/actions/models/video-upscale';
 import { generateImage } from '@/actions/models/image-generation-nano-banana';
 import { generateImageWithPro } from '@/actions/models/image-generation-nano-banana-pro';
 import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
@@ -90,7 +88,6 @@ export async function executeAICinematographer(
       workflow_intent: request.workflow_intent,
       aspect_ratio: request.aspect_ratio,
       camera_fixed: request.camera_fixed,
-      upscale: request.upscale,
       seed: request.seed,
     });
   } catch (logError) {
@@ -367,7 +364,7 @@ async function handleVideoGeneration(
 
     // Create prediction tracking record
     const effectiveDuration = model === 'fast' ? (request.duration || 6) : Math.max(5, Math.min(10, request.duration || 5));
-    const effectiveResolution = model === 'fast' ? (request.resolution || '1080p') : (request.upscale ? '1080p' : '720p');
+    const effectiveResolution = model === 'fast' ? (request.resolution || '1080p') : '720p';
 
     try {
       await createPredictionRecord({
@@ -389,7 +386,6 @@ async function handleVideoGeneration(
             last_frame_image: lastFrameImageUrl,
             seed: request.seed,
             camera_fixed: request.camera_fixed,
-            upscale: request.upscale,
           })
         } as Json,
       });
@@ -420,7 +416,6 @@ async function handleVideoGeneration(
             last_frame_image: lastFrameImageUrl,
             seed: request.seed,
             camera_fixed: request.camera_fixed,
-            upscale: request.upscale,
           })
         }
       } as Json,
@@ -481,7 +476,6 @@ async function handleVideoGeneration(
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,
       remaining_credits: creditDeduction.remainingCredits || 0,
-      warnings: request.upscale ? ['Video will be upscaled from 720p to 1080p after generation'] : undefined,
     };
 
   } catch (error) {
@@ -532,7 +526,6 @@ async function handleAudioIntegration(
  *
  * Pro Mode (Seedance 1.5 Pro) pricing:
  * - 720p: 2 credits/second (2x Fast mode)
- * - 1080p (upscaled): 3 credits/second (+1 for upscale)
  */
 function calculateCinematographerCreditCost(request: CinematographerRequest) {
   let baseCost = 0;
@@ -548,10 +541,8 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
       const creditsPerSecond = resolution === '4k' ? 4 : resolution === '2k' ? 2 : 1;
       baseCost = duration * creditsPerSecond;
     } else {
-      // Pro mode: 2 credits/sec base, +1 if upscaling to 1080p
-      const baseCreditsPerSecond = 2;
-      const upscaleBonus = request.upscale ? 1 : 0;
-      baseCost = duration * (baseCreditsPerSecond + upscaleBonus);
+      // Pro mode: 2 credits/sec
+      baseCost = duration * 2;
     }
 
   } else if (request.workflow_intent === 'audio_add') {
