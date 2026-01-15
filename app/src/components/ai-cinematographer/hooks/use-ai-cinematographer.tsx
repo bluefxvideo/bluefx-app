@@ -98,6 +98,31 @@ export function useAICinematographer() {
     }
   }, [user?.id]);
 
+  // Helper function to upload file via API route
+  const uploadFileViaApi = async (
+    file: File,
+    type: 'reference' | 'last_frame',
+    batchId: string
+  ): Promise<{ success: boolean; url?: string; error?: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    formData.append('batchId', batchId);
+
+    try {
+      const response = await fetch('/api/upload/cinematographer', {
+        method: 'POST',
+        body: formData,
+      });
+      return response.json();
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Upload failed',
+      };
+    }
+  };
+
   // Generate video
   const generateVideo = async (request: CinematographerRequest) => {
     // Authentication check
@@ -130,17 +155,50 @@ export function useAICinematographer() {
     setResult(placeholderResult);
 
     try {
+      // Upload files via API route first (File objects don't serialize through server actions)
+      let referenceImageUrl = request.reference_image_url;
+      let lastFrameImageUrl = request.last_frame_image_url;
+
+      // Upload reference image if provided as File
+      if (request.reference_image) {
+        console.log('📤 Uploading reference image via API...');
+        const uploadResult = await uploadFileViaApi(request.reference_image, 'reference', batch_id);
+        if (!uploadResult.success) {
+          throw new Error(`Failed to upload reference image: ${uploadResult.error}`);
+        }
+        referenceImageUrl = uploadResult.url;
+        console.log('✅ Reference image uploaded:', referenceImageUrl);
+      }
+
+      // Upload last frame image if provided as File (Pro mode only)
+      if (request.last_frame_image) {
+        console.log('📤 Uploading last frame image via API...');
+        const uploadResult = await uploadFileViaApi(request.last_frame_image, 'last_frame', batch_id);
+        if (!uploadResult.success) {
+          throw new Error(`Failed to upload last frame image: ${uploadResult.error}`);
+        }
+        lastFrameImageUrl = uploadResult.url;
+        console.log('✅ Last frame image uploaded:', lastFrameImageUrl);
+      }
+
       // Debug: Log the request being sent
       console.log('🎥 Sending to executeAICinematographer:', {
         ...request,
         user_id: user.id,
-        reference_image: request.reference_image ? `File: ${request.reference_image.name} (${request.reference_image.size} bytes)` : undefined,
-        last_frame_image: request.last_frame_image ? `File: ${request.last_frame_image.name} (${request.last_frame_image.size} bytes)` : undefined,
+        reference_image: undefined, // Don't send File objects
+        reference_image_url: referenceImageUrl,
+        last_frame_image: undefined, // Don't send File objects
+        last_frame_image_url: lastFrameImageUrl,
       });
 
+      // Send request with URLs instead of File objects
       const response = await executeAICinematographer({
         ...request,
         user_id: user.id,
+        reference_image: undefined, // Clear File object
+        reference_image_url: referenceImageUrl,
+        last_frame_image: undefined, // Clear File object
+        last_frame_image_url: lastFrameImageUrl,
       });
 
       setResult(response);
