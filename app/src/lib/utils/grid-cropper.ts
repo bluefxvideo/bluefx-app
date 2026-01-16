@@ -64,8 +64,8 @@ function cropFrame(
   // Draw the cropped portion
   ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
 
-  // Return as base64 PNG
-  return canvas.toDataURL('image/png');
+  // Return as base64 JPEG (high quality) - Crystal Upscaler works better with JPEG
+  return canvas.toDataURL('image/jpeg', 0.95);
 }
 
 /**

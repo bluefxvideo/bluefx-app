@@ -53,12 +53,12 @@ async function uploadFrameToStorage(
   const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '');
   const buffer = Buffer.from(base64Clean, 'base64');
 
-  const fileName = `projects/${projectId}/frames/frame_${frameNumber.toString().padStart(2, '0')}.png`;
+  const fileName = `projects/${projectId}/frames/frame_${frameNumber.toString().padStart(2, '0')}.jpg`;
 
   const { error } = await supabase.storage
     .from('ad-projects')
     .upload(fileName, buffer, {
-      contentType: 'image/png',
+      contentType: 'image/jpeg',
       upsert: true,
     });
 
