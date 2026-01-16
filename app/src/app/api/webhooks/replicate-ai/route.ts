@@ -765,11 +765,13 @@ async function processVideoGeneration(payload: ReplicateWebhookPayload, analysis
       const { createAdminClient } = await import('@/app/supabase/server');
       const supabase = createAdminClient();
 
-      // Query video record by prediction ID
+      // Query video record by prediction ID stored in style_preferences column
+      // Note: prediction_id is stored in both metadata.generation_settings and style_preferences
+      // Using style_preferences for simpler JSONB containment query (avoids nested object issues)
       const { data: videoRecords, error: queryError } = await supabase
         .from('cinematographer_videos')
         .select('id, user_id, metadata')
-        .contains('metadata', { generation_settings: { prediction_id: payload.id } });
+        .contains('style_preferences', { prediction_id: payload.id });
 
       console.log(`🔍 Cinematographer query: prediction_id=${payload.id}, found=${videoRecords?.length || 0} records`);
       if (queryError) {
