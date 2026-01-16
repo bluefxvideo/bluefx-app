@@ -453,115 +453,83 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     })
   }
 
-  // Check if user already has an active subscription
-  const { data: existingSubscriptions } = await supabase
-    .from('user_subscriptions')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-
   // Create subscription (following admin pattern) - set correct period based on plan type
   const currentPeriodStart = new Date()
   const periodDays = isYearlyPlan ? 365 : 30 // 1 year for yearly, 30 days for monthly
   const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
 
-  const subscriptionData = {
-    user_id: userId,
-    plan_type: planType,
-    status: 'active',
-    current_period_start: currentPeriodStart.toISOString(),
-    current_period_end: currentPeriodEnd.toISOString(),
-    credits_per_month: creditsAllocation,
-    max_concurrent_jobs: 5, // All Pro users get 5 concurrent jobs
-    fastspring_subscription_id: subscriptionId,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-
-  if (existingSubscriptions && existingSubscriptions.length > 0) {
-    // Update existing subscription instead of creating a new one
-    console.log(`User ${customerEmail} already has ${existingSubscriptions.length} active subscription(s). Updating the first one.`)
-    
-    const { error: subscriptionError } = await supabase
-      .from('user_subscriptions')
-      .update({
-        plan_type: planType,
-        current_period_start: currentPeriodStart.toISOString(),
-        current_period_end: currentPeriodEnd.toISOString(),
-        credits_per_month: creditsAllocation,
-        fastspring_subscription_id: subscriptionId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', existingSubscriptions[0].id)
-
-    if (subscriptionError) {
-      console.error('FastSpring subscription update error:', subscriptionError)
-      throw new Error(`Failed to update subscription: ${subscriptionError.message}`)
-    } else {
-      console.log(`✅ Updated FastSpring subscription for user ${customerEmail}`)
-    }
-  } else {
-    // No existing subscription, create a new one
-    const { error: subscriptionError } = await supabase
-      .from('user_subscriptions')
-      .insert(subscriptionData)
-
-    if (subscriptionError) {
-      console.error('FastSpring subscription creation error:', subscriptionError)
-      throw new Error(`Failed to create subscription: ${subscriptionError.message}`)
-    } else {
-      console.log(`✅ Created FastSpring subscription for user ${customerEmail}`)
-    }
-  }
-
-  // Check if user already has credits
-  const { data: existingCredits } = await supabase
-    .from('user_credits')
-    .select('id')
+  // Delete ALL existing subscriptions for this user to prevent duplicates from race conditions
+  // when multiple webhooks arrive simultaneously (e.g., subscription.activated + order.completed)
+  const { error: deleteSubError } = await supabase
+    .from('user_subscriptions')
+    .delete()
     .eq('user_id', userId)
 
-  if (existingCredits && existingCredits.length > 0) {
-    // Update existing credits instead of creating new ones
-    console.log(`User ${customerEmail} already has ${existingCredits.length} credit record(s). Updating the first one.`)
-    
-    const { error: creditsError } = await supabase
-      .from('user_credits')
-      .update({
-        total_credits: creditsAllocation,
-        used_credits: 0,
-        period_start: currentPeriodStart.toISOString(),
-        period_end: currentPeriodEnd.toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', existingCredits[0].id)
-
-    if (creditsError) {
-      console.error('FastSpring credits update error:', creditsError)
-      throw new Error(`Failed to update credits: ${creditsError.message}`)
-    } else {
-      console.log(`✅ Updated ${creditsAllocation} credits for user ${customerEmail}`)
-    }
-  } else {
-    // No existing credits, create new ones
-    const { error: creditsError } = await supabase
-      .from('user_credits')
-      .insert({
-        user_id: userId,
-        total_credits: creditsAllocation,
-        used_credits: 0,
-        period_start: currentPeriodStart.toISOString(),
-        period_end: currentPeriodEnd.toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-
-    if (creditsError) {
-      console.error('FastSpring credits creation error:', creditsError)
-      throw new Error(`Failed to create credits: ${creditsError.message}`)
-    } else {
-      console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}`)
-    }
+  if (deleteSubError) {
+    console.warn('Warning deleting existing subscriptions:', deleteSubError)
   }
+
+  // Create fresh subscription
+  const { error: subscriptionError } = await supabase
+    .from('user_subscriptions')
+    .insert({
+      user_id: userId,
+      plan_type: planType,
+      status: 'active',
+      current_period_start: currentPeriodStart.toISOString(),
+      current_period_end: currentPeriodEnd.toISOString(),
+      credits_per_month: creditsAllocation,
+      max_concurrent_jobs: 5,
+      fastspring_subscription_id: subscriptionId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+
+  if (subscriptionError) {
+    console.error('FastSpring subscription insert error:', subscriptionError)
+    throw new Error(`Failed to create subscription: ${subscriptionError.message}`)
+  }
+  console.log(`✅ Created FastSpring subscription for user ${customerEmail}`)
+
+  // For credits, we need to preserve any bonus_credits the user may have purchased
+  // First check if they have existing credits with bonus
+  const { data: existingCredits } = await supabase
+    .from('user_credits')
+    .select('id, bonus_credits')
+    .eq('user_id', userId)
+
+  // Calculate total bonus credits to preserve
+  const totalBonusCredits = existingCredits?.reduce((sum, c) => sum + (c.bonus_credits || 0), 0) || 0
+
+  // Delete ALL existing credit records to prevent duplicates
+  const { error: deleteCredError } = await supabase
+    .from('user_credits')
+    .delete()
+    .eq('user_id', userId)
+
+  if (deleteCredError) {
+    console.warn('Warning deleting existing credits:', deleteCredError)
+  }
+
+  // Create fresh credits record, preserving bonus credits
+  const { error: creditsError } = await supabase
+    .from('user_credits')
+    .insert({
+      user_id: userId,
+      total_credits: creditsAllocation,
+      used_credits: 0,
+      bonus_credits: totalBonusCredits,
+      period_start: currentPeriodStart.toISOString(),
+      period_end: currentPeriodEnd.toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+
+  if (creditsError) {
+    console.error('FastSpring credits insert error:', creditsError)
+    throw new Error(`Failed to create credits: ${creditsError.message}`)
+  }
+  console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}${totalBonusCredits > 0 ? ` (preserved ${totalBonusCredits} bonus credits)` : ''}`)
 
   console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
 }
