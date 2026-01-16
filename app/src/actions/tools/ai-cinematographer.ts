@@ -812,11 +812,6 @@ export interface FrameExtractionResponse {
  * Generate Storyboard - 3x3 Cinematic Grid
  * Uses google/nano-banana-pro for higher quality image generation
  * Cost: 6 credits per storyboard grid
- *
- * NOTE: This uses async webhook-based generation to handle 4K images
- * that can take 2-5+ minutes to generate. The function returns immediately
- * with a "processing" status, and the webhook handler updates the record
- * when complete.
  */
 export async function executeStoryboardGeneration(
   request: StoryboardRequest
@@ -910,22 +905,21 @@ STYLE: ${visualStylePrompt}, consistent characters throughout all frames, seamle
 
     console.log(`📊 Generating storyboard (${gridAspectRatio} grid, ${frameAspectRatio} frames) with prompt length: ${storyboardPrompt.length}`);
 
-    // Step 4: Create prediction record BEFORE starting generation
-    // This allows the webhook to find and update it
-    const storeResult = await storeStartingShotResult({
-      user_id: request.user_id,
-      batch_id,
-      prompt: `[STORYBOARD] ${request.story_description} | Style: ${request.visual_style}${request.custom_style ? ` | Custom: ${request.custom_style}` : ''}`,
-      image_url: '', // Will be updated by webhook
-      aspect_ratio: gridAspectRatio,
-      status: 'processing', // Mark as processing
-    });
+    // Step 4: Generate image using nano-banana-pro for higher quality storyboard grids
+    // Grid aspect ratio matches frame aspect ratio: 16:9 grid for landscape, 9:16 grid for vertical
+    const hasReferenceImages = referenceImageUrls.length > 0;
+    const imageResult = await generateImageWithPro(
+      storyboardPrompt,
+      gridAspectRatio, // Grid orientation matches frame orientation
+      hasReferenceImages ? referenceImageUrls : undefined,
+      '4K', // 4K resolution for grid extraction
+      'jpg' // JPG format
+    );
 
-    if (!storeResult.success) {
-      console.error('Failed to create storyboard record:', storeResult.error);
+    if (!imageResult.success || !imageResult.imageUrl) {
       return {
         success: false,
-        error: 'Failed to create storyboard record',
+        error: imageResult.error || 'Storyboard generation failed',
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -933,7 +927,50 @@ STYLE: ${visualStylePrompt}, consistent characters throughout all frames, seamle
       };
     }
 
-    // Step 5: Deduct credits upfront (before async generation)
+    console.log(`✅ Storyboard generated successfully: ${imageResult.imageUrl}`);
+
+    // Step 5: Re-upload to Supabase for permanent storage
+    let permanentImageUrl = imageResult.imageUrl;
+
+    try {
+      console.log('📊 Re-uploading storyboard to Supabase storage...');
+      const uploadResult = await downloadAndUploadImage(
+        imageResult.imageUrl,
+        'storyboard-grid',
+        batch_id,
+        {
+          bucket: 'images',
+          folder: 'storyboards',
+          contentType: 'image/jpeg',
+        }
+      );
+
+      if (uploadResult.success && uploadResult.url) {
+        permanentImageUrl = uploadResult.url;
+        console.log(`✅ Storyboard saved to Supabase: ${permanentImageUrl}`);
+      } else {
+        console.warn('Failed to re-upload storyboard, using Replicate URL:', uploadResult.error);
+      }
+    } catch (uploadError) {
+      console.error('Error re-uploading storyboard:', uploadError);
+    }
+
+    // Step 6: Store result in database (using the same pattern as Starting Shot)
+    // Note: We store storyboards as starting shots since they use the same table structure
+    // The type is differentiated by project_name prefix
+    const storeResult = await storeStartingShotResult({
+      user_id: request.user_id,
+      batch_id,
+      prompt: `[STORYBOARD] ${request.story_description} | Style: ${request.visual_style}${request.custom_style ? ` | Custom: ${request.custom_style}` : ''}`,
+      image_url: permanentImageUrl,
+      aspect_ratio: '1:1',
+    });
+
+    if (!storeResult.success) {
+      console.error('Failed to store storyboard result:', storeResult.error);
+    }
+
+    // Step 7: Deduct credits
     const creditDeduction = await deductCredits(
       request.user_id,
       CREDIT_COST,
@@ -945,54 +982,11 @@ STYLE: ${visualStylePrompt}, consistent characters throughout all frames, seamle
       console.warn('Credit deduction failed:', creditDeduction.error);
     }
 
-    // Step 6: Generate image using async webhook-based generation
-    // This returns immediately - the webhook will handle completion
-    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`;
-    const hasReferenceImages = referenceImageUrls.length > 0;
-
-    const imageResult = await generateImageWithProAsync(
-      storyboardPrompt,
-      gridAspectRatio, // Grid orientation matches frame orientation
-      hasReferenceImages ? referenceImageUrls : undefined,
-      '4K', // 4K resolution for grid extraction
-      'jpg', // JPG format
-      webhookUrl
-    );
-
-    if (!imageResult.success || !imageResult.predictionId) {
-      // If prediction creation fails, we need to refund credits
-      console.error('Failed to create storyboard prediction:', imageResult.error);
-      // TODO: Add credit refund logic
-      return {
-        success: false,
-        error: imageResult.error || 'Failed to start storyboard generation',
-        batch_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: creditCheck.credits || 0,
-      };
-    }
-
-    console.log(`📊 Storyboard generation started with prediction: ${imageResult.predictionId}`);
-
-    // Step 7: Update the record with prediction ID for webhook matching
-    await storeStartingShotResult({
-      user_id: request.user_id,
-      batch_id,
-      prompt: `[STORYBOARD] ${request.story_description} | Style: ${request.visual_style}${request.custom_style ? ` | Custom: ${request.custom_style}` : ''}`,
-      image_url: '', // Will be updated by webhook
-      aspect_ratio: gridAspectRatio,
-      status: 'processing',
-      prediction_id: imageResult.predictionId, // Store prediction ID for webhook matching
-    });
-
-    // Return success with "processing" status
-    // The actual image URL will be set by the webhook when generation completes
     return {
       success: true,
       storyboard: {
         id: batch_id,
-        grid_image_url: '', // Will be populated by webhook
+        grid_image_url: permanentImageUrl,
         prompt: request.story_description,
         visual_style: request.visual_style,
         frame_aspect_ratio: frameAspectRatio as '16:9' | '9:16',
