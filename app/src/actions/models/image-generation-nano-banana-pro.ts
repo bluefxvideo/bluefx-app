@@ -215,3 +215,49 @@ export async function generateImageWithPro(
     };
   }
 }
+
+/**
+ * Generate an image using Nano Banana Pro with webhook (async, no polling)
+ * Returns immediately with prediction ID - result will be delivered via webhook
+ * Use this for large images (4K) that may take several minutes
+ *
+ * @param prompt - Text description of the image to generate
+ * @param aspectRatio - Aspect ratio of the output image
+ * @param referenceImages - Optional array of reference image URLs
+ * @param resolution - Output resolution (1K, 2K, 4K) - defaults to 4K for storyboards
+ * @param outputFormat - Output format (jpg, png, webp) - defaults to jpg
+ * @param webhookUrl - URL to receive completion callback
+ */
+export async function generateImageWithProAsync(
+  prompt: string,
+  aspectRatio: NanoBananaAspectRatio = '16:9',
+  referenceImages?: string[],
+  resolution: '1K' | '2K' | '4K' = '4K',
+  outputFormat: 'jpg' | 'png' | 'webp' = 'jpg',
+  webhookUrl?: string
+): Promise<{ success: boolean; predictionId?: string; error?: string }> {
+  try {
+    // Create prediction with webhook
+    const prediction = await createNanoBananaProPrediction({
+      prompt,
+      aspect_ratio: aspectRatio,
+      resolution,
+      output_format: outputFormat,
+      image_input: referenceImages,
+      webhook: webhookUrl,
+    });
+
+    console.log(`✅ Async nano-banana-pro prediction created: ${prediction.id}`);
+
+    return {
+      success: true,
+      predictionId: prediction.id
+    };
+  } catch (error) {
+    console.error('generateImageWithProAsync error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}

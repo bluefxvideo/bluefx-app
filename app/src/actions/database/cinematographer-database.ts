@@ -481,6 +481,8 @@ export async function createPredictionRecord(params: {
  * Store Starting Shot (first frame) result
  * Stores generated images in the same table as videos, marked as type 'image'
  * Uses admin client to bypass RLS policies for server-side inserts
+ *
+ * Supports optional status and prediction_id for async webhook-based generation
  */
 export async function storeStartingShotResult(params: {
   user_id: string;
@@ -488,41 +490,51 @@ export async function storeStartingShotResult(params: {
   prompt: string;
   image_url: string;
   aspect_ratio: string;
+  status?: 'processing' | 'completed' | 'failed'; // For async generation
+  prediction_id?: string; // For webhook matching
 }): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`🔄 storeStartingShotResult called with:`, {
       user_id: params.user_id,
       batch_id: params.batch_id,
       prompt: params.prompt.substring(0, 50) + '...',
-      image_url: params.image_url.substring(0, 50) + '...',
-      aspect_ratio: params.aspect_ratio
+      image_url: params.image_url ? params.image_url.substring(0, 50) + '...' : '(empty - processing)',
+      aspect_ratio: params.aspect_ratio,
+      status: params.status || 'completed',
+      prediction_id: params.prediction_id || '(none)'
     });
 
     // Use admin client to bypass RLS policies for server-side inserts
     const supabase = createAdminClient();
 
+    // Determine if this is a storyboard based on prompt prefix
+    const isStoryboard = params.prompt.startsWith('[STORYBOARD]');
+    const type = isStoryboard ? 'storyboard' : 'starting_shot';
+
     const insertData = {
       id: params.batch_id,
       user_id: params.user_id,
       video_concept: params.prompt,
-      project_name: `Starting Shot - ${new Date().toISOString()}`,
+      project_name: `${isStoryboard ? 'Storyboard' : 'Starting Shot'} - ${new Date().toISOString()}`,
       final_video_url: params.image_url,
       style_preferences: {},
       metadata: {
-        type: 'starting_shot',
+        type,
         aspect_ratio: params.aspect_ratio,
-        model: 'nano-banana'
+        model: 'nano-banana-pro',
+        ...(params.prediction_id && { prediction_id: params.prediction_id })
       } as Json,
-      status: 'completed',
+      status: params.status || 'completed',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
-    console.log(`📝 Inserting into cinematographer_videos:`, { id: insertData.id, user_id: insertData.user_id });
+    console.log(`📝 Upserting into cinematographer_videos:`, { id: insertData.id, user_id: insertData.user_id, status: insertData.status });
 
+    // Use upsert to allow updating existing records (e.g., adding prediction_id)
     const { data, error } = await supabase
       .from('cinematographer_videos')
-      .insert(insertData)
+      .upsert(insertData, { onConflict: 'id' })
       .select();
 
     if (error) {
@@ -530,7 +542,7 @@ export async function storeStartingShotResult(params: {
       return { success: false, error: error.message };
     }
 
-    console.log(`✅ Starting Shot stored successfully:`, { batch_id: params.batch_id, inserted: data });
+    console.log(`✅ ${type} stored successfully:`, { batch_id: params.batch_id, inserted: data });
     return { success: true };
 
   } catch (error) {

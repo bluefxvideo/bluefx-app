@@ -67,6 +67,8 @@ interface ReplicateInput {
   video?: string;
   character_image?: string;
   job_id?: string;
+  // Storyboard (nano-banana-pro) properties
+  resolution?: string; // '1K' | '2K' | '4K'
 }
 
 interface ReplicateWebhookPayload {
@@ -345,6 +347,13 @@ async function analyzeWebhookPayload(payload: ReplicateWebhookPayload): Promise<
     analysis.processing_strategy = 'single_voice_generation';
     analysis.expected_outputs = 1;
     analysis.requires_real_time_update = true;
+  } else if (payload.version?.includes('nano-banana-pro') ||
+            // Detect by resolution parameter (4K is typical for storyboards)
+            (payload.input?.resolution === '4K' && payload.input?.prompt)) {
+    analysis.tool_type = 'storyboard';
+    analysis.processing_strategy = 'single_storyboard_generation';
+    analysis.expected_outputs = 1;
+    analysis.requires_real_time_update = true;
   }
 
   // AI Decision: Set workflow type based on complexity
@@ -405,6 +414,10 @@ async function handleSuccessfulGeneration(
       const videoSwapResult = await processVideoSwapGeneration(payload, analysis);
       results_processed = videoSwapResult.count;
       credits_used = videoSwapResult.credits;
+    } else if (analysis.processing_strategy === 'single_storyboard_generation') {
+      const storyboardResult = await processStoryboardGeneration(payload, analysis);
+      results_processed = storyboardResult.count;
+      credits_used = storyboardResult.credits;
     } else {
       console.warn(`⚠️ Unknown processing strategy: ${analysis.processing_strategy}`);
     }
@@ -1128,6 +1141,74 @@ async function processVideoSwapGeneration(payload: ReplicateWebhookPayload, anal
     } catch (updateError) {
       console.error('Failed to update job status:', updateError);
     }
+  }
+
+  return { count: 0, credits: 0 };
+}
+
+/**
+ * Process storyboard generation completion (nano-banana-pro 4K images)
+ * Finds the record by prediction_id stored in metadata and updates with final image URL
+ */
+async function processStoryboardGeneration(payload: ReplicateWebhookPayload, analysis: PayloadAnalysis): Promise<{ count: number; credits: number }> {
+  const imageUrl = typeof payload.output === 'string' ? payload.output : payload.output?.[0];
+  if (!imageUrl) return { count: 0, credits: 0 };
+
+  console.log(`📊 Storyboard Processing: nano-banana-pro 4K image`);
+
+  try {
+    // Download and upload image to our storage for permanent storage
+    const uploadResult = await downloadAndUploadImage(
+      imageUrl as string,
+      'storyboard-grid',
+      `storyboard_${payload.id}`,
+      {
+        bucket: 'images',
+        folder: 'storyboards',
+        contentType: 'image/jpeg',
+      }
+    );
+
+    if (uploadResult.success && uploadResult.url) {
+      // Find the storyboard record by prediction_id stored in metadata
+      const { createAdminClient } = await import('@/app/supabase/server');
+      const supabase = createAdminClient();
+
+      // Query cinematographer_videos for storyboard records with matching prediction_id in metadata
+      const { data: storyboardRecords, error: queryError } = await supabase
+        .from('cinematographer_videos')
+        .select('id, user_id, metadata')
+        .contains('metadata', { prediction_id: payload.id });
+
+      console.log(`🔍 Storyboard query: prediction_id=${payload.id}, found=${storyboardRecords?.length || 0} records`);
+      if (queryError) {
+        console.error('🔍 Storyboard query error:', queryError);
+      }
+
+      if (storyboardRecords && storyboardRecords.length > 0) {
+        const storyboardRecord = storyboardRecords[0];
+        const storyboardId = storyboardRecord.id;
+
+        // Update analysis with user_id for broadcasting
+        analysis.user_id = storyboardRecord.user_id;
+
+        // Update the storyboard record with final URL and completed status
+        const { updateCinematographerVideoAdmin } = await import('@/actions/database/cinematographer-database');
+
+        await updateCinematographerVideoAdmin(storyboardId, {
+          status: 'completed',
+          final_video_url: uploadResult.url, // Using video_url field to store the grid image
+          updated_at: new Date().toISOString()
+        });
+
+        console.log(`✅ Storyboard Complete: Updated record ${storyboardId} with image ${uploadResult.url}`);
+        return { count: 1, credits: 6 }; // Storyboard costs 6 credits (already deducted)
+      } else {
+        console.warn(`⚠️ No storyboard record found for prediction ${payload.id}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Storyboard processing failed:', error);
   }
 
   return { count: 0, credits: 0 };
