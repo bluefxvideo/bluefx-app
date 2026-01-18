@@ -21,22 +21,46 @@ import {
   ChevronRight,
   RefreshCw,
   TrendingUp,
+  CreditCard,
 } from 'lucide-react';
-import {
-  fetchActivityFeed,
-  fetchDailyActivitySummary,
-  fetchActivityToolList,
-  TOOL_DISPLAY_NAMES,
-  type ActivityLogEntry,
-  type DailyActivitySummary,
-} from '@/actions/activity-log';
+
+interface ActivityEntry {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email?: string;
+  tool_name: string;
+  tool_display_name: string;
+  credits: number;
+  created_at: string;
+}
+
+interface DailySummary {
+  date: string;
+  total_activities: number;
+  total_credits: number;
+  unique_users: number;
+  by_tool: { tool: string; toolName: string; count: number }[];
+}
+
+interface ActivityFeedResponse {
+  success: boolean;
+  summary: DailySummary;
+  activities: ActivityEntry[];
+  tools: { value: string; label: string }[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  error?: string;
+}
 
 export function ActivityFeedPanel() {
-  const [summary, setSummary] = useState<DailyActivitySummary | null>(null);
-  const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
-  const [tools, setTools] = useState<{ value: string; label: string }[]>([]);
+  const [data, setData] = useState<ActivityFeedResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Filters and pagination
   const [selectedDate, setSelectedDate] = useState(
@@ -44,91 +68,47 @@ export function ActivityFeedPanel() {
   );
   const [toolFilter, setToolFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  const loadSummary = useCallback(async () => {
-    const result = await fetchDailyActivitySummary(selectedDate);
-    if (result.success && result.data) {
-      setSummary(result.data);
-    }
-  }, [selectedDate]);
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-  const loadFeed = useCallback(async () => {
-    setIsLoadingFeed(true);
     try {
-      const result = await fetchActivityFeed({
-        page,
-        limit: 30,
-        toolFilter: toolFilter !== 'all' ? toolFilter : undefined,
-        dateFilter: selectedDate,
+      const params = new URLSearchParams({
+        date: selectedDate,
+        page: page.toString(),
+        limit: '30',
       });
 
-      if (result.success && result.data) {
-        setActivities(result.data.entries);
-        setTotalPages(result.data.totalPages);
+      if (toolFilter && toolFilter !== 'all') {
+        params.set('tool', toolFilter);
       }
-    } catch (error) {
-      console.error('Failed to load feed:', error);
+
+      const response = await fetch(`/api/admin/activity-feed?${params}`);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setData(result);
+      } else {
+        setError(result.error || 'Failed to load activity feed');
+        setData(null);
+      }
+    } catch (err) {
+      console.error('Failed to load activity feed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load activity feed');
+      setData(null);
     } finally {
-      setIsLoadingFeed(false);
+      setIsLoading(false);
     }
-  }, [page, toolFilter, selectedDate]);
+  }, [selectedDate, toolFilter, page]);
 
-  const loadTools = useCallback(async () => {
-    const result = await fetchActivityToolList();
-    if (result.success && result.tools) {
-      setTools(result.tools);
-    }
-  }, []);
-
-  // Initial load
+  // Initial load and reload on filter changes
   useEffect(() => {
-    async function init() {
-      setIsLoading(true);
-      try {
-        const [summaryResult, feedResult, toolsResult] = await Promise.all([
-          fetchDailyActivitySummary(selectedDate),
-          fetchActivityFeed({ page: 1, limit: 30, dateFilter: selectedDate }),
-          fetchActivityToolList(),
-        ]);
+    loadData();
+  }, [loadData]);
 
-        if (summaryResult.success && summaryResult.data) {
-          setSummary(summaryResult.data);
-        }
-        if (feedResult.success && feedResult.data) {
-          setActivities(feedResult.data.entries);
-          setTotalPages(feedResult.data.totalPages);
-        }
-        if (toolsResult.success && toolsResult.tools) {
-          setTools(toolsResult.tools);
-        }
-      } catch (error) {
-        console.error('Failed to load activity data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    init();
-  }, []);
-
-  // Reload when date changes
-  useEffect(() => {
-    if (isLoading) return; // Skip if initial load is in progress
-    setPage(1);
-    loadSummary();
-    loadFeed();
-  }, [selectedDate]);
-
-  // Reload feed when filter or page changes
-  useEffect(() => {
-    if (isLoading) return; // Skip if initial load is in progress
-    loadFeed();
-  }, [page, toolFilter]);
-
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    await Promise.all([loadSummary(), loadFeed()]);
-    setIsLoading(false);
+  const handleRefresh = () => {
+    loadData();
   };
 
   const formatTime = (dateString: string) => {
@@ -138,11 +118,23 @@ export function ActivityFeedPanel() {
     });
   };
 
-  const getToolDisplayName = (toolName: string) => {
-    return TOOL_DISPLAY_NAMES[toolName] || toolName;
-  };
+  if (error) {
+    return (
+      <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
+        <CardContent className="flex items-center justify-center p-6">
+          <div className="text-center">
+            <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
@@ -151,6 +143,11 @@ export function ActivityFeedPanel() {
       </Card>
     );
   }
+
+  const summary = data?.summary;
+  const activities = data?.activities || [];
+  const tools = data?.tools || [];
+  const pagination = data?.pagination;
 
   return (
     <div className="space-y-6">
@@ -164,19 +161,22 @@ export function ActivityFeedPanel() {
           <Input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setPage(1);
+            }}
             className="w-40"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh}>
-          <RefreshCw className="w-4 h-4 mr-2" />
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
       {/* Daily Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -184,7 +184,18 @@ export function ActivityFeedPanel() {
                 <span className="text-xs">Total Activity</span>
               </div>
               <div className="text-2xl font-bold">{summary.total_activities}</div>
-              <p className="text-xs text-muted-foreground">tool visits today</p>
+              <p className="text-xs text-muted-foreground">generations today</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <CreditCard className="w-4 h-4" />
+                <span className="text-xs">Credits Used</span>
+              </div>
+              <div className="text-2xl font-bold">{summary.total_credits.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">credits today</p>
             </CardContent>
           </Card>
 
@@ -269,7 +280,7 @@ export function ActivityFeedPanel() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoadingFeed ? (
+          {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
@@ -286,24 +297,24 @@ export function ActivityFeedPanel() {
                     </div>
                     <div>
                       <div className="font-medium text-sm">
-                        {activity.user_name || 'Unknown User'}
+                        {activity.user_name}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        visited{' '}
+                        used{' '}
                         <span className="text-foreground font-medium">
-                          {getToolDisplayName(activity.tool_name)}
+                          {activity.tool_display_name}
                         </span>
                       </div>
                     </div>
                   </div>
                   <Badge variant="outline" className="text-xs">
-                    {activity.action}
+                    {activity.credits} credits
                   </Badge>
                 </div>
               ))}
 
               {/* Pagination */}
-              {totalPages > 1 && (
+              {pagination && pagination.totalPages > 1 && (
                 <div className="flex items-center justify-center gap-2 pt-4">
                   <Button
                     variant="outline"
@@ -314,13 +325,13 @@ export function ActivityFeedPanel() {
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                   <span className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages}
+                    Page {page} of {pagination.totalPages}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
+                    onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                    disabled={page === pagination.totalPages}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
@@ -332,7 +343,7 @@ export function ActivityFeedPanel() {
               <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>No activity recorded for this date</p>
               <p className="text-xs mt-1">
-                Activity will appear here once users visit tools
+                Activity will appear here when users generate content
               </p>
             </div>
           )}

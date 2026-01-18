@@ -8,33 +8,63 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Loader2,
   CreditCard,
   Activity,
   Zap,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
   Clock,
 } from 'lucide-react';
 import {
-  fetchUserUsageStats,
-  fetchUserUsageHistory,
-  fetchUserToolList,
-  TOOL_NAMES,
-  type UserUsageStats,
-  type CreditUsageEntry,
-} from '@/actions/admin/user-usage';
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+
+// User details response from API (same structure as platform-usage-panel.tsx)
+interface UserDetailsResponse {
+  success: boolean;
+  user: {
+    id: string;
+    username: string | null;
+    fullName: string | null;
+    email: string | null;
+    role: string | null;
+    createdAt: string | null;
+  };
+  credits: {
+    available: number;
+    total: number;
+    used: number;
+  };
+  subscription: {
+    plan: string;
+    status: string;
+    periodStart: string | null;
+    periodEnd: string | null;
+  } | null;
+  toolBreakdown: {
+    toolId: string;
+    toolName: string;
+    credits: number;
+    uses: number;
+  }[];
+  dailyUsage: {
+    date: string;
+    credits: number;
+  }[];
+  recentActivity: {
+    date: string;
+    tool: string;
+    credits: number;
+  }[];
+}
 
 interface UserUsageDialogProps {
   user: {
@@ -48,94 +78,45 @@ interface UserUsageDialogProps {
 }
 
 export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogProps) {
-  const [stats, setStats] = useState<UserUsageStats | null>(null);
-  const [history, setHistory] = useState<CreditUsageEntry[]>([]);
-  const [tools, setTools] = useState<{ value: string; label: string }[]>([]);
+  const [userDetails, setUserDetails] = useState<UserDetailsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Pagination and filters
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [toolFilter, setToolFilter] = useState<string>('all');
-
-  const loadStats = useCallback(async () => {
+  const loadUserDetails = useCallback(async () => {
     if (!user?.id) return;
 
     setIsLoading(true);
     try {
-      const [statsResult, toolsResult] = await Promise.all([
-        fetchUserUsageStats(user.id),
-        fetchUserToolList(user.id),
-      ]);
+      const response = await fetch(`/api/admin/user-details?userId=${user.id}`);
+      const result = await response.json();
 
-      if (statsResult.success && statsResult.stats) {
-        setStats(statsResult.stats);
-      }
-
-      if (toolsResult.success && toolsResult.tools) {
-        setTools(toolsResult.tools);
+      if (response.ok && result.success) {
+        setUserDetails(result);
+      } else {
+        console.error('Failed to load user details:', result.error);
+        setUserDetails(null);
       }
     } catch (error) {
-      console.error('Failed to load stats:', error);
+      console.error('Failed to load user details:', error);
+      setUserDetails(null);
     } finally {
       setIsLoading(false);
     }
   }, [user?.id]);
 
-  const loadHistory = useCallback(async () => {
-    if (!user?.id) return;
-
-    setIsLoadingHistory(true);
-    try {
-      const result = await fetchUserUsageHistory(user.id, {
-        page,
-        limit: 10,
-        toolFilter: toolFilter !== 'all' ? toolFilter : undefined,
-      });
-
-      if (result.success && result.data) {
-        setHistory(result.data.entries);
-        setTotalPages(result.data.totalPages);
-      }
-    } catch (error) {
-      console.error('Failed to load history:', error);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  }, [user?.id, page, toolFilter]);
-
   // Load data when dialog opens
   useEffect(() => {
     if (open && user?.id) {
-      setPage(1);
-      setToolFilter('all');
-      loadStats();
+      loadUserDetails();
     }
-  }, [open, user?.id, loadStats]);
-
-  // Load history when page or filter changes
-  useEffect(() => {
-    if (open && user?.id) {
-      loadHistory();
-    }
-  }, [open, user?.id, page, toolFilter, loadHistory]);
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getToolName = (serviceType: string) => {
-    return TOOL_NAMES[serviceType] || serviceType;
-  };
+  }, [open, user?.id, loadUserDetails]);
 
   if (!user) return null;
+
+  // Calculate summary stats from userDetails
+  const totalCreditsUsed = userDetails?.toolBreakdown.reduce((sum, t) => sum + t.credits, 0) || 0;
+  const totalGenerations = userDetails?.toolBreakdown.reduce((sum, t) => sum + t.uses, 0) || 0;
+  const mostUsedTool = userDetails?.toolBreakdown[0]?.toolName || null;
+  const lastActivity = userDetails?.recentActivity[0]?.date || null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,7 +132,7 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : stats ? (
+        ) : userDetails ? (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -161,7 +142,7 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
                     <CreditCard className="w-4 h-4" />
                     <span className="text-xs">Credits Used</span>
                   </div>
-                  <div className="text-2xl font-bold">{stats.totalCreditsUsed}</div>
+                  <div className="text-2xl font-bold">{totalCreditsUsed.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
@@ -171,7 +152,7 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
                     <Activity className="w-4 h-4" />
                     <span className="text-xs">Generations</span>
                   </div>
-                  <div className="text-2xl font-bold">{stats.totalGenerations}</div>
+                  <div className="text-2xl font-bold">{totalGenerations.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
@@ -182,7 +163,7 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
                     <span className="text-xs">Most Used</span>
                   </div>
                   <div className="text-lg font-bold truncate">
-                    {stats.mostUsedTool || 'N/A'}
+                    {mostUsedTool || 'N/A'}
                   </div>
                 </CardContent>
               </Card>
@@ -194,8 +175,8 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
                     <span className="text-xs">Last Active</span>
                   </div>
                   <div className="text-sm font-bold">
-                    {stats.lastActivity
-                      ? new Date(stats.lastActivity).toLocaleDateString()
+                    {lastActivity
+                      ? new Date(lastActivity).toLocaleDateString()
                       : 'Never'}
                   </div>
                 </CardContent>
@@ -203,7 +184,7 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
             </div>
 
             {/* Usage by Tool */}
-            {stats.byTool.length > 0 && (
+            {userDetails.toolBreakdown.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold mb-3">Usage by Tool</h3>
                 <div className="border rounded-lg overflow-hidden">
@@ -216,16 +197,16 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {stats.byTool.map((tool) => (
-                        <tr key={tool.tool} className="hover:bg-muted/30">
+                      {userDetails.toolBreakdown.map((tool) => (
+                        <tr key={tool.toolId} className="hover:bg-muted/30">
                           <td className="p-3">
                             <span className="font-medium">{tool.toolName}</span>
                           </td>
                           <td className="p-3 text-right">
-                            <Badge variant="secondary">{tool.credits}</Badge>
+                            <Badge variant="secondary">{tool.credits.toLocaleString()}</Badge>
                           </td>
                           <td className="p-3 text-right text-muted-foreground">
-                            {tool.count}
+                            {tool.uses}
                           </td>
                         </tr>
                       ))}
@@ -235,90 +216,56 @@ export function UserUsageDialog({ user, open, onOpenChange }: UserUsageDialogPro
               </div>
             )}
 
-            {/* Recent Activity */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Recent Activity</h3>
-                <Select value={toolFilter} onValueChange={(v) => { setToolFilter(v); setPage(1); }}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Tools" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Tools</SelectItem>
-                    {tools.map((tool) => (
-                      <SelectItem key={tool.value} value={tool.value}>
-                        {tool.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* Daily Usage Chart */}
+            {userDetails.dailyUsage.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Daily Usage (Last 30 Days)</h3>
+                <ResponsiveContainer width="100%" height={150}>
+                  <LineChart data={userDetails.dailyUsage}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip
+                      labelFormatter={(value) => new Date(value as string).toLocaleDateString()}
+                      formatter={(value) => [`${value} credits`, 'Credits Used']}
+                    />
+                    <Line type="monotone" dataKey="credits" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
+            )}
 
-              {isLoadingHistory ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                </div>
-              ) : history.length > 0 ? (
-                <div className="space-y-2">
-                  {history.map((entry) => (
+            {/* Recent Activity */}
+            {userDetails.recentActivity.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Recent Activity</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {userDetails.recentActivity.map((activity, index) => (
                     <div
-                      key={entry.id}
+                      key={index}
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30"
                     >
                       <div className="flex items-start gap-3">
                         <Clock className="w-4 h-4 text-muted-foreground mt-0.5" />
                         <div>
                           <div className="text-sm text-muted-foreground">
-                            {formatDate(entry.created_at)}
+                            {new Date(activity.date).toLocaleString()}
                           </div>
-                          <div className="font-medium">
-                            {getToolName(entry.service_type)}
-                            {entry.operation_type && (
-                              <span className="text-muted-foreground ml-2">
-                                • {entry.operation_type}
-                              </span>
-                            )}
-                          </div>
+                          <div className="font-medium">{activity.tool}</div>
                         </div>
                       </div>
                       <Badge variant="outline" className="shrink-0">
-                        {entry.credits_used} credits
+                        {activity.credits} credits
                       </Badge>
                     </div>
                   ))}
-
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 pt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {page} of {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
                 </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No usage history found</p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-12 text-muted-foreground">
