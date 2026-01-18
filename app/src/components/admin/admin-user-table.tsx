@@ -43,7 +43,7 @@ interface AdminUserTableProps {
   users: UserWithStats[]
 }
 
-type SortField = 'user' | 'role' | 'plan' | 'status' | 'credits' | 'lastActivity'
+type SortField = 'user' | 'role' | 'plan' | 'status' | 'credits' | 'joined' | 'lastActivity'
 type SortDirection = 'asc' | 'desc'
 
 /**
@@ -182,6 +182,11 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
       case 'credits':
         comparison = (a.credits?.available_credits || 0) - (b.credits?.available_credits || 0)
         break
+      case 'joined':
+        const joinedA = a.created_at ? new Date(a.created_at).getTime() : 0
+        const joinedB = b.created_at ? new Date(b.created_at).getTime() : 0
+        comparison = joinedA - joinedB
+        break
       case 'lastActivity':
         const dateA = a.lastActivity ? new Date(a.lastActivity).getTime() : 0
         const dateB = b.lastActivity ? new Date(b.lastActivity).getTime() : 0
@@ -319,7 +324,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
         </CardHeader>
         <CardContent>
           {/* Table Header */}
-          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr' }}>
+          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr 1fr' }}>
             <button
               onClick={() => handleSort('user')}
               className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
@@ -352,6 +357,12 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
               Credits {getSortIcon('credits')}
             </button>
             <button
+              onClick={() => handleSort('joined')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              Joined {getSortIcon('joined')}
+            </button>
+            <button
               onClick={() => handleSort('lastActivity')}
               className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
             >
@@ -363,7 +374,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           {/* Table Body */}
           <div className="divide-y">
             {paginatedUsers.map((user) => (
-              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr' }}>
+              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr 1fr' }}>
                 <div>
                   <div className="font-medium text-foreground">{user.email || user.username}</div>
                   <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
@@ -389,6 +400,12 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                 <div className="text-sm">
                   <div>{user.credits?.available_credits || 0} available</div>
                   <div className="text-muted-foreground">{user.totalCreditsUsed || 0} used</div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {user.created_at
+                    ? new Date(user.created_at).toLocaleDateString()
+                    : '-'
+                  }
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {user.lastActivity
