@@ -324,7 +324,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
         </CardHeader>
         <CardContent>
           {/* Table Header */}
-          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr 1fr' }}>
+          <div className="grid gap-3 py-3 border-b bg-muted/50 px-2" style={{ gridTemplateColumns: '200px 70px 70px 150px 100px 100px 85px 85px 140px' }}>
             <button
               onClick={() => handleSort('user')}
               className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
@@ -374,7 +374,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           {/* Table Body */}
           <div className="divide-y">
             {paginatedUsers.map((user) => (
-              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr 1fr' }}>
+              <div key={user.id} className="grid gap-3 py-3 hover:bg-accent/50 px-2 items-center" style={{ gridTemplateColumns: '200px 70px 70px 150px 100px 100px 85px 85px 140px' }}>
                 <div>
                   <div className="font-medium text-foreground">{user.email || user.username}</div>
                   <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
@@ -391,7 +391,10 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                     <span className="text-muted-foreground text-sm">-</span>
                   )}
                 </div>
-                <div className="text-sm font-mono truncate" title={(user.subscription as any)?.fastspring_subscription_id || user.subscription?.stripe_subscription_id || 'No subscription ID'}>
+                <div
+                  className="text-xs font-mono truncate cursor-text select-all"
+                  title={(user.subscription as any)?.fastspring_subscription_id || user.subscription?.stripe_subscription_id || 'No subscription ID'}
+                >
                   {(user.subscription as any)?.fastspring_subscription_id || user.subscription?.stripe_subscription_id || '-'}
                 </div>
                 <div>
