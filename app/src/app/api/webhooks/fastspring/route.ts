@@ -491,17 +491,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   }
   console.log(`✅ Created FastSpring subscription for user ${customerEmail}`)
 
-  // For credits, we need to preserve any bonus_credits the user may have purchased
-  // First check if they have existing credits with bonus
-  const { data: existingCredits } = await supabase
-    .from('user_credits')
-    .select('id, bonus_credits')
-    .eq('user_id', userId)
-
-  // Calculate total bonus credits to preserve
-  const totalBonusCredits = existingCredits?.reduce((sum, c) => sum + (c.bonus_credits || 0), 0) || 0
-
-  // Delete ALL existing credit records to prevent duplicates
+  // Delete ALL existing credit records to prevent duplicates from race conditions
   const { error: deleteCredError } = await supabase
     .from('user_credits')
     .delete()
@@ -511,16 +501,19 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     console.warn('Warning deleting existing credits:', deleteCredError)
   }
 
-  // Create fresh credits record, preserving bonus credits
+  // Create fresh credits record
+  // Note: Credits period is always 30 days for monthly renewal, regardless of billing cycle
+  // Yearly subscribers still get credits renewed monthly via auto-topup when period expires
+  const creditsPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
   const { error: creditsError } = await supabase
     .from('user_credits')
     .insert({
       user_id: userId,
       total_credits: creditsAllocation,
       used_credits: 0,
-      bonus_credits: totalBonusCredits,
       period_start: currentPeriodStart.toISOString(),
-      period_end: currentPeriodEnd.toISOString(),
+      period_end: creditsPeriodEnd.toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
@@ -529,7 +522,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     console.error('FastSpring credits insert error:', creditsError)
     throw new Error(`Failed to create credits: ${creditsError.message}`)
   }
-  console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}${totalBonusCredits > 0 ? ` (preserved ${totalBonusCredits} bonus credits)` : ''}`)
+  console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}`)
 
   console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
 }
