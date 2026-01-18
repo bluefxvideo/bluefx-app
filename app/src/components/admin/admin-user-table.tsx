@@ -16,7 +16,10 @@ import {
   UserCheck,
   Eye,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react'
 import { AddCreditsDialog } from './add-credits-dialog'
 import { ChangeRoleDialog } from './change-role-dialog'
@@ -38,6 +41,22 @@ interface UserWithStats extends Tables<'profiles'> {
 
 interface AdminUserTableProps {
   users: UserWithStats[]
+}
+
+type SortField = 'user' | 'role' | 'plan' | 'status' | 'credits' | 'lastActivity'
+type SortDirection = 'asc' | 'desc'
+
+/**
+ * Determine if subscription is yearly or monthly based on period length
+ */
+function getBillingType(subscription?: Tables<'user_subscriptions'> | null): 'yearly' | 'monthly' | null {
+  if (!subscription?.current_period_start || !subscription?.current_period_end) {
+    return null
+  }
+  const start = new Date(subscription.current_period_start)
+  const end = new Date(subscription.current_period_end)
+  const daysDiff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+  return daysDiff > 60 ? 'yearly' : 'monthly'
 }
 
 /**
@@ -105,6 +124,31 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
   const [isSuspendUserOpen, setIsSuspendUserOpen] = useState(false)
   const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false)
   const [isUsageDialogOpen, setIsUsageDialogOpen] = useState(false)
+  const [sortField, setSortField] = useState<SortField | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+
+  // Handle column header click for sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      // New field, start with ascending
+      setSortField(field)
+      setSortDirection('asc')
+    }
+    setCurrentPage(1) // Reset to first page when sorting
+  }
+
+  // Get sort icon for column header
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />
+  }
 
   // Filter users based on search term
   const filteredUsers = users.filter(user =>
@@ -113,10 +157,45 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE)
+  // Sort filtered users
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (!sortField) return 0
+
+    let comparison = 0
+    switch (sortField) {
+      case 'user':
+        comparison = (a.email || a.username || '').localeCompare(b.email || b.username || '')
+        break
+      case 'role':
+        comparison = (a.role || 'user').localeCompare(b.role || 'user')
+        break
+      case 'plan':
+        const planA = getBillingType(a.subscription) || ''
+        const planB = getBillingType(b.subscription) || ''
+        comparison = planA.localeCompare(planB)
+        break
+      case 'status':
+        const statusA = a.subscription?.status || ''
+        const statusB = b.subscription?.status || ''
+        comparison = statusA.localeCompare(statusB)
+        break
+      case 'credits':
+        comparison = (a.credits?.available_credits || 0) - (b.credits?.available_credits || 0)
+        break
+      case 'lastActivity':
+        const dateA = a.lastActivity ? new Date(a.lastActivity).getTime() : 0
+        const dateB = b.lastActivity ? new Date(b.lastActivity).getTime() : 0
+        comparison = dateA - dateB
+        break
+    }
+
+    return sortDirection === 'asc' ? comparison : -comparison
+  })
+
+  // Pagination (use sortedUsers for proper ordering)
+  const totalPages = Math.ceil(sortedUsers.length / USERS_PER_PAGE)
   const startIndex = (currentPage - 1) * USERS_PER_PAGE
-  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + USERS_PER_PAGE)
+  const paginatedUsers = sortedUsers.slice(startIndex, startIndex + USERS_PER_PAGE)
 
   // Reset to page 1 when search term changes
   const handleSearchChange = (value: string) => {
@@ -240,26 +319,66 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
         </CardHeader>
         <CardContent>
           {/* Table Header */}
-          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr 1fr 1fr' }}>
-            <div className="font-medium text-muted-foreground">User</div>
-            <div className="font-medium text-muted-foreground">Role</div>
+          <div className="grid gap-4 py-3 border-b bg-muted/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr' }}>
+            <button
+              onClick={() => handleSort('user')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              User {getSortIcon('user')}
+            </button>
+            <button
+              onClick={() => handleSort('role')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              Role {getSortIcon('role')}
+            </button>
+            <button
+              onClick={() => handleSort('plan')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              Plan {getSortIcon('plan')}
+            </button>
             <div className="font-medium text-muted-foreground">Subscription ID</div>
-            <div className="font-medium text-muted-foreground">Status</div>
-            <div className="font-medium text-muted-foreground">Credits</div>
-            <div className="font-medium text-muted-foreground">Last Activity</div>
+            <button
+              onClick={() => handleSort('status')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              Status {getSortIcon('status')}
+            </button>
+            <button
+              onClick={() => handleSort('credits')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              Credits {getSortIcon('credits')}
+            </button>
+            <button
+              onClick={() => handleSort('lastActivity')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              Last Activity {getSortIcon('lastActivity')}
+            </button>
             <div className="font-medium text-muted-foreground">Actions</div>
           </div>
           
           {/* Table Body */}
           <div className="divide-y">
             {paginatedUsers.map((user) => (
-              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1fr 1fr 1fr' }}>
+              <div key={user.id} className="grid gap-4 py-3 hover:bg-accent/50" style={{ gridTemplateColumns: '2fr 1fr 0.8fr 1.5fr 1fr 1fr 1fr 1fr' }}>
                 <div>
                   <div className="font-medium text-foreground">{user.email || user.username}</div>
                   <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
                 </div>
                 <div>
                   {getRoleBadge(user.role, user.is_suspended ?? undefined)}
+                </div>
+                <div>
+                  {getBillingType(user.subscription) === 'yearly' ? (
+                    <Badge variant="default" className="text-xs bg-purple-100 text-purple-700">Yearly</Badge>
+                  ) : getBillingType(user.subscription) === 'monthly' ? (
+                    <Badge variant="outline" className="text-xs">Monthly</Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">-</span>
+                  )}
                 </div>
                 <div className="text-sm font-mono truncate" title={(user.subscription as any)?.fastspring_subscription_id || user.subscription?.stripe_subscription_id || 'No subscription ID'}>
                   {(user.subscription as any)?.fastspring_subscription_id || user.subscription?.stripe_subscription_id || '-'}
@@ -272,7 +391,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                   <div className="text-muted-foreground">{user.totalCreditsUsed || 0} used</div>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {user.lastActivity 
+                  {user.lastActivity
                     ? new Date(user.lastActivity).toLocaleDateString()
                     : 'Never'
                   }
@@ -332,7 +451,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
             ))}
           </div>
 
-          {filteredUsers.length === 0 && searchTerm && (
+          {sortedUsers.length === 0 && searchTerm && (
             <div className="text-center py-8">
               <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">No users found</h3>
@@ -352,7 +471,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t mt-4">
               <div className="text-sm text-muted-foreground">
-                Showing {startIndex + 1}-{Math.min(startIndex + USERS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
+                Showing {startIndex + 1}-{Math.min(startIndex + USERS_PER_PAGE, sortedUsers.length)} of {sortedUsers.length} users
               </div>
               <div className="flex items-center gap-2">
                 <Button
