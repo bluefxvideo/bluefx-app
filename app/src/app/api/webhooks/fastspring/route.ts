@@ -658,8 +658,9 @@ async function handleFastSpringOrderCompleted(data: FastSpringEventData) {
 
   // Route to appropriate handler
   if (hasSubscriptionProduct) {
-    console.log('➡️ Routing to subscription handler for order.completed with subscription product')
-    await handleFastSpringSubscription(data)
+    // Don't process subscription here - subscription.activated event handles it
+    // This prevents race condition where both events arrive simultaneously and create duplicate records
+    console.log('ℹ️ Subscription product detected in order.completed - skipping (handled by subscription.activated)')
   }
 
   if (hasCreditPackProduct) {
