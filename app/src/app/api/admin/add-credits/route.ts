@@ -49,46 +49,49 @@ export async function POST(request: NextRequest) {
     // Check if user credits record exists
     const { data: existingCredits } = await adminClient
       .from('user_credits')
-      .select('total_credits, used_credits')
+      .select('total_credits, used_credits, bonus_credits')
       .eq('user_id', userId)
       .single()
 
     if (existingCredits) {
-      // Update existing credits by increasing total_credits
-      // available_credits is a generated column (total_credits - used_credits)
+      // Update existing credits by increasing bonus_credits (not total_credits)
+      // bonus_credits persist across monthly renewals, unlike subscription credits
+      // available_credits is a generated column: (total_credits - used_credits) + bonus_credits
+      const currentBonus = existingCredits.bonus_credits || 0
       const { error: updateError } = await adminClient
         .from('user_credits')
         .update({
-          total_credits: existingCredits.total_credits + credits,
+          bonus_credits: currentBonus + credits,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId)
 
       if (updateError) {
-        console.error('Error updating credits:', updateError)
+        console.error('Error updating bonus credits:', updateError)
         return NextResponse.json(
           { error: 'Failed to update credits' },
           { status: 500 }
         )
       }
     } else {
-      // Create new credits record
+      // Create new credits record with bonus_credits (admin-added credits persist)
       const now = new Date()
-      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
+      const periodStart = now.toISOString()
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
 
       const { error: insertError } = await adminClient
         .from('user_credits')
         .insert({
           user_id: userId,
-          total_credits: credits,
+          total_credits: 0,  // No subscription credits
           used_credits: 0,
+          bonus_credits: credits,  // Admin-added credits go to bonus
           period_start: periodStart,
           period_end: periodEnd,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
-        // Note: available_credits is auto-calculated as (total_credits - used_credits)
+        // Note: available_credits is auto-calculated as (total_credits - used_credits) + bonus_credits
 
       if (insertError) {
         console.error('Error creating credits:', insertError)

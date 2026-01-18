@@ -889,34 +889,31 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
       payload: { data, customerEmail, creditsToAdd: totalCreditsToAdd } as unknown as Json
     })
 
-  // Get current credits and add new ones
-  // Note: available_credits is a generated column (total_credits - used_credits)
-  // So we only update total_credits, and available_credits is computed automatically
+  // Get current credits - we'll add to bonus_credits (not total_credits)
+  // bonus_credits persist across monthly renewals, unlike subscription credits
   const { data: userCredits } = await supabase
     .from('user_credits')
-    .select('total_credits, used_credits')
+    .select('total_credits, used_credits, bonus_credits')
     .eq('user_id', user.id)
     .single()
 
-  const currentTotal = userCredits?.total_credits || 0
-  const currentUsed = userCredits?.used_credits || 0
-  const newTotalCredits = currentTotal + totalCreditsToAdd
+  const currentBonus = userCredits?.bonus_credits || 0
+  const newBonusCredits = currentBonus + totalCreditsToAdd
 
   const { error: updateError } = await supabase
     .from('user_credits')
     .update({
-      total_credits: newTotalCredits,
+      bonus_credits: newBonusCredits,
       updated_at: new Date().toISOString()
     })
     .eq('user_id', user.id)
 
   if (updateError) {
-    console.error('Failed to update credits:', updateError)
-    throw new Error(`Failed to update credits: ${updateError.message}`)
+    console.error('Failed to update bonus credits:', updateError)
+    throw new Error(`Failed to update bonus credits: ${updateError.message}`)
   }
 
-  const newAvailableCredits = newTotalCredits - currentUsed
-  console.log(`✅ FastSpring credit pack processed: ${user.email} +${totalCreditsToAdd} credits (available: ${newAvailableCredits}, total: ${newTotalCredits})`)
+  console.log(`✅ FastSpring credit pack processed: ${user.email} +${totalCreditsToAdd} bonus credits (total bonus: ${newBonusCredits})`)
 }
 
 async function handleFastSpringCancellation(data: FastSpringEventData) {
