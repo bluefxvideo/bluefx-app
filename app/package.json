@@ -2,6 +2,9 @@
   "name": "bluefx",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "tar": "^7.5.3"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -20,7 +23,7 @@
     "@ai-sdk/react": "^2.0.9",
     "@designcombo/events": "^1.0.2",
     "@designcombo/frames": "^0.0.3",
-    "@designcombo/state": "^5.1.0",
+    "@designcombo/state": "^5.5.8",
     "@designcombo/timeline": "^5.1.0",
     "@designcombo/types": "^5.1.0",
     "@distube/ytdl-core": "^4.16.10",
@@ -61,11 +64,11 @@
     "dotenv": "^17.2.1",
     "framer-motion": "^12.23.12",
     "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.2",
+    "jspdf": "^4.0.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.525.0",
     "mammoth": "^1.10.0",
-    "next": "15.5.7",
+    "next": "^15.5.9",
     "next-themes": "^0.4.6",
     "openai": "^5.12.2",
     "react": "19.1.0",
@@ -91,7 +94,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.7",
+    "eslint-config-next": "^15.5.9",
     "tailwindcss": "^4",
     "tsx": "^4.7.1",
     "typescript": "^5"
