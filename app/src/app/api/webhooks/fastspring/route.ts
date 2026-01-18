@@ -384,12 +384,14 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
         throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
       }
 
-      // Update existing credits with new yearly period
+      // Update existing credits - always 30-day period for monthly credit renewal
+      // The subscription period is 1 year, but credits renew every 30 days via auto-topup
+      const creditsPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
       const { error: creditsUpdateError } = await supabase
         .from('user_credits')
         .update({
           period_start: currentPeriodStart.toISOString(),
-          period_end: currentPeriodEnd.toISOString(),
+          period_end: creditsPeriodEnd.toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId)
