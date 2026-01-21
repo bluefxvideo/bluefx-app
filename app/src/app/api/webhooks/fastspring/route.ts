@@ -3,6 +3,21 @@ import { createAdminClient } from '@/app/supabase/server'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 
+// Plan configuration - maps FastSpring product paths to plan types and credits
+const PLAN_CONFIG: Record<string, { planType: string; credits: number }> = {
+  // Monthly plans
+  'ai-media-machine-starter': { planType: 'starter', credits: 600 },
+  'ai-media-machine-pro': { planType: 'pro', credits: 1200 },
+  'ai-media-machine-agency': { planType: 'agency', credits: 2000 },
+  // Yearly plans (same credits, billed annually)
+  'ai-media-machine-starter-yearly': { planType: 'starter', credits: 600 },
+  'ai-media-machine-pro-yearly': { planType: 'pro', credits: 1200 },
+  'ai-media-machine-agency-yearly': { planType: 'agency', credits: 2000 },
+  // Legacy products - these are Starter tier
+  'ai-media-machine': { planType: 'starter', credits: 600 },
+  'ai-media-machine-yearly': { planType: 'starter', credits: 600 },
+}
+
 // FastSpring webhook payload interfaces
 interface FastSpringContact {
   email?: string
@@ -314,12 +329,13 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   const productId = typeof data.product === 'object' ? (data.product?.product || '') : (data.product || '')
   const intervalUnit = data.intervalUnit || ''
   const isYearlyPlan = productId.includes('yearly') || intervalUnit === 'year'
-  
-  // Everyone is a PRO user - no other plan types
-  const planType = 'pro'
-  const creditsAllocation = 600  // All Pro users get 600 credits
-  
-  console.log(`Creating ${data.state === 'trial' ? 'TRIAL (as PRO)' : planType.toUpperCase()} subscription with ${creditsAllocation} credits`)
+
+  // Look up plan configuration from PLAN_CONFIG, default to starter if not found
+  const planConfig = PLAN_CONFIG[productId] || { planType: 'starter', credits: 600 }
+  const planType = planConfig.planType
+  const creditsAllocation = planConfig.credits
+
+  console.log(`Creating ${data.state === 'trial' ? 'TRIAL' : planType.toUpperCase()} subscription with ${creditsAllocation} credits (product: ${productId})`)
 
   console.log(`FastSpring subscription: ${customerEmail} -> ${planType} (${creditsAllocation} credits) - ${isYearlyPlan ? 'YEARLY' : 'MONTHLY'}`)
 
@@ -572,7 +588,17 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
     return
   }
 
-  // Renew subscription and credits (consistent 600 credits like ClickBank)
+  // Get user's current subscription to determine credit amount
+  const { data: subscription } = await supabase
+    .from('user_subscriptions')
+    .select('credits_per_month, plan_type')
+    .eq('user_id', user.id)
+    .single()
+
+  // Use stored credits_per_month or default to 600 for legacy users
+  const creditsToRenew = subscription?.credits_per_month || 600
+
+  // Renew subscription and credits
   const currentPeriodStart = new Date()
   const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
@@ -587,11 +613,11 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
     })
     .eq('user_id', user.id)
 
-  // Reset credits for new period (600 like ClickBank)
+  // Reset credits for new period based on plan
   await supabase
     .from('user_credits')
     .update({
-      total_credits: 600,
+      total_credits: creditsToRenew,
       used_credits: 0,
       period_start: currentPeriodStart.toISOString(),
       period_end: currentPeriodEnd.toISOString(),
@@ -599,7 +625,7 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
     })
     .eq('user_id', user.id)
 
-  console.log(`FastSpring renewal processed: ${customerEmail} - 600 credits renewed`)
+  console.log(`FastSpring renewal processed: ${customerEmail} (${subscription?.plan_type || 'legacy'}) - ${creditsToRenew} credits renewed`)
 }
 
 async function handleFastSpringOrderCompleted(data: FastSpringEventData) {
@@ -608,9 +634,12 @@ async function handleFastSpringOrderCompleted(data: FastSpringEventData) {
   // Check if this order contains subscription products or credit packs
   const items = (data.items as Array<{ product?: string }>) || []
 
-  // Subscription product patterns
+  // Subscription product patterns - includes all tier variants
   const subscriptionProductPatterns = [
-    'ai-media-machine',
+    'ai-media-machine-starter',
+    'ai-media-machine-pro',
+    'ai-media-machine-agency',
+    'ai-media-machine',  // Legacy
     'bluefx',
     'subscription'
   ]
