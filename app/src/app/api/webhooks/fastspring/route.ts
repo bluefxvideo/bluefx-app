@@ -4,16 +4,17 @@ import type { Json } from '@/types/database'
 import crypto from 'crypto'
 
 // Plan configuration - maps FastSpring product paths to plan types and credits
+// All tiers get 600 credits - plan_type is only for admin tracking
 const PLAN_CONFIG: Record<string, { planType: string; credits: number }> = {
-  // Monthly plans
+  // Monthly plans - all get 600 credits
   'ai-media-machine-starter': { planType: 'starter', credits: 600 },
-  'ai-media-machine-pro': { planType: 'pro', credits: 1200 },
-  'ai-media-machine-agency': { planType: 'agency', credits: 2000 },
-  // Yearly plans (same credits, billed annually)
+  'ai-media-machine-pro': { planType: 'pro', credits: 600 },
+  'ai-media-machine-agency': { planType: 'agency', credits: 600 },
+  // Yearly plans - all get 600 credits
   'ai-media-machine-starter-yearly': { planType: 'starter', credits: 600 },
-  'ai-media-machine-pro-yearly': { planType: 'pro', credits: 1200 },
-  'ai-media-machine-agency-yearly': { planType: 'agency', credits: 2000 },
-  // Legacy products - these are Starter tier
+  'ai-media-machine-pro-yearly': { planType: 'pro', credits: 600 },
+  'ai-media-machine-agency-yearly': { planType: 'agency', credits: 600 },
+  // Legacy products - Starter tier
   'ai-media-machine': { planType: 'starter', credits: 600 },
   'ai-media-machine-yearly': { planType: 'starter', credits: 600 },
 }
