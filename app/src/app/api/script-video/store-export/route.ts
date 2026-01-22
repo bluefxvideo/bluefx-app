@@ -21,9 +21,6 @@ export async function POST(request: NextRequest) {
       video_id,         // script_to_video_history record ID
       user_id,          // User ID (required for internal calls)
       batch_id,         // Original generation batch ID
-      duration_seconds, // Video duration
-      file_size_mb,     // File size
-      export_settings   // Export quality, format, etc.
     } = body;
 
     if (!video_url || !video_id) {
@@ -97,13 +94,6 @@ export async function POST(request: NextRequest) {
       .update({
         video_url: storedVideoUrl,
         status: 'exported',
-        export_data: {
-          exported_at: new Date().toISOString(),
-          duration_seconds,
-          file_size_mb,
-          export_settings,
-          storage_path: fileName
-        },
         updated_at: new Date().toISOString()
       })
       .eq('id', video_id)
@@ -120,7 +110,7 @@ export async function POST(request: NextRequest) {
       userId,
       EXPORT_CREDITS,
       'video-export',
-      { video_id, batch_id, duration_seconds }
+      { video_id, batch_id }
     );
 
     if (!creditResult.success) {
@@ -168,7 +158,7 @@ export async function GET(request: NextRequest) {
     // Fetch video record
     const { data: video, error: fetchError } = await supabase
       .from('script_to_video_history')
-      .select('id, video_url, status, export_data')
+      .select('id, video_url, status')
       .eq('id', video_id)
       .eq('user_id', user.id)
       .single();
@@ -181,8 +171,7 @@ export async function GET(request: NextRequest) {
       success: true,
       video_id: video.id,
       video_url: video.video_url,
-      status: video.status,
-      export_data: video.export_data
+      status: video.status
     });
 
   } catch (error) {
