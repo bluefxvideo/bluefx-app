@@ -270,6 +270,7 @@ export function GeneratorTabNew({
     try {
       await generateBasic(stepState.finalScript, {
         aspect_ratio: stepState.aspectRatio,
+        quality: 'standard',
         voice_settings: {
           voice_id: selectedVoice as any,
           speed: 'normal',

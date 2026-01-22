@@ -154,6 +154,7 @@ export function useScriptToVideo() {
 
   // Basic generation function
   const generateBasic = async (scriptText: string, options?: {
+    quality?: 'draft' | 'standard' | 'premium';
     aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
     video_style?: {
       tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';

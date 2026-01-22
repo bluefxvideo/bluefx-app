@@ -22,6 +22,7 @@ export interface ScriptToVideoRequest {
   script_text: string;
   user_id: string;
   aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
+  quality?: 'draft' | 'standard' | 'premium';
   voice_settings?: {
     voice_id?: string;
     speed?: 'slower' | 'normal' | 'faster';
@@ -269,7 +270,8 @@ export async function generateScriptToVideo(
           })),
           style_settings: {
             visual_style: 'realistic',
-            aspect_ratio: (request.aspect_ratio || '16:9') as any
+            aspect_ratio: (request.aspect_ratio || '16:9') as any,
+            quality: request.quality || 'standard'
           },
           user_id: request.user_id,
           batch_id
@@ -340,7 +342,8 @@ export async function generateScriptToVideo(
         generation_params: {
           aspect_ratio: request.aspect_ratio || '16:9',
           visual_style: 'realistic',
-          model: 'nano-banana'
+          quality: request.quality || 'standard',
+          model: 'flux-kontext-pro'
         },
         consistency_settings: {
           characters: storyContext?.main_characters || [],
@@ -374,7 +377,8 @@ export async function generateScriptToVideo(
         generation_params: {
           aspect_ratio: request.aspect_ratio || '16:9',
           visual_style: 'realistic',
-          model: 'nano-banana'
+          quality: request.quality || 'standard',
+          model: 'flux-kontext-pro'
         },
         consistency_settings: {
           characters: storyContext?.main_characters || [],
@@ -539,7 +543,8 @@ export async function generateScriptToVideo(
       image_generation: {
         aspect_ratio: request.aspect_ratio || '16:9',
         visual_style: storyContext?.visual_style || 'realistic',
-        model: 'nano-banana',
+        quality: request.quality || 'standard',
+        model: 'flux-kontext-pro',
         story_context: {
           characters: storyContext?.main_characters || [],
           setting: storyContext?.setting || '',
@@ -926,6 +931,7 @@ export async function generateBasicScriptVideo(
   script_text: string,
   user_id: string,
   options?: {
+    quality?: 'draft' | 'standard' | 'premium';
     aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
     voice_settings?: {
       voice_id?: string;
@@ -939,6 +945,7 @@ export async function generateBasicScriptVideo(
   return generateScriptToVideo({
     script_text,
     user_id,
+    quality: options?.quality || 'standard',
     aspect_ratio: options?.aspect_ratio || '16:9',
     voice_settings: options?.voice_settings,
     was_script_generated: options?.was_script_generated,
