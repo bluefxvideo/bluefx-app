@@ -7,33 +7,58 @@ import { deductCredits } from '@/actions/database/script-video-database';
 /**
  * API endpoint to store the exported video from Remotion
  * Called after video is successfully rendered
+ *
+ * Supports two auth methods:
+ * 1. Session cookies (browser calls)
+ * 2. Internal API key (server-to-server calls from react-video-editor)
  */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
-    const { 
+    // Parse request body first
+    const body = await request.json();
+    const {
       video_url,        // URL from Remotion server
       video_id,         // script_to_video_history record ID
+      user_id,          // User ID (required for internal calls)
       batch_id,         // Original generation batch ID
       duration_seconds, // Video duration
       file_size_mb,     // File size
       export_settings   // Export quality, format, etc.
-    } = await request.json();
+    } = body;
 
     if (!video_url || !video_id) {
-      return NextResponse.json({ 
-        error: 'video_url and video_id are required' 
+      return NextResponse.json({
+        error: 'video_url and video_id are required'
       }, { status: 400 });
     }
 
-    console.log(`📥 Storing exported video for user ${user.id}, video ${video_id}`);
+    // Check for internal API key (server-to-server calls)
+    const apiKey = request.headers.get('x-api-key');
+    const internalApiKey = process.env.INTERNAL_API_KEY;
+    const isInternalCall = internalApiKey && apiKey === internalApiKey;
+
+    let userId: string;
+
+    if (isInternalCall) {
+      // Server-to-server call - trust the user_id in body
+      if (!user_id) {
+        return NextResponse.json({
+          error: 'user_id required for internal API calls'
+        }, { status: 400 });
+      }
+      userId = user_id;
+      console.log(`📥 Internal API call: Storing exported video for user ${userId}, video ${video_id}`);
+    } else {
+      // Browser call - use session auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = user.id;
+      console.log(`📥 Storing exported video for user ${userId}, video ${video_id}`);
+    }
 
     // Step 1: Download video from Remotion server
     const videoResponse = await fetch(video_url);
@@ -45,8 +70,8 @@ export async function POST(request: NextRequest) {
     const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
     
     // Step 2: Upload to Supabase storage
-    const fileName = `${user.id}/exports/${batch_id || video_id}_${Date.now()}.mp4`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const fileName = `${userId}/exports/${batch_id || video_id}_${Date.now()}.mp4`;
+    const { error: uploadError } = await supabase.storage
       .from('script-videos')
       .upload(fileName, videoBlob, {
         contentType: 'video/mp4',
@@ -81,7 +106,7 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString()
       })
       .eq('id', video_id)
-      .eq('user_id', user.id); // Security: ensure user owns this record
+      .eq('user_id', userId); // Security: ensure user owns this record
 
     if (updateError) {
       console.error('Database update error:', updateError);
@@ -91,7 +116,7 @@ export async function POST(request: NextRequest) {
     // Step 5: Deduct credits for video export (if not already deducted)
     const EXPORT_CREDITS = 10; // Credits for rendering/exporting
     const creditResult = await deductCredits(
-      user.id,
+      userId,
       EXPORT_CREDITS,
       'video-export',
       { video_id, batch_id, duration_seconds }

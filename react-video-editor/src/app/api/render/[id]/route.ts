@@ -55,10 +55,14 @@ export async function GET(
 				try {
 					const storeResponse = await fetch(`${apiUrl}/api/script-video/store-export`, {
 						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
+						headers: {
+							'Content-Type': 'application/json',
+							'x-api-key': process.env.INTERNAL_API_KEY || '',
+						},
 						body: JSON.stringify({
 							video_url: internalVideoUrl,
 							video_id: scriptVideoId,
+							user_id: userId,
 							batch_id: id,
 						}),
 					});

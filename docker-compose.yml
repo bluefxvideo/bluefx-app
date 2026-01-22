@@ -58,6 +58,9 @@ services:
       # Webhooks & Integrations
       - ZAPIER_WEBHOOK_SECRET=${APP_ZAPIER_WEBHOOK_SECRET}
       - CLICKBANK_PRODUCT_ID=${APP_CLICKBANK_PRODUCT_ID}
+
+      # Internal API Key (for server-to-server calls)
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
     depends_on:
       - remotion
       - react-video-editor
@@ -96,6 +99,7 @@ services:
       - NEXT_PUBLIC_SUPABASE_URL=${APP_NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${APP_NEXT_PUBLIC_SUPABASE_ANON_KEY}
       - REPLICATE_API_TOKEN=${APP_REPLICATE_API_TOKEN}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
     depends_on:
       - remotion
     restart: unless-stopped
