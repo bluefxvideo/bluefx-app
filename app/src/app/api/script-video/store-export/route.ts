@@ -89,11 +89,12 @@ export async function POST(request: NextRequest) {
     const storedVideoUrl = urlData.publicUrl;
 
     // Step 4: Update script_to_video_history record
+    // Note: valid status values are 'pending', 'processing', 'completed', 'failed'
     const { error: updateError } = await supabase
       .from('script_to_video_history')
       .update({
         video_url: storedVideoUrl,
-        status: 'exported',
+        status: 'completed',
         updated_at: new Date().toISOString()
       })
       .eq('id', video_id)
