@@ -1,7 +1,7 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 import { deductCredits } from '@/actions/database/script-video-database';
 
 /**
@@ -14,8 +14,6 @@ import { deductCredits } from '@/actions/database/script-video-database';
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
     // Parse request body first
     const body = await request.json();
     const {
@@ -40,18 +38,21 @@ export async function POST(request: NextRequest) {
     const isInternalCall = internalApiKey && apiKey === internalApiKey;
 
     let userId: string;
+    let supabase;
 
     if (isInternalCall) {
-      // Server-to-server call - trust the user_id in body
+      // Server-to-server call - use admin client (bypasses RLS)
       if (!user_id) {
         return NextResponse.json({
           error: 'user_id required for internal API calls'
         }, { status: 400 });
       }
       userId = user_id;
+      supabase = createAdminClient();
       console.log(`📥 Internal API call: Storing exported video for user ${userId}, video ${video_id}`);
     } else {
-      // Browser call - use session auth
+      // Browser call - use session-based client
+      supabase = await createClient();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
