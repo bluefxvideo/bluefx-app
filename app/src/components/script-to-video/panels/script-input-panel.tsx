@@ -36,7 +36,6 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
     speed: 'normal',
     emotion: 'authoritative',
   });
-  const [quality, setQuality] = useState<'draft' | 'standard' | 'premium'>('standard');
 
   const handleGenerate = () => {
     if (!scriptText.trim()) return;
@@ -46,7 +45,6 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
       video_style: videoStyle,
       voice_settings: voiceSettings,
       aspect_ratio: '9:16', // TikTok vertical
-      quality,
       user_id: 'demo-user',
     };
 
@@ -195,30 +193,13 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
         </CardContent>
       </Card>
 
-      {/* Quality & Generate */}
+      {/* Generate */}
       <Card>
         <CardHeader>
-          <CardTitle>Generation Settings</CardTitle>
-          <CardDescription>Choose quality level and start generation</CardDescription>
+          <CardTitle>Generate Video</CardTitle>
+          <CardDescription>Start AI video generation</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Quality Selection */}
-          <div className="space-y-2">
-            <Label>Quality</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['draft', 'standard', 'premium'] as const).map((q) => (
-                <Button
-                  key={q}
-                  variant={quality === q ? 'default' : 'outline'}
-                  className={`capitalize ${quality === q ? '
-                  onClick={() => setQuality(q)}
-                >
-                  {q}
-                </Button>
-              ))}
-            </div>
-          </div>
-
           {/* Error Display */}
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 rounded-lg">

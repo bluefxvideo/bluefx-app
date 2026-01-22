@@ -63,7 +63,6 @@ interface ProjectState {
   generation_settings: {
     voice_settings: VoiceSettings;
     video_style: VideoStyle;
-    quality: 'draft' | 'standard' | 'premium';
   };
   credits_used: number;
   generation_time_ms: number;
@@ -349,7 +348,7 @@ interface UIState {
     export_dialog: {
       open: boolean;
       format: 'mp4' | 'webm' | 'gif';
-      quality: 'draft' | 'standard' | 'premium';
+      quality: 'draft' | 'good' | 'high' | 'ultra';
     };
     text_editor: {
       open: boolean;
@@ -593,8 +592,7 @@ const getInitialState = (): VideoEditorState => ({
         tone: 'professional',
         pacing: 'medium',
         visual_style: 'realistic'
-      },
-      quality: 'standard'
+      }
     },
     credits_used: 0,
     generation_time_ms: 0
@@ -785,7 +783,7 @@ const getInitialState = (): VideoEditorState => ({
       export_dialog: {
         open: false,
         format: 'mp4',
-        quality: 'standard'
+        quality: 'high'
       },
       text_editor: {
         open: false,

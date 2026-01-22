@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  createFluxKontextPrediction, 
-  waitForFluxKontextCompletion 
-} from '@/actions/models/flux-kontext-pro';
+import {
+  createNanoBananaPrediction,
+  waitForNanoBananaCompletion,
+  type NanoBananaAspectRatio
+} from '@/actions/models/nano-banana';
 
 // CORS headers for cross-origin requests from React Video Editor
 const corsHeaders = {
@@ -16,41 +17,26 @@ const corsHeaders = {
  */
 function enhancePromptForStyle(prompt: string, styleSettings: any): string {
   const { visual_style = 'realistic' } = styleSettings;
-  
+
   const styleEnhancements: Record<string, string> = {
     'realistic': 'photorealistic, high quality, professional photography, detailed',
     'artistic': 'artistic illustration, creative style, vibrant colors, expressive',
     'minimal': 'minimalist design, clean composition, simple elements, modern aesthetic',
     'dynamic': 'dynamic composition, dramatic lighting, cinematic, action-oriented'
   };
-  
+
   const enhancement = styleEnhancements[visual_style] || styleEnhancements['realistic'];
   return `${prompt}, ${enhancement}`;
-}
-
-/**
- * Convert aspect ratio to FLUX format
- */
-function convertAspectRatio(aspectRatio: string): string {
-  const ratioMap: Record<string, string> = {
-    '16:9': '16:9',
-    '9:16': '9:16',
-    '1:1': '1:1',
-    '4:3': '4:3',
-    '4:5': '4:5'
-  };
-  
-  return ratioMap[aspectRatio] || '16:9';
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      segment_id, 
-      image_prompt, 
-      style_settings = {}, 
-      track_item_id 
+    const {
+      segment_id,
+      image_prompt,
+      style_settings = {},
+      track_item_id
     } = body;
 
     if (!image_prompt || !image_prompt.trim()) {
@@ -60,25 +46,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🎨 Regenerating image for segment:', segment_id);
+    console.log('🍌 Regenerating image for segment:', segment_id);
     console.log('📝 New prompt:', image_prompt);
     console.log('🎯 Track item ID:', track_item_id);
 
     // Create enhanced prompt based on style
     const enhancedPrompt = enhancePromptForStyle(image_prompt, style_settings);
 
-    // Create FLUX prediction
-    const prediction = await createFluxKontextPrediction({
+    // Create Nano-Banana prediction
+    const prediction = await createNanoBananaPrediction({
       prompt: enhancedPrompt,
-      aspect_ratio: convertAspectRatio(style_settings.aspect_ratio || '16:9'),
-      output_format: 'png',
-      safety_tolerance: 2,
-      prompt_upsampling: style_settings.quality === 'premium',
-      seed: undefined // Random generation for variety
+      aspect_ratio: (style_settings.aspect_ratio || '16:9') as NanoBananaAspectRatio,
+      output_format: 'png'
     });
 
     // Wait for completion
-    const completedPrediction = await waitForFluxKontextCompletion(
+    const completedPrediction = await waitForNanoBananaCompletion(
       prediction.id,
       120000, // 2 minute timeout
       2000    // 2 second polling
@@ -88,12 +71,12 @@ export async function POST(request: NextRequest) {
       throw new Error(`Image generation failed: ${completedPrediction.error || 'No output'}`);
     }
 
-    const imageUrl = Array.isArray(completedPrediction.output) 
-      ? completedPrediction.output[0] 
+    const imageUrl = Array.isArray(completedPrediction.output)
+      ? completedPrediction.output[0]
       : completedPrediction.output;
 
     console.log('✅ Image regenerated successfully:', imageUrl);
-    
+
     return NextResponse.json({
       success: true,
       image_url: imageUrl,
@@ -107,11 +90,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Error regenerating image:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to regenerate image' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to regenerate image'
       },
-      { 
+      {
         status: 500,
         headers: corsHeaders
       }
@@ -121,7 +104,7 @@ export async function POST(request: NextRequest) {
 
 // Handle OPTIONS request for CORS preflight
 export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, { 
+  return new NextResponse(null, {
     status: 200,
     headers: corsHeaders
   });

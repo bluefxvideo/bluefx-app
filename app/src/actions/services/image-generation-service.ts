@@ -2,9 +2,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import {
-  createFluxKontextPrediction,
-  waitForFluxKontextCompletion
-} from '../models/flux-kontext-pro';
+  createNanoBananaPrediction,
+  waitForNanoBananaCompletion,
+  type NanoBananaAspectRatio
+} from '../models/nano-banana';
 
 // Lazy initialization to avoid build-time errors
 function getSupabaseClient() {
@@ -13,6 +14,9 @@ function getSupabaseClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
+
+// Credits per image (flat rate)
+const CREDITS_PER_IMAGE = 4;
 
 export interface ImageGenerationRequest {
   segments: Array<{
@@ -23,7 +27,6 @@ export interface ImageGenerationRequest {
   style_settings: {
     visual_style: 'realistic' | 'artistic' | 'minimal' | 'dynamic';
     aspect_ratio: '16:9' | '9:16' | '1:1' | '4:3' | '4:5';
-    quality: 'draft' | 'standard' | 'premium';
   };
   user_id: string;
   batch_id: string;
@@ -50,7 +53,7 @@ export interface ImageGenerationResponse {
 }
 
 /**
- * Generate images for all video segments using FLUX Kontext Pro
+ * Generate images for all video segments using Nano-Banana
  */
 export async function generateImagesForAllSegments(
   request: ImageGenerationRequest
@@ -63,23 +66,23 @@ export async function generateImagesForAllSegments(
     prediction_id: string;
     generation_time_ms: number;
   }> = [];
-  
+
   let totalCredits = 0;
 
   try {
-    console.log(`🎨 Generating ${request.segments.length} images for script-to-video using FLUX Kontext Pro`);
+    console.log(`🍌 Generating ${request.segments.length} images for script-to-video using Nano-Banana`);
 
     // Process segments in parallel for efficiency
     const imagePromises = request.segments.map(async (segment, index) => {
       const segmentStartTime = Date.now();
-      
+
       try {
         // Enhance prompt based on visual style
         const enhancedPrompt = enhancePromptForStyle(segment.image_prompt, request.style_settings);
 
-        console.log(`🎨 Generating image ${index + 1}/${request.segments.length}: "${enhancedPrompt}"`);
+        console.log(`🍌 Generating image ${index + 1}/${request.segments.length}: "${enhancedPrompt.substring(0, 100)}..."`);
 
-        // Try generation with safe prompt first
+        // Try generation with normal prompt first, then sanitized if needed
         let prediction;
         let completedPrediction;
         let attemptCount = 0;
@@ -99,18 +102,15 @@ export async function generateImagesForAllSegments(
               console.log(`🔄 Retrying with sanitized prompt (attempt ${attemptCount}/${maxAttempts})`);
             }
 
-            // Create FLUX prediction with higher safety tolerance
-            prediction = await createFluxKontextPrediction({
+            // Create Nano-Banana prediction
+            prediction = await createNanoBananaPrediction({
               prompt: promptToUse,
-              aspect_ratio: convertAspectRatio(request.style_settings.aspect_ratio),
-              output_format: 'png',
-              safety_tolerance: attemptCount === 1 ? 4 : 6, // Higher tolerance since we pre-sanitize in orchestrator
-              prompt_upsampling: request.style_settings.quality === 'premium',
-              seed: undefined // Random generation for variety
+              aspect_ratio: request.style_settings.aspect_ratio as NanoBananaAspectRatio,
+              output_format: 'png'
             });
 
             // Wait for completion
-            completedPrediction = await waitForFluxKontextCompletion(
+            completedPrediction = await waitForNanoBananaCompletion(
               prediction.id,
               300000, // 5 minute timeout
               3000    // 3 second polling
@@ -174,7 +174,7 @@ export async function generateImagesForAllSegments(
 
     // Wait for all images to complete - use allSettled to handle partial failures
     const results = await Promise.allSettled(imagePromises);
-    
+
     const successfulImages: Array<{
       segment_id: string;
       image_url: string;
@@ -182,13 +182,13 @@ export async function generateImagesForAllSegments(
       prediction_id: string;
       generation_time_ms: number;
     }> = [];
-    
+
     const failedSegments: Array<{
       segment_id: string;
       error: string;
       prompt: string;
     }> = [];
-    
+
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         successfulImages.push(result.value);
@@ -198,17 +198,17 @@ export async function generateImagesForAllSegments(
         failedSegments.push({
           segment_id: segment.id,
           error: errorMessage,
-          prompt: segment.visual_description
+          prompt: segment.image_prompt
         });
         console.error(`❌ Failed to generate image for segment ${segment.id}:`, errorMessage);
       }
     });
-    
+
     generatedImages.push(...successfulImages);
-    totalCredits = successfulImages.length * getCreditsPerImage(request.style_settings.quality);
+    totalCredits = successfulImages.length * CREDITS_PER_IMAGE;
 
     const totalTime = Date.now() - startTime;
-    
+
     if (failedSegments.length > 0) {
       console.log(`⚠️ Generated ${generatedImages.length} images successfully, ${failedSegments.length} failed in ${totalTime}ms`);
       failedSegments.forEach(failed => {
@@ -264,15 +264,13 @@ export async function regenerateSegmentImage(
           console.log(`🔄 Retrying with sanitized prompt`);
         }
 
-        prediction = await createFluxKontextPrediction({
+        prediction = await createNanoBananaPrediction({
           prompt: promptToUse,
-          aspect_ratio: convertAspectRatio(style_settings.aspect_ratio),
-          output_format: 'png',
-          safety_tolerance: attempt === 1 ? 4 : 6, // Higher tolerance since we pre-sanitize
-          prompt_upsampling: style_settings.quality === 'premium'
+          aspect_ratio: style_settings.aspect_ratio as NanoBananaAspectRatio,
+          output_format: 'png'
         });
 
-        completedPrediction = await waitForFluxKontextCompletion(prediction.id);
+        completedPrediction = await waitForNanoBananaCompletion(prediction.id);
 
         if (completedPrediction.status === 'succeeded' && completedPrediction.output) {
           break; // Success!
@@ -331,19 +329,13 @@ function enhancePromptForStyle(
     dynamic: 'dynamic, energetic, motion, vibrant colors, engaging'
   };
 
-  const qualityEnhancements = {
-    draft: '',
-    standard: 'high quality, well composed',
-    premium: 'ultra high quality, masterpiece, perfect composition, award winning'
-  };
-
   // Add cinematic quality for diverse storytelling
   const cinematicPrompt = 'cinematic composition, professional storytelling, diverse camera angles, engaging visual narrative';
 
-  // Add character consistency emphasis for image generation models
+  // Add character consistency emphasis (Nano-Banana has native support for this)
   const consistencyPrompt = 'maintain character consistency, same character throughout series, consistent visual identity';
 
-  return `${basePrompt}, ${cinematicPrompt}, ${consistencyPrompt}, ${styleEnhancements[styleSettings.visual_style]}, ${qualityEnhancements[styleSettings.quality]}`.trim();
+  return `${basePrompt}, ${cinematicPrompt}, ${consistencyPrompt}, ${styleEnhancements[styleSettings.visual_style]}, high quality, well composed`.trim();
 }
 
 /**
@@ -352,10 +344,6 @@ function enhancePromptForStyle(
  */
 function sanitizePromptForSafety(prompt: string): string {
   console.log(`🛡️ Applying last-resort safety sanitization`);
-
-  // Since the orchestrator should already generate safe prompts,
-  // this is just a final fallback that adds extra safety tags
-  // and removes any obvious problem words that slipped through
 
   // Quick replacements for edge cases
   const quickFixes: Record<string, string> = {
@@ -392,27 +380,6 @@ function sanitizePromptForSafety(prompt: string): string {
 
   console.log(`✅ Applied fallback safety tags`);
   return sanitized;
-}
-
-function convertAspectRatio(ratio: string): string {
-  // FLUX Kontext Pro uses different format
-  const ratioMap: Record<string, string> = {
-    '16:9': '16:9',
-    '9:16': '9:16', 
-    '1:1': '1:1',
-    '4:3': '4:3',
-    '4:5': '4:5'
-  };
-  return ratioMap[ratio] || '16:9';
-}
-
-function getCreditsPerImage(quality: string): number {
-  const creditMap = {
-    draft: 3,
-    standard: 4,
-    premium: 6
-  };
-  return creditMap[quality as keyof typeof creditMap] || 4;
 }
 
 async function uploadImageToStorage(

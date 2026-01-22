@@ -91,10 +91,9 @@ export const TEST_SETTINGS = {
       voice_id: 'anna' as const,
       speed: 'normal' as const,
       emotion: 'confident' as const,
-    },
-    quality: 'standard' as const,
+    }
   },
-  
+
   energetic: {
     video_style: {
       tone: 'energetic' as const,
@@ -105,10 +104,9 @@ export const TEST_SETTINGS = {
       voice_id: 'felix' as const,
       speed: 'faster' as const,
       emotion: 'excited' as const,
-    },
-    quality: 'premium' as const,
+    }
   },
-  
+
   educational: {
     video_style: {
       tone: 'educational' as const,
@@ -119,8 +117,7 @@ export const TEST_SETTINGS = {
       voice_id: 'eric' as const,
       speed: 'slower' as const,
       emotion: 'calm' as const,
-    },
-    quality: 'standard' as const,
+    }
   }
 };
 
