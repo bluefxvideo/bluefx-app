@@ -90,7 +90,9 @@ export async function POST(request: NextRequest) {
 
     // Step 4: Update script_to_video_history record
     // Note: valid status values are 'pending', 'processing', 'completed', 'failed'
-    const { error: updateError } = await supabase
+    console.log(`📝 Updating database: video_id=${video_id}, user_id=${userId}, video_url=${storedVideoUrl}`);
+
+    const { data: updateData, error: updateError } = await supabase
       .from('script_to_video_history')
       .update({
         video_url: storedVideoUrl,
@@ -98,11 +100,24 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString()
       })
       .eq('id', video_id)
-      .eq('user_id', userId); // Security: ensure user owns this record
+      .eq('user_id', userId)
+      .select();
 
     if (updateError) {
       console.error('Database update error:', updateError);
       throw new Error(`Failed to update video record: ${updateError.message}`);
+    }
+
+    if (!updateData || updateData.length === 0) {
+      console.error(`⚠️ No rows updated! video_id=${video_id}, user_id=${userId}`);
+      // Try without user_id filter to see if the record exists
+      const { data: checkData } = await supabase
+        .from('script_to_video_history')
+        .select('id, user_id, video_url')
+        .eq('id', video_id);
+      console.log('Record check:', checkData);
+    } else {
+      console.log(`✅ Database updated successfully:`, updateData[0]);
     }
 
     // Step 5: Deduct credits for video export (if not already deducted)
