@@ -90,28 +90,48 @@ export async function POST(request: NextRequest) {
 
     // Step 4: Update script_to_video_history record
     // Note: valid status values are 'pending', 'processing', 'completed', 'failed'
+    // Use a fresh admin client for the database update to avoid stale connections
     console.log(`📝 Updating database: video_id=${video_id}, user_id=${userId}, video_url=${storedVideoUrl}`);
 
-    const { data: updateData, error: updateError } = await supabase
-      .from('script_to_video_history')
-      .update({
-        video_url: storedVideoUrl,
-        status: 'completed',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', video_id)
-      .eq('user_id', userId)
-      .select();
+    const dbClient = createAdminClient();
+    let updateData = null;
+    let updateError = null;
+
+    // Retry logic for transient network issues
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const result = await dbClient
+        .from('script_to_video_history')
+        .update({
+          video_url: storedVideoUrl,
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', video_id)
+        .eq('user_id', userId)
+        .select();
+
+      updateData = result.data;
+      updateError = result.error;
+
+      if (!updateError) {
+        break;
+      }
+
+      console.warn(`⚠️ Database update attempt ${attempt} failed:`, updateError.message);
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+      }
+    }
 
     if (updateError) {
-      console.error('Database update error:', updateError);
+      console.error('Database update error after retries:', updateError);
       throw new Error(`Failed to update video record: ${updateError.message}`);
     }
 
     if (!updateData || updateData.length === 0) {
       console.error(`⚠️ No rows updated! video_id=${video_id}, user_id=${userId}`);
       // Try without user_id filter to see if the record exists
-      const { data: checkData } = await supabase
+      const { data: checkData } = await dbClient
         .from('script_to_video_history')
         .select('id, user_id, video_url')
         .eq('id', video_id);
