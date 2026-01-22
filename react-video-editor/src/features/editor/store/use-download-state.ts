@@ -29,65 +29,8 @@ interface DownloadState {
 	};
 }
 
-//const baseUrl = "https://api.combo.sh/v1";
-
-// Helper function to store exported video in Supabase
-async function storeExportedVideo(videoUrl: string, renderId: string) {
-	try {
-		// Get URL parameters to identify the video
-		const urlParams = new URLSearchParams(window.location.search);
-		const videoId = urlParams.get('videoId');
-		const userId = urlParams.get('userId');
-		const apiUrl = urlParams.get('apiUrl') || window.location.origin;
-
-		if (!videoId || !userId) {
-			console.warn('Missing videoId or userId for storing export');
-			return;
-		}
-
-		// Build the full video URL from Remotion server
-		const fullVideoUrl = videoUrl.startsWith('http')
-			? videoUrl
-			: `${window.location.origin}${videoUrl}`;
-
-		console.log('📤 Storing exported video to Supabase:', {
-			videoId,
-			userId,
-			videoUrl: fullVideoUrl
-		});
-
-		// Call the store-export API endpoint
-		const response = await fetch(`${apiUrl}/api/script-video/store-export`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				video_url: fullVideoUrl,
-				video_id: videoId,
-				batch_id: renderId,
-				duration_seconds: 0, // TODO: Get actual duration
-				file_size_mb: 0, // TODO: Get actual file size
-				export_settings: {
-					format: 'mp4',
-					quality: 'high'
-				}
-			}),
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || 'Failed to store video');
-		}
-
-		const result = await response.json();
-		console.log('✅ Video stored successfully:', result);
-		return result;
-	} catch (error) {
-		console.error('❌ Failed to store exported video:', error);
-		// Don't throw - we don't want to fail the whole export process
-	}
-}
+// Storage is now handled server-side by the render API using internal URLs
+// This avoids SSL/domain issues with the Remotion server
 
 export const useDownloadState = create<DownloadState>((set, get) => ({
 	projectId: "",
@@ -135,13 +78,21 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 
 				const jobInfo = await response.json();
 				const videoId = jobInfo.video.id;
-				
+
 				// Store the active render video ID
 				set({ activeRenderVideoId: videoId });
 
+				// Get URL params for store-export (passed to render API)
+				const urlParams = new URLSearchParams(window.location.search);
+				const scriptVideoId = urlParams.get('videoId');
+				const userId = urlParams.get('userId');
+				const apiUrl = urlParams.get('apiUrl') || window.location.origin;
+
 				// Step 2 & 3: Polling for status updates
 				const checkStatus = async () => {
-					const statusResponse = await fetch(`/api/render/${videoId}`, {
+					// Include params so render API can call store-export with internal URL
+					const statusUrl = `/api/render/${videoId}?videoId=${scriptVideoId}&userId=${userId}&apiUrl=${encodeURIComponent(apiUrl)}`;
+					const statusResponse = await fetch(statusUrl, {
 						headers: {
 							"Content-Type": "application/json",
 						},
@@ -156,8 +107,8 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 					set({ progress });
 
 					if (status === "COMPLETED") {
-						// Store the exported video in Supabase
-						await storeExportedVideo(url, videoId);
+						// Storage is now handled by render API - url should already be Supabase URL
+						console.log('✅ Export completed, video URL:', url);
 
 						set({
 							exporting: false,
@@ -177,15 +128,23 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 		},
 		checkActiveExport: async () => {
 			const state = get();
-			
+
 			// If there's an active render ID and we're not already tracking it
 			if (state.activeRenderVideoId && !state.exporting) {
 				set({ exporting: true, displayProgressModal: true });
-				
+
+				// Get URL params for store-export
+				const urlParams = new URLSearchParams(window.location.search);
+				const scriptVideoId = urlParams.get('videoId');
+				const userId = urlParams.get('userId');
+				const apiUrl = urlParams.get('apiUrl') || window.location.origin;
+
 				// Resume polling for status updates
 				const checkStatus = async () => {
 					try {
-						const statusResponse = await fetch(`/api/render/${state.activeRenderVideoId}`, {
+						// Include params so render API can call store-export with internal URL
+						const statusUrl = `/api/render/${state.activeRenderVideoId}?videoId=${scriptVideoId}&userId=${userId}&apiUrl=${encodeURIComponent(apiUrl)}`;
+						const statusResponse = await fetch(statusUrl, {
 							headers: {
 								"Content-Type": "application/json",
 							},
@@ -201,8 +160,8 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 						set({ progress });
 
 						if (status === "COMPLETED") {
-							// Store the exported video in Supabase
-							await storeExportedVideo(url, state.activeRenderVideoId);
+							// Storage is now handled by render API - url should already be Supabase URL
+							console.log('✅ Export completed (resumed), video URL:', url);
 
 							set({
 								exporting: false,
@@ -215,7 +174,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 								setTimeout(checkStatus, 2500);
 							}
 						} else if (status === "FAILED") {
-							set({ 
+							set({
 								exporting: false,
 								activeRenderVideoId: undefined
 							});
@@ -225,7 +184,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 						set({ exporting: false });
 					}
 				};
-				
+
 				checkStatus();
 			} else if (state.activeRenderVideoId) {
 				// If already tracking, just show the modal
