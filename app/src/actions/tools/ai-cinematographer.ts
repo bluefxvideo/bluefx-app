@@ -26,6 +26,9 @@ export interface StartingShotRequest {
   reference_image_files?: File[]; // Optional reference image files to upload (up to 3)
   reference_image_urls?: string[]; // Optional reference image URLs already uploaded (up to 3)
   user_id: string;
+  // Pro mode options
+  model?: 'fast' | 'pro'; // 'fast' = nano-banana, 'pro' = nano-banana-pro
+  resolution?: '1K' | '2K' | '4K'; // Pro only - default 2K
 }
 
 export interface StartingShotResponse {
@@ -581,7 +584,13 @@ export async function executeStartingShot(
 ): Promise<StartingShotResponse> {
   const startTime = Date.now();
   const batch_id = crypto.randomUUID();
-  const CREDIT_COST = 1; // 1 credit per image
+
+  // Calculate credit cost based on model and resolution
+  // Fast: 1 credit | Pro 1K: 4 credits | Pro 2K: 5 credits | Pro 4K: 10 credits
+  const isPro = request.model === 'pro';
+  const CREDIT_COST = isPro
+    ? (request.resolution === '4K' ? 10 : request.resolution === '1K' ? 4 : 5)
+    : 1;
 
   try {
     // Step 1: Credit Validation
@@ -608,7 +617,7 @@ export async function executeStartingShot(
       };
     }
 
-    console.log(`🖼️ Starting Shot - Credits validated: ${creditCheck.credits} available`);
+    console.log(`🖼️ Starting Shot (${isPro ? 'Pro' : 'Fast'}) - Credits validated: ${creditCheck.credits} available, cost: ${CREDIT_COST}`);
 
     // Step 2: Upload reference images if provided as files
     let referenceImageUrls: string[] = request.reference_image_urls || [];
@@ -639,12 +648,30 @@ export async function executeStartingShot(
       }
     }
 
-    // Step 3: Generate image using nano-banana
+    // Step 3: Generate image using appropriate model
     const aspectRatio = request.aspect_ratio || '16:9';
     const hasReferenceImages = referenceImageUrls.length > 0;
-    console.log(`🖼️ Generating image with prompt: "${request.prompt.substring(0, 50)}..." aspect: ${aspectRatio}${hasReferenceImages ? `, references: ${referenceImageUrls.length}` : ''}`);
+    console.log(`🖼️ Generating image (${isPro ? 'Pro' : 'Fast'}) with prompt: "${request.prompt.substring(0, 50)}..." aspect: ${aspectRatio}${hasReferenceImages ? `, references: ${referenceImageUrls.length}` : ''}${isPro ? `, resolution: ${request.resolution || '2K'}` : ''}`);
 
-    const imageResult = await generateImage(request.prompt, aspectRatio, hasReferenceImages ? referenceImageUrls : undefined);
+    let imageResult: { success: boolean; imageUrl?: string; error?: string };
+
+    if (isPro) {
+      // Use nano-banana-pro for Pro mode
+      imageResult = await generateImageWithPro(
+        request.prompt,
+        aspectRatio,
+        hasReferenceImages ? referenceImageUrls : undefined,
+        request.resolution || '2K',
+        'jpg' // Always JPG for Pro mode
+      );
+    } else {
+      // Use nano-banana for Fast mode
+      imageResult = await generateImage(
+        request.prompt,
+        aspectRatio,
+        hasReferenceImages ? referenceImageUrls : undefined
+      );
+    }
 
     if (!imageResult.success || !imageResult.imageUrl) {
       return {
@@ -657,7 +684,7 @@ export async function executeStartingShot(
       };
     }
 
-    console.log(`✅ Starting Shot generated successfully: ${imageResult.imageUrl}`);
+    console.log(`✅ Starting Shot (${isPro ? 'Pro' : 'Fast'}) generated successfully: ${imageResult.imageUrl}`);
 
     // Step 3: Download from Replicate and re-upload to Supabase for permanent storage
     let permanentImageUrl = imageResult.imageUrl;
@@ -705,7 +732,7 @@ export async function executeStartingShot(
       request.user_id,
       CREDIT_COST,
       'starting-shot',
-      { batch_id, prompt: request.prompt, aspect_ratio: aspectRatio } as Json
+      { batch_id, prompt: request.prompt, aspect_ratio: aspectRatio, model: isPro ? 'pro' : 'fast', resolution: isPro ? (request.resolution || '2K') : undefined } as Json
     );
 
     if (!creditDeduction.success) {
