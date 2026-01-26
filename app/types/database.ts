@@ -1029,7 +1029,7 @@ export interface Database {
           id: string
           user_id: string
           plan_type: 'free' | 'starter' | 'pro' | 'enterprise'
-          status: 'active' | 'cancelled' | 'expired' | 'pending'
+          status: 'trial' | 'active' | 'cancelled' | 'expired' | 'pending'
           current_period_start: string
           current_period_end: string
           cancel_at_period_end: boolean | null
@@ -1044,7 +1044,7 @@ export interface Database {
           id?: string
           user_id: string
           plan_type: 'free' | 'starter' | 'pro' | 'enterprise'
-          status: 'active' | 'cancelled' | 'expired' | 'pending'
+          status: 'trial' | 'active' | 'cancelled' | 'expired' | 'pending'
           current_period_start: string
           current_period_end: string
           cancel_at_period_end?: boolean | null
@@ -1059,7 +1059,7 @@ export interface Database {
           id?: string
           user_id?: string
           plan_type?: 'free' | 'starter' | 'pro' | 'enterprise'
-          status?: 'active' | 'cancelled' | 'expired' | 'pending'
+          status?: 'trial' | 'active' | 'cancelled' | 'expired' | 'pending'
           current_period_start?: string
           current_period_end?: string
           cancel_at_period_end?: boolean | null

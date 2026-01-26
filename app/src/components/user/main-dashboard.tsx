@@ -26,6 +26,7 @@ import { createClient } from '@/app/supabase/client'
 import { useCredits } from '@/hooks/useCredits'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog'
 
 // Legacy-style tools array (flat structure like the original)
@@ -130,6 +131,25 @@ export function MainDashboard() {
     }
   })
 
+  // Fetch subscription to check trial status
+  const { data: subscription } = useQuery({
+    queryKey: ['subscription-status'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+
+      const { data } = await supabase
+        .from('user_subscriptions')
+        .select('status')
+        .eq('user_id', user.id)
+        .single()
+
+      return data
+    }
+  })
+
+  const isTrial = subscription?.status === 'trial'
+
   useEffect(() => {
     setCurrentUser(userProfile as any)
   }, [userProfile])
@@ -207,8 +227,20 @@ export function MainDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Card className="bg-background border-border/30 shadow-md">
           <CardHeader>
-            <CardTitle>Credit Balance</CardTitle>
-            <CardDescription>Your current available credits</CardDescription>
+            <CardTitle className="flex items-center justify-between">
+              Credit Balance
+              {isTrial && (
+                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-100">
+                  Trial
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {isTrial
+                ? "Trial credits - upgrade for full allocation"
+                : "Your current available credits"
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isPurchasing && (
@@ -227,20 +259,26 @@ export function MainDashboard() {
                 You have {credits?.available_credits || 0} credits left
               </p>
             )}
-            <p className="text-xs text-muted-foreground mt-1">
-              Credits refresh monthly with your subscription
-            </p>
+            {isTrial ? (
+              <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+                Trial includes 100 credits. Need more? Buy credits or upgrade to unlock 600 monthly credits.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">
+                Credits refresh monthly with your subscription
+              </p>
+            )}
           </CardContent>
           <CardFooter className="flex items-center gap-3">
-            <Button 
+            <Button
               className=""
               disabled={isPurchasing}
               onClick={() => setIsBuyCreditsDialogOpen(true)}
             >
               {isPurchasing ? 'Processing...' : 'Buy More Credits'}
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex items-center gap-2"
               onClick={handleViewUsage}
             >

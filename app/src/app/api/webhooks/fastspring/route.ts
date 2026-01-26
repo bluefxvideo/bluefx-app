@@ -3,6 +3,10 @@ import { createAdminClient } from '@/app/supabase/server'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 
+// Credit allocation constants
+const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
+const FULL_CREDITS = 600;   // Full allocation for paid subscribers
+
 // Plan configuration - maps FastSpring product paths to plan types and credits
 // All tiers get 600 credits - plan_type is only for admin tracking
 const PLAN_CONFIG: Record<string, { planType: string; credits: number }> = {
@@ -334,9 +338,13 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   // Look up plan configuration from PLAN_CONFIG, default to starter if not found
   const planConfig = PLAN_CONFIG[productId] || { planType: 'starter', credits: 600 }
   const planType = planConfig.planType
-  const creditsAllocation = planConfig.credits
 
-  console.log(`Creating ${data.state === 'trial' ? 'TRIAL' : planType.toUpperCase()} subscription with ${creditsAllocation} credits (product: ${productId})`)
+  // Detect trial state - trial users get limited credits to reduce loss on cancellations
+  // Yearly purchasers (even if starting with trial) get full credits since they're committed
+  const isTrial = data.state === 'trial'
+  const creditsAllocation = (isTrial && !isYearlyPlan) ? TRIAL_CREDITS : FULL_CREDITS
+
+  console.log(`Creating ${isTrial ? 'TRIAL' : planType.toUpperCase()} subscription with ${creditsAllocation} credits (product: ${productId}, trial: ${isTrial}, yearly: ${isYearlyPlan})`)
 
   console.log(`FastSpring subscription: ${customerEmail} -> ${planType} (${creditsAllocation} credits) - ${isYearlyPlan ? 'YEARLY' : 'MONTHLY'}`)
 
@@ -372,24 +380,26 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
     }
 
     // Check for existing subscription to decide upgrade vs new subscription
+    // Include both 'active' and 'trial' subscriptions for upgrade path
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
-      .select('id, plan_type, fastspring_subscription_id')
+      .select('id, plan_type, fastspring_subscription_id, status')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .in('status', ['active', 'trial'])
       .single()
 
     if (existingSubscription && isYearlyPlan) {
-      console.log(`Upgrading existing subscription to yearly for user ${userId}`)
-      
+      console.log(`Upgrading existing ${existingSubscription.status} subscription to yearly for user ${userId}`)
+
       // Update existing subscription to yearly terms
       const currentPeriodStart = new Date()
       const currentPeriodEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
-      
+
       const { error: subscriptionUpdateError } = await supabase
         .from('user_subscriptions')
         .update({
           fastspring_subscription_id: subscriptionId,
+          status: 'active',  // Upgrade trial to active
           current_period_start: currentPeriodStart.toISOString(),
           current_period_end: currentPeriodEnd.toISOString(),
           updated_at: new Date().toISOString()
@@ -401,12 +411,15 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
         throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
       }
 
-      // Update existing credits - always 30-day period for monthly credit renewal
-      // The subscription period is 1 year, but credits renew every 30 days via auto-topup
+      // YEARLY UPGRADE: Boost credits to full 600 immediately
+      // Trial users start with 100 credits - when they upgrade to yearly they've committed
+      // and should get the full allocation as a reward for upgrading
       const creditsPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
       const { error: creditsUpdateError } = await supabase
         .from('user_credits')
         .update({
+          total_credits: FULL_CREDITS,  // Boost to 600 on yearly upgrade
+          used_credits: 0,              // Reset usage - fresh start
           period_start: currentPeriodStart.toISOString(),
           period_end: creditsPeriodEnd.toISOString(),
           updated_at: new Date().toISOString()
@@ -419,6 +432,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
       }
 
       console.log(`✅ Upgraded subscription to yearly for user ${customerEmail} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
+      console.log(`✅ Credits boosted to ${FULL_CREDITS} for yearly upgrade`)
       console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
       return // Exit early - upgrade complete
     }
@@ -489,15 +503,17 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   }
 
   // Create fresh subscription
+  // Trial users get status: 'trial', paid users get status: 'active'
+  // credits_per_month is always 600 for future renewals (not the initial allocation)
   const { error: subscriptionError } = await supabase
     .from('user_subscriptions')
     .insert({
       user_id: userId,
       plan_type: planType,
-      status: 'active',
+      status: isTrial ? 'trial' : 'active',
       current_period_start: currentPeriodStart.toISOString(),
       current_period_end: currentPeriodEnd.toISOString(),
-      credits_per_month: creditsAllocation,
+      credits_per_month: FULL_CREDITS,  // Always 600 for renewals
       max_concurrent_jobs: 5,
       fastspring_subscription_id: subscriptionId,
       created_at: new Date().toISOString(),

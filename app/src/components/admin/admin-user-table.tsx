@@ -100,6 +100,8 @@ function getSubscriptionBadge(subscription?: Tables<'user_subscriptions'> | null
   }
 
   switch (subscription.status) {
+    case 'trial':
+      return <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800">Trial</Badge>
     case 'active':
       return <Badge variant="default" className="text-xs bg-blue-100 text-blue-600">Pro (Active)</Badge>
     case 'cancelled':

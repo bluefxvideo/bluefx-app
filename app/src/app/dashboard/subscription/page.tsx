@@ -145,8 +145,10 @@ export default function SubscriptionPage() {
     if (cancelAtPeriodEnd) {
       return <Badge variant="destructive">Cancelling at Period End</Badge>
     }
-    
+
     switch (status) {
+      case 'trial':
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-100">Trial</Badge>
       case 'active':
         return <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-100">Active</Badge>
       case 'cancelled':
@@ -334,6 +336,7 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                   <p className="text-lg font-semibold capitalize">
                     {subscription.plan_type}
                     {subscription.status === 'cancelled' && ' (Cancelled)'}
+                    {subscription.status === 'trial' && ' (Trial)'}
                   </p>
                 </div>
                 <div>
@@ -353,6 +356,17 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                   </p>
                 </div>
               </div>
+
+              {/* Trial explanation */}
+              {subscription.status === 'trial' && (
+                <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    <strong>Trial Period:</strong> You have 100 credits to explore BlueFX.
+                    When your trial converts to a full subscription, you&apos;ll receive 600 credits monthly.
+                    Need more credits now? You can purchase additional credits anytime.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : null}
