@@ -31,6 +31,12 @@ interface GeneratorTabProps {
   onClearPendingImage?: () => void;
   defaultAspectRatio?: string; // Remember aspect ratio across tabs
   onAspectRatioChange?: (ratio: string) => void;
+  analyzerShots?: Array<{
+    shotNumber: number;
+    description: string;
+    duration: string;
+    shotType?: string;
+  }>;
 }
 
 /**
@@ -48,6 +54,7 @@ export function GeneratorTab({
   onClearPendingImage,
   defaultAspectRatio = '16:9',
   onAspectRatioChange,
+  analyzerShots,
 }: GeneratorTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -243,6 +250,38 @@ export function GeneratorTab({
           title="Describe Your Video"
           description="Tell AI what cinematic video to create"
         >
+          {/* Shot Selector - Pre-fill from Video Analyzer */}
+          {analyzerShots && analyzerShots.length > 0 && (
+            <div className="p-3 rounded-lg border bg-primary/5 border-primary/20 mb-4">
+              <Label className="text-xs text-muted-foreground mb-2 block">
+                Pre-fill from analyzed shot:
+              </Label>
+              <Select
+                onValueChange={(val) => {
+                  const shot = analyzerShots[parseInt(val)];
+                  if (shot) {
+                    setFormData(prev => ({ ...prev, prompt: shot.description }));
+                  }
+                }}
+                disabled={isGenerating}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a shot to use its description..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {analyzerShots.map((shot, idx) => (
+                    <SelectItem key={idx} value={idx.toString()}>
+                      Shot {shot.shotNumber} ({shot.duration}): {shot.description?.substring(0, 50)}...
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                {analyzerShots.length} shots available from Video Analyzer
+              </p>
+            </div>
+          )}
+
           <Textarea
             placeholder={formData.model === 'pro'
               ? "Describe your video... Pro mode excels at people, lip sync, and complex motion (e.g., 'A woman smiling and waving at the camera')"

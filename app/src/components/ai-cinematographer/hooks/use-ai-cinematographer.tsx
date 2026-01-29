@@ -46,6 +46,14 @@ export function useAICinematographer() {
   // Remember last used aspect ratio across tabs
   const [lastUsedAspectRatio, setLastUsedAspectRatio] = useState<string>('16:9');
 
+  // Store analyzer shots for pre-filling generator prompts
+  const [analyzerShots, setAnalyzerShots] = useState<Array<{
+    shotNumber: number;
+    description: string;
+    duration: string;
+    shotType?: string;
+  }>>([]);
+
   // Stored asset references for cross-grid consistency
   // These persist across multiple grid generations to maintain character/product consistency
   const [storedAssetReferences, setStoredAssetReferences] = useState<Array<{
@@ -717,5 +725,7 @@ export function useAICinematographer() {
     cancelGeneration,
     lastUsedAspectRatio,
     setLastUsedAspectRatio,
+    analyzerShots,
+    setAnalyzerShots,
   };
 }

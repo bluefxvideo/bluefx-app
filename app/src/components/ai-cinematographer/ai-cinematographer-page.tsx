@@ -67,6 +67,9 @@ export function AICinematographerPage() {
     // Remember aspect ratio
     lastUsedAspectRatio,
     setLastUsedAspectRatio,
+    // Analyzer shots for pre-filling prompts
+    analyzerShots,
+    setAnalyzerShots,
   } = useAICinematographer();
 
   // Check for image URL in search params (from Starting Shot "Make Video" button)
@@ -96,11 +99,20 @@ export function AICinematographerPage() {
       const storedPrompt = sessionStorage.getItem(promptId);
       if (storedPrompt) {
         setStoryboardPromptFromUrl(storedPrompt);
-        // Clean up sessionStorage after retrieving
         sessionStorage.removeItem(promptId);
       }
+      // Also load analyzer shots if available (for pre-filling generator prompts)
+      const storedShots = sessionStorage.getItem(`${promptId}-shots`);
+      if (storedShots) {
+        try {
+          setAnalyzerShots(JSON.parse(storedShots));
+          sessionStorage.removeItem(`${promptId}-shots`);
+        } catch (e) {
+          console.error('Failed to parse analyzer shots:', e);
+        }
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, setAnalyzerShots]);
 
   // Determine active tab from URL
   const getActiveTab = () => {
@@ -157,6 +169,7 @@ export function AICinematographerPage() {
       onClearPendingImage={() => setImageForVideo('')}
       defaultAspectRatio={lastUsedAspectRatio}
       onAspectRatioChange={setLastUsedAspectRatio}
+      analyzerShots={analyzerShots}
     />
   );
 
