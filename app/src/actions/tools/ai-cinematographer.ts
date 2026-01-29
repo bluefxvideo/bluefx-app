@@ -279,6 +279,12 @@ async function handleVideoGeneration(
     // Create video generation prediction based on model selection
     let prediction;
     try {
+      // Only use webhook for HTTPS URLs (localhost won't work with webhooks)
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const webhookUrl = siteUrl.startsWith('https://')
+        ? `${siteUrl}/api/webhooks/replicate-ai`
+        : undefined;
+
       if (model === 'fast') {
         // LTX-2-Fast model
         console.log('🎬 Attempting to create LTX-2-Fast prediction...');
@@ -293,7 +299,7 @@ async function handleVideoGeneration(
           duration: fastDuration,
           resolution: fastResolution,
           generate_audio: request.generate_audio !== false,
-          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+          webhook: webhookUrl
         });
       } else {
         // Seedance 1.5 Pro model
@@ -312,7 +318,7 @@ async function handleVideoGeneration(
           seed: request.seed,
           camera_fixed: request.camera_fixed,
           generate_audio: request.generate_audio !== false,
-          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+          webhook: webhookUrl
         });
       }
 

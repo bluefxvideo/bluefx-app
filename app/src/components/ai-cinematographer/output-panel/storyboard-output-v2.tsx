@@ -481,7 +481,7 @@ export function StoryboardOutputV2({
               .filter(f => f.status === 'completed')
               .sort((a, b) => a.frameNumber - b.frameNumber)
               .map((frame) => (
-                <div key={frame.frameNumber} className="space-y-2">
+                <div key={frame.frameNumber} className="space-y-2 overflow-hidden">
                   <div className="relative rounded-lg overflow-hidden border bg-muted/10 aspect-video group">
                     <img
                       src={frame.upscaledUrl || frame.originalUrl}
