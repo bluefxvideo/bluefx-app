@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/app/supabase/client'
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 
 interface UserCredits {
   available_credits: number
@@ -162,17 +162,17 @@ export function useCredits() {
     }
   })
 
-  // FastSpring event handler
+  // FastSpring event handler - use ref to avoid effect re-runs
   const handleFastSpringPurchase = useCallback((event: Event) => {
     const customEvent = event as CustomEvent<FastSpringPurchaseEvent['detail']>
     const productId = customEvent.detail?.order?.items?.[0]?.product
-    
+
     console.log('FastSpring purchase event received:', { productId, event: customEvent.detail })
-    
+
     if (productId && CREDIT_PACKAGES[productId]) {
       const creditAmount = CREDIT_PACKAGES[productId]
       console.log(`Processing credit purchase: ${creditAmount} credits for product ${productId}`)
-      
+
       // Trigger optimistic update
       purchaseCreditsMutation.mutate(creditAmount)
     } else {
@@ -180,17 +180,20 @@ export function useCredits() {
     }
   }, [purchaseCreditsMutation])
 
-  // Set up FastSpring event listeners
+  // Store handler in ref to avoid effect re-runs when callback changes
+  const fastSpringHandlerRef = useRef(handleFastSpringPurchase)
+  fastSpringHandlerRef.current = handleFastSpringPurchase
+
+  // Set up FastSpring event listeners (runs once, uses ref for stable handler)
   useEffect(() => {
-    console.log('Setting up FastSpring event listeners')
-    
-    document.addEventListener('fastspring-purchase-complete', handleFastSpringPurchase)
-    
+    const handler = (e: Event) => fastSpringHandlerRef.current(e)
+
+    document.addEventListener('fastspring-purchase-complete', handler)
+
     return () => {
-      console.log('Removing FastSpring event listeners')
-      document.removeEventListener('fastspring-purchase-complete', handleFastSpringPurchase)
+      document.removeEventListener('fastspring-purchase-complete', handler)
     }
-  }, [handleFastSpringPurchase])
+  }, []) // Empty deps - only runs once
 
   // Set up real-time subscription for server-side updates
   useEffect(() => {

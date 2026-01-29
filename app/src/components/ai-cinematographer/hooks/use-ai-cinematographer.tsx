@@ -748,10 +748,44 @@ export function useAICinematographer() {
     setQueueProgress({ current: 0, total: 0 });
   }, []);
 
+  // Helper function to execute with retry and exponential backoff
+  const executeWithRetry = async <T,>(
+    fn: () => Promise<T>,
+    maxRetries = 3
+  ): Promise<T> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error);
+
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delayMs = 1000 * Math.pow(2, attempt - 1);
+          console.log(`Retrying in ${delayMs}ms...`);
+          await new Promise(r => setTimeout(r, delayMs));
+        }
+      }
+    }
+
+    throw lastError;
+  };
+
   // Process animation queue (generate all videos sequentially)
   const processAnimationQueue = useCallback(async () => {
     if (!user?.id) {
       console.error('User must be authenticated to process queue');
+      return;
+    }
+
+    // Refresh session before starting batch processing
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      console.error('Session expired or invalid');
+      setError('Session expired. Please refresh the page and try again.');
       return;
     }
 
@@ -785,17 +819,19 @@ export function useAICinematographer() {
           finalPrompt += ` ${cameraText}`;
         }
 
-        // Generate video using existing generateVideo function logic
-        const response = await executeAICinematographer({
-          prompt: finalPrompt,
-          reference_image_url: item.imageUrl,
-          duration: item.duration,
-          aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '9:21',
-          model: item.model,  // Use item's model selection (fast or pro)
-          resolution: '1080p',  // Always use 1080p for batch queue simplicity
-          generate_audio: true,
-          workflow_intent: 'generate',
-          user_id: user.id,
+        // Generate video with retry logic
+        const response = await executeWithRetry(async () => {
+          return await executeAICinematographer({
+            prompt: finalPrompt,
+            reference_image_url: item.imageUrl,
+            duration: item.duration,
+            aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '9:21',
+            model: item.model,  // Use item's model selection (fast or pro)
+            resolution: '1080p',  // Always use 1080p for batch queue simplicity
+            generate_audio: true,
+            workflow_intent: 'generate',
+            user_id: user.id,
+          });
         });
 
         if (response.success && response.video?.video_url) {
@@ -833,6 +869,86 @@ export function useAICinematographer() {
 
     setIsProcessingQueue(false);
     // Refresh history to show new videos
+    await loadHistory();
+  }, [animationQueue, user?.id, loadHistory, supabase.auth]);
+
+  // Retry a single failed queue item
+  const retryQueueItem = useCallback(async (id: string) => {
+    const item = animationQueue.find(q => q.id === id);
+    if (!item || item.status !== 'failed' || !user?.id) return;
+
+    // Reset status to pending
+    setAnimationQueue(prev =>
+      prev.map(q => q.id === id ? { ...q, status: 'pending' as const, error: undefined } : q)
+    );
+
+    // Process just this one item
+    setIsProcessingQueue(true);
+    setQueueProgress({ current: 1, total: 1 });
+
+    // Update status to generating
+    setAnimationQueue(prev =>
+      prev.map(q => q.id === id ? { ...q, status: 'generating' as const } : q)
+    );
+
+    try {
+      // Build prompt with camera style
+      let finalPrompt = item.prompt;
+      if (item.dialogue) {
+        finalPrompt += `\n\nNarration: "${item.dialogue}"`;
+      }
+      if (item.cameraStyle !== 'none') {
+        const cameraText = {
+          amateur: 'Amateur shot, handheld camera, slight shake.',
+          stable: 'Stable tripod shot, smooth framing.',
+          cinematic: 'Cinematic camera movement, dramatic angles.',
+        }[item.cameraStyle];
+        finalPrompt += ` ${cameraText}`;
+      }
+
+      // Generate video with retry logic
+      const response = await executeWithRetry(async () => {
+        return await executeAICinematographer({
+          prompt: finalPrompt,
+          reference_image_url: item.imageUrl,
+          duration: item.duration,
+          aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '9:21',
+          model: item.model,
+          resolution: '1080p',
+          generate_audio: true,
+          workflow_intent: 'generate',
+          user_id: user.id,
+        });
+      });
+
+      if (response.success && response.video?.video_url) {
+        setAnimationQueue(prev =>
+          prev.map(q => q.id === id ? {
+            ...q,
+            status: 'completed' as const,
+            videoUrl: response.video?.video_url,
+          } : q)
+        );
+      } else {
+        setAnimationQueue(prev =>
+          prev.map(q => q.id === id ? {
+            ...q,
+            status: 'failed' as const,
+            error: response.error || 'Unknown error',
+          } : q)
+        );
+      }
+    } catch (error) {
+      setAnimationQueue(prev =>
+        prev.map(q => q.id === id ? {
+          ...q,
+          status: 'failed' as const,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        } : q)
+      );
+    }
+
+    setIsProcessingQueue(false);
     await loadHistory();
   }, [animationQueue, user?.id, loadHistory]);
 
@@ -895,5 +1011,6 @@ export function useAICinematographer() {
     updateQueueItem,
     clearAnimationQueue,
     processAnimationQueue,
+    retryQueueItem,
   };
 }

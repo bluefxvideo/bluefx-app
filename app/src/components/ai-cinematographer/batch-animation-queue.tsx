@@ -1,6 +1,4 @@
 'use client';
-
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
@@ -46,6 +44,7 @@ interface BatchAnimationQueueProps {
   onRemoveItem: (id: string) => void;
   onClearQueue: () => void;
   onProcessQueue: () => void;
+  onRetryItem?: (id: string) => void;
   credits: number;
   analyzerShots?: Array<{
     shotNumber: number;
@@ -94,6 +93,7 @@ export function BatchAnimationQueue({
   onRemoveItem,
   onClearQueue,
   onProcessQueue,
+  onRetryItem,
   credits,
   analyzerShots,
 }: BatchAnimationQueueProps) {
@@ -384,9 +384,24 @@ export function BatchAnimationQueue({
                     </a>
                   )}
 
-                  {/* Failed: show error */}
-                  {item.status === 'failed' && item.error && (
-                    <p className="text-xs text-destructive">{item.error}</p>
+                  {/* Failed: show error and retry button */}
+                  {item.status === 'failed' && (
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+                      <p className="text-xs text-destructive flex-1">
+                        {item.error || 'Generation failed'}
+                      </p>
+                      {onRetryItem && !isProcessing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs"
+                          onClick={() => onRetryItem(item.id)}
+                        >
+                          Retry
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

@@ -85,6 +85,7 @@ export function AICinematographerPage() {
     updateQueueItem,
     clearAnimationQueue,
     processAnimationQueue,
+    retryQueueItem,
   } = useAICinematographer();
 
   // Load project if projectId is in URL
@@ -327,6 +328,7 @@ export function AICinematographerPage() {
                   onRemoveItem={removeFromQueue}
                   onClearQueue={clearAnimationQueue}
                   onProcessQueue={processAnimationQueue}
+                  onRetryItem={retryQueueItem}
                   credits={credits}
                   analyzerShots={analyzerShots}
                 />
