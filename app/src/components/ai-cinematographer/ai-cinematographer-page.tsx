@@ -93,6 +93,8 @@ export function AICinematographerPage() {
         description: shot.description,
         duration: shot.duration,
         shotType: shot.shotType,
+        action: shot.action,      // What movement/action happens
+        dialogue: shot.dialogue,  // What is being said
       }));
       setAnalyzerShots(shots);
     }

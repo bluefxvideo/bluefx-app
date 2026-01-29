@@ -36,6 +36,8 @@ interface GeneratorTabProps {
     description: string;
     duration: string;
     shotType?: string;
+    action?: string;    // What movement/action happens
+    dialogue?: string;  // What is being said (narration, voiceover, dialogue)
   }>;
 }
 
@@ -260,24 +262,45 @@ export function GeneratorTab({
                 onValueChange={(val) => {
                   const shot = analyzerShots[parseInt(val)];
                   if (shot) {
-                    setFormData(prev => ({ ...prev, prompt: shot.description }));
+                    // Pre-fill with action if available, otherwise use description
+                    const prompt = shot.action || shot.description;
+                    setFormData(prev => ({ ...prev, prompt }));
                   }
                 }}
                 disabled={isGenerating}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a shot to use its description..." />
+                  <SelectValue placeholder="Select a shot to use its action..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-[400px]">
                   {analyzerShots.map((shot, idx) => (
-                    <SelectItem key={idx} value={idx.toString()}>
-                      Shot {shot.shotNumber} ({shot.duration}): {shot.description?.substring(0, 50)}...
+                    <SelectItem key={idx} value={idx.toString()} className="py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">
+                          Shot {shot.shotNumber} ({shot.duration}) - {shot.shotType || 'Shot'}
+                        </span>
+                        {shot.action && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400">
+                            Action: {shot.action.length > 60 ? shot.action.substring(0, 60) + '...' : shot.action}
+                          </span>
+                        )}
+                        {shot.dialogue && (
+                          <span className="text-xs text-amber-600 dark:text-amber-400">
+                            Dialogue: &quot;{shot.dialogue.length > 40 ? shot.dialogue.substring(0, 40) + '...' : shot.dialogue}&quot;
+                          </span>
+                        )}
+                        {!shot.action && !shot.dialogue && shot.description && (
+                          <span className="text-xs text-muted-foreground">
+                            {shot.description.length > 60 ? shot.description.substring(0, 60) + '...' : shot.description}
+                          </span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-2">
-                {analyzerShots.length} shots available from Video Analyzer
+                {analyzerShots.length} shots available from Video Analyzer. Select to pre-fill the action.
               </p>
             </div>
           )}

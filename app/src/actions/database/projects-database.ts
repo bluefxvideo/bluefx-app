@@ -15,6 +15,8 @@ export interface AnalysisShot {
   shotType: string;
   camera: string;
   description: string;
+  action?: string;    // What movement/action happens in this shot
+  dialogue?: string;  // What is being said (narration, voiceover, dialogue)
 }
 
 export interface AnalysisData {

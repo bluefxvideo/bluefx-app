@@ -52,6 +52,8 @@ export function useAICinematographer() {
     description: string;
     duration: string;
     shotType?: string;
+    action?: string;    // What movement/action happens
+    dialogue?: string;  // What is being said (narration, voiceover, dialogue)
   }>>([]);
 
   // Stored asset references for cross-grid consistency

@@ -22,6 +22,8 @@ export interface Shot {
   shotType: string;
   camera: string;
   description: string;
+  action?: string;    // What movement/action happens in this shot
+  dialogue?: string;  // What is being said (narration, voiceover, dialogue)
 }
 
 export interface StoryboardPrompt {
@@ -50,8 +52,12 @@ You will receive a video analysis with shot-by-shot breakdown.
 Your task:
 1. FIRST: Extract detailed CHARACTER PROFILES for ALL recurring characters in the video
 2. Extract all distinct shots from the analysis with their exact timings
-3. Group shots into 3x3 grids (9 shots per grid)
-4. Generate ready-to-use storyboard prompts that EXACTLY recreate each shot
+3. For EACH shot, extract SEPARATELY:
+   - "description": Visual/environment description (what it looks like)
+   - "action": What movement or action happens (gestures, motion, interaction)
+   - "dialogue": Any narration, voiceover, or spoken dialogue during this shot
+4. Group shots into 3x3 grids (9 shots per grid)
+5. Generate ready-to-use storyboard prompts that EXACTLY recreate each shot
 
 ## CHARACTER CONSISTENCY (CRITICAL)
 Before generating prompts, identify ALL characters that appear in multiple shots and create detailed profiles:
@@ -94,7 +100,9 @@ Output your response as valid JSON matching this exact structure:
       "duration": "3s",
       "shotType": "Close-up",
       "camera": "Static",
-      "description": "Exact visual description from the analysis"
+      "description": "Exact visual description from the analysis",
+      "action": "What movement or action happens (e.g., 'Woman lifts phone to ear, tilts head slightly')",
+      "dialogue": "What is being said - narration, voiceover, or dialogue (e.g., 'Hello? Yes, I can hear you now.')"
     }
   ],
   "storyboardPrompts": [
