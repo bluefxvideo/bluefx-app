@@ -65,6 +65,24 @@ export function useAICinematographer() {
     url: string; // Stored URL after upload
   }>>([]);
 
+  // Animation Queue state for batch video generation
+  const [animationQueue, setAnimationQueue] = useState<Array<{
+    id: string;
+    frameNumber: number;
+    imageUrl: string;
+    prompt: string;
+    dialogue?: string;
+    duration: number;
+    cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+    aspectRatio: string;
+    model: 'fast' | 'pro';
+    status: 'pending' | 'generating' | 'completed' | 'failed';
+    videoUrl?: string;
+    error?: string;
+  }>>([]);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [queueProgress, setQueueProgress] = useState({ current: 0, total: 0 });
+
   // Use ref to track current result without causing subscription re-creation
   const resultRef = useRef<CinematographerResponse | undefined>(undefined);
   const isGeneratingRef = useRef<boolean>(false);
@@ -680,6 +698,144 @@ export function useAICinematographer() {
     setError(undefined);
   }, []);
 
+  // ============ Animation Queue Functions ============
+
+  // Add items to animation queue
+  const addToAnimationQueue = useCallback((items: Array<{
+    frameNumber: number;
+    imageUrl: string;
+    prompt: string;
+    dialogue?: string;
+    duration: number;
+    cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+    aspectRatio: string;
+    model: 'fast' | 'pro';
+  }>) => {
+    const newItems = items.map(item => ({
+      ...item,
+      id: `queue_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      status: 'pending' as const,
+    }));
+    setAnimationQueue(prev => [...prev, ...newItems]);
+  }, []);
+
+  // Remove item from queue
+  const removeFromQueue = useCallback((id: string) => {
+    setAnimationQueue(prev => prev.filter(item => item.id !== id));
+  }, []);
+
+  // Update queue item
+  const updateQueueItem = useCallback((id: string, updates: Partial<{
+    prompt: string;
+    dialogue?: string;
+    duration: number;
+    cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+    aspectRatio: string;
+    model: 'fast' | 'pro';
+    status: 'pending' | 'generating' | 'completed' | 'failed';
+    videoUrl?: string;
+    error?: string;
+  }>) => {
+    setAnimationQueue(prev =>
+      prev.map(item => item.id === id ? { ...item, ...updates } : item)
+    );
+  }, []);
+
+  // Clear entire queue
+  const clearAnimationQueue = useCallback(() => {
+    setAnimationQueue([]);
+    setIsProcessingQueue(false);
+    setQueueProgress({ current: 0, total: 0 });
+  }, []);
+
+  // Process animation queue (generate all videos sequentially)
+  const processAnimationQueue = useCallback(async () => {
+    if (!user?.id) {
+      console.error('User must be authenticated to process queue');
+      return;
+    }
+
+    const pendingItems = animationQueue.filter(item => item.status === 'pending');
+    if (pendingItems.length === 0) return;
+
+    setIsProcessingQueue(true);
+    setQueueProgress({ current: 0, total: pendingItems.length });
+
+    for (let i = 0; i < pendingItems.length; i++) {
+      const item = pendingItems[i];
+
+      // Update status to generating
+      setAnimationQueue(prev =>
+        prev.map(q => q.id === item.id ? { ...q, status: 'generating' as const } : q)
+      );
+      setQueueProgress({ current: i + 1, total: pendingItems.length });
+
+      try {
+        // Build prompt with camera style
+        let finalPrompt = item.prompt;
+        if (item.dialogue) {
+          finalPrompt += `\n\nNarration: "${item.dialogue}"`;
+        }
+        if (item.cameraStyle !== 'none') {
+          const cameraText = {
+            amateur: 'Amateur shot, handheld camera, slight shake.',
+            stable: 'Stable tripod shot, smooth framing.',
+            cinematic: 'Cinematic camera movement, dramatic angles.',
+          }[item.cameraStyle];
+          finalPrompt += ` ${cameraText}`;
+        }
+
+        // Generate video using existing generateVideo function logic
+        const response = await executeAICinematographer({
+          prompt: finalPrompt,
+          reference_image_url: item.imageUrl,
+          duration: item.duration,
+          aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '9:21',
+          model: item.model,  // Use item's model selection (fast or pro)
+          resolution: '1080p',  // Always use 1080p for batch queue simplicity
+          generate_audio: true,
+          workflow_intent: 'generate',
+          user_id: user.id,
+        });
+
+        if (response.success && response.video?.video_url) {
+          setAnimationQueue(prev =>
+            prev.map(q => q.id === item.id ? {
+              ...q,
+              status: 'completed' as const,
+              videoUrl: response.video?.video_url,
+            } : q)
+          );
+        } else {
+          setAnimationQueue(prev =>
+            prev.map(q => q.id === item.id ? {
+              ...q,
+              status: 'failed' as const,
+              error: response.error || 'Unknown error',
+            } : q)
+          );
+        }
+      } catch (error) {
+        setAnimationQueue(prev =>
+          prev.map(q => q.id === item.id ? {
+            ...q,
+            status: 'failed' as const,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          } : q)
+        );
+      }
+
+      // Small delay between generations to avoid rate limiting
+      if (i < pendingItems.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    setIsProcessingQueue(false);
+    // Refresh history to show new videos
+    await loadHistory();
+  }, [animationQueue, user?.id, loadHistory]);
+
   return {
     // Video generation state
     isGenerating,
@@ -729,5 +885,15 @@ export function useAICinematographer() {
     setLastUsedAspectRatio,
     analyzerShots,
     setAnalyzerShots,
+
+    // Animation Queue
+    animationQueue,
+    isProcessingQueue,
+    queueProgress,
+    addToAnimationQueue,
+    removeFromQueue,
+    updateQueueItem,
+    clearAnimationQueue,
+    processAnimationQueue,
   };
 }

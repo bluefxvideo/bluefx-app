@@ -14,8 +14,6 @@ import {
   Scissors,
   ZoomIn,
   Grid3X3,
-  PlayCircle,
-  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -50,6 +48,24 @@ interface StoryboardOutputV2Props {
   onUploadGrid?: (file: File) => void;
   onFramesExtracted?: (frames: ExtractedFrameResult[]) => void;
   onOpenInEditor?: (projectId: string, frames: ExtractedFrameResult[]) => void;
+  // Animation Queue
+  onAddToQueue?: (items: Array<{
+    frameNumber: number;
+    imageUrl: string;
+    prompt: string;
+    dialogue?: string;
+    duration: number;
+    cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+    aspectRatio: string;
+    model: 'fast' | 'pro';
+  }>) => void;
+  analyzerShots?: Array<{
+    shotNumber: number;
+    description: string;
+    duration: string;
+    action?: string;
+    dialogue?: string;
+  }>;
 }
 
 export function StoryboardOutputV2({
@@ -64,11 +80,13 @@ export function StoryboardOutputV2({
   onUploadGrid,
   onFramesExtracted,
   onOpenInEditor,
+  onAddToQueue,
+  analyzerShots,
 }: StoryboardOutputV2Props) {
   const [selectedFrames, setSelectedFrames] = useState<number[]>([]);
+  const [selectedForQueue, setSelectedForQueue] = useState<number[]>([]);
   const [regenerateGridDialogOpen, setRegenerateGridDialogOpen] = useState(false);
   const [extractAllDialogOpen, setExtractAllDialogOpen] = useState(false);
-  const [isOpeningEditor, setIsOpeningEditor] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const totalFrames = gridConfig.columns * gridConfig.rows;
@@ -168,58 +186,6 @@ export function StoryboardOutputV2({
     onRegenerateGrid();
     clearFrames();
     setRegenerateGridDialogOpen(false);
-  };
-
-  const handleOpenInEditor = async () => {
-    const completedFrames = extractedFrames.filter(f => f.status === 'completed');
-    if (!projectId || completedFrames.length === 0) return;
-
-    setIsOpeningEditor(true);
-
-    try {
-      // If custom handler is provided, use it
-      if (onOpenInEditor) {
-        onOpenInEditor(projectId, completedFrames);
-        return;
-      }
-
-      // Default behavior: Call API and open editor in new tab
-      const response = await fetch('/api/storyboard-editor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          userId,
-          frames: completedFrames.map(f => ({
-            frameNumber: f.frameNumber,
-            row: f.row,
-            col: f.col,
-            originalUrl: f.originalUrl,
-            upscaledUrl: f.upscaledUrl,
-            width: f.width,
-            height: f.height,
-          })),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Open editor with storyboard data
-        // The editor URL can be configured via environment variable
-        const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || '/editor';
-        // Pass the current origin as apiUrl so the editor knows where to fetch storyboard data
-        const currentOrigin = window.location.origin;
-        const editorUrl = `${editorBaseUrl}?storyboardId=${projectId}&userId=${userId}&apiUrl=${encodeURIComponent(currentOrigin)}`;
-        window.open(editorUrl, '_blank');
-      } else {
-        console.error('Failed to prepare editor:', data.error);
-      }
-    } catch (error) {
-      console.error('Error opening editor:', error);
-    } finally {
-      setIsOpeningEditor(false);
-    }
   };
 
   const getFrameLabel = (frameNumber: number) => {
@@ -468,11 +434,59 @@ export function StoryboardOutputV2({
       {/* Section 3: Extracted Frames Gallery */}
       {extractedFrames.filter(f => f.status === 'completed').length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h3 className="text-lg font-semibold">
               Extracted Frames ({extractedFrames.filter(f => f.status === 'completed').length})
             </h3>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {/* Add to Queue button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const completedFrames = extractedFrames.filter(f => f.status === 'completed');
+
+                  const framesToAdd = (selectedForQueue.length > 0
+                    ? completedFrames.filter(f => selectedForQueue.includes(f.frameNumber))
+                    : completedFrames
+                  ).map(frame => {
+                    // Find matching shot data from analyzer
+                    const shotData = analyzerShots?.find(s => s.shotNumber === frame.frameNumber);
+                    // Parse duration from shot (e.g., "3s" -> 6 or 10)
+                    const durationMatch = shotData?.duration?.match(/(\d+\.?\d*)/);
+                    const shotSeconds = durationMatch ? parseFloat(durationMatch[1]) : 6;
+                    // Suggest duration: Fast mode minimum is 6s, suggest 10s for longer shots
+                    const suggestedDuration = shotSeconds > 7 ? 10 : 6;
+
+                    return {
+                      frameNumber: frame.frameNumber,
+                      imageUrl: frame.upscaledUrl || frame.originalUrl,
+                      prompt: shotData?.action || shotData?.description || '',
+                      dialogue: shotData?.dialogue,
+                      duration: suggestedDuration,
+                      cameraStyle: 'none' as const,
+                      aspectRatio: '16:9',
+                      model: 'fast' as const,  // Default to Fast mode
+                    };
+                  });
+
+                  if (onAddToQueue) {
+                    onAddToQueue(framesToAdd);
+                    // Scroll to the queue after a brief delay to let it render
+                    setTimeout(() => {
+                      const queueElement = document.querySelector('[data-animation-queue]');
+                      queueElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }
+                  setSelectedForQueue([]);
+                }}
+                disabled={extractedFrames.filter(f => f.status === 'completed').length === 0}
+              >
+                <Film className="w-4 h-4 mr-2" />
+                {selectedForQueue.length > 0
+                  ? `Add ${selectedForQueue.length} to Queue`
+                  : 'Add All to Queue'}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -482,69 +496,102 @@ export function StoryboardOutputV2({
                 <Download className="w-4 h-4 mr-2" />
                 Download All
               </Button>
-              <Button
-                onClick={handleOpenInEditor}
-                disabled={isOpeningEditor || !projectId}
-                className="bg-primary hover:bg-primary/90"
-              >
-                {isOpeningEditor ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Opening...
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="w-4 h-4 mr-2" />
-                    Open in Video Editor
-                    <ExternalLink className="w-3 h-3 ml-2" />
-                  </>
-                )}
-              </Button>
             </div>
           </div>
+
+          {/* Selection hint */}
+          <p className="text-xs text-muted-foreground">
+            Click frames to select for batch animation, or use &quot;Add All to Queue&quot; to queue all frames.
+            {selectedForQueue.length > 0 && (
+              <button
+                className="ml-2 text-primary hover:underline"
+                onClick={() => setSelectedForQueue([])}
+              >
+                Clear selection
+              </button>
+            )}
+          </p>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {extractedFrames
               .filter(f => f.status === 'completed')
               .sort((a, b) => a.frameNumber - b.frameNumber)
-              .map((frame) => (
-                <div key={frame.frameNumber} className="space-y-2">
-                  <div className="relative rounded-lg overflow-hidden border bg-muted/10 aspect-video group">
-                    <img
-                      src={frame.upscaledUrl || frame.originalUrl}
-                      alt={`Frame ${frame.frameNumber}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 text-xs text-white">
-                      Frame {frame.frameNumber}
-                    </div>
-                    <div className="absolute top-2 right-2 px-2 py-1 rounded bg-green-600/90 text-xs text-white">
-                      {frame.width}×{frame.height}
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onDownload(
-                        frame.upscaledUrl || frame.originalUrl,
-                        `frame_${frame.frameNumber}_${frame.width}x${frame.height}.png`
+              .map((frame) => {
+                const isSelectedForQueue = selectedForQueue.includes(frame.frameNumber);
+                return (
+                  <div key={frame.frameNumber} className="space-y-2">
+                    <div
+                      className={cn(
+                        "relative rounded-lg overflow-hidden border bg-muted/10 aspect-video group cursor-pointer transition-all",
+                        isSelectedForQueue && "ring-2 ring-primary ring-offset-2"
                       )}
+                      onClick={() => {
+                        if (onAddToQueue) {
+                          setSelectedForQueue(prev =>
+                            prev.includes(frame.frameNumber)
+                              ? prev.filter(n => n !== frame.frameNumber)
+                              : [...prev, frame.frameNumber]
+                          );
+                        }
+                      }}
                     >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={() => onMakeVideo(frame.upscaledUrl || frame.originalUrl, frame.frameNumber)}
-                    >
-                      <Film className="w-3 h-3 mr-1" />
-                      Animate
-                    </Button>
+                      <img
+                        src={frame.upscaledUrl || frame.originalUrl}
+                        alt={`Frame ${frame.frameNumber}`}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Checkbox overlay */}
+                      {onAddToQueue && (
+                        <div className={cn(
+                          "absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                          isSelectedForQueue
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "bg-black/50 border-white/70"
+                        )}>
+                          {isSelectedForQueue && <Check className="w-3 h-3" />}
+                        </div>
+                      )}
+                      <div className={cn(
+                        "absolute top-2 px-2 py-1 rounded bg-black/70 text-xs text-white",
+                        onAddToQueue ? "left-9" : "left-2"
+                      )}>
+                        Frame {frame.frameNumber}
+                      </div>
+                      <div className="absolute top-2 right-2 px-2 py-1 rounded bg-green-600/90 text-xs text-white">
+                        {frame.width}×{frame.height}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDownload(
+                            frame.upscaledUrl || frame.originalUrl,
+                            `frame_${frame.frameNumber}_${frame.width}x${frame.height}.png`
+                          );
+                        }}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMakeVideo(frame.upscaledUrl || frame.originalUrl, frame.frameNumber);
+                        }}
+                      >
+                        <Film className="w-3 h-3 mr-1" />
+                        Animate
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
       )}

@@ -281,34 +281,48 @@ export function GeneratorTab({
                   <SelectValue placeholder="Select a shot to use its action..." />
                 </SelectTrigger>
                 <SelectContent className="max-w-[400px]">
-                  {analyzerShots.map((shot, idx) => (
-                    <SelectItem key={idx} value={idx.toString()} className="py-3">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-medium">
-                          Shot {shot.shotNumber} ({shot.duration}) - {shot.shotType || 'Shot'}
-                        </span>
-                        {shot.action && (
-                          <span className="text-xs text-blue-600 dark:text-blue-400">
-                            Action: {shot.action.length > 60 ? shot.action.substring(0, 60) + '...' : shot.action}
+                  {analyzerShots.map((shot, idx) => {
+                    // Calculate suggested duration for hint
+                    const durationMatch = shot.duration.match(/(\d+\.?\d*)/);
+                    const seconds = durationMatch ? parseFloat(durationMatch[1]) : 5;
+                    const suggestedDuration = seconds > 7 ? '10s' : '5s';
+
+                    return (
+                      <SelectItem key={idx} value={idx.toString()} className="h-auto py-2 whitespace-normal">
+                        <div className="flex flex-col gap-0.5 text-left max-w-[350px]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">Shot {shot.shotNumber}</span>
+                            <span className="text-xs text-muted-foreground">({shot.duration})</span>
+                            {shot.shotType && (
+                              <span className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">{shot.shotType}</span>
+                            )}
+                          </div>
+                          {shot.action && (
+                            <span className="text-xs text-blue-600 dark:text-blue-400 line-clamp-1">
+                              {shot.action}
+                            </span>
+                          )}
+                          {shot.dialogue && (
+                            <span className="text-xs text-amber-600 dark:text-amber-400 line-clamp-1">
+                              &quot;{shot.dialogue}&quot;
+                            </span>
+                          )}
+                          {!shot.action && !shot.dialogue && shot.description && (
+                            <span className="text-xs text-muted-foreground line-clamp-1">
+                              {shot.description}
+                            </span>
+                          )}
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            Suggested duration: {suggestedDuration}
                           </span>
-                        )}
-                        {shot.dialogue && (
-                          <span className="text-xs text-amber-600 dark:text-amber-400">
-                            Dialogue: &quot;{shot.dialogue.length > 40 ? shot.dialogue.substring(0, 40) + '...' : shot.dialogue}&quot;
-                          </span>
-                        )}
-                        {!shot.action && !shot.dialogue && shot.description && (
-                          <span className="text-xs text-muted-foreground">
-                            {shot.description.length > 60 ? shot.description.substring(0, 60) + '...' : shot.description}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-2">
-                {analyzerShots.length} shots available from Video Analyzer. Select to pre-fill the action.
+                {analyzerShots.length} shots available from Video Analyzer.
               </p>
             </div>
           )}
