@@ -189,8 +189,8 @@ export function useAICinematographer() {
       setResult(response);
 
       if (response.success) {
-        // Clear pending image after successful video generation
-        setPendingImageForVideo(undefined);
+        // Keep pending image for multiple generations - user can manually clear if needed
+        // (Previously cleared here, causing image to disappear after first generation)
         // Refresh history to show new video
         await loadHistory();
         // Keep isGenerating = true - the real-time subscription will set it to false
