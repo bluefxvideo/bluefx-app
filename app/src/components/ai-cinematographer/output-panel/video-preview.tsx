@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Clock, Loader2, Video } from 'lucide-react';
+import { Download, Clock, Loader2, Video, X } from 'lucide-react';
 
 interface VideoPreviewProps {
   video: {
@@ -17,6 +17,7 @@ interface VideoPreviewProps {
     created_at: string;
   };
   batchId: string;
+  onCancel?: () => void;
 }
 
 /**
@@ -46,7 +47,7 @@ function getEstimatedTime(duration: number, resolution?: string): number {
 /**
  * Video preview component with playback controls
  */
-export function VideoPreview({ video, batchId }: VideoPreviewProps) {
+export function VideoPreview({ video, batchId, onCancel }: VideoPreviewProps) {
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const isProcessing = !video.video_url;
@@ -165,6 +166,19 @@ export function VideoPreview({ video, batchId }: VideoPreviewProps) {
                   </span>
                 </div>
               </div>
+
+              {/* Cancel Button */}
+              {onCancel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={onCancel}
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  Cancel
+                </Button>
+              )}
             </Card>
           </div>
         )}

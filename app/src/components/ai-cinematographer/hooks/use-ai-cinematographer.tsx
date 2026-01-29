@@ -661,6 +661,12 @@ export function useAICinematographer() {
     setStoredAssetReferences([]);
   }, []);
 
+  // Cancel ongoing generation (escape from stuck state)
+  const cancelGeneration = useCallback(() => {
+    setIsGenerating(false);
+    setError(undefined);
+  }, []);
+
   return {
     // Video generation state
     isGenerating,
@@ -705,5 +711,6 @@ export function useAICinematographer() {
     clearStoredAssetReferences,
     loadHistory,
     deleteVideo,
+    cancelGeneration,
   };
 }

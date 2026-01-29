@@ -62,6 +62,8 @@ export function AICinematographerPage() {
     uploadGridImage,
     // User
     user,
+    // Cancel
+    cancelGeneration,
   } = useAICinematographer();
 
   // Check for image URL in search params (from Starting Shot "Make Video" button)
@@ -303,6 +305,7 @@ export function AICinematographerPage() {
             isGenerating={isGenerating}
             error={error}
             onClearResults={clearResults}
+            onCancelGeneration={cancelGeneration}
             videos={videos}
             isLoadingHistory={isLoadingHistory}
             onRefresh={loadHistory}

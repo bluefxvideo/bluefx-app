@@ -12,6 +12,7 @@ interface ContextualOutputProps {
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;
+  onCancelGeneration?: () => void;
   videos?: CinematographerVideo[];
   isLoadingHistory?: boolean;
   onRefresh?: () => void;
@@ -29,6 +30,7 @@ export function ContextualOutput({
   isGenerating,
   error,
   onClearResults,
+  onCancelGeneration,
   videos = [],
   isLoadingHistory = false,
   onRefresh,
@@ -69,6 +71,7 @@ export function ContextualOutput({
           isGenerating={isGenerating}
           error={error}
           onClearResults={onClearResults}
+          onCancelGeneration={onCancelGeneration}
           activeTab={activeTab}
           isStateRestored={isStateRestored}
         />

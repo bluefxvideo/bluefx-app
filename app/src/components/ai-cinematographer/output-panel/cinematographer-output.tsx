@@ -12,6 +12,7 @@ interface CinematographerOutputProps {
   isGenerating: boolean;
   error?: string;
   onClearResults: () => void;
+  onCancelGeneration?: () => void;
   activeTab?: string;
   isStateRestored?: boolean;
 }
@@ -26,6 +27,7 @@ export function CinematographerOutput({
   isGenerating,
   error,
   onClearResults,
+  onCancelGeneration,
   activeTab = 'generate',
   isStateRestored = false
 }: CinematographerOutputProps) {
@@ -52,6 +54,7 @@ export function CinematographerOutput({
             <VideoPreview
               video={result.video}
               batchId={result.batch_id}
+              onCancel={onCancelGeneration}
             />
           </div>
         </div>
