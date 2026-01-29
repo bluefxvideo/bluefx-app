@@ -498,15 +498,14 @@ export function StoryboardOutputV2({
                   <div className="flex gap-1">
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs"
+                      size="icon"
+                      className="h-8 w-8"
                       onClick={() => onDownload(
                         frame.upscaledUrl || frame.originalUrl,
                         `frame_${frame.frameNumber}_${frame.width}x${frame.height}.png`
                       )}
                     >
-                      <Download className="w-3 h-3 mr-1" />
-                      Download
+                      <Download className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="outline"
