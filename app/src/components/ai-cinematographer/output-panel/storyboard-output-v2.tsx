@@ -149,6 +149,21 @@ export function StoryboardOutputV2({
     }
   };
 
+  const handleDownloadAll = async () => {
+    const completedFrames = extractedFrames.filter(f => f.status === 'completed');
+    for (let i = 0; i < completedFrames.length; i++) {
+      const frame = completedFrames[i];
+      onDownload(
+        frame.upscaledUrl || frame.originalUrl,
+        `frame_${frame.frameNumber}_${frame.width}x${frame.height}.png`
+      );
+      // Small delay between downloads to prevent browser blocking
+      if (i < completedFrames.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+    }
+  };
+
   const handleConfirmRegenerateGrid = () => {
     onRegenerateGrid();
     clearFrames();
@@ -457,24 +472,35 @@ export function StoryboardOutputV2({
             <h3 className="text-lg font-semibold">
               Extracted Frames ({extractedFrames.filter(f => f.status === 'completed').length})
             </h3>
-            <Button
-              onClick={handleOpenInEditor}
-              disabled={isOpeningEditor || !projectId}
-              className="bg-primary hover:bg-primary/90"
-            >
-              {isOpeningEditor ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Opening...
-                </>
-              ) : (
-                <>
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  Open in Video Editor
-                  <ExternalLink className="w-3 h-3 ml-2" />
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAll}
+                disabled={extractedFrames.filter(f => f.status === 'completed').length === 0}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download All
+              </Button>
+              <Button
+                onClick={handleOpenInEditor}
+                disabled={isOpeningEditor || !projectId}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isOpeningEditor ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Opening...
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="w-4 h-4 mr-2" />
+                    Open in Video Editor
+                    <ExternalLink className="w-3 h-3 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {extractedFrames

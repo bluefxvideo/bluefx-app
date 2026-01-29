@@ -14,6 +14,14 @@ import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import type { CinematographerRequest } from '@/types/cinematographer';
 import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio } from '@/types/cinematographer';
 
+// Camera style presets that append to the prompt
+const CAMERA_PRESETS: Record<string, string> = {
+  none: '',
+  amateur: 'Shot with handheld camera, slight natural shake, authentic amateur footage feel',
+  stable: 'Smooth stabilized camera movement, professional gimbal-like stability',
+  cinematic: 'Cinematic camera movement, dramatic dolly shots, epic sweeping motion, professional film quality',
+};
+
 interface GeneratorTabProps {
   onGenerate: (request: CinematographerRequest) => void;
   isGenerating: boolean;
@@ -21,6 +29,8 @@ interface GeneratorTabProps {
   isLoadingCredits?: boolean;
   pendingImageUrl?: string; // Image URL from Starting Shot
   onClearPendingImage?: () => void;
+  defaultAspectRatio?: string; // Remember aspect ratio across tabs
+  onAspectRatioChange?: (ratio: string) => void;
 }
 
 /**
@@ -36,6 +46,8 @@ export function GeneratorTab({
   isLoadingCredits,
   pendingImageUrl,
   onClearPendingImage,
+  defaultAspectRatio = '16:9',
+  onAspectRatioChange,
 }: GeneratorTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -44,11 +56,14 @@ export function GeneratorTab({
     model: 'fast' as VideoModel,
     duration: 6 as number,
     resolution: '1080p' as string,
-    aspect_ratio: '16:9' as ProAspectRatio,
+    aspect_ratio: defaultAspectRatio as ProAspectRatio,
     generate_audio: true,
     seed: '' as string,
     camera_fixed: false,
   });
+
+  const [cameraStyle, setCameraStyle] = useState<string>('none');
+  const [customCameraText, setCustomCameraText] = useState<string>('');
 
   const config = VIDEO_MODEL_CONFIG[formData.model];
 
@@ -111,9 +126,17 @@ export function GeneratorTab({
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
 
+    // Build final prompt with camera style
+    const cameraText = cameraStyle === 'custom'
+      ? customCameraText
+      : CAMERA_PRESETS[cameraStyle];
+    const finalPrompt = cameraText
+      ? `${formData.prompt} ${cameraText}`
+      : formData.prompt;
+
     // Build base request
     const request: any = {
-      prompt: formData.prompt,
+      prompt: finalPrompt,
       duration: formData.duration,
       resolution: formData.resolution,
       generate_audio: formData.generate_audio,
@@ -234,6 +257,39 @@ export function GeneratorTab({
             <span>Be specific for better results</span>
             <span>{formData.prompt.length}/500</span>
           </div>
+
+          {/* Camera Style Preset */}
+          <div className="space-y-2 mt-4">
+            <Label>Camera Style</Label>
+            <Select
+              value={cameraStyle}
+              onValueChange={setCameraStyle}
+              disabled={isGenerating}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select camera style" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None (Default)</SelectItem>
+                <SelectItem value="amateur">Amateur / Handheld</SelectItem>
+                <SelectItem value="stable">Stable / Gimbal</SelectItem>
+                <SelectItem value="cinematic">Cinematic / Epic</SelectItem>
+                <SelectItem value="custom">Custom...</SelectItem>
+              </SelectContent>
+            </Select>
+            {cameraStyle === 'custom' && (
+              <Textarea
+                placeholder="Enter your custom camera style description..."
+                value={customCameraText}
+                onChange={(e) => setCustomCameraText(e.target.value)}
+                className="mt-2 min-h-[60px]"
+                disabled={isGenerating}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Adds camera movement style to your prompt
+            </p>
+          </div>
         </StandardStep>
 
         {/* Step 2: Reference Image (First Frame) */}
@@ -330,7 +386,10 @@ export function GeneratorTab({
                 <Label>Aspect Ratio</Label>
                 <Select
                   value={formData.aspect_ratio}
-                  onValueChange={(value: ProAspectRatio) => setFormData(prev => ({ ...prev, aspect_ratio: value }))}
+                  onValueChange={(value: ProAspectRatio) => {
+                    setFormData(prev => ({ ...prev, aspect_ratio: value }));
+                    onAspectRatioChange?.(value);
+                  }}
                   disabled={isGenerating}
                 >
                   <SelectTrigger>

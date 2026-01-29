@@ -64,6 +64,9 @@ export function AICinematographerPage() {
     user,
     // Cancel
     cancelGeneration,
+    // Remember aspect ratio
+    lastUsedAspectRatio,
+    setLastUsedAspectRatio,
   } = useAICinematographer();
 
   // Check for image URL in search params (from Starting Shot "Make Video" button)
@@ -152,6 +155,8 @@ export function AICinematographerPage() {
       isLoadingCredits={isLoadingCredits}
       pendingImageUrl={pendingImageForVideo}
       onClearPendingImage={() => setImageForVideo('')}
+      defaultAspectRatio={lastUsedAspectRatio}
+      onAspectRatioChange={setLastUsedAspectRatio}
     />
   );
 

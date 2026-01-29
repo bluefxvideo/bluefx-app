@@ -43,6 +43,9 @@ export function useAICinematographer() {
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   const [extractingProgress, setExtractingProgress] = useState({ current: 0, total: 0 });
 
+  // Remember last used aspect ratio across tabs
+  const [lastUsedAspectRatio, setLastUsedAspectRatio] = useState<string>('16:9');
+
   // Stored asset references for cross-grid consistency
   // These persist across multiple grid generations to maintain character/product consistency
   const [storedAssetReferences, setStoredAssetReferences] = useState<Array<{
@@ -712,5 +715,7 @@ export function useAICinematographer() {
     loadHistory,
     deleteVideo,
     cancelGeneration,
+    lastUsedAspectRatio,
+    setLastUsedAspectRatio,
   };
 }
