@@ -331,6 +331,8 @@ export function VideoAnalyzerPage() {
               shotType: shot.shotType,
               camera: shot.camera,
               description: shot.description,
+              action: shot.action,      // What movement/action happens
+              dialogue: shot.dialogue,  // What is being said
             })),
             storyboardPrompt: result.storyboardPrompts?.[0]?.prompt,
           };
