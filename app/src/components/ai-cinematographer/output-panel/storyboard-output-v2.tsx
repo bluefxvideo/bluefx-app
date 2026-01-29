@@ -495,27 +495,27 @@ export function StoryboardOutputV2({
                       {frame.width}×{frame.height}
                     </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 w-full">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 text-xs"
+                      className="flex-1 text-xs h-8 px-2 min-w-0"
                       onClick={() => onDownload(
                         frame.upscaledUrl || frame.originalUrl,
                         `frame_${frame.frameNumber}_${frame.width}x${frame.height}.png`
                       )}
                     >
-                      <Download className="w-3 h-3 mr-1" />
-                      Download
+                      <Download className="w-3 h-3 mr-1 shrink-0" />
+                      <span className="truncate">Download</span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 text-xs"
+                      className="flex-1 text-xs h-8 px-2 min-w-0"
                       onClick={() => onMakeVideo(frame.upscaledUrl || frame.originalUrl, frame.frameNumber)}
                     >
-                      <Film className="w-3 h-3 mr-1" />
-                      Animate
+                      <Film className="w-3 h-3 mr-1 shrink-0" />
+                      <span className="truncate">Animate</span>
                     </Button>
                   </div>
                 </div>

@@ -284,13 +284,23 @@ async function handleVideoGeneration(
         const fastDuration = (request.duration || 6) as 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20;
         const fastResolution = (request.resolution || '1080p') as '1080p' | '2k' | '4k';
 
+        // Only include webhook if we have an HTTPS URL (required by Replicate)
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+        const webhookUrl = siteUrl.startsWith('https://')
+          ? `${siteUrl}/api/webhooks/replicate-ai`
+          : undefined;
+
+        if (!webhookUrl) {
+          console.warn('⚠️ No HTTPS webhook URL available. Video status won\'t auto-update. Use ngrok or deploy for full functionality.');
+        }
+
         prediction = await createVideoGenerationPrediction({
           prompt: request.prompt,
           image: referenceImageUrl,
           duration: fastDuration,
           resolution: fastResolution,
           generate_audio: request.generate_audio !== false,
-          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+          webhook: webhookUrl
         });
       } else {
         // Seedance 1.5 Pro model
@@ -299,6 +309,16 @@ async function handleVideoGeneration(
         // Validate duration for Pro model (5-10 seconds)
         const proDuration = Math.max(5, Math.min(10, request.duration || 5)) as SeedanceDuration;
         const proAspectRatio = (request.aspect_ratio || '16:9') as SeedanceAspectRatio;
+
+        // Only include webhook if we have an HTTPS URL (required by Replicate)
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+        const webhookUrl = siteUrl.startsWith('https://')
+          ? `${siteUrl}/api/webhooks/replicate-ai`
+          : undefined;
+
+        if (!webhookUrl) {
+          console.warn('⚠️ No HTTPS webhook URL available. Video status won\'t auto-update. Use ngrok or deploy for full functionality.');
+        }
 
         prediction = await createSeedancePrediction({
           prompt: request.prompt,
@@ -309,7 +329,7 @@ async function handleVideoGeneration(
           seed: request.seed,
           camera_fixed: request.camera_fixed,
           generate_audio: request.generate_audio !== false,
-          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+          webhook: webhookUrl
         });
       }
 
