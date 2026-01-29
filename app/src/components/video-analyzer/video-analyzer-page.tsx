@@ -305,12 +305,13 @@ export function VideoAnalyzerPage() {
 
   // Send prompt to Storyboard Generator (opens in new tab to preserve current state)
   const handleSendToStoryboard = (prompt: string) => {
-    // Store prompt in sessionStorage to avoid URL length limits (HTTP 431 error)
+    // Store prompt in localStorage (not sessionStorage!) to share across tabs
+    // This avoids URL length limits (HTTP 431 error)
     const promptId = `storyboard-prompt-${Date.now()}`;
-    sessionStorage.setItem(promptId, prompt);
+    localStorage.setItem(promptId, prompt);
     // Also store shots array for pre-filling generator prompts
     if (generatedShots.length > 0) {
-      sessionStorage.setItem(`${promptId}-shots`, JSON.stringify(generatedShots));
+      localStorage.setItem(`${promptId}-shots`, JSON.stringify(generatedShots));
     }
     window.open(`/dashboard/ai-cinematographer/storyboard?promptId=${promptId}`, '_blank');
   };

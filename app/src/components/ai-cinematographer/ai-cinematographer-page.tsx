@@ -87,7 +87,7 @@ export function AICinematographerPage() {
   const [storyboardPromptFromUrl, setStoryboardPromptFromUrl] = useState<string | undefined>(undefined);
   const storyboardStyleFromUrl = searchParams.get('style');
 
-  // Load prompt from URL param or sessionStorage
+  // Load prompt from URL param or localStorage (localStorage shares across tabs)
   useEffect(() => {
     const directPrompt = searchParams.get('prompt');
     const promptId = searchParams.get('promptId');
@@ -95,18 +95,18 @@ export function AICinematographerPage() {
     if (directPrompt) {
       setStoryboardPromptFromUrl(decodeURIComponent(directPrompt));
     } else if (promptId) {
-      // Retrieve prompt from sessionStorage (used for long prompts to avoid HTTP 431)
-      const storedPrompt = sessionStorage.getItem(promptId);
+      // Retrieve prompt from localStorage (used for long prompts to avoid HTTP 431)
+      const storedPrompt = localStorage.getItem(promptId);
       if (storedPrompt) {
         setStoryboardPromptFromUrl(storedPrompt);
-        sessionStorage.removeItem(promptId);
+        localStorage.removeItem(promptId);
       }
       // Also load analyzer shots if available (for pre-filling generator prompts)
-      const storedShots = sessionStorage.getItem(`${promptId}-shots`);
+      const storedShots = localStorage.getItem(`${promptId}-shots`);
       if (storedShots) {
         try {
           setAnalyzerShots(JSON.parse(storedShots));
-          sessionStorage.removeItem(`${promptId}-shots`);
+          localStorage.removeItem(`${promptId}-shots`);
         } catch (e) {
           console.error('Failed to parse analyzer shots:', e);
         }
