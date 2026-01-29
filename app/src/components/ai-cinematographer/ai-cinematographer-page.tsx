@@ -11,6 +11,7 @@ import { HistoryOutput } from './output-panel/history-output';
 import { StartingShotOutput } from './output-panel/starting-shot-output';
 import { useAICinematographer } from './hooks/use-ai-cinematographer';
 import { Video, History, Image, LayoutGrid } from 'lucide-react';
+import { useProject } from '@/lib/project-context';
 
 // Tab content components
 import { GeneratorTab } from './tabs/generator-tab';
@@ -27,6 +28,10 @@ export function AICinematographerPage() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Project context
+  const { project, projectId, loadProject } = useProject();
+  const projectIdFromUrl = searchParams.get('projectId');
 
   // Toggle between old 3x3 mode and new 4x4 mode with math extraction
   const [use4x4Grid, setUse4x4Grid] = useState(true); // Default to new 4x4 mode
@@ -72,6 +77,27 @@ export function AICinematographerPage() {
     setAnalyzerShots,
   } = useAICinematographer();
 
+  // Load project if projectId is in URL
+  useEffect(() => {
+    if (projectIdFromUrl && projectIdFromUrl !== projectId) {
+      loadProject(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl, projectId, loadProject]);
+
+  // When project loads, use its shots for the analyzer shots state
+  useEffect(() => {
+    if (project?.analysis_data?.shots && project.analysis_data.shots.length > 0) {
+      // Convert project shots to the format expected by analyzerShots
+      const shots = project.analysis_data.shots.map(shot => ({
+        shotNumber: shot.shotNumber,
+        description: shot.description,
+        duration: shot.duration,
+        shotType: shot.shotType,
+      }));
+      setAnalyzerShots(shots);
+    }
+  }, [project, setAnalyzerShots]);
+
   // Check for image URL in search params (from Starting Shot "Make Video" button)
   useEffect(() => {
     const imageUrl = searchParams.get('image');
@@ -113,6 +139,13 @@ export function AICinematographerPage() {
       }
     }
   }, [searchParams, setAnalyzerShots]);
+
+  // When project loads, use its storyboard prompt if available
+  useEffect(() => {
+    if (project?.storyboard_prompt && !storyboardPromptFromUrl) {
+      setStoryboardPromptFromUrl(project.storyboard_prompt);
+    }
+  }, [project, storyboardPromptFromUrl]);
 
   // Determine active tab from URL
   const getActiveTab = () => {

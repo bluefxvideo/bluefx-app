@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, Youtube, FileVideo, Wand2, ChevronDown, ChevronUp, Send, LayoutGrid, Link } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Card } from '@/components/ui/card';
@@ -16,6 +17,8 @@ import { detectPlatform } from '@/lib/social-video-utils';
 import { generateStoryboardPrompts, Shot, StoryboardPrompt } from '@/actions/tools/ad-recreator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PromptRefiner } from './prompt-refiner';
+import { useProject } from '@/lib/project-context';
+import { AnalysisData } from '@/actions/database/projects-database';
 
 // Analysis type options
 const ANALYSIS_TYPES = [
@@ -42,6 +45,12 @@ interface VideoAnalysis {
 type InputMode = 'file' | 'url';
 
 export function VideoAnalyzerPage() {
+  const searchParams = useSearchParams();
+  const projectIdFromUrl = searchParams.get('projectId');
+
+  // Project context
+  const { projectId, loadProject, saveAnalysis, updateProject } = useProject();
+
   const [inputMode, setInputMode] = useState<InputMode>('file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -69,6 +78,20 @@ export function VideoAnalyzerPage() {
   const [modifiedPrompts, setModifiedPrompts] = useState<Record<number, string>>({});
 
   const { credits, deductCredits, hasEnoughCredits, isLoading: creditsLoading } = useCredits();
+
+  // Load project if projectId is in URL
+  useEffect(() => {
+    if (projectIdFromUrl && projectIdFromUrl !== projectId) {
+      loadProject(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl, projectId, loadProject]);
+
+  // Update project status to analyzing when starting analysis
+  useEffect(() => {
+    if (isAnalyzing && projectId) {
+      updateProject({ status: 'analyzing' });
+    }
+  }, [isAnalyzing, projectId, updateProject]);
 
   // Fetch saved analyses
   const { data: savedAnalyses, isLoading: historyLoading } = useQuery({
@@ -226,6 +249,16 @@ export function VideoAnalyzerPage() {
         toast.success('Video analysis complete!');
         // Refresh history
         queryClient.invalidateQueries({ queryKey: ['video-analyses'] });
+
+        // Save to project if one is loaded
+        if (projectId) {
+          // We'll save full analysis data after generating prompts
+          // For now, just store the source URL
+          const sourceUrl = inputMode === 'url' ? videoUrl : undefined;
+          if (sourceUrl) {
+            updateProject({ source_url: sourceUrl });
+          }
+        }
       } else {
         toast.error(result.error || 'Failed to analyze video');
       }
@@ -284,6 +317,25 @@ export function VideoAnalyzerPage() {
         setGeneratedPrompts(result.storyboardPrompts || []);
         setVideoSummary(result.videoSummary || '');
         toast.success(`Generated ${result.gridsNeeded} storyboard prompt(s) from ${result.totalShots} shots!`);
+
+        // Save analysis data to project if one is loaded
+        if (projectId && result.shots) {
+          const analysisData: AnalysisData = {
+            videoTitle: selectedFile?.name || videoUrl || 'Untitled',
+            totalDuration: videoDuration || undefined,
+            shots: result.shots.map(shot => ({
+              shotNumber: shot.shotNumber,
+              startTime: shot.startTime,
+              endTime: shot.endTime,
+              duration: shot.duration,
+              shotType: shot.shotType,
+              camera: shot.camera,
+              description: shot.description,
+            })),
+            storyboardPrompt: result.storyboardPrompts?.[0]?.prompt,
+          };
+          saveAnalysis(analysisData);
+        }
       } else {
         toast.error(result.error || 'Failed to generate prompts');
       }
@@ -305,7 +357,13 @@ export function VideoAnalyzerPage() {
 
   // Send prompt to Storyboard Generator (opens in new tab to preserve current state)
   const handleSendToStoryboard = (prompt: string) => {
-    // Store prompt in localStorage (not sessionStorage!) to share across tabs
+    // If we have a project, navigate with projectId (data is already saved to project)
+    if (projectId) {
+      window.open(`/dashboard/ai-cinematographer/storyboard?projectId=${projectId}`, '_blank');
+      return;
+    }
+
+    // Fallback: Store prompt in localStorage (not sessionStorage!) to share across tabs
     // This avoids URL length limits (HTTP 431 error)
     const promptId = `storyboard-prompt-${Date.now()}`;
     localStorage.setItem(promptId, prompt);
