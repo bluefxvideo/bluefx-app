@@ -262,8 +262,16 @@ export function GeneratorTab({
                 onValueChange={(val) => {
                   const shot = analyzerShots[parseInt(val)];
                   if (shot) {
-                    // Pre-fill with action if available, otherwise use description
-                    const prompt = shot.action || shot.description;
+                    // Build prompt with action and dialogue combined
+                    const parts: string[] = [];
+                    if (shot.action) {
+                      parts.push(shot.action);
+                    }
+                    if (shot.dialogue) {
+                      parts.push(`Narration: "${shot.dialogue}"`);
+                    }
+                    // Fallback to description if no action/dialogue
+                    const prompt = parts.length > 0 ? parts.join('\n\n') : shot.description;
                     setFormData(prev => ({ ...prev, prompt }));
                   }
                 }}
