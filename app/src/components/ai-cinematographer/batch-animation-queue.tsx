@@ -34,6 +34,7 @@ export interface QueueItem {
   status: 'pending' | 'generating' | 'completed' | 'failed';
   videoUrl?: string;
   error?: string;
+  batchId?: string; // Track which database record this corresponds to
 }
 
 interface BatchAnimationQueueProps {

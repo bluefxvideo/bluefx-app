@@ -79,6 +79,7 @@ export function useAICinematographer() {
     status: 'pending' | 'generating' | 'completed' | 'failed';
     videoUrl?: string;
     error?: string;
+    batchId?: string; // Track which database record this corresponds to
   }>>([]);
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [queueProgress, setQueueProgress] = useState({ current: 0, total: 0 });
@@ -86,6 +87,12 @@ export function useAICinematographer() {
   // Use ref to track current result without causing subscription re-creation
   const resultRef = useRef<CinematographerResponse | undefined>(undefined);
   const isGeneratingRef = useRef<boolean>(false);
+  const animationQueueRef = useRef(animationQueue);
+
+  // Keep animationQueueRef in sync
+  useEffect(() => {
+    animationQueueRef.current = animationQueue;
+  }, [animationQueue]);
 
   // Update refs when state changes
   useEffect(() => {
@@ -600,6 +607,23 @@ export function useAICinematographer() {
             setVideos(prev => prev.map(video =>
               video.id === updatedVideo.id ? updatedVideo : video
             ));
+
+            // Also update animation queue items that match this video
+            const currentQueue = animationQueueRef.current;
+            const matchingQueueItem = currentQueue.find(item => item.batchId === updatedVideo.id);
+            if (matchingQueueItem && (updatedVideo.status === 'completed' || updatedVideo.status === 'failed')) {
+              console.log('Updating animation queue item:', matchingQueueItem.id, 'status:', updatedVideo.status);
+              setAnimationQueue(prev => prev.map(item =>
+                item.batchId === updatedVideo.id
+                  ? {
+                      ...item,
+                      status: updatedVideo.status === 'completed' ? 'completed' as const : 'failed' as const,
+                      videoUrl: updatedVideo.final_video_url || undefined,
+                      error: updatedVideo.status === 'failed' ? 'Video generation failed' : undefined,
+                    }
+                  : item
+              ));
+            }
           } else if (payload.eventType === 'INSERT') {
             setVideos(prev => [updatedVideo, ...prev]);
           }
@@ -835,13 +859,13 @@ export function useAICinematographer() {
         });
 
         if (response.success) {
-          // Video submission succeeded - the actual video URL comes later via webhook
-          // Mark as completed (the video is being processed asynchronously)
+          // Video submission succeeded - keep as "generating" until webhook completes
+          // Store the batchId so we can match updates from real-time subscription
           setAnimationQueue(prev =>
             prev.map(q => q.id === item.id ? {
               ...q,
-              status: 'completed' as const,
-              videoUrl: response.video?.video_url || undefined,
+              status: 'generating' as const, // Keep as generating until webhook confirms
+              batchId: response.batch_id, // Store for real-time matching
             } : q)
           );
         } else {
@@ -924,12 +948,12 @@ export function useAICinematographer() {
       });
 
       if (response.success) {
-        // Video submission succeeded - the actual video URL comes later via webhook
+        // Video submission succeeded - keep as "generating" until webhook confirms
         setAnimationQueue(prev =>
           prev.map(q => q.id === id ? {
             ...q,
-            status: 'completed' as const,
-            videoUrl: response.video?.video_url || undefined,
+            status: 'generating' as const,
+            batchId: response.batch_id,
           } : q)
         );
       } else {
