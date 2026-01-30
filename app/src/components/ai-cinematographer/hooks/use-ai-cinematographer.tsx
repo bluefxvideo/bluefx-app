@@ -834,12 +834,14 @@ export function useAICinematographer() {
           });
         });
 
-        if (response.success && response.video?.video_url) {
+        if (response.success) {
+          // Video submission succeeded - the actual video URL comes later via webhook
+          // Mark as completed (the video is being processed asynchronously)
           setAnimationQueue(prev =>
             prev.map(q => q.id === item.id ? {
               ...q,
               status: 'completed' as const,
-              videoUrl: response.video?.video_url,
+              videoUrl: response.video?.video_url || undefined,
             } : q)
           );
         } else {
@@ -921,12 +923,13 @@ export function useAICinematographer() {
         });
       });
 
-      if (response.success && response.video?.video_url) {
+      if (response.success) {
+        // Video submission succeeded - the actual video URL comes later via webhook
         setAnimationQueue(prev =>
           prev.map(q => q.id === id ? {
             ...q,
             status: 'completed' as const,
-            videoUrl: response.video?.video_url,
+            videoUrl: response.video?.video_url || undefined,
           } : q)
         );
       } else {
