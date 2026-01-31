@@ -566,21 +566,28 @@ async function generateVoiceAudio(scriptText: string, voiceId: string, userId: s
 
 /**
  * Calculate credit costs for talking avatar operations
- * Simple proportional scaling: 6 credits per 30 seconds
+ * Pricing: 1.0 credits per second (30 credits per 30s) for ~45% profit margin
+ *
+ * API Cost Breakdown:
+ * - Hedra Video: 6 credits/sec @ ~$0.0068/credit = ~$0.041/sec
+ * - Minimax Voice: ~$0.06 per 1000 chars (negligible per second)
+ * - Total: ~$1.25 per 30s video
+ *
+ * At $0.07/user credit: 30 credits = $2.10 revenue = ~45% profit margin
+ * Monthly (600 credits) = 20 videos of 30s | Trial (100 credits) = 3 videos of 30s
  */
 function calculateTalkingAvatarCreditCost(request: TalkingAvatarRequest) {
   const wordCount = request.script_text.trim().split(/\s+/).length;
-  
-  // Duration-based cost scaling - simple proportional
+
+  // Duration-based cost scaling
   const estimatedDuration = Math.ceil(wordCount / 2.5); // ~2.5 words per second
-  
-  // Simple calculation: 6 credits per 30 seconds, scaled proportionally
-  // 30s = 6 credits, 60s = 12 credits, 90s = 18 credits, etc.
-  const creditsPerSecond = 6 / 30; // 0.2 credits per second
-  const total = Math.max(6, Math.ceil(estimatedDuration * creditsPerSecond));
-  
+
+  // 1.0 credits per second = 30 credits per 30s (~45% profit margin)
+  const creditsPerSecond = 1.0;
+  const total = Math.max(10, Math.ceil(estimatedDuration * creditsPerSecond));
+
   return {
-    base: 6,
+    base: 10, // Minimum 10 credits
     tier1_cost: 0,
     tier2_cost: 0,
     tier3_cost: 0,

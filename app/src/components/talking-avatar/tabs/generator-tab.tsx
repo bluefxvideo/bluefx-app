@@ -155,8 +155,11 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
     }
   };
 
-  // Calculate estimated credits based on video length
-  const estimatedCredits = localScriptText ? Math.ceil(localScriptText.length / 100) * 5 : 10; // ~5 credits per 100 characters, minimum 10
+  // Calculate estimated credits based on video length (matches backend formula)
+  // 1.0 credits per second, ~2.5 words per second, minimum 10 credits
+  const wordCount = localScriptText ? localScriptText.trim().split(/\s+/).filter(w => w).length : 0;
+  const estimatedDuration = Math.ceil(wordCount / 2.5);
+  const estimatedCredits = Math.max(10, Math.ceil(estimatedDuration * 1.0));
 
   const canProceed = () => {
     if (state.currentStep === 1) {
