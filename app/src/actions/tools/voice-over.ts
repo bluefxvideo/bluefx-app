@@ -1,20 +1,21 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { createPredictionRecord, updatePredictionRecord } from '@/actions/database/thumbnail-database';
+import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
+import { MINIMAX_VOICE_OPTIONS, type MinimaxEmotion } from '@/components/shared/voice-constants';
 
 // Request/Response types for Voice Over
 export interface VoiceOverRequest {
   script_text: string;
   voice_id: string;
   voice_settings?: {
-    speed?: number; // 0.25 to 4.0
-    pitch?: number; // -20 to 20 semitones
-    volume?: number; // 0.0 to 1.0
-    emphasis?: 'strong' | 'moderate' | 'none';
+    speed?: number; // 0.5 to 2.0
+    pitch?: number; // -12 to 12 semitones
+    volume?: number; // 0 to 10
+    emotion?: MinimaxEmotion;
   };
-  export_format?: 'mp3' | 'wav' | 'ogg';
+  export_format?: 'mp3' | 'wav' | 'flac';
   quality?: 'standard' | 'hd';
   use_ssml?: boolean;
   user_id: string;
@@ -67,7 +68,7 @@ export interface GeneratedVoice {
     speed?: number;
     pitch?: number;
     volume?: number;
-    emphasis?: 'strong' | 'moderate' | 'none';
+    emotion?: MinimaxEmotion;
   };
   batch_id: string;
   credits_used: number;
@@ -76,12 +77,12 @@ export interface GeneratedVoice {
 
 /**
  * Voice Over - AI orchestrator for professional voice generation
- * 
+ *
  * Features:
- * - Advanced OpenAI TTS with custom settings
- * - Multiple export formats (MP3, WAV, OGG)
- * - SSML support for advanced speech control
- * - Professional voice options and settings
+ * - Minimax Speech 2.6 HD with 17 system voices
+ * - Voice cloning support
+ * - Multiple export formats (MP3, WAV, FLAC)
+ * - Emotion, speed, pitch, and volume controls
  * - Credit cost calculation (2 credits per voice generation)
  * - Voice history and management
  */
@@ -122,8 +123,8 @@ export async function executeVoiceOver(
       prediction_id,
       user_id: user.id,
       tool_id: 'voice-over',
-      service_id: 'openai-tts',
-      model_version: authenticatedRequest.quality === 'hd' ? 'tts-1-hd' : 'gpt-4o-mini-tts',
+      service_id: 'minimax-tts',
+      model_version: 'speech-2.6-hd',
       status: 'starting',
       input_data: {
         script_text: authenticatedRequest.script_text,
@@ -168,29 +169,39 @@ export async function executeVoiceOver(
     let totalCreditsUsed = 0;
 
     try {
-      console.log(`🎙️ Generating voice for: ${voiceId}`);
-      
+      console.log(`🎙️ Generating voice with Minimax: ${voiceId}`);
+
       // Update prediction to processing status
       await updatePredictionRecord(prediction_id, {
         status: 'processing',
       });
-      
-      // Generate audio with enhanced settings
-      const audioUrl = await generateEnhancedVoiceAudio(
-        authenticatedRequest.script_text,
-        voiceId,
-        authenticatedRequest.voice_settings,
-        authenticatedRequest.export_format || 'mp3',
-        authenticatedRequest.quality || 'standard',
-        authenticatedRequest.use_ssml || false
-      );
+
+      // Generate audio using Minimax Speech 2.6 HD
+      const minimaxResult = await generateMinimaxVoice({
+        text: authenticatedRequest.script_text,
+        voice_settings: {
+          voice_id: voiceId,
+          speed: authenticatedRequest.voice_settings?.speed ?? 1.0,
+          pitch: authenticatedRequest.voice_settings?.pitch ?? 0,
+          volume: authenticatedRequest.voice_settings?.volume ?? 1,
+          emotion: authenticatedRequest.voice_settings?.emotion ?? 'auto'
+        },
+        user_id: user.id,
+        batch_id
+      });
+
+      if (!minimaxResult.success || !minimaxResult.audio_url) {
+        throw new Error(minimaxResult.error || 'Voice generation failed');
+      }
+
+      const audioUrl = minimaxResult.audio_url;
 
       // Get voice details
       const voiceDetails = getVoiceDetails(voiceId);
-      
-      // Calculate audio duration and file size (estimate)
+
+      // Use duration from Minimax metadata or estimate
       const wordCount = authenticatedRequest.script_text.trim().split(/\s+/).length;
-      const estimatedDuration = Math.ceil(wordCount / 2.5); // ~2.5 words per second
+      const estimatedDuration = minimaxResult.metadata?.duration_estimate || Math.ceil(wordCount / 2.5);
       const estimatedFileSize = estimatedDuration * 0.125; // ~125KB per second for MP3
 
       // Create database record
@@ -200,18 +211,14 @@ export async function executeVoiceOver(
           id: `${batch_id}_${voiceId}`,
           user_id: user.id,
           text_content: authenticatedRequest.script_text,
-          script_text: authenticatedRequest.script_text,
           voice_id: voiceId,
           voice_name: voiceDetails.name,
-          voice_provider: 'elevenlabs', // Using elevenlabs as OpenAI is not in the allowed list
+          voice_provider: 'minimax',
           audio_format: authenticatedRequest.export_format || 'mp3',
           audio_url: audioUrl,
-          duration_seconds: estimatedDuration,
-          file_size_mb: Number(estimatedFileSize.toFixed(2)),
-          export_format: authenticatedRequest.export_format || 'mp3',
+          duration_seconds: Math.round(estimatedDuration),
+          file_size_bytes: Math.round(estimatedFileSize * 1024 * 1024),
           voice_settings: authenticatedRequest.voice_settings,
-          batch_id,
-          credits_used: creditCosts.per_voice,
           created_at: new Date().toISOString()
         })
         .select()
@@ -303,192 +310,19 @@ export async function executeVoiceOver(
 }
 
 /**
- * Generate enhanced voice audio with advanced settings
- */
-async function generateEnhancedVoiceAudio(
-  scriptText: string,
-  voiceId: string,
-  settings: VoiceOverRequest['voice_settings'] = {},
-  format: string = 'mp3',
-  quality: string = 'standard',
-  useSSML: boolean = false
-): Promise<string> {
-  try {
-    // Prepare the input text with SSML if enabled
-    let inputText = scriptText;
-    if (useSSML && !scriptText.includes('<speak>')) {
-      inputText = `<speak>${scriptText}</speak>`;
-    }
-
-    // Apply voice settings through SSML (only for supported parameters)
-    // Note: OpenAI TTS doesn't support pitch adjustment via SSML or API parameters
-    // Speed is handled directly in the API call, not via SSML
-    if (settings.emphasis && settings.emphasis !== 'none' && useSSML) {
-      inputText = `<emphasis level="${settings.emphasis}">${inputText}</emphasis>`;
-    }
-
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: quality === 'hd' ? 'tts-1-hd' : 'tts-1',
-        input: inputText,
-        voice: voiceId,
-        response_format: 'mp3', // Always use MP3 for consistency
-        speed: settings.speed || 1.0,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI TTS API error: ${response.status} ${response.statusText}`);
-    }
-
-    // Get the audio blob
-    const audioBlob = await response.blob();
-    
-    // Upload to Supabase Storage (use Blob instead of File for server-side compatibility)
-    const uploadResult = await uploadImageToStorage(audioBlob, {
-      bucket: 'audio',
-      folder: 'voice-overs',
-      filename: `voice_over_${Date.now()}.mp3`,
-      contentType: 'audio/mpeg',
-    });
-
-    if (!uploadResult.success) {
-      throw new Error(uploadResult.error || 'Audio upload failed');
-    }
-
-    return uploadResult.url || '';
-
-  } catch (error) {
-    console.error('Enhanced voice generation error:', error);
-    throw error;
-  }
-}
-
-/**
- * Get available voice options with enhanced details - Updated November 2024
- * Complete set of 11 OpenAI TTS voices including legacy voices
- * Model: GPT-4o-mini-TTS for enhanced quality
+ * Get available voice options - Minimax Speech 2.6 HD voices
  */
 function getVoiceOptions(): VoiceOption[] {
-  return [
-    // Primary New Voices (OpenAI's latest)
-    {
-      id: 'alloy',
-      name: 'Alloy',
-      gender: 'neutral',
-      accent: 'neutral',
-      description: 'Natural and versatile voice, great for narration and general use',
-      category: 'natural',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/alloy.mp3'
-    },
-    {
-      id: 'echo',
-      name: 'Echo',
-      gender: 'male',
-      accent: 'neutral',
-      description: 'Deep and resonant voice, excellent for documentaries and professional content',
-      category: 'professional',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/echo.mp3'
-    },
-    {
-      id: 'ash',
-      name: 'Ash',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Expressive and dynamic voice with enhanced emotional range',
-      category: 'expressive',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ash.mp3'
-    },
-    {
-      id: 'ballad',
-      name: 'Ballad',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Warm and melodious voice, perfect for storytelling and creative content',
-      category: 'expressive',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ballad.mp3'
-    },
-    {
-      id: 'coral',
-      name: 'Coral',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Friendly and approachable voice with excellent emotional control',
-      category: 'natural',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/coral.mp3'
-    },
-    {
-      id: 'sage',
-      name: 'Sage',
-      gender: 'male',
-      accent: 'neutral',
-      description: 'Professional and authoritative voice, ideal for business and educational content',
-      category: 'professional',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/sage.mp3'
-    },
-    {
-      id: 'shimmer',
-      name: 'Shimmer',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Bright and expressive voice, ideal for engaging presentations',
-      category: 'expressive',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/shimmer.mp3'
-    },
-    {
-      id: 'verse',
-      name: 'Verse',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Creative and artistic voice, perfect for poetry and creative content',
-      category: 'character',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/verse.mp3'
-    },
-    // Legacy Voices (still supported)
-    {
-      id: 'nova',
-      name: 'Nova',
-      gender: 'female',
-      accent: 'neutral',
-      description: 'Warm and engaging voice (legacy)',
-      category: 'natural',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/nova.mp3'
-    },
-    {
-      id: 'onyx',
-      name: 'Onyx',
-      gender: 'male',
-      accent: 'neutral',
-      description: 'Professional and clear voice (legacy)',
-      category: 'professional',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/onyx.mp3'
-    },
-    {
-      id: 'fable',
-      name: 'Fable',
-      gender: 'neutral',
-      accent: 'neutral',
-      description: 'Versatile storytelling voice with character (legacy)',
-      category: 'character',
-      supports_ssml: true,
-      preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/fable.mp3'
-    }
-  ];
+  return MINIMAX_VOICE_OPTIONS.map(voice => ({
+    id: voice.id,
+    name: voice.name,
+    gender: voice.gender,
+    accent: 'neutral',
+    description: voice.description,
+    category: voice.category || 'natural',
+    supports_ssml: false,
+    preview_url: voice.preview_url
+  }));
 }
 
 /**

@@ -10,90 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Play, Square, Mic } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
-
-// Complete OpenAI TTS voice options - Updated November 2024
-// All 11 voices including new and legacy voices with GPT-4o-mini-TTS model
-const VOICE_OPTIONS = [
-  // Primary New Voices
-  {
-    id: 'alloy',
-    name: 'Alloy',
-    gender: 'neutral',
-    description: 'Natural and versatile voice, great for narration',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/alloy.mp3'
-  },
-  {
-    id: 'echo',
-    name: 'Echo',
-    gender: 'male',
-    description: 'Deep and resonant voice, excellent for documentaries',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/echo.mp3'
-  },
-  {
-    id: 'ash',
-    name: 'Ash',
-    gender: 'female',
-    description: 'Expressive and dynamic with enhanced emotional range',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ash.mp3'
-  },
-  {
-    id: 'ballad',
-    name: 'Ballad',
-    gender: 'female',
-    description: 'Warm and melodious, perfect for storytelling',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/ballad.mp3'
-  },
-  {
-    id: 'coral',
-    name: 'Coral',
-    gender: 'female',
-    description: 'Friendly and approachable with excellent emotional control',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/coral.mp3'
-  },
-  {
-    id: 'sage',
-    name: 'Sage',
-    gender: 'male',
-    description: 'Professional and authoritative, ideal for business content',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/sage.mp3'
-  },
-  {
-    id: 'shimmer',
-    name: 'Shimmer',
-    gender: 'female',
-    description: 'Bright and expressive, ideal for engaging presentations',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/shimmer.mp3'
-  },
-  {
-    id: 'verse',
-    name: 'Verse',
-    gender: 'female',
-    description: 'Creative and artistic voice, perfect for poetry',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/verse.mp3'
-  },
-  // Legacy Voices (still supported)
-  {
-    id: 'nova',
-    name: 'Nova',
-    gender: 'female',
-    description: 'Warm and engaging voice (legacy)',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/nova.mp3'
-  },
-  {
-    id: 'onyx',
-    name: 'Onyx',
-    gender: 'male',
-    description: 'Professional and clear voice (legacy)',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/onyx.mp3'
-  },
-  {
-    id: 'fable',
-    name: 'Fable',
-    gender: 'neutral',
-    description: 'Versatile storytelling voice with character (legacy)',
-    preview_url: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/voices/sample_voices/fable.mp3'
-  }
-];
+import {
+  MINIMAX_VOICE_OPTIONS,
+  EMOTION_OPTIONS,
+  type MinimaxEmotion
+} from '@/components/shared/voice-constants';
 
 import { VoiceOverState } from '../hooks/use-voice-over';
 
@@ -107,13 +28,14 @@ interface GeneratorTabProps {
     setState: (updater: (prev: VoiceOverState) => VoiceOverState) => void;
   };
   credits: number;
+  clonedVoices?: Array<{ id: string; name: string; minimax_voice_id: string; preview_url: string | null }>;
 }
 
 /**
  * Generator Tab - Main voice over generation interface
- * Following exact BlueFX style guide patterns
+ * Updated for Minimax Speech 2.6 HD with full settings
  */
-export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
+export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: GeneratorTabProps) {
   const {
     state,
     generateVoice,
@@ -130,7 +52,7 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
     const prefillScript = localStorage.getItem('prefill_script');
     if (prefillScript) {
       setLocalScriptText(prefillScript);
-      localStorage.removeItem('prefill_script'); // Clear after use
+      localStorage.removeItem('prefill_script');
     }
   }, []);
 
@@ -151,18 +73,17 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
     setState((prev) => ({ ...prev, selectedVoice: voiceId }));
   };
 
-  const estimatedCredits = 2; // Fixed cost for voice over
+  const estimatedCredits = 2;
   const canGenerate = localScriptText.trim().length > 0 && state.selectedVoice && credits >= estimatedCredits;
 
   return (
     <TabContentWrapper>
-      {/* Form Content */}
       <TabBody>
         {/* Step 1: Script Input */}
         <StandardStep
           stepNumber={1}
           title="Enter Your Script"
-          description="Write or paste the text you want to convert to speech"
+          description="Write or paste the text you want to convert to speech (max 10,000 characters)"
         >
           <Textarea
             value={localScriptText}
@@ -170,10 +91,11 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
             placeholder="Enter the text you want to convert to speech..."
             className="min-h-[100px] resize-y"
             disabled={state.isGenerating}
+            maxLength={10000}
           />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Words: {localScriptText.trim().split(/\s+/).filter(Boolean).length}</span>
-            <span>Est. duration: {Math.ceil(localScriptText.trim().split(/\s+/).filter(Boolean).length / 2.5)}s</span>
+            <span>{localScriptText.length}/10,000 characters</span>
           </div>
         </StandardStep>
 
@@ -181,10 +103,60 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
         <StandardStep
           stepNumber={2}
           title="Choose Your Voice"
-          description="Select the perfect AI voice for your content"
+          description="Select from 17 AI voices or use your cloned voice"
         >
-          <div className="grid grid-cols-1 gap-2 p-1">
-            {VOICE_OPTIONS.map((voice) => (
+          <div className="grid grid-cols-1 gap-2 p-1 max-h-[300px] overflow-y-auto">
+            {/* Cloned voices section */}
+            {clonedVoices.length > 0 && (
+              <>
+                <p className="text-xs font-medium text-muted-foreground px-1">My Cloned Voices</p>
+                {clonedVoices.map((voice) => (
+                  <Card
+                    key={voice.id}
+                    className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-card border-purple-200 dark:border-purple-800 ${
+                      state.selectedVoice === voice.minimax_voice_id
+                        ? 'ring-2 ring-purple-500'
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => handleVoiceSelection(voice.minimax_voice_id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium">{voice.name}</p>
+                          <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                            Cloned
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Your custom cloned voice</p>
+                      </div>
+
+                      {voice.preview_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleVoicePlayback(voice.minimax_voice_id, voice.preview_url!);
+                          }}
+                        >
+                          {state.playingVoiceId === voice.minimax_voice_id ? (
+                            <Square className="w-3 h-3" />
+                          ) : (
+                            <Play className="w-3 h-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+                <p className="text-xs font-medium text-muted-foreground px-1 mt-2">System Voices</p>
+              </>
+            )}
+
+            {/* System voices */}
+            {MINIMAX_VOICE_OPTIONS.map((voice) => (
               <Card
                 key={voice.id}
                 className={`p-3 transition-all duration-200 hover:shadow-md cursor-pointer bg-card ${
@@ -201,10 +173,15 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
                       <Badge variant="outline" className="text-xs">
                         {voice.gender}
                       </Badge>
+                      {voice.category && (
+                        <Badge variant="secondary" className="text-xs">
+                          {voice.category}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">{voice.description}</p>
                   </div>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -230,7 +207,7 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
         <StandardStep
           stepNumber={3}
           title="Voice Settings"
-          description="Adjust playback speed and quality"
+          description="Fine-tune speed, pitch, volume, and emotion"
         >
           <div className="grid grid-cols-2 gap-4">
             {/* Speed Control */}
@@ -238,38 +215,79 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
               <Label className="text-sm">Speed: {state.voiceSettings.speed}x</Label>
               <input
                 type="range"
-                min={0.25}
-                max={4.0}
-                step={0.25}
+                min={0.5}
+                max={2.0}
+                step={0.1}
                 value={state.voiceSettings.speed}
                 onChange={(e) => updateVoiceSettings({ speed: parseFloat(e.target.value) })}
                 disabled={state.isGenerating}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0.25x</span>
-                <span>4.0x</span>
+                <span>0.5x</span>
+                <span>2.0x</span>
               </div>
             </div>
 
-            {/* Quality Control */}
+            {/* Pitch Control */}
             <div className="space-y-2">
-              <Label className="text-sm">Quality</Label>
+              <Label className="text-sm">Pitch: {state.voiceSettings.pitch > 0 ? '+' : ''}{state.voiceSettings.pitch}</Label>
+              <input
+                type="range"
+                min={-12}
+                max={12}
+                step={1}
+                value={state.voiceSettings.pitch}
+                onChange={(e) => updateVoiceSettings({ pitch: parseInt(e.target.value) })}
+                disabled={state.isGenerating}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>-12</span>
+                <span>+12</span>
+              </div>
+            </div>
+
+            {/* Volume Control */}
+            <div className="space-y-2">
+              <Label className="text-sm">Volume: {state.voiceSettings.volume}</Label>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={state.voiceSettings.volume}
+                onChange={(e) => updateVoiceSettings({ volume: parseInt(e.target.value) })}
+                disabled={state.isGenerating}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>0</span>
+                <span>10</span>
+              </div>
+            </div>
+
+            {/* Emotion Control */}
+            <div className="space-y-2">
+              <Label className="text-sm">Emotion</Label>
               <Select
-                value={state.quality}
-                onValueChange={(quality: 'standard' | 'hd') => setState((prev) => ({ ...prev, quality }))}
+                value={state.voiceSettings.emotion}
+                onValueChange={(emotion: MinimaxEmotion) => updateVoiceSettings({ emotion })}
                 disabled={state.isGenerating}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="hd">HD</SelectItem>
+                  {EMOTION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                HD provides higher audio quality
+                Set the emotional tone of the voice
               </p>
             </div>
           </div>
@@ -289,17 +307,17 @@ export function GeneratorTab({ voiceOverState, credits }: GeneratorTabProps) {
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >
-        {state.isGenerating ? (
-          <>
-            <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            Generating Voice...
-          </>
-        ) : (
-          <>
-            <Mic className="w-4 h-4 mr-2" />
-            Generate Voice (2 credits)
-          </>
-        )}
+          {state.isGenerating ? (
+            <>
+              <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Generating Voice...
+            </>
+          ) : (
+            <>
+              <Mic className="w-4 h-4 mr-2" />
+              Generate Voice (2 credits)
+            </>
+          )}
         </Button>
         {credits < estimatedCredits && localScriptText.trim().length > 0 && state.selectedVoice && (
           <p className="text-xs text-destructive text-center mt-2">

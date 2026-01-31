@@ -592,7 +592,7 @@ export interface Database {
           user_id: string
           voice_name: string
           text_content: string
-          voice_provider: 'elevenlabs' | 'azure' | 'aws_polly' | 'murf'
+          voice_provider: 'elevenlabs' | 'azure' | 'aws_polly' | 'murf' | 'minimax' | 'openai'
           voice_id: string
           voice_settings: Json | null
           audio_format: 'mp3' | 'wav' | 'aac' | 'flac'
@@ -607,7 +607,7 @@ export interface Database {
           user_id: string
           voice_name: string
           text_content: string
-          voice_provider: 'elevenlabs' | 'azure' | 'aws_polly' | 'murf'
+          voice_provider: 'elevenlabs' | 'azure' | 'aws_polly' | 'murf' | 'minimax' | 'openai'
           voice_id: string
           voice_settings?: Json | null
           audio_format: 'mp3' | 'wav' | 'aac' | 'flac'
@@ -622,7 +622,7 @@ export interface Database {
           user_id?: string
           voice_name?: string
           text_content?: string
-          voice_provider?: 'elevenlabs' | 'azure' | 'aws_polly' | 'murf'
+          voice_provider?: 'elevenlabs' | 'azure' | 'aws_polly' | 'murf' | 'minimax' | 'openai'
           voice_id?: string
           voice_settings?: Json | null
           audio_format?: 'mp3' | 'wav' | 'aac' | 'flac'
@@ -631,6 +631,35 @@ export interface Database {
           file_size_bytes?: number | null
           quality_rating?: number | null
           created_at?: string | null
+        }
+      }
+      cloned_voices: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          minimax_voice_id: string
+          source_audio_url: string | null
+          preview_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          minimax_voice_id: string
+          source_audio_url?: string | null
+          preview_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          minimax_voice_id?: string
+          source_audio_url?: string | null
+          preview_url?: string | null
+          created_at?: string
         }
       }
       keywords: {

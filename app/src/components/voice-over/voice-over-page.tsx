@@ -7,10 +7,10 @@ import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { containerStyles } from '@/lib/container-styles';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { GeneratorTab } from './tabs/generator-tab';
-import { HistoryTab } from './tabs/history-tab';
+import { CloneTab } from './tabs/clone-tab';
 import { VoiceOverOutput } from './output-panel/voice-over-output';
 import { HistoryOutput } from './output-panel/history-output';
-import { Mic, History } from 'lucide-react';
+import { Mic, History, Mic2 } from 'lucide-react';
 
 export function VoiceOverPage() {
   const voiceOverState = useVoiceOver();
@@ -26,6 +26,12 @@ export function VoiceOverPage() {
       path: '/dashboard/voice-over'
     },
     {
+      id: 'clone',
+      label: 'Clone Voice',
+      icon: Mic2,
+      path: '/dashboard/voice-over/clone'
+    },
+    {
       id: 'history',
       label: 'History',
       icon: History,
@@ -38,8 +44,27 @@ export function VoiceOverPage() {
     switch (activeTab) {
       case 'history':
         return null; // No left panel content for history
+      case 'clone':
+        return (
+          <CloneTab
+            clonedVoices={voiceOverState.state.clonedVoices}
+            onCloneVoice={voiceOverState.cloneVoice}
+            onDeleteVoice={voiceOverState.deleteClonedVoice}
+            onSelectVoice={voiceOverState.selectClonedVoice}
+            onPlayPreview={voiceOverState.handleVoicePlayback}
+            playingVoiceId={voiceOverState.state.playingVoiceId}
+            credits={userCredits?.available_credits || 0}
+            isCloning={voiceOverState.state.isCloning}
+          />
+        );
       default:
-        return <GeneratorTab voiceOverState={voiceOverState} credits={userCredits?.available_credits || 0} />;
+        return (
+          <GeneratorTab
+            voiceOverState={voiceOverState}
+            credits={userCredits?.available_credits || 0}
+            clonedVoices={voiceOverState.state.clonedVoices}
+          />
+        );
     }
   };
 
@@ -62,12 +87,16 @@ export function VoiceOverPage() {
     >
       {activeTab === 'history' ? (
         <div className={`h-full ${containerStyles.panel} p-4`}>
-          <HistoryOutput 
+          <HistoryOutput
             voiceOverState={{
               ...voiceOverState,
               deleteVoice: voiceOverState.deleteVoice
-            }} 
+            }}
           />
+        </div>
+      ) : activeTab === 'clone' ? (
+        <div className={`h-full ${containerStyles.panel} p-4`}>
+          {renderTabContent()}
         </div>
       ) : (
         <StandardToolLayout>
@@ -76,7 +105,7 @@ export function VoiceOverPage() {
             <div key="input" className="h-full">
               {renderTabContent()}
             </div>,
-            
+
             // Right Panel - Output
             <VoiceOverOutput
               key="output"

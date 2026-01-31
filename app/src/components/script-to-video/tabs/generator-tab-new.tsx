@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { useScriptToVideo } from '../hooks/use-script-to-video';
-import { OPENAI_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
+import { MINIMAX_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
 import { cn } from '@/lib/utils';
 
 interface GeneratorTabProps {
@@ -94,7 +94,7 @@ export function GeneratorTabNew({
   };
 
   // Local state for voice and generation
-  const [selectedVoice, setSelectedVoice] = useState('alloy');
+  const [selectedVoice, setSelectedVoice] = useState('Friendly_Person');
   const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
@@ -191,7 +191,7 @@ export function GeneratorTabNew({
     }
 
     try {
-      const voice = OPENAI_VOICE_OPTIONS.find(v => v.id === voiceId);
+      const voice = MINIMAX_VOICE_OPTIONS.find(v => v.id === voiceId);
       if (voice?.preview_url) {
         const audio = new Audio(voice.preview_url);
         audio.addEventListener('ended', () => {
@@ -500,7 +500,7 @@ export function GeneratorTabNew({
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {OPENAI_VOICE_OPTIONS.map((voice) => (
+                    {MINIMAX_VOICE_OPTIONS.map((voice) => (
                       <div
                         key={voice.id}
                         onClick={() => setSelectedVoice(voice.id)}
@@ -524,11 +524,6 @@ export function GeneratorTabNew({
                               {voice.category && (
                                 <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
                                   {voice.category}
-                                </span>
-                              )}
-                              {voice.isNew && (
-                                <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">
-                                  New
                                 </span>
                               )}
                             </div>
@@ -620,10 +615,10 @@ export function GeneratorTabNew({
                           <div className="flex items-center gap-3">
                             <div>
                               <p className="font-medium">
-                                {OPENAI_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'Voice'}
+                                {MINIMAX_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name || 'Voice'}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {OPENAI_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.description}
+                                {MINIMAX_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.description}
                               </p>
                             </div>
                           </div>
@@ -696,7 +691,7 @@ export function GeneratorTabNew({
                       <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
                         <p className="text-sm font-medium mb-2">Voice Details</p>
                         <ul className="text-sm text-muted-foreground space-y-1">
-                          <li>• Voice: {OPENAI_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name}</li>
+                          <li>• Voice: {MINIMAX_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name}</li>
                           <li>• Script length: {stepState.finalScript.split(' ').filter(w => w).length} words</li>
                           <li>• Estimated duration: ~{Math.ceil(stepState.finalScript.split(' ').filter(w => w).length / 150)} minutes</li>
                         </ul>
@@ -802,7 +797,7 @@ export function GeneratorTabNew({
                     <p className="text-sm font-medium mb-2">Ready to Generate Video</p>
                     <ul className="text-sm text-muted-foreground space-y-1">
                       <li>✓ Script: {stepState.finalScript.split(' ').filter(w => w).length} words</li>
-                      <li>✓ Voice: {OPENAI_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name}</li>
+                      <li>✓ Voice: {MINIMAX_VOICE_OPTIONS.find(v => v.id === selectedVoice)?.name}</li>
                       <li>✓ Format: {stepState.aspectRatio === '9:16' ? 'Portrait' : 'Landscape'}</li>
                     </ul>
                   </div>

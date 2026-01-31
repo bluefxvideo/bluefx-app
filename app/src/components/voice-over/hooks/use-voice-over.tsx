@@ -4,9 +4,21 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { executeVoiceOver, VoiceOverRequest, VoiceOption, GeneratedVoice } from '@/actions/tools/voice-over';
 import { getVoiceOverHistory, deleteGeneratedVoice } from '@/actions/database/voice-over-database';
+import { getUserClonedVoices, deleteClonedVoice, saveClonedVoice } from '@/actions/database/cloned-voices-database';
+import { cloneVoiceFromFile } from '@/actions/services/minimax-clone-service';
+import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import type { MinimaxEmotion } from '@/components/shared/voice-constants';
+
+export interface ClonedVoice {
+  id: string;
+  name: string;
+  minimax_voice_id: string;
+  preview_url: string | null;
+  created_at: string;
+}
 
 export interface VoiceOverState {
   // Script and voice settings
@@ -16,11 +28,11 @@ export interface VoiceOverState {
     speed: number;
     pitch: number;
     volume: number;
-    emphasis: 'strong' | 'moderate' | 'none';
+    emotion: MinimaxEmotion;
   };
   
   // Export options
-  exportFormat: 'mp3' | 'wav' | 'ogg';
+  exportFormat: 'mp3' | 'wav' | 'flac';
   quality: 'standard' | 'hd';
   useSSML: boolean;
   
@@ -42,6 +54,10 @@ export interface VoiceOverState {
   error: string | null;
   credits: number;
   estimatedCredits: number;
+
+  // Cloned voices
+  clonedVoices: ClonedVoice[];
+  isCloning: boolean;
 }
 
 export function useVoiceOver() {
@@ -50,6 +66,7 @@ export function useVoiceOver() {
   const getActiveTabFromPath = useCallback(() => {
     if (pathname.includes('/history')) return 'history';
     if (pathname.includes('/settings')) return 'settings';
+    if (pathname.includes('/clone')) return 'clone';
     return 'generate';
   }, [pathname]);
 
@@ -60,12 +77,12 @@ export function useVoiceOver() {
   
   const [state, setState] = useState<VoiceOverState>({
     scriptText: '',
-    selectedVoice: 'alloy',
+    selectedVoice: 'Friendly_Person',
     voiceSettings: {
       speed: 1.0,
       pitch: 0,
-      volume: 1.0,
-      emphasis: 'none',
+      volume: 1,
+      emotion: 'auto',
     },
     exportFormat: 'mp3',
     quality: 'standard',
@@ -80,6 +97,8 @@ export function useVoiceOver() {
     error: null,
     credits: 0,
     estimatedCredits: 2,
+    clonedVoices: [],
+    isCloning: false,
   });
 
   // Update active tab when pathname changes
@@ -126,7 +145,7 @@ export function useVoiceOver() {
             export_format: voice.export_format || 'mp3',
             created_at: voice.created_at || new Date().toISOString(),
             // Handle optional fields properly
-            voice_settings: voice.voice_settings as { speed?: number; pitch?: number; volume?: number; emphasis?: "none" | "moderate" | "strong" } | undefined,
+            voice_settings: voice.voice_settings as { speed?: number; pitch?: number; volume?: number; emotion?: MinimaxEmotion } | undefined,
             quality_rating: voice.quality_rating ?? undefined
           })),
           isLoading: false,
@@ -322,6 +341,148 @@ export function useVoiceOver() {
     }));
   }, []);
 
+  // Load cloned voices
+  const loadClonedVoices = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const result = await getUserClonedVoices(user.id);
+
+      if (result.success && result.data) {
+        setState(prev => ({
+          ...prev,
+          clonedVoices: result.data || [],
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load cloned voices:', error);
+    }
+  }, [user]);
+
+  // Load cloned voices when on clone or generate tab
+  useEffect(() => {
+    if ((activeTab === 'clone' || activeTab === 'generate') && user) {
+      loadClonedVoices();
+    }
+  }, [activeTab, user, loadClonedVoices]);
+
+  // Clone a voice from uploaded file
+  const cloneVoice = useCallback(async (
+    file: File,
+    name: string,
+    options: { noiseReduction: boolean; volumeNormalization: boolean }
+  ) => {
+    if (!user) return;
+
+    setState(prev => ({ ...prev, isCloning: true }));
+
+    try {
+      // Convert file to base64 string (serializes correctly through server actions)
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
+      }
+      const base64Data = btoa(binary);
+
+      // Clone the voice via Minimax (pass base64 instead of Buffer)
+      const result = await cloneVoiceFromFile(
+        base64Data,
+        user.id,
+        file.name,
+        {
+          noise_reduction: options.noiseReduction,
+          volume_normalization: options.volumeNormalization,
+        }
+      );
+
+      if (result.success && result.voice_id) {
+        // Generate a preview sample with the cloned voice
+        let previewUrl: string | undefined = result.preview_url;
+
+        if (!previewUrl) {
+          try {
+            const previewResult = await generateMinimaxVoice({
+              text: `Hello, this is ${name}. This is a preview of your cloned voice.`,
+              voice_settings: {
+                voice_id: result.voice_id,
+                speed: 1.0,
+                pitch: 0,
+                volume: 1,
+                emotion: 'auto'
+              },
+              user_id: user.id,
+              batch_id: `clone_preview_${Date.now()}`
+            });
+
+            if (previewResult.success && previewResult.audio_url) {
+              previewUrl = previewResult.audio_url;
+            }
+          } catch (previewError) {
+            console.warn('Failed to generate preview for cloned voice:', previewError);
+            // Continue without preview - not critical
+          }
+        }
+
+        // Save the cloned voice to database
+        const saveResult = await saveClonedVoice(
+          user.id,
+          name,
+          result.voice_id,
+          undefined, // source_audio_url
+          previewUrl
+        );
+
+        if (saveResult.success && saveResult.data) {
+          setState(prev => ({
+            ...prev,
+            clonedVoices: [saveResult.data!, ...prev.clonedVoices],
+            isCloning: false,
+          }));
+          toast.success('Voice cloned successfully!');
+        } else {
+          throw new Error(saveResult.error || 'Failed to save cloned voice');
+        }
+      } else {
+        throw new Error(result.error || 'Voice cloning failed');
+      }
+    } catch (error) {
+      console.error('Clone error:', error);
+      setState(prev => ({ ...prev, isCloning: false }));
+      toast.error(error instanceof Error ? error.message : 'Voice cloning failed');
+      throw error;
+    }
+  }, [user]);
+
+  // Delete a cloned voice
+  const handleDeleteClonedVoice = useCallback(async (voiceId: string) => {
+    if (!user) return;
+
+    try {
+      const result = await deleteClonedVoice(voiceId, user.id);
+
+      if (result.success) {
+        setState(prev => ({
+          ...prev,
+          clonedVoices: prev.clonedVoices.filter(v => v.id !== voiceId),
+        }));
+        toast.success('Cloned voice deleted');
+      } else {
+        throw new Error(result.error || 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Delete cloned voice error:', error);
+      toast.error('Failed to delete cloned voice');
+    }
+  }, [user]);
+
+  // Select a cloned voice for use
+  const selectClonedVoice = useCallback((minimaxVoiceId: string) => {
+    setState(prev => ({ ...prev, selectedVoice: minimaxVoiceId }));
+    toast.success('Cloned voice selected');
+  }, []);
+
   return {
     activeTab,
     setActiveTab,
@@ -334,5 +495,10 @@ export function useVoiceOver() {
     updateVoiceSettings,
     clearGeneration,
     setState,
+    // Clone voice functions
+    cloneVoice,
+    deleteClonedVoice: handleDeleteClonedVoice,
+    selectClonedVoice,
+    loadClonedVoices,
   };
 }
