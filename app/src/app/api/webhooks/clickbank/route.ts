@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 
+// Credit allocation constants - match FastSpring trial handling
+const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
+const FULL_CREDITS = 600;   // Full allocation for paid subscribers
+const TRIAL_AMOUNT_THRESHOLD = 1.50; // $1.00 trial with some buffer for fees
+
 export async function POST(request: NextRequest) {
   let payload: Record<string, unknown>
   
@@ -167,9 +172,13 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
   const isLifetime = isLifetimeProduct // Use product ID detection (product 55)
   const isYearly = isYearlyProduct // Use product ID detection (product 68)
   const planType = 'pro' // Everyone gets pro plan like FastSpring
-  const creditsAllocation = 600 // Everyone gets 600 credits like FastSpring
 
-  const subscriptionType = isLifetime ? 'LIFETIME' : (isYearly ? 'YEARLY' : 'MONTHLY')
+  // Detect $1 trial - give 100 credits like FastSpring trials
+  // Yearly and lifetime always get full credits (customer committed)
+  const isTrial = totalAmount <= TRIAL_AMOUNT_THRESHOLD && !isYearly && !isLifetime
+  const creditsAllocation = isTrial ? TRIAL_CREDITS : FULL_CREDITS
+
+  const subscriptionType = isLifetime ? 'LIFETIME' : (isYearly ? 'YEARLY' : (isTrial ? 'TRIAL' : 'MONTHLY'))
   const productInfo = isLifetime ? '55 (Lifetime)' : (isYearly ? '68 (Yearly)' : '53 or 61 (Monthly)')
   console.log(`ClickBank sale: ${email} -> ${planType} (${creditsAllocation} credits) - ${subscriptionType} - Amount: $${totalAmount} - Product: ${productInfo}`)
 
@@ -315,10 +324,10 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
   const subscriptionData = {
     user_id: userId,
     plan_type: planType,
-    status: 'active',
+    status: isTrial ? 'trial' : 'active',  // Mark as trial status for $1 trials
     current_period_start: currentPeriodStart.toISOString(),
     current_period_end: currentPeriodEnd.toISOString(),
-    credits_per_month: creditsAllocation,
+    credits_per_month: FULL_CREDITS,  // Always 600 for future renewals (like FastSpring)
     max_concurrent_jobs: 5, // Pro plan gets 5 jobs like admin
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
