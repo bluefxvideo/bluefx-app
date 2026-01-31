@@ -11,7 +11,7 @@ import { Film, Mic, Zap, ArrowRight, ArrowLeft, FileText, Play, Square, CheckCir
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { TabContentWrapper, TabHeader, TabBody, TabError } from '@/components/tools/tab-content-wrapper';
 import { useScriptToVideo } from '../hooks/use-script-to-video';
-import { OPENAI_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
+import { MINIMAX_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
 
 interface GeneratorTabProps {
   credits: number;
@@ -75,7 +75,7 @@ export function GeneratorTab({
   };
 
   // Local state for voice selection and generation
-  const [selectedVoice, setSelectedVoice] = useState('alloy');
+  const [selectedVoice, setSelectedVoice] = useState('Friendly_Person');
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
   const [hasUserSelectedVoice, setHasUserSelectedVoice] = useState(false);
   const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
@@ -342,7 +342,7 @@ export function GeneratorTab({
       isGeneratingScript: false,
       aspectRatio: '9:16' as const,
     });
-    setSelectedVoice('alloy'); // Reset to default OpenAI voice
+    setSelectedVoice('Friendly_Person'); // Reset to default OpenAI voice
     setHasUserSelectedVoice(false);
     setVoiceAudioUrl(null);
     setIsGeneratingVoice(false);
@@ -668,7 +668,7 @@ Examples:
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                {OPENAI_VOICE_OPTIONS.map((voice) => (
+                {MINIMAX_VOICE_OPTIONS.map((voice) => (
                   <Card
                     key={voice.id}
                     className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
@@ -688,11 +688,6 @@ Examples:
                           <Badge variant="outline" className="text-xs">
                             {voice.gender}
                           </Badge>
-                          {voice.isNew && (
-                            <Badge variant="default" className="text-xs ">
-                              New
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-xs text-muted-foreground">{voice.description}</p>
                       </div>
@@ -727,8 +722,8 @@ Examples:
                   <Label className="text-xs">Speed: {voiceSettings.speed}x</Label>
                   <input
                     type="range"
-                    min={0.25}
-                    max={4.0}
+                    min={0.5}
+                    max={2.0}
                     step={0.25}
                     value={voiceSettings.speed}
                     onChange={(e) => {
@@ -739,9 +734,9 @@ Examples:
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0.25x</span>
+                    <span>0.5x</span>
                     <span>Normal</span>
-                    <span>4.0x</span>
+                    <span>2.0x</span>
                   </div>
                 </div>
               </div>

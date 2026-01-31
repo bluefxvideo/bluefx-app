@@ -12,7 +12,7 @@ import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-co
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
 import { AvatarTemplate } from '@/actions/tools/talking-avatar';
-import { OPENAI_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
+import { MINIMAX_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
 
 interface GeneratorTabProps {
   avatarState: UseTalkingAvatarReturn;
@@ -33,7 +33,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
 
   const [localScriptText, setLocalScriptText] = useState(state.scriptText);
   const [selectedTemplate, setSelectedTemplate] = useState<AvatarTemplate | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState<string>('alloy');
+  const [selectedVoice, setSelectedVoice] = useState<string>('Friendly_Person');
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
   const [customImage, setCustomImage] = useState<File | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
@@ -294,12 +294,12 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
 
             <div className="space-y-2">
               <Label>Voice Selection</Label>
-              <div className="grid grid-cols-1 gap-2">
-                {OPENAI_VOICE_OPTIONS.map((voice) => (
+              <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto">
+                {MINIMAX_VOICE_OPTIONS.map((voice) => (
                   <Card
                     key={voice.id}
                     className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
-                      selectedVoice === voice.id 
+                      selectedVoice === voice.id
                         ? 'ring-2 ring-purple-500'
                         : 'bg-card hover:bg-muted/50'
                     }`}
@@ -312,11 +312,6 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                           <Badge variant="outline" className="text-xs">
                             {voice.gender}
                           </Badge>
-                          {voice.isNew && (
-                            <Badge variant="default" className="text-xs ">
-                              New
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-xs text-muted-foreground">{voice.description}</p>
                       </div>
@@ -351,8 +346,8 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                   <Label className="text-xs">Speed: {voiceSettings.speed}x</Label>
                   <input
                     type="range"
-                    min={0.25}
-                    max={4.0}
+                    min={0.5}
+                    max={2.0}
                     step={0.25}
                     value={voiceSettings.speed}
                     onChange={(e) => {
@@ -363,9 +358,9 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0.25x</span>
+                    <span>0.5x</span>
                     <span>Normal</span>
-                    <span>4.0x</span>
+                    <span>2.0x</span>
                   </div>
                 </div>
               </div>
