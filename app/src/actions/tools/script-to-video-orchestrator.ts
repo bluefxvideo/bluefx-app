@@ -248,10 +248,10 @@ export async function generateScriptToVideo(
     // Store voice metadata for structured storage
     let voiceMetadata: any = {
       synthesis_params: {
-        voice_id: request.voice_settings?.voice_id || 'alloy',
+        voice_id: request.voice_settings?.voice_id || 'Friendly_Person',
         speed: request.voice_settings?.speed || 'normal',
         emotion: request.voice_settings?.emotion || 'neutral',
-        model: 'openai-tts-1'
+        model: 'minimax-speech-2.6-hd'
       },
       actual_duration: actualAudioDuration,
       generation_timestamp: new Date().toISOString(),
@@ -511,7 +511,7 @@ export async function generateScriptToVideo(
         batch_id,
         model_versions: {
           script: 'gpt-4o',
-          voice: 'openai-tts-1',
+          voice: 'minimax-speech-2.6-hd',
           images: 'flux-kontext-pro',
           orchestrator: 'gpt-4o-orchestrated'
         },
@@ -532,10 +532,10 @@ export async function generateScriptToVideo(
       
       // Voice Settings
       voice_synthesis: {
-        voice_id: request.voice_settings?.voice_id || 'alloy',
+        voice_id: request.voice_settings?.voice_id || 'Friendly_Person',
         speed: request.voice_settings?.speed || 'normal',
         emotion: request.voice_settings?.emotion || 'neutral',
-        model: 'openai-tts-1',
+        model: 'minimax-speech-2.6-hd',
         credits_used: voiceMetadata.credits_used
       },
       
@@ -698,7 +698,7 @@ export async function generateScriptToVideo(
  */
 
 
-// Real voice generation using OpenAI TTS
+// Real voice generation using Minimax Speech 2.6 HD
 async function generateVoiceForAllSegments(
   segments: any[],
   user_id: string,
@@ -711,9 +711,9 @@ async function generateVoiceForAllSegments(
 ) {
   // Import the voice service
   const { generateVoiceForAllSegments: generateVoice } = await import('../services/voice-generation-service');
-  
-  // Use the voice ID as-is - the voice service will handle the mapping
-  const selectedVoice = voice_settings?.voice_id || 'alloy'; // Default to alloy (OpenAI default voice)
+
+  // Use the voice ID as-is - Minimax voice IDs are passed directly
+  const selectedVoice = voice_settings?.voice_id || 'Friendly_Person'; // Default to Friendly_Person (Minimax default voice)
   
   console.log(`🎤 Using voice: ${selectedVoice}`);
   

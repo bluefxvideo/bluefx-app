@@ -25,6 +25,7 @@ export interface MinimaxVoiceSettings {
   pitch?: number; // -12 to +12 (default 0)
   volume?: number; // 0-10 (default 5)
   emotion?: MinimaxEmotion;
+  subtitle_enable?: boolean; // Return subtitle metadata with sentence timestamps
 }
 
 export interface MinimaxVoiceRequest {
@@ -131,34 +132,98 @@ export async function generateMinimaxVoice(
     }
 
     // Prepare Replicate input
-    const input = {
+    const subtitleEnabled = request.voice_settings.subtitle_enable ?? true; // Enable by default for captions
+    const input: Record<string, unknown> = {
       text: request.text,
       voice_id: request.voice_settings.voice_id,
       speed: Math.max(0.5, Math.min(2.0, request.voice_settings.speed ?? 1.0)),
       pitch: Math.max(-12, Math.min(12, request.voice_settings.pitch ?? 0)),
-      volume: Math.max(0, Math.min(10, request.voice_settings.volume ?? 5)),
+      volume: Math.max(0, Math.min(10, request.voice_settings.volume ?? 1)),
       emotion: request.voice_settings.emotion ?? 'auto',
       audio_format: 'mp3',
       sample_rate: 44100,
-      bitrate: 128000
+      bitrate: 128000,
+      subtitle_enable: subtitleEnabled
     };
 
-    console.log(`🔊 Minimax TTS: voice=${input.voice_id}, speed=${input.speed}, pitch=${input.pitch}, emotion=${input.emotion}`);
+    console.log(`🔊 Minimax TTS: voice=${input.voice_id}, speed=${input.speed}, pitch=${input.pitch}, emotion=${input.emotion}, subtitles=${subtitleEnabled}`);
 
     // Run Minimax model via Replicate
     const output = await replicate.run(
       'minimax/speech-2.6-hd',
       { input }
-    ) as string;
+    );
 
     if (!output) {
       throw new Error('No audio output received from Minimax');
     }
 
-    console.log(`📥 Received audio from Minimax: ${output}`);
+    // Handle output - Replicate SDK v0.25+ returns FileOutput objects
+    let audioUrl: string;
+    let subtitles: Array<{ text: string; start_time: number; end_time: number }> | undefined;
+
+    console.log(`📦 Raw Minimax output type: ${typeof output}`);
+    console.log(`📦 Raw Minimax output constructor: ${output?.constructor?.name}`);
+
+    if (typeof output === 'string') {
+      // Direct URL string
+      audioUrl = output;
+    } else if (output && typeof output === 'object') {
+      // Replicate SDK returns FileOutput objects - check if it has url() method or is iterable
+      const outputObj = output as Record<string, unknown>;
+
+      // Check if output has a url() method (FileOutput object)
+      if (typeof outputObj.url === 'function') {
+        const urlResult = (outputObj.url as () => URL)();
+        audioUrl = urlResult.toString();
+        console.log(`📦 Got URL from FileOutput.url() method: ${audioUrl}`);
+      }
+      // Check if output has href property (URL-like object)
+      else if (typeof outputObj.href === 'string') {
+        audioUrl = outputObj.href;
+        console.log(`📦 Got URL from href property: ${audioUrl}`);
+      }
+      // Check if it's an object with audio property containing FileOutput
+      else if (outputObj.audio && typeof outputObj.audio === 'object') {
+        const audioObj = outputObj.audio as Record<string, unknown>;
+        if (typeof audioObj.url === 'function') {
+          const urlResult = (audioObj.url as () => URL)();
+          audioUrl = urlResult.toString();
+        } else if (typeof audioObj.href === 'string') {
+          audioUrl = audioObj.href;
+        } else {
+          audioUrl = String(outputObj.audio);
+        }
+        console.log(`📦 Got URL from audio property: ${audioUrl}`);
+
+        // Get subtitles if present
+        subtitles = (outputObj.subtitles as typeof subtitles) || (outputObj.subtitle as typeof subtitles);
+      }
+      // Fallback: try to convert to string
+      else {
+        audioUrl = String(output);
+        console.log(`📦 Fallback - converted output to string: ${audioUrl}`);
+      }
+
+      if (subtitles && subtitles.length > 0) {
+        console.log(`📝 Received ${subtitles.length} subtitle segments from Minimax`);
+      }
+    } else {
+      throw new Error('Unexpected output format from Minimax');
+    }
+
+    // Validate the URL
+    if (!audioUrl || audioUrl === '[object Object]' || audioUrl.includes('function')) {
+      console.error('❌ Invalid audio URL from Minimax response');
+      console.error('Output keys:', output ? Object.keys(output as object) : 'null');
+      console.error('Output prototype:', output ? Object.getPrototypeOf(output) : 'null');
+      throw new Error('Invalid audio URL in Minimax response');
+    }
+
+    console.log(`📥 Received audio from Minimax: ${audioUrl}`);
 
     // Fetch the audio file from Replicate's output URL
-    const audioResponse = await fetch(output);
+    const audioResponse = await fetch(audioUrl);
     if (!audioResponse.ok) {
       throw new Error(`Failed to fetch audio: ${audioResponse.statusText}`);
     }
@@ -200,7 +265,8 @@ export async function generateMinimaxVoice(
         voice_id: request.voice_settings.voice_id,
         duration_estimate: estimatedDuration,
         file_size_bytes: audioBuffer.length,
-        provider: 'minimax'
+        provider: 'minimax',
+        subtitles: subtitles // Sentence-level timestamps from Minimax
       }
     };
 

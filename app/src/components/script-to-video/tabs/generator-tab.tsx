@@ -174,14 +174,36 @@ export function GeneratorTab({
 
   // Generate voice from script
   const generateVoice = async () => {
+    console.log('🎤 generateVoice called');
+
     if (!stepState.finalScript.trim()) {
+      console.log('❌ No script available');
       showToast('No script available for voice generation', 'warning');
       return;
     }
 
     // Get current user ID from the video editor store
-    const currentUserId = project.user_id;
+    let currentUserId = project.user_id;
+    console.log('👤 User ID from store:', currentUserId);
+
+    // If no user ID in store, try to get it from Supabase directly
     if (!currentUserId) {
+      console.log('⚠️ No user ID in store, fetching from Supabase...');
+      try {
+        const { createClient } = await import('@/app/supabase/client');
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          currentUserId = user.id;
+          console.log('✅ Got user ID from Supabase:', currentUserId);
+        }
+      } catch (authError) {
+        console.error('❌ Failed to get user from Supabase:', authError);
+      }
+    }
+
+    if (!currentUserId) {
+      console.error('❌ No user ID - user not authenticated');
       showToast('User not authenticated. Please refresh and try again.', 'error');
       return;
     }
@@ -191,7 +213,7 @@ export function GeneratorTab({
     onGeneratingVoiceChange?.(true);
 
     try {
-      console.log('🎤 Starting voice generation with real service...');
+      console.log('🎤 Starting voice generation with Minimax service...');
       
       // Import the voice generation service dynamically
       const { generateVoiceForScript } = await import('@/actions/services/voice-generation-service');
@@ -258,10 +280,7 @@ export function GeneratorTab({
         video_style: formData.video_style,
         voice_settings: {
           voice_id: selectedVoice,
-          speed: voiceSettings.speed,
-          pitch: voiceSettings.pitch,
-          volume: voiceSettings.volume,
-          emphasis: voiceSettings.emphasis
+          speed: voiceSettings.speed
         },
         // Mark if script was generated from idea
         was_script_generated: !stepState.useMyScript && stepState.generatedScript.length > 0,

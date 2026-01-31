@@ -1,21 +1,6 @@
 'use server';
 
-import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
-
-// Lazy initialization to avoid build-time errors
-function getOpenAI() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  });
-}
-
-function getSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+import { generateMinimaxVoice } from './minimax-voice-service';
 
 export interface VoiceGenerationRequest {
   segments: Array<{
@@ -26,11 +11,11 @@ export interface VoiceGenerationRequest {
     duration: number;
   }>;
   voice_settings: {
-    voice_id: string; // Any OpenAI TTS voice ID
-    speed: number | 'slower' | 'normal' | 'faster'; // Support both new number format and legacy strings
+    voice_id: string; // Minimax voice ID (e.g., 'Friendly_Person', 'Deep_Voice_Man')
+    speed: number | 'slower' | 'normal' | 'faster';
     emotion?: 'neutral' | 'excited' | 'calm' | 'authoritative' | 'confident';
-    pitch?: number; // -20 to 20 semitones
-    volume?: number; // 0.0 to 1.0
+    pitch?: number; // -12 to +12 for Minimax
+    volume?: number; // 0-10 for Minimax
     emphasis?: 'strong' | 'moderate' | 'none';
   };
   user_id: string;
@@ -57,39 +42,31 @@ export interface VoiceGenerationResponse {
   error?: string;
 }
 
-// Map your voice IDs to OpenAI TTS voices
-const VOICE_MAPPING: Record<string, string> = {
-  // UI voice names
-  'anna': 'nova',      // Female, friendly
-  'eric': 'onyx',      // Male, confident  
-  'felix': 'echo',     // Male, warm
-  'oscar': 'fable',    // Male, authoritative
-  'nina': 'shimmer',   // Female, gentle
-  'sarah': 'alloy',    // Female, professional
-  
-  // Direct OpenAI voice names (pass-through)
-  'alloy': 'alloy',
-  'echo': 'echo',
-  'fable': 'fable',
-  'nova': 'nova',
-  'onyx': 'onyx',
-  'shimmer': 'shimmer'
-};
-
-// Map speed settings to OpenAI speed values
+// Map speed settings to numeric values
 const SPEED_MAPPING = {
   'slower': 0.75,
   'normal': 1.0,
   'faster': 1.25
 } as const;
 
-// Convert speed setting to numeric value
+// Convert speed setting to numeric value (Minimax range: 0.5-2.0)
 const convertSpeed = (speed: number | 'slower' | 'normal' | 'faster'): number => {
   if (typeof speed === 'number') {
-    // Clamp between 0.25 and 4.0 as per OpenAI TTS limits
-    return Math.max(0.25, Math.min(4.0, speed));
+    // Clamp between 0.5 and 2.0 as per Minimax limits
+    return Math.max(0.5, Math.min(2.0, speed));
   }
   return SPEED_MAPPING[speed] || 1.0;
+};
+
+// Map emotion to Minimax emotion format
+const mapEmotion = (emotion?: string): 'auto' | 'happy' | 'sad' | 'angry' | 'fearful' | 'disgusted' | 'surprised' | 'neutral' => {
+  switch (emotion) {
+    case 'excited': return 'happy';
+    case 'calm': return 'neutral';
+    case 'authoritative': return 'neutral';
+    case 'confident': return 'neutral';
+    default: return 'auto';
+  }
 };
 
 /**
@@ -113,17 +90,14 @@ export async function generateVoiceForScript(
   error?: string;
 }> {
   try {
-    // Convert to segments format for compatibility
-    const segments = [{
-      id: 'single',
-      text: script,
-      start_time: 0,
-      end_time: 0,
-      duration: 0
-    }];
-
     const request: VoiceGenerationRequest = {
-      segments,
+      segments: [{
+        id: 'single',
+        text: script,
+        start_time: 0,
+        end_time: 0,
+        duration: 0
+      }],
       voice_settings: {
         voice_id: voice_settings.voice_id,
         speed: voice_settings.speed || 1.0,
@@ -137,7 +111,7 @@ export async function generateVoiceForScript(
     };
 
     const result = await generateVoiceForAllSegments(request);
-    
+
     return {
       success: result.success,
       audio_url: result.audio_url,
@@ -156,14 +130,12 @@ export async function generateVoiceForScript(
 
 /**
  * Generate voice for all segments as one continuous audio file
- * More efficient and ensures consistent voice across segments
+ * Uses Minimax Speech 2.6 HD via Replicate
  */
 export async function generateVoiceForAllSegments(
   request: VoiceGenerationRequest
 ): Promise<VoiceGenerationResponse> {
   const startTime = Date.now();
-  const openai = getOpenAI();
-  const supabase = getSupabaseClient();
 
   try {
     console.log(`🎤 Generating voice for ${request.segments.length} segments using ${request.voice_settings.voice_id}`);
@@ -173,122 +145,70 @@ export async function generateVoiceForAllSegments(
       .map(segment => segment.text.trim())
       .join('... '); // Add pause between segments
 
-    // Get the OpenAI voice name - support direct OpenAI voice IDs
-    const openAIVoice = VOICE_MAPPING[request.voice_settings.voice_id] || request.voice_settings.voice_id || 'alloy';
     const speedValue = convertSpeed(request.voice_settings.speed);
-    
-    console.log(`🔊 OpenAI TTS: voice=${openAIVoice}, speed=${speedValue}`);
-    
-    // Generate speech using OpenAI TTS
-    const response = await openai.audio.speech.create({
-      model: 'tts-1', // or 'tts-1-hd' for higher quality
-      voice: openAIVoice as any, // OpenAI expects specific voice strings
-      input: fullScript,
-      speed: speedValue,
-      response_format: 'mp3'
+    const emotion = mapEmotion(request.voice_settings.emotion);
+
+    console.log(`🔊 Minimax TTS: voice=${request.voice_settings.voice_id}, speed=${speedValue}, emotion=${emotion}`);
+
+    // Generate speech using Minimax via Replicate
+    const result = await generateMinimaxVoice({
+      text: fullScript,
+      voice_settings: {
+        voice_id: request.voice_settings.voice_id,
+        speed: speedValue,
+        pitch: request.voice_settings.pitch,
+        volume: request.voice_settings.volume,
+        emotion: emotion
+      },
+      user_id: request.user_id,
+      batch_id: request.batch_id
     });
 
-    // Convert response to buffer
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
-    
-    // Measure actual audio duration by analyzing the MP3 buffer
-    let actualDuration: number | null = null;
-    let actualSpeechDuration: number | null = null;
-    try {
-      // Simple MP3 duration estimation based on file size and bitrate
-      // This gives us the TOTAL file duration (including silence)
-      const fileSizeBytes = audioBuffer.length;
-      // OpenAI TTS-1 model uses ~96kbps for standard quality
-      // If file seems to be 47s but is actually 38s, the real bitrate is:
-      // Real bitrate = (assumed bitrate * assumed duration) / actual duration
-      // Real bitrate = (128000 * 47.76) / 38 ≈ 160000 bps
-      // This suggests OpenAI is actually using ~160kbps for better quality
-      const estimatedBitrate = 160000; // OpenAI TTS actually uses ~160kbps based on empirical testing
-      const fileDurationSeconds = (fileSizeBytes * 8) / estimatedBitrate;
-      actualDuration = fileDurationSeconds;
-
-      console.log(`🎵 File duration: ${fileSizeBytes} bytes → ~${actualDuration.toFixed(2)}s total`);
-
-      // Use Whisper to detect actual speech duration (excluding trailing silence)
-      // This is more accurate than file size estimation
-      try {
-        console.log(`🔍 Analyzing speech duration with Whisper...`);
-
-        // Convert buffer to File-like Blob for OpenAI API
-        const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
-        (audioBlob as any).name = 'audio.mp3';
-        const audioFile = audioBlob as File;
-
-        // Use Whisper to get precise word timings
-        const transcription = await openai.audio.transcriptions.create({
-          file: audioFile,
-          model: 'whisper-1',
-          response_format: 'verbose_json',
-          timestamp_granularities: ['word']
-        });
-
-        // Find the last spoken word's end time
-        const whisperWords = (transcription as any).words || [];
-        if (whisperWords.length > 0) {
-          actualSpeechDuration = Math.max(...whisperWords.map((w: any) => w.end));
-          console.log(`✅ Actual speech duration: ${actualSpeechDuration.toFixed(2)}s (last word ends)`);
-          console.log(`📊 Silence detected: ${(actualDuration - actualSpeechDuration).toFixed(2)}s of trailing silence`);
-        } else {
-          // Fallback to file duration if no words detected
-          actualSpeechDuration = actualDuration;
-          console.log(`⚠️ No words detected, using file duration`);
-        }
-      } catch (whisperError) {
-        console.warn('⚠️ Whisper analysis failed, using file duration:', whisperError);
-        actualSpeechDuration = actualDuration;
-      }
-
-    } catch (durationError) {
-      console.warn('⚠️ Could not measure audio duration:', durationError);
-      // Continue without duration - the timing fix won't run but generation won't fail
-    }
-    
-    // Upload to Supabase Storage
-    const fileName = `${request.user_id}/voice/${request.batch_id}.mp3`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('script-videos')
-      .upload(fileName, audioBuffer, {
-        contentType: 'audio/mpeg',
-        upsert: true // Allow overwriting
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw new Error(`Failed to upload audio: ${uploadError.message}`);
+    if (!result.success || !result.audio_url) {
+      throw new Error(result.error || 'Minimax voice generation failed');
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('script-videos')
-      .getPublicUrl(fileName);
+    // Use Minimax subtitles for timing if available, otherwise fall back to estimate
+    let actualDuration: number | undefined;
+    let actualSpeechDuration: number | undefined;
+    const subtitles = result.metadata?.subtitles as Array<{ text: string; start_time: number; end_time: number }> | undefined;
+
+    if (result.metadata?.duration_estimate) {
+      actualDuration = result.metadata.duration_estimate;
+    }
+
+    // Use Minimax subtitle timestamps for accurate duration (no Whisper needed!)
+    if (subtitles && subtitles.length > 0) {
+      // Get the end time of the last subtitle segment
+      actualSpeechDuration = Math.max(...subtitles.map(s => s.end_time));
+      console.log(`📝 Using Minimax subtitles: ${subtitles.length} segments, speech duration: ${actualSpeechDuration.toFixed(2)}s`);
+    } else {
+      // Fall back to duration estimate if no subtitles
+      actualSpeechDuration = actualDuration;
+      console.log(`⚠️ No subtitles from Minimax, using duration estimate: ${actualDuration?.toFixed(2)}s`);
+    }
 
     const generationTime = Date.now() - startTime;
-    console.log(`✅ Voice generated successfully in ${generationTime}ms: ${urlData.publicUrl}`);
-    
-    // Include actual duration in metadata for timing correction
-    // Use speech duration (without silence) if available, otherwise file duration
-    const metadata = (actualSpeechDuration || actualDuration) ? {
-      actual_duration: actualSpeechDuration || actualDuration, // Use speech duration preferentially
-      file_duration: actualDuration, // Total file duration including silence
-      speech_duration: actualSpeechDuration, // Actual speech duration without trailing silence
-      file_size_bytes: audioBuffer.length,
-      estimated_bitrate: 160000,
-      analysis_method: actualSpeechDuration ? 'whisper_speech_detection' : 'file_size_estimation',
-      silence_duration: actualSpeechDuration && actualDuration ? actualDuration - actualSpeechDuration : 0
-    } : undefined;
+    console.log(`✅ Voice generated successfully in ${generationTime}ms: ${result.audio_url}`);
+
+    // Include duration and subtitle metadata for timing correction
+    const metadata = {
+      actual_duration: actualSpeechDuration || actualDuration,
+      speech_duration: actualSpeechDuration,
+      file_duration: actualDuration,
+      file_size_bytes: result.metadata?.file_size_bytes,
+      estimated_bitrate: 128000,
+      analysis_method: subtitles ? 'minimax_subtitles' : 'file_size_estimation',
+      provider: 'minimax',
+      subtitles: subtitles // Pass through for caption generation
+    };
 
     return {
       success: true,
-      audio_url: urlData.publicUrl,
-      credits_used: 5, // Base cost for voice generation
+      audio_url: result.audio_url,
+      credits_used: result.credits_used,
       generation_time_ms: generationTime,
-      metadata: metadata
+      metadata
     };
 
   } catch (error) {
@@ -312,52 +232,40 @@ export async function generateVoiceForSegments(
   const startTime = Date.now();
   const segmentAudios: Array<{ segment_id: string; audio_url: string; duration: number }> = [];
   let totalCredits = 0;
-  const openai = getOpenAI();
-  const supabase = getSupabaseClient();
 
   try {
     console.log(`🎤 Generating individual voice files for ${request.segments.length} segments`);
 
+    const speedValue = convertSpeed(request.voice_settings.speed);
+    const emotion = mapEmotion(request.voice_settings.emotion);
+
     for (const segment of request.segments) {
       try {
-        // Generate speech for this segment
-        const response = await openai.audio.speech.create({
-          model: 'tts-1',
-          voice: VOICE_MAPPING[request.voice_settings.voice_id],
-          input: segment.text.trim(),
-          speed: SPEED_MAPPING[request.voice_settings.speed],
-          response_format: 'mp3'
+        // Generate speech for this segment using Minimax
+        const result = await generateMinimaxVoice({
+          text: segment.text.trim(),
+          voice_settings: {
+            voice_id: request.voice_settings.voice_id,
+            speed: speedValue,
+            pitch: request.voice_settings.pitch,
+            volume: request.voice_settings.volume,
+            emotion: emotion
+          },
+          user_id: request.user_id,
+          batch_id: `${request.batch_id}_${segment.id}`
         });
 
-        // Convert to buffer
-        const audioBuffer = Buffer.from(await response.arrayBuffer());
-        
-        // Upload to storage
-        const fileName = `${request.user_id}/voice/segments/${segment.id}.mp3`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('script-videos')
-          .upload(fileName, audioBuffer, {
-            contentType: 'audio/mpeg',
-            upsert: true
+        if (result.success && result.audio_url) {
+          segmentAudios.push({
+            segment_id: segment.id,
+            audio_url: result.audio_url,
+            duration: result.metadata?.duration_estimate || segment.duration
           });
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('script-videos')
-          .getPublicUrl(fileName);
-
-        segmentAudios.push({
-          segment_id: segment.id,
-          audio_url: urlData.publicUrl,
-          duration: segment.duration
-        });
-
-        totalCredits += 2; // Cost per segment
-        
-        console.log(`✅ Generated voice for segment ${segment.id}`);
+          totalCredits += result.credits_used;
+          console.log(`✅ Generated voice for segment ${segment.id}`);
+        } else {
+          console.error(`Error generating voice for segment ${segment.id}:`, result.error);
+        }
 
       } catch (segmentError) {
         console.error(`Error generating voice for segment ${segment.id}:`, segmentError);
@@ -395,41 +303,34 @@ export async function regenerateSegmentVoice(
   voice_settings: VoiceGenerationRequest['voice_settings'],
   user_id: string
 ): Promise<{ success: boolean; audio_url?: string; error?: string }> {
-  const openai = getOpenAI();
-  const supabase = getSupabaseClient();
-
   try {
     console.log(`🔄 Regenerating voice for segment ${segment_id}`);
 
-    const response = await openai.audio.speech.create({
-      model: 'tts-1',
-      voice: VOICE_MAPPING[voice_settings.voice_id],
-      input: text.trim(),
-      speed: SPEED_MAPPING[voice_settings.speed],
-      response_format: 'mp3'
+    const speedValue = convertSpeed(voice_settings.speed);
+    const emotion = mapEmotion(voice_settings.emotion);
+
+    const result = await generateMinimaxVoice({
+      text: text.trim(),
+      voice_settings: {
+        voice_id: voice_settings.voice_id,
+        speed: speedValue,
+        pitch: voice_settings.pitch,
+        volume: voice_settings.volume,
+        emotion: emotion
+      },
+      user_id,
+      batch_id: `${segment_id}_${Date.now()}`
     });
 
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
-    const fileName = `${user_id}/voice/segments/${segment_id}_${Date.now()}.mp3`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('script-videos')
-      .upload(fileName, audioBuffer, {
-        contentType: 'audio/mpeg',
-        upsert: true
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data: urlData } = supabase.storage
-      .from('script-videos')
-      .getPublicUrl(fileName);
+    if (!result.success || !result.audio_url) {
+      throw new Error(result.error || 'Voice regeneration failed');
+    }
 
     console.log(`✅ Regenerated voice for segment ${segment_id}`);
 
     return {
       success: true,
-      audio_url: urlData.publicUrl
+      audio_url: result.audio_url
     };
 
   } catch (error) {
@@ -446,9 +347,6 @@ export async function regenerateSegmentVoice(
  * Helpful for progress tracking
  */
 export async function estimateVoiceGenerationTime(textLength: number): Promise<number> {
-  // Rough estimate: ~100ms per character for TTS processing
-  return Math.max(2000, textLength * 100); // Minimum 2 seconds
+  // Rough estimate: ~150ms per character for Minimax TTS processing via Replicate
+  return Math.max(3000, textLength * 150); // Minimum 3 seconds
 }
-
-
-// Validation logic moved inline to orchestrator to avoid server action constraints

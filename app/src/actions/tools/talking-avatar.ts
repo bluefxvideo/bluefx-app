@@ -4,12 +4,14 @@ import { createClient } from '@/app/supabase/server';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
-import { 
-  getUserCredits, 
-  deductCredits, 
-  storeTalkingAvatarResults, 
-  recordTalkingAvatarMetrics 
+import {
+  getUserCredits,
+  deductCredits,
+  storeTalkingAvatarResults,
+  recordTalkingAvatarMetrics
 } from '@/actions/database/talking-avatar-database';
+import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
+import { MINIMAX_VOICE_OPTIONS } from '@/components/shared/voice-constants';
 
 // Request/Response types for Talking Avatar
 export interface TalkingAvatarRequest {
@@ -74,10 +76,11 @@ export interface AvatarTemplate {
 export interface VoiceOption {
   id: string;
   name: string;
-  gender: 'male' | 'female';
-  accent: string;
+  gender: 'male' | 'female' | 'neutral';
+  accent?: string;
   preview_url?: string;
   description: string;
+  category?: 'natural' | 'professional' | 'expressive' | 'character';
 }
 
 /**
@@ -244,93 +247,13 @@ async function handleVoiceGeneration(
     const wordCount = request.script_text.trim().split(/\s+/).length;
     const estimatedDuration = Math.ceil(wordCount / 2.5); // ~2.5 words per second
 
-    // Complete OpenAI voice options - Updated November 2024 with all 11 voices
-    const voiceOptions: VoiceOption[] = [
-      // Primary New Voices
-      {
-        id: 'alloy',
-        name: 'Alloy',
-        gender: 'neutral',
-        accent: 'neutral',
-        description: 'Natural and versatile voice'
-      },
-      {
-        id: 'echo',
-        name: 'Echo',
-        gender: 'male',
-        accent: 'neutral',
-        description: 'Deep and resonant voice'
-      },
-      {
-        id: 'ash',
-        name: 'Ash',
-        gender: 'female',
-        accent: 'neutral',
-        description: 'Expressive and dynamic voice'
-      },
-      {
-        id: 'ballad',
-        name: 'Ballad',
-        gender: 'female',
-        accent: 'neutral',
-        description: 'Warm and melodious voice'
-      },
-      {
-        id: 'coral',
-        name: 'Coral',
-        gender: 'female',
-        accent: 'neutral',
-        description: 'Friendly and approachable voice'
-      },
-      {
-        id: 'sage',
-        name: 'Sage',
-        gender: 'male',
-        accent: 'neutral',
-        description: 'Professional and authoritative voice'
-      },
-      {
-        id: 'shimmer',
-        name: 'Shimmer',
-        gender: 'female',
-        accent: 'neutral',
-        description: 'Bright and expressive voice'
-      },
-      {
-        id: 'verse',
-        name: 'Verse',
-        gender: 'female',
-        accent: 'neutral',
-        description: 'Creative and artistic voice'
-      },
-      // Legacy Voices (still supported)
-      {
-        id: 'nova',
-        name: 'Nova',
-        gender: 'female',
-        accent: 'neutral',
-        description: 'Warm and engaging voice (legacy)'
-      },
-      {
-        id: 'onyx',
-        name: 'Onyx',
-        gender: 'male',
-        accent: 'neutral',
-        description: 'Professional and clear voice (legacy)'
-      },
-      {
-        id: 'fable',
-        name: 'Fable',
-        gender: 'neutral',
-        accent: 'neutral',
-        description: 'Versatile storytelling voice (legacy)'
-      }
-    ];
+    // Use Minimax voice options (56 system voices)
+    const voiceOptions = MINIMAX_VOICE_OPTIONS;
 
-    // Generate audio using OpenAI TTS if voice_id is provided
+    // Generate audio using Minimax TTS if voice_id is provided
     let voiceAudioUrl: string | undefined;
     if (request.voice_id && request.script_text) {
-      voiceAudioUrl = await generateVoiceAudio(request.script_text, request.voice_id);
+      voiceAudioUrl = await generateVoiceAudio(request.script_text, request.voice_id, request.user_id);
     }
 
     return {
@@ -614,47 +537,29 @@ async function handleVideoGeneration(
 }
 
 /**
- * Generate voice audio using OpenAI TTS API
+ * Generate voice audio using Minimax Speech 2.6 HD via Replicate
  */
-async function generateVoiceAudio(scriptText: string, voiceId: string): Promise<string> {
+async function generateVoiceAudio(scriptText: string, voiceId: string, userId: string): Promise<string> {
   try {
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
+    const result = await generateMinimaxVoice({
+      text: scriptText,
+      voice_settings: {
+        voice_id: voiceId,
+        speed: 1.0,
+        emotion: 'auto'
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini-tts',
-        input: scriptText,
-        voice: voiceId,
-        response_format: 'mp3'
-      }),
+      user_id: userId,
+      batch_id: crypto.randomUUID()
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI TTS API error: ${response.status} ${response.statusText}`);
+    if (!result.success || !result.audio_url) {
+      throw new Error(result.error || 'Minimax voice generation failed');
     }
 
-    // Get the audio blob
-    const audioBlob = await response.blob();
-    
-    // Upload to Supabase Storage (use Blob instead of File for server-side compatibility)
-    const uploadResult = await uploadImageToStorage(audioBlob, {
-      bucket: 'audio',
-      folder: 'voice-previews',
-      filename: `voice_${crypto.randomUUID()}.mp3`,
-      contentType: 'audio/mpeg',
-    });
-
-    if (!uploadResult.success) {
-      throw new Error(uploadResult.error || 'Audio upload failed');
-    }
-
-    return uploadResult.url || '';
+    return result.audio_url;
 
   } catch (error) {
-    console.error('OpenAI TTS error:', error);
+    console.error('Minimax TTS error:', error);
     throw error;
   }
 }

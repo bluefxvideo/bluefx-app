@@ -9,6 +9,23 @@ function getSupabaseClient() {
   );
 }
 
+// CORS helper - allow multiple origins for editor access
+const ALLOWED_ORIGINS = [
+  'https://editor.bluefx.net',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+function getAllowedOrigin(request: NextRequest): string {
+  const origin = request.headers.get('origin') || '';
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return origin;
+  }
+  // Default to production editor
+  return process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
+}
+
 /**
  * API endpoint for external video editor data access
  * 
@@ -209,8 +226,7 @@ export async function POST(request: NextRequest) {
     });
     
     // Add CORS headers - use environment variable or fallback to localhost for development
-    const allowedOrigin = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
-    response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+    response.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
     
@@ -227,7 +243,7 @@ export async function POST(request: NextRequest) {
     );
     
     // Add CORS headers to error response too
-    const allowedOrigin = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
+    const allowedOrigin = getAllowedOrigin(request);
     errorResponse.headers.set('Access-Control-Allow-Origin', allowedOrigin);
     errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
@@ -252,7 +268,7 @@ export async function GET(request: NextRequest) {
     
     if (!userId) {
       const errorResponse = NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
-      errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+      errorResponse.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
       return errorResponse;
     }
 
@@ -283,7 +299,7 @@ export async function GET(request: NextRequest) {
 
       if (!video) {
         const errorResponse = NextResponse.json({ success: false, error: 'Video not found' }, { status: 404 });
-        errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+        errorResponse.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
         return errorResponse;
       }
       
@@ -313,7 +329,7 @@ export async function GET(request: NextRequest) {
 
       if (!video) {
         const errorResponse = NextResponse.json({ success: false, error: 'No video found for user' }, { status: 404 });
-        errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+        errorResponse.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
         return errorResponse;
       }
       
@@ -356,7 +372,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+    response.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
     response.headers.set('Access-Control-Allow-Credentials', 'true');
@@ -371,7 +387,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
     
-    errorResponse.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001');
+    errorResponse.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
     return errorResponse;
   }
 }
@@ -383,7 +399,7 @@ export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001',
+      'Access-Control-Allow-Origin': getAllowedOrigin(request),
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning',
       'Access-Control-Allow-Credentials': 'true',

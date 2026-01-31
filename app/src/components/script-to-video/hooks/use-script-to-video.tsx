@@ -117,13 +117,13 @@ export function useScriptToVideo() {
         // Auto-redirect to editor after successful generation
         setTimeout(() => {
           if (response.video_id && currentUserId) {
-            const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
+            const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
             const apiBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
             const editorUrl = `${editorBaseUrl}/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=${apiBaseUrl}`;
             console.log('🚀 Redirecting to editor with environment-based URL:', editorUrl);
             window.location.href = editorUrl;
           } else {
-            const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001';
+            const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
             console.log('🚀 Redirecting to editor without video_id');
             window.location.href = editorBaseUrl;
           }
@@ -243,7 +243,7 @@ export function useScriptToVideo() {
         // Auto-redirect to editor after successful generation
         setTimeout(() => {
           if (typeof window !== 'undefined' && response.video_id && currentUserId) {
-            const editorBaseUrl = (process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'http://localhost:3001').replace(/\/$/, '');
+            const editorBaseUrl = (process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net').replace(/\/$/, '');
             const apiBaseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
             const editorUrl = `${editorBaseUrl}/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=${apiBaseUrl}`;
             console.log('🚀 Redirecting to editor with environment-based URL:', editorUrl);
