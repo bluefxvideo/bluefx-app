@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { executeMusicMachine, MusicMachineRequest } from '@/actions/tools/music-machine';
 import { getMusicHistory, deleteGeneratedMusic, GeneratedMusic } from '@/actions/database/music-database';
-import { getMusicGenModelInfo } from '@/actions/models/meta-musicgen';
+import { getLyria2ModelInfo } from '@/actions/models/google-lyria-2';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ export interface MusicMachineState {
   genre: string;
   mood: string;
   duration: number;
+  tier: 'unlimited' | 'hd' | 'pro'; // 3-tier system
   model_provider: 'musicgen' | 'lyria-2';
   model_version: 'stereo-large' | 'stereo-melody-large' | 'large'; // For MusicGen
   negative_prompt: string; // For Lyria-2
@@ -44,7 +45,7 @@ export interface MusicMachineState {
   estimatedCredits: number;
   
   // Model info
-  modelInfo: Awaited<ReturnType<typeof getMusicGenModelInfo>> | null;
+  modelInfo: Awaited<ReturnType<typeof getLyria2ModelInfo>> | null;
 }
 
 export interface UseMusicMachineReturn {
@@ -82,6 +83,7 @@ export function useMusicMachine() {
     genre: '',
     mood: '',
     duration: 30,
+    tier: 'unlimited', // Default to free tier
     model_provider: 'lyria-2', // Default to newer Lyria-2 model
     model_version: 'stereo-melody-large',
     negative_prompt: '',
@@ -93,7 +95,7 @@ export function useMusicMachine() {
     isLoading: false,
     error: null,
     credits: 0,
-    estimatedCredits: 5,
+    estimatedCredits: 0, // Free tier = 0 credits
     modelInfo: null,
   });
 
@@ -120,7 +122,7 @@ export function useMusicMachine() {
   // Load model info
   useEffect(() => {
     const loadModelInfo = async () => {
-      const modelInfo = await getMusicGenModelInfo();
+      const modelInfo = await getLyria2ModelInfo();
       setState(prev => ({ ...prev, modelInfo }));
     };
     loadModelInfo();
@@ -355,38 +357,19 @@ export function useMusicMachine() {
     return () => supabase.removeChannel(subscription);
   }, [user?.id, supabase, state.currentGeneration?.prediction_id]);
 
-  // Update estimated credits based on settings
+  // Update estimated credits based on tier
   useEffect(() => {
-    const calculateEstimatedCredits = () => {
-      if (state.model_provider === 'lyria-2') {
-        // Lyria-2 has fixed cost per generation
-        const baseCost = 3;
-        const promptComplexity = state.prompt.split(' ').length > 20 ? 1 : 0;
-        return baseCost + promptComplexity;
-      } else {
-        // MusicGen cost calculation
-        let baseCost = 5;
-        
-        // Duration multiplier
-        if (state.duration > 60) baseCost *= 1.5;
-        if (state.duration > 120) baseCost *= 2.0;
-        
-        // Model multiplier
-        if (state.model_version === 'stereo-melody-large') {
-          baseCost *= 1.5;
-        } else if (state.model_version === 'stereo-large') {
-          baseCost *= 1.2;
-        }
-        
-        return Math.ceil(baseCost);
-      }
+    const TIER_CREDITS: Record<string, number> = {
+      unlimited: 0,  // Free tier - Lyria-2
+      hd: 8,         // HD tier - Stable Audio 2.5
+      pro: 15,       // Pro tier - ElevenLabs Music
     };
 
     setState(prev => ({
       ...prev,
-      estimatedCredits: calculateEstimatedCredits(),
+      estimatedCredits: TIER_CREDITS[prev.tier] || 0,
     }));
-  }, [state.duration, state.model_provider, state.model_version, state.prompt]);
+  }, [state.tier]);
 
   // Generate music
   const generateMusic = useCallback(async () => {
@@ -399,11 +382,10 @@ export function useMusicMachine() {
         prompt: state.prompt,
         genre: state.genre || undefined,
         mood: state.mood || undefined,
-        model_provider: state.model_provider,
-        duration: state.model_provider === 'musicgen' ? state.duration : undefined,
-        model_version: state.model_provider === 'musicgen' ? state.model_version : undefined,
-        negative_prompt: state.model_provider === 'lyria-2' ? state.negative_prompt : undefined,
-        seed: state.model_provider === 'lyria-2' ? state.seed : undefined,
+        tier: state.tier, // Pass tier for 3-tier system
+        duration: state.tier === 'hd' ? Math.min(state.duration, 47) : state.duration, // HD tier max 47s
+        negative_prompt: state.negative_prompt || undefined,
+        seed: state.seed ?? undefined,
         user_id: user.id,
       };
 
@@ -532,7 +514,7 @@ export function useMusicMachine() {
   }, []);
 
   // Update settings
-  const updateSettings = useCallback((settings: Partial<Pick<MusicMachineState, 'genre' | 'mood' | 'duration' | 'model_provider' | 'model_version' | 'negative_prompt' | 'seed'>>) => {
+  const updateSettings = useCallback((settings: Partial<Pick<MusicMachineState, 'genre' | 'mood' | 'duration' | 'tier' | 'model_provider' | 'model_version' | 'negative_prompt' | 'seed'>>) => {
     setState(prev => ({ ...prev, ...settings }));
   }, []);
 

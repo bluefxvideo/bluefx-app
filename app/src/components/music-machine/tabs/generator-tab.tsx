@@ -4,18 +4,11 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Music } from 'lucide-react';
+import { Music, Sparkles, Crown, Zap } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { UseMusicMachineReturn } from '../hooks/use-music-machine';
-
-interface DurationOption {
-  label: string;
-  value: number;
-}
+import { cn } from '@/lib/utils';
 
 interface GeneratorTabProps {
   musicMachineState: UseMusicMachineReturn;
@@ -49,22 +42,35 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
     return () => clearTimeout(timer);
   }, [localPrompt, updatePrompt]);
 
-  const canGenerate = localPrompt.trim().length > 0 && credits >= state.estimatedCredits;
+  const canGenerate = localPrompt.trim().length > 0 &&
+    (state.tier === 'unlimited' || credits >= state.estimatedCredits);
 
-  // Default genres and moods (model info doesn't contain these UI constants)
-  const genres = [
-    'pop', 'rock', 'electronic', 'ambient', 'jazz', 'classical'
-  ];
-  
-  const moods = [
-    'happy', 'sad', 'energetic', 'calm', 'dramatic', 'mysterious'
-  ];
-
-  const durations = [
-    { label: 'Short (30s)', value: 30 },
-    { label: 'Medium (60s)', value: 60 },
-    { label: 'Long (120s)', value: 120 },
-    { label: 'Extended (180s)', value: 180 }
+  // Tier configuration
+  const tiers = [
+    {
+      id: 'unlimited' as const,
+      name: 'Unlimited',
+      credits: 0,
+      icon: Zap,
+      description: 'Basic quality, included free',
+      maxDuration: '~30s'
+    },
+    {
+      id: 'hd' as const,
+      name: 'HD',
+      credits: 8,
+      icon: Sparkles,
+      description: 'High-quality instrumentals',
+      maxDuration: 'up to 47s'
+    },
+    {
+      id: 'pro' as const,
+      name: 'Pro',
+      credits: 15,
+      icon: Crown,
+      description: 'Premium studio quality',
+      maxDuration: 'up to 5min'
+    },
   ];
 
   return (
@@ -72,6 +78,55 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
       <TabBody>
         <StandardStep
           stepNumber={1}
+          title="Select Quality Tier"
+          description="Choose the quality level for your music generation"
+        >
+          <div className="grid grid-cols-3 gap-3">
+            {tiers.map((tier) => {
+              const Icon = tier.icon;
+              const isSelected = state.tier === tier.id;
+              const canAfford = tier.credits === 0 || credits >= tier.credits;
+
+              return (
+                <button
+                  key={tier.id}
+                  onClick={() => updateSettings({ tier: tier.id })}
+                  disabled={state.isGenerating || !canAfford}
+                  className={cn(
+                    "relative p-4 rounded-lg border-2 text-left transition-all duration-200",
+                    isSelected
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/50",
+                    !canAfford && "opacity-50 cursor-not-allowed",
+                    state.isGenerating && "cursor-not-allowed"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className={cn(
+                      "w-4 h-4",
+                      isSelected ? "text-primary" : "text-muted-foreground"
+                    )} />
+                    <span className="font-semibold text-sm">{tier.name}</span>
+                  </div>
+                  <p className={cn(
+                    "text-sm font-medium mb-1",
+                    tier.credits === 0 ? "text-green-600 dark:text-green-400" : "text-primary"
+                  )}>
+                    {tier.credits === 0 ? 'Free' : `${tier.credits} credits`}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{tier.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Max: {tier.maxDuration}</p>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </StandardStep>
+
+        <StandardStep
+          stepNumber={2}
           title="Describe Your Music"
           description="Tell us what kind of music you want to create"
         >
@@ -93,7 +148,7 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
 
 
         <StandardStep
-          stepNumber={2}
+          stepNumber={3}
           title="Advanced Options"
           description="Optional settings to customize your music generation"
         >
@@ -152,11 +207,11 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
           ) : (
             <>
               <Music className="w-4 h-4 mr-2" />
-              Generate Music ({state.estimatedCredits} credits)
+              Generate Music {state.tier === 'unlimited' ? '(Free)' : `(${state.estimatedCredits} credits)`}
             </>
           )}
         </Button>
-        {credits < state.estimatedCredits && localPrompt.trim().length > 0 && (
+        {state.tier !== 'unlimited' && credits < state.estimatedCredits && localPrompt.trim().length > 0 && (
           <p className="text-xs text-destructive text-center mt-2">
             Insufficient credits. You need {state.estimatedCredits} credits.
           </p>

@@ -96,6 +96,7 @@ export async function createMusicRecord(
     batch_id?: string;
     credits_used?: number;
     model_provider?: string;
+    tier?: 'unlimited' | 'hd' | 'pro';
   }
 ): Promise<MusicDatabaseResponse<GeneratedMusic>> {
   try {
@@ -123,7 +124,9 @@ export async function createMusicRecord(
           model_provider: settings.model_provider || 'lyria-2'
         },
         status: 'pending',
-        description: prompt
+        description: prompt,
+        tier: settings.tier || 'unlimited',
+        provider: settings.model_provider || 'lyria-2'
       })
       .select()
       .single();

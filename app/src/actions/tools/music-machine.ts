@@ -1,19 +1,18 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { 
-  createMusicGenPrediction, 
-  calculateMusicGenCredits,
-  getMusicGenModelInfo,
-  type MusicGenInput 
-} from '@/actions/models/meta-musicgen';
 import {
   createLyria2Prediction,
-  calculateLyria2Credits,
   getLyria2ModelInfo,
-  optimizeLyria2Prompt,
-  type Lyria2Input
 } from '@/actions/models/google-lyria-2';
+import {
+  createStableAudioPrediction,
+  getStableAudioModelInfo,
+} from '@/actions/models/stable-audio';
+import {
+  createElevenLabsMusicPrediction,
+  getElevenLabsMusicModelInfo,
+} from '@/actions/models/elevenlabs-music';
 import { createMusicRecord } from '@/actions/database/music-database';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 import { uploadAudioToStorage } from '@/actions/supabase-storage';
@@ -23,7 +22,10 @@ export interface MusicMachineRequest {
   // Core generation parameters
   prompt: string;
   duration?: number; // 1-300 seconds
-  
+
+  // Tier selection (NEW - 3-tier system)
+  tier?: 'unlimited' | 'hd' | 'pro';
+
   // Model configuration (UPDATED to support both MusicGen and Lyria-2)
   model_provider?: 'musicgen' | 'lyria-2';
   model_version?: 'stereo-melody-large' | 'stereo-large' | 'melody-large' | 'large'; // For MusicGen
@@ -69,7 +71,18 @@ export interface MusicMachineResponse {
   };
   
   // Model information
-  model_info?: ReturnType<typeof getMusicGenModelInfo>;
+  model_info?: {
+    name: string;
+    version: string;
+    description: string;
+    provider: string;
+    tier?: string;
+    capabilities: string[];
+    limitations: string[];
+    pricing: { credits?: number; replicate_cost?: string; estimate?: string };
+    output_format: string;
+    hardware?: string;
+  };
   
   // Metadata
   prediction_id: string;
@@ -142,54 +155,26 @@ export async function executeMusicMachine(
       }
     }
 
-    // Step 2: Determine Model Provider and Optimize Prompt
-    const modelProvider = authenticatedRequest.model_provider || 'lyria-2';
-    let optimizedPrompt: string;
-    let modelInput: MusicGenInput | Lyria2Input;
-    
-    if (modelProvider === 'lyria-2') {
-      optimizedPrompt = await optimizeLyria2Prompt(
-        authenticatedRequest.prompt,
-        authenticatedRequest.genre,
-        authenticatedRequest.mood
-      );
-      
-      modelInput = {
-        prompt: optimizedPrompt,
-        ...(authenticatedRequest.seed && { seed: authenticatedRequest.seed }),
-        ...(authenticatedRequest.negative_prompt && { negative_prompt: authenticatedRequest.negative_prompt }),
-      } as Lyria2Input;
-    } else {
-      optimizedPrompt = optimizePromptForMusic(
-        authenticatedRequest.prompt,
-        authenticatedRequest.genre,
-        authenticatedRequest.mood
-      );
-      
-      modelInput = {
-        prompt: optimizedPrompt,
-        duration: Math.min(Math.max(authenticatedRequest.duration || 30, 1), 300),
-        input_audio: inputAudioUrl,
-        model_version: authenticatedRequest.model_version || 'stereo-melody-large',
-        continuation: authenticatedRequest.continuation || false,
-        output_format: authenticatedRequest.output_format || 'mp3',
-        normalization_strategy: authenticatedRequest.normalization_strategy || 'loudness',
-        temperature: authenticatedRequest.temperature || 1.0,
-        top_k: authenticatedRequest.top_k || 250,
-        top_p: authenticatedRequest.top_p || 0.0,
-        classifier_free_guidance: authenticatedRequest.classifier_free_guidance || 3.0,
-      } as MusicGenInput;
-    }
+    // Step 2: Determine Tier and Set Credits
+    const tier = authenticatedRequest.tier || 'unlimited';
+    const TIER_CREDITS: Record<string, number> = { unlimited: 0, hd: 8, pro: 15 };
+    const TIER_PROVIDERS: Record<string, string> = { unlimited: 'lyria-2', hd: 'stable-audio', pro: 'elevenlabs' };
 
-    console.log(`🎵 Using ${modelProvider} with optimized prompt:`, optimizedPrompt);
+    total_credits = TIER_CREDITS[tier] || 0;
+    const modelProvider = TIER_PROVIDERS[tier] || 'lyria-2';
 
-    // Step 3: Credit Calculation and Validation
-    total_credits = modelProvider === 'lyria-2' 
-      ? await calculateLyria2Credits(modelInput as Lyria2Input)
-      : await calculateMusicGenCredits(modelInput as MusicGenInput);
-    
+    // Optimize prompt
+    const optimizedPrompt = optimizePromptForMusic(
+      authenticatedRequest.prompt,
+      authenticatedRequest.genre,
+      authenticatedRequest.mood
+    );
+
+    console.log(`🎵 Using tier: ${tier} (${modelProvider}) with optimized prompt:`, optimizedPrompt);
+
+    // Step 3: Credit Validation (skip for unlimited tier)
     const userCredits = await getUserCredits(supabase, user.id);
-    if (userCredits < total_credits) {
+    if (tier !== 'unlimited' && userCredits < total_credits) {
       return {
         success: false,
         error: `Insufficient credits. Required: ${total_credits}, Available: ${userCredits}`,
@@ -201,48 +186,50 @@ export async function executeMusicMachine(
       };
     }
 
-    // Step 4: Create Prediction with Webhook
+    // Step 4: Create Prediction with Webhook based on Tier
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL;
-    const webhookUrl = baseUrl?.startsWith('https://') 
+    const webhookUrl = baseUrl?.startsWith('https://')
       ? `${baseUrl}/api/webhooks/replicate-ai`
-      : undefined; // Don't use webhook if not HTTPS
-    
+      : undefined;
+
     if (!webhookUrl) {
       console.log('⚠️ No valid HTTPS webhook URL available, prediction will run without webhook');
     } else {
       console.log('🔗 Using webhook URL:', webhookUrl);
     }
-    
+
     let prediction: any;
-    
-    if (modelProvider === 'lyria-2') {
+    const duration = authenticatedRequest.duration || 30;
+
+    if (tier === 'pro') {
+      // ElevenLabs Music - Pro tier (15 credits)
+      prediction = await createElevenLabsMusicPrediction({
+        prompt: optimizedPrompt,
+        duration: Math.min(duration, 300),
+        ...(webhookUrl && { webhook: webhookUrl })
+      });
+      console.log(`🎵 ElevenLabs Music prediction created:`, prediction.id);
+    } else if (tier === 'hd') {
+      // Stable Audio 2.5 - HD tier (8 credits)
+      prediction = await createStableAudioPrediction({
+        prompt: optimizedPrompt,
+        seconds: Math.min(duration, 47),
+        negative_prompt: authenticatedRequest.negative_prompt || 'vocals, singing, voice, spoken word, lyrics',
+        ...(webhookUrl && { webhook: webhookUrl })
+      });
+      console.log(`🎵 Stable Audio prediction created:`, prediction.id);
+    } else {
+      // Lyria-2 - Unlimited tier (free)
       prediction = await createLyria2Prediction({
-        ...(modelInput as Lyria2Input),
+        prompt: optimizedPrompt,
+        ...(authenticatedRequest.seed && { seed: authenticatedRequest.seed }),
+        ...(authenticatedRequest.negative_prompt && { negative_prompt: authenticatedRequest.negative_prompt }),
         user_id: authenticatedRequest.user_id,
         batch_id: batch_id,
         ...(webhookUrl && { webhook: webhookUrl })
       });
-    } else {
-      const musicGenResult = await createMusicGenPrediction({
-        input: modelInput as MusicGenInput,
-        ...(webhookUrl && { webhook: webhookUrl })
-      });
-      
-      if (!musicGenResult.success || !musicGenResult.prediction) {
-        return {
-          success: false,
-          error: musicGenResult.error || 'Music generation request failed',
-          prediction_id: '',
-          batch_id,
-          generation_time_ms: Date.now() - startTime,
-          credits_used: 0,
-          remaining_credits: userCredits,
-        };
-      }
-      
-      prediction = musicGenResult.prediction;
+      console.log(`🎵 Lyria-2 prediction created:`, prediction.id);
     }
-    console.log(`🎵 ${modelProvider === 'lyria-2' ? 'Lyria-2' : 'MusicGen'} prediction created:`, prediction.id);
 
     // Create prediction tracking record
     await createPredictionRecord({
@@ -250,29 +237,28 @@ export async function executeMusicMachine(
       user_id: request.user_id,
       tool_id: 'music-machine',
       service_id: 'replicate',
-      model_version: modelProvider === 'lyria-2' ? 'google-lyria-2' : 'meta-musicgen-stereo-melody',
+      model_version: modelProvider,
       status: 'starting',
       input_data: {
         prompt: request.prompt,
+        tier,
         model_provider: modelProvider,
-        duration: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).duration : undefined,
-        model_version: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).model_version : undefined,
-        output_format: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).output_format : undefined,
-        seed: modelProvider === 'lyria-2' ? (modelInput as Lyria2Input).seed : undefined,
-        negative_prompt: modelProvider === 'lyria-2' ? (modelInput as Lyria2Input).negative_prompt : undefined,
-        ...modelInput
+        duration,
+        negative_prompt: authenticatedRequest.negative_prompt,
+        seed: authenticatedRequest.seed,
       } as any,
     });
 
-    // Step 6: Database Record Creation
+    // Step 5: Database Record Creation
     const musicRecord = await createMusicRecord(user.id, optimizedPrompt, {
-      duration: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).duration : undefined,
+      duration,
       prediction_id: prediction.id,
       batch_id,
       credits_used: total_credits,
       genre: authenticatedRequest.genre,
       mood: authenticatedRequest.mood,
       model_provider: modelProvider,
+      tier,
     });
 
     if (!musicRecord.success) {
@@ -280,8 +266,10 @@ export async function executeMusicMachine(
       warnings.push('Database record creation failed, but generation is proceeding');
     }
 
-    // Step 7: Credit Deduction
-    await deductCredits(supabase, user.id, total_credits, batch_id, 'music_generation');
+    // Step 6: Credit Deduction (skip for unlimited tier)
+    if (tier !== 'unlimited' && total_credits > 0) {
+      await deductCredits(supabase, user.id, total_credits, batch_id, 'music_generation');
+    }
 
     return {
       success: true,
@@ -289,19 +277,19 @@ export async function executeMusicMachine(
         id: musicRecord.data?.id || `temp_${Date.now()}`,
         prediction_id: prediction.id,
         prompt: optimizedPrompt,
-        duration: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).duration || 10 : undefined,
-        model_version: modelProvider === 'musicgen' 
-          ? (modelInput as MusicGenInput).model_version || 'musicgen-medium'
-          : 'lyria-2',
-        output_format: modelProvider === 'musicgen' ? (modelInput as MusicGenInput).output_format || 'mp3' : 'audio',
+        duration: duration,
+        model_version: modelProvider,
+        output_format: 'audio',
         status: prediction.status,
         created_at: prediction.created_at,
       },
-      model_info: modelProvider === 'lyria-2' ? await getLyria2ModelInfo() : getMusicGenModelInfo(),
+      model_info: tier === 'hd' ? await getStableAudioModelInfo()
+        : tier === 'pro' ? await getElevenLabsMusicModelInfo()
+        : await getLyria2ModelInfo(),
       prediction_id: prediction.id,
       batch_id,
       credits_used: total_credits,
-      remaining_credits: userCredits - total_credits,
+      remaining_credits: tier === 'unlimited' ? userCredits : userCredits - total_credits,
       generation_time_ms: Date.now() - startTime,
       warnings: warnings.length > 0 ? warnings : undefined,
     };

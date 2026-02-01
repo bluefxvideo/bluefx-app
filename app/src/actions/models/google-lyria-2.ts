@@ -7,7 +7,7 @@
  * Model: google/lyria-2
  */
 
-interface Lyria2Input {
+export interface Lyria2Input {
   prompt: string;
   seed?: number;
   negative_prompt?: string;
@@ -160,6 +160,7 @@ export async function getLyria2ModelInfo() {
     version: 'lyria-2',
     description: 'Advanced text-to-music model by Google DeepMind',
     provider: 'google',
+    tier: 'unlimited',
     capabilities: [
       'Text-to-music generation',
       'High-quality 48kHz stereo output',
@@ -173,8 +174,8 @@ export async function getLyria2ModelInfo() {
       'Simpler parameter set'
     ],
     pricing: {
-      model: 'Per generation',
-      estimate: '3-4 credits per generation'
+      credits: 0,
+      estimate: 'Free (included in plan)'
     },
     output_format: 'Audio file (48kHz stereo)',
     hardware: 'CPU',
