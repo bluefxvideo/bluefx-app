@@ -55,7 +55,7 @@ export async function createLyria2Prediction(
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
       },
       body: JSON.stringify({
-        version: 'a7e8d3fd87b875af2897e25dbde07888be1621bf18915b40a1a82543f5c0ab01', // Google Lyria-2
+        model: 'google/lyria-2', // Use model name for latest version
         input: {
           prompt: params.prompt,
           ...(params.seed && { seed: params.seed }),

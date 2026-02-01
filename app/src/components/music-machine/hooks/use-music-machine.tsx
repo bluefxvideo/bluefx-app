@@ -452,7 +452,7 @@ export function useMusicMachine() {
       }));
       toast.error('Music generation failed');
     }
-  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model_provider, state.model_version, state.negative_prompt, state.seed]);
+  }, [user, state.prompt, state.genre, state.mood, state.duration, state.model, state.negative_prompt, state.seed, state.lyrics, state.reference_audio, state.style_strength]);
 
 
   // Delete music
