@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Music, Sparkles, Crown, Zap, Mic } from 'lucide-react';
+import { Music, Sparkles, Crown, Zap, Mic, Upload, X } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { UseMusicMachineReturn } from '../hooks/use-music-machine';
-import { MUSIC_MODEL_CONFIG, MUSIC_MODELS_ORDERED, type MusicModel } from '@/types/music-machine';
+import { MUSIC_MODEL_CONFIG, MUSIC_MODELS_ORDERED, calculateMusicCredits, formatDuration, type MusicModel } from '@/types/music-machine';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // Icon mapping for models
 const MODEL_ICONS: Record<MusicModel, typeof Zap> = {
@@ -39,9 +40,64 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
 
   const [localPrompt, setLocalPrompt] = useState(state.prompt);
   const [localLyrics, setLocalLyrics] = useState(state.lyrics);
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Get current model config
   const config = MUSIC_MODEL_CONFIG[state.model];
+
+  // Handle reference audio file upload
+  const handleReferenceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-m4a', 'audio/m4a', 'audio/mp4'];
+    if (!validTypes.some(type => file.type.includes(type.split('/')[1]) || file.type === type)) {
+      toast.error('Invalid file type. Please upload MP3, WAV, or M4A');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 10MB');
+      return;
+    }
+
+    setIsUploading(true);
+    setReferenceFile(file);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload/music-machine', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        updateSettings({ reference_audio: result.url });
+        toast.success('Reference audio uploaded successfully');
+      } else {
+        toast.error(result.error || 'Upload failed');
+        setReferenceFile(null);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload reference audio');
+      setReferenceFile(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Clear reference audio
+  const clearReferenceAudio = () => {
+    setReferenceFile(null);
+    updateSettings({ reference_audio: null });
+  };
 
   // Sync local state with global state
   useEffect(() => {
@@ -119,7 +175,11 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
                     "text-sm font-medium mb-1",
                     modelConfig.credits === 0 ? "text-green-600 dark:text-green-400" : "text-primary"
                   )}>
-                    {modelConfig.credits === 0 ? 'Free' : `${modelConfig.credits} credits`}
+                    {modelConfig.credits === 0
+                      ? 'Free'
+                      : modelConfig.dynamicPricing
+                        ? `From ${modelConfig.credits} credits`
+                        : `${modelConfig.credits} credits`}
                   </p>
                   <p className="text-xs text-muted-foreground line-clamp-2">{modelConfig.description}</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -203,21 +263,47 @@ Together me and you`}
           <StandardStep
             stepNumber={stepNumber++}
             title="Duration"
-            description={`Select the length of your music (max ${config.maxDuration}s)`}
+            description={`Select the length of your music (max ${formatDuration(config.maxDuration)})`}
           >
-            <div className="flex flex-wrap gap-2">
-              {config.durations.map((d) => (
-                <Button
-                  key={d}
-                  variant={state.duration === d ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => updateSettings({ duration: d })}
+            {/* Pro model: Slider with dynamic pricing */}
+            {state.model === 'pro' ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label>Track Length: {formatDuration(state.duration)}</Label>
+                  <span className="text-sm font-medium text-primary">
+                    {calculateMusicCredits('pro', state.duration)} credits
+                  </span>
+                </div>
+                <Slider
+                  value={[state.duration]}
+                  onValueChange={([value]) => updateSettings({ duration: value })}
+                  min={30}
+                  max={300}
+                  step={10}
                   disabled={state.isGenerating}
-                >
-                  {d >= 60 ? `${Math.floor(d / 60)}:${(d % 60).toString().padStart(2, '0')}` : `${d}s`}
-                </Button>
-              ))}
-            </div>
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>30s (8 cr)</span>
+                  <span>2:00 (32 cr)</span>
+                  <span>5:00 (81 cr)</span>
+                </div>
+              </div>
+            ) : (
+              /* Other models: Button selection */
+              <div className="flex flex-wrap gap-2">
+                {config.durations.map((d) => (
+                  <Button
+                    key={d}
+                    variant={state.duration === d ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateSettings({ duration: d })}
+                    disabled={state.isGenerating}
+                  >
+                    {d >= 60 ? `${Math.floor(d / 60)}:${(d % 60).toString().padStart(2, '0')}` : `${d}s`}
+                  </Button>
+                ))}
+              </div>
+            )}
           </StandardStep>
         )}
 
@@ -274,21 +360,80 @@ Together me and you`}
               {/* Reference Audio (Vocals only) */}
               {config.features.referenceAudio && (
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Reference Audio URL (Optional)</Label>
-                    <input
-                      type="url"
-                      value={state.reference_audio || ''}
-                      onChange={(e) => updateSettings({ reference_audio: e.target.value || null })}
-                      placeholder="https://example.com/reference-track.mp3"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={state.isGenerating}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Provide a URL to a reference track (5-30 seconds) for style transfer
-                    </p>
-                  </div>
+                  <Label>Reference Audio (Optional)</Label>
 
+                  {/* File Upload */}
+                  {!state.reference_audio && !referenceFile ? (
+                    <div className="space-y-3">
+                      <label
+                        className={cn(
+                          "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                          "hover:border-primary/50 hover:bg-primary/5",
+                          isUploading && "opacity-50 cursor-not-allowed",
+                          state.isGenerating && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
+                          <p className="mb-1 text-sm text-muted-foreground">
+                            <span className="font-semibold">Click to upload</span> or drag and drop
+                          </p>
+                          <p className="text-xs text-muted-foreground">MP3, WAV, M4A (max 10MB)</p>
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-m4a"
+                          onChange={handleReferenceUpload}
+                          disabled={state.isGenerating || isUploading}
+                        />
+                      </label>
+
+                      {/* Divider */}
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-background px-2 text-muted-foreground">Or paste URL</span>
+                        </div>
+                      </div>
+
+                      {/* URL Input */}
+                      <input
+                        type="url"
+                        value={state.reference_audio || ''}
+                        onChange={(e) => updateSettings({ reference_audio: e.target.value || null })}
+                        placeholder="https://example.com/reference-track.mp3"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={state.isGenerating}
+                      />
+                    </div>
+                  ) : (
+                    /* Show uploaded/linked file info */
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        <Music className="w-4 h-4 text-primary" />
+                        <span className="text-sm truncate max-w-[200px]">
+                          {referenceFile?.name || 'Reference audio linked'}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearReferenceAudio}
+                        disabled={state.isGenerating}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Upload a 5-30 second audio clip for style transfer
+                  </p>
+
+                  {/* Style Strength Slider */}
                   {state.reference_audio && (
                     <div className="space-y-2">
                       <Label>Style Strength: {state.style_strength.toFixed(1)}</Label>

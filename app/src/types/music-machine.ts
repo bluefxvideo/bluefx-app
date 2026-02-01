@@ -23,10 +23,11 @@ export interface MusicModelConfig {
   description: string;
   model: string;           // Replicate model identifier
   provider: string;        // Provider name for database
-  credits: number;         // Credit cost per generation
+  credits: number;         // Credit cost per generation (base cost if dynamicPricing)
   maxDuration: number;     // Max output duration in seconds
   durations: readonly number[];  // Available duration options
   features: MusicModelFeatures;
+  dynamicPricing?: boolean; // If true, credits vary by duration
 }
 
 // Order: Unlimited → HD → Vocals → Pro
@@ -91,7 +92,7 @@ export const MUSIC_MODEL_CONFIG: Record<MusicModel, MusicModelConfig> = {
     description: 'Premium quality, long-form instrumentals',
     model: 'elevenlabs/music',
     provider: 'elevenlabs',
-    credits: 15,
+    credits: 8,            // Base cost for 30s (dynamic pricing enabled)
     maxDuration: 300,
     durations: [30, 60, 120, 180, 300] as const,
     features: {
@@ -102,6 +103,7 @@ export const MUSIC_MODEL_CONFIG: Record<MusicModel, MusicModelConfig> = {
       referenceAudio: false,
       durationControl: true,
     },
+    dynamicPricing: true,  // Credits scale with duration
   },
 } as const;
 
@@ -113,3 +115,32 @@ export type UnlimitedDuration = typeof MUSIC_MODEL_CONFIG.unlimited.durations[nu
 export type HdDuration = typeof MUSIC_MODEL_CONFIG.hd.durations[number];
 export type VocalsDuration = typeof MUSIC_MODEL_CONFIG.vocals.durations[number];
 export type ProDuration = typeof MUSIC_MODEL_CONFIG.pro.durations[number];
+
+/**
+ * Calculate credits for a music generation based on model and duration
+ * Pro model uses dynamic pricing: ~2.7 credits per 10 seconds (2x Replicate cost)
+ * Other models use fixed pricing from config
+ */
+export function calculateMusicCredits(model: MusicModel, duration: number): number {
+  const config = MUSIC_MODEL_CONFIG[model];
+
+  if (config.dynamicPricing) {
+    // Pro: ~2.7 credits per 10 seconds (2x Replicate cost at $0.06/credit)
+    // 30s = 8cr, 60s = 16cr, 120s = 32cr, 180s = 49cr, 300s = 81cr
+    return Math.ceil(duration / 10 * 2.7);
+  }
+
+  return config.credits;
+}
+
+/**
+ * Format duration as MM:SS or Xs
+ */
+export function formatDuration(seconds: number): string {
+  if (seconds >= 60) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${seconds}s`;
+}

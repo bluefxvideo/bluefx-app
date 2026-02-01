@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { MUSIC_MODEL_CONFIG, type MusicModel } from '@/types/music-machine';
+import { MUSIC_MODEL_CONFIG, calculateMusicCredits, type MusicModel } from '@/types/music-machine';
 import {
   createLyria2Prediction,
   getLyria2ModelInfo,
@@ -136,8 +136,11 @@ export async function executeMusicMachine(
     // Step 1: Get model config
     const selectedModel = authenticatedRequest.model || 'unlimited';
     const config = MUSIC_MODEL_CONFIG[selectedModel];
-    total_credits = config.credits;
     const modelProvider = config.provider;
+    const duration = authenticatedRequest.duration || config.durations[0];
+
+    // Calculate credits (Pro model uses dynamic pricing based on duration)
+    total_credits = calculateMusicCredits(selectedModel, duration);
 
     // Optimize prompt
     const optimizedPrompt = optimizePromptForMusic(
@@ -146,7 +149,7 @@ export async function executeMusicMachine(
       authenticatedRequest.mood
     );
 
-    console.log(`🎵 Using model: ${selectedModel} (${modelProvider}) with optimized prompt:`, optimizedPrompt);
+    console.log(`🎵 Using model: ${selectedModel} (${modelProvider}), duration: ${duration}s, credits: ${total_credits}`);
 
     // Step 3: Credit Validation (skip for unlimited model)
     const userCredits = await getUserCredits(supabase, user.id);
@@ -175,7 +178,6 @@ export async function executeMusicMachine(
     }
 
     let prediction: any;
-    const duration = authenticatedRequest.duration || config.durations[0];
 
     // Route to appropriate model based on selection
     switch (selectedModel) {

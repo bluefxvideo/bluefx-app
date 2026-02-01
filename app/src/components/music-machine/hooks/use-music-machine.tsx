@@ -358,14 +358,22 @@ export function useMusicMachine() {
     return () => supabase.removeChannel(subscription);
   }, [user?.id, supabase, state.currentGeneration?.prediction_id]);
 
-  // Update estimated credits based on model
+  // Update estimated credits based on model AND duration (for dynamic pricing)
   useEffect(() => {
     const config = MUSIC_MODEL_CONFIG[state.model];
+    let credits = config.credits;
+
+    // Pro model uses dynamic pricing based on duration
+    if (config.dynamicPricing) {
+      // ~2.7 credits per 10 seconds (2x Replicate cost at $0.06/credit)
+      credits = Math.ceil(state.duration / 10 * 2.7);
+    }
+
     setState(prev => ({
       ...prev,
-      estimatedCredits: config.credits,
+      estimatedCredits: credits,
     }));
-  }, [state.model]);
+  }, [state.model, state.duration]);
 
   // Generate music
   const generateMusic = useCallback(async () => {
