@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { executeMusicMachine, MusicMachineRequest } from '@/actions/tools/music-machine';
 import { getMusicHistory, deleteGeneratedMusic, GeneratedMusic } from '@/actions/database/music-database';
-import { getLyria2ModelInfo } from '@/actions/models/google-lyria-2';
+import { MUSIC_MODEL_CONFIG, type MusicModel } from '@/types/music-machine';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
@@ -15,12 +15,15 @@ export interface MusicMachineState {
   genre: string;
   mood: string;
   duration: number;
-  tier: 'unlimited' | 'hd' | 'pro'; // 3-tier system
-  model_provider: 'musicgen' | 'lyria-2';
-  model_version: 'stereo-large' | 'stereo-melody-large' | 'large'; // For MusicGen
-  negative_prompt: string; // For Lyria-2
-  seed: number | null; // For Lyria-2
-  
+  model: MusicModel; // 'unlimited' | 'hd' | 'vocals' | 'pro'
+  negative_prompt: string; // For Unlimited, HD
+  seed: number | null; // For Unlimited only
+
+  // Vocals model specific (MiniMax)
+  lyrics: string;
+  reference_audio: string | null;
+  style_strength: number;
+
   // Generated results
   generatedMusic: GeneratedMusic[];
   currentGeneration: {
@@ -33,19 +36,19 @@ export interface MusicMachineState {
     status: string;
     created_at: string;
   } | null;
-  
+
   // History
   musicHistory: GeneratedMusic[];
-  
+
   // UI state
   isGenerating: boolean;
   isLoading: boolean;
   error: string | null;
   credits: number;
   estimatedCredits: number;
-  
+
   // Model info
-  modelInfo: Awaited<ReturnType<typeof getLyria2ModelInfo>> | null;
+  modelInfo: typeof MUSIC_MODEL_CONFIG[MusicModel] | null;
 }
 
 export interface UseMusicMachineReturn {
@@ -83,11 +86,12 @@ export function useMusicMachine() {
     genre: '',
     mood: '',
     duration: 30,
-    tier: 'unlimited', // Default to free tier
-    model_provider: 'lyria-2', // Default to newer Lyria-2 model
-    model_version: 'stereo-melody-large',
+    model: 'unlimited', // Default to free model
     negative_prompt: '',
     seed: null,
+    lyrics: '',
+    reference_audio: null,
+    style_strength: 0.5,
     generatedMusic: [],
     currentGeneration: null,
     musicHistory: [],
@@ -95,7 +99,7 @@ export function useMusicMachine() {
     isLoading: false,
     error: null,
     credits: 0,
-    estimatedCredits: 0, // Free tier = 0 credits
+    estimatedCredits: 0, // Free model = 0 credits
     modelInfo: null,
   });
 
@@ -119,14 +123,11 @@ export function useMusicMachine() {
     return () => subscription.unsubscribe();
   }, [supabase.auth]);
 
-  // Load model info
+  // Load model info based on selected model
   useEffect(() => {
-    const loadModelInfo = async () => {
-      const modelInfo = await getLyria2ModelInfo();
-      setState(prev => ({ ...prev, modelInfo }));
-    };
-    loadModelInfo();
-  }, []);
+    const config = MUSIC_MODEL_CONFIG[state.model];
+    setState(prev => ({ ...prev, modelInfo: config }));
+  }, [state.model]);
 
   // ✅ State restoration for seamless navigation (following perfect pattern)
   useEffect(() => {
@@ -357,40 +358,46 @@ export function useMusicMachine() {
     return () => supabase.removeChannel(subscription);
   }, [user?.id, supabase, state.currentGeneration?.prediction_id]);
 
-  // Update estimated credits based on tier
+  // Update estimated credits based on model
   useEffect(() => {
-    const TIER_CREDITS: Record<string, number> = {
-      unlimited: 0,  // Free tier - Lyria-2
-      hd: 8,         // HD tier - Stable Audio 2.5
-      pro: 15,       // Pro tier - ElevenLabs Music
-    };
-
+    const config = MUSIC_MODEL_CONFIG[state.model];
     setState(prev => ({
       ...prev,
-      estimatedCredits: TIER_CREDITS[prev.tier] || 0,
+      estimatedCredits: config.credits,
     }));
-  }, [state.tier]);
+  }, [state.model]);
 
   // Generate music
   const generateMusic = useCallback(async () => {
     if (!user || !state.prompt.trim()) return;
-    
+
+    // For vocals model, check if lyrics are provided
+    const config = MUSIC_MODEL_CONFIG[state.model];
+    if (config.features.lyrics && !state.lyrics.trim()) {
+      toast.error('Please provide lyrics for the Vocals model');
+      return;
+    }
+
     setState(prev => ({ ...prev, isGenerating: true, error: null }));
-    
+
     try {
       const request: MusicMachineRequest = {
         prompt: state.prompt,
         genre: state.genre || undefined,
         mood: state.mood || undefined,
-        tier: state.tier, // Pass tier for 3-tier system
-        duration: state.tier === 'hd' ? Math.min(state.duration, 47) : state.duration, // HD tier max 47s
-        negative_prompt: state.negative_prompt || undefined,
-        seed: state.seed ?? undefined,
+        model: state.model,
+        duration: Math.min(state.duration, config.maxDuration),
+        negative_prompt: config.features.negativePrompt ? state.negative_prompt || undefined : undefined,
+        seed: config.features.seed ? state.seed ?? undefined : undefined,
+        // Vocals model specific fields
+        lyrics: config.features.lyrics ? state.lyrics || undefined : undefined,
+        reference_audio: config.features.referenceAudio ? state.reference_audio || undefined : undefined,
+        style_strength: config.features.referenceAudio ? state.style_strength : undefined,
         user_id: user.id,
       };
 
       const response = await executeMusicMachine(request);
-      
+
       if (response.success) {
         // Set immediate result for optimistic UI (like thumbnail machine)
         const initialMusic = response.generated_music ? {
@@ -402,11 +409,11 @@ export function useMusicMachine() {
           generation_settings: {
             prediction_id: response.generated_music.prediction_id,
             batch_id: response.batch_id,
-            model_provider: state.model_provider,
+            model: state.model,
             credits_used: response.credits_used
           }
         } : null;
-        
+
         setState(prev => ({
           ...prev,
           currentGeneration: response.generated_music ? {
@@ -423,17 +430,17 @@ export function useMusicMachine() {
           credits: response.remaining_credits,
           // Keep isGenerating: true until real-time event confirms completion
         }));
-        
+
         toast.success('Music generation started! Processing may take 1-2 minutes.');
       } else {
         throw new Error(response.error || 'Music generation failed');
       }
     } catch (error) {
       console.error('Music generation error:', error);
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         error: error instanceof Error ? error.message : 'Music generation failed',
-        isGenerating: false 
+        isGenerating: false
       }));
       toast.error('Music generation failed');
     }
@@ -514,8 +521,27 @@ export function useMusicMachine() {
   }, []);
 
   // Update settings
-  const updateSettings = useCallback((settings: Partial<Pick<MusicMachineState, 'genre' | 'mood' | 'duration' | 'tier' | 'model_provider' | 'model_version' | 'negative_prompt' | 'seed'>>) => {
-    setState(prev => ({ ...prev, ...settings }));
+  const updateSettings = useCallback((settings: Partial<Pick<MusicMachineState, 'genre' | 'mood' | 'duration' | 'model' | 'negative_prompt' | 'seed' | 'lyrics' | 'reference_audio' | 'style_strength'>>) => {
+    setState(prev => {
+      // If model is changing, reset model-specific settings
+      if (settings.model && settings.model !== prev.model) {
+        const newConfig = MUSIC_MODEL_CONFIG[settings.model];
+        return {
+          ...prev,
+          ...settings,
+          duration: newConfig.durations[0],
+          // Clear lyrics if new model doesn't support it
+          lyrics: newConfig.features.lyrics ? prev.lyrics : '',
+          // Clear reference audio if not supported
+          reference_audio: newConfig.features.referenceAudio ? prev.reference_audio : null,
+          // Clear seed if not supported
+          seed: newConfig.features.seed ? prev.seed : null,
+          // Clear negative prompt if not supported
+          negative_prompt: newConfig.features.negativePrompt ? prev.negative_prompt : '',
+        };
+      }
+      return { ...prev, ...settings };
+    });
   }, []);
 
   // Clear current generation

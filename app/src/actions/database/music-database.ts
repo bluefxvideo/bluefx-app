@@ -96,7 +96,7 @@ export async function createMusicRecord(
     batch_id?: string;
     credits_used?: number;
     model_provider?: string;
-    tier?: 'unlimited' | 'hd' | 'pro';
+    tier?: 'unlimited' | 'hd' | 'vocals' | 'pro';
   }
 ): Promise<MusicDatabaseResponse<GeneratedMusic>> {
   try {
