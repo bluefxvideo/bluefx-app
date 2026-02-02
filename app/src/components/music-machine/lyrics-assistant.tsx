@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Send, Loader2, Sparkles, Plus, Wand2 } from 'lucide-react';
+import { Send, Loader2, Sparkles, Plus, Wand2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,6 +21,7 @@ export function LyricsAssistant({
   musicStyle,
 }: LyricsAssistantProps) {
   const [inputValue, setInputValue] = useState('');
+  const [isExpanded, setIsExpanded] = useState(true);
 
   // Create transport with custom API endpoint
   const transport = useMemo(
@@ -70,15 +71,31 @@ export function LyricsAssistant({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-muted/30 rounded-lg border border-border/50">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50">
-        <Wand2 className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium">AI Lyrics Assistant</span>
-      </div>
+    <div className={cn(
+      "flex flex-col bg-muted/30 rounded-lg border border-border/50 transition-all",
+      isExpanded ? "h-[280px]" : "h-auto"
+    )}>
+      {/* Clickable Header */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center justify-between w-full px-3 py-2 border-b border-border/50 hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Wand2 className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">AI Lyrics Assistant</span>
+        </div>
+        <ChevronDown className={cn(
+          "h-4 w-4 text-muted-foreground transition-transform",
+          isExpanded && "rotate-180"
+        )} />
+      </button>
 
-      {/* Quick prompts */}
-      {messages.length === 0 && (
+      {/* Collapsible Content */}
+      {isExpanded && (
+        <>
+          {/* Quick prompts */}
+          {messages.length === 0 && (
         <div className="px-3 py-3 space-y-2 border-b border-border/30">
           <p className="text-xs text-muted-foreground">Quick start:</p>
           <div className="flex flex-wrap gap-1.5">
@@ -196,6 +213,8 @@ export function LyricsAssistant({
           Try: &quot;make line 2 more emotional&quot; or &quot;add a pre-chorus&quot;
         </p>
       </form>
+        </>
+      )}
     </div>
   );
 }

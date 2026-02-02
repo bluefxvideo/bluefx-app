@@ -211,45 +211,40 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
                 </Button>
               </div>
 
-              {/* Two-column: Lyrics Editor + AI Assistant */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Lyrics Editor */}
-                <div className="space-y-2">
-                  <Textarea
-                    value={localLyrics}
-                    onChange={(e) => setLocalLyrics(e.target.value)}
-                    placeholder={`[Verse]
+              {/* Full-width Lyrics Editor */}
+              <div className="space-y-2">
+                <Textarea
+                  value={localLyrics}
+                  onChange={(e) => setLocalLyrics(e.target.value)}
+                  placeholder={`[Verse]
 Walking down the street today
 Feeling like I found my way
 
 [Chorus]
 We can make it through
 Together me and you`}
-                    className="min-h-[280px] resize-y font-mono text-sm"
-                    disabled={state.isGenerating}
-                    maxLength={3000}
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{localLyrics.length}/3000 characters</span>
-                    <span>Supports: [Verse], [Chorus], [Bridge], [Outro], [Intro]</span>
-                  </div>
-                </div>
-
-                {/* AI Lyrics Assistant */}
-                <div className="h-[320px]">
-                  <LyricsAssistant
-                    onInsertLyrics={(lyrics) => {
-                      // Append AI-generated lyrics to existing lyrics
-                      const newLyrics = localLyrics.trim()
-                        ? `${localLyrics}\n\n${lyrics}`
-                        : lyrics;
-                      setLocalLyrics(newLyrics);
-                    }}
-                    currentLyrics={localLyrics}
-                    musicStyle={localPrompt}
-                  />
+                  className="min-h-[200px] resize-y font-mono text-sm"
+                  disabled={state.isGenerating}
+                  maxLength={3000}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{localLyrics.length}/3000 characters</span>
+                  <span>Supports: [Verse], [Chorus], [Bridge], [Outro], [Intro]</span>
                 </div>
               </div>
+
+              {/* Collapsible AI Lyrics Assistant */}
+              <LyricsAssistant
+                onInsertLyrics={(lyrics) => {
+                  // Append AI-generated lyrics to existing lyrics
+                  const newLyrics = localLyrics.trim()
+                    ? `${localLyrics}\n\n${lyrics}`
+                    : lyrics;
+                  setLocalLyrics(newLyrics);
+                }}
+                currentLyrics={localLyrics}
+                musicStyle={localPrompt}
+              />
             </div>
           ) : (
             // Instrumental mode: Simple textarea
