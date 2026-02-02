@@ -1,11 +1,9 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle, Loader2, Video, User, Mic, LucideIcon, Zap } from 'lucide-react';
+import { CheckCircle, Loader2, Video, User, Mic, Upload, LucideIcon, Zap } from 'lucide-react';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { TalkingAvatarState } from '../hooks/use-talking-avatar';
 import { AvatarExample } from './avatar-example';
 import { AvatarVideoPreview } from './avatar-video-preview';
@@ -64,7 +62,7 @@ interface TalkingAvatarOutputProps {
 }
 
 export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
-  const { state, clearResults, resetWizard } = avatarState;
+  const { state, resetWizard } = avatarState;
   
   // Debug logging to help troubleshoot
   console.log('🎬 TalkingAvatarOutput render:', {
@@ -167,15 +165,22 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
   // If in progress but not generating, show progress state
   if (isInProgress) {
+    // Check if audio is ready (TTS voice or uploaded audio)
+    const hasAudioReady = state.audioInputMode === 'upload'
+      ? !!state.uploadedAudioUrl
+      : !!(state.selectedVoiceId && state.voiceAudioUrl);
+
     const getCurrentMessage = () => {
       if (state.currentStep === 2 && state.selectedAvatarTemplate) {
-        return 'Avatar selected! Add your script and choose a voice.';
+        return state.audioInputMode === 'upload'
+          ? 'Avatar selected! Upload your audio file (max 60 seconds).'
+          : 'Avatar selected! Add your script and choose a voice.';
       }
       if (state.currentStep === 2 && state.isLoading) {
         return 'Preparing voice in the background...';
       }
-      if (state.currentStep === 3 && state.selectedVoiceId) {
-        return 'Voice ready! Click generate to create your avatar video.';
+      if (state.currentStep === 3 && hasAudioReady) {
+        return 'Audio ready! Click generate to create your avatar video.';
       }
       return 'Continue setting up your talking avatar video.';
     };
@@ -185,12 +190,25 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         return 'Preparing Voice';
       }
       if (state.currentStep === 2) {
-        return 'Configure Voice';
+        return state.audioInputMode === 'upload' ? 'Upload Audio' : 'Configure Voice';
       }
       if (state.currentStep === 3) {
         return 'Ready to Generate';
       }
       return 'Setup in Progress';
+    };
+
+    const getStep2Title = () => {
+      if (hasAudioReady) {
+        return state.audioInputMode === 'upload' ? 'Audio Uploaded' : 'Voice Prepared';
+      }
+      return state.audioInputMode === 'upload' ? 'Upload Audio' : 'Add Voice';
+    };
+
+    const getStep2Description = () => {
+      return state.audioInputMode === 'upload'
+        ? 'Upload audio file (max 60s)'
+        : 'Enter script and select voice';
     };
 
     return (
@@ -202,7 +220,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
               title={getCurrentTitle()}
               description={getCurrentMessage()}
             />
-            
+
             <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
               <StepIndicator
                 stepNumber={1}
@@ -213,17 +231,17 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                 isActive={state.currentStep === 1}
                 isLoading={state.isLoading && state.currentStep === 1}
               />
-              
+
               <StepIndicator
                 stepNumber={2}
-                title={!!(state.selectedVoiceId && state.voiceAudioUrl) ? "Prepared Voice" : "Add Voice"}
-                description="Enter script and select voice"
-                icon={Mic}
-                isCompleted={!!(state.selectedVoiceId && state.voiceAudioUrl)}
+                title={getStep2Title()}
+                description={getStep2Description()}
+                icon={state.audioInputMode === 'upload' ? Upload : Mic}
+                isCompleted={hasAudioReady}
                 isActive={state.currentStep === 2 && !state.isLoading}
                 isLoading={state.isLoading && state.currentStep === 2}
               />
-              
+
               <StepIndicator
                 stepNumber={3}
                 title="Generate Video"

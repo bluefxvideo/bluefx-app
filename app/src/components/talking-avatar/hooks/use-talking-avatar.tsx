@@ -5,32 +5,38 @@ import { usePathname } from 'next/navigation';
 import { executeTalkingAvatar, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
 import { getAvatarTemplates, getTalkingAvatarVideos, deleteTalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
+import { pollLTXVideoGeneration } from '@/actions/models/fal-ltx-polling';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
 export interface TalkingAvatarState {
-  // Current step in wizard (1: Avatar Selection, 2: Voice Generation, 3: Video Generation)
+  // Current step in wizard (1: Avatar Selection, 2: Voice/Audio Input, 3: Video Generation)
   currentStep: number;
   totalSteps: number;
-  
+
   // Avatar Selection (Step 1)
   avatarTemplates: AvatarTemplate[];
   selectedAvatarTemplate: AvatarTemplate | null;
   customAvatarImage: File | null;
   customAvatarUrl: string | null;
-  
-  // Voice Generation (Step 2)
+
+  // Audio Input (Step 2) - TTS or Upload mode
+  audioInputMode: 'tts' | 'upload';
   scriptText: string;
   voiceOptions: VoiceOption[];
   selectedVoiceId: string | null;
-  voiceAudioUrl: string | null;
-  estimatedDuration: number;
-  
+  voiceAudioUrl: string | null; // TTS generated audio URL
+  uploadedAudioUrl: string | null; // Directly uploaded audio URL
+  uploadedAudioFile: File | null;
+  audioDurationSeconds: number; // Duration of audio (TTS estimated or uploaded actual)
+  actionPrompt: string; // Optional prompt for visual style/movements
+
   // Video Generation (Step 3)
+  selectedResolution: 'landscape' | 'portrait';
   isGenerating: boolean;
   generatedVideo: { id: string; video_url: string; thumbnail_url?: string; script_text: string; avatar_image_url: string; created_at: string; } | null;
-  
+
   // General state
   isLoading: boolean;
   error: string | null;
@@ -40,10 +46,10 @@ export interface TalkingAvatarState {
   // History state
   videos: TalkingAvatarVideo[];
   isLoadingHistory: boolean;
-  
+
   // Generation state
-  currentGenerationId: string | null;
-  isStateRestored: boolean; // New: indicates if state was restored from ongoing generation
+  currentGenerationId: string | null; // fal.ai request_id or hedra generation_id
+  isStateRestored: boolean;
 }
 
 export interface UseTalkingAvatarReturn {
@@ -53,7 +59,7 @@ export interface UseTalkingAvatarReturn {
   loadAvatarTemplates: () => Promise<void>;
   handleAvatarSelection: (template: AvatarTemplate | null, customFile?: File) => Promise<void>;
   handleVoiceGeneration: (voiceId: string, scriptText: string) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
-  handleVideoGeneration: (aspectRatio?: '16:9' | '9:16') => Promise<void>;
+  handleVideoGeneration: () => Promise<void>;
   resetWizard: () => void;
   goToStep: (step: number) => void;
   clearVoice: () => void;
@@ -61,6 +67,12 @@ export interface UseTalkingAvatarReturn {
   loadHistory: () => Promise<void>;
   deleteVideo: (videoId: string) => Promise<boolean>;
   checkHistoryItemStatus: (generationId: string) => Promise<void>;
+  // New state setters for dual audio input mode
+  setAudioInputMode: (mode: 'tts' | 'upload') => void;
+  setUploadedAudio: (url: string | null, file: File | null, duration: number) => void;
+  setActionPrompt: (prompt: string) => void;
+  setSelectedResolution: (resolution: 'landscape' | 'portrait') => void;
+  setScriptText: (text: string) => void;
 }
 
 export function useTalkingAvatar(): UseTalkingAvatarReturn {
@@ -72,6 +84,11 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   // Frontend polling refs for Hedra completion detection
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // fal.ai LTX polling ref for local development (webhooks can't reach localhost)
+  const falPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const isLocalDev = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   
   const getActiveTabFromPath = useCallback(() => {
     if (pathname.includes('/history')) return 'history';
@@ -89,17 +106,24 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     selectedAvatarTemplate: null,
     customAvatarImage: null,
     customAvatarUrl: null,
+    // Audio input (Step 2)
+    audioInputMode: 'tts',
     scriptText: '',
     voiceOptions: [],
     selectedVoiceId: null,
     voiceAudioUrl: null,
-    estimatedDuration: 0,
+    uploadedAudioUrl: null,
+    uploadedAudioFile: null,
+    audioDurationSeconds: 0,
+    actionPrompt: '',
+    // Video generation (Step 3)
+    selectedResolution: 'landscape',
     isGenerating: false,
     generatedVideo: null,
     isLoading: false,
     error: null,
     credits: 0,
-    estimatedCredits: 6, // Base cost for avatar video
+    estimatedCredits: 10, // Minimum 10 credits for avatar video
     videos: [],
     isLoadingHistory: false,
     currentGenerationId: null,
@@ -239,14 +263,14 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       
       if (response.success) {
         const voiceAudioUrl = response.step_data?.voice_audio_url || null;
-        
+
         setState(prev => ({
           ...prev,
           scriptText,
           selectedVoiceId: voiceId,
           voiceOptions: response.voice_options || prev.voiceOptions,
           voiceAudioUrl,
-          estimatedDuration: response.step_data?.estimated_duration || 0,
+          audioDurationSeconds: response.step_data?.estimated_duration || 0,
           currentStep: 2,
           credits: response.remaining_credits,
           isLoading: false,
@@ -269,68 +293,67 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }
   }, [user, state.customAvatarUrl, state.selectedAvatarTemplate]);
 
-  // Step 3: Handle video generation
-  const handleVideoGeneration = useCallback(async (aspectRatio: '16:9' | '9:16' = '16:9') => {
-    if (!user || !state.selectedVoiceId || !state.scriptText) return;
-    
+  // Step 3: Handle video generation (supports both TTS and upload audio modes)
+  const handleVideoGeneration = useCallback(async () => {
+    if (!user) return;
+
+    // Determine audio URL based on input mode
+    const audioUrl = state.audioInputMode === 'upload'
+      ? state.uploadedAudioUrl
+      : state.voiceAudioUrl;
+
+    if (!audioUrl) {
+      toast.error('Please generate voice or upload audio first');
+      return;
+    }
+
     setState(prev => ({ ...prev, isGenerating: true, error: null }));
-    
-    // Create immediate placeholder result to show video preview (matching AI cinematographer pattern)
+
+    // Create immediate placeholder result to show video preview
     const batch_id = crypto.randomUUID();
     const placeholderVideo = {
       id: batch_id,
-      video_url: '', // Empty until completed
+      video_url: '',
       thumbnail_url: '',
       script_text: state.scriptText,
       avatar_image_url: state.customAvatarUrl || state.selectedAvatarTemplate?.thumbnail_url || '',
       created_at: new Date().toISOString()
     };
-    
+
     setState(prev => ({
       ...prev,
       generatedVideo: placeholderVideo,
       currentStep: 3,
     }));
-    
+
     try {
       const request: TalkingAvatarRequest = {
         script_text: state.scriptText,
-        voice_id: state.selectedVoiceId,
-        voice_audio_url: state.voiceAudioUrl,
         avatar_image_url: state.customAvatarUrl || state.selectedAvatarTemplate?.thumbnail_url,
         avatar_template_id: state.selectedAvatarTemplate?.id,
         workflow_step: 'video_generate',
         user_id: user.id,
-        aspect_ratio: aspectRatio,
+        // Audio input mode specific fields
+        audio_input_mode: state.audioInputMode,
+        voice_audio_url: state.audioInputMode === 'tts' ? state.voiceAudioUrl ?? undefined : undefined,
+        uploaded_audio_url: state.audioInputMode === 'upload' ? state.uploadedAudioUrl ?? undefined : undefined,
+        audio_duration_seconds: state.audioDurationSeconds,
+        voice_id: state.selectedVoiceId ?? undefined,
+        // Video settings
+        resolution: state.selectedResolution,
+        aspect_ratio: state.selectedResolution === 'portrait' ? '9:16' : '16:9',
+        action_prompt: state.actionPrompt || undefined,
       };
-
-      // Create immediate placeholder result to show processing UI
-      const placeholderVideo = {
-        id: `talking_avatar_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        video_url: '', // Empty until completed
-        thumbnail_url: '',
-        script_text: state.scriptText,
-        avatar_image_url: state.selectedAvatarTemplate?.thumbnail_url || state.customAvatarUrl || '',
-        created_at: new Date().toISOString()
-      };
-
-      setState(prev => ({
-        ...prev,
-        generatedVideo: placeholderVideo,
-        isGenerating: true,
-        error: null
-      }));
 
       const response = await executeTalkingAvatar(request);
-      
+
       if (response.success) {
-        // Update the placeholder with real data
         setState(prev => ({
           ...prev,
           generatedVideo: {
             ...placeholderVideo,
             id: response.video?.id || placeholderVideo.id,
-            video_url: response.video?.video_url || '', // Still empty until real-time update
+            video_url: response.video?.video_url || '',
             thumbnail_url: response.video?.thumbnail_url || placeholderVideo.thumbnail_url,
             script_text: response.video?.script_text || placeholderVideo.script_text,
             avatar_image_url: response.video?.avatar_image_url || placeholderVideo.avatar_image_url,
@@ -339,27 +362,24 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           credits: response.remaining_credits,
           currentGenerationId: response.prediction_id || null,
         }));
-        
-        // Start frontend polling after 30 seconds for Hedra completion detection
-        // Since Hedra doesn't have webhooks, we need to poll their API
-        setTimeout(() => {
-          startHedraPolling(response.prediction_id || placeholderVideo.id);
-        }, 30000); // Wait 30 seconds before starting to poll
-        
-        toast.success('Video generation started! Check your history for updates.');
+
+        // fal.ai uses webhooks - no polling needed
+        // Real-time subscription will handle completion updates
+        toast.success('Video generation started! This may take a few minutes.');
       } else {
         throw new Error(response.error || 'Video generation failed');
       }
     } catch (error) {
-      // Video generation failed silently
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         error: error instanceof Error ? error.message : 'Video generation failed',
-        isGenerating: false 
+        isGenerating: false
       }));
       toast.error('Video generation failed');
     }
-  }, [user, state.selectedVoiceId, state.scriptText, state.customAvatarUrl, state.selectedAvatarTemplate]);
+  }, [user, state.audioInputMode, state.voiceAudioUrl, state.uploadedAudioUrl, state.audioDurationSeconds,
+      state.scriptText, state.customAvatarUrl, state.selectedAvatarTemplate, state.selectedVoiceId,
+      state.selectedResolution, state.actionPrompt]);
 
   // Reset to step 1
   const resetWizard = useCallback(() => {
@@ -369,11 +389,20 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       selectedAvatarTemplate: null,
       customAvatarImage: null,
       customAvatarUrl: null,
+      // Audio input reset
+      audioInputMode: 'tts',
       scriptText: '',
       selectedVoiceId: null,
       voiceAudioUrl: null,
+      uploadedAudioUrl: null,
+      uploadedAudioFile: null,
+      audioDurationSeconds: 0,
+      actionPrompt: '',
+      // Video settings reset
+      selectedResolution: 'landscape',
       generatedVideo: null,
       error: null,
+      currentGenerationId: null,
     }));
   }, []);
 
@@ -382,14 +411,46 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     setState(prev => ({ ...prev, currentStep: step }));
   }, []);
 
-  // Clear voice to allow regeneration
+  // Clear voice/audio to allow regeneration
   const clearVoice = useCallback(() => {
     setState(prev => ({
       ...prev,
       voiceAudioUrl: null,
+      uploadedAudioUrl: null,
+      uploadedAudioFile: null,
       selectedVoiceId: null,
-      estimatedDuration: 0,
+      audioDurationSeconds: 0,
     }));
+  }, []);
+
+  // Set audio input mode
+  const setAudioInputMode = useCallback((mode: 'tts' | 'upload') => {
+    setState(prev => ({ ...prev, audioInputMode: mode }));
+  }, []);
+
+  // Set uploaded audio
+  const setUploadedAudio = useCallback((url: string | null, file: File | null, duration: number) => {
+    setState(prev => ({
+      ...prev,
+      uploadedAudioUrl: url,
+      uploadedAudioFile: file,
+      audioDurationSeconds: duration,
+    }));
+  }, []);
+
+  // Set action prompt
+  const setActionPrompt = useCallback((prompt: string) => {
+    setState(prev => ({ ...prev, actionPrompt: prompt }));
+  }, []);
+
+  // Set resolution
+  const setSelectedResolution = useCallback((resolution: 'landscape' | 'portrait') => {
+    setState(prev => ({ ...prev, selectedResolution: resolution }));
+  }, []);
+
+  // Set script text
+  const setScriptText = useCallback((text: string) => {
+    setState(prev => ({ ...prev, scriptText: text }));
   }, []);
 
   // Frontend polling functions for Hedra completion detection
@@ -578,69 +639,61 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           }
 
           // Retrieved videos from database
-          
-          // Only consider very recent videos (within last 2 minutes) since Hedra videos expire quickly
-          // Also require hedra_generation_id to be present for valid resumption
+
+          // Only consider very recent videos (within last 2 minutes)
+          // Check for both fal_request_id (new) and hedra_generation_id (legacy)
           const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-          const processingVideo = videos?.find(v => {
+          const processingVideo = videos?.find((v: any) => {
             const isProcessingStatus = v.status === 'processing' || v.status === 'pending';
             const isRecent = new Date(v.created_at || '') > twoMinutesAgo;
-            const hasValidGenerationId = v.hedra_generation_id && v.hedra_generation_id.trim();
-            
-            // Resume processing videos with real-time updates
-            
+            const hasValidGenerationId = (v.fal_request_id && v.fal_request_id.trim()) ||
+                                         (v.hedra_generation_id && v.hedra_generation_id.trim());
+
             return isProcessingStatus && isRecent && hasValidGenerationId;
           });
-          
+
           if (processingVideo) {
-            // Found processing video
-            
+            // Found processing video - determine generation ID (fal.ai or Hedra)
+            const generationId = (processingVideo as any).fal_request_id || (processingVideo as any).hedra_generation_id;
+            const videoSource = (processingVideo as any).video_source || 'hedra';
+
             // Only restore if we're not already in a generating state (true restoration)
             if (!state.isGenerating && !state.currentGenerationId) {
-              // Restoring processing state for video
-              
-              // Restore processing state - estimate how long it's been processing
-              const videoCreatedAt = new Date(processingVideo.created_at || '').getTime();
-              const estimatedPollingStartTime = videoCreatedAt || Date.now();
-              
               setState(prev => ({
                 ...prev,
                 isGenerating: true,
                 error: null,
                 generatedVideo: {
                   id: processingVideo.id,
-                  video_url: processingVideo.video_url || '', // Empty until completed
+                  video_url: processingVideo.video_url || '',
                   thumbnail_url: processingVideo.thumbnail_url || '',
                   script_text: processingVideo.script_text || '',
-                  avatar_image_url: processingVideo.avatar_image_url || '',
+                  avatar_image_url: (processingVideo as any).avatar_image_url || '',
                   created_at: processingVideo.created_at || new Date().toISOString()
                 },
-                currentGenerationId: processingVideo.hedra_generation_id || null,
-                isStateRestored: true, // Only set when truly restoring
+                currentGenerationId: generationId || null,
+                isStateRestored: true,
                 currentStep: 3,
               }));
-              
-              // Resume polling for the restored generation (without initial 30s delay since generation is already in progress)
-              if (processingVideo.hedra_generation_id) {
-                console.log('🔄 Resuming Hedra polling for restored generation:', processingVideo.hedra_generation_id);
+
+              // Resume polling for legacy Hedra generations (fal.ai uses webhooks)
+              if (videoSource === 'hedra' && generationId) {
+                console.log('🔄 Resuming Hedra polling for restored generation:', generationId);
                 setTimeout(() => {
-                  startHedraPolling(processingVideo.hedra_generation_id);
-                }, 2000); // Short delay to let UI update first
+                  startHedraPolling(generationId);
+                }, 2000);
+              } else {
+                console.log('🔄 Restored fal.ai generation - waiting for webhook:', generationId);
               }
-            } else {
-              // Skipping restoration - already generating
             }
-            
-            // Pure real-time updates will handle completion automatically
-            
-            // Processing state restored
           } else {
             // No ongoing generations found
-            
-            // Clean up any stuck processing records without hedra_generation_id
-            const stuckRecords = videos?.filter(v => {
+
+            // Clean up any stuck processing records without generation ID
+            const stuckRecords = videos?.filter((v: any) => {
               const isProcessingStatus = v.status === 'processing' || v.status === 'pending';
-              const hasNoGenerationId = !v.hedra_generation_id || !v.hedra_generation_id.trim();
+              const hasNoGenerationId = (!v.fal_request_id || !v.fal_request_id.trim()) &&
+                                        (!v.hedra_generation_id || !v.hedra_generation_id.trim());
               return isProcessingStatus && hasNoGenerationId;
             });
             
@@ -708,16 +761,18 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           });
 
           const updatedVideo = payload.new as TalkingAvatarVideo;
-          
+
           // Update current result if it matches the current generation
+          // Check both fal_request_id (new) and hedra_generation_id (legacy)
           const currentGenerationId = currentGenerationIdRef.current;
           const currentVideo = generatedVideoRef.current;
-          const isCurrentGeneration = currentGenerationId && updatedVideo?.hedra_generation_id === currentGenerationId;
+          const updatedVideoGenerationId = updatedVideo?.fal_request_id || (updatedVideo as any)?.hedra_generation_id;
+          const isCurrentGeneration = currentGenerationId && updatedVideoGenerationId === currentGenerationId;
 
           console.log('🔍 Talking Avatar real-time matching check:', {
             hasCurrentGenerationId: !!currentGenerationId,
             currentGenerationId,
-            updatedVideoGenerationId: updatedVideo?.hedra_generation_id,
+            updatedVideoGenerationId,
             updatedVideoStatus: updatedVideo?.status,
             isMatch: isCurrentGeneration
           });
@@ -740,7 +795,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 video_url: updatedVideo.video_url || '',
                 thumbnail_url: updatedVideo.thumbnail_url || '',
                 script_text: updatedVideo.script_text || '',
-                avatar_image_url: updatedVideo.avatar_image_url || '',
+                avatar_image_url: (updatedVideo as any).avatar_image_url || '',
                 created_at: updatedVideo.created_at || new Date().toISOString()
               }
             }));
@@ -801,8 +856,95 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     return () => {
       console.log('🧹 Cleaning up Hedra polling timers');
       stopHedraPolling();
+      // Also cleanup fal.ai polling
+      if (falPollingRef.current) {
+        clearInterval(falPollingRef.current);
+        falPollingRef.current = null;
+      }
     };
   }, [stopHedraPolling]);
+
+  // fal.ai LTX polling for local development (webhooks can't reach localhost)
+  // In production, webhooks handle completion - no polling needed
+  useEffect(() => {
+    // Only poll in local development - production uses webhooks
+    if (!isLocalDev) {
+      return;
+    }
+
+    // Only poll if we're generating and have a request ID
+    // New generations use fal.ai, legacy ones use Hedra (which has its own polling)
+    const requestId = state.currentGenerationId;
+
+    if (!state.isGenerating || !requestId) {
+      if (falPollingRef.current) {
+        clearInterval(falPollingRef.current);
+        falPollingRef.current = null;
+      }
+      return;
+    }
+
+    console.log(`🔄 [DEV] Starting fal.ai LTX polling for: ${requestId}`);
+
+    // Poll every 5 seconds
+    const pollInterval = setInterval(async () => {
+      try {
+        const result = await pollLTXVideoGeneration(requestId);
+        console.log(`🔄 [DEV] fal.ai poll result for ${requestId}:`, result.status);
+
+        if (result.status === 'completed' && result.video_url) {
+          console.log(`✅ [DEV] fal.ai LTX completed! ${result.video_url}`);
+
+          // Update state with completed video
+          setState(prev => ({
+            ...prev,
+            isGenerating: false,
+            isStateRestored: false,
+            currentGenerationId: null,
+            generatedVideo: prev.generatedVideo ? {
+              ...prev.generatedVideo,
+              video_url: result.video_url!,
+            } : null,
+            error: null,
+          }));
+
+          toast.success('Video generation completed!');
+
+          // Stop polling
+          clearInterval(pollInterval);
+          falPollingRef.current = null;
+
+        } else if (result.status === 'failed') {
+          console.error(`❌ [DEV] fal.ai LTX failed:`, result.error);
+
+          setState(prev => ({
+            ...prev,
+            isGenerating: false,
+            error: result.error || 'Video generation failed',
+            currentGenerationId: null,
+          }));
+
+          toast.error(result.error || 'Video generation failed');
+
+          // Stop polling
+          clearInterval(pollInterval);
+          falPollingRef.current = null;
+        }
+        // For 'pending' or 'processing', continue polling
+      } catch (error) {
+        console.error('[DEV] fal.ai polling error:', error);
+        // Don't stop polling on network errors - they might be temporary
+      }
+    }, 5000); // Poll every 5 seconds
+
+    falPollingRef.current = pollInterval;
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      clearInterval(pollInterval);
+      falPollingRef.current = null;
+    };
+  }, [state.isGenerating, state.currentGenerationId, isLocalDev]);
 
   // Check status for a specific history item
   const checkHistoryItemStatus = useCallback(async (generationId: string) => {
@@ -842,5 +984,11 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     loadHistory,
     deleteVideo,
     checkHistoryItemStatus,
+    // New state setters for dual audio input mode
+    setAudioInputMode,
+    setUploadedAudio,
+    setActionPrompt,
+    setSelectedResolution,
+    setScriptText,
   };
 }

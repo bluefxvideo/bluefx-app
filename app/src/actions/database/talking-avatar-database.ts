@@ -21,6 +21,13 @@ export interface TalkingAvatarVideo {
   voice_settings: Json | null;
   created_at: string | null;
   updated_at: string | null;
+  // New fields for fal.ai LTX integration
+  fal_request_id: string | null;
+  video_source: 'hedra' | 'fal-ltx' | null;
+  resolution_width: number | null;
+  resolution_height: number | null;
+  audio_duration_seconds: number | null;
+  action_prompt: string | null;
 }
 
 export interface AvatarTemplate {
@@ -418,7 +425,8 @@ export async function deductCredits(
 }
 
 /**
- * Store talking avatar video results following legacy pattern
+ * Store talking avatar video results
+ * Supports both legacy Hedra and new fal.ai LTX integrations
  */
 export async function storeTalkingAvatarResults(params: {
   user_id: string;
@@ -428,8 +436,17 @@ export async function storeTalkingAvatarResults(params: {
   video_url?: string;
   thumbnail_url?: string;
   duration?: number;
+  // Legacy Hedra fields
   hedra_generation_id?: string;
   hedra_asset_id?: string;
+  // New fal.ai LTX fields
+  fal_request_id?: string;
+  video_source?: 'hedra' | 'fal-ltx';
+  resolution_width?: number;
+  resolution_height?: number;
+  audio_duration_seconds?: number;
+  action_prompt?: string;
+  // Common fields
   voice_audio_url?: string;
   avatar_image_url?: string;
   settings?: Json;
@@ -437,7 +454,7 @@ export async function storeTalkingAvatarResults(params: {
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    
+
     const { error } = await supabase
       .from('avatar_videos')
       .upsert({
@@ -448,8 +465,17 @@ export async function storeTalkingAvatarResults(params: {
         video_url: params.video_url,
         thumbnail_url: params.thumbnail_url,
         duration_seconds: params.duration,
+        // Legacy Hedra fields
         hedra_generation_id: params.hedra_generation_id,
         hedra_asset_id: params.hedra_asset_id,
+        // New fal.ai LTX fields
+        fal_request_id: params.fal_request_id,
+        video_source: params.video_source || (params.hedra_generation_id ? 'hedra' : 'fal-ltx'),
+        resolution_width: params.resolution_width,
+        resolution_height: params.resolution_height,
+        audio_duration_seconds: params.audio_duration_seconds,
+        action_prompt: params.action_prompt,
+        // Common fields
         avatar_image_url: params.avatar_image_url,
         audio_url: params.voice_audio_url,
         video_settings: params.settings || {},
@@ -470,9 +496,9 @@ export async function storeTalkingAvatarResults(params: {
 
   } catch (error) {
     console.error('storeTalkingAvatarResults error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to store results' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to store results'
     };
   }
 }
@@ -558,7 +584,7 @@ export async function updateTalkingAvatarVideoByHedraId(
   updates: Partial<TalkingAvatarVideo>
 ): Promise<TalkingAvatarVideo | null> {
   const supabase = createAdminClient();
-  
+
   const { data: video, error } = await supabase
     .from('avatar_videos')
     .update({
@@ -575,6 +601,61 @@ export async function updateTalkingAvatarVideoByHedraId(
     }
     console.error('Error updating video by Hedra ID:', error);
     throw new Error('Failed to update video');
+  }
+
+  return video;
+}
+
+/**
+ * Update talking avatar video by fal.ai request ID (for webhooks)
+ */
+export async function updateTalkingAvatarVideoByFalId(
+  falRequestId: string,
+  updates: Partial<TalkingAvatarVideo>
+): Promise<TalkingAvatarVideo | null> {
+  const supabase = createAdminClient();
+
+  const { data: video, error } = await supabase
+    .from('avatar_videos')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+    .eq('fal_request_id', falRequestId)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null; // Video not found
+    }
+    console.error('Error updating video by fal.ai request ID:', error);
+    throw new Error('Failed to update video');
+  }
+
+  return video;
+}
+
+/**
+ * Get talking avatar video by fal.ai request ID
+ */
+export async function getTalkingAvatarVideoByFalId(
+  falRequestId: string
+): Promise<TalkingAvatarVideo | null> {
+  const supabase = createAdminClient();
+
+  const { data: video, error } = await supabase
+    .from('avatar_videos')
+    .select('*')
+    .eq('fal_request_id', falRequestId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null; // Video not found
+    }
+    console.error('Error getting video by fal.ai request ID:', error);
+    throw new Error('Failed to get video');
   }
 
   return video;

@@ -1,8 +1,16 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { uploadImageToStorage } from '@/actions/supabase-storage';
+import { uploadImageToStorage, uploadAudioToStorage } from '@/actions/supabase-storage';
 import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
+import {
+  createFalLTXPrediction,
+  LTX_RESOLUTIONS,
+  LTX_FRAME_RATE,
+  LTX_MAX_DURATION_SECONDS,
+  validateAudioDuration,
+  type LTXResolution
+} from '@/actions/models/fal-ltx-audio-video';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 import {
   getUserCredits,
@@ -20,10 +28,16 @@ export interface TalkingAvatarRequest {
   avatar_template_id?: string;
   voice_id?: string;
   custom_avatar_image?: File | null;
-  workflow_step: 'avatar_select' | 'voice_generate' | 'video_generate';
+  workflow_step: 'avatar_select' | 'voice_generate' | 'audio_upload' | 'video_generate';
   user_id: string;
-  voice_audio_url?: string; // For video generation step
-  aspect_ratio?: '16:9' | '9:16'; // Video orientation
+  voice_audio_url?: string; // For video generation step (from TTS)
+  aspect_ratio?: '16:9' | '9:16'; // Video orientation (legacy, maps to resolution)
+  // New fields for fal.ai LTX
+  audio_input_mode?: 'tts' | 'upload';
+  uploaded_audio_url?: string; // For direct audio upload
+  audio_duration_seconds?: number; // Duration of uploaded audio
+  resolution?: LTXResolution; // 'landscape' | 'portrait'
+  action_prompt?: string; // Optional prompt for visual style/movements
 }
 
 export interface TalkingAvatarResponse {
@@ -47,6 +61,7 @@ export interface TalkingAvatarResponse {
     created_at: string;
   };
   batch_id: string;
+  prediction_id?: string | null; // fal.ai request_id or Hedra generation_id for polling
   generation_time_ms: number;
   credits_used: number;
   remaining_credits: number;
@@ -140,6 +155,8 @@ export async function executeTalkingAvatar(
         return await handleAvatarSelection(authenticatedRequest, batch_id, startTime, supabase);
       case 'voice_generate':
         return await handleVoiceGeneration(authenticatedRequest, batch_id, startTime, supabase);
+      case 'audio_upload':
+        return await handleAudioUpload(authenticatedRequest, batch_id, startTime);
       case 'video_generate':
         return await handleVideoGeneration(authenticatedRequest, batch_id, startTime, supabase);
       default:
@@ -285,21 +302,133 @@ async function handleVoiceGeneration(
 }
 
 /**
- * Step 3: Handle final video generation using Hedra API
+ * Step 2b: Handle direct audio file upload (alternative to TTS)
+ * Validates duration and returns audio URL for video generation
+ */
+async function handleAudioUpload(
+  request: TalkingAvatarRequest,
+  batch_id: string,
+  startTime: number
+): Promise<TalkingAvatarResponse> {
+  try {
+    // Validate that we have audio info
+    if (!request.uploaded_audio_url || !request.audio_duration_seconds) {
+      return {
+        success: false,
+        error: 'Audio URL and duration are required for upload mode',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
+    // Validate audio duration (max 60 seconds)
+    const durationValidation = validateAudioDuration(request.audio_duration_seconds);
+    if (!durationValidation.valid) {
+      return {
+        success: false,
+        error: durationValidation.error || 'Audio duration exceeds 60 second limit',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
+    // Calculate estimated credits
+    const creditCosts = calculateTalkingAvatarCreditCost(request);
+
+    return {
+      success: true,
+      step_data: {
+        current_step: 2,
+        total_steps: 3,
+        voice_audio_url: request.uploaded_audio_url,
+        estimated_duration: request.audio_duration_seconds,
+      },
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: 0,
+      remaining_credits: (await getUserCredits(request.user_id)).credits || 0,
+    };
+
+  } catch (error) {
+    console.error('Audio upload error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Audio upload failed',
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: 0,
+      remaining_credits: 0,
+    };
+  }
+}
+
+/**
+ * Step 3: Handle final video generation using fal.ai LTX Audio-to-Video
+ * Replaces legacy Hedra API with fal.ai for better quality and pricing
  */
 async function handleVideoGeneration(
   request: TalkingAvatarRequest,
   batch_id: string,
   startTime: number,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<TalkingAvatarResponse> {
-  let hedraGenerationId: string | null = null;
-  
+  let falRequestId: string | null = null;
+
   try {
-    // Calculate credit costs
-    const creditCosts = calculateTalkingAvatarCreditCost(request);
-    
-    // Verify user has sufficient credits using proper pattern
+    // Determine audio URL - either from TTS generation or direct upload
+    const audioUrl = request.voice_audio_url || request.uploaded_audio_url;
+    if (!audioUrl) {
+      return {
+        success: false,
+        error: 'Audio URL is required for video generation. Generate voice or upload audio first.',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
+    // Determine audio duration
+    let audioDurationSeconds: number;
+    if (request.audio_duration_seconds) {
+      // Direct upload - use provided duration
+      audioDurationSeconds = request.audio_duration_seconds;
+    } else {
+      // TTS - estimate from word count
+      const wordCount = request.script_text.trim().split(/\s+/).filter(Boolean).length;
+      audioDurationSeconds = Math.max(3, Math.ceil(wordCount / 2.5));
+    }
+
+    // Validate audio duration (max 60 seconds for fal.ai LTX)
+    const durationValidation = validateAudioDuration(audioDurationSeconds);
+    if (!durationValidation.valid) {
+      return {
+        success: false,
+        error: durationValidation.error || 'Invalid audio duration',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
+    // Determine resolution from request (default to landscape)
+    const resolution: LTXResolution = request.resolution ||
+      (request.aspect_ratio === '9:16' ? 'portrait' : 'landscape');
+    const { width, height } = LTX_RESOLUTIONS[resolution];
+
+    // Calculate credit costs (1 credit per second, min 10, max 60)
+    const creditCosts = calculateTalkingAvatarCreditCost({
+      ...request,
+      audio_duration_seconds: audioDurationSeconds
+    });
+
+    // Verify user has sufficient credits
     const userCreditsResult = await getUserCredits(request.user_id);
     if (!userCreditsResult.success) {
       return {
@@ -311,7 +440,7 @@ async function handleVideoGeneration(
         remaining_credits: 0,
       };
     }
-    
+
     const userCredits = userCreditsResult.credits || 0;
     if (userCredits < creditCosts.total) {
       return {
@@ -324,13 +453,19 @@ async function handleVideoGeneration(
       };
     }
 
-    // Store initial record using proper pattern
+    // Store initial record with fal.ai LTX fields
     const storeResult = await storeTalkingAvatarResults({
       user_id: request.user_id,
       script_text: request.script_text,
       avatar_template_id: request.avatar_template_id || null,
       batch_id: batch_id,
-      voice_audio_url: request.voice_audio_url,
+      voice_audio_url: audioUrl,
+      avatar_image_url: request.avatar_image_url,
+      video_source: 'fal-ltx',
+      resolution_width: width,
+      resolution_height: height,
+      audio_duration_seconds: audioDurationSeconds,
+      action_prompt: request.action_prompt,
       status: 'processing'
     });
 
@@ -346,15 +481,16 @@ async function handleVideoGeneration(
       };
     }
 
-    // Deduct credits using proper RPC pattern
+    // Deduct credits
     const deductResult = await deductCredits(
-      request.user_id, 
-      creditCosts.total, 
+      request.user_id,
+      creditCosts.total,
       'talking_avatar_generation',
       {
         batch_id,
-        script_length: request.script_text.length,
-        estimated_duration: creditCosts.estimated_duration
+        audio_duration: audioDurationSeconds,
+        resolution: resolution,
+        video_source: 'fal-ltx'
       }
     );
 
@@ -369,109 +505,79 @@ async function handleVideoGeneration(
         remaining_credits: userCredits,
       };
     }
-    
-    // Step 3: Generate video with Hedra API following legacy pattern
-    console.log('🎬 Starting Hedra video generation...');
-    
-    if (!request.voice_audio_url) {
-      return {
-        success: false,
-        error: 'Voice audio URL is required for video generation',
-        batch_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: deductResult.remainingCredits || 0,
-      };
-    }
-    
+
+    // Generate video with fal.ai LTX Audio-to-Video
+    console.log(`🎬 Starting fal.ai LTX video generation: ${width}×${height}, ${audioDurationSeconds}s`);
+
     try {
-      // Calculate estimated duration from script (Hedra requires it)
-      const wordCount = request.script_text.trim().split(/\s+/).filter(Boolean).length;
-      const estimatedDurationSeconds = Math.max(3, Math.ceil(wordCount / 2.5)); // At least 3 seconds
+      const numFrames = Math.ceil(audioDurationSeconds * LTX_FRAME_RATE);
 
-      const hedraResult = await generateTalkingAvatarVideo(
-        request.avatar_image_url || '',
-        request.voice_audio_url,
-        "A person talking at the camera", // Simplified to match successful curl test
-        {
-          aspectRatio: request.aspect_ratio || '16:9',
-          resolution: '720p',
-          duration: estimatedDurationSeconds, // Hedra requires duration despite docs saying optional
-          waitForCompletion: false, // Use webhook for async processing
+      const falResult = await createFalLTXPrediction({
+        audio_url: audioUrl,
+        image_url: request.avatar_image_url, // Optional but recommended
+        prompt: request.action_prompt,
+        video_size: { width, height },
+        num_frames: numFrames,
+      });
+
+      if (!falResult.request_id) {
+        throw new Error('fal.ai did not return a request_id');
+      }
+
+      falRequestId = falResult.request_id;
+
+      // Update record with fal.ai request ID
+      await storeTalkingAvatarResults({
+        user_id: request.user_id,
+        script_text: request.script_text,
+        avatar_template_id: request.avatar_template_id || null,
+        batch_id: batch_id,
+        fal_request_id: falResult.request_id,
+        voice_audio_url: audioUrl,
+        avatar_image_url: request.avatar_image_url,
+        video_source: 'fal-ltx',
+        resolution_width: width,
+        resolution_height: height,
+        audio_duration_seconds: audioDurationSeconds,
+        action_prompt: request.action_prompt,
+        status: 'processing',
+        settings: {
+          resolution: resolution,
+          num_frames: numFrames,
+          model_version: 'fal-ai/ltx-2-19b/distilled/audio-to-video'
         }
-      );
+      });
 
-      if (!hedraResult.success) {
-        console.error('Hedra generation failed:', hedraResult.error);
-        
-        // Update record with error using proper pattern
-        await storeTalkingAvatarResults({
-          user_id: request.user_id,
-          script_text: request.script_text,
-          avatar_template_id: request.avatar_template_id || null,
-          batch_id: batch_id,
-          status: 'failed',
-          settings: { error_message: hedraResult.error }
-        });
-
-        return {
-          success: false,
-          error: `Video generation failed: ${hedraResult.error}`,
-          batch_id,
-          generation_time_ms: Date.now() - startTime,
-          credits_used: 0,
-          remaining_credits: userCredits,
-        };
-      }
-
-      // Update record with Hedra generation ID following legacy pattern
-      if (hedraResult.generationId) {
-        hedraGenerationId = hedraResult.generationId;
-        await storeTalkingAvatarResults({
-          user_id: request.user_id,
-          script_text: request.script_text,
-          avatar_template_id: request.avatar_template_id || null,
-          batch_id: batch_id,
-          hedra_generation_id: hedraResult.generationId,
-          voice_audio_url: request.voice_audio_url,
+      // Create prediction tracking record for unified system
+      await createPredictionRecord({
+        prediction_id: falResult.request_id,
+        user_id: request.user_id,
+        tool_id: 'talking-avatar',
+        service_id: 'fal-ai',
+        model_version: 'ltx-2-19b-audio-to-video',
+        status: 'processing',
+        input_data: {
           avatar_image_url: request.avatar_image_url,
-          status: 'processing',
-          settings: {
-            aspectRatio: '16:9',
-            resolution: '720p',
-            model_version: 'hedra-video-1.0'
-          }
-        });
+          audio_url: audioUrl,
+          script_text: request.script_text,
+          avatar_template_id: request.avatar_template_id,
+          avatar_video_id: batch_id,
+          resolution: resolution,
+          audio_duration: audioDurationSeconds,
+          action_prompt: request.action_prompt
+        } as any,
+      });
 
-        // Create prediction tracking record for unified system
-        await createPredictionRecord({
-          prediction_id: hedraResult.generationId,
-          user_id: request.user_id,
-          tool_id: 'talking-avatar',
-          service_id: 'hedra',
-          model_version: 'hedra-video-1.0',
-          status: 'processing',
-          input_data: {
-            avatar_image_url: request.avatar_image_url,
-            script_text: request.script_text,
-            voice_id: request.voice_id,
-            avatar_template_id: request.avatar_template_id,
-            avatar_video_id: batch_id, // Reference to avatar_videos record
-            estimated_duration: Math.ceil(request.script_text.trim().split(/\s+/).length / 2.5)
-          } as any,
-        });
-      }
-
-      console.log('✅ Hedra generation started:', hedraResult.generationId);
+      console.log('✅ fal.ai LTX generation started:', falResult.request_id);
 
       // Record metrics for analytics
       await recordTalkingAvatarMetrics({
         user_id: request.user_id,
         batch_id: batch_id,
-        model_version: 'hedra-video-1.0',
+        model_version: 'fal-ai-ltx-audio-to-video',
         script_text: request.script_text,
-        duration: creditCosts.estimated_duration,
-        aspect_ratio: '16:9',
+        duration: audioDurationSeconds,
+        aspect_ratio: resolution === 'portrait' ? '9:16' : '16:9',
         generation_time_ms: Date.now() - startTime,
         credits_used: creditCosts.total,
         workflow_type: 'generate',
@@ -479,17 +585,18 @@ async function handleVideoGeneration(
       });
 
     } catch (error) {
-      console.error('Hedra API error:', error);
-      
-      // Update record with error following pattern
+      console.error('fal.ai LTX API error:', error);
+
+      // Update record with error
       await storeTalkingAvatarResults({
         user_id: request.user_id,
         script_text: request.script_text,
         avatar_template_id: request.avatar_template_id || null,
         batch_id: batch_id,
+        video_source: 'fal-ltx',
         status: 'failed',
-        settings: { 
-          error_message: error instanceof Error ? error.message : 'Hedra API error' 
+        settings: {
+          error_message: error instanceof Error ? error.message : 'fal.ai LTX API error'
         }
       });
 
@@ -502,7 +609,7 @@ async function handleVideoGeneration(
         remaining_credits: userCredits,
       };
     }
-    
+
     return {
       success: true,
       step_data: {
@@ -517,7 +624,7 @@ async function handleVideoGeneration(
         created_at: new Date().toISOString(),
       },
       batch_id,
-      prediction_id: hedraGenerationId, // Add the Hedra generation ID for polling
+      prediction_id: falRequestId, // fal.ai request_id for polling
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCosts.total,
       remaining_credits: deductResult.remainingCredits || 0,
@@ -566,25 +673,32 @@ async function generateVoiceAudio(scriptText: string, voiceId: string, userId: s
 
 /**
  * Calculate credit costs for talking avatar operations
- * Pricing: 1.0 credits per second (30 credits per 30s) for ~45% profit margin
+ * Pricing: 1.0 credits per second (min 10, max 60)
  *
- * API Cost Breakdown:
- * - Hedra Video: 6 credits/sec @ ~$0.0068/credit = ~$0.041/sec
- * - Minimax Voice: ~$0.06 per 1000 chars (negligible per second)
- * - Total: ~$1.25 per 30s video
+ * fal.ai LTX Cost: $0.0008 per megapixel
+ * - Landscape (1024×576) at 60s = ~884 MP = ~$0.71
+ * - Portrait (576×1024) at 60s = ~884 MP = ~$0.71
  *
- * At $0.07/user credit: 30 credits = $2.10 revenue = ~45% profit margin
- * Monthly (600 credits) = 20 videos of 30s | Trial (100 credits) = 3 videos of 30s
+ * At 1 credit/sec: 60 credits max per video
+ * Monthly (600 credits) = 10 videos of 60s | Trial (100 credits) = 1-2 videos
  */
 function calculateTalkingAvatarCreditCost(request: TalkingAvatarRequest) {
-  const wordCount = request.script_text.trim().split(/\s+/).length;
+  let estimatedDuration: number;
 
-  // Duration-based cost scaling
-  const estimatedDuration = Math.ceil(wordCount / 2.5); // ~2.5 words per second
+  // Use provided audio duration if available (for uploaded audio)
+  if (request.audio_duration_seconds) {
+    estimatedDuration = Math.min(request.audio_duration_seconds, LTX_MAX_DURATION_SECONDS);
+  } else {
+    // Estimate from script word count (~2.5 words per second)
+    const wordCount = request.script_text.trim().split(/\s+/).filter(Boolean).length;
+    estimatedDuration = Math.min(Math.ceil(wordCount / 2.5), LTX_MAX_DURATION_SECONDS);
+  }
 
-  // 1.0 credits per second = 30 credits per 30s (~45% profit margin)
+  // 1.0 credits per second, minimum 10, maximum 60 (for 60-second limit)
   const creditsPerSecond = 1.0;
-  const total = Math.max(10, Math.ceil(estimatedDuration * creditsPerSecond));
+  const total = Math.max(10, Math.min(60, Math.ceil(estimatedDuration * creditsPerSecond)));
+
+  const wordCount = request.script_text.trim().split(/\s+/).filter(Boolean).length;
 
   return {
     base: 10, // Minimum 10 credits
