@@ -85,12 +85,12 @@ export async function createFalMiniMaxPrediction(
 
 /**
  * Check the status of a queued request
- * Note: fal.ai queue uses /requests/{id}/status (not under model path)
+ * fal.ai queue requires full model path: /fal-ai/minimax-music/v2/requests/{id}/status
  */
 export async function getFalMiniMaxStatus(requestId: string): Promise<FalStatusResponse> {
   try {
     const response = await fetch(
-      `https://queue.fal.run/requests/${requestId}/status`,
+      `https://queue.fal.run/fal-ai/minimax-music/v2/requests/${requestId}/status`,
       {
         headers: {
           'Authorization': `Key ${process.env.FAL_KEY}`,
@@ -112,12 +112,12 @@ export async function getFalMiniMaxStatus(requestId: string): Promise<FalStatusR
 
 /**
  * Get the result of a completed request
- * Note: fal.ai queue uses /requests/{id} (not under model path)
+ * fal.ai queue requires full model path: /fal-ai/minimax-music/v2/requests/{id}
  */
 export async function getFalMiniMaxResult(requestId: string): Promise<FalMiniMaxOutput> {
   try {
     const response = await fetch(
-      `https://queue.fal.run/requests/${requestId}`,
+      `https://queue.fal.run/fal-ai/minimax-music/v2/requests/${requestId}`,
       {
         headers: {
           'Authorization': `Key ${process.env.FAL_KEY}`,
