@@ -308,9 +308,17 @@ export function useMusicMachine() {
   }, [user?.id, supabase, state.currentGeneration?.request_id]);
 
   // Polling fallback for local development (webhooks can't reach localhost)
+  // In production, webhooks handle completion - no polling needed
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const isLocalDev = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   useEffect(() => {
+    // Only poll in local development - production uses webhooks
+    if (!isLocalDev) {
+      return;
+    }
+
     // Only poll if we're generating and have a request_id
     if (!state.isGenerating || !state.currentGeneration?.request_id) {
       if (pollingRef.current) {
@@ -321,7 +329,7 @@ export function useMusicMachine() {
     }
 
     const requestId = state.currentGeneration.request_id;
-    console.log(`🔄 Starting polling for music generation: ${requestId}`);
+    console.log(`🔄 [DEV] Starting polling for music generation: ${requestId}`);
 
     // Poll every 5 seconds
     const pollInterval = setInterval(async () => {
@@ -330,7 +338,7 @@ export function useMusicMachine() {
         console.log(`🔄 Poll result for ${requestId}:`, result.status);
 
         if (result.status === 'completed' && result.audio_url) {
-          console.log(`✅ Polling: Music completed! ${result.audio_url}`);
+          console.log(`✅ [DEV] Polling: Music completed! ${result.audio_url}`);
 
           // Fetch updated music record from database
           const { data: musicRecord } = await supabase
