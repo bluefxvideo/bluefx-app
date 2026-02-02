@@ -62,6 +62,7 @@ Score*.csv
 *.md
 !README.md
 !app/README.md
+!app/docs/*.md
 !remotion/README.md
 !react-video-editor/README.md
 
