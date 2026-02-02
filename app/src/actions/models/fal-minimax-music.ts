@@ -48,7 +48,8 @@ export async function createFalMiniMaxPrediction(
 
     // Build webhook URL for completion callback
     // fal.ai requires webhook as a query parameter, not in the request body
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/fal-ai`;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://app.bluefx.net';
+    const webhookUrl = `${siteUrl}/api/webhooks/fal-ai`;
     console.log(`🎵 fal.ai webhook URL: ${webhookUrl}`);
 
     const queueUrl = `https://queue.fal.run/fal-ai/minimax-music/v2?fal_webhook=${encodeURIComponent(webhookUrl)}`;
