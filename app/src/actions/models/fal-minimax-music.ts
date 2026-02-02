@@ -47,10 +47,13 @@ export async function createFalMiniMaxPrediction(
     console.log(`🎵 Creating fal.ai MiniMax prediction: "${params.prompt.substring(0, 50)}..."`);
 
     // Build webhook URL for completion callback
+    // fal.ai requires webhook as a query parameter, not in the request body
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/fal-ai`;
     console.log(`🎵 fal.ai webhook URL: ${webhookUrl}`);
 
-    const response = await fetch('https://queue.fal.run/fal-ai/minimax-music/v2', {
+    const queueUrl = `https://queue.fal.run/fal-ai/minimax-music/v2?fal_webhook=${encodeURIComponent(webhookUrl)}`;
+
+    const response = await fetch(queueUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,7 +67,6 @@ export async function createFalMiniMaxPrediction(
           bitrate: 256000,
           format: 'mp3'
         },
-        webhook_url: webhookUrl, // fal.ai will POST to this when complete
       }),
     });
 
