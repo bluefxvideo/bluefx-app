@@ -53,7 +53,7 @@ export async function createStableAudioPrediction(
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
       },
       body: JSON.stringify({
-        model: 'stability-ai/stable-audio-2.5',
+        version: 'a61ac8edbb27cd2eda1b2eff2bbc03dcff1131f5560836ff77a052df05b77491',
         input: {
           prompt: params.prompt,
           seconds: Math.min(params.seconds || 30, 47), // Cap at 47 seconds

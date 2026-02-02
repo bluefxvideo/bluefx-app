@@ -71,7 +71,7 @@ export async function createMiniMaxMusicPrediction(
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
       },
       body: JSON.stringify({
-        model: 'minimax/music-1.5',
+        version: '70c8395540eae909be2c09a0b4897d22ee2455a5e5c9826b71161743b5cc45f1',
         input,
         ...(params.webhook && { webhook: params.webhook }),
       }),

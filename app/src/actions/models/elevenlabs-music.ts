@@ -52,7 +52,7 @@ export async function createElevenLabsMusicPrediction(
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
       },
       body: JSON.stringify({
-        model: 'elevenlabs/music',
+        version: '66fa53d463ca3a0fd826c06b5b44804b32f74185c0c905162bb052c3a60a39fa',
         input: {
           prompt: params.prompt,
           duration: Math.min(params.duration || 30, 300), // Cap at 300 seconds
