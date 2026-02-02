@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { executeMusicMachine, MusicMachineRequest } from '@/actions/tools/music-machine';
 import { getMusicHistory, deleteGeneratedMusic, GeneratedMusic } from '@/actions/database/music-database';
-import { MUSIC_CREDITS } from '@/types/music-machine';
+import { pollMusicGeneration } from '@/actions/models/fal-minimax-music';
+import { MUSIC_CREDITS, MusicMode, INSTRUMENTAL_LYRICS } from '@/types/music-machine';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
@@ -13,6 +14,7 @@ export interface MusicMachineState {
   // Generation settings
   prompt: string;
   lyrics: string;
+  mode: MusicMode;
 
   // Generated results
   generatedMusic: GeneratedMusic[];
@@ -46,6 +48,7 @@ export interface UseMusicMachineReturn {
   handleMusicPlayback: (musicId: string, audioUrl: string) => void;
   updatePrompt: (prompt: string) => void;
   updateLyrics: (lyrics: string) => void;
+  setMode: (mode: MusicMode) => void;
   clearGeneration: () => void;
   updateMusicDuration: (musicId: string, actualDurationSeconds: number) => Promise<void>;
   setState: React.Dispatch<React.SetStateAction<MusicMachineState>>;
@@ -67,7 +70,8 @@ export function useMusicMachine() {
 
   const [state, setState] = useState<MusicMachineState>({
     prompt: '',
-    lyrics: '',
+    lyrics: INSTRUMENTAL_LYRICS,
+    mode: 'instrumental',
     generatedMusic: [],
     currentGeneration: null,
     musicHistory: [],
@@ -300,8 +304,87 @@ export function useMusicMachine() {
       )
       .subscribe();
 
-    return () => supabase.removeChannel(subscription);
+    return () => { supabase.removeChannel(subscription); };
   }, [user?.id, supabase, state.currentGeneration?.request_id]);
+
+  // Polling fallback for local development (webhooks can't reach localhost)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Only poll if we're generating and have a request_id
+    if (!state.isGenerating || !state.currentGeneration?.request_id) {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+
+    const requestId = state.currentGeneration.request_id;
+    console.log(`🔄 Starting polling for music generation: ${requestId}`);
+
+    // Poll every 5 seconds
+    const pollInterval = setInterval(async () => {
+      try {
+        const result = await pollMusicGeneration(requestId);
+        console.log(`🔄 Poll result for ${requestId}:`, result.status);
+
+        if (result.status === 'completed' && result.audio_url) {
+          console.log(`✅ Polling: Music completed! ${result.audio_url}`);
+
+          // Fetch updated music record from database
+          const { data: musicRecord } = await supabase
+            .from('music_history')
+            .select('*')
+            .contains('generation_settings', { prediction_id: requestId })
+            .single();
+
+          if (musicRecord) {
+            setState(prev => ({
+              ...prev,
+              isGenerating: false,
+              generatedMusic: [musicRecord] as GeneratedMusic[],
+              musicHistory: [musicRecord, ...prev.musicHistory.filter(m => m.id !== musicRecord.id)],
+              currentGeneration: null,
+              error: null,
+            }));
+
+            toast.success('Music generated successfully!');
+          }
+
+          // Stop polling
+          clearInterval(pollInterval);
+          pollingRef.current = null;
+        } else if (result.status === 'failed') {
+          console.error(`❌ Polling: Music generation failed:`, result.error);
+
+          setState(prev => ({
+            ...prev,
+            isGenerating: false,
+            error: result.error || 'Music generation failed',
+            currentGeneration: null,
+          }));
+
+          toast.error(result.error || 'Music generation failed');
+
+          // Stop polling
+          clearInterval(pollInterval);
+          pollingRef.current = null;
+        }
+        // For 'pending' or 'processing', continue polling
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    pollingRef.current = pollInterval;
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      clearInterval(pollInterval);
+      pollingRef.current = null;
+    };
+  }, [state.isGenerating, state.currentGeneration?.request_id, supabase]);
 
   // Generate music
   const generateMusic = useCallback(async () => {
@@ -319,6 +402,7 @@ export function useMusicMachine() {
       const request: MusicMachineRequest = {
         prompt: state.prompt.trim(),
         lyrics: state.lyrics.trim() || undefined,
+        mode: state.mode,
         user_id: user.id,
       };
 
@@ -351,7 +435,7 @@ export function useMusicMachine() {
       }));
       toast.error('Music generation failed');
     }
-  }, [user, state.prompt, state.lyrics]);
+  }, [user, state.prompt, state.lyrics, state.mode]);
 
   // Delete music
   const deleteMusic = useCallback(async (musicId: string) => {
@@ -426,6 +510,17 @@ export function useMusicMachine() {
     setState(prev => ({ ...prev, lyrics }));
   }, []);
 
+  // Set music mode (instrumental or vocals)
+  const setMode = useCallback((mode: MusicMode) => {
+    setState(prev => ({
+      ...prev,
+      mode,
+      // Auto-fill lyrics with instrumental formula when switching to instrumental
+      // Clear lyrics when switching to vocals mode
+      lyrics: mode === 'instrumental' ? INSTRUMENTAL_LYRICS : '',
+    }));
+  }, []);
+
   // Clear current generation
   const clearGeneration = useCallback(() => {
     setState(prev => ({
@@ -476,6 +571,7 @@ export function useMusicMachine() {
     handleMusicPlayback,
     updatePrompt,
     updateLyrics,
+    setMode,
     clearGeneration,
     updateMusicDuration,
     setState,

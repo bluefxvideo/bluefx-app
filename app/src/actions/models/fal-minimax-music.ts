@@ -46,6 +46,10 @@ export async function createFalMiniMaxPrediction(
   try {
     console.log(`🎵 Creating fal.ai MiniMax prediction: "${params.prompt.substring(0, 50)}..."`);
 
+    // Build webhook URL for completion callback
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/fal-ai`;
+    console.log(`🎵 fal.ai webhook URL: ${webhookUrl}`);
+
     const response = await fetch('https://queue.fal.run/fal-ai/minimax-music/v2', {
       method: 'POST',
       headers: {
@@ -59,7 +63,8 @@ export async function createFalMiniMaxPrediction(
           sample_rate: 44100,
           bitrate: 256000,
           format: 'mp3'
-        }
+        },
+        webhook_url: webhookUrl, // fal.ai will POST to this when complete
       }),
     });
 
@@ -80,11 +85,12 @@ export async function createFalMiniMaxPrediction(
 
 /**
  * Check the status of a queued request
+ * Note: fal.ai queue uses /requests/{id}/status (not under model path)
  */
 export async function getFalMiniMaxStatus(requestId: string): Promise<FalStatusResponse> {
   try {
     const response = await fetch(
-      `https://queue.fal.run/fal-ai/minimax-music/v2/requests/${requestId}/status`,
+      `https://queue.fal.run/requests/${requestId}/status`,
       {
         headers: {
           'Authorization': `Key ${process.env.FAL_KEY}`,
@@ -106,11 +112,12 @@ export async function getFalMiniMaxStatus(requestId: string): Promise<FalStatusR
 
 /**
  * Get the result of a completed request
+ * Note: fal.ai queue uses /requests/{id} (not under model path)
  */
 export async function getFalMiniMaxResult(requestId: string): Promise<FalMiniMaxOutput> {
   try {
     const response = await fetch(
-      `https://queue.fal.run/fal-ai/minimax-music/v2/requests/${requestId}`,
+      `https://queue.fal.run/requests/${requestId}`,
       {
         headers: {
           'Authorization': `Key ${process.env.FAL_KEY}`,
@@ -133,7 +140,7 @@ export async function getFalMiniMaxResult(requestId: string): Promise<FalMiniMax
 /**
  * Get model information
  */
-export function getFalMiniMaxModelInfo() {
+export async function getFalMiniMaxModelInfo() {
   return {
     name: 'MiniMax Music v2',
     provider: 'fal.ai',
@@ -154,4 +161,90 @@ export function getFalMiniMaxModelInfo() {
     },
     output_format: 'mp3 (44.1kHz, 256kbps)',
   };
+}
+
+/**
+ * Poll for music generation result
+ * Used as fallback when webhooks aren't available (e.g., local development)
+ */
+export interface PollMusicResult {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  audio_url?: string;
+  error?: string;
+}
+
+export async function pollMusicGeneration(requestId: string): Promise<PollMusicResult> {
+  try {
+    // Check status first
+    const statusResponse = await getFalMiniMaxStatus(requestId);
+    console.log(`🔄 Polling fal.ai status for ${requestId}: ${statusResponse.status}`);
+
+    if (statusResponse.status === 'IN_QUEUE') {
+      return { status: 'pending' };
+    }
+
+    if (statusResponse.status === 'IN_PROGRESS') {
+      return { status: 'processing' };
+    }
+
+    if (statusResponse.status === 'FAILED') {
+      return { status: 'failed', error: 'Music generation failed' };
+    }
+
+    if (statusResponse.status === 'COMPLETED') {
+      // Get the result
+      const result = await getFalMiniMaxResult(requestId);
+
+      if (result?.audio?.url) {
+        // Import storage and database functions
+        const { downloadAndUploadAudio } = await import('@/actions/supabase-storage');
+        const { updateMusicRecordAdmin } = await import('@/actions/database/music-database');
+        const { createAdminClient } = await import('@/app/supabase/server');
+
+        console.log(`🎵 Polling: Downloading audio for ${requestId}`);
+
+        // Download and upload audio to our storage
+        const uploadResult = await downloadAndUploadAudio(
+          result.audio.url,
+          'music-machine',
+          `music_${requestId}`
+        );
+
+        if (uploadResult.success && uploadResult.url) {
+          // Find and update music record
+          const supabase = createAdminClient();
+          const { data: musicRecords } = await supabase
+            .from('music_history')
+            .select('id, user_id')
+            .contains('generation_settings', { prediction_id: requestId });
+
+          if (musicRecords && musicRecords.length > 0) {
+            const musicId = musicRecords[0].id;
+
+            await updateMusicRecordAdmin(musicId, {
+              status: 'completed',
+              audio_url: uploadResult.url,
+            });
+
+            console.log(`✅ Polling: Music complete - ${musicId}`);
+          }
+
+          return { status: 'completed', audio_url: uploadResult.url };
+        } else {
+          console.error('Polling: Failed to upload audio:', uploadResult.error);
+          return { status: 'failed', error: 'Failed to upload audio' };
+        }
+      }
+
+      return { status: 'failed', error: 'No audio URL in result' };
+    }
+
+    return { status: 'pending' };
+  } catch (error) {
+    console.error('pollMusicGeneration error:', error);
+    return {
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Polling failed'
+    };
+  }
 }

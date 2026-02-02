@@ -81,12 +81,9 @@ export function MusicMachinePage() {
       ) : (
         <StandardToolLayout>
           {[
-            // Left Panel - Tab Content
             <div key="input" className="h-full">
               {renderTabContent()}
             </div>,
-            
-            // Right Panel - Output
             <MusicMachineOutput
               key="output"
               musicMachineState={musicMachineState}

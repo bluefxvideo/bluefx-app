@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { MUSIC_CREDITS } from '@/types/music-machine';
+import { MUSIC_CREDITS, MusicMode, INSTRUMENTAL_SUFFIX } from '@/types/music-machine';
 import {
   createFalMiniMaxPrediction,
   getFalMiniMaxModelInfo,
@@ -13,6 +13,7 @@ import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 export interface MusicMachineRequest {
   prompt: string;           // Style description (10-300 chars)
   lyrics?: string;          // Optional lyrics with tags (10-3000 chars)
+  mode: MusicMode;          // 'instrumental' or 'vocals'
   user_id: string;
 }
 
@@ -31,7 +32,7 @@ export interface MusicMachineResponse {
     created_at: string;
   };
 
-  model_info?: ReturnType<typeof getFalMiniMaxModelInfo>;
+  model_info?: Awaited<ReturnType<typeof getFalMiniMaxModelInfo>>;
 
   request_id: string;
   batch_id: string;
@@ -78,8 +79,8 @@ export async function executeMusicMachine(
     }
 
     // Validate prompt length
-    const prompt = request.prompt.trim();
-    if (prompt.length < 10 || prompt.length > 300) {
+    const basePrompt = request.prompt.trim();
+    if (basePrompt.length < 10 || basePrompt.length > 300) {
       return {
         success: false,
         error: 'Prompt must be between 10 and 300 characters',
@@ -91,14 +92,19 @@ export async function executeMusicMachine(
       };
     }
 
-    // Prepare lyrics - use "[Instrumental]" if no lyrics provided
+    // Apply instrumental suffix to prompt if in instrumental mode
+    const prompt = request.mode === 'instrumental'
+      ? `${basePrompt}. ${INSTRUMENTAL_SUFFIX}`
+      : basePrompt;
+
+    // Prepare lyrics - use "[Instrumental]" if no lyrics provided or in instrumental mode with empty lyrics
     const lyrics = request.lyrics?.trim();
     const lyricsPrompt = lyrics && lyrics.length >= 10
       ? lyrics
       : '[Instrumental]';
-    const hasLyrics = lyrics && lyrics.length >= 10;
+    const hasLyrics = lyrics && lyrics.length >= 10 && request.mode === 'vocals';
 
-    console.log(`🎵 Music Machine: "${prompt.substring(0, 50)}..." | Lyrics: ${hasLyrics ? 'Yes' : 'Instrumental'}`);
+    console.log(`🎵 Music Machine: "${prompt.substring(0, 50)}..." | Mode: ${request.mode} | Lyrics: ${hasLyrics ? 'Yes' : 'Instrumental'}`);
 
     // Credit validation
     const userCredits = await getUserCredits(supabase, user.id);
@@ -171,7 +177,7 @@ export async function executeMusicMachine(
         status: prediction.status,
         created_at: new Date().toISOString(),
       },
-      model_info: getFalMiniMaxModelInfo(),
+      model_info: await getFalMiniMaxModelInfo(),
       request_id: prediction.request_id,
       batch_id,
       credits_used: MUSIC_CREDITS,
