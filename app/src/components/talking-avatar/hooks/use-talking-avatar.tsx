@@ -7,6 +7,8 @@ import { getAvatarTemplates, getTalkingAvatarVideos, deleteTalkingAvatarVideo } 
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import { getUserClonedVoices, saveClonedVoice } from '@/actions/database/cloned-voices-database';
 import type { ClonedVoice } from '@/actions/database/cloned-voices-database';
+import { getUserSavedAvatars, saveUserAvatar, deleteSavedAvatar as deleteSavedAvatarAction, updateSavedAvatarName } from '@/actions/database/saved-avatars-database';
+import type { SavedAvatar } from '@/actions/database/saved-avatars-database';
 import { cloneVoiceFromFile } from '@/actions/services/minimax-clone-service';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { pollLTXVideoGeneration } from '@/actions/models/fal-ltx-polling';
@@ -58,6 +60,9 @@ export interface TalkingAvatarState {
   // Cloned voices
   clonedVoices: ClonedVoice[];
   isCloning: boolean;
+
+  // Saved avatars
+  savedAvatars: SavedAvatar[];
 }
 
 export interface UseTalkingAvatarReturn {
@@ -84,6 +89,11 @@ export interface UseTalkingAvatarReturn {
   // Voice cloning
   loadClonedVoices: () => Promise<void>;
   cloneVoice: (file: File, name: string, options: { noiseReduction: boolean; volumeNormalization: boolean }) => Promise<void>;
+  // Saved avatars
+  loadSavedAvatars: () => Promise<void>;
+  saveAvatar: (name: string, imageUrl: string) => Promise<boolean>;
+  deleteSavedAvatar: (avatarId: string) => Promise<boolean>;
+  renameSavedAvatar: (avatarId: string, newName: string) => Promise<boolean>;
 }
 
 export function useTalkingAvatar(): UseTalkingAvatarReturn {
@@ -142,6 +152,8 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     // Cloned voices
     clonedVoices: [],
     isCloning: false,
+    // Saved avatars
+    savedAvatars: [],
   });
 
   // Update active tab when pathname changes
@@ -1082,6 +1094,96 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }
   }, [user?.id, loadClonedVoices]);
 
+  // Load user's saved avatars
+  const loadSavedAvatars = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const result = await getUserSavedAvatars(user.id);
+      if (result.success && result.data) {
+        setState(prev => ({ ...prev, savedAvatars: result.data || [] }));
+      }
+    } catch (error) {
+      console.error('Failed to load saved avatars:', error);
+    }
+  }, [user?.id]);
+
+  // Save a generated avatar
+  const saveAvatar = useCallback(async (name: string, imageUrl: string): Promise<boolean> => {
+    if (!user?.id) return false;
+    try {
+      const result = await saveUserAvatar(user.id, name, imageUrl);
+      if (result.success && result.data) {
+        setState(prev => ({
+          ...prev,
+          savedAvatars: [result.data!, ...prev.savedAvatars],
+        }));
+        toast.success('Avatar saved to My Avatars');
+        return true;
+      } else {
+        toast.error(result.error || 'Failed to save avatar');
+        return false;
+      }
+    } catch (error) {
+      console.error('Save avatar error:', error);
+      toast.error('Failed to save avatar');
+      return false;
+    }
+  }, [user?.id]);
+
+  // Delete a saved avatar
+  const deleteSavedAvatarFn = useCallback(async (avatarId: string): Promise<boolean> => {
+    if (!user?.id) return false;
+    try {
+      const result = await deleteSavedAvatarAction(user.id, avatarId);
+      if (result.success) {
+        setState(prev => ({
+          ...prev,
+          savedAvatars: prev.savedAvatars.filter(a => a.id !== avatarId),
+        }));
+        toast.success('Avatar deleted');
+        return true;
+      } else {
+        toast.error(result.error || 'Failed to delete avatar');
+        return false;
+      }
+    } catch (error) {
+      console.error('Delete avatar error:', error);
+      toast.error('Failed to delete avatar');
+      return false;
+    }
+  }, [user?.id]);
+
+  // Rename a saved avatar
+  const renameSavedAvatar = useCallback(async (avatarId: string, newName: string): Promise<boolean> => {
+    if (!user?.id) return false;
+    try {
+      const result = await updateSavedAvatarName(user.id, avatarId, newName);
+      if (result.success) {
+        setState(prev => ({
+          ...prev,
+          savedAvatars: prev.savedAvatars.map(a =>
+            a.id === avatarId ? { ...a, name: newName } : a
+          ),
+        }));
+        return true;
+      } else {
+        toast.error(result.error || 'Failed to rename avatar');
+        return false;
+      }
+    } catch (error) {
+      console.error('Rename avatar error:', error);
+      toast.error('Failed to rename avatar');
+      return false;
+    }
+  }, [user?.id]);
+
+  // Load saved avatars on mount when user is available
+  useEffect(() => {
+    if (user?.id) {
+      loadSavedAvatars();
+    }
+  }, [user?.id, loadSavedAvatars]);
+
   // Check status for a specific history item
   const checkHistoryItemStatus = useCallback(async (generationId: string) => {
     if (!generationId) return;
@@ -1129,5 +1231,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     // Voice cloning
     loadClonedVoices,
     cloneVoice: cloneVoiceAction,
+    // Saved avatars
+    loadSavedAvatars,
+    saveAvatar,
+    deleteSavedAvatar: deleteSavedAvatarFn,
+    renameSavedAvatar,
   };
 }

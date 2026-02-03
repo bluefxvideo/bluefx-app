@@ -10,13 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, Clock, AlertCircle, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, Clock, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
 import { AvatarTemplate } from '@/actions/tools/talking-avatar';
 import { MINIMAX_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
+import { createClient } from '@/app/supabase/client';
 import { toast } from 'sonner';
+import { generateAvatarImage, type AvatarGeneratorRequest } from '@/actions/tools/avatar-generator';
+
+const AVATAR_GENERATION_CREDIT_COST = 4;
 
 // Constants for LTX model limits
 const MAX_AUDIO_DURATION_SECONDS = 60;
@@ -42,6 +46,8 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
     setSelectedResolution,
     setScriptText,
     cloneVoice,
+    saveAvatar,
+    deleteSavedAvatar,
   } = avatarState;
 
   const [localScriptText, setLocalScriptText] = useState(state.scriptText);
@@ -68,6 +74,132 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
   const [cloneVoiceName, setCloneVoiceName] = useState('');
   const [cloneNoiseReduction, setCloneNoiseReduction] = useState(true);
   const [cloneVolumeNorm, setCloneVolumeNorm] = useState(true);
+
+  // Avatar generator state
+  const [showAvatarGen, setShowAvatarGen] = useState(false);
+  const [avatarGenPrompt, setAvatarGenPrompt] = useState('');
+  const [avatarGenPreset, setAvatarGenPreset] = useState<AvatarGeneratorRequest['style_preset']>('ugc_portrait');
+  const [avatarGenRefImage, setAvatarGenRefImage] = useState<File | null>(null);
+  const [avatarGenRefUrl, setAvatarGenRefUrl] = useState<string | null>(null);
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const [generatedAvatarUrl, setGeneratedAvatarUrl] = useState<string | null>(null);
+  const [saveAvatarName, setSaveAvatarName] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+
+  // Get current user for avatar generation
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserId(user?.id ?? null);
+    });
+  }, []);
+
+  // Handle avatar generation
+  const handleGenerateAvatar = async () => {
+    if (!avatarGenPrompt.trim()) {
+      toast.error('Please describe your avatar');
+      return;
+    }
+    if (!userId) {
+      toast.error('Please sign in to generate avatars');
+      return;
+    }
+    if (credits < AVATAR_GENERATION_CREDIT_COST) {
+      toast.error(`Insufficient credits. You need ${AVATAR_GENERATION_CREDIT_COST} credits.`);
+      return;
+    }
+    setIsGeneratingAvatar(true);
+    setGeneratedAvatarUrl(null);
+    setShowSaveInput(false);
+    try {
+      // Upload reference image if provided
+      let refUrl = avatarGenRefUrl;
+      if (avatarGenRefImage && !refUrl) {
+        const { uploadImageToStorage } = await import('@/actions/supabase-storage');
+        const uploadResult = await uploadImageToStorage(avatarGenRefImage, {
+          bucket: 'images',
+          folder: 'avatars/references',
+          filename: `ref_${Date.now()}.png`,
+          contentType: avatarGenRefImage.type,
+        });
+        if (uploadResult.success && uploadResult.url) {
+          refUrl = uploadResult.url;
+          setAvatarGenRefUrl(refUrl);
+        }
+      }
+
+      const result = await generateAvatarImage({
+        prompt: avatarGenPrompt,
+        style_preset: avatarGenPreset,
+        reference_image_url: refUrl || undefined,
+        user_id: userId,
+      });
+
+      if (result.success && result.image_url) {
+        setGeneratedAvatarUrl(result.image_url);
+        toast.success('Avatar generated!');
+      } else {
+        toast.error(result.error || 'Generation failed');
+      }
+    } catch {
+      toast.error('Failed to generate avatar');
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
+  };
+
+  // Download generated avatar
+  const handleDownloadAvatar = async () => {
+    if (!generatedAvatarUrl) return;
+    try {
+      const response = await fetch(generatedAvatarUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `avatar_${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download avatar');
+    }
+  };
+
+  // Save generated avatar to My Avatars
+  const handleSaveAvatar = async () => {
+    if (!generatedAvatarUrl || !saveAvatarName.trim()) return;
+    setIsSavingAvatar(true);
+    try {
+      const success = await saveAvatar(saveAvatarName.trim(), generatedAvatarUrl);
+      if (success) {
+        setShowSaveInput(false);
+        setSaveAvatarName('');
+      }
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
+  // Use generated avatar as the selected avatar
+  const handleUseGeneratedAvatar = async () => {
+    if (!generatedAvatarUrl) return;
+    try {
+      const response = await fetch(generatedAvatarUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `generated_avatar_${Date.now()}.png`, { type: 'image/png' });
+      setCustomImage(file);
+      setSelectedTemplate(null);
+      await handleAvatarSelection(null, file);
+      setShowAvatarGen(false);
+      toast.success('Generated avatar selected');
+    } catch {
+      toast.error('Failed to use generated avatar');
+    }
+  };
 
   // Load templates on mount
   useEffect(() => {
@@ -307,11 +439,68 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
           <div className="space-y-3">
             <Label className="text-sm font-medium mb-2 block">Choose Your Avatar</Label>
 
-            <div className="grid grid-cols-2 gap-2">
+            {/* My Avatars Section */}
+            {state.savedAvatars.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-3.5 h-3.5 text-purple-500" />
+                  <span className="text-xs font-medium">My Avatars</span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                    {state.savedAvatars.length}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {state.savedAvatars.map((saved) => (
+                    <Card
+                      key={saved.id}
+                      className={`p-1.5 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] group relative ${
+                        customImage === null && selectedTemplate === null && state.customAvatarUrl === saved.image_url
+                          ? 'ring-2 ring-purple-500'
+                          : 'bg-card hover:bg-muted/50'
+                      }`}
+                      onClick={async () => {
+                        setSelectedTemplate(null);
+                        const response = await fetch(saved.image_url);
+                        const blob = await response.blob();
+                        const file = new File([blob], `${saved.name}.png`, { type: 'image/png' });
+                        setCustomImage(file);
+                        await handleAvatarSelection(null, file);
+                      }}
+                    >
+                      <div className="relative aspect-[4/3] bg-muted rounded mb-1 flex items-center justify-center overflow-hidden">
+                        <Image
+                          src={saved.image_url}
+                          alt={saved.name}
+                          fill priority={false} quality={60}
+                          sizes="(max-width: 768px) 33vw, 150px"
+                          className="object-cover"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                        {/* Delete button on hover */}
+                        <button
+                          type="button"
+                          className="absolute top-0.5 right-0.5 bg-black/60 hover:bg-destructive rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await deleteSavedAvatar(saved.id);
+                          }}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-2.5 h-2.5 text-white" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] font-medium text-center truncate leading-tight">{saved.name}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-1.5">
               {state.avatarTemplates.map((template: AvatarTemplate) => (
                 <Card
                   key={template.id}
-                  className={`p-2 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
+                  className={`p-1.5 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
                     selectedTemplate?.id === template.id ? 'ring-2 ring-blue-500' : 'bg-card hover:bg-muted/50'
                   }`}
                   onClick={async () => {
@@ -323,7 +512,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                   onMouseLeave={() => template.preview_video_url && handleAvatarHover(template.id, false)}
                   title={template.description || undefined}
                 >
-                  <div className="relative aspect-square bg-muted rounded-lg mb-1 flex items-center justify-center overflow-hidden">
+                  <div className="relative aspect-[4/3] bg-muted rounded mb-1 flex items-center justify-center overflow-hidden">
                     {template.preview_video_url && (
                       <video
                         ref={(el) => { videoRefs.current[template.id] = el; }}
@@ -338,7 +527,8 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                       <Image
                         src={template.thumbnail_url}
                         alt={template.name}
-                        fill priority={false} quality={75}
+                        fill priority={false} quality={60}
+                        sizes="(max-width: 768px) 33vw, 150px"
                         placeholder="blur"
                         blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
                         className={`object-cover transition-opacity duration-300 ${
@@ -347,18 +537,215 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
                     ) : (
-                      <User className="w-8 h-8 text-muted-foreground" />
+                      <User className="w-6 h-6 text-muted-foreground" />
                     )}
                     {template.preview_video_url && hoveredTemplateId !== template.id && (
-                      <div className="absolute bottom-1 right-1 bg-black/60 rounded-full p-1">
-                        <Play className="w-3 h-3 text-white fill-white" />
+                      <div className="absolute bottom-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
+                        <Play className="w-2.5 h-2.5 text-white fill-white" />
                       </div>
                     )}
                   </div>
-                  <p className="text-xs font-medium text-center truncate">{template.name}</p>
-                  <p className="text-xs text-muted-foreground text-center truncate">{template.category} • {template.gender}</p>
+                  <p className="text-[11px] font-medium text-center truncate leading-tight">{template.name}</p>
                 </Card>
               ))}
+            </div>
+
+            {/* Create Custom Avatar with AI */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+                onClick={() => setShowAvatarGen(!showAvatarGen)}
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-500" />
+                  Create Custom Avatar with AI
+                </span>
+                {showAvatarGen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {showAvatarGen && (
+                <div className="p-3 pt-0 space-y-3">
+                  {/* Style Presets */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Style</Label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {([
+                        { id: 'ugc_portrait', label: 'UGC Portrait', desc: 'Natural, authentic look' },
+                        { id: 'ugc_selfie', label: 'UGC Selfie', desc: 'Casual selfie style' },
+                        { id: 'professional', label: 'Professional', desc: 'Studio headshot' },
+                        { id: 'custom', label: 'Custom', desc: 'Full prompt control' },
+                      ] as const).map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          className={`p-2 rounded-md text-left border transition-all text-xs ${
+                            avatarGenPreset === preset.id
+                              ? 'border-purple-500 bg-purple-500/10 ring-1 ring-purple-500'
+                              : 'border-muted hover:border-muted-foreground/40'
+                          }`}
+                          onClick={() => setAvatarGenPreset(preset.id)}
+                        >
+                          <p className="font-medium">{preset.label}</p>
+                          <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Prompt */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Describe Your Avatar</Label>
+                    <Textarea
+                      value={avatarGenPrompt}
+                      onChange={(e) => setAvatarGenPrompt(e.target.value)}
+                      placeholder="e.g. A 30 year old woman with brown hair, wearing a casual blue sweater, sitting in a cozy living room"
+                      className="min-h-[70px] resize-none text-sm"
+                      disabled={isGeneratingAvatar}
+                    />
+                  </div>
+
+                  {/* Optional Reference Image */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" />
+                      Reference Image (optional)
+                    </Label>
+                    {avatarGenRefImage ? (
+                      <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                        <ImageIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="text-xs truncate flex-1">{avatarGenRefImage.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => { setAvatarGenRefImage(null); setAvatarGenRefUrl(null); }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="block border border-dashed rounded-md p-3 text-center cursor-pointer hover:border-primary/50 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setAvatarGenRefImage(file);
+                              setAvatarGenRefUrl(null);
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">Upload a reference photo to guide the style</p>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Generate Button */}
+                  <div className="space-y-1.5">
+                    <Button
+                      onClick={handleGenerateAvatar}
+                      disabled={!avatarGenPrompt.trim() || isGeneratingAvatar || credits < AVATAR_GENERATION_CREDIT_COST}
+                      className="w-full"
+                      size="sm"
+                    >
+                      {isGeneratingAvatar ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate Avatar ({AVATAR_GENERATION_CREDIT_COST} credits)
+                        </>
+                      )}
+                    </Button>
+                    {credits < AVATAR_GENERATION_CREDIT_COST && (
+                      <p className="text-xs text-destructive text-center">
+                        Insufficient credits. You need {AVATAR_GENERATION_CREDIT_COST} credits.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Generated Preview */}
+                  {generatedAvatarUrl && (
+                    <div className="space-y-2">
+                      <div className="relative aspect-video bg-muted rounded-md overflow-hidden">
+                        <Image
+                          src={generatedAvatarUrl}
+                          alt="Generated avatar"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 400px"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleUseGeneratedAvatar}
+                          className="flex-1"
+                          size="sm"
+                        >
+                          Use This Avatar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowSaveInput(!showSaveInput);
+                            if (!saveAvatarName) {
+                              setSaveAvatarName(avatarGenPrompt.slice(0, 50).trim() || 'My Avatar');
+                            }
+                          }}
+                          title="Save to My Avatars"
+                        >
+                          <Save className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDownloadAvatar}
+                          title="Download"
+                        >
+                          <Download className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleGenerateAvatar}
+                          disabled={isGeneratingAvatar}
+                          title="Regenerate"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </Button>
+                      </div>
+
+                      {/* Save to My Avatars inline input */}
+                      {showSaveInput && (
+                        <div className="flex gap-2">
+                          <Input
+                            value={saveAvatarName}
+                            onChange={(e) => setSaveAvatarName(e.target.value)}
+                            placeholder="Avatar name"
+                            className="text-sm h-8"
+                            onKeyDown={(e) => e.key === 'Enter' && handleSaveAvatar()}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={handleSaveAvatar}
+                            disabled={!saveAvatarName.trim() || isSavingAvatar}
+                            className="h-8 px-3"
+                          >
+                            {isSavingAvatar ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <UnifiedDragDrop

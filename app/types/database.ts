@@ -662,6 +662,29 @@ export interface Database {
           created_at?: string
         }
       }
+      user_saved_avatars: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          image_url: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          image_url: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          image_url?: string
+          created_at?: string
+        }
+      }
       keywords: {
         Row: {
           id: string
