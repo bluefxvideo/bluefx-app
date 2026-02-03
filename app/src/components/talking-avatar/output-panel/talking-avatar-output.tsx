@@ -198,71 +198,81 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
     return (
       <div className="h-full flex flex-col">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-6 w-full max-w-md">
-            {/* Avatar Preview */}
-            {avatarImageUrl && (
-              <div className="mx-auto w-48 h-48 rounded-xl overflow-hidden bg-muted shadow-lg">
-                {avatarPreviewVideoUrl ? (
-                  <video
-                    src={avatarPreviewVideoUrl}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={avatarImageUrl}
-                    alt={state.selectedAvatarTemplate?.name || 'Custom avatar'}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </div>
-            )}
+        {/* Large Avatar Preview — fills most of the right panel */}
+        {avatarImageUrl && (
+          <div className="flex-1 flex items-center justify-center p-6 min-h-0">
+            <div className="relative w-full max-w-lg aspect-video rounded-xl overflow-hidden bg-muted shadow-lg">
+              {avatarPreviewVideoUrl ? (
+                <video
+                  src={avatarPreviewVideoUrl}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <img
+                  src={avatarImageUrl}
+                  alt={state.selectedAvatarTemplate?.name || 'Custom avatar'}
+                  className="w-full h-full object-cover"
+                />
+              )}
+              {state.selectedAvatarTemplate && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                  <p className="text-white font-medium text-lg">{state.selectedAvatarTemplate.name}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-            {avatarImageUrl && state.selectedAvatarTemplate && (
-              <p className="text-sm font-medium">{state.selectedAvatarTemplate.name}</p>
-            )}
-
-            <UnifiedEmptyState
-              icon={Video}
-              title={getCurrentTitle()}
-              description={getCurrentMessage()}
-            />
-
-            <div className="grid grid-cols-3 gap-4 w-full max-w-md mx-auto">
-              <StepIndicator
-                stepNumber={1}
-                title="Avatar"
-                description="Select or upload"
-                icon={User}
-                isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarImage)}
-                isActive={state.currentStep === 1}
-                isLoading={state.isLoading && state.currentStep === 1}
-              />
-
-              <StepIndicator
-                stepNumber={2}
-                title="Script & Voice"
-                description="Write and choose"
-                icon={Mic}
-                isCompleted={!!(state.voiceAudioUrl || (state.uploadedAudioUrl && state.currentStep > 2))}
-                isActive={state.currentStep === 2 && !state.isLoading}
-                isLoading={state.isLoading && state.currentStep === 2}
-              />
-
-              <StepIndicator
-                stepNumber={3}
-                title="Generate"
-                description="Preview and create"
+        {/* Compact progress bar at bottom */}
+        <div className="shrink-0 px-6 pb-6 pt-2">
+          {!avatarImageUrl && (
+            <div className="text-center mb-4">
+              <UnifiedEmptyState
                 icon={Video}
-                isCompleted={false}
-                isActive={state.currentStep === 3 && !state.isLoading}
-                isLoading={state.isLoading && state.currentStep === 3}
+                title={getCurrentTitle()}
+                description={getCurrentMessage()}
               />
             </div>
+          )}
+          {avatarImageUrl && (
+            <p className="text-center text-sm text-muted-foreground mb-3">
+              {getCurrentMessage()}
+            </p>
+          )}
+          <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
+            <StepIndicator
+              stepNumber={1}
+              title="Avatar"
+              description="Select or upload"
+              icon={User}
+              isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarImage)}
+              isActive={state.currentStep === 1}
+              isLoading={state.isLoading && state.currentStep === 1}
+            />
+
+            <StepIndicator
+              stepNumber={2}
+              title="Script & Voice"
+              description="Write and choose"
+              icon={Mic}
+              isCompleted={!!(state.voiceAudioUrl || (state.uploadedAudioUrl && state.currentStep > 2))}
+              isActive={state.currentStep === 2 && !state.isLoading}
+              isLoading={state.isLoading && state.currentStep === 2}
+            />
+
+            <StepIndicator
+              stepNumber={3}
+              title="Generate"
+              description="Preview and create"
+              icon={Video}
+              isCompleted={false}
+              isActive={state.currentStep === 3 && !state.isLoading}
+              isLoading={state.isLoading && state.currentStep === 3}
+            />
           </div>
         </div>
       </div>

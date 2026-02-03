@@ -18,7 +18,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const RENDER_TIMEOUT = 5 * 60 * 1000; // 5 minutes timeout
+const RENDER_TIMEOUT = 15 * 60 * 1000; // 15 minutes timeout (long videos need more time)
+const RENDER_CONCURRENCY = parseInt(process.env.REMOTION_CONCURRENCY) || 2;
 
 // ===== PROGRESS TRACKING SYSTEM =====
 // In-memory storage for render progress (keeping for backward compatibility)
@@ -524,10 +525,9 @@ app.post("/render", async (req, res) => {
         inputProps,
         jpegQuality: quality,
         logLevel: "verbose",
-        concurrency: 2, // Limit concurrency for debugging
-        // Enable GPU for text-shadow and other GPU-accelerated properties
+        concurrency: RENDER_CONCURRENCY,
         chromiumOptions: {
-          gl: "angle", // Enable GPU acceleration
+          gl: "angle",
         },
         onProgress: ({
           renderedFrames,
@@ -962,10 +962,9 @@ async function performBackgroundRender(
       inputProps,
       jpegQuality: quality,
       logLevel: "verbose",
-      concurrency: 2,
-      // Enable GPU for text-shadow and other GPU-accelerated properties
+      concurrency: RENDER_CONCURRENCY,
       chromiumOptions: {
-        gl: "angle", // Enable GPU acceleration
+        gl: "angle",
       },
       onProgress: ({
         renderedFrames,
