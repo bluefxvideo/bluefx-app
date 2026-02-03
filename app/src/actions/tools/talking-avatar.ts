@@ -6,7 +6,6 @@ import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
 import {
   createFalLTXPrediction,
   LTX_RESOLUTIONS,
-  LTX_FRAME_RATE,
   LTX_MAX_DURATION_SECONDS,
   validateAudioDuration,
   type LTXResolution
@@ -27,6 +26,7 @@ export interface TalkingAvatarRequest {
   avatar_image_url?: string;
   avatar_template_id?: string;
   voice_id?: string;
+  voice_speed?: number; // Voice speed multiplier (0.5 - 2.0)
   custom_avatar_image?: File | null;
   workflow_step: 'avatar_select' | 'voice_generate' | 'audio_upload' | 'video_generate';
   user_id: string;
@@ -270,7 +270,7 @@ async function handleVoiceGeneration(
     // Generate audio using Minimax TTS if voice_id is provided
     let voiceAudioUrl: string | undefined;
     if (request.voice_id && request.script_text) {
-      voiceAudioUrl = await generateVoiceAudio(request.script_text, request.voice_id, request.user_id);
+      voiceAudioUrl = await generateVoiceAudio(request.script_text, request.voice_id, request.user_id, request.voice_speed);
     }
 
     return {
@@ -399,9 +399,9 @@ async function handleVideoGeneration(
       // Direct upload - use provided duration
       audioDurationSeconds = request.audio_duration_seconds;
     } else {
-      // TTS - estimate from word count
+      // TTS - estimate from word count (~1.5 words per second)
       const wordCount = request.script_text.trim().split(/\s+/).filter(Boolean).length;
-      audioDurationSeconds = Math.max(3, Math.ceil(wordCount / 2.5));
+      audioDurationSeconds = Math.max(3, Math.ceil(wordCount / 1.5));
     }
 
     // Validate audio duration (max 60 seconds for fal.ai LTX)
@@ -510,14 +510,11 @@ async function handleVideoGeneration(
     console.log(`🎬 Starting fal.ai LTX video generation: ${width}×${height}, ${audioDurationSeconds}s`);
 
     try {
-      const numFrames = Math.ceil(audioDurationSeconds * LTX_FRAME_RATE);
-
       const falResult = await createFalLTXPrediction({
         audio_url: audioUrl,
-        image_url: request.avatar_image_url, // Optional but recommended
+        image_url: request.avatar_image_url,
         prompt: request.action_prompt,
-        video_size: { width, height },
-        num_frames: numFrames,
+        video_size: LTX_RESOLUTIONS[resolution].falSize,
       });
 
       if (!falResult.request_id) {
@@ -543,7 +540,7 @@ async function handleVideoGeneration(
         status: 'processing',
         settings: {
           resolution: resolution,
-          num_frames: numFrames,
+          match_audio_length: true,
           model_version: 'fal-ai/ltx-2-19b/distilled/audio-to-video'
         }
       });
@@ -646,13 +643,13 @@ async function handleVideoGeneration(
 /**
  * Generate voice audio using Minimax Speech 2.6 HD via Replicate
  */
-async function generateVoiceAudio(scriptText: string, voiceId: string, userId: string): Promise<string> {
+async function generateVoiceAudio(scriptText: string, voiceId: string, userId: string, speed: number = 1.0): Promise<string> {
   try {
     const result = await generateMinimaxVoice({
       text: scriptText,
       voice_settings: {
         voice_id: voiceId,
-        speed: 1.0,
+        speed: speed,
         emotion: 'auto'
       },
       user_id: userId,

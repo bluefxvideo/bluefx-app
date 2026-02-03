@@ -55,95 +55,7 @@ interface Tool {
 }
 
 // Tool categories with their navigation data
-const toolCategories = [
-  {
-    id: "business",
-    name: "Business Tools",
-    tools: [
-      {
-        name: "Train My Business",
-        route: "/dashboard/business-tools/train-my-business",
-        icon: Briefcase,
-        gradient: "bg-primary",
-        description: "Upload your products for AI training",
-      },
-      {
-        name: "Top Affiliate Products",
-        route: "/dashboard/business-tools/top-affiliate-products",
-        icon: Library,
-        gradient: "bg-primary",
-        description: "Pre-trained affiliate products",
-      },
-      {
-        name: "Script Generator",
-        route: "/dashboard/script-generator",
-        icon: Sparkles,
-        gradient: "bg-primary",
-        description: "Generate marketing scripts",
-      },
-      {
-        name: "My Scripts",
-        route: "/dashboard/script-generator/my-scripts",
-        icon: BookOpen,
-        gradient: "bg-primary",
-        description: "Your saved scripts library",
-      },
-      {
-        name: "Trending Keywords",
-        route: "/dashboard/trending-keywords",
-        icon: Search,
-        gradient: "bg-primary",
-        description: "Find trending keywords",
-      },
-      {
-        name: "Viral Trends",
-        route: "/dashboard/viral-trends",
-        icon: TrendingUp,
-        gradient: "bg-primary",
-        description: "Discover viral content",
-      },
-      {
-        name: "Video Analyzer",
-        route: "/dashboard/video-analyzer",
-        icon: ScanSearch,
-        gradient: "bg-primary",
-        description: "Analyze and break down videos",
-      },
-    ],
-  },
-  {
-    id: "research",
-    name: "Research",
-    tools: [
-      {
-        name: "Top Offers",
-        route: "/dashboard/top-offers",
-        icon: CreditCard,
-        gradient: "bg-primary",
-        description: "Find the best affiliate offers",
-      },
-    ],
-  },
-  {
-    id: "image",
-    name: "Image Tools",
-    tools: [
-      {
-        name: "Thumbnail Machine",
-        route: "/dashboard/thumbnail-machine",
-        icon: Image,
-        gradient: "bg-primary",
-        description: "Create engaging thumbnails",
-      },
-      {
-        name: "Logo Generator",
-        route: "/dashboard/logo-generator",
-        icon: Palette,
-        gradient: "bg-primary",
-        description: "Design professional logos",
-      },
-    ],
-  },
+const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
   {
     id: "video",
     name: "Video Tools",
@@ -176,6 +88,33 @@ const toolCategories = [
         gradient: "bg-primary",
         description: "Swap characters in videos",
       },
+      {
+        name: "Video Analyzer",
+        route: "/dashboard/video-analyzer",
+        icon: ScanSearch,
+        gradient: "bg-primary",
+        description: "Analyze and break down videos",
+      },
+    ],
+  },
+  {
+    id: "image",
+    name: "Image Tools",
+    tools: [
+      {
+        name: "Thumbnail Machine",
+        route: "/dashboard/thumbnail-machine",
+        icon: Image,
+        gradient: "bg-primary",
+        description: "Create engaging thumbnails",
+      },
+      {
+        name: "Logo Generator",
+        route: "/dashboard/logo-generator",
+        icon: Palette,
+        gradient: "bg-primary",
+        description: "Design professional logos",
+      },
     ],
   },
   {
@@ -199,9 +138,23 @@ const toolCategories = [
     ],
   },
   {
-    id: "content",
-    name: "Content Tools",
+    id: "writing",
+    name: "Writing Tools",
     tools: [
+      {
+        name: "Script Generator",
+        route: "/dashboard/script-generator",
+        icon: Sparkles,
+        gradient: "bg-primary",
+        description: "Generate marketing scripts",
+      },
+      {
+        name: "My Scripts",
+        route: "/dashboard/script-generator/my-scripts",
+        icon: BookOpen,
+        gradient: "bg-primary",
+        description: "Your saved scripts library",
+      },
       {
         name: "Ebook Writer",
         route: "/dashboard/ebook-writer",
@@ -215,6 +168,53 @@ const toolCategories = [
         icon: Layers,
         gradient: "bg-primary",
         description: "Multi-platform social content",
+      },
+    ],
+  },
+  {
+    id: "research",
+    name: "Research",
+    tools: [
+      {
+        name: "Trending Keywords",
+        route: "/dashboard/trending-keywords",
+        icon: Search,
+        gradient: "bg-primary",
+        description: "Find trending keywords",
+      },
+      {
+        name: "Viral Trends",
+        route: "/dashboard/viral-trends",
+        icon: TrendingUp,
+        gradient: "bg-primary",
+        description: "Discover viral content",
+      },
+      {
+        name: "Top Offers",
+        route: "/dashboard/top-offers",
+        icon: CreditCard,
+        gradient: "bg-primary",
+        description: "Find the best affiliate offers",
+      },
+      {
+        name: "Top Affiliate Products",
+        route: "/dashboard/business-tools/top-affiliate-products",
+        icon: Library,
+        gradient: "bg-primary",
+        description: "Pre-trained affiliate products",
+      },
+    ],
+  },
+  {
+    id: "business",
+    name: "My Business",
+    tools: [
+      {
+        name: "Train My Business",
+        route: "/dashboard/business-tools/train-my-business",
+        icon: Briefcase,
+        gradient: "bg-primary",
+        description: "Upload your products for AI training",
       },
     ],
   },

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle, Loader2, Video, User, Mic, Upload, LucideIcon, Zap } from 'lucide-react';
+import { CheckCircle, Loader2, Video, User, Mic, LucideIcon, Zap } from 'lucide-react';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { Card } from '@/components/ui/card';
 import { TalkingAvatarState } from '../hooks/use-talking-avatar';
@@ -163,69 +163,80 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
     );
   }
 
-  // If in progress but not generating, show progress state
+  // If in progress but not generating, show progress state with avatar preview
   if (isInProgress) {
-    // Check if audio is ready (TTS voice or uploaded audio)
-    const hasAudioReady = state.audioInputMode === 'upload'
-      ? !!state.uploadedAudioUrl
-      : !!(state.selectedVoiceId && state.voiceAudioUrl);
+    const avatarImageUrl = state.selectedAvatarTemplate?.thumbnail_url || state.customAvatarUrl;
+    const avatarPreviewVideoUrl = state.selectedAvatarTemplate?.preview_video_url;
 
     const getCurrentMessage = () => {
-      if (state.currentStep === 2 && state.selectedAvatarTemplate) {
-        return state.audioInputMode === 'upload'
-          ? 'Avatar selected! Upload your audio file (max 60 seconds).'
-          : 'Avatar selected! Add your script and choose a voice.';
-      }
       if (state.currentStep === 2 && state.isLoading) {
-        return 'Preparing voice in the background...';
+        return 'Generating your voice...';
       }
-      if (state.currentStep === 3 && hasAudioReady) {
-        return 'Audio ready! Click generate to create your avatar video.';
+      if (state.currentStep === 2) {
+        return state.audioInputMode === 'upload'
+          ? 'Upload your audio file.'
+          : 'Write your script and choose a voice.';
+      }
+      if (state.currentStep === 3) {
+        return 'Preview your voice and generate the video.';
       }
       return 'Continue setting up your talking avatar video.';
     };
 
     const getCurrentTitle = () => {
       if (state.currentStep === 2 && state.isLoading) {
-        return 'Preparing Voice';
+        return 'Generating Voice';
       }
       if (state.currentStep === 2) {
-        return state.audioInputMode === 'upload' ? 'Upload Audio' : 'Configure Voice';
+        return 'Script & Voice';
       }
       if (state.currentStep === 3) {
-        return 'Ready to Generate';
+        return 'Preview & Generate';
       }
       return 'Setup in Progress';
-    };
-
-    const getStep2Title = () => {
-      if (hasAudioReady) {
-        return state.audioInputMode === 'upload' ? 'Audio Uploaded' : 'Voice Prepared';
-      }
-      return state.audioInputMode === 'upload' ? 'Upload Audio' : 'Add Voice';
-    };
-
-    const getStep2Description = () => {
-      return state.audioInputMode === 'upload'
-        ? 'Upload audio file (max 60s)'
-        : 'Enter script and select voice';
     };
 
     return (
       <div className="h-full flex flex-col">
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-8">
+          <div className="text-center space-y-6 w-full max-w-md">
+            {/* Avatar Preview */}
+            {avatarImageUrl && (
+              <div className="mx-auto w-48 h-48 rounded-xl overflow-hidden bg-muted shadow-lg">
+                {avatarPreviewVideoUrl ? (
+                  <video
+                    src={avatarPreviewVideoUrl}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={avatarImageUrl}
+                    alt={state.selectedAvatarTemplate?.name || 'Custom avatar'}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+            )}
+
+            {avatarImageUrl && state.selectedAvatarTemplate && (
+              <p className="text-sm font-medium">{state.selectedAvatarTemplate.name}</p>
+            )}
+
             <UnifiedEmptyState
               icon={Video}
               title={getCurrentTitle()}
               description={getCurrentMessage()}
             />
 
-            <div className="grid grid-cols-3 gap-6 w-full max-w-lg">
+            <div className="grid grid-cols-3 gap-4 w-full max-w-md mx-auto">
               <StepIndicator
                 stepNumber={1}
-                title="Choose Avatar"
-                description="Select template or upload custom"
+                title="Avatar"
+                description="Select or upload"
                 icon={User}
                 isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarImage)}
                 isActive={state.currentStep === 1}
@@ -234,22 +245,22 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
               <StepIndicator
                 stepNumber={2}
-                title={getStep2Title()}
-                description={getStep2Description()}
-                icon={state.audioInputMode === 'upload' ? Upload : Mic}
-                isCompleted={hasAudioReady}
+                title="Script & Voice"
+                description="Write and choose"
+                icon={Mic}
+                isCompleted={!!(state.voiceAudioUrl || (state.uploadedAudioUrl && state.currentStep > 2))}
                 isActive={state.currentStep === 2 && !state.isLoading}
                 isLoading={state.isLoading && state.currentStep === 2}
               />
 
               <StepIndicator
                 stepNumber={3}
-                title="Generate Video"
-                description="Create professional avatar video"
+                title="Generate"
+                description="Preview and create"
                 icon={Video}
-                isCompleted={!!state.generatedVideo && !!state.generatedVideo.video_url}
-                isActive={false}
-                isLoading={state.isGenerating}
+                isCompleted={false}
+                isActive={state.currentStep === 3 && !state.isLoading}
+                isLoading={state.isLoading && state.currentStep === 3}
               />
             </div>
           </div>

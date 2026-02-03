@@ -3,8 +3,8 @@
  * Model: fal-ai/ltx-2-19b/distilled/audio-to-video
  *
  * Generates talking avatar videos from audio input
- * - Frame rate: 25 fps (fixed)
- * - Max duration: 60 seconds (1000 MP limit)
+ * - Uses match_audio_length to auto-calculate frames from audio duration
+ * - Max duration: 60 seconds
  * - Pricing: $0.0008 per megapixel
  *
  * Supported resolutions:
@@ -16,11 +16,9 @@ export interface FalLTXInput {
   audio_url: string;           // URL to audio file (required)
   image_url?: string;          // Reference image URL (optional but strongly recommended)
   prompt?: string;             // Action/style description (optional)
-  video_size: {
-    width: number;             // 1024 or 576
-    height: number;            // 576 or 1024
-  };
-  num_frames: number;          // audio_duration_seconds × 25 (max 1500 for 60 sec)
+  negative_prompt?: string;    // Negative prompt for quality control
+  video_size: string;          // "landscape_16_9" | "portrait_9_16"
+  enable_safety_checker?: boolean;
 }
 
 export interface FalLTXOutput {
@@ -46,17 +44,18 @@ export interface FalStatusResponse {
 
 // Resolution presets
 export const LTX_RESOLUTIONS = {
-  landscape: { width: 1024, height: 576, label: 'Landscape (1024×576)' },
-  portrait: { width: 576, height: 1024, label: 'Portrait (576×1024)' },
+  landscape: { width: 1024, height: 576, label: 'Landscape (1024×576)', falSize: 'landscape_16_9' },
+  portrait: { width: 576, height: 1024, label: 'Portrait (576×1024)', falSize: 'portrait_9_16' },
 } as const;
 
 export type LTXResolution = keyof typeof LTX_RESOLUTIONS;
 
 // Constants
-export const LTX_FRAME_RATE = 25;
 export const LTX_MAX_DURATION_SECONDS = 60;
-export const LTX_MAX_FRAMES = LTX_MAX_DURATION_SECONDS * LTX_FRAME_RATE; // 1500
 export const LTX_COST_PER_MEGAPIXEL = 0.0008;
+
+// Default negative prompt for quality control
+export const LTX_DEFAULT_NEGATIVE_PROMPT = "blurry, out of focus, overexposed, underexposed, low contrast, washed out colors, excessive noise, grainy texture, poor lighting, flickering, motion blur, distorted proportions, unnatural skin tones, deformed facial features, asymmetrical face, missing facial features, extra limbs, disfigured hands, wrong hand count, artifacts around text, inconsistent perspective, camera shake, incorrect depth of field, background too sharp, background clutter, distracting reflections, harsh shadows, inconsistent lighting direction, color banding, cartoonish rendering, 3D CGI look, unrealistic materials, uncanny valley effect, incorrect ethnicity, wrong gender, exaggerated expressions, wrong gaze direction, mismatched lip sync, silent or muted audio, distorted voice, robotic voice, echo, background noise, off-sync audio, incorrect dialogue, added dialogue, repetitive speech, jittery movement, awkward pauses, incorrect timing, unnatural transitions, inconsistent framing, tilted camera, flat lighting, inconsistent tone, cinematic oversaturation, stylized filters, or AI artifacts.";
 
 /**
  * Calculate cost for a video generation
@@ -66,13 +65,15 @@ export function calculateLTXCost(
   durationSeconds: number
 ): { megapixels: number; costUSD: number; credits: number } {
   const { width, height } = LTX_RESOLUTIONS[resolution];
-  const numFrames = Math.min(durationSeconds, LTX_MAX_DURATION_SECONDS) * LTX_FRAME_RATE;
-  const totalPixels = width * height * numFrames;
+  const cappedDuration = Math.min(durationSeconds, LTX_MAX_DURATION_SECONDS);
+  // Estimate megapixels for cost (fal.ai calculates actual frames internally)
+  const estimatedFrames = cappedDuration * 25;
+  const totalPixels = width * height * estimatedFrames;
   const megapixels = totalPixels / 1_000_000;
   const costUSD = megapixels * LTX_COST_PER_MEGAPIXEL;
 
   // 1 credit per second, minimum 10
-  const credits = Math.max(10, Math.ceil(Math.min(durationSeconds, LTX_MAX_DURATION_SECONDS)));
+  const credits = Math.max(10, Math.ceil(cappedDuration));
 
   return { megapixels, costUSD, credits };
 }
@@ -100,12 +101,7 @@ export async function createFalLTXPrediction(
   params: FalLTXInput
 ): Promise<FalQueueResponse> {
   try {
-    console.log(`🎬 Creating fal.ai LTX prediction: ${params.video_size.width}×${params.video_size.height}, ${params.num_frames} frames`);
-
-    // Validate frames limit
-    if (params.num_frames > LTX_MAX_FRAMES) {
-      throw new Error(`Frame count ${params.num_frames} exceeds maximum ${LTX_MAX_FRAMES} (60 seconds)`);
-    }
+    console.log(`🎬 Creating fal.ai LTX prediction: video_size=${params.video_size}, match_audio_length=true`);
 
     // Build webhook URL for completion callback
     const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`;
@@ -113,12 +109,14 @@ export async function createFalLTXPrediction(
 
     const queueUrl = `https://queue.fal.run/fal-ai/ltx-2-19b/distilled/audio-to-video?fal_webhook=${encodeURIComponent(webhookUrl)}`;
 
-    // Build request body - prompt is required by fal.ai
+    // Build request body - let fal.ai calculate num_frames from audio duration
     const requestBody: Record<string, unknown> = {
       audio_url: params.audio_url,
       video_size: params.video_size,
-      num_frames: params.num_frames,
       prompt: params.prompt || 'A person speaking naturally to camera with professional lighting',
+      negative_prompt: params.negative_prompt || LTX_DEFAULT_NEGATIVE_PROMPT,
+      match_audio_length: true,
+      enable_safety_checker: params.enable_safety_checker ?? true,
     };
 
     // Add optional parameters
@@ -223,14 +221,13 @@ export function getFalLTXModelInfo() {
     limitations: [
       'Maximum 60 seconds duration',
       '1000 megapixel limit per generation',
-      'Fixed 25 fps frame rate',
+      'Frame count auto-calculated via match_audio_length',
     ],
     pricing: {
       cost_per_megapixel: '$0.0008',
       landscape_per_minute: '~$0.71',
       portrait_per_minute: '~$0.71',
     },
-    frame_rate: LTX_FRAME_RATE,
     max_duration_seconds: LTX_MAX_DURATION_SECONDS,
     resolutions: LTX_RESOLUTIONS,
   };

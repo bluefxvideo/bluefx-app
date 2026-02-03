@@ -5,6 +5,10 @@ import { usePathname } from 'next/navigation';
 import { executeTalkingAvatar, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
 import { getAvatarTemplates, getTalkingAvatarVideos, deleteTalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
+import { getUserClonedVoices, saveClonedVoice } from '@/actions/database/cloned-voices-database';
+import type { ClonedVoice } from '@/actions/database/cloned-voices-database';
+import { cloneVoiceFromFile } from '@/actions/services/minimax-clone-service';
+import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { pollLTXVideoGeneration } from '@/actions/models/fal-ltx-polling';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -50,6 +54,10 @@ export interface TalkingAvatarState {
   // Generation state
   currentGenerationId: string | null; // fal.ai request_id or hedra generation_id
   isStateRestored: boolean;
+
+  // Cloned voices
+  clonedVoices: ClonedVoice[];
+  isCloning: boolean;
 }
 
 export interface UseTalkingAvatarReturn {
@@ -58,7 +66,7 @@ export interface UseTalkingAvatarReturn {
   state: TalkingAvatarState;
   loadAvatarTemplates: () => Promise<void>;
   handleAvatarSelection: (template: AvatarTemplate | null, customFile?: File) => Promise<void>;
-  handleVoiceGeneration: (voiceId: string, scriptText: string) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
+  handleVoiceGeneration: (voiceId: string, scriptText: string, speed?: number) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
   handleVideoGeneration: () => Promise<void>;
   resetWizard: () => void;
   goToStep: (step: number) => void;
@@ -73,6 +81,9 @@ export interface UseTalkingAvatarReturn {
   setActionPrompt: (prompt: string) => void;
   setSelectedResolution: (resolution: 'landscape' | 'portrait') => void;
   setScriptText: (text: string) => void;
+  // Voice cloning
+  loadClonedVoices: () => Promise<void>;
+  cloneVoice: (file: File, name: string, options: { noiseReduction: boolean; volumeNormalization: boolean }) => Promise<void>;
 }
 
 export function useTalkingAvatar(): UseTalkingAvatarReturn {
@@ -128,6 +139,9 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     isLoadingHistory: false,
     currentGenerationId: null,
     isStateRestored: false,
+    // Cloned voices
+    clonedVoices: [],
+    isCloning: false,
   });
 
   // Update active tab when pathname changes
@@ -244,15 +258,16 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [user, state.scriptText]);
 
   // Step 2: Handle voice generation
-  const handleVoiceGeneration = useCallback(async (voiceId: string, scriptText: string): Promise<{ success: boolean; voiceAudioUrl?: string }> => {
+  const handleVoiceGeneration = useCallback(async (voiceId: string, scriptText: string, speed?: number): Promise<{ success: boolean; voiceAudioUrl?: string }> => {
     if (!user) return { success: false };
-    
+
     setState(prev => ({ ...prev, isLoading: true, error: null }));
-    
+
     try {
       const request: TalkingAvatarRequest = {
         script_text: scriptText,
         voice_id: voiceId,
+        voice_speed: speed || 1.0,
         avatar_image_url: state.customAvatarUrl || state.selectedAvatarTemplate?.thumbnail_url,
         avatar_template_id: state.selectedAvatarTemplate?.id,
         workflow_step: 'voice_generate',
@@ -263,6 +278,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       
       if (response.success) {
         const voiceAudioUrl = response.step_data?.voice_audio_url || null;
+        const estimatedDuration = response.step_data?.estimated_duration || 0;
 
         setState(prev => ({
           ...prev,
@@ -270,13 +286,26 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           selectedVoiceId: voiceId,
           voiceOptions: response.voice_options || prev.voiceOptions,
           voiceAudioUrl,
-          audioDurationSeconds: response.step_data?.estimated_duration || 0,
-          currentStep: 2,
+          audioDurationSeconds: estimatedDuration,
+          currentStep: 3,
           credits: response.remaining_credits,
           isLoading: false,
         }));
-        
-        toast.success('Voice generated successfully');
+
+        // Measure actual audio duration from the file (server estimate can be inaccurate)
+        if (voiceAudioUrl) {
+          const audio = new Audio(voiceAudioUrl);
+          audio.addEventListener('loadedmetadata', () => {
+            if (audio.duration && isFinite(audio.duration)) {
+              setState(prev => ({
+                ...prev,
+                audioDurationSeconds: Math.ceil(audio.duration),
+              }));
+            }
+          });
+        }
+
+        toast.success('Voice generated — preview it below');
         return { success: true, voiceAudioUrl: voiceAudioUrl || undefined };
       } else {
         throw new Error(response.error || 'Voice generation failed');
@@ -411,15 +440,15 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     setState(prev => ({ ...prev, currentStep: step }));
   }, []);
 
-  // Clear voice/audio to allow regeneration
+  // Clear voice/audio and go back to step 2 for regeneration
   const clearVoice = useCallback(() => {
     setState(prev => ({
       ...prev,
       voiceAudioUrl: null,
       uploadedAudioUrl: null,
       uploadedAudioFile: null,
-      selectedVoiceId: null,
       audioDurationSeconds: 0,
+      currentStep: 2,
     }));
   }, []);
 
@@ -946,6 +975,113 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     };
   }, [state.isGenerating, state.currentGenerationId, isLocalDev]);
 
+  // Load user's cloned voices
+  const loadClonedVoices = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const result = await getUserClonedVoices(user.id);
+      if (result.success && result.data) {
+        setState(prev => ({ ...prev, clonedVoices: result.data || [] }));
+      }
+    } catch (error) {
+      console.error('Failed to load cloned voices:', error);
+    }
+  }, [user?.id]);
+
+  // Clone a voice from uploaded file
+  const cloneVoiceAction = useCallback(async (
+    file: File,
+    name: string,
+    options: { noiseReduction: boolean; volumeNormalization: boolean }
+  ) => {
+    if (!user) return;
+
+    setState(prev => ({ ...prev, isCloning: true }));
+
+    try {
+      // Convert file to base64
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
+      }
+      const base64Data = btoa(binary);
+
+      const result = await cloneVoiceFromFile(
+        base64Data,
+        user.id,
+        file.name,
+        {
+          noise_reduction: options.noiseReduction,
+          volume_normalization: options.volumeNormalization,
+        }
+      );
+
+      if (result.success && result.voice_id) {
+        // Generate a preview sample with the cloned voice
+        let previewUrl: string | undefined = result.preview_url;
+
+        if (!previewUrl) {
+          try {
+            const previewResult = await generateMinimaxVoice({
+              text: `Hello, this is ${name}. This is a preview of your cloned voice.`,
+              voice_settings: {
+                voice_id: result.voice_id,
+                speed: 1.0,
+                pitch: 0,
+                volume: 1,
+                emotion: 'auto'
+              },
+              user_id: user.id,
+              batch_id: `clone_preview_${Date.now()}`
+            });
+
+            if (previewResult.success && previewResult.audio_url) {
+              previewUrl = previewResult.audio_url;
+            }
+          } catch (previewError) {
+            console.warn('Failed to generate preview for cloned voice:', previewError);
+          }
+        }
+
+        // Save the cloned voice to database
+        const saveResult = await saveClonedVoice(
+          user.id,
+          name,
+          result.voice_id,
+          undefined,
+          previewUrl
+        );
+
+        if (saveResult.success && saveResult.data) {
+          setState(prev => ({
+            ...prev,
+            clonedVoices: [saveResult.data!, ...prev.clonedVoices],
+            isCloning: false,
+          }));
+          toast.success('Voice cloned successfully!');
+        } else {
+          throw new Error(saveResult.error || 'Failed to save cloned voice');
+        }
+      } else {
+        throw new Error(result.error || 'Voice cloning failed');
+      }
+    } catch (error) {
+      console.error('Clone error:', error);
+      setState(prev => ({ ...prev, isCloning: false }));
+      toast.error(error instanceof Error ? error.message : 'Voice cloning failed');
+      throw error;
+    }
+  }, [user]);
+
+  // Load cloned voices on mount when user is available
+  useEffect(() => {
+    if (user?.id) {
+      loadClonedVoices();
+    }
+  }, [user?.id, loadClonedVoices]);
+
   // Check status for a specific history item
   const checkHistoryItemStatus = useCallback(async (generationId: string) => {
     if (!generationId) return;
@@ -990,5 +1126,8 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     setActionPrompt,
     setSelectedResolution,
     setScriptText,
+    // Voice cloning
+    loadClonedVoices,
+    cloneVoice: cloneVoiceAction,
   };
 }
