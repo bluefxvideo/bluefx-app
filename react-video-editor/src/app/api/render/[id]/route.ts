@@ -36,6 +36,17 @@ export async function GET(
 		// Get the relative video URL from Remotion
 		let videoUrl = statusData.downloadUrl || statusData.outputUrl || statusData.url;
 
+		// Helper: build internal Remotion URL (server-to-server, no SSL issues)
+		const internalRemotionUrl = process.env.REMOTION_SERVER_URL || 'http://remotion:3001';
+		const buildInternalUrl = (relativeUrl: string) =>
+			relativeUrl.startsWith('/') ? `${internalRemotionUrl}${relativeUrl}` : relativeUrl;
+
+		// Helper: build proxy download URL (client-safe, goes through our own domain)
+		const buildProxyUrl = (relativeUrl: string) => {
+			const internalUrl = buildInternalUrl(relativeUrl);
+			return `/api/download?url=${encodeURIComponent(internalUrl)}&filename=${encodeURIComponent(id)}`;
+		};
+
 		// When render is completed, upload to Supabase via store-export using internal URL
 		if (statusData.status === 'completed' && videoUrl) {
 			const { searchParams } = new URL(request.url);
@@ -44,12 +55,7 @@ export async function GET(
 			const apiUrl = searchParams.get('apiUrl') || process.env.NEXT_PUBLIC_MAIN_APP_URL;
 
 			if (scriptVideoId && userId && apiUrl) {
-				// Build INTERNAL URL for server-to-server transfer (no SSL issues)
-				const internalRemotionUrl = process.env.REMOTION_SERVER_URL || 'http://remotion:3001';
-				const internalVideoUrl = videoUrl.startsWith('/')
-					? `${internalRemotionUrl}${videoUrl}`
-					: videoUrl;
-
+				const internalVideoUrl = buildInternalUrl(videoUrl);
 				console.log(`📤 Storing video to Supabase via internal URL: ${internalVideoUrl}`);
 
 				try {
@@ -74,28 +80,19 @@ export async function GET(
 					} else {
 						const errorText = await storeResponse.text();
 						console.error(`❌ Store-export failed: ${storeResponse.status} - ${errorText}`);
-						// Fall back to external URL
-						const externalUrl = process.env.REMOTION_EXTERNAL_URL || 'http://localhost:3001';
-						videoUrl = videoUrl.startsWith('/') ? `${externalUrl}${videoUrl}` : videoUrl;
+						videoUrl = buildProxyUrl(videoUrl);
 					}
 				} catch (e) {
 					console.error('❌ Failed to store to Supabase:', e);
-					// Fall back to external URL if storage fails
-					const externalUrl = process.env.REMOTION_EXTERNAL_URL || 'http://localhost:3001';
-					videoUrl = videoUrl.startsWith('/') ? `${externalUrl}${videoUrl}` : videoUrl;
+					videoUrl = buildProxyUrl(videoUrl);
 				}
 			} else {
-				console.warn('⚠️ Missing videoId, userId, or apiUrl - cannot store to Supabase');
-				// Fall back to external URL
-				if (videoUrl.startsWith('/')) {
-					const externalUrl = process.env.REMOTION_EXTERNAL_URL || 'http://localhost:3001';
-					videoUrl = `${externalUrl}${videoUrl}`;
-				}
+				console.warn('⚠️ Missing videoId, userId, or apiUrl - using download proxy');
+				videoUrl = buildProxyUrl(videoUrl);
 			}
 		} else if (videoUrl && videoUrl.startsWith('/')) {
-			// Not completed yet, use external URL for any intermediate needs
-			const externalUrl = process.env.REMOTION_EXTERNAL_URL || 'http://localhost:3001';
-			videoUrl = `${externalUrl}${videoUrl}`;
+			// Not completed yet, use proxy URL for any intermediate needs
+			videoUrl = buildProxyUrl(videoUrl);
 			console.log(`🔗 Converted URL (pending): ${videoUrl}`);
 		}
 

@@ -113,13 +113,12 @@ export async function GET(request: Request) {
 		console.log('📊 Remotion progress:', statusData);
 		
 		// Transform response to match combo.sh format expected by the editor
-		// Fix URL construction - convert relative URLs to absolute external URLs
+		// Use download proxy so browser never hits Remotion server directly (avoids SSL issues)
 		let videoUrl = statusData.outputUrl || statusData.url;
 		if (videoUrl && videoUrl.startsWith('/')) {
-			// Use external URL that browsers can access
-			const externalUrl = process.env.REMOTION_EXTERNAL_URL || 'http://localhost:3001';
-			videoUrl = `${externalUrl}${videoUrl}`;
-			console.log(`🔗 Converted URL: ${videoUrl}`);
+			const internalUrl = `${remotionServerUrl}${videoUrl}`;
+			videoUrl = `/api/download?url=${encodeURIComponent(internalUrl)}&filename=${encodeURIComponent(id || 'video')}`;
+			console.log(`🔗 Converted to proxy URL: ${videoUrl}`);
 		}
 		
 		const editorResponse = {
