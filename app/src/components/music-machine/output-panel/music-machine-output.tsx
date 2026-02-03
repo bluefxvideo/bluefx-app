@@ -7,8 +7,9 @@ import { Progress } from '@/components/ui/progress';
 import { 
   Music, 
   Download, 
-  Play, 
-  Square, 
+  Play,
+  Pause,
+  Square,
   Clock, 
   FileAudio, 
   Zap,
@@ -19,7 +20,7 @@ import {
   X,
   Loader2
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { MusicHistoryOutput } from './music-history-output';
 import { MusicExample } from './music-example';
@@ -38,10 +39,40 @@ interface MusicMachineOutputProps {
 export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicMachineOutputProps) {
   const { activeTab, state, playingMusicId, handleMusicPlayback, deleteMusic } = musicMachineState;
   const [audioElements, setAudioElements] = useState<Map<string, HTMLAudioElement>>(new Map());
+  const [currentTime, setCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  const startTimeTracking = useCallback(() => {
+    const update = () => {
+      if (currentAudioRef.current) {
+        setCurrentTime(currentAudioRef.current.currentTime);
+      }
+      animFrameRef.current = requestAnimationFrame(update);
+    };
+    animFrameRef.current = requestAnimationFrame(update);
+  }, []);
+
+  const stopTimeTracking = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopTimeTracking();
+    };
+  }, [stopTimeTracking]);
 
   const handleAudioPlayback = (musicId: string, audioUrl: string) => {
     const audioMap = new Map(audioElements);
-    
+
+    // Stop time tracking
+    stopTimeTracking();
+
     // Stop currently playing audio
     if (playingMusicId && audioMap.has(playingMusicId)) {
       const currentAudio = audioMap.get(playingMusicId)!;
@@ -51,7 +82,10 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
 
     // If clicking same audio, just stop
     if (playingMusicId === musicId) {
-      handleMusicPlayback(musicId, audioUrl); // This will trigger the stop logic
+      currentAudioRef.current = null;
+      setCurrentTime(0);
+      setAudioDuration(0);
+      handleMusicPlayback(musicId, audioUrl);
       return;
     }
 
@@ -61,47 +95,64 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
       audio = new Audio(audioUrl);
       audioMap.set(musicId, audio);
       setAudioElements(audioMap);
-      
-      console.log(`🎵 Creating audio element for ${musicId}:`, audioUrl);
-      
+
       audio.addEventListener('loadedmetadata', () => {
-        console.log(`🎵 Metadata loaded for ${musicId}:`, audio?.duration);
         if (audio && audio.duration && isFinite(audio.duration)) {
           const actualDuration = Math.round(audio.duration);
-          console.log(`🎵 Actual audio duration for ${musicId}:`, actualDuration, 'seconds');
-          
-          // Update the music record with correct duration
+          setAudioDuration(audio.duration);
           musicMachineState.updateMusicDuration?.(musicId, actualDuration);
         }
       });
-      
-      audio.addEventListener('loadeddata', () => {
-        console.log(`🎵 Data loaded for ${musicId}:`, audio?.duration);
-      });
-      
-      audio.addEventListener('canplay', () => {
-        console.log(`🎵 Can play ${musicId}:`, audio?.duration);
-      });
-      
+
       audio.addEventListener('ended', () => {
-        // Audio ended - the music machine hook will handle clearing the state
-        // We don't need to call handleMusicPlayback here since it's already handled
+        stopTimeTracking();
+        currentAudioRef.current = null;
+        setCurrentTime(0);
+        setAudioDuration(0);
       });
-      
+
       audio.addEventListener('error', () => {
-        // Handle audio error
+        stopTimeTracking();
+        currentAudioRef.current = null;
+        setCurrentTime(0);
+        setAudioDuration(0);
       });
+    } else {
+      // Existing audio element - set duration
+      if (audio.duration && isFinite(audio.duration)) {
+        setAudioDuration(audio.duration);
+      }
     }
 
     // Play new audio
+    currentAudioRef.current = audio;
+    setCurrentTime(0);
     audio.play();
+    startTimeTracking();
     handleMusicPlayback(musicId, audioUrl);
   };
+
+  const handleSeek = (musicId: string, ratio: number) => {
+    if (playingMusicId !== musicId || !currentAudioRef.current) return;
+    currentAudioRef.current.currentTime = ratio * currentAudioRef.current.duration;
+    setCurrentTime(currentAudioRef.current.currentTime);
+  };
+
+  const audioProgress = playingMusicId && currentAudioRef.current && audioDuration > 0
+    ? (currentTime / audioDuration) * 100
+    : 0;
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatFileSize = (mb: number) => {
@@ -265,34 +316,21 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
                       </div>
 
                       {/* Audio Player Placeholder */}
-                      <div className="relative w-full">
-                        <div className="bg-muted/30 rounded-lg p-4">
-                          <div className="flex items-center gap-3">
-                            <button
-                              disabled
-                              className="flex-shrink-0 w-10 h-10 bg-muted/50 text-muted-foreground rounded-full flex items-center justify-center"
-                            >
-                              <Play className="w-5 h-5" />
-                            </button>
-                            <div className="flex-1 h-12 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3 backdrop-blur-sm">
-                              {/* Animated placeholder waveform */}
-                              <div className="flex items-center justify-center w-full gap-1">
-                                {[...Array(120)].map((_, i) => (
-                                  <div
-                                    key={i}
-                                    className="bg-primary/40 rounded-full animate-pulse"
-                                    style={{
-                                      width: '2px',
-                                      height: `${Math.random() * 20 + 8}px`,
-                                      animationDelay: `${i * 30}ms`
-                                    }}
-                                  />
-                                ))}
-                              </div>
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          <button
+                            disabled
+                            className="flex-shrink-0 w-10 h-10 bg-muted/50 text-muted-foreground rounded-full flex items-center justify-center"
+                          >
+                            <Play className="w-4 h-4 ml-0.5" />
+                          </button>
+                          <div className="flex-1">
+                            <div className="relative h-1.5 rounded-full bg-muted/30">
+                              <div className="absolute inset-y-0 left-0 rounded-full bg-primary/30 animate-pulse" style={{ width: '30%' }} />
                             </div>
-                            <div className="flex-shrink-0 text-sm text-muted-foreground font-mono">
-                              ~30s
-                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-xs text-muted-foreground font-mono">
+                            ~30s
                           </div>
                         </div>
                       </div>
@@ -366,43 +404,54 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
                         </p>
                       </div>
 
-                      {/* Audio Player with improved shading */}
-                      <div className="relative w-full">
-                        <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-4 border border-border/50">
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => handleAudioPlayback(music.id, music.audio_url || '')}
-                              className="flex-shrink-0 w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+                      {/* Seekable Audio Player */}
+                      <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-3 border border-border/50">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleAudioPlayback(music.id, music.audio_url || '')}
+                            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:scale-105 transition-transform ${
+                              playingMusicId === music.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground'
+                            }`}
+                          >
+                            {playingMusicId === music.id ? (
+                              <Pause className="w-4 h-4" />
+                            ) : (
+                              <Play className="w-4 h-4 ml-0.5" />
+                            )}
+                          </button>
+                          <div className="flex-1 space-y-1">
+                            {/* Progress bar */}
+                            <div
+                              className={`relative h-1.5 rounded-full ${
+                                playingMusicId === music.id ? 'cursor-pointer bg-muted/60' : 'bg-muted/30'
+                              }`}
+                              onClick={(e) => {
+                                if (playingMusicId !== music.id) return;
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                                handleSeek(music.id, ratio);
+                              }}
                             >
-                              {playingMusicId === music.id ? (
-                                <Square className="w-5 h-5" />
-                              ) : (
-                                <Play className="w-5 h-5" />
+                              <div
+                                className={`absolute inset-y-0 left-0 rounded-full ${
+                                  playingMusicId === music.id ? 'bg-primary' : ''
+                                }`}
+                                style={{ width: `${playingMusicId === music.id ? audioProgress : 0}%` }}
+                              />
+                              {playingMusicId === music.id && audioProgress > 0 && (
+                                <div
+                                  className="absolute top-1/2 w-3 h-3 bg-primary rounded-full shadow-md border-2 border-primary-foreground"
+                                  style={{ left: `${audioProgress}%`, transform: 'translate(-50%, -50%)' }}
+                                />
                               )}
-                            </button>
-                            <div className="flex-1 h-12 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3 backdrop-blur-sm">
-                              {/* Waveform visualization */}
-                              <div className="flex items-center justify-center w-full gap-1">
-                                {[...Array(120)].map((_, i) => (
-                                  <div
-                                    key={i}
-                                    className={`bg-primary/40 rounded-full transition-all duration-75 ${
-                                      playingMusicId === music.id 
-                                        ? 'animate-pulse bg-primary/70' 
-                                        : ''
-                                    }`}
-                                    style={{
-                                      width: '2px',
-                                      height: `${Math.random() * 30 + 8}px`,
-                                      animationDelay: `${i * 30}ms`
-                                    }}
-                                  />
-                                ))}
-                              </div>
                             </div>
-                            <div className="flex-shrink-0 text-sm text-muted-foreground font-mono">
-                              {music.duration ? formatDuration(music.duration) : '~30s'}
-                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-xs text-muted-foreground font-mono">
+                            {playingMusicId === music.id && audioDuration > 0
+                              ? `${formatTime(currentTime)} / ${formatTime(audioDuration)}`
+                              : music.duration ? formatDuration(music.duration) : '~30s'}
                           </div>
                         </div>
                       </div>
@@ -472,6 +521,10 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
         playingMusicId={playingMusicId}
         onPlayMusic={handleAudioPlayback}
         onDeleteMusic={deleteMusic}
+        currentTime={currentTime}
+        audioDuration={audioDuration}
+        audioProgress={audioProgress}
+        onSeek={handleSeek}
       />
     );
   }

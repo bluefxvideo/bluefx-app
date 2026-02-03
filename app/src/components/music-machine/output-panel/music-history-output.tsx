@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Music, 
+import {
+  Music,
   Clock,
   FileAudio,
   Loader2,
@@ -13,7 +13,7 @@ import {
   Trash2,
   AlertCircle,
   Play,
-  Square,
+  Pause,
   Zap
 } from 'lucide-react';
 import type { MusicHistoryFilters } from '../tabs/music-history-filters';
@@ -28,6 +28,10 @@ interface MusicHistoryOutputProps {
   onPlayMusic: (musicId: string, audioUrl: string) => void;
   onDeleteMusic: (musicId: string) => void;
   onLoadHistory?: () => void;
+  currentTime?: number;
+  audioDuration?: number;
+  audioProgress?: number;
+  onSeek?: (musicId: string, ratio: number) => void;
 }
 
 export function MusicHistoryOutput({
@@ -38,7 +42,11 @@ export function MusicHistoryOutput({
   playingMusicId,
   onPlayMusic,
   onDeleteMusic,
-  onLoadHistory
+  onLoadHistory,
+  currentTime = 0,
+  audioDuration = 0,
+  audioProgress = 0,
+  onSeek
 }: MusicHistoryOutputProps) {
   const [selectedMusic, setSelectedMusic] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
@@ -129,6 +137,13 @@ export function MusicHistoryOutput({
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatDate = (dateString: string | null) => {
@@ -285,45 +300,59 @@ export function MusicHistoryOutput({
                   )}
                 </div>
 
-                {/* Full Width Audio Player with better shading */}
+                {/* Seekable Audio Player */}
                 {music.audio_url && (
-                  <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-4 border border-border/50 min-w-0">
+                  <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-3 border border-border/50 min-w-0">
                     <div className="flex items-center gap-3 min-w-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onPlayMusic(music.id, music.audio_url!);
                         }}
-                        className="flex-shrink-0 w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:scale-105 transition-transform ${
+                          playingMusicId === music.id
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground'
+                        }`}
                       >
                         {playingMusicId === music.id ? (
-                          <Square className="w-5 h-5" />
+                          <Pause className="w-4 h-4" />
                         ) : (
-                          <Play className="w-5 h-5" />
+                          <Play className="w-4 h-4 ml-0.5" />
                         )}
                       </button>
-                      <div className="flex-1 h-12 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3 backdrop-blur-sm min-w-0 overflow-hidden">
-                        {/* Waveform visualization */}
-                        <div className="flex items-center justify-center w-full gap-[1px] overflow-hidden">
-                          {[...Array(60)].map((_, i) => (
+                      <div className="flex-1 min-w-0">
+                        {/* Progress bar */}
+                        <div
+                          className={`relative h-1.5 rounded-full ${
+                            playingMusicId === music.id ? 'cursor-pointer bg-muted/60' : 'bg-muted/30'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (playingMusicId !== music.id || !onSeek) return;
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                            onSeek(music.id, ratio);
+                          }}
+                        >
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              playingMusicId === music.id ? 'bg-primary' : ''
+                            }`}
+                            style={{ width: `${playingMusicId === music.id ? audioProgress : 0}%` }}
+                          />
+                          {playingMusicId === music.id && audioProgress > 0 && (
                             <div
-                              key={i}
-                              className={`bg-primary/40 rounded-full transition-all duration-75 flex-shrink-0 ${
-                                playingMusicId === music.id 
-                                  ? 'animate-pulse bg-primary/70' 
-                                  : ''
-                              }`}
-                              style={{
-                                width: '2px',
-                                height: `${Math.random() * 24 + 8}px`,
-                                animationDelay: `${i * 30}ms`
-                              }}
+                              className="absolute top-1/2 w-3 h-3 bg-primary rounded-full shadow-md border-2 border-primary-foreground"
+                              style={{ left: `${audioProgress}%`, transform: 'translate(-50%, -50%)' }}
                             />
-                          ))}
+                          )}
                         </div>
                       </div>
-                      <div className="flex-shrink-0 text-sm text-muted-foreground font-mono">
-                        {formatDuration(music.duration_seconds)}
+                      <div className="flex-shrink-0 text-xs text-muted-foreground font-mono">
+                        {playingMusicId === music.id && audioDuration > 0
+                          ? `${formatTime(currentTime)} / ${formatTime(audioDuration)}`
+                          : formatDuration(music.duration_seconds)}
                       </div>
                     </div>
                   </div>

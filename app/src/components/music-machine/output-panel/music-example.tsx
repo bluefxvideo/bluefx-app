@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, Music } from "lucide-react";
+import { Play, Pause, Music, Download } from "lucide-react";
 
 // ── Example Data ──────────────────────────────────────────────────
 
@@ -361,6 +361,23 @@ export function MusicExample() {
                       ? `${formatTime(currentTime)} / ${formatTime(duration)}`
                       : ""}
                   </span>
+
+                  {/* Download */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const link = document.createElement("a");
+                      link.href = track.audioUrl;
+                      link.download = `${track.title}.mp3`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                    title={`Download ${track.title}`}
+                  >
+                    <Download className="w-3 h-3" />
+                  </button>
                 </div>
 
                 {/* Seekable progress bar */}
