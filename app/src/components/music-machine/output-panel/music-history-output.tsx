@@ -6,15 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Music,
-  Clock,
-  FileAudio,
   Loader2,
   Download,
   Trash2,
   AlertCircle,
   Play,
-  Pause,
-  Zap
+  Pause
 } from 'lucide-react';
 import type { MusicHistoryFilters } from '../tabs/music-history-filters';
 import type { GeneratedMusic } from '@/actions/database/music-database';
@@ -48,7 +45,6 @@ export function MusicHistoryOutput({
   audioProgress = 0,
   onSeek
 }: MusicHistoryOutputProps) {
-  const [selectedMusic, setSelectedMusic] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
   const [filteredMusic, setFilteredMusic] = useState<GeneratedMusic[]>(musicHistory);
 
@@ -132,13 +128,6 @@ export function MusicHistoryOutput({
     setFilteredMusic(filtered);
   }, [musicHistory, filters]);
 
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '~30s';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-  };
-
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds) || seconds < 0) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -157,19 +146,6 @@ export function MusicHistoryOutput({
     } else {
       const diffInDays = Math.floor(diffInHours / 24);
       return `${diffInDays}d ago`;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-600';
-      case 'processing':
-        return 'bg-blue-600';
-      case 'failed':
-        return 'bg-red-600';
-      default:
-        return 'bg-gray-600';
     }
   };
 
@@ -253,155 +229,135 @@ export function MusicHistoryOutput({
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hover p-4">
-      {/* History Grid - Full width with 3 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMusic.map((music) => (
-            <Card 
-              key={music.id} 
-              className={`p-4 bg-secondary/50 transition-all duration-200 hover:shadow-md cursor-pointer min-w-0 ${
-                selectedMusic === music.id ? 'ring-2 ring-primary' : ''
+      <div className="space-y-2">
+        {filteredMusic.map((music) => {
+          const isActive = playingMusicId === music.id;
+
+          return (
+            <Card
+              key={music.id}
+              className={`p-3 border-border/50 transition-colors ${
+                isActive
+                  ? 'bg-primary/5 border-primary/30'
+                  : 'bg-secondary/50'
               }`}
-              onClick={() => setSelectedMusic(selectedMusic === music.id ? null : music.id)}
             >
-              <div className="space-y-3 min-w-0">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge className={`text-sm ${getStatusColor(music.status)}`}>
-                      {music.status}
-                    </Badge>
-                    <Badge variant="secondary" className="text-sm">
-                      {music.genre.toUpperCase() || 'AUDIO'}
-                    </Badge>
+              <div className="space-y-2">
+                {/* Top row: play + info + actions */}
+                <div className="flex items-center gap-2">
+                  {/* Play button */}
+                  {music.audio_url ? (
+                    <button
+                      onClick={() => onPlayMusic(music.id, music.audio_url!)}
+                      className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-105 ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground'
+                      }`}
+                    >
+                      {isActive ? (
+                        <Pause className="w-3.5 h-3.5" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 ml-0.5" />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted/50 text-muted-foreground">
+                      <Music className="w-3.5 h-3.5" />
+                    </div>
+                  )}
+
+                  {/* Track info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium truncate">
+                        {music.track_title || 'Untitled Track'}
+                      </span>
+                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                        {music.genre || 'Audio'}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {music.description || music.mood || 'Generated track'}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    <span>{formatDate(music.created_at)}</span>
-                  </div>
+
+                  {/* Date */}
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0 hidden sm:block">
+                    {formatDate(music.created_at)}
+                  </span>
+
+                  {/* Time display */}
+                  <span className="text-[11px] text-muted-foreground font-mono flex-shrink-0">
+                    {isActive && audioDuration > 0
+                      ? `${formatTime(currentTime)} / ${formatTime(audioDuration)}`
+                      : ''}
+                  </span>
+
+                  {/* Download */}
+                  {music.audio_url && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const link = document.createElement('a');
+                        link.href = music.audio_url!;
+                        link.download = `${music.track_title || 'music'}.mp3`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                      title="Download"
+                    >
+                      <Download className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {/* Delete */}
+                  <button
+                    onClick={(e) => handleDelete(music.id, e)}
+                    disabled={deletingItems.has(music.id)}
+                    className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    {deletingItems.has(music.id) ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                  </button>
                 </div>
-                
-                {/* Title */}
-                <p className="font-medium text-base leading-tight line-clamp-2">
-                  {music.track_title || 'Untitled Track'}
-                </p>
-                
-                {/* Stats Row */}
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <FileAudio className="w-3 h-3" />
-                    <span>{formatDuration(music.duration_seconds)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-3 h-3" />
-                    <span>{(music.generation_settings as any)?.credits_used || 3} credits</span>
-                  </div>
-                  {music.generation_settings?.model_version && (
-                    <span className="text-xs">{music.generation_settings.model_version}</span>
+
+                {/* Seekable progress bar */}
+                <div
+                  className={`relative h-1.5 rounded-full ${
+                    isActive ? 'cursor-pointer bg-muted/60' : 'bg-muted/30'
+                  }`}
+                  onClick={(e) => {
+                    if (!isActive || !onSeek) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    onSeek(music.id, ratio);
+                  }}
+                >
+                  <div
+                    className={`absolute inset-y-0 left-0 rounded-full ${
+                      isActive ? 'bg-primary' : ''
+                    }`}
+                    style={{ width: `${isActive ? audioProgress : 0}%` }}
+                  />
+                  {isActive && audioProgress > 0 && (
+                    <div
+                      className="absolute top-1/2 w-3 h-3 bg-primary rounded-full shadow-md border-2 border-primary-foreground"
+                      style={{ left: `${audioProgress}%`, transform: 'translate(-50%, -50%)' }}
+                    />
                   )}
                 </div>
-
-                {/* Seekable Audio Player */}
-                {music.audio_url && (
-                  <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-3 border border-border/50 min-w-0">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPlayMusic(music.id, music.audio_url!);
-                        }}
-                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:scale-105 transition-transform ${
-                          playingMusicId === music.id
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground'
-                        }`}
-                      >
-                        {playingMusicId === music.id ? (
-                          <Pause className="w-4 h-4" />
-                        ) : (
-                          <Play className="w-4 h-4 ml-0.5" />
-                        )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        {/* Progress bar */}
-                        <div
-                          className={`relative h-1.5 rounded-full ${
-                            playingMusicId === music.id ? 'cursor-pointer bg-muted/60' : 'bg-muted/30'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (playingMusicId !== music.id || !onSeek) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                            onSeek(music.id, ratio);
-                          }}
-                        >
-                          <div
-                            className={`absolute inset-y-0 left-0 rounded-full ${
-                              playingMusicId === music.id ? 'bg-primary' : ''
-                            }`}
-                            style={{ width: `${playingMusicId === music.id ? audioProgress : 0}%` }}
-                          />
-                          {playingMusicId === music.id && audioProgress > 0 && (
-                            <div
-                              className="absolute top-1/2 w-3 h-3 bg-primary rounded-full shadow-md border-2 border-primary-foreground"
-                              style={{ left: `${audioProgress}%`, transform: 'translate(-50%, -50%)' }}
-                            />
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 text-xs text-muted-foreground font-mono">
-                        {playingMusicId === music.id && audioDuration > 0
-                          ? `${formatTime(currentTime)} / ${formatTime(audioDuration)}`
-                          : formatDuration(music.duration_seconds)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Expanded Actions */}
-                {selectedMusic === music.id && (
-                  <div className="pt-2 border-t space-y-2">
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (music.audio_url) {
-                            const link = document.createElement('a');
-                            link.href = music.audio_url;
-                            link.download = `${music.track_title || 'music'}.mp3`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }
-                        }}
-                        disabled={!music.audio_url}
-                      >
-                        <Download className="w-4 h-4 mr-1" />
-                        Download
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => handleDelete(music.id, e)}
-                        disabled={deletingItems.has(music.id)}
-                      >
-                        {deletingItems.has(music.id) ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3 h-3 mr-1" />
-                        )}
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             </Card>
-          ))}
-        </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
