@@ -85,20 +85,6 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setMode('instrumental')}
-              disabled={state.isGenerating}
-              className={cn(
-                "flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all",
-                state.mode === 'instrumental'
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border hover:border-primary/50 hover:bg-muted/50"
-              )}
-            >
-              <Guitar className="w-5 h-5" />
-              <span className="font-medium">Instrumental</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setMode('vocals')}
               disabled={state.isGenerating}
               className={cn(
@@ -110,6 +96,20 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
             >
               <Mic2 className="w-5 h-5" />
               <span className="font-medium">With Vocals</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('instrumental')}
+              disabled={state.isGenerating}
+              className={cn(
+                "flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all",
+                state.mode === 'instrumental'
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:border-primary/50 hover:bg-muted/50"
+              )}
+            >
+              <Guitar className="w-5 h-5" />
+              <span className="font-medium">Instrumental</span>
             </button>
           </div>
         </div>

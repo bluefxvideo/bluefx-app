@@ -70,8 +70,8 @@ export function useMusicMachine() {
 
   const [state, setState] = useState<MusicMachineState>({
     prompt: '',
-    lyrics: INSTRUMENTAL_LYRICS,
-    mode: 'instrumental',
+    lyrics: '',
+    mode: 'vocals',
     generatedMusic: [],
     currentGeneration: null,
     musicHistory: [],

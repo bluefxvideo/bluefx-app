@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
-import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
 import { MusicHistoryOutput } from './music-history-output';
+import { MusicExample } from './music-example';
 import type { UseMusicMachineReturn } from '../hooks/use-music-machine';
 import type { MusicHistoryFilters } from '../tabs/music-history-filters';
 
@@ -161,12 +161,8 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
           </div>
         }
         empty={
-          <div className="flex items-center justify-center h-full">
-            <UnifiedEmptyState
-              icon={Music}
-              title="Ready to Create Music ✨"
-              description="Describe the music you want to create and let AI generate professional audio tracks for you."
-            />
+          <div className="h-full overflow-y-auto scrollbar-hover p-4">
+            <MusicExample />
           </div>
         }
       >
