@@ -3,20 +3,18 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Download, 
-  Play, 
-  Square, 
-  Clock, 
-  FileAudio, 
+import {
+  Download,
+  Play,
+  Pause,
+  Clock,
+  FileAudio,
   Zap,
   History,
   Trash2,
   Loader2
 } from 'lucide-react';
-import { useState } from 'react';
-import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
-
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { VoiceOverState } from '../hooks/use-voice-over';
 import { GeneratedVoice } from '@/actions/tools/voice-over';
 
@@ -34,10 +32,42 @@ export function HistoryOutput({ voiceOverState }: HistoryOutputProps) {
   const [audioElements, setAudioElements] = useState<Map<string, HTMLAudioElement>>(new Map());
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
+  const [currentTime, setCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  const startTimeTracking = useCallback(() => {
+    let durationSet = false;
+    const update = () => {
+      if (currentAudioRef.current) {
+        setCurrentTime(currentAudioRef.current.currentTime);
+        if (!durationSet && currentAudioRef.current.duration && isFinite(currentAudioRef.current.duration)) {
+          setAudioDuration(currentAudioRef.current.duration);
+          durationSet = true;
+        }
+      }
+      animFrameRef.current = requestAnimationFrame(update);
+    };
+    animFrameRef.current = requestAnimationFrame(update);
+  }, []);
+
+  const stopTimeTracking = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => { stopTimeTracking(); };
+  }, [stopTimeTracking]);
 
   const handleAudioPlayback = (audioId: string, audioUrl: string) => {
     const audioMap = new Map(audioElements);
-    
+
+    stopTimeTracking();
+
     // Stop currently playing audio
     if (playingAudioId && audioMap.has(playingAudioId)) {
       const currentAudio = audioMap.get(playingAudioId)!;
@@ -46,30 +76,81 @@ export function HistoryOutput({ voiceOverState }: HistoryOutputProps) {
     }
 
     if (playingAudioId === audioId) {
-      // Stop playing current audio
+      currentAudioRef.current = null;
+      setCurrentTime(0);
+      setAudioDuration(0);
       setPlayingAudioId(null);
-    } else {
-      // Start playing new audio
-      let audio = audioMap.get(audioId);
-      if (!audio) {
-        audio = new Audio(audioUrl);
-        audioMap.set(audioId, audio);
-        setAudioElements(audioMap);
-      }
-      
-      audio.play();
-      setPlayingAudioId(audioId);
-      
-      audio.onended = () => {
-        setPlayingAudioId(null);
-      };
+      return;
     }
+
+    let audio = audioMap.get(audioId);
+    if (!audio) {
+      audio = new Audio(audioUrl);
+      audioMap.set(audioId, audio);
+      setAudioElements(audioMap);
+
+      const onDuration = () => {
+        if (audio && audio.duration && isFinite(audio.duration)) {
+          setAudioDuration(audio.duration);
+        }
+      };
+      audio.addEventListener('loadedmetadata', onDuration);
+      audio.addEventListener('durationchange', onDuration);
+
+      audio.addEventListener('ended', () => {
+        stopTimeTracking();
+        currentAudioRef.current = null;
+        setCurrentTime(0);
+        setAudioDuration(0);
+        setPlayingAudioId(null);
+      });
+
+      audio.addEventListener('error', () => {
+        stopTimeTracking();
+        currentAudioRef.current = null;
+        setCurrentTime(0);
+        setAudioDuration(0);
+        setPlayingAudioId(null);
+      });
+    } else {
+      if (audio.duration && isFinite(audio.duration)) {
+        setAudioDuration(audio.duration);
+      }
+    }
+
+    currentAudioRef.current = audio;
+    setCurrentTime(0);
+    setPlayingAudioId(audioId);
+    audio.play();
+    startTimeTracking();
   };
+
+  const handleSeek = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>, audioId: string) => {
+      if (playingAudioId !== audioId || !currentAudioRef.current) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      currentAudioRef.current.currentTime = ratio * currentAudioRef.current.duration;
+      setCurrentTime(currentAudioRef.current.currentTime);
+    },
+    [playingAudioId]
+  );
+
+  const audioProgress = playingAudioId && currentAudioRef.current && audioDuration > 0
+    ? (currentTime / audioDuration) * 100
+    : 0;
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatFileSize = (sizeInMB: number) => {
@@ -185,43 +266,55 @@ export function HistoryOutput({ voiceOverState }: HistoryOutputProps) {
                   </div>
                 </div>
 
-                {/* Audio Player Preview */}
-                <div className="bg-muted/50 rounded-lg p-3">
+                {/* Seekable Audio Player */}
+                <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-lg p-3 border border-border/50">
                   <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAudioPlayback(voice.id, voice.audio_url || '');
                       }}
                       disabled={!voice.audio_url}
+                      className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center hover:scale-105 transition-transform ${
+                        playingAudioId === voice.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground'
+                      }`}
                     >
                       {playingAudioId === voice.id ? (
-                        <Square className="w-4 h-4" />
+                        <Pause className="w-3.5 h-3.5" />
                       ) : (
-                        <Play className="w-4 h-4" />
+                        <Play className="w-3.5 h-3.5 ml-0.5" />
                       )}
-                    </Button>
-                    <div className="flex-1 h-8 bg-black/20 dark:bg-black/40 rounded-md flex items-center px-3">
-                      {/* Simple waveform visualization */}
-                      <div className="flex items-center justify-center w-full gap-[1px]">
-                        {[...Array(20)].map((_, i) => (
+                    </button>
+                    <div className="flex-1 space-y-1">
+                      <div
+                        className={`relative h-1.5 rounded-full ${
+                          playingAudioId === voice.id ? 'cursor-pointer bg-muted/60' : 'bg-muted/30'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSeek(e, voice.id);
+                        }}
+                      >
+                        <div
+                          className={`absolute inset-y-0 left-0 rounded-full ${
+                            playingAudioId === voice.id ? 'bg-primary' : ''
+                          }`}
+                          style={{ width: `${playingAudioId === voice.id ? audioProgress : 0}%` }}
+                        />
+                        {playingAudioId === voice.id && audioProgress > 0 && (
                           <div
-                            key={i}
-                            className={`bg-primary/40 rounded-full transition-all duration-75 ${
-                              playingAudioId === voice.id 
-                                ? 'animate-pulse bg-primary/70' 
-                                : ''
-                            }`}
-                            style={{
-                              width: '2px',
-                              height: `${Math.random() * 16 + 4}px`,
-                              animationDelay: `${i * 50}ms`
-                            }}
+                            className="absolute top-1/2 w-3 h-3 bg-primary rounded-full shadow-md border-2 border-primary-foreground"
+                            style={{ left: `${audioProgress}%`, transform: 'translate(-50%, -50%)' }}
                           />
-                        ))}
+                        )}
                       </div>
+                    </div>
+                    <div className="flex-shrink-0 text-xs text-muted-foreground font-mono">
+                      {playingAudioId === voice.id && audioDuration > 0
+                        ? `${formatTime(currentTime)} / ${formatTime(audioDuration)}`
+                        : formatDuration(voice.duration_seconds || 0)}
                     </div>
                   </div>
                 </div>

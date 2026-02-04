@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useEffect } from 'react';
 import { useVoiceOver } from './hooks/use-voice-over';
 import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -19,6 +20,20 @@ export function VoiceOverPage() {
   const hasResults = voiceOverState.state.generatedAudios.length > 0;
   const isGenerating = voiceOverState.state.isGenerating;
   const showOutput = hasResults || isGenerating || voiceOverState.state.error;
+
+  const outputRef = useRef<HTMLDivElement>(null);
+  const prevAudioCount = useRef(voiceOverState.state.generatedAudios.length);
+
+  // Auto-scroll to output when new audio is generated
+  useEffect(() => {
+    const currentCount = voiceOverState.state.generatedAudios.length;
+    if (currentCount > prevAudioCount.current) {
+      setTimeout(() => {
+        outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+    prevAudioCount.current = currentCount;
+  }, [voiceOverState.state.generatedAudios.length]);
 
   // Define tabs for StandardToolTabs
   const voiceOverTabs = [
@@ -94,12 +109,14 @@ export function VoiceOverPage() {
 
             {/* Output appears below the form when there are results */}
             {showOutput && (
-              <VoiceOverOutput
-                voiceOverState={{
-                  ...voiceOverState,
-                  deleteVoice: voiceOverState.deleteVoice
-                }}
-              />
+              <div ref={outputRef}>
+                <VoiceOverOutput
+                  voiceOverState={{
+                    ...voiceOverState,
+                    deleteVoice: voiceOverState.deleteVoice
+                  }}
+                />
+              </div>
             )}
           </div>
         </div>

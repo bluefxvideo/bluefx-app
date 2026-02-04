@@ -223,48 +223,42 @@ export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: Gen
               {clonedVoices.map((voice) => (
                 <div
                   key={voice.id}
-                  className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md cursor-pointer ${
+                  className={`relative p-3 rounded-lg border-2 text-left transition-all hover:shadow-md cursor-pointer ${
                     state.selectedVoice === voice.minimax_voice_id
                       ? 'border-purple-500 bg-purple-500/5 shadow-sm'
                       : 'border-border hover:border-purple-500/50'
                   }`}
                   onClick={() => handleVoiceSelection(voice.minimax_voice_id)}
                 >
-                  <div className="flex items-start gap-3">
+                  {voice.preview_url && (
+                    <button
+                      className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVoicePlayback(voice.minimax_voice_id, voice.preview_url!);
+                      }}
+                    >
+                      {state.playingVoiceId === voice.minimax_voice_id ? (
+                        <Square className="h-3.5 w-3.5" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
+                  <div className="flex items-center gap-2.5">
                     <img
                       src={getVoiceAvatarUrl('', voice.name, 'neutral')}
                       alt=""
-                      className="w-14 h-14 rounded-full bg-muted/50 shrink-0"
+                      className="w-10 h-10 rounded-full bg-muted/50 shrink-0"
                       loading="lazy"
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <p className="font-medium">{voice.name}</p>
-                        {voice.preview_url && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="shrink-0 -mr-2 -mt-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleVoicePlayback(voice.minimax_voice_id, voice.preview_url!);
-                            }}
-                          >
-                            {state.playingVoiceId === voice.minimax_voice_id ? (
-                              <Square className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">Your custom cloned voice</p>
-                      <div className="flex gap-1 mt-2">
-                        <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-full">
-                          Cloned
-                        </span>
-                      </div>
-                    </div>
+                    <p className="font-medium text-sm truncate pr-6">{voice.name}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">Your custom cloned voice</p>
+                  <div className="flex gap-1 mt-2">
+                    <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-full">
+                      Cloned
+                    </span>
                   </div>
                 </div>
               ))}
@@ -276,58 +270,53 @@ export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: Gen
         {/* System voices */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {MINIMAX_VOICE_OPTIONS
-            .filter(voice => genderFilter === 'all' || voice.gender === genderFilter)
-            .map((voice, index) => (
+            .map((voice, originalIndex) => ({ voice, originalIndex }))
+            .filter(({ voice }) => genderFilter === 'all' || voice.gender === genderFilter)
+            .map(({ voice, originalIndex }) => (
             <div
               key={voice.id}
-              className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md cursor-pointer ${
+              className={`relative p-3 rounded-lg border-2 text-left transition-all hover:shadow-md cursor-pointer ${
                 state.selectedVoice === voice.id
                   ? 'border-primary bg-primary/5 shadow-sm'
                   : 'border-border hover:border-primary/50'
               }`}
               onClick={() => handleVoiceSelection(voice.id)}
             >
-              <div className="flex items-start gap-3">
+              <button
+                className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleVoicePlayback(voice.id, voice.preview_url);
+                }}
+              >
+                {state.playingVoiceId === voice.id ? (
+                  <Square className="h-3.5 w-3.5" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <div className="flex items-center gap-2.5">
                 <img
                   src={getVoiceAvatarUrl(voice.id, voice.name, voice.gender ?? 'neutral')}
                   alt=""
-                  className="w-14 h-14 rounded-full bg-muted/50 shrink-0"
+                  className="w-10 h-10 rounded-full bg-muted/50 shrink-0"
                   loading="lazy"
                 />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between">
-                    <p className="font-medium">
-                      <span className="text-muted-foreground mr-1.5">{index + 1}.</span>
-                      {voice.name}
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="shrink-0 -mr-2 -mt-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleVoicePlayback(voice.id, voice.preview_url);
-                      }}
-                    >
-                      {state.playingVoiceId === voice.id ? (
-                        <Square className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">{voice.description}</p>
-                  <div className="flex gap-1 mt-2">
-                    <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
-                      {voice.gender}
-                    </span>
-                    {voice.category && (
-                      <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
-                        {voice.category}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <p className="font-medium text-sm truncate pr-6">
+                  <span className="text-muted-foreground mr-1">{originalIndex + 1}.</span>
+                  {voice.name}
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{voice.description}</p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
+                  {voice.gender}
+                </span>
+                {voice.category && (
+                  <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
+                    {voice.category}
+                  </span>
+                )}
               </div>
             </div>
           ))}
