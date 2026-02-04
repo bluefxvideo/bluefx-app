@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,14 +21,8 @@ interface MusicHistoryOutputProps {
   filters?: MusicHistoryFilters;
   isLoading?: boolean;
   error?: string | null;
-  playingMusicId: string | null;
-  onPlayMusic: (musicId: string, audioUrl: string) => void;
   onDeleteMusic: (musicId: string) => void;
   onLoadHistory?: () => void;
-  currentTime?: number;
-  audioDuration?: number;
-  audioProgress?: number;
-  onSeek?: (musicId: string, ratio: number) => void;
 }
 
 export function MusicHistoryOutput({
@@ -36,19 +30,111 @@ export function MusicHistoryOutput({
   filters,
   isLoading = false,
   error = null,
-  playingMusicId,
-  onPlayMusic,
   onDeleteMusic,
-  onLoadHistory,
-  currentTime = 0,
-  audioDuration = 0,
-  audioProgress = 0,
-  onSeek
+  onLoadHistory
 }: MusicHistoryOutputProps) {
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
   const [filteredMusic, setFilteredMusic] = useState<GeneratedMusic[]>(musicHistory);
 
-  // Apply filters
+  // ── Self-contained audio (same pattern as music-example.tsx) ────
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  const startTimeTracking = useCallback(() => {
+    const update = () => {
+      if (audioRef.current) {
+        setCurrentTime(audioRef.current.currentTime);
+      }
+      animFrameRef.current = requestAnimationFrame(update);
+    };
+    animFrameRef.current = requestAnimationFrame(update);
+  }, []);
+
+  const stopTimeTracking = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopTimeTracking();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [stopTimeTracking]);
+
+  const handlePlay = useCallback(
+    (musicId: string, audioUrl: string) => {
+      // Toggle pause/play on same track
+      if (playingId === musicId && audioRef.current) {
+        if (audioRef.current.paused) {
+          audioRef.current.play();
+          startTimeTracking();
+        } else {
+          audioRef.current.pause();
+          stopTimeTracking();
+        }
+        return;
+      }
+
+      // Stop current track
+      stopTimeTracking();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+
+      // Start new track
+      const audio = new Audio(audioUrl);
+      audio.addEventListener("loadedmetadata", () => {
+        setDuration(audio.duration);
+      });
+      audio.addEventListener("ended", () => {
+        setPlayingId(null);
+        setCurrentTime(0);
+        stopTimeTracking();
+        audioRef.current = null;
+      });
+      audio.addEventListener("error", () => {
+        setPlayingId(null);
+        setCurrentTime(0);
+        stopTimeTracking();
+        audioRef.current = null;
+      });
+      audio.play();
+      audioRef.current = audio;
+      setPlayingId(musicId);
+      setCurrentTime(0);
+      setDuration(0);
+      startTimeTracking();
+    },
+    [playingId, startTimeTracking, stopTimeTracking]
+  );
+
+  const handleSeek = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>, musicId: string) => {
+      if (playingId !== musicId || !audioRef.current) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      audioRef.current.currentTime = ratio * audioRef.current.duration;
+      setCurrentTime(audioRef.current.currentTime);
+    },
+    [playingId]
+  );
+
+  const progress =
+    playingId && audioRef.current && duration > 0
+      ? (currentTime / duration) * 100
+      : 0;
+
+  // ── Filters ────────────────────────────────────────────────────
   useEffect(() => {
     if (!filters) {
       setFilteredMusic(musicHistory);
@@ -57,10 +143,9 @@ export function MusicHistoryOutput({
 
     let filtered = [...musicHistory];
 
-    // Apply search filter
     if (filters.searchTerm) {
       const searchLower = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         (item.description || '').toLowerCase().includes(searchLower) ||
         item.track_title.toLowerCase().includes(searchLower) ||
         item.genre.toLowerCase().includes(searchLower) ||
@@ -68,16 +153,14 @@ export function MusicHistoryOutput({
       );
     }
 
-    // Apply status filter
     if (filters.filterStatus && filters.filterStatus !== 'all') {
       filtered = filtered.filter(item => item.status === filters.filterStatus);
     }
 
-    // Apply date range filter
     if (filters.dateRange && filters.dateRange !== 'all') {
       const now = new Date();
       const cutoffDate = new Date();
-      
+
       switch (filters.dateRange) {
         case 'today':
           cutoffDate.setHours(0, 0, 0, 0);
@@ -95,13 +178,12 @@ export function MusicHistoryOutput({
           cutoffDate.setFullYear(now.getFullYear() - 1);
           break;
       }
-      
-      filtered = filtered.filter(item => 
+
+      filtered = filtered.filter(item =>
         new Date(item.created_at || 0) >= cutoffDate
       );
     }
 
-    // Apply sort order
     if (filters.sortOrder) {
       switch (filters.sortOrder) {
         case 'oldest':
@@ -128,6 +210,7 @@ export function MusicHistoryOutput({
     setFilteredMusic(filtered);
   }, [musicHistory, filters]);
 
+  // ── Helpers ────────────────────────────────────────────────────
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds) || seconds < 0) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -140,7 +223,7 @@ export function MusicHistoryOutput({
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 24) {
       return `${diffInHours}h ago`;
     } else {
@@ -163,7 +246,7 @@ export function MusicHistoryOutput({
     }
   };
 
-  // Loading state
+  // ── Render ─────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -175,7 +258,6 @@ export function MusicHistoryOutput({
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -193,7 +275,6 @@ export function MusicHistoryOutput({
     );
   }
 
-  // Empty state
   if (musicHistory.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -210,7 +291,6 @@ export function MusicHistoryOutput({
     );
   }
 
-  // No results after filtering
   if (filteredMusic.length === 0 && musicHistory.length > 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -231,7 +311,8 @@ export function MusicHistoryOutput({
     <div className="h-full overflow-y-auto scrollbar-hover p-4">
       <div className="space-y-2">
         {filteredMusic.map((music) => {
-          const isActive = playingMusicId === music.id;
+          const isActive = playingId === music.id;
+          const isPaused = isActive && audioRef.current?.paused;
 
           return (
             <Card
@@ -248,14 +329,14 @@ export function MusicHistoryOutput({
                   {/* Play button */}
                   {music.audio_url ? (
                     <button
-                      onClick={() => onPlayMusic(music.id, music.audio_url!)}
+                      onClick={() => handlePlay(music.id, music.audio_url!)}
                       className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-105 ${
                         isActive
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground'
                       }`}
                     >
-                      {isActive ? (
+                      {isActive && !isPaused ? (
                         <Pause className="w-3.5 h-3.5" />
                       ) : (
                         <Play className="w-3.5 h-3.5 ml-0.5" />
@@ -289,8 +370,8 @@ export function MusicHistoryOutput({
 
                   {/* Time display */}
                   <span className="text-[11px] text-muted-foreground font-mono flex-shrink-0">
-                    {isActive && audioDuration > 0
-                      ? `${formatTime(currentTime)} / ${formatTime(audioDuration)}`
+                    {isActive && duration > 0
+                      ? `${formatTime(currentTime)} / ${formatTime(duration)}`
                       : ''}
                   </span>
 
@@ -333,23 +414,18 @@ export function MusicHistoryOutput({
                   className={`relative h-1.5 rounded-full ${
                     isActive ? 'cursor-pointer bg-muted/60' : 'bg-muted/30'
                   }`}
-                  onClick={(e) => {
-                    if (!isActive || !onSeek) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                    onSeek(music.id, ratio);
-                  }}
+                  onClick={(e) => handleSeek(e, music.id)}
                 >
                   <div
                     className={`absolute inset-y-0 left-0 rounded-full ${
                       isActive ? 'bg-primary' : ''
                     }`}
-                    style={{ width: `${isActive ? audioProgress : 0}%` }}
+                    style={{ width: `${isActive ? progress : 0}%` }}
                   />
-                  {isActive && audioProgress > 0 && (
+                  {isActive && progress > 0 && (
                     <div
                       className="absolute top-1/2 w-3 h-3 bg-primary rounded-full shadow-md border-2 border-primary-foreground"
-                      style={{ left: `${audioProgress}%`, transform: 'translate(-50%, -50%)' }}
+                      style={{ left: `${progress}%`, transform: 'translate(-50%, -50%)' }}
                     />
                   )}
                 </div>

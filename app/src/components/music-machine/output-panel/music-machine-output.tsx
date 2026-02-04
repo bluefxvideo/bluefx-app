@@ -526,13 +526,7 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
         filters={historyFilters}
         isLoading={state.isLoading}
         error={state.error}
-        playingMusicId={playingMusicId}
-        onPlayMusic={handleAudioPlayback}
         onDeleteMusic={deleteMusic}
-        currentTime={currentTime}
-        audioDuration={audioDuration}
-        audioProgress={audioProgress}
-        onSeek={handleSeek}
       />
     );
   }
