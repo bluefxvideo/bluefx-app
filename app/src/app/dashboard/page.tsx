@@ -177,9 +177,11 @@ export default function DashboardPage() {
 
     setIsSaving(true);
     try {
+      console.log('Saving tutorial:', tutorialForm);
+
       if (editingTutorial) {
         // Update existing tutorial
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('tutorials')
           .update({
             title: tutorialForm.title,
@@ -187,13 +189,17 @@ export default function DashboardPage() {
             video_url: tutorialForm.video_url,
             tool_name: tutorialForm.tool_name
           })
-          .eq('id', editingTutorial.id);
+          .eq('id', editingTutorial.id)
+          .select()
+          .single();
 
         if (error) throw error;
+        if (!data) throw new Error('Tutorial was not updated');
+        console.log('Tutorial updated:', data);
         toast.success('Tutorial updated successfully');
       } else {
         // Create new tutorial
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('tutorials')
           .insert({
             title: tutorialForm.title,
@@ -202,9 +208,13 @@ export default function DashboardPage() {
             tool_name: tutorialForm.tool_name,
             content: '',
             category: 'tutorial'
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+        if (!data) throw new Error('Tutorial was not created');
+        console.log('Tutorial created:', data);
         toast.success('Tutorial created successfully');
       }
 
