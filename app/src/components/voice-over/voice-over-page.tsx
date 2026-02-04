@@ -3,7 +3,6 @@
 import { useVoiceOver } from './hooks/use-voice-over';
 import { useCredits } from '@/hooks/useCredits';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
-import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { containerStyles } from '@/lib/container-styles';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { GeneratorTab } from './tabs/generator-tab';
@@ -16,6 +15,10 @@ export function VoiceOverPage() {
   const voiceOverState = useVoiceOver();
   const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
   const { activeTab } = voiceOverState;
+
+  const hasResults = voiceOverState.state.generatedAudios.length > 0;
+  const isGenerating = voiceOverState.state.isGenerating;
+  const showOutput = hasResults || isGenerating || voiceOverState.state.error;
 
   // Define tabs for StandardToolTabs
   const voiceOverTabs = [
@@ -39,40 +42,11 @@ export function VoiceOverPage() {
     }
   ];
 
-  // Render appropriate tab content
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'history':
-        return null; // No left panel content for history
-      case 'clone':
-        return (
-          <CloneTab
-            clonedVoices={voiceOverState.state.clonedVoices}
-            onCloneVoice={voiceOverState.cloneVoice}
-            onDeleteVoice={voiceOverState.deleteClonedVoice}
-            onSelectVoice={voiceOverState.selectClonedVoice}
-            onPlayPreview={voiceOverState.handleVoicePlayback}
-            playingVoiceId={voiceOverState.state.playingVoiceId}
-            credits={userCredits?.available_credits || 0}
-            isCloning={voiceOverState.state.isCloning}
-          />
-        );
-      default:
-        return (
-          <GeneratorTab
-            voiceOverState={voiceOverState}
-            credits={userCredits?.available_credits || 0}
-            clonedVoices={voiceOverState.state.clonedVoices}
-          />
-        );
-    }
-  };
-
   // Tab Navigation Component
   const tabsComponent = (
-    <StandardToolTabs 
+    <StandardToolTabs
       tabs={voiceOverTabs}
-      activeTab={activeTab} 
+      activeTab={activeTab}
       basePath="/dashboard/voice-over"
     />
   );
@@ -81,6 +55,7 @@ export function VoiceOverPage() {
     <StandardToolPage
       icon={Mic}
       title="Voice Over Studio"
+      description="Create professional voice overs powered by AI"
       iconGradient="bg-primary"
       toolName="Voice Over Studio"
       tabs={tabsComponent}
@@ -96,26 +71,38 @@ export function VoiceOverPage() {
         </div>
       ) : activeTab === 'clone' ? (
         <div className={`h-full ${containerStyles.panel} p-4`}>
-          {renderTabContent()}
+          <CloneTab
+            clonedVoices={voiceOverState.state.clonedVoices}
+            onCloneVoice={voiceOverState.cloneVoice}
+            onDeleteVoice={voiceOverState.deleteClonedVoice}
+            onSelectVoice={voiceOverState.selectClonedVoice}
+            onPlayPreview={voiceOverState.handleVoicePlayback}
+            playingVoiceId={voiceOverState.state.playingVoiceId}
+            credits={userCredits?.available_credits || 0}
+            isCloning={voiceOverState.state.isCloning}
+          />
         </div>
       ) : (
-        <StandardToolLayout>
-          {[
-            // Left Panel - Tab Content
-            <div key="input" className="h-full">
-              {renderTabContent()}
-            </div>,
-
-            // Right Panel - Output
-            <VoiceOverOutput
-              key="output"
-              voiceOverState={{
-                ...voiceOverState,
-                deleteVoice: voiceOverState.deleteVoice
-              }}
+        <div className="h-full overflow-y-auto p-4 md:p-6 lg:p-8">
+          <div className="max-w-6xl mx-auto space-y-6">
+            {/* Full-width generator form */}
+            <GeneratorTab
+              voiceOverState={voiceOverState}
+              credits={userCredits?.available_credits || 0}
+              clonedVoices={voiceOverState.state.clonedVoices}
             />
-          ]}
-        </StandardToolLayout>
+
+            {/* Output appears below the form when there are results */}
+            {showOutput && (
+              <VoiceOverOutput
+                voiceOverState={{
+                  ...voiceOverState,
+                  deleteVoice: voiceOverState.deleteVoice
+                }}
+              />
+            )}
+          </div>
+        </div>
       )}
     </StandardToolPage>
   );

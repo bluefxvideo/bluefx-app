@@ -17,7 +17,7 @@ export function VoiceOverLayout({ children }: VoiceOverLayoutProps) {
     <div className="h-full p-6">
       <div className="h-full flex gap-6">
         {/* Left Panel - Input */}
-        <div className="w-1/2 max-w-md">
+        <div className="w-1/2 max-w-2xl">
           <Card className="h-full p-6 shadow-lg">
             {inputPanel}
           </Card>
