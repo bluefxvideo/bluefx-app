@@ -97,20 +97,15 @@ export default function DashboardPage() {
                       userProfile?.email?.split('@')[0] || 
                       'User';
 
-  // Fetch tutorials with better caching
+  // Fetch tutorials via API route (bypasses RLS)
   const { data: tutorials = [], isLoading: isLoadingTutorials } = useQuery<Tutorial[]>({
     queryKey: ['tutorials'],
     staleTime: 10 * 60 * 1000, // 10 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tutorials')
-        .select('*')
-        .neq('tool_name', 'featured') // Exclude featured tutorial from regular list
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
+      const res = await fetch('/api/tutorials');
+      if (!res.ok) throw new Error('Failed to fetch tutorials');
+      return res.json();
     }
   });
 
@@ -120,14 +115,9 @@ export default function DashboardPage() {
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tutorials')
-        .select('*')
-        .eq('tool_name', 'featured')
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
-      return data || null;
+      const res = await fetch('/api/tutorials?featured=true');
+      if (!res.ok) throw new Error('Failed to fetch featured tutorial');
+      return res.json();
     }
   });
 
@@ -177,46 +167,24 @@ export default function DashboardPage() {
 
     setIsSaving(true);
     try {
-      console.log('Saving tutorial:', tutorialForm);
+      const res = await fetch('/api/tutorials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(editingTutorial ? { id: editingTutorial.id } : {}),
+          title: tutorialForm.title,
+          description: tutorialForm.description,
+          video_url: tutorialForm.video_url,
+          tool_name: tutorialForm.tool_name,
+        }),
+      });
 
-      if (editingTutorial) {
-        // Update existing tutorial
-        const { data, error } = await supabase
-          .from('tutorials')
-          .update({
-            title: tutorialForm.title,
-            description: tutorialForm.description,
-            video_url: tutorialForm.video_url,
-            tool_name: tutorialForm.tool_name
-          })
-          .eq('id', editingTutorial.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        if (!data) throw new Error('Tutorial was not updated');
-        console.log('Tutorial updated:', data);
-        toast.success('Tutorial updated successfully');
-      } else {
-        // Create new tutorial
-        const { data, error } = await supabase
-          .from('tutorials')
-          .insert({
-            title: tutorialForm.title,
-            description: tutorialForm.description,
-            video_url: tutorialForm.video_url,
-            tool_name: tutorialForm.tool_name,
-            content: '',
-            category: 'tutorial'
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        if (!data) throw new Error('Tutorial was not created');
-        console.log('Tutorial created:', data);
-        toast.success('Tutorial created successfully');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save tutorial');
       }
+
+      toast.success(editingTutorial ? 'Tutorial updated successfully' : 'Tutorial created successfully');
 
       setTutorialDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['tutorials'] });
@@ -234,12 +202,17 @@ export default function DashboardPage() {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('tutorials')
-        .delete()
-        .eq('id', editingTutorial.id);
+      const res = await fetch('/api/tutorials', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingTutorial.id }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete tutorial');
+      }
+
       toast.success('Tutorial deleted successfully');
       setDeleteDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['tutorials'] });
