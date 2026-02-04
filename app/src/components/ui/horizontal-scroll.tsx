@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface HorizontalScrollProps {
 	children: ReactNode;
@@ -6,6 +7,8 @@ interface HorizontalScrollProps {
 	showShadows?: boolean;
 	shadowColor?: string;
 	shadowWidth?: number;
+	showArrows?: boolean;
+	scrollAmount?: number;
 	debug?: boolean;
 }
 
@@ -15,6 +18,8 @@ export const HorizontalScroll: React.FC<HorizontalScrollProps> = ({
 	showShadows = true,
 	shadowColor = "black",
 	shadowWidth = 6,
+	showArrows = false,
+	scrollAmount = 320,
 	debug = false,
 }) => {
 	const [showLeftShadow, setShowLeftShadow] = useState(false);
@@ -79,6 +84,28 @@ export const HorizontalScroll: React.FC<HorizontalScrollProps> = ({
 			{/* Right shadow */}
 			{showShadows && showRightShadow && (
 				<div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-black/50 via-black/30 to-transparent pointer-events-none z-20" />
+			)}
+
+			{/* Left arrow */}
+			{showArrows && showLeftShadow && (
+				<button
+					onClick={() => scrollRef.current?.scrollBy({ left: -scrollAmount, behavior: "smooth" })}
+					className="absolute left-2 top-1/2 -translate-y-1/2 z-30 hidden md:flex w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white items-center justify-center transition-colors"
+					aria-label="Scroll left"
+				>
+					<ChevronLeft className="w-5 h-5" />
+				</button>
+			)}
+
+			{/* Right arrow */}
+			{showArrows && showRightShadow && (
+				<button
+					onClick={() => scrollRef.current?.scrollBy({ left: scrollAmount, behavior: "smooth" })}
+					className="absolute right-2 top-1/2 -translate-y-1/2 z-30 hidden md:flex w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white items-center justify-center transition-colors"
+					aria-label="Scroll right"
+				>
+					<ChevronRight className="w-5 h-5" />
+				</button>
 			)}
 
 			{/* Scrollable content */}

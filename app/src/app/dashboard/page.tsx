@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { CreditBalanceSkeleton, TutorialsSkeleton } from '@/components/dashboard/dashboard-skeletons';
+import { VideoShowcase } from '@/components/dashboard/video-showcase';
 import { toast } from 'sonner';
 import type { Tables } from '@/types/database';
 import type { User } from '@supabase/supabase-js';
@@ -363,6 +364,9 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Video Showcase Carousel */}
+        <VideoShowcase />
 
         {/* Featured Tutorial */}
         {featuredTutorial && featuredTutorial.video_url && (
