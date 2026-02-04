@@ -45,9 +45,15 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
   const animFrameRef = useRef<number | null>(null);
 
   const startTimeTracking = useCallback(() => {
+    let durationSet = false;
     const update = () => {
       if (currentAudioRef.current) {
         setCurrentTime(currentAudioRef.current.currentTime);
+        // Pick up duration as soon as it's available (fallback for loadedmetadata)
+        if (!durationSet && currentAudioRef.current.duration && isFinite(currentAudioRef.current.duration)) {
+          setAudioDuration(currentAudioRef.current.duration);
+          durationSet = true;
+        }
       }
       animFrameRef.current = requestAnimationFrame(update);
     };
@@ -96,13 +102,15 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
       audioMap.set(musicId, audio);
       setAudioElements(audioMap);
 
-      audio.addEventListener('loadedmetadata', () => {
+      const onDuration = () => {
         if (audio && audio.duration && isFinite(audio.duration)) {
           const actualDuration = Math.round(audio.duration);
           setAudioDuration(audio.duration);
           musicMachineState.updateMusicDuration?.(musicId, actualDuration);
         }
-      });
+      };
+      audio.addEventListener('loadedmetadata', onDuration);
+      audio.addEventListener('durationchange', onDuration);
 
       audio.addEventListener('ended', () => {
         stopTimeTracking();
