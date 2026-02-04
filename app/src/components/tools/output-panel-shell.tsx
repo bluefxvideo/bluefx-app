@@ -130,10 +130,8 @@ export function OutputPanelShell({
                       src={
                         activeTab === 'logo-generate'
                           ? "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/images/placeholders/sun-metal-logo.png"
-                          : activeTab === 'generate' 
-                          ? "https://trjkxgkbkyzthrgkbwfe.supabase.co/storage/v1/object/public/images/placeholders/placeholder-thumbnail-9db9dd3c-374e-42a6-ae04-606cb073e9d7.jpg"
-                          : activeTab === 'recreate'
-                          ? "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/images/placeholders/thumbnail-recreate.png"
+                          : activeTab === 'generate'
+                          ? "/images/example-thumbnail.webp"
                           : "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/images/placeholders/thumbnail-recreate.png"
                       }
                       alt={activeTab === 'logo-generate' ? "Example logo" : "Example thumbnail"}
@@ -152,10 +150,8 @@ export function OutputPanelShell({
                     Sample: {
                       activeTab === 'logo-generate'
                         ? '"Modern tech startup logo with geometric shapes, blue gradient, minimalist design"'
-                        : activeTab === 'generate' 
+                        : activeTab === 'generate'
                         ? '"Lifestyle morning routine with lottery excitement, bright energetic scene with money and celebration"'
-                        : activeTab === 'recreate'
-                        ? '"Upload a thumbnail to recreate with AI-powered variations"'
                         : '"Epic gaming moment with shocked expression, bright colors, dramatic lighting"'
                     }
                   </p>

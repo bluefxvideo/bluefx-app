@@ -15,7 +15,7 @@ interface EmptyStateProps {
 export function GenerateEmptyState({}: EmptyStateProps) {
   return (
     <div className="flex-1 overflow-hidden">
-      {/* Empty state - no content */}
+      {/* Example image handled by OutputPanelShell */}
     </div>
   );
 }
