@@ -118,6 +118,7 @@ const CHART_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#E
 
 export function PlatformUsagePanel() {
   const [dateRange, setDateRange] = useState<'1d' | '7d' | '30d' | '90d' | 'all'>('30d');
+  const [excludeAdmins, setExcludeAdmins] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [summary, setSummary] = useState<PlatformSummaryStats | null>(null);
   const [toolUsage, setToolUsage] = useState<ToolUsageStat[]>([]);
@@ -136,7 +137,7 @@ export function PlatformUsagePanel() {
 
     try {
       console.log('Fetching platform stats for date range:', dateRange);
-      const response = await fetch(`/api/admin/platform-stats?range=${dateRange}`);
+      const response = await fetch(`/api/admin/platform-stats?range=${dateRange}&excludeAdmins=${excludeAdmins}`);
       const result = await response.json();
       console.log('Platform stats result:', result);
 
@@ -155,7 +156,7 @@ export function PlatformUsagePanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, excludeAdmins]);
 
   useEffect(() => {
     loadData();
@@ -252,6 +253,16 @@ export function PlatformUsagePanel() {
               <SelectItem value="all">All time</SelectItem>
             </SelectContent>
           </Select>
+
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={excludeAdmins}
+              onChange={(e) => setExcludeAdmins(e.target.checked)}
+              className="rounded border-border"
+            />
+            Exclude admin usage
+          </label>
 
           <Button variant="outline" onClick={loadData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />

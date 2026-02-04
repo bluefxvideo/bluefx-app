@@ -79,13 +79,25 @@ export async function GET(request: NextRequest) {
     // Get date range from query params
     const searchParams = request.nextUrl.searchParams;
     const dateRange = searchParams.get('range') || '30d';
+    const excludeAdmins = searchParams.get('excludeAdmins') === 'true';
     const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365 * 10;
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    console.log('📊 Date range:', dateRange, 'Start date:', startDate);
+    console.log('📊 Date range:', dateRange, 'Exclude admins:', excludeAdmins, 'Start date:', startDate);
 
     // Use admin client
     const adminClient = createAdminClient();
+
+    // Fetch admin user IDs if excluding
+    let adminIds = new Set<string>();
+    if (excludeAdmins) {
+      const { data: adminProfiles } = await adminClient
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+      adminIds = new Set(adminProfiles?.map(p => p.id) || []);
+      console.log('📊 Excluding admin IDs:', [...adminIds]);
+    }
 
     // Fetch credit transactions data (this is where user usage is stored)
     // Same table that user-dashboard-enhanced.tsx uses
@@ -107,21 +119,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch user counts
-    const { count: totalUsers, error: totalUsersError } = await adminClient
-      .from('profiles')
-      .select('*', { count: 'exact', head: true });
+    let totalUsersQuery = adminClient.from('profiles').select('*', { count: 'exact', head: true });
+    let newUsersQuery = adminClient.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startDate);
 
+    if (excludeAdmins) {
+      totalUsersQuery = totalUsersQuery.neq('role', 'admin');
+      newUsersQuery = newUsersQuery.neq('role', 'admin');
+    }
+
+    const { count: totalUsers, error: totalUsersError } = await totalUsersQuery;
     console.log('📊 Total users:', totalUsers, 'error:', totalUsersError?.message);
 
-    const { count: newUsers, error: newUsersError } = await adminClient
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', startDate);
-
+    const { count: newUsers, error: newUsersError } = await newUsersQuery;
     console.log('📊 New users:', newUsers, 'error:', newUsersError?.message);
 
     // Process data - using operation_type and amount from credit_transactions
-    const entries = usageData || [];
+    // Filter out admin usage if requested
+    const entries = excludeAdmins
+      ? (usageData || []).filter(tx => !adminIds.has(tx.user_id))
+      : (usageData || []);
     const totalCreditsUsed = entries.reduce((sum, entry) => sum + Math.abs(entry.amount || 0), 0);
     const totalGenerations = entries.length;
     const uniqueUserIds = [...new Set(entries.map(e => e.user_id).filter(Boolean))];
