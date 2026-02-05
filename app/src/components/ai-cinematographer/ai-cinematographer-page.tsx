@@ -45,6 +45,18 @@ export function AICinematographerPage() {
   const [isProcessingBreakdown, setIsProcessingBreakdown] = useState(false);
   const [breakdownResult, setBreakdownResult] = useState<SceneBreakdownResult | null>(null);
 
+  // Load saved breakdown result from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('script-breakdown-result');
+    if (saved) {
+      try {
+        setBreakdownResult(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load saved breakdown:', e);
+      }
+    }
+  }, []);
+
   const {
     generateVideo,
     isGenerating,
@@ -241,6 +253,8 @@ export function AICinematographerPage() {
       const response = await breakdownScript(request);
       if (response.success && response.result) {
         setBreakdownResult(response.result);
+        // Persist to localStorage so it survives navigation
+        localStorage.setItem('script-breakdown-result', JSON.stringify(response.result));
       } else {
         console.error('Script breakdown failed:', response.error);
       }
@@ -254,23 +268,29 @@ export function AICinematographerPage() {
   // Update a single scene in the breakdown result
   const handleUpdateScene = (sceneNumber: number, updates: Partial<BreakdownScene>) => {
     if (!breakdownResult) return;
-    setBreakdownResult({
+    const updatedResult = {
       ...breakdownResult,
       scenes: breakdownResult.scenes.map(scene =>
         scene.sceneNumber === sceneNumber
           ? { ...scene, ...updates }
           : scene
       ),
-    });
+    };
+    setBreakdownResult(updatedResult);
+    // Persist edits to localStorage
+    localStorage.setItem('script-breakdown-result', JSON.stringify(updatedResult));
   };
 
   // Update the global aesthetic prompt
   const handleUpdateGlobalAesthetic = (prompt: string) => {
     if (!breakdownResult) return;
-    setBreakdownResult({
+    const updatedResult = {
       ...breakdownResult,
       globalAestheticPrompt: prompt,
-    });
+    };
+    setBreakdownResult(updatedResult);
+    // Persist edits to localStorage
+    localStorage.setItem('script-breakdown-result', JSON.stringify(updatedResult));
   };
 
   return (
