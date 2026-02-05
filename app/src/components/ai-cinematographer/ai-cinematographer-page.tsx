@@ -22,7 +22,7 @@ import { ScriptBreakdownOutput } from './output-panel/script-breakdown-output';
 import { StoryboardOutput } from './output-panel/storyboard-output';
 import { StoryboardOutputV2 } from './output-panel/storyboard-output-v2';
 import { BatchAnimationQueue } from './batch-animation-queue';
-import { breakdownScript } from '@/actions/tools/scene-breakdown';
+import { breakdownScript, type SavedBreakdown } from '@/actions/tools/scene-breakdown';
 import type { SceneBreakdownResult, BreakdownScene } from '@/lib/scene-breakdown/types';
 
 /**
@@ -44,16 +44,21 @@ export function AICinematographerPage() {
   // Script Breakdown state
   const [isProcessingBreakdown, setIsProcessingBreakdown] = useState(false);
   const [breakdownResult, setBreakdownResult] = useState<SceneBreakdownResult | null>(null);
+  const [breakdownScriptText, setBreakdownScriptText] = useState<string>('');
 
   // Load saved breakdown result from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('script-breakdown-result');
+    const savedScriptText = localStorage.getItem('script-breakdown-script-text');
     if (saved) {
       try {
         setBreakdownResult(JSON.parse(saved));
       } catch (e) {
         console.error('Failed to load saved breakdown:', e);
       }
+    }
+    if (savedScriptText) {
+      setBreakdownScriptText(savedScriptText);
     }
   }, []);
 
@@ -249,12 +254,14 @@ export function AICinematographerPage() {
   // Handle script breakdown
   const handleScriptBreakdown = async (request: { scriptText: string; visualStyle?: string }) => {
     setIsProcessingBreakdown(true);
+    setBreakdownScriptText(request.scriptText); // Save script text for saving breakdowns
     try {
       const response = await breakdownScript(request);
       if (response.success && response.result) {
         setBreakdownResult(response.result);
         // Persist to localStorage so it survives navigation
         localStorage.setItem('script-breakdown-result', JSON.stringify(response.result));
+        localStorage.setItem('script-breakdown-script-text', request.scriptText);
       } else {
         console.error('Script breakdown failed:', response.error);
       }
@@ -291,6 +298,21 @@ export function AICinematographerPage() {
     setBreakdownResult(updatedResult);
     // Persist edits to localStorage
     localStorage.setItem('script-breakdown-result', JSON.stringify(updatedResult));
+  };
+
+  // Load a saved breakdown from database
+  const handleLoadBreakdown = (breakdown: SavedBreakdown) => {
+    const result: SceneBreakdownResult = {
+      globalAestheticPrompt: breakdown.global_aesthetic,
+      scenes: breakdown.scenes,
+    };
+    setBreakdownResult(result);
+    setBreakdownScriptText(breakdown.script_text || '');
+    // Persist to localStorage
+    localStorage.setItem('script-breakdown-result', JSON.stringify(result));
+    if (breakdown.script_text) {
+      localStorage.setItem('script-breakdown-script-text', breakdown.script_text);
+    }
   };
 
   return (
@@ -348,8 +370,10 @@ export function AICinematographerPage() {
           <ScriptBreakdownOutput
             isProcessing={isProcessingBreakdown}
             result={breakdownResult}
+            scriptText={breakdownScriptText}
             onUpdateScene={handleUpdateScene}
             onUpdateGlobalAesthetic={handleUpdateGlobalAesthetic}
+            onLoadBreakdown={handleLoadBreakdown}
           />
         </StandardToolLayout>
       ) : activeTab === 'storyboard' ? (

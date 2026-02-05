@@ -2,6 +2,8 @@
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -27,6 +29,7 @@ export interface QueueItem {
   imageUrl: string;
   prompt: string;
   dialogue?: string;
+  includeDialogue?: boolean; // Whether to include dialogue in video generation prompt (default: false)
   duration: number;
   cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
   aspectRatio: string;
@@ -264,8 +267,21 @@ export function BatchAnimationQueue({
                         placeholder="Describe the action/motion for this video..."
                       />
                       {item.dialogue && (
-                        <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
-                          Dialogue: &quot;{item.dialogue}&quot;
+                        <div className="text-xs bg-amber-50 dark:bg-amber-900/20 p-2 rounded space-y-2">
+                          <div className="text-amber-600 dark:text-amber-400">
+                            Dialogue: &quot;{item.dialogue}&quot;
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              id={`include-dialogue-${item.id}`}
+                              checked={item.includeDialogue ?? false}
+                              onCheckedChange={(checked) => onUpdateItem(item.id, { includeDialogue: checked })}
+                              className="scale-75"
+                            />
+                            <Label htmlFor={`include-dialogue-${item.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                              Include in video
+                            </Label>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -275,9 +291,14 @@ export function BatchAnimationQueue({
                         {item.prompt || '(No prompt)'}
                       </p>
                       {item.dialogue && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400">
-                          &quot;{item.dialogue}&quot;
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-amber-600 dark:text-amber-400 flex-1">
+                            &quot;{item.dialogue}&quot;
+                          </p>
+                          {item.includeDialogue && (
+                            <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 px-1 rounded">incl.</span>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

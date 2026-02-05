@@ -179,3 +179,210 @@ Output valid JSON only, no markdown code blocks.`;
     };
   }
 }
+
+// ============================================================================
+// Save/Load Functions for Script Breakdowns
+// ============================================================================
+
+export interface SavedBreakdown {
+  id: string;
+  title: string;
+  script_text: string | null;
+  global_aesthetic: string;
+  scenes: BreakdownScene[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveBreakdownRequest {
+  title: string;
+  scriptText?: string;
+  globalAesthetic: string;
+  scenes: BreakdownScene[];
+}
+
+export interface SaveBreakdownResponse {
+  success: boolean;
+  breakdown?: SavedBreakdown;
+  error?: string;
+}
+
+export interface ListBreakdownsResponse {
+  success: boolean;
+  breakdowns?: SavedBreakdown[];
+  error?: string;
+}
+
+/**
+ * Save a script breakdown to the database
+ */
+export async function saveBreakdown(
+  request: SaveBreakdownRequest
+): Promise<SaveBreakdownResponse> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data, error } = await supabase
+      .from('script_breakdowns')
+      .insert({
+        user_id: user.id,
+        title: request.title,
+        script_text: request.scriptText || null,
+        global_aesthetic: request.globalAesthetic,
+        scenes: request.scenes,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error saving breakdown:', error);
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      breakdown: {
+        id: data.id,
+        title: data.title,
+        script_text: data.script_text,
+        global_aesthetic: data.global_aesthetic,
+        scenes: data.scenes as BreakdownScene[],
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      },
+    };
+  } catch (error) {
+    console.error('Save breakdown error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to save breakdown',
+    };
+  }
+}
+
+/**
+ * List all saved breakdowns for the current user
+ */
+export async function listBreakdowns(): Promise<ListBreakdownsResponse> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data, error } = await supabase
+      .from('script_breakdowns')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error listing breakdowns:', error);
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      breakdowns: data.map(row => ({
+        id: row.id,
+        title: row.title,
+        script_text: row.script_text,
+        global_aesthetic: row.global_aesthetic,
+        scenes: row.scenes as BreakdownScene[],
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      })),
+    };
+  } catch (error) {
+    console.error('List breakdowns error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to list breakdowns',
+    };
+  }
+}
+
+/**
+ * Load a specific breakdown by ID
+ */
+export async function loadBreakdown(id: string): Promise<SaveBreakdownResponse> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data, error } = await supabase
+      .from('script_breakdowns')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Error loading breakdown:', error);
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      breakdown: {
+        id: data.id,
+        title: data.title,
+        script_text: data.script_text,
+        global_aesthetic: data.global_aesthetic,
+        scenes: data.scenes as BreakdownScene[],
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      },
+    };
+  } catch (error) {
+    console.error('Load breakdown error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to load breakdown',
+    };
+  }
+}
+
+/**
+ * Delete a breakdown by ID
+ */
+export async function deleteBreakdown(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { error } = await supabase
+      .from('script_breakdowns')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error deleting breakdown:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Delete breakdown error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete breakdown',
+    };
+  }
+}

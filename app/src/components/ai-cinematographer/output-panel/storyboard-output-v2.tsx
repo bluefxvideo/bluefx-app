@@ -463,6 +463,7 @@ export function StoryboardOutputV2({
                       imageUrl: frame.upscaledUrl || frame.originalUrl,
                       prompt: shotData?.action || shotData?.description || '',
                       dialogue: shotData?.dialogue,
+                      includeDialogue: false,  // Off by default - user has separate voiceover
                       duration: suggestedDuration,
                       cameraStyle: 'none' as const,
                       aspectRatio: '16:9',

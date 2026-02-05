@@ -72,6 +72,7 @@ export function useAICinematographer() {
     imageUrl: string;
     prompt: string;
     dialogue?: string;
+    includeDialogue?: boolean; // Whether to include dialogue in video generation prompt (default: false)
     duration: number;
     cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
     aspectRatio: string;
@@ -831,7 +832,8 @@ export function useAICinematographer() {
       try {
         // Build prompt with camera style
         let finalPrompt = item.prompt;
-        if (item.dialogue) {
+        // Only include dialogue if user explicitly enabled it (off by default)
+        if (item.dialogue && item.includeDialogue) {
           finalPrompt += `\n\nNarration: "${item.dialogue}"`;
         }
         if (item.cameraStyle !== 'none') {
@@ -920,7 +922,8 @@ export function useAICinematographer() {
     try {
       // Build prompt with camera style
       let finalPrompt = item.prompt;
-      if (item.dialogue) {
+      // Only include dialogue if user explicitly enabled it (off by default)
+      if (item.dialogue && item.includeDialogue) {
         finalPrompt += `\n\nNarration: "${item.dialogue}"`;
       }
       if (item.cameraStyle !== 'none') {
