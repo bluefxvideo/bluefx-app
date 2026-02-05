@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library, Bot, User, Clapperboard, Ban } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -52,6 +52,7 @@ function formatContentForDisplay(content: string): string {
 
 export function ScriptGeneratorPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // State
   const [libraryProducts, setLibraryProducts] = useState<LibraryProduct[]>([]);
@@ -68,6 +69,17 @@ export function ScriptGeneratorPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Handle prompt from URL param (from Prompt Library)
+  useEffect(() => {
+    const promptParam = searchParams.get('prompt');
+    if (promptParam) {
+      setCustomPrompt(decodeURIComponent(promptParam));
+      setSelectedScriptType('custom');
+      // Clear the URL param without triggering navigation
+      router.replace('/dashboard/script-generator', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Check if user is admin
   useEffect(() => {
