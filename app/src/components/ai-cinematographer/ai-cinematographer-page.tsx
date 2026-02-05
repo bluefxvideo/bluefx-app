@@ -10,16 +10,20 @@ import { ContextualOutput } from './output-panel/contextual-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { StartingShotOutput } from './output-panel/starting-shot-output';
 import { useAICinematographer } from './hooks/use-ai-cinematographer';
-import { Video, History, Image, LayoutGrid } from 'lucide-react';
+import { Video, History, Image, LayoutGrid, FileText } from 'lucide-react';
 import { useProject } from '@/lib/project-context';
 
 // Tab content components
 import { GeneratorTab } from './tabs/generator-tab';
 import { StartingShotTab } from './tabs/starting-shot-tab';
 import { StoryboardTab } from './tabs/storyboard-tab';
+import { ScriptBreakdownTab } from './tabs/script-breakdown-tab';
+import { ScriptBreakdownOutput } from './output-panel/script-breakdown-output';
 import { StoryboardOutput } from './output-panel/storyboard-output';
 import { StoryboardOutputV2 } from './output-panel/storyboard-output-v2';
 import { BatchAnimationQueue } from './batch-animation-queue';
+import { breakdownScript } from '@/actions/tools/scene-breakdown';
+import type { SceneBreakdownResult, BreakdownScene } from '@/lib/scene-breakdown/types';
 
 /**
  * AI Cinematographer - Complete AI-Orchestrated Tool with Tabs
@@ -36,6 +40,10 @@ export function AICinematographerPage() {
 
   // Toggle between old 3x3 mode and new 4x4 mode with math extraction
   const [use4x4Grid, setUse4x4Grid] = useState(true); // Default to new 4x4 mode
+
+  // Script Breakdown state
+  const [isProcessingBreakdown, setIsProcessingBreakdown] = useState(false);
+  const [breakdownResult, setBreakdownResult] = useState<SceneBreakdownResult | null>(null);
 
   const {
     generateVideo,
@@ -164,6 +172,7 @@ export function AICinematographerPage() {
   const getActiveTab = () => {
     if (pathname.includes('/history')) return 'history';
     if (pathname.includes('/starting-shot')) return 'starting-shot';
+    if (pathname.includes('/script-breakdown')) return 'script-breakdown';
     if (pathname.includes('/storyboard')) return 'storyboard';
     return 'generate'; // default
   };
@@ -183,6 +192,12 @@ export function AICinematographerPage() {
       label: 'Starting Shot',
       icon: Image,
       path: '/dashboard/ai-cinematographer/starting-shot'
+    },
+    {
+      id: 'script-breakdown',
+      label: 'Script Breakdown',
+      icon: FileText,
+      path: '/dashboard/ai-cinematographer/script-breakdown'
     },
     {
       id: 'storyboard',
@@ -218,6 +233,45 @@ export function AICinematographerPage() {
       analyzerShots={analyzerShots}
     />
   );
+
+  // Handle script breakdown
+  const handleScriptBreakdown = async (request: { scriptText: string; visualStyle?: string }) => {
+    setIsProcessingBreakdown(true);
+    try {
+      const response = await breakdownScript(request);
+      if (response.success && response.result) {
+        setBreakdownResult(response.result);
+      } else {
+        console.error('Script breakdown failed:', response.error);
+      }
+    } catch (error) {
+      console.error('Script breakdown error:', error);
+    } finally {
+      setIsProcessingBreakdown(false);
+    }
+  };
+
+  // Update a single scene in the breakdown result
+  const handleUpdateScene = (sceneNumber: number, updates: Partial<BreakdownScene>) => {
+    if (!breakdownResult) return;
+    setBreakdownResult({
+      ...breakdownResult,
+      scenes: breakdownResult.scenes.map(scene =>
+        scene.sceneNumber === sceneNumber
+          ? { ...scene, ...updates }
+          : scene
+      ),
+    });
+  };
+
+  // Update the global aesthetic prompt
+  const handleUpdateGlobalAesthetic = (prompt: string) => {
+    if (!breakdownResult) return;
+    setBreakdownResult({
+      ...breakdownResult,
+      globalAestheticPrompt: prompt,
+    });
+  };
 
   return (
     <StandardToolPage
@@ -257,6 +311,25 @@ export function AICinematographerPage() {
             isGenerating={isGeneratingImage}
             generatedImage={startingShotResult?.image}
             onMakeVideo={handleMakeVideoFromImage}
+          />
+        </StandardToolLayout>
+      ) : activeTab === 'script-breakdown' ? (
+        // Script Breakdown tab - Two-panel layout
+        <StandardToolLayout>
+          {/* Left Panel - Script Input */}
+          <div className="h-full overflow-hidden">
+            <ScriptBreakdownTab
+              onBreakdown={handleScriptBreakdown}
+              isProcessing={isProcessingBreakdown}
+            />
+          </div>
+
+          {/* Right Panel - Breakdown Output */}
+          <ScriptBreakdownOutput
+            isProcessing={isProcessingBreakdown}
+            result={breakdownResult}
+            onUpdateScene={handleUpdateScene}
+            onUpdateGlobalAesthetic={handleUpdateGlobalAesthetic}
           />
         </StandardToolLayout>
       ) : activeTab === 'storyboard' ? (
