@@ -13,15 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { BookMarked, Plus, Search, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { PromptCard } from './prompt-card';
@@ -251,31 +249,33 @@ export function PromptLibraryPage({ isAdmin = false }: PromptLibraryPageProps) {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog
+      <Dialog
         open={!!deleteConfirmPrompt}
-        onOpenChange={(open) => !open && setDeleteConfirmPrompt(null)}
+        onOpenChange={(open: boolean) => !open && setDeleteConfirmPrompt(null)}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Prompt</AlertDialogTitle>
-            <AlertDialogDescription>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Prompt</DialogTitle>
+            <DialogDescription>
               Are you sure you want to delete &quot;{deleteConfirmPrompt?.title}&quot;?
               This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmPrompt(null)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </StandardToolPage>
   );
 }
