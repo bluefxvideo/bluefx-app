@@ -105,13 +105,7 @@ export function ScriptGeneratorPage() {
         const { libraryProducts: library, userOffers: user } = await fetchAllOffersForContentGenerator();
         setLibraryProducts(library);
         setUserOffers(user);
-
-        // Auto-select first user offer if available, otherwise first library product
-        if (user.length > 0) {
-          setSelectedOffer({ ...user[0], source: 'business' });
-        } else if (library.length > 0) {
-          setSelectedOffer({ ...library[0], source: 'library' });
-        }
+        // Don't auto-select any offer - let user choose
       } catch (err) {
         setError('Failed to load offers');
         console.error(err);

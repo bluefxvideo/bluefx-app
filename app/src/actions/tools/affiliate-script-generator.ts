@@ -73,21 +73,26 @@ export async function generateAffiliateScript(
 
     // Auto-save the script to the library
     try {
-      await supabase
+      const { error: saveError } = await supabase
         .from('affiliate_toolkit_saved_scripts')
         .insert([{
           user_id: user.id,
-          offer_id: request.offer.id,
+          offer_id: request.offer.id === 'none' ? null : request.offer.id,
           offer_name: request.offer.name,
           script_type: request.scriptType,
           content: text,
           custom_prompt: request.customPrompt || null,
           is_favorite: false
         }]);
-      console.log('💾 Script auto-saved to library');
+
+      if (saveError) {
+        console.error('⚠️ Auto-save failed:', saveError.message, saveError.details);
+      } else {
+        console.log('💾 Script auto-saved to library');
+      }
     } catch (saveError) {
       // Don't fail the generation if auto-save fails
-      console.error('⚠️ Auto-save failed (non-blocking):', saveError);
+      console.error('⚠️ Auto-save exception:', saveError);
     }
 
     return {
