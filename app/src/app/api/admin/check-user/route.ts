@@ -95,7 +95,8 @@ export async function GET(request: NextRequest) {
       found: true,
       total: credits.total_credits,
       used: credits.used_credits,
-      available: credits.total_credits - credits.used_credits,
+      bonus: credits.bonus_credits || 0,
+      available: credits.available_credits ?? (credits.total_credits - credits.used_credits + (credits.bonus_credits || 0)),
       periodStart: credits.period_start,
       periodEnd: credits.period_end
     } : { found: false }

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/hedra-polling",
       "schedule": "*/30 * * * * *"
+    },
+    {
+      "path": "/api/cron/credit-renewal",
+      "schedule": "0 0 * * *"
     }
   ]
 }
