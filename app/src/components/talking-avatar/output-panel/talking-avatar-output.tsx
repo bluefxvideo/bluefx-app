@@ -201,7 +201,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         {/* Large Avatar Preview — fills most of the right panel */}
         {avatarImageUrl && (
           <div className="flex-1 flex items-center justify-center p-6 min-h-0">
-            <div className="relative w-full max-w-lg aspect-video rounded-xl overflow-hidden bg-muted shadow-lg">
+            <div className="relative w-full max-w-4xl aspect-video rounded-xl overflow-hidden bg-muted shadow-lg">
               {avatarPreviewVideoUrl ? (
                 <video
                   src={avatarPreviewVideoUrl}

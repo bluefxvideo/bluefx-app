@@ -27,6 +27,9 @@ export interface TalkingAvatarRequest {
   avatar_template_id?: string;
   voice_id?: string;
   voice_speed?: number; // Voice speed multiplier (0.5 - 2.0)
+  voice_pitch?: number; // Voice pitch adjustment (-12 to +12)
+  voice_volume?: number; // Voice volume (0-10)
+  voice_emotion?: string; // Voice emotion (auto, neutral, happy, sad, etc.)
   custom_avatar_image?: File | null;
   workflow_step: 'avatar_select' | 'voice_generate' | 'audio_upload' | 'video_generate';
   user_id: string;
@@ -270,7 +273,12 @@ async function handleVoiceGeneration(
     // Generate audio using Minimax TTS if voice_id is provided
     let voiceAudioUrl: string | undefined;
     if (request.voice_id && request.script_text) {
-      voiceAudioUrl = await generateVoiceAudio(request.script_text, request.voice_id, request.user_id, request.voice_speed);
+      voiceAudioUrl = await generateVoiceAudio(request.script_text, request.voice_id, request.user_id, {
+        speed: request.voice_speed,
+        pitch: request.voice_pitch,
+        volume: request.voice_volume,
+        emotion: request.voice_emotion,
+      });
     }
 
     return {
@@ -643,14 +651,16 @@ async function handleVideoGeneration(
 /**
  * Generate voice audio using Minimax Speech 2.6 HD via Replicate
  */
-async function generateVoiceAudio(scriptText: string, voiceId: string, userId: string, speed: number = 1.0): Promise<string> {
+async function generateVoiceAudio(scriptText: string, voiceId: string, userId: string, settings: { speed?: number; pitch?: number; volume?: number; emotion?: string } = {}): Promise<string> {
   try {
     const result = await generateMinimaxVoice({
       text: scriptText,
       voice_settings: {
         voice_id: voiceId,
-        speed: speed,
-        emotion: 'auto'
+        speed: settings.speed ?? 1.0,
+        pitch: settings.pitch,
+        volume: settings.volume,
+        emotion: (settings.emotion as 'auto' | 'happy' | 'sad' | 'angry' | 'fearful' | 'disgusted' | 'surprised' | 'neutral') || 'auto'
       },
       user_id: userId,
       batch_id: crypto.randomUUID()

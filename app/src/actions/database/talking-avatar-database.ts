@@ -89,8 +89,7 @@ export async function getAvatarTemplates(
     .from('avatar_templates')
     .select('*')
     .eq('is_active', true)
-    .order('category', { ascending: true })
-    .order('name', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (category) {
     query = query.eq('category', category);

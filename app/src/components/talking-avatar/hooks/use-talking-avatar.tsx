@@ -71,7 +71,7 @@ export interface UseTalkingAvatarReturn {
   state: TalkingAvatarState;
   loadAvatarTemplates: () => Promise<void>;
   handleAvatarSelection: (template: AvatarTemplate | null, customFile?: File) => Promise<void>;
-  handleVoiceGeneration: (voiceId: string, scriptText: string, speed?: number) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
+  handleVoiceGeneration: (voiceId: string, scriptText: string, voiceSettings?: { speed?: number; pitch?: number; volume?: number; emotion?: string }) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
   handleVideoGeneration: () => Promise<void>;
   resetWizard: () => void;
   goToStep: (step: number) => void;
@@ -230,8 +230,15 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const handleAvatarSelection = useCallback(async (template: AvatarTemplate | null, customImage?: File) => {
     if (!user) return;
     
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    
+    // Update template immediately so preview updates right away
+    setState(prev => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      selectedAvatarTemplate: template || null,
+      customAvatarImage: customImage || null,
+    }));
+
     try {
       const request: TalkingAvatarRequest = {
         script_text: state.scriptText,
@@ -243,12 +250,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       };
 
       const response = await executeTalkingAvatar(request);
-      
+
       if (response.success) {
         setState(prev => ({
           ...prev,
-          selectedAvatarTemplate: template || null,
-          customAvatarImage: customImage || null,
           customAvatarUrl: response.step_data?.avatar_preview_url || null,
           credits: response.remaining_credits,
           isLoading: false,
@@ -270,7 +275,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [user, state.scriptText]);
 
   // Step 2: Handle voice generation
-  const handleVoiceGeneration = useCallback(async (voiceId: string, scriptText: string, speed?: number): Promise<{ success: boolean; voiceAudioUrl?: string }> => {
+  const handleVoiceGeneration = useCallback(async (voiceId: string, scriptText: string, voiceSettings?: { speed?: number; pitch?: number; volume?: number; emotion?: string }): Promise<{ success: boolean; voiceAudioUrl?: string }> => {
     if (!user) return { success: false };
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -279,7 +284,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       const request: TalkingAvatarRequest = {
         script_text: scriptText,
         voice_id: voiceId,
-        voice_speed: speed || 1.0,
+        voice_speed: voiceSettings?.speed || 1.0,
+        voice_pitch: voiceSettings?.pitch,
+        voice_volume: voiceSettings?.volume,
+        voice_emotion: voiceSettings?.emotion,
         avatar_image_url: state.customAvatarUrl || state.selectedAvatarTemplate?.thumbnail_url,
         avatar_template_id: state.selectedAvatarTemplate?.id,
         workflow_step: 'voice_generate',
