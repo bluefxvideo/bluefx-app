@@ -28,6 +28,7 @@ const SHOWCASE_VIDEOS: ShowcaseVideo[] = [
   { id: 'jAOFrOsdc7M', title: 'Clear Skin Ad', orientation: 'vertical' },
   { id: 'kYtZ1L5_e6Q', title: 'Real-Looking Imperfect Ads', orientation: 'vertical' },
   { id: 'ZbiAEYLnofU', title: 'Supplement Ad', orientation: 'horizontal' },
+  { id: 'VdNr3oijlyU', title: 'Cinematic Documentary with AI', orientation: 'vertical' },
 ];
 
 // ── Component ─────────────────────────────────────────────────────
