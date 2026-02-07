@@ -701,9 +701,9 @@ function calculateTalkingAvatarCreditCost(request: TalkingAvatarRequest) {
     estimatedDuration = Math.min(Math.ceil(wordCount / 2.5), LTX_MAX_DURATION_SECONDS);
   }
 
-  // 1.0 credits per second, minimum 10, maximum 60 (for 60-second limit)
+  // 1.0 credits per second, maximum 60 (for 60-second limit)
   const creditsPerSecond = 1.0;
-  const total = Math.max(10, Math.min(60, Math.ceil(estimatedDuration * creditsPerSecond)));
+  const total = Math.min(60, Math.ceil(estimatedDuration * creditsPerSecond));
 
   const wordCount = request.script_text.trim().split(/\s+/).filter(Boolean).length;
 

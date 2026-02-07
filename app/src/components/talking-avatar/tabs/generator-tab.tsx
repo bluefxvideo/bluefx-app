@@ -157,6 +157,12 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [localActionPrompt, setLocalActionPrompt] = useState(state.actionPrompt);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const stepTopRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    stepTopRef.current?.scrollIntoView({ block: 'start' });
+  }, [state.currentStep]);
 
   // Avatar hover video preview
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
@@ -520,6 +526,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
       />
 
       <TabBody>
+        <div ref={stepTopRef} />
         {/* Progress Indicator */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
