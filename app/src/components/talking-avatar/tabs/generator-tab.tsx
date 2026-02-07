@@ -476,7 +476,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
     return Math.min(Math.ceil(wordCount / 1.5), MAX_AUDIO_DURATION_SECONDS);
   };
   const estimatedDuration = getEstimatedDuration();
-  const estimatedCredits = Math.max(10, Math.min(60, Math.ceil(estimatedDuration)));
+  const estimatedCredits = Math.min(60, Math.ceil(estimatedDuration));
 
   const canProceed = () => {
     if (state.currentStep === 1) {
