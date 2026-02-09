@@ -41,11 +41,35 @@ export function ThumbnailMachineOutput({
   
   if (shouldShowResults) {
     const handleDownload = async () => {
-      // TODO: Implement batch download
+      const thumbnail = activeTab === 'face-swap'
+        ? (result?.face_swapped_thumbnails?.[0] || result?.thumbnails?.[0])
+        : (result?.thumbnails?.[0] || result?.face_swapped_thumbnails?.[0]);
+      if (!thumbnail) return;
+      const url = (thumbnail as any).image_url || thumbnail.url || ((thumbnail as any).image_urls?.[0]) || '';
+      if (!url) return;
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = activeTab === 'face-swap' ? 'faceswap.jpeg' : `thumbnail-${(thumbnail as any).variation_index || 1}.jpeg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+      } catch (error) {
+        console.error('Download failed:', error);
+      }
     };
 
     const handleOpenInNewTab = () => {
-      // TODO: Implement gallery view in new tab
+      const thumbnail = activeTab === 'face-swap'
+        ? (result?.face_swapped_thumbnails?.[0] || result?.thumbnails?.[0])
+        : (result?.thumbnails?.[0] || result?.face_swapped_thumbnails?.[0]);
+      if (!thumbnail) return;
+      const url = (thumbnail as any).image_url || thumbnail.url || ((thumbnail as any).image_urls?.[0]) || '';
+      if (url) window.open(url, '_blank');
     };
 
     // Create fallback result for processing state if none exists

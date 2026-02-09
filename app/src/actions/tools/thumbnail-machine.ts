@@ -2,7 +2,9 @@
 
 import { createImageGenerationPrediction, waitForImageGenerationCompletion } from '../models/image-generation-nano-banana';
 import { performFaceSwap } from '../models/face-swap-cdingram';
-import { generateYouTubeTitles, analyzeImageForRecreation, createChatCompletion } from '../models/openai-chat';
+import { generateYouTubeTitles, analyzeImageForRecreation } from '../models/openai-chat';
+import { generateText } from 'ai';
+import { google } from '@ai-sdk/google';
 import { recreateLogo as recreateWithOpenAI } from '../models/openai-image';
 import { uploadImageToStorage, downloadAndUploadImage } from '../supabase-storage';
 import { 
@@ -55,14 +57,11 @@ const THUMBNAIL_STYLES = {
  */
 async function enhanceThumbnailPrompt(combinedPrompt: string, userId: string): Promise<string> {
   try {
-    console.log('🔍 Enhancing prompt with OpenAI...');
-    
-    const completion = await createChatCompletion({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a thumbnail generation prompt expert. Enhance the given prompt to create more visually appealing and effective thumbnails. Focus on composition, visual elements, and style.
+    console.log('🔍 Enhancing prompt with Gemini 3...');
+
+    const { text: response } = await generateText({
+      model: google('gemini-3-flash-preview'),
+      system: `You are a thumbnail generation prompt expert. Enhance the given prompt to create more visually appealing and effective thumbnails. Focus on composition, visual elements, and style.
 
 You MUST return a JSON object that exactly matches this schema, with no additional properties:
 {
@@ -72,21 +71,13 @@ You MUST return a JSON object that exactly matches this schema, with no addition
 Example response:
 {
   "enhancedPrompt": "A majestic robot android, rendered in a modern 3D style with dramatic lighting, positioned against a dark gradient background. Sharp focus on the metallic details, with subtle blue accent lighting highlighting key features. Composition optimized for thumbnail visibility with the robot centered and facing slightly to the right. High contrast and cinematic atmosphere."
-}`
-        },
-        {
-          role: 'user',
-          content: combinedPrompt
-        }
-      ],
+}`,
+      prompt: combinedPrompt,
       temperature: 0.8,
-      max_tokens: 300,
-      n: 1
     });
 
-    const response = completion.choices[0]?.message?.content;
     if (!response) {
-      console.warn('No response from OpenAI, using original prompt');
+      console.warn('No response from Gemini, using original prompt');
       return combinedPrompt;
     }
 
@@ -109,17 +100,58 @@ Example response:
 }
 
 /**
+ * Strip any existing "YouTube thumbnail, catchy..." prefix and trailing
+ * "cinematic lighting, expressive, viral style" suffix so we don't double-wrap.
+ * Also strips any existing text overlay instructions to avoid duplication.
+ */
+function cleanSceneDescription(prompt: string): string {
+  let cleaned = prompt;
+  // Strip common prefix patterns
+  cleaned = cleaned.replace(/^YouTube thumbnail,?\s*(catchy,?\s*)?(high contrast,?\s*)?(vibrant colors,?\s*)?(4k,?\s*)?(highly detailed,?\s*)?/i, '');
+  // Strip trailing suffix patterns
+  cleaned = cleaned.replace(/,?\s*cinematic lighting,?\s*(expressive,?\s*)?(viral style\.?\s*)?$/i, '');
+  // Strip "No text on the image" endings
+  cleaned = cleaned.replace(/\.?\s*No text on the image\.?\s*$/i, '');
+  // Strip existing "bold text reading/overlay saying ..." clauses to avoid duplication with text_overlay
+  cleaned = cleaned.replace(/,?\s*bold text (reading|overlay saying)\s*'[^']*'\s*(in\s+[^,]+)?(letters\s+[^,]+)?/gi, '');
+  cleaned = cleaned.replace(/,?\s*bold text (reading|overlay saying)\s*"[^"]*"\s*(in\s+[^,]+)?(letters\s+[^,]+)?/gi, '');
+  return cleaned.trim();
+}
+
+async function enhanceProThumbnailPrompt(
+  userPrompt: string,
+  _style: 'clickbait' | 'professional' | 'minimal',
+  options?: {
+    textOverlay?: string;
+    referenceImageUrls?: string[];
+    transcript?: string;
+    videoTitle?: string;
+  }
+): Promise<string> {
+  const textOverlay = options?.textOverlay?.trim();
+  const scene = cleanSceneDescription(userPrompt);
+
+  console.log('🔍 Pro: using tag-soup template');
+  const parts: string[] = [scene];
+  if (textOverlay) parts.push(`bold text overlay saying '${textOverlay.toUpperCase()}'`);
+  const enhanced = `YouTube thumbnail, catchy, high contrast, vibrant colors, 4k, highly detailed, ${parts.join(', ')}, cinematic lighting, expressive, viral style`;
+  console.log('✅ Pro prompt:', enhanced.substring(0, 150) + '...');
+  return enhanced;
+}
+
+/**
  * Unified Thumbnail Machine Server Action
  * Orchestrates all thumbnail-related operations with AI-driven workflow decisions
  */
 
 export interface ThumbnailMachineRequest {
   // Operation mode - determines which workflow to execute
-  operation_mode?: 'generate' | 'face-swap-only' | 'recreation-only' | 'titles-only';
+  operation_mode?: 'generate' | 'generate-pro' | 'face-swap-only' | 'recreation-only' | 'titles-only';
   
   // Core generation (used for 'generate' and 'recreation-only' modes)
   prompt?: string; // Optional for some modes
   thumbnail_style?: 'clickbait' | 'professional' | 'minimal'; // Style-based system prompts
+  text_overlay?: string; // 2-4 word text to render on the thumbnail (e.g., "WAIT WHAT")
   
   // Reference image upload (used for 'recreation-only' mode)
   reference_image?: string | File; // base64, File object, or URL
@@ -150,6 +182,14 @@ export interface ThumbnailMachineRequest {
 
   // Reference image for image-to-image generation
   image_input?: string[]; // Reference image URLs for nano-banana (up to 3)
+
+  // Pro model options (nano-banana-pro)
+  resolution?: '1K' | '2K' | '4K';
+  output_format?: 'jpeg' | 'png' | 'webp';
+
+  // Video context (from YouTube URL fetch, used for smart prompt crafting)
+  transcript?: string;
+  video_title?: string;
 
   // User context (ENHANCED - for credit system)
   user_id: string; // Now required for credit validation
@@ -190,6 +230,7 @@ export interface ThumbnailMachineResponse {
 
 // Credit constants (from legacy system analysis)
 const CREDITS_PER_THUMBNAIL = 2;
+const CREDITS_PER_PRO_THUMBNAIL = 10;
 const FACE_SWAP_CREDITS = 3;
 const TITLE_GENERATION_CREDITS = 1;
 
@@ -227,6 +268,9 @@ export async function generateThumbnails(
 
     // Step 2: Route to appropriate workflow based on operation mode
     switch (operation_mode) {
+      case 'generate-pro':
+        return await executeProGenerationWorkflow(request, batch_id, startTime);
+
       case 'face-swap-only':
         return await executeFaceSwapOnlyWorkflow(request, batch_id, startTime);
       
@@ -635,15 +679,18 @@ function calculateEstimatedCredits(request: ThumbnailMachineRequest): number {
   const mode = request.operation_mode || 'generate';
   
   switch (mode) {
+    case 'generate-pro':
+      return CREDITS_PER_PRO_THUMBNAIL;
+
     case 'face-swap-only':
       return FACE_SWAP_CREDITS;
-    
+
     case 'recreation-only':
       return CREDITS_PER_THUMBNAIL; // Recreation uses same cost as generation
-    
+
     case 'titles-only':
       return TITLE_GENERATION_CREDITS;
-    
+
     case 'generate':
     default:
       let credits = 0;
@@ -734,6 +781,165 @@ export async function generateEnhancedThumbnails(
     style_type: options.style_type || 'Auto',
     magic_prompt_option: 'On', // Enhanced prompts for better results
   });
+}
+
+/**
+ * PRO GENERATION WORKFLOW
+ * Uses nano-banana-pro for higher quality thumbnail generation with resolution/format control
+ */
+async function executeProGenerationWorkflow(
+  request: ThumbnailMachineRequest,
+  batch_id: string,
+  startTime: number
+): Promise<ThumbnailMachineResponse> {
+  try {
+    console.log('🎨 Executing Pro Generation Workflow (fal.ai nano-banana-pro)');
+
+    // Step 1: Create prediction record
+    await createPredictionRecord({
+      prediction_id: batch_id,
+      user_id: request.user_id,
+      tool_id: 'thumbnail-machine',
+      service_id: 'generate-pro',
+      model_version: 'nano-banana-pro-fal',
+      status: 'starting',
+      input_data: request as unknown as Json,
+    });
+
+    // Step 2: Prompt enhancement
+    let enhancedPrompt: string;
+
+    if (request.skip_prompt_enhancement) {
+      enhancedPrompt = request.prompt || '';
+    } else {
+      enhancedPrompt = await enhanceProThumbnailPrompt(
+        request.prompt || '',
+        request.thumbnail_style || 'clickbait',
+        {
+          textOverlay: request.text_overlay,
+          referenceImageUrls: request.image_input,
+          transcript: request.transcript,
+          videoTitle: request.video_title,
+        }
+      );
+    }
+
+    console.log('📝 Pro prompt:', enhancedPrompt.substring(0, 200) + '...');
+
+    // Step 3: Generate with fal.ai nano-banana-pro (synchronous — no polling needed)
+    const { generateWithFalNanaBananaPro } = await import('../models/fal-nano-banana-pro');
+
+    await updatePredictionRecord(batch_id, { status: 'processing' });
+
+    const falResult = await generateWithFalNanaBananaPro({
+      prompt: enhancedPrompt,
+      aspect_ratio: (request.aspect_ratio as any) || '16:9',
+      resolution: '1K',
+      output_format: 'jpeg',
+      image_input: request.image_input,
+    });
+
+    if (!falResult.success || !falResult.imageUrl) {
+      throw new Error(falResult.error || 'Pro generation failed');
+    }
+
+    // Step 4: Download and store in Supabase
+    const falUrl = falResult.imageUrl;
+
+    const storageResult = await downloadAndUploadImage(
+      falUrl,
+      'thumbnail-machine-pro',
+      `${batch_id}_1`,
+      { folder: 'thumbnails/generated', bucket: 'images' }
+    );
+
+    const finalUrl = storageResult.success && storageResult.url ? storageResult.url : falUrl;
+    const thumbnails = [{
+      id: `${batch_id}_1`,
+      url: finalUrl,
+      variation_index: 1,
+      batch_id,
+    }];
+
+    // Step 5: Deduct credits
+    const creditDeduction = await deductCredits(
+      request.user_id,
+      CREDITS_PER_PRO_THUMBNAIL,
+      'pro-thumbnail-generation',
+      { batch_id }
+    );
+
+    // Step 6: Store results
+    const aspectRatio = request.aspect_ratio || '16:9';
+    const { width, height, dimensions } = calculateDimensionsFromAspectRatio(aspectRatio);
+
+    await storeThumbnailResults([{
+      user_id: request.user_id,
+      prompt: request.prompt || enhancedPrompt,
+      image_urls: [finalUrl],
+      dimensions,
+      height,
+      width,
+      model_name: 'nano-banana-pro-fal',
+      model_version: 'nano-banana-pro-fal',
+      batch_id,
+      generation_settings: request as unknown as Json,
+      metadata: {
+        type: 'thumbnail-pro',
+        enhanced_prompt: enhancedPrompt,
+        text_overlay: request.text_overlay,
+        fal_url: falUrl,
+        aspect_ratio: aspectRatio,
+        stored_in_supabase: storageResult.success,
+      },
+    }]);
+
+    // Step 7: Record analytics
+    await recordGenerationMetrics({
+      user_id: request.user_id,
+      batch_id,
+      model_version: 'nano-banana-pro-fal',
+      style_type: 'pro',
+      num_variations: 1,
+      generation_time_ms: Date.now() - startTime,
+      total_credits_used: CREDITS_PER_PRO_THUMBNAIL,
+      prompt_length: enhancedPrompt.length,
+      has_advanced_options: true,
+    });
+
+    // Step 8: Update prediction status
+    await updatePredictionRecord(batch_id, {
+      status: 'succeeded',
+      output_data: {
+        thumbnails: thumbnails.map(t => ({
+          id: t.id,
+          url: t.url,
+          variation_index: t.variation_index,
+        }))
+      } as unknown as Json,
+    });
+
+    const generation_time_ms = Date.now() - startTime;
+    console.log(`🎉 Pro generation completed in ${generation_time_ms}ms`);
+
+    return {
+      success: true,
+      thumbnails,
+      batch_id,
+      credits_used: CREDITS_PER_PRO_THUMBNAIL,
+      remaining_credits: creditDeduction.remainingCredits,
+      generation_time_ms,
+    };
+  } catch (error) {
+    console.error('🚨 Pro generation workflow error:', error);
+
+    await updatePredictionRecord(batch_id, {
+      status: 'failed',
+      logs: error instanceof Error ? error.message : 'Pro generation failed',
+    });
+
+    throw error;
+  }
 }
 
 /**
@@ -1220,13 +1426,53 @@ async function executeTitlesOnlyWorkflow(
     };
   } catch (error) {
     console.error('🚨 Titles workflow error:', error);
-    
+
     // Update prediction status to failed
-    await updatePredictionRecord(batch_id, { 
+    await updatePredictionRecord(batch_id, {
       status: 'failed',
       logs: error instanceof Error ? error.message : 'Titles workflow failed'
     });
-    
+
     throw error;
+  }
+}
+
+/**
+ * FETCH VIDEO TRANSCRIPT
+ * Fetches YouTube video transcript for the thumbnail concept chat.
+ * AI concept generation happens via streaming chat at /api/thumbnail-concepts.
+ */
+export async function generateThumbnailConcepts(youtubeUrl: string): Promise<{
+  success: boolean;
+  transcript?: string;
+  video_title?: string;
+  error?: string;
+}> {
+  try {
+    console.log('🎯 Fetching transcript for thumbnail concepts:', youtubeUrl);
+
+    const { fetchYouTubeTranscript } = await import('@/actions/tools/youtube-transcript');
+    const result = await fetchYouTubeTranscript(youtubeUrl);
+
+    if (!result.success || !result.transcript) {
+      return {
+        success: false,
+        error: result.error || 'Could not fetch video transcript. Try a different video.',
+      };
+    }
+
+    console.log(`📝 Got transcript (${result.transcript.length} chars) for: ${result.title}`);
+
+    return {
+      success: true,
+      transcript: result.transcript,
+      video_title: result.title || 'Untitled Video',
+    };
+  } catch (error) {
+    console.error('🚨 Transcript fetch error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch video transcript',
+    };
   }
 }

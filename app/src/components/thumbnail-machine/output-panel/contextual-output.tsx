@@ -140,13 +140,15 @@ export function ContextualOutput({
       : (result?.thumbnails && result?.thumbnails.length > 0);
     
     if (result?.success && !isGenerating && hasResults) {
-      return activeTab === 'generate' ? 'Generation Complete!' 
+      return activeTab === 'generate' ? 'Generation Complete!'
+           : activeTab === 'pro' ? 'Pro Generation Complete!'
            : activeTab === 'face-swap' ? 'Face Swap Complete!'
            : 'Recreation Complete!';
     }
     // Default title
-    return activeTab === 'generate' ? 'Thumbnail Results' 
-         : activeTab === 'face-swap' ? 'Face Swap Results' 
+    return activeTab === 'generate' ? 'Thumbnail Results'
+         : activeTab === 'pro' ? 'Pro Thumbnail Results'
+         : activeTab === 'face-swap' ? 'Face Swap Results'
          : 'Recreation Results';
   };
 
@@ -160,6 +162,7 @@ export function ContextualOutput({
     
     if (result?.success && !isGenerating && hasResults) {
       return activeTab === 'generate' ? 'Your thumbnails are ready'
+           : activeTab === 'pro' ? 'Your pro thumbnail is ready'
            : activeTab === 'face-swap' ? 'Your face swap is ready'
            : 'Your recreation is ready';
     }

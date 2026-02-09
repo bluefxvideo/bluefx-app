@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useRef, useState, useEffect } from 'react';
-import { Image as ImageIcon, Wand2, RotateCcw, History, UserCheck } from 'lucide-react';
+import { Image as ImageIcon, Wand2, RotateCcw, History, UserCheck, Crown } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -17,6 +17,7 @@ const useThumbnailMachine = USE_V2_HOOK ? useThumbnailMachineV2 : useThumbnailMa
 
 // Tab content components
 import { GeneratorTab } from './tabs/generator-tab';
+import { ProTab } from './tabs/pro-tab';
 import { FaceSwapTab } from './tabs/face-swap-tab';
 import { RecreateTab } from './tabs/recreate-tab';
 import { HistoryTab } from './tabs/history-tab';
@@ -50,6 +51,7 @@ export function ThumbnailMachinePage() {
 
   // Determine active tab from URL
   const getActiveTab = () => {
+    if (pathname.includes('/pro')) return 'pro';
     if (pathname.includes('/face-swap')) return 'face-swap';
     if (pathname.includes('/recreate')) return 'recreate';
     if (pathname.includes('/history')) return 'history';
@@ -65,6 +67,12 @@ export function ThumbnailMachinePage() {
       label: 'Generate',
       icon: Wand2,
       path: '/dashboard/thumbnail-machine'
+    },
+    {
+      id: 'pro',
+      label: 'Pro',
+      icon: Crown,
+      path: '/dashboard/thumbnail-machine/pro'
     },
     {
       id: 'face-swap',
@@ -89,6 +97,15 @@ export function ThumbnailMachinePage() {
   // Render appropriate tab content
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'pro':
+        return (
+          <ProTab
+            onGenerate={generate}
+            isGenerating={isGenerating}
+            credits={credits ? { available_credits: credits.available_credits } : null}
+            error={error}
+          />
+        );
       case 'face-swap':
         return (
           <FaceSwapTab

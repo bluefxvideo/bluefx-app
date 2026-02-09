@@ -219,7 +219,7 @@ export function ThumbnailPreview({
                       if (primaryResult?.url && isValidUrl(primaryResult.url)) {
                         downloadImage(
                           primaryResult.url,
-                          displayThumbnail ? `thumbnail-${(displayThumbnail as any).variation_index || 1}.webp` : 'faceswap.webp'
+                          displayThumbnail ? `thumbnail-${(displayThumbnail as any).variation_index || 1}.jpeg` : 'faceswap.jpeg'
                         );
                       }
                     }}
