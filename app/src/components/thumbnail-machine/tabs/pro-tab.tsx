@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Crown, X, Image, Youtube, Loader2, Sparkles, Type } from 'lucide-react';
+import { Crown, X, Image, Youtube, Loader2, Sparkles, Type, Link } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { ThumbnailMachineRequest, ThumbnailMachineResponse, generateThumbnailConcepts } from '@/actions/tools/thumbnail-machine';
 import { PromptSection } from '../input-panel/prompt-section';
@@ -45,6 +45,10 @@ export function ProTab({
   const [transcript, setTranscript] = useState<string | null>(null);
   const [videoTitle, setVideoTitle] = useState<string | null>(null);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
+
+  // YouTube thumbnail grab state
+  const [ytThumbnailUrl, setYtThumbnailUrl] = useState('');
+  const [isFetchingYtThumb, setIsFetchingYtThumb] = useState(false);
 
   const handleSubmit = async () => {
     if (!formData.prompt?.trim()) return;
@@ -133,6 +137,36 @@ export function ProTab({
 
   const removeReferenceImage = (index: number) => {
     setReferenceImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleGrabYouTubeThumbnail = async () => {
+    const match = ytThumbnailUrl.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&\n?#]+)/
+    );
+    const videoId = match?.[1];
+    if (!videoId) return;
+
+    setIsFetchingYtThumb(true);
+
+    // Check if image URL is reachable via Image element
+    const tryLoad = (url: string): Promise<string | null> =>
+      new Promise((resolve) => {
+        const img = new window.Image();
+        img.onload = () => resolve(url);
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+
+    const url =
+      (await tryLoad(`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`)) ||
+      (await tryLoad(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`));
+
+    if (url) {
+      setReferenceImages(prev => [...prev, url]);
+    }
+
+    setYtThumbnailUrl('');
+    setIsFetchingYtThumb(false);
   };
 
   return (
@@ -250,6 +284,30 @@ export function ProTab({
           description={`Upload images to guide the generation — up to 14 (${referenceImages.length}/14)`}
         >
           <div className="space-y-3">
+            {/* Grab thumbnail from YouTube URL */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={ytThumbnailUrl}
+                  onChange={(e) => setYtThumbnailUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGrabYouTubeThumbnail(); } }}
+                  placeholder="Paste a YouTube URL to grab its thumbnail..."
+                  className="pl-10 h-9 text-sm"
+                  disabled={isFetchingYtThumb || referenceImages.length >= 14}
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGrabYouTubeThumbnail}
+                disabled={!ytThumbnailUrl.trim() || isFetchingYtThumb || referenceImages.length >= 14}
+                className="h-9"
+              >
+                {isFetchingYtThumb ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Grab'}
+              </Button>
+            </div>
+
             <div className="flex flex-wrap gap-2">
               {referenceImages.map((url, i) => (
                 <div key={i} className="relative">

@@ -14,9 +14,10 @@ interface ThumbnailMachineOutputProps {
   error?: string;
   onClearResults: () => void;
   onCancelGeneration?: () => void;
+  onEditThumbnail?: (editPrompt: string, imageUrls: string[]) => void;
   activeTab?: string;
   onFocusPrompt?: () => void;
-  prompt?: string; // Add prompt for processing card display
+  prompt?: string;
   hasReferenceImage?: boolean;
 }
 
@@ -30,6 +31,7 @@ export function ThumbnailMachineOutput({
   error,
   onClearResults,
   onCancelGeneration,
+  onEditThumbnail,
   activeTab = 'generate',
   onFocusPrompt,
   prompt,
@@ -72,6 +74,13 @@ export function ThumbnailMachineOutput({
       if (url) window.open(url, '_blank');
     };
 
+    const handleEditThumbnail = (editPrompt: string, additionalImageUrls: string[]) => {
+      const thumbnail = result?.thumbnails?.[0] || result?.face_swapped_thumbnails?.[0];
+      const currentUrl = (thumbnail as any)?.image_url || thumbnail?.url || ((thumbnail as any)?.image_urls?.[0]) || '';
+      if (!currentUrl || !editPrompt.trim()) return;
+      onEditThumbnail?.(editPrompt, [currentUrl, ...additionalImageUrls]);
+    };
+
     // Create fallback result for processing state if none exists
     const displayResult = result || {
       success: true,
@@ -91,6 +100,7 @@ export function ThumbnailMachineOutput({
             onOpenInNewTab={handleOpenInNewTab}
             onCreateNew={onClearResults}
             onCancelGeneration={onCancelGeneration}
+            onEditThumbnail={onEditThumbnail ? handleEditThumbnail : undefined}
             prompt={prompt}
             activeTab={activeTab}
           />

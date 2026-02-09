@@ -49,6 +49,19 @@ export function ThumbnailMachinePage() {
     promptInputRef.current?.focus();
   };
 
+  const handleEditThumbnail = (editPrompt: string, imageUrls: string[]) => {
+    generate({
+      operation_mode: 'generate-pro',
+      prompt: editPrompt,
+      image_input: imageUrls,
+      aspect_ratio: '16:9',
+      resolution: '1K',
+      output_format: 'jpeg',
+      skip_prompt_enhancement: true,
+      user_id: 'current-user',
+    });
+  };
+
   // Determine active tab from URL
   const getActiveTab = () => {
     if (pathname.includes('/pro')) return 'pro';
@@ -166,6 +179,7 @@ export function ThumbnailMachinePage() {
             error={error}
             onClearResults={clearResults}
             onCancelGeneration={cancelGeneration}
+            onEditThumbnail={handleEditThumbnail}
             onFocusPrompt={handleFocusPrompt}
             historyFilters={historyFilters}
             prompt={result?.prompt || ''}

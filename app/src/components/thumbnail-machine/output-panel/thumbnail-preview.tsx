@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Copy, Loader2, Images, Sparkles, ExternalLink, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Download, Eye, Copy, Loader2, Images, Sparkles, ExternalLink, X, Pencil, Send, ImagePlus, Link } from 'lucide-react';
 import { ThumbnailMachineResponse } from '@/actions/tools/thumbnail-machine';
+import { uploadImageToStorage } from '@/actions/supabase-storage';
 
 // Helper function to validate URLs
 function isValidUrl(url: string): boolean {
@@ -26,6 +28,7 @@ interface ThumbnailPreviewProps {
   onOpenInNewTab?: () => void;
   onCreateNew?: () => void;
   onCancelGeneration?: () => void;
+  onEditThumbnail?: (editPrompt: string, additionalImageUrls: string[]) => void;
   prompt?: string;
   activeTab?: string;
 }
@@ -35,17 +38,54 @@ interface ThumbnailPreviewProps {
  * Handles ALL states: processing → completed in a single component
  * No more fragmentation between preview/results/grid components
  */
-export function ThumbnailPreview({ 
-  result, 
+export function ThumbnailPreview({
+  result,
   isGenerating = false,
-  onDownload, 
-  onOpenInNewTab, 
+  onDownload,
+  onOpenInNewTab,
   onCreateNew,
   onCancelGeneration,
+  onEditThumbnail,
   prompt,
   activeTab = 'generate'
 }: ThumbnailPreviewProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Edit mode state
+  const [editMode, setEditMode] = useState(false);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const [ytEditUrl, setYtEditUrl] = useState('');
+  const [isFetchingYtEdit, setIsFetchingYtEdit] = useState(false);
+
+  const handleGrabYtForEdit = async () => {
+    const match = ytEditUrl.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&\n?#]+)/
+    );
+    const videoId = match?.[1];
+    if (!videoId) return;
+
+    setIsFetchingYtEdit(true);
+    const tryLoad = (url: string): Promise<string | null> =>
+      new Promise((resolve) => {
+        const img = new window.Image();
+        img.onload = () => resolve(url);
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+
+    const url =
+      (await tryLoad(`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`)) ||
+      (await tryLoad(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`));
+
+    if (url) {
+      setEditImages(prev => [...prev, url]);
+    }
+    setYtEditUrl('');
+    setIsFetchingYtEdit(false);
+  };
   
   // Determine expected aspect ratio from result data or active tab context
   const getExpectedAspectRatio = (): 'landscape' | 'portrait' | 'square' => {
@@ -369,19 +409,174 @@ export function ThumbnailPreview({
             </div>
           </div>
           
-          {/* Create New Button - bottom row when generation is complete */}
-          {hasResults && !effectivelyGenerating && onCreateNew && (
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onCreateNew}
-                className="w-full text-xs"
+          {/* Edit / Create New Buttons - bottom row when generation is complete */}
+          {hasResults && !effectivelyGenerating && (
+            <div className="pt-2 flex gap-2">
+              {onEditThumbnail && (
+                <Button
+                  variant={editMode ? 'secondary' : 'default'}
+                  size="sm"
+                  onClick={() => setEditMode(!editMode)}
+                  className="flex-1 text-xs"
+                >
+                  <Pencil className="w-3 h-3 mr-1" />
+                  {editMode ? 'Close Editor' : 'Edit This (10 credits)'}
+                </Button>
+              )}
+              {onCreateNew && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCreateNew}
+                  className="flex-1 text-xs"
+                >
+                  <Images className="w-3 h-3 mr-1" />
+                  Create New
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Inline Edit Panel */}
+          {editMode && hasResults && !effectivelyGenerating && onEditThumbnail && (
+            <div className="pt-3 border-t mt-3 space-y-3">
+              {/* Quick edit chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {['Brighter', 'Darker', 'Change background', 'More dramatic', 'Zoom in', 'Add text'].map((chip) => (
+                  <Button
+                    key={chip}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => {
+                      onEditThumbnail(chip, editImages);
+                      setEditMode(false);
+                      setEditPrompt('');
+                      setEditImages([]);
+                    }}
+                  >
+                    {chip}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Grab thumbnail from YouTube URL */}
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <Link className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                  <Input
+                    value={ytEditUrl}
+                    onChange={(e) => setYtEditUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGrabYtForEdit(); } }}
+                    placeholder="YouTube URL..."
+                    className="pl-8 h-7 text-xs"
+                    disabled={isFetchingYtEdit || editImages.length >= 5}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleGrabYtForEdit}
+                  disabled={!ytEditUrl.trim() || isFetchingYtEdit || editImages.length >= 5}
+                  className="h-7 text-xs px-2"
+                >
+                  {isFetchingYtEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Grab'}
+                </Button>
+              </div>
+
+              {/* Additional image uploads */}
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Add images (logo, person, etc.):</p>
+                <div className="flex flex-wrap gap-2">
+                  {editImages.map((url, i) => (
+                    <div key={i} className="relative">
+                      <img
+                        src={url}
+                        alt={`Edit ref ${i + 1}`}
+                        className="h-12 w-12 rounded border border-border object-cover"
+                      />
+                      <button
+                        onClick={() => setEditImages(prev => prev.filter((_, idx) => idx !== i))}
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-white rounded-full flex items-center justify-center"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {editImages.length < 5 && (
+                    <>
+                      <input
+                        ref={editFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={async (e) => {
+                          const files = e.target.files;
+                          if (!files || files.length === 0) return;
+                          setIsUploadingEditImage(true);
+                          try {
+                            for (const file of Array.from(files).slice(0, 5 - editImages.length)) {
+                              const result = await uploadImageToStorage(file, {
+                                folder: 'reference-images',
+                                contentType: file.type as 'image/png' | 'image/jpeg' | 'image/webp',
+                              });
+                              if (result.success && result.url) {
+                                setEditImages(prev => [...prev, result.url!]);
+                              }
+                            }
+                          } finally {
+                            setIsUploadingEditImage(false);
+                            if (editFileInputRef.current) editFileInputRef.current.value = '';
+                          }
+                        }}
+                        className="hidden"
+                        id="edit-image-upload"
+                      />
+                      <label
+                        htmlFor="edit-image-upload"
+                        className={`flex flex-col items-center justify-center h-12 w-12 border border-dashed border-border rounded cursor-pointer hover:bg-muted/50 transition-colors ${
+                          isUploadingEditImage ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
+                        {isUploadingEditImage ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                        ) : (
+                          <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </label>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Edit prompt input */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (editPrompt.trim()) {
+                    onEditThumbnail(editPrompt, editImages);
+                    setEditMode(false);
+                    setEditPrompt('');
+                    setEditImages([]);
+                  }
+                }}
+                className="flex gap-2"
               >
-                <Images className="w-3 h-3 mr-1" />
-                Create New {activeTab === 'face-swap' ? 'Face Swap' : 
-                           activeTab === 'recreate' ? 'Recreation' : 'Thumbnails'}
-              </Button>
+                <Input
+                  value={editPrompt}
+                  onChange={(e) => setEditPrompt(e.target.value)}
+                  placeholder="Describe what to change..."
+                  className="flex-1 h-9 text-sm"
+                />
+                <Button
+                  type="submit"
+                  disabled={!editPrompt.trim()}
+                  size="sm"
+                  className="h-9 px-3"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </form>
             </div>
           )}
         </div>

@@ -15,9 +15,10 @@ interface ContextualOutputProps {
   error?: string;
   onClearResults: () => void;
   onCancelGeneration?: () => void;
+  onEditThumbnail?: (editPrompt: string, imageUrls: string[]) => void;
   onFocusPrompt?: () => void;
   historyFilters?: HistoryFilters;
-  prompt?: string; // Add prompt prop
+  prompt?: string;
   hasReferenceImage?: boolean;
 }
 
@@ -32,6 +33,7 @@ export function ContextualOutput({
   error,
   onClearResults,
   onCancelGeneration,
+  onEditThumbnail,
   onFocusPrompt,
   historyFilters,
   prompt,
@@ -232,6 +234,7 @@ export function ContextualOutput({
           error={getCleanErrorMessage(error)}
           onClearResults={onClearResults}
           onCancelGeneration={onCancelGeneration}
+          onEditThumbnail={onEditThumbnail}
           activeTab={activeTab}
           onFocusPrompt={onFocusPrompt}
           prompt={prompt}
@@ -245,6 +248,7 @@ export function ContextualOutput({
           error={getCleanErrorMessage(error)}
           onClearResults={onClearResults}
           onCancelGeneration={onCancelGeneration}
+          onEditThumbnail={onEditThumbnail}
           activeTab={activeTab}
           onFocusPrompt={onFocusPrompt}
           prompt={prompt}
@@ -258,6 +262,7 @@ export function ContextualOutput({
         error={getCleanErrorMessage(error)}
         onClearResults={onClearResults}
         onCancelGeneration={onCancelGeneration}
+        onEditThumbnail={onEditThumbnail}
         activeTab={activeTab}
         onFocusPrompt={onFocusPrompt}
         prompt={prompt}
