@@ -1,6 +1,13 @@
 'use server';
 
+import Replicate from 'replicate';
 import { createClient } from '@supabase/supabase-js';
+
+function getReplicate() {
+  return new Replicate({
+    auth: process.env.REPLICATE_API_TOKEN
+  });
+}
 
 function getSupabaseClient() {
   return createClient(
@@ -17,7 +24,7 @@ export interface MinimaxVoiceSettings {
   pitch?: number; // -12 to +12 (default 0)
   volume?: number; // 0-10 (default 5)
   emotion?: MinimaxEmotion;
-  subtitle_enable?: boolean; // Legacy param, no longer used (fal.ai returns duration_ms instead)
+  subtitle_enable?: boolean;
 }
 
 export interface MinimaxVoiceRequest {
@@ -105,19 +112,9 @@ const MINIMAX_SYSTEM_VOICES = [
   'English_AnimeCharacter'
 ] as const;
 
-// fal.ai response shape for Speech-02 HD
-interface FalSpeechResponse {
-  audio: {
-    url: string;
-    content_type?: string;
-    file_name?: string;
-    file_size?: number;
-  };
-  duration_ms: number;
-}
 
 /**
- * Generate voice using Minimax Speech-02 HD via fal.ai
+ * Generate voice using Minimax Speech-2.8 HD via Replicate
  */
 export async function generateMinimaxVoice(
   request: MinimaxVoiceRequest
@@ -128,75 +125,58 @@ export async function generateMinimaxVoice(
   try {
     console.log(`🎤 Generating Minimax voice with ${request.voice_settings.voice_id}`);
 
-    // Validate text length (max 5,000 characters for fal.ai Speech-02 HD)
-    if (request.text.length > 5000) {
-      throw new Error('Text exceeds maximum length of 5,000 characters');
+    // Validate text length (max 10,000 characters for Replicate Speech-2.8 HD)
+    if (request.text.length > 10000) {
+      throw new Error('Text exceeds maximum length of 10,000 characters');
     }
 
-    const falKey = process.env.FAL_KEY;
-    if (!falKey) {
-      throw new Error('FAL_KEY not configured');
-    }
+    const replicate = getReplicate();
 
-    // Prepare fal.ai input
+    // Prepare Replicate input
     const speed = Math.max(0.5, Math.min(2.0, request.voice_settings.speed ?? 1.0));
     const pitch = Math.max(-12, Math.min(12, request.voice_settings.pitch ?? 0));
-    const vol = Math.max(0, Math.min(10, request.voice_settings.volume ?? 1));
+    const volume = Math.max(0, Math.min(10, request.voice_settings.volume ?? 1));
     const emotion = request.voice_settings.emotion ?? 'auto';
 
-    const voiceSetting: Record<string, unknown> = {
+    const input: Record<string, unknown> = {
+      text: request.text,
       voice_id: request.voice_settings.voice_id,
       speed,
-      vol,
       pitch,
+      volume,
+      emotion,
+      sample_rate: 44100,
+      bitrate: 128000,
+      audio_format: 'mp3',
+      channel: 'mono',
+      language_boost: 'English',
     };
 
-    // fal.ai doesn't support 'auto' emotion — omit it to let the model decide naturally
-    if (emotion !== 'auto') {
-      voiceSetting.emotion = emotion;
+    console.log(`🔊 Minimax TTS (Replicate speech-2.8-hd): voice=${input.voice_id}, speed=${speed}, pitch=${pitch}, volume=${volume}, emotion=${emotion}`);
+
+    // Call Replicate Speech-2.8 HD
+    const output = await replicate.run(
+      'minimax/speech-2.8-hd',
+      { input }
+    );
+
+    // Replicate returns a URI string or a ReadableStream
+    let audioUrl: string;
+    if (typeof output === 'string') {
+      audioUrl = output;
+    } else if (output && typeof output === 'object' && 'url' in (output as any)) {
+      audioUrl = (output as any).url();
+    } else {
+      throw new Error('Unexpected response format from Replicate');
     }
 
-    console.log(`🔊 Minimax TTS (fal.ai): voice=${voiceSetting.voice_id}, speed=${speed}, pitch=${pitch}, vol=${vol}, emotion=${emotion}`);
-
-    // Call fal.ai Speech-02 HD
-    const response = await fetch('https://fal.run/fal-ai/minimax/speech-02-hd', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Key ${falKey}`,
-      },
-      body: JSON.stringify({
-        text: request.text,
-        voice_setting: voiceSetting,
-        audio_setting: {
-          sample_rate: 44100,
-          bitrate: 128000,
-          format: 'mp3',
-          channel: 1,
-        },
-        output_format: 'url',
-        language_boost: 'English',
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`fal.ai API error (${response.status}): ${errorText}`);
+    if (!audioUrl) {
+      throw new Error('No audio URL in Replicate response');
     }
 
-    const result: FalSpeechResponse = await response.json();
+    console.log(`📥 Received audio from Replicate: ${audioUrl}`);
 
-    if (!result.audio?.url) {
-      throw new Error('No audio URL in fal.ai response');
-    }
-
-    const audioUrl = result.audio.url;
-    const durationMs = result.duration_ms;
-    const durationSeconds = durationMs / 1000;
-
-    console.log(`📥 Received audio from fal.ai: ${audioUrl} (${durationSeconds.toFixed(1)}s)`);
-
-    // Fetch the audio file from fal.ai's output URL
+    // Fetch the audio file from Replicate's output URL
     const audioResponse = await fetch(audioUrl);
     if (!audioResponse.ok) {
       throw new Error(`Failed to fetch audio: ${audioResponse.statusText}`);
@@ -234,9 +214,8 @@ export async function generateMinimaxVoice(
       generation_time_ms: generationTime,
       metadata: {
         voice_id: request.voice_settings.voice_id,
-        duration_estimate: durationSeconds,
         file_size_bytes: audioBuffer.length,
-        provider: 'minimax-fal',
+        provider: 'minimax-replicate',
       }
     };
 
