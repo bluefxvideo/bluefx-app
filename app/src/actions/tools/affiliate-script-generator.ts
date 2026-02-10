@@ -61,12 +61,12 @@ export async function generateAffiliateScript(
 
     console.log('📝 Generating script with Gemini...', { scriptType: request.scriptType, maxTokens });
 
-    // Generate content using Gemini 2.0 Flash
+    // Generate content using Gemini 3 Flash
     const { text } = await generateText({
-      model: google('gemini-2.5-flash'),
+      model: google('gemini-3-flash-preview'),
       prompt: prompt,
-      maxTokens: maxTokens,
-      temperature: 0.7,
+      maxOutputTokens: maxTokens,
+      temperature: 0.9,
     });
 
     console.log('✅ Script generated successfully');
@@ -138,12 +138,12 @@ export async function refineAffiliateScript(
 
     console.log('📝 Refining script with Gemini...');
 
-    // Generate refined content using Gemini 2.0 Flash
+    // Generate refined content using Gemini 3 Flash
     const { text } = await generateText({
-      model: google('gemini-2.5-flash'),
+      model: google('gemini-3-flash-preview'),
       prompt: prompt,
-      maxTokens: 4096,
-      temperature: 0.7,
+      maxOutputTokens: 4096,
+      temperature: 0.9,
     });
 
     console.log('✅ Script refined successfully');
