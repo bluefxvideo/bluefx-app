@@ -70,6 +70,9 @@ export async function generateWithFalNanaBananaPro(params: FalNanoBananaProInput
       body.image_urls = params.image_input;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout for 4K
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -77,7 +80,10 @@ export async function generateWithFalNanaBananaPro(params: FalNanoBananaProInput
         'Authorization': `Key ${falKey}`,
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -101,4 +107,48 @@ export async function generateWithFalNanaBananaPro(params: FalNanoBananaProInput
       error: error instanceof Error ? error.message : 'Failed to generate image via fal.ai',
     };
   }
+}
+
+/**
+ * Generate an image using Nano Banana Pro via fal.ai and wait for completion.
+ * Signature matches the Replicate version in image-generation-nano-banana-pro.ts.
+ */
+export async function generateImageWithPro(
+  prompt: string,
+  aspectRatio: NanoBananaAspectRatio = '16:9',
+  referenceImages?: string[],
+  resolution: '1K' | '2K' | '4K' = '2K',
+  outputFormat: 'jpg' | 'png' | 'webp' = 'jpg'
+): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  // Map 'jpg' to 'jpeg' for fal.ai API compatibility (same binary JPEG format)
+  const falOutputFormat = outputFormat === 'jpg' ? 'jpeg' : outputFormat;
+
+  return generateWithFalNanaBananaPro({
+    prompt,
+    aspect_ratio: aspectRatio,
+    resolution,
+    output_format: falOutputFormat as 'jpeg' | 'png' | 'webp',
+    image_input: referenceImages,
+  });
+}
+
+/**
+ * Async variant for backwards compatibility.
+ * Since fal.ai is synchronous, this delegates to the sync version.
+ */
+export async function generateImageWithProAsync(
+  prompt: string,
+  aspectRatio: NanoBananaAspectRatio = '16:9',
+  referenceImages?: string[],
+  resolution: '1K' | '2K' | '4K' = '4K',
+  outputFormat: 'jpg' | 'png' | 'webp' = 'jpg',
+  _webhookUrl?: string
+): Promise<{ success: boolean; predictionId?: string; imageUrl?: string; error?: string }> {
+  const result = await generateImageWithPro(prompt, aspectRatio, referenceImages, resolution, outputFormat);
+  return {
+    success: result.success,
+    predictionId: undefined,
+    imageUrl: result.imageUrl,
+    error: result.error,
+  };
 }

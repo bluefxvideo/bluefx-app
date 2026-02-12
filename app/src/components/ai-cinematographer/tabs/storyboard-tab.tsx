@@ -203,7 +203,7 @@ export function StoryboardTab({
         <StandardStep
           stepNumber={2}
           title="Reference Images"
-          description="Upload images of your product, character, or environment. These go directly to the AI image generator."
+          description="Upload up to 14 images of your product, character, or environment. These go directly to the AI image generator. Max 10MB per image."
         >
           <div
             ref={dropZoneRef}

@@ -2,8 +2,8 @@
 
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { createSeedancePrediction, type SeedanceAspectRatio, type SeedanceDuration } from '@/actions/models/video-generation-seedance';
-import { generateImage } from '@/actions/models/image-generation-nano-banana';
-import { generateImageWithPro, generateImageWithProAsync } from '@/actions/models/image-generation-nano-banana-pro';
+import { generateImage } from '@/actions/models/fal-nano-banana';
+import { generateImageWithPro, generateImageWithProAsync } from '@/actions/models/fal-nano-banana-pro';
 import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
 import {
   getUserCredits,
@@ -686,7 +686,7 @@ export async function executeStartingShot(
 
     console.log(`✅ Starting Shot (${isPro ? 'Pro' : 'Fast'}) generated successfully: ${imageResult.imageUrl}`);
 
-    // Step 3: Download from Replicate and re-upload to Supabase for permanent storage
+    // Step 3: Download from fal.ai and re-upload to Supabase for permanent storage
     let permanentImageUrl = imageResult.imageUrl;
 
     try {
@@ -706,11 +706,11 @@ export async function executeStartingShot(
         permanentImageUrl = uploadResult.url;
         console.log(`✅ Starting Shot saved to Supabase: ${permanentImageUrl}`);
       } else {
-        console.warn('Failed to re-upload Starting Shot, using Replicate URL:', uploadResult.error);
+        console.warn('Failed to re-upload Starting Shot, using fal.ai URL:', uploadResult.error);
       }
     } catch (uploadError) {
       console.error('Error re-uploading Starting Shot:', uploadError);
-      // Continue with Replicate URL as fallback
+      // Continue with fal.ai URL as fallback
     }
 
     // Step 4: Store result in database
@@ -976,7 +976,7 @@ STYLE: ${visualStylePrompt}, consistent characters throughout all frames, seamle
         permanentImageUrl = uploadResult.url;
         console.log(`✅ Storyboard saved to Supabase: ${permanentImageUrl}`);
       } else {
-        console.warn('Failed to re-upload storyboard, using Replicate URL:', uploadResult.error);
+        console.warn('Failed to re-upload storyboard, using fal.ai URL:', uploadResult.error);
       }
     } catch (uploadError) {
       console.error('Error re-uploading storyboard:', uploadError);
