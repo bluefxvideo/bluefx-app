@@ -150,6 +150,7 @@ export async function generateMinimaxVoice(
       audio_format: 'mp3',
       channel: 'mono',
       language_boost: 'English',
+      english_normalization: true,
     };
 
     console.log(`🔊 Minimax TTS (Replicate speech-2.8-hd): voice=${input.voice_id}, speed=${speed}, pitch=${pitch}, volume=${volume}, emotion=${emotion}`);
