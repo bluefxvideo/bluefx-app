@@ -489,33 +489,11 @@ async function handleVideoGeneration(
       };
     }
 
-    // Deduct credits
-    const deductResult = await deductCredits(
-      request.user_id,
-      creditCosts.total,
-      'talking_avatar_generation',
-      {
-        batch_id,
-        audio_duration: audioDurationSeconds,
-        resolution: resolution,
-        video_source: 'fal-ltx'
-      }
-    );
-
-    if (!deductResult.success) {
-      console.error('Credit deduction failed:', deductResult.error);
-      return {
-        success: false,
-        error: deductResult.error || 'Failed to deduct credits',
-        batch_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: userCredits,
-      };
-    }
-
     // Generate video with fal.ai LTX Audio-to-Video
+    // Credits are deducted AFTER the request is accepted to avoid charging on API errors
     console.log(`🎬 Starting fal.ai LTX video generation: ${width}×${height}, ${audioDurationSeconds}s`);
+
+    let deductResult: { success: boolean; remainingCredits?: number; error?: string } = { success: false };
 
     try {
       const falResult = await createFalLTXPrediction({
@@ -588,6 +566,23 @@ async function handleVideoGeneration(
         workflow_type: 'generate',
         has_custom_avatar: !!request.custom_avatar_image
       });
+
+      // Deduct credits AFTER fal.ai request is accepted
+      deductResult = await deductCredits(
+        request.user_id,
+        creditCosts.total,
+        'talking_avatar_generation',
+        {
+          batch_id,
+          audio_duration: audioDurationSeconds,
+          resolution: resolution,
+          video_source: 'fal-ltx'
+        }
+      );
+
+      if (!deductResult.success) {
+        console.error('Credit deduction failed (video already submitted):', deductResult.error);
+      }
 
     } catch (error) {
       console.error('fal.ai LTX API error:', error);

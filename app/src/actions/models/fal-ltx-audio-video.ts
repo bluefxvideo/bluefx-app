@@ -45,7 +45,7 @@ export interface FalStatusResponse {
 // Resolution presets
 export const LTX_RESOLUTIONS = {
   landscape: { width: 1024, height: 576, label: 'Landscape (1024×576)', falSize: 'landscape_16_9' },
-  portrait: { width: 576, height: 1024, label: 'Portrait (576×1024)', falSize: 'portrait_9_16' },
+  portrait: { width: 576, height: 1024, label: 'Portrait (576×1024)', falSize: 'portrait_16_9' },
 } as const;
 
 export type LTXResolution = keyof typeof LTX_RESOLUTIONS;
