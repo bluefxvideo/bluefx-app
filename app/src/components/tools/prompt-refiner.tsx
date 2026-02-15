@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2, RotateCcw, MessageSquare, X } from 'lucide-react';
@@ -23,8 +23,14 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
   const [isOpen, setIsOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
-  const [originalPrompt] = useState(prompt);
-  const [currentPrompt, setCurrentPrompt] = useState(prompt);
+  const originalPromptRef = useRef(prompt);
+
+  // Capture the first non-empty prompt as the "original" for reset
+  useEffect(() => {
+    if (prompt && !originalPromptRef.current) {
+      originalPromptRef.current = prompt;
+    }
+  }, [prompt]);
 
   const handleRefine = async () => {
     if (!chatInput.trim() || isRefining) return;
@@ -35,7 +41,7 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: currentPrompt,
+          prompt,
           instruction: chatInput,
         }),
       });
@@ -43,7 +49,6 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
       const data = await response.json();
 
       if (data.success && data.refinedPrompt) {
-        setCurrentPrompt(data.refinedPrompt);
         onPromptChange(data.refinedPrompt);
         setChatInput('');
       } else {
@@ -64,15 +69,14 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
   };
 
   const handleReset = () => {
-    setCurrentPrompt(originalPrompt);
-    onPromptChange(originalPrompt);
+    onPromptChange(originalPromptRef.current);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setChatInput(suggestion);
   };
 
-  const hasChanges = currentPrompt !== originalPrompt;
+  const hasChanges = prompt !== originalPromptRef.current;
 
   if (!isOpen) {
     return (

@@ -738,12 +738,19 @@ export function useAICinematographer() {
     batchNumber?: number;
     sceneNumber?: number;
   }>) => {
-    const newItems = items.map(item => ({
-      ...item,
-      id: `queue_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-      status: 'pending' as const,
-    }));
-    setAnimationQueue(prev => [...prev, ...newItems]);
+    setAnimationQueue(prev => {
+      // Deduplicate: skip items whose imageUrl is already in the queue
+      const existingUrls = new Set(prev.map(q => q.imageUrl));
+      const uniqueItems = items.filter(item => !existingUrls.has(item.imageUrl));
+      if (uniqueItems.length === 0) return prev;
+
+      const newItems = uniqueItems.map(item => ({
+        ...item,
+        id: `queue_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        status: 'pending' as const,
+      }));
+      return [...prev, ...newItems];
+    });
   }, []);
 
   // Remove item from queue
