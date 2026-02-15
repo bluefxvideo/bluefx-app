@@ -94,10 +94,20 @@ export function HistoryOutput({
     }
   });
 
-  // Check if item is a Starting Shot image
-  const isStartingShot = (video: CinematographerVideo) => {
+  // Check if item is an image (starting shot, storyboard grid, or extracted frame)
+  const isImageType = (video: CinematographerVideo) => {
     const metadata = video.metadata as { type?: string } | null;
-    return metadata?.type === 'starting_shot';
+    return metadata?.type === 'starting_shot' || metadata?.type === 'storyboard' || metadata?.type === 'storyboard_frame';
+  };
+
+  const getTypeLabel = (video: CinematographerVideo) => {
+    const metadata = video.metadata as { type?: string } | null;
+    switch (metadata?.type) {
+      case 'starting_shot': return 'Image';
+      case 'storyboard': return 'Storyboard';
+      case 'storyboard_frame': return 'Frame';
+      default: return 'Video';
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -218,17 +228,10 @@ export function HistoryOutput({
                 {/* Type & Status Badge */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {isStartingShot(video) ? (
-                      <Badge variant="outline" className="text-sm flex items-center gap-1">
-                        <Image className="w-3 h-3" />
-                        Image
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-sm flex items-center gap-1">
-                        <Video className="w-3 h-3" />
-                        Video
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="text-sm flex items-center gap-1">
+                      {isImageType(video) ? <Image className="w-3 h-3" /> : <Video className="w-3 h-3" />}
+                      {getTypeLabel(video)}
+                    </Badge>
                     <Badge className={`text-sm ${getStatusColor(video.status)}`}>
                       {video.status}
                     </Badge>
@@ -248,7 +251,7 @@ export function HistoryOutput({
 
                 {/* Media Preview */}
                 <div className="aspect-video bg-muted rounded overflow-hidden relative group">
-                  {isStartingShot(video) && video.final_video_url ? (
+                  {isImageType(video) && video.final_video_url ? (
                     // Starting Shot image display - lazy loaded
                     <img
                       src={video.final_video_url}
@@ -275,7 +278,7 @@ export function HistoryOutput({
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
-                      {isStartingShot(video) ? (
+                      {isImageType(video) ? (
                         <Image className="w-8 h-8 text-muted-foreground" />
                       ) : (
                         <Video className="w-8 h-8 text-muted-foreground" />
@@ -292,7 +295,7 @@ export function HistoryOutput({
                 </div>
 
                 {/* Details */}
-                {!isStartingShot(video) && video.total_duration_seconds && (
+                {!isImageType(video) && video.total_duration_seconds && (
                   <div className="text-xs text-muted-foreground">
                     Duration: {video.total_duration_seconds}s
                   </div>
@@ -317,11 +320,11 @@ export function HistoryOutput({
                         >
                           <Eye className="w-3 h-3 mr-1" />
                           <span className="text-sm">
-                            {isStartingShot(video) ? 'View Image' : 'View Video'}
+                            {isImageType(video) ? 'View Image' : 'View Video'}
                           </span>
                         </Button>
                       )}
-                      {isStartingShot(video) && video.final_video_url && onMakeVideoFromImage && (
+                      {isImageType(video) && video.final_video_url && onMakeVideoFromImage && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -357,9 +360,13 @@ export function HistoryOutput({
                               const a = document.createElement('a');
                               a.href = blobUrl;
 
-                              // Use appropriate file extension
-                              const extension = isStartingShot(video) ? 'png' : 'mp4';
-                              const prefix = isStartingShot(video) ? 'starting-shot' : 'cinematographer';
+                              // Use appropriate file extension and prefix
+                              const metadata = video.metadata as { type?: string } | null;
+                              const isImage = isImageType(video);
+                              const extension = isImage ? 'png' : 'mp4';
+                              const prefix = metadata?.type === 'storyboard' ? 'storyboard'
+                                : metadata?.type === 'storyboard_frame' ? 'frame'
+                                : isImage ? 'starting-shot' : 'cinematographer';
                               a.download = `${prefix}-${video.id}-${Date.now()}.${extension}`;
 
                               document.body.appendChild(a);

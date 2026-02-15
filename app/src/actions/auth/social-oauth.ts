@@ -42,14 +42,14 @@ const OAUTH_CONFIGS = {
   linkedin: {
     authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-    scopes: ['r_liteprofile', 'w_member_social'],
+    scopes: ['openid', 'profile', 'w_member_social'],
     clientId: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
   },
   facebook: {
     authUrl: 'https://www.facebook.com/v18.0/dialog/oauth',
     tokenUrl: 'https://graph.facebook.com/v18.0/oauth/access_token',
-    scopes: ['pages_manage_posts', 'pages_read_engagement', 'public_profile'],
+    scopes: ['public_profile', 'pages_show_list', 'pages_manage_posts', 'pages_read_engagement'],
     clientId: process.env.FACEBOOK_CLIENT_ID,
     clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
   },
@@ -103,7 +103,7 @@ export async function initiateOAuthFlow(platform: SocialPlatform, userId: string
     // Platform-specific parameters
     if (platform === 'twitter') {
       params.append('code_challenge_method', 'S256');
-      params.append('code_challenge', await generatePKCEChallenge());
+      params.append('code_challenge', getPKCEChallenge());
     }
 
     const authUrl = `${config.authUrl}?${params.toString()}`;
@@ -400,13 +400,10 @@ function generateSecureState(userId: string, platform: string): string {
   return Buffer.from(data).toString('base64url');
 }
 
-async function generatePKCEChallenge(): Promise<string> {
-  // Simplified PKCE challenge generation
-  const codeVerifier = Math.random().toString(36).substring(2, 15) + 
-                      Math.random().toString(36).substring(2, 15);
-  
-  // In a real implementation, you'd store the code_verifier and use SHA256
-  return Buffer.from(codeVerifier).toString('base64url');
+function getPKCEChallenge(): string {
+  // Must match the code_verifier='challenge' sent in the callback route
+  const { createHash } = require('crypto');
+  return createHash('sha256').update('challenge').digest('base64url');
 }
 
 async function storeOAuthState(_state: string, _userId: string, _platform: string) {

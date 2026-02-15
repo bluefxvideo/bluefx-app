@@ -507,15 +507,17 @@ export async function storeStartingShotResult(params: {
     // Use admin client to bypass RLS policies for server-side inserts
     const supabase = createAdminClient();
 
-    // Determine if this is a storyboard based on prompt prefix
+    // Determine type based on prompt prefix
     const isStoryboard = params.prompt.startsWith('[STORYBOARD]');
-    const type = isStoryboard ? 'storyboard' : 'starting_shot';
+    const isFrame = params.prompt.startsWith('[FRAME]');
+    const type = isStoryboard ? 'storyboard' : isFrame ? 'storyboard_frame' : 'starting_shot';
+    const label = isStoryboard ? 'Storyboard' : isFrame ? 'Frame' : 'Starting Shot';
 
     const insertData = {
       id: params.batch_id,
       user_id: params.user_id,
       video_concept: params.prompt,
-      project_name: `${isStoryboard ? 'Storyboard' : 'Starting Shot'} - ${new Date().toISOString()}`,
+      project_name: `${label} - ${new Date().toISOString()}`,
       final_video_url: params.image_url,
       style_preferences: {},
       metadata: {

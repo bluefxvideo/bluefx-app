@@ -112,6 +112,7 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
     }
 
     // Create initial subscription for new users (everyone is Pro)
+    // Use upsert to prevent duplicates if webhook also fires during signup
     const subscriptionData: InsertTables<'user_subscriptions'> = {
       user_id: authData.user.id,
       plan_type: 'pro',  // Everyone is pro
@@ -120,12 +121,13 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
       current_period_start: new Date().toISOString(),
       current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     }
-    
+
     await supabase
       .from('user_subscriptions')
-      .insert(subscriptionData)
+      .upsert(subscriptionData, { onConflict: 'user_id' })
 
     // Create initial credits for new users (everyone gets Pro credits)
+    // Use upsert to prevent duplicates if webhook also fires during signup
     const creditsData: InsertTables<'user_credits'> = {
       user_id: authData.user.id,
       total_credits: 600,  // Pro users get 600 credits
@@ -133,10 +135,10 @@ export async function signUp(formData: FormData): Promise<ApiResponse<{ user: Us
       period_start: new Date().toISOString(),
       period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     }
-    
+
     await supabase
       .from('user_credits')
-      .insert(creditsData)
+      .upsert(creditsData, { onConflict: 'user_id' })
 
     revalidatePath('/', 'layout')
     

@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 // import NextImage from 'next/image'
 import {
   Image,
@@ -33,7 +34,8 @@ import {
   Sparkles,
   Coins,
   Home,
-  ScanSearch
+  ScanSearch,
+  Share2,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -171,6 +173,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         description: "Multi-platform social content",
       },
       {
+        name: "YouTube Repurpose",
+        route: "/dashboard/youtube-repurpose",
+        icon: Share2,
+        gradient: "from-red-500 to-orange-500",
+        description: "Distribute YouTube to all platforms",
+      },
+      {
         name: "Prompt Library",
         route: "/dashboard/prompt-library",
         icon: BookMarked,
@@ -235,7 +244,6 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({ 
   isCollapsed = false
 }: DashboardSidebarProps) {
-  const router = useRouter()
   const pathname = usePathname()
   const { setTheme } = useTheme()
   const { toggleSidebar } = useDashboardLayout()
@@ -302,12 +310,6 @@ export function DashboardSidebar({
     return false;
   }
 
-  const handleToolClick = (route: string, disabled?: boolean) => {
-    if (!disabled) {
-      router.push(route)
-    }
-  }
-
   const handleLogout = async () => {
     try {
       await signOut()
@@ -343,15 +345,15 @@ export function DashboardSidebar({
         {/* Logo Section with Collapse Toggle */}
         <div className="p-4 pr-4 border-b border-border flex items-center justify-between">
           {!isCollapsed && (
-            <button
-              onClick={() => router.push('/dashboard')}
+            <Link
+              href="/dashboard"
               className="ml-2 text-xl font-bold text-white hover:text-blue-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               BlueFX
               <Badge variant="secondary" className="text-xs px-1.5 py-0.5 ">
                 BETA
               </Badge>
-            </button>
+            </Link>
           )}
           {isCollapsed && <div className="w-full" />}
           <button
@@ -371,13 +373,12 @@ export function DashboardSidebar({
         <div className="p-2 border-b border-border">
           <Tooltip delayDuration={500}>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
+              <Link
+                href="/dashboard"
                 className={cn(
-                  "group w-full h-12 justify-start rounded-lg transition-all duration-300 bg-green-500/20 hover:bg-green-500/30",
+                  "group w-full h-12 justify-start rounded-lg transition-all duration-300 bg-green-500/20 hover:bg-green-500/30 flex items-center",
                   isCollapsed ? "p-2" : "p-3"
                 )}
-                onClick={() => router.push('/dashboard')}
               >
                 <div className="flex items-center w-full relative">
                   <div
@@ -412,7 +413,7 @@ export function DashboardSidebar({
                     </p>
                   </div>
                 </div>
-              </Button>
+              </Link>
             </TooltipTrigger>
             {isCollapsed && (
               <TooltipContent side="right">
@@ -436,14 +437,15 @@ export function DashboardSidebar({
                 {category.tools.map((tool) => (
                   <Tooltip key={tool.route} delayDuration={500}>
                     <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
+                      <Link
+                        href={tool.disabled ? '#' : tool.route}
+                        onClick={tool.disabled ? (e: React.MouseEvent) => e.preventDefault() : undefined}
                         className={cn(
-                          "group w-full h-12 justify-start rounded-lg transition-all duration-300",
+                          "group w-full h-12 justify-start rounded-lg transition-all duration-300 flex items-center",
                           isCollapsed ? "p-2" : "p-3",
-                          tool.disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                          tool.disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+                          "hover:bg-accent"
                         )}
-                        onClick={() => handleToolClick(tool.route, tool.disabled)}
                       >
                         <div className="flex items-center w-full relative">
                           <div
@@ -487,7 +489,7 @@ export function DashboardSidebar({
                             </p>
                           </div>
                         </div>
-                      </Button>
+                      </Link>
                     </TooltipTrigger>
                     <TooltipContent
                       side="right"
@@ -613,57 +615,45 @@ export function DashboardSidebar({
               >
                 <div className="p-1 space-y-1">
                   {/* Profile */}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10"
-                    onClick={() => {
-                      setShowAccountDropdown(false);
-                      router.push("/dashboard/profile");
-                    }}
+                  <Link
+                    href="/dashboard/profile"
+                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10 flex items-center rounded-md"
+                    onClick={() => setShowAccountDropdown(false)}
                   >
                     <User className="w-4 h-4 mr-2" />
                     Profile
-                  </Button>
+                  </Link>
 
                   {/* Subscription */}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10"
-                    onClick={() => {
-                      setShowAccountDropdown(false);
-                      router.push("/dashboard/subscription");
-                    }}
+                  <Link
+                    href="/dashboard/subscription"
+                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10 flex items-center rounded-md"
+                    onClick={() => setShowAccountDropdown(false)}
                   >
                     <CreditCard className="w-4 h-4 mr-2" />
                     Subscription
-                  </Button>
+                  </Link>
 
                   {/* Usage Analytics */}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10"
-                    onClick={() => {
-                      setShowAccountDropdown(false);
-                      router.push("/dashboard/usage");
-                    }}
+                  <Link
+                    href="/dashboard/usage"
+                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10 flex items-center rounded-md"
+                    onClick={() => setShowAccountDropdown(false)}
                   >
                     <BarChart className="w-4 h-4 mr-2" />
                     Usage Analytics
-                  </Button>
+                  </Link>
 
                   {/* Admin Panel - Only visible for admins */}
                   {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start h-auto p-2 text-base cursor-pointer text-amber-400 transition-colors hover:bg-amber-500/10"
-                      onClick={() => {
-                        setShowAccountDropdown(false);
-                        router.push("/dashboard/admin");
-                      }}
+                    <Link
+                      href="/dashboard/admin"
+                      className="w-full justify-start h-auto p-2 text-base cursor-pointer text-amber-400 transition-colors hover:bg-amber-500/10 flex items-center rounded-md"
+                      onClick={() => setShowAccountDropdown(false)}
                     >
                       <Shield className="w-4 h-4 mr-2" />
                       Admin Panel
-                    </Button>
+                    </Link>
                   )}
 
                   <div className="border-t my-1" />

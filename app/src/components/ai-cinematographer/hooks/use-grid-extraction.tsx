@@ -27,12 +27,13 @@ interface UseGridExtractionOptions {
 
 /**
  * Hook for extracting frames from a storyboard grid
- * Uses client-side canvas cropping + server-side upscaling
+ * Uses client-side canvas cropping + server-side storage
  * Processes frames one at a time for progressive UI updates
- * Cost: 1 credit per frame
+ * 2x2 grid at 4K = 1920x1080 per frame (Full HD, no upscaling needed)
+ * Cost: 0 credits (no upscaling)
  */
 export function useGridExtraction(options: UseGridExtractionOptions = {}) {
-  const { gridConfig = { columns: 3, rows: 3 }, shouldUpscale = true, userId } = options;
+  const { gridConfig = { columns: 2, rows: 2 }, shouldUpscale = false, userId } = options;
 
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedFrames, setExtractedFrames] = useState<ExtractedFrameResult[]>([]);
@@ -45,7 +46,8 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
   const extractAllFrames = useCallback(async (
     gridImageUrl: string,
     projectId: string,
-    userIdOverride?: string
+    userIdOverride?: string,
+    historyMetadata?: { prompt: string; aspectRatio?: string; batchNumber?: number }
   ) => {
     const effectiveUserId = userIdOverride || userId;
     if (!effectiveUserId) {
@@ -58,16 +60,18 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
     setExtractedFrames([]);
 
     const totalFrames = gridConfig.columns * gridConfig.rows;
-    setProgress({ current: 0, total: totalFrames, stage: 'Checking credits...' });
+    setProgress({ current: 0, total: totalFrames, stage: shouldUpscale ? 'Checking credits...' : 'Starting extraction...' });
 
     try {
-      // Step 0: Check if user has enough credits
-      const creditCheck = await checkExtractionCredits(effectiveUserId, totalFrames);
-      if (!creditCheck.success || !creditCheck.canAfford) {
-        const errorMsg = creditCheck.error ||
-          `Insufficient credits. Required: ${creditCheck.requiredCredits}, Available: ${creditCheck.availableCredits}`;
-        setError(errorMsg);
-        return { success: false, error: errorMsg };
+      // Step 0: Check credits only when upscaling (extraction without upscale is free)
+      if (shouldUpscale) {
+        const creditCheck = await checkExtractionCredits(effectiveUserId, totalFrames);
+        if (!creditCheck.success || !creditCheck.canAfford) {
+          const errorMsg = creditCheck.error ||
+            `Insufficient credits. Required: ${creditCheck.requiredCredits}, Available: ${creditCheck.availableCredits}`;
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
+        }
       }
 
       // Step 1: Client-side canvas crop
@@ -101,12 +105,13 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
             : f
         ));
 
-        // Process single frame on server (includes credit deduction)
+        // Process single frame on server (includes credit deduction + history save)
         const result = await processSingleFrame(
           projectId,
           effectiveUserId,
           frame,
-          shouldUpscale
+          shouldUpscale,
+          historyMetadata
         );
 
         if (result.success && result.frame) {
@@ -168,7 +173,8 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
     gridImageUrl: string,
     projectId: string,
     frameNumbers: number[],
-    userIdOverride?: string
+    userIdOverride?: string,
+    historyMetadata?: { prompt: string; aspectRatio?: string; batchNumber?: number }
   ) => {
     const effectiveUserId = userIdOverride || userId;
     if (!effectiveUserId) {
@@ -179,16 +185,18 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
     setIsExtracting(true);
     setError(null);
 
-    setProgress({ current: 0, total: frameNumbers.length, stage: 'Checking credits...' });
+    setProgress({ current: 0, total: frameNumbers.length, stage: shouldUpscale ? 'Checking credits...' : 'Starting extraction...' });
 
     try {
-      // Step 0: Check if user has enough credits
-      const creditCheck = await checkExtractionCredits(effectiveUserId, frameNumbers.length);
-      if (!creditCheck.success || !creditCheck.canAfford) {
-        const errorMsg = creditCheck.error ||
-          `Insufficient credits. Required: ${creditCheck.requiredCredits}, Available: ${creditCheck.availableCredits}`;
-        setError(errorMsg);
-        return { success: false, error: errorMsg };
+      // Step 0: Check credits only when upscaling (extraction without upscale is free)
+      if (shouldUpscale) {
+        const creditCheck = await checkExtractionCredits(effectiveUserId, frameNumbers.length);
+        if (!creditCheck.success || !creditCheck.canAfford) {
+          const errorMsg = creditCheck.error ||
+            `Insufficient credits. Required: ${creditCheck.requiredCredits}, Available: ${creditCheck.availableCredits}`;
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
+        }
       }
 
       // Step 1: Crop all frames client-side
@@ -231,12 +239,13 @@ export function useGridExtraction(options: UseGridExtractionOptions = {}) {
             : f
         ));
 
-        // Process single frame on server
+        // Process single frame on server (includes credit deduction + history save)
         const result = await processSingleFrame(
           projectId,
           effectiveUserId,
           frame,
-          shouldUpscale
+          shouldUpscale,
+          historyMetadata
         );
 
         if (result.success && result.frame) {

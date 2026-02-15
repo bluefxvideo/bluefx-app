@@ -61,12 +61,12 @@ export function scenesToAnalyzerShots(scenes: BreakdownScene[]): AnalyzerShot[] 
 }
 
 /**
- * Group scenes into batches of 9 for storyboard generation
+ * Group scenes into batches of 4 for storyboard generation (2x2 grid)
  */
 export function groupScenesIntoBatches(scenes: BreakdownScene[]): BreakdownScene[][] {
   const batches: BreakdownScene[][] = [];
-  for (let i = 0; i < scenes.length; i += 9) {
-    batches.push(scenes.slice(i, i + 9));
+  for (let i = 0; i < scenes.length; i += 4) {
+    batches.push(scenes.slice(i, i + 4));
   }
   return batches;
 }

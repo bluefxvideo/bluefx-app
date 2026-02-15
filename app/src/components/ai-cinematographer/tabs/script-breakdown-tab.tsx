@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
+import { PromptRefiner } from '@/components/tools/prompt-refiner';
 
 // Visual style options (reused from storyboard-tab)
 const VISUAL_STYLES = [
@@ -30,6 +31,7 @@ export interface ScriptBreakdownRequest {
 interface ScriptBreakdownTabProps {
   onBreakdown: (request: ScriptBreakdownRequest) => void;
   isProcessing: boolean;
+  initialScript?: string;
 }
 
 const MAX_SCRIPT_LENGTH = 50000;
@@ -37,10 +39,18 @@ const MAX_SCRIPT_LENGTH = 50000;
 export function ScriptBreakdownTab({
   onBreakdown,
   isProcessing,
+  initialScript,
 }: ScriptBreakdownTabProps) {
-  const [scriptText, setScriptText] = useState('');
+  const [scriptText, setScriptText] = useState(initialScript || '');
   const [visualStyle, setVisualStyle] = useState<VisualStyle>('documentary');
   const [customStyle, setCustomStyle] = useState('');
+
+  // Update script text when initialScript arrives (async from localStorage)
+  useEffect(() => {
+    if (initialScript) {
+      setScriptText(initialScript);
+    }
+  }, [initialScript]);
 
   const handleSubmit = () => {
     const trimmedScript = scriptText.trim();
@@ -71,6 +81,11 @@ export function ScriptBreakdownTab({
           title="Script / Narration"
           description="Paste your script or narration text. Each sentence becomes one scene (~5-6 seconds)."
         >
+          <PromptRefiner
+            prompt={scriptText}
+            onPromptChange={(newPrompt) => setScriptText(newPrompt)}
+            disabled={isProcessing}
+          />
           <Textarea
             placeholder="Paste your script here...
 
@@ -147,7 +162,7 @@ The year was 218 BC. Hannibal Barca had just done the unthinkable. He had marche
 
         {estimatedScenes > 0 && (
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Estimated: {estimatedScenes} scenes · {Math.ceil(estimatedScenes / 9)} batches of 9
+            Estimated: {estimatedScenes} scenes · {Math.ceil(estimatedScenes / 4)} batches of 4
           </p>
         )}
       </TabFooter>

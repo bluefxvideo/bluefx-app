@@ -56,7 +56,7 @@ Your task:
    - "description": Visual/environment description (what it looks like)
    - "action": What movement or action happens (gestures, motion, interaction)
    - "dialogue": Any narration, voiceover, or spoken dialogue during this shot
-4. Group shots into 3x3 grids (9 shots per grid)
+4. Group shots into 2x2 grids (4 shots per grid)
 5. Generate ready-to-use storyboard prompts that EXACTLY recreate each shot
 
 ## CHARACTER CONSISTENCY (CRITICAL)
@@ -69,14 +69,14 @@ Before generating prompts, identify ALL characters that appear in multiple shots
 These character profiles MUST be included at the TOP of EVERY grid prompt to ensure the AI generates consistent characters across all grids.
 
 CRITICAL RULES FOR STORYBOARD PROMPTS:
-- Each grid prompt must describe exactly 9 frames
+- Each grid prompt must describe exactly 4 frames
 - Use "Frame 1:", "Frame 2:", etc. format
 - Copy the EXACT visual descriptions from the analysis - do NOT change or "adapt" anything
 - Keep all the same subjects, actions, camera angles, lighting
 - Include style consistency notes from the original video
 - Add "NO gaps, NO borders, NO black bars between frames" instruction
-- If the video has fewer than 9 shots, duplicate/extend key shots or add slight variations
-- If the video has more than 9 shots, create multiple grid prompts
+- If the video has fewer than 4 shots, duplicate/extend key shots or add slight variations
+- If the video has more than 4 shots, create multiple grid prompts
 - ALWAYS include the CHARACTER PROFILES section at the start of each prompt
 
 Output your response as valid JSON matching this exact structure:
@@ -108,8 +108,8 @@ Output your response as valid JSON matching this exact structure:
   "storyboardPrompts": [
     {
       "gridNumber": 1,
-      "shotsCovered": "1-9",
-      "prompt": "Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).\\n\\nCRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.\\n\\n## CONSISTENT CHARACTERS (maintain these EXACT appearances in ALL frames):\\n- MAIN CHARACTER: [full character description]\\n- CHARACTER A: [full character description]\\n\\nFrame 1: [exact description, referencing characters by their ID]\\nFrame 2: [exact description]\\n...\\nFrame 9: [exact description]\\n\\nSTYLE: [style notes], maintain visual consistency across all frames. Characters must look IDENTICAL in every frame they appear."
+      "shotsCovered": "1-4",
+      "prompt": "Create a 2x2 cinematic storyboard grid (2 columns, 2 rows = 4 frames).\\n\\nCRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.\\n\\n## CONSISTENT CHARACTERS (maintain these EXACT appearances in ALL frames):\\n- MAIN CHARACTER: [full character description]\\n- CHARACTER A: [full character description]\\n\\nFrame 1: [exact description, referencing characters by their ID]\\nFrame 2: [exact description]\\nFrame 3: [exact description]\\nFrame 4: [exact description]\\n\\nSTYLE: [style notes], maintain visual consistency across all frames. Characters must look IDENTICAL in every frame they appear."
     }
   ]
 }`;

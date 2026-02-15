@@ -1,19 +1,20 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import { getUserCredits, deductCredits } from '@/actions/database/cinematographer-database';
+import { getUserCredits, deductCredits, storeStartingShotResult } from '@/actions/database/cinematographer-database';
 import { Json } from '@/types/database';
 
 /**
  * Grid Frame Extractor
  *
- * Takes a 4x4 storyboard grid image (3840x2160 at 16:9) and:
+ * Takes a 2x2 storyboard grid image (3840x2160 at 16:9) and:
  * 1. Receives pre-cropped frames from client-side canvas
  * 2. Uploads them to Supabase storage
- * 3. Upscales each frame 2x to 1920x1080 using Real-ESRGAN
+ * 3. (Optional) Upscales frames if requested — not needed for 2x2 grids
+ *    since each frame is already 1920x1080 (Full HD) natively
  *
  * The actual cropping happens client-side using canvas for speed.
- * This server action handles storage and upscaling.
+ * This server action handles storage and optional upscaling.
  */
 
 interface ExtractedFrame {
@@ -313,8 +314,36 @@ export async function upscaleImage(
 const CREDIT_PER_FRAME = 1;
 
 /**
+ * Save an extracted frame to cinematographer_videos history
+ * Uses a deterministic ID so re-extracting won't create duplicates
+ */
+async function saveFrameToHistory(
+  userId: string,
+  projectId: string,
+  frame: ExtractedFrame,
+  metadata: { prompt: string; aspectRatio?: string; batchNumber?: number }
+) {
+  try {
+    const frameId = `${projectId}-frame-${frame.frameNumber}`;
+    const batchLabel = metadata.batchNumber ? `B${metadata.batchNumber}-` : '';
+    const promptPrefix = `[FRAME] ${batchLabel}Frame ${frame.frameNumber}`;
+
+    await storeStartingShotResult({
+      user_id: userId,
+      batch_id: frameId,
+      prompt: `${promptPrefix}: ${metadata.prompt}`,
+      image_url: frame.upscaledUrl || frame.originalUrl,
+      aspect_ratio: metadata.aspectRatio || '16:9',
+    });
+  } catch (error) {
+    // Non-critical — don't fail extraction if history save fails
+    console.warn(`Failed to save frame ${frame.frameNumber} to history:`, error);
+  }
+}
+
+/**
  * Process a single frame - for progressive extraction
- * Cost: 1 credit per frame
+ * Cost: 0 credits when not upscaling (2x2 grid), 1 credit when upscaling
  * This allows calling from client one at a time for progressive UI updates
  */
 export async function processSingleFrame(
@@ -328,7 +357,12 @@ export async function processSingleFrame(
     width: number;
     height: number;
   },
-  shouldUpscale: boolean = true
+  shouldUpscale: boolean = false,
+  historyMetadata?: {
+    prompt: string;
+    aspectRatio?: string;
+    batchNumber?: number;
+  }
 ): Promise<{
   success: boolean;
   frame?: ExtractedFrame;
@@ -336,21 +370,23 @@ export async function processSingleFrame(
   remainingCredits?: number;
 }> {
   try {
-    // Step 1: Credit Validation
-    const creditCheck = await getUserCredits(userId);
-    if (!creditCheck.success) {
-      return {
-        success: false,
-        error: 'Unable to verify credit balance',
-      };
-    }
+    // Step 1: Credit Validation (only needed if upscaling)
+    if (shouldUpscale) {
+      const creditCheck = await getUserCredits(userId);
+      if (!creditCheck.success) {
+        return {
+          success: false,
+          error: 'Unable to verify credit balance',
+        };
+      }
 
-    if ((creditCheck.credits || 0) < CREDIT_PER_FRAME) {
-      return {
-        success: false,
-        error: `Insufficient credits. Required: ${CREDIT_PER_FRAME}, Available: ${creditCheck.credits || 0}`,
-        remainingCredits: creditCheck.credits || 0,
-      };
+      if ((creditCheck.credits || 0) < CREDIT_PER_FRAME) {
+        return {
+          success: false,
+          error: `Insufficient credits. Required: ${CREDIT_PER_FRAME}, Available: ${creditCheck.credits || 0}`,
+          remainingCredits: creditCheck.credits || 0,
+        };
+      }
     }
 
     console.log(`Processing frame ${frame.frameNumber} for project ${projectId}`);
@@ -371,7 +407,7 @@ export async function processSingleFrame(
       height: frame.height,
     };
 
-    // Step 3: Upscale if requested
+    // Step 3: Upscale if requested (not needed for 2x2 grids — already Full HD)
     if (shouldUpscale) {
       console.log(`Upscaling frame ${frame.frameNumber} (2x scale)`);
       const upscaledTempUrl = await upscaleFrame(originalUrl, 2);
@@ -384,25 +420,39 @@ export async function processSingleFrame(
       );
       extractedFrame.width = frame.width * 2;
       extractedFrame.height = frame.height * 2;
+
+      // Step 4: Deduct credit only when upscaling
+      const creditDeduction = await deductCredits(
+        userId,
+        CREDIT_PER_FRAME,
+        'storyboard-frame-extraction',
+        { projectId, frameNumber: frame.frameNumber } as Json
+      );
+
+      if (!creditDeduction.success) {
+        console.warn('Credit deduction failed:', creditDeduction.error);
+      }
+
+      // Step 5: Save to cinematographer history
+      if (historyMetadata) {
+        await saveFrameToHistory(userId, projectId, extractedFrame, historyMetadata);
+      }
+
+      return {
+        success: true,
+        frame: extractedFrame,
+        remainingCredits: creditDeduction.remainingCredits || 0,
+      };
     }
 
-    // Step 4: Deduct credit for this frame
-    const creditDeduction = await deductCredits(
-      userId,
-      CREDIT_PER_FRAME,
-      'storyboard-frame-extraction',
-      { projectId, frameNumber: frame.frameNumber } as Json
-    );
-
-    if (!creditDeduction.success) {
-      console.warn('Credit deduction failed:', creditDeduction.error);
-      // Continue anyway - frame was already processed
+    // Save to cinematographer history (no upscale path)
+    if (historyMetadata) {
+      await saveFrameToHistory(userId, projectId, extractedFrame, historyMetadata);
     }
 
     return {
       success: true,
       frame: extractedFrame,
-      remainingCredits: creditDeduction.remainingCredits || (creditCheck.credits || 0) - CREDIT_PER_FRAME,
     };
   } catch (error) {
     console.error('Single frame processing error:', error);

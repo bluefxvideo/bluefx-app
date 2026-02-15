@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   experimental: {
+    middlewareClientMaxBodySize: '500mb',
     serverActions: {
       allowedOrigins: [
         'friendly-space-spork-9769rx65q5gjh74-3000.app.github.dev',

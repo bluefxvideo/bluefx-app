@@ -19,7 +19,6 @@ import { StartingShotTab } from './tabs/starting-shot-tab';
 import { StoryboardTab } from './tabs/storyboard-tab';
 import { ScriptBreakdownTab } from './tabs/script-breakdown-tab';
 import { ScriptBreakdownOutput } from './output-panel/script-breakdown-output';
-import { StoryboardOutput } from './output-panel/storyboard-output';
 import { StoryboardOutputV2 } from './output-panel/storyboard-output-v2';
 import { BatchAnimationQueue } from './batch-animation-queue';
 import { breakdownScript, type SavedBreakdown } from '@/actions/tools/scene-breakdown';
@@ -38,13 +37,13 @@ export function AICinematographerPage() {
   const { project, projectId, loadProject } = useProject();
   const projectIdFromUrl = searchParams.get('projectId');
 
-  // Toggle between old 3x3 mode and new 4x4 mode with math extraction
-  const [use4x4Grid, setUse4x4Grid] = useState(true); // Default to new 4x4 mode
-
   // Script Breakdown state
   const [isProcessingBreakdown, setIsProcessingBreakdown] = useState(false);
   const [breakdownResult, setBreakdownResult] = useState<SceneBreakdownResult | null>(null);
   const [breakdownScriptText, setBreakdownScriptText] = useState<string>('');
+
+  // Batch number from script breakdown (carried through pipeline)
+  const [currentBatchNumber, setCurrentBatchNumber] = useState<number | undefined>();
 
   // Load saved breakdown result from localStorage on mount
   useEffect(() => {
@@ -85,11 +84,6 @@ export function AICinematographerPage() {
     generateStoryboard,
     isGeneratingStoryboard,
     storyboardResult,
-    extractedFrames,
-    isExtractingFrames,
-    extractingProgress,
-    extractFrames,
-    regenerateFrame,
     uploadGridImage,
     // User
     user,
@@ -146,6 +140,27 @@ export function AICinematographerPage() {
     }
   }, [searchParams, setImageForVideo, router]);
 
+  // Check for analysis data from Video Analyzer "Send to AI Cinematographer" button
+  const [analysisTextForBreakdown, setAnalysisTextForBreakdown] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const analysisId = searchParams.get('analysisId');
+    if (analysisId) {
+      const storedAnalysis = localStorage.getItem(analysisId);
+      if (storedAnalysis) {
+        setAnalysisTextForBreakdown(storedAnalysis);
+        localStorage.removeItem(analysisId); // Clean up after reading
+        // Clear previous breakdown so the user sees a fresh Script Breakdown tab
+        setBreakdownResult(null);
+        setBreakdownScriptText('');
+        localStorage.removeItem('script-breakdown-result');
+        localStorage.removeItem('script-breakdown-script-text');
+      }
+      // Clean up URL params
+      router.replace('/dashboard/ai-cinematographer/script-breakdown');
+    }
+  }, [searchParams, router]);
+
   // Check for storyboard prompt in search params (from Video Analyzer "Send to Storyboard" button)
   // Supports both direct prompt param (short prompts) and promptId param (long prompts via sessionStorage)
   const [storyboardPromptFromUrl, setStoryboardPromptFromUrl] = useState<string | undefined>(undefined);
@@ -174,6 +189,12 @@ export function AICinematographerPage() {
         } catch (e) {
           console.error('Failed to parse analyzer shots:', e);
         }
+      }
+      // Load batch number from script breakdown
+      const storedBatchNumber = localStorage.getItem(`${promptId}-batchNumber`);
+      if (storedBatchNumber) {
+        setCurrentBatchNumber(parseInt(storedBatchNumber));
+        localStorage.removeItem(`${promptId}-batchNumber`);
       }
     }
   }, [searchParams, setAnalyzerShots]);
@@ -363,6 +384,7 @@ export function AICinematographerPage() {
             <ScriptBreakdownTab
               onBreakdown={handleScriptBreakdown}
               isProcessing={isProcessingBreakdown}
+              initialScript={analysisTextForBreakdown}
             />
           </div>
 
@@ -392,14 +414,13 @@ export function AICinematographerPage() {
           </div>
 
           {/* Right Panel - Storyboard Output */}
-          {use4x4Grid ? (
-            <div className="space-y-4 h-full overflow-y-auto">
+          <div className="space-y-4 h-full overflow-y-auto">
               <StoryboardOutputV2
                 isGenerating={isGeneratingStoryboard}
                 storyboardResult={storyboardResult?.storyboard}
                 projectId={storyboardResult?.storyboard?.id}
                 userId={user?.id}
-                gridConfig={{ columns: 3, rows: 3 }}
+                gridConfig={{ columns: 2, rows: 2 }}
                 onRegenerateGrid={() => {
                   if (storyboardResult?.storyboard) {
                     generateStoryboard({
@@ -433,6 +454,7 @@ export function AICinematographerPage() {
                 }}
                 onAddToQueue={addToAnimationQueue}
                 analyzerShots={analyzerShots}
+                batchNumber={currentBatchNumber}
               />
 
               {/* Batch Animation Queue */}
@@ -451,45 +473,6 @@ export function AICinematographerPage() {
                 />
               )}
             </div>
-          ) : (
-            <StoryboardOutput
-              isGenerating={isGeneratingStoryboard}
-              storyboardResult={storyboardResult?.storyboard}
-              extractedFrames={extractedFrames}
-              isExtractingFrames={isExtractingFrames}
-              extractingProgress={extractingProgress}
-              onExtractFrames={extractFrames}
-              onRegenerateGrid={() => {
-                if (storyboardResult?.storyboard) {
-                  generateStoryboard({
-                    story_description: storyboardResult.storyboard.prompt,
-                    visual_style: storyboardResult.storyboard.visual_style,
-                    user_id: '',
-                  });
-                }
-              }}
-              onRegenerateFrame={regenerateFrame}
-              onMakeVideo={handleMakeVideoFromImage}
-              onDownload={async (url, filename) => {
-                try {
-                  const response = await fetch(url);
-                  const blob = await response.blob();
-                  const blobUrl = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = blobUrl;
-                  link.download = filename;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(blobUrl);
-                } catch (error) {
-                  console.error('Download failed:', error);
-                  window.open(url, '_blank');
-                }
-              }}
-              onUploadGrid={uploadGridImage}
-            />
-          )}
         </StandardToolLayout>
       ) : (
         // Generate tab - Use standard two-panel layout

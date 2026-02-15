@@ -316,7 +316,7 @@ export function useAICinematographer() {
     setIsGeneratingImage(false);
   };
 
-  // Generate Storyboard (3x3 grid)
+  // Generate Storyboard (2x2 grid)
   const generateStoryboard = async (request: StoryboardRequest) => {
     if (!user?.id) {
       setError('User must be authenticated to generate storyboards');
@@ -735,6 +735,8 @@ export function useAICinematographer() {
     cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
     aspectRatio: string;
     model: 'fast' | 'pro';
+    batchNumber?: number;
+    sceneNumber?: number;
   }>) => {
     const newItems = items.map(item => ({
       ...item,

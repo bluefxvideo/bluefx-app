@@ -122,7 +122,7 @@ export const SCRIPT_TYPES: ScriptTypeConfig[] = [
   {
     id: 'cinematic_storyboard',
     name: 'Cinematic Storyboard',
-    description: 'Generate a 9-panel visual storyboard for video production',
+    description: 'Generate a 4-panel visual storyboard for video production',
     icon: 'Clapperboard'
   },
   {

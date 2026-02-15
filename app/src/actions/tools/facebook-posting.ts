@@ -13,6 +13,7 @@ interface FacebookPostParams {
   videoUrl: string;
   description: string;
   title?: string;
+  thumbnailUrl?: string;
 }
 
 /**
@@ -225,6 +226,7 @@ export async function postToFacebook(params: FacebookPostParams): Promise<Facebo
           title: params.title || '',
           description: params.description.substring(0, 63206), // Facebook char limit
           published: true,
+          ...(params.thumbnailUrl ? { thumb: params.thumbnailUrl } : {}),
         }),
       }
     );
@@ -277,6 +279,7 @@ async function postVideoByUrl(
           title: params.title || '',
           description: params.description.substring(0, 63206),
           published: true,
+          ...(params.thumbnailUrl ? { thumb: params.thumbnailUrl } : {}),
         }),
       }
     );

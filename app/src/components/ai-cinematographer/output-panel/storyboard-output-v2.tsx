@@ -13,7 +13,7 @@ import {
   Upload,
   Scissors,
   ZoomIn,
-  Grid3X3,
+  Grid2X2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -58,6 +58,8 @@ interface StoryboardOutputV2Props {
     cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
     aspectRatio: string;
     model: 'fast' | 'pro';
+    batchNumber?: number;
+    sceneNumber?: number;
   }>) => void;
   analyzerShots?: Array<{
     shotNumber: number;
@@ -66,6 +68,15 @@ interface StoryboardOutputV2Props {
     action?: string;
     dialogue?: string;
   }>;
+  batchNumber?: number; // From script breakdown pipeline
+}
+
+/** Estimate minimum video duration for natural-sounding speech */
+function estimateDurationFromDialogue(dialogue: string): number {
+  const CHARS_PER_SECOND = 15;
+  const rawSeconds = Math.ceil(dialogue.length / CHARS_PER_SECOND);
+  const fastDurations = [6, 8, 10, 12, 14, 16, 18, 20];
+  return fastDurations.find(d => d >= rawSeconds) || fastDurations[fastDurations.length - 1];
 }
 
 export function StoryboardOutputV2({
@@ -82,11 +93,11 @@ export function StoryboardOutputV2({
   onOpenInEditor,
   onAddToQueue,
   analyzerShots,
+  batchNumber,
 }: StoryboardOutputV2Props) {
   const [selectedFrames, setSelectedFrames] = useState<number[]>([]);
   const [selectedForQueue, setSelectedForQueue] = useState<number[]>([]);
   const [regenerateGridDialogOpen, setRegenerateGridDialogOpen] = useState(false);
-  const [extractAllDialogOpen, setExtractAllDialogOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const totalFrames = gridConfig.columns * gridConfig.rows;
@@ -100,7 +111,7 @@ export function StoryboardOutputV2({
     extractAllFrames,
     extractSelectedFrames,
     clearFrames,
-  } = useGridExtraction({ gridConfig, shouldUpscale: true, userId });
+  } = useGridExtraction({ gridConfig, shouldUpscale: false, userId });
 
   // Notify parent when frames are extracted
   useEffect(() => {
@@ -111,6 +122,73 @@ export function StoryboardOutputV2({
       }
     }
   }, [extractedFrames, onFramesExtracted]);
+
+  // Auto-extract frames when a new storyboard grid is generated
+  const hasAutoExtracted = useRef(false);
+  useEffect(() => {
+    if (
+      storyboardResult?.grid_image_url &&
+      projectId &&
+      !isExtracting &&
+      extractedFrames.length === 0 &&
+      !hasAutoExtracted.current
+    ) {
+      hasAutoExtracted.current = true;
+      extractAllFrames(storyboardResult.grid_image_url, projectId, undefined, {
+        prompt: storyboardResult.prompt,
+        aspectRatio: storyboardResult.frame_aspect_ratio || '16:9',
+        batchNumber,
+      });
+    }
+    // Reset when storyboard result changes (new generation)
+    if (!storyboardResult?.grid_image_url) {
+      hasAutoExtracted.current = false;
+    }
+  }, [storyboardResult?.grid_image_url, projectId, isExtracting, extractedFrames.length, extractAllFrames]);
+
+  // Auto-add completed frames to animation queue
+  const hasAutoAddedToQueue = useRef(false);
+  useEffect(() => {
+    if (
+      extractedFrames.length > 0 &&
+      !isExtracting &&
+      onAddToQueue &&
+      !hasAutoAddedToQueue.current
+    ) {
+      const completedFrames = extractedFrames.filter(f => f.status === 'completed');
+      if (completedFrames.length === totalFrames) {
+        hasAutoAddedToQueue.current = true;
+        const framesToAdd = completedFrames.map(frame => {
+          const shotData = analyzerShots?.[frame.frameNumber - 1];
+          const durationMatch = shotData?.duration?.match(/(\d+\.?\d*)/);
+          const shotSeconds = durationMatch ? parseFloat(durationMatch[1]) : 6;
+          // Use dialogue length for duration estimate, fall back to shot duration hint
+          const suggestedDuration = shotData?.dialogue
+            ? estimateDurationFromDialogue(shotData.dialogue)
+            : (shotSeconds > 7 ? 10 : 6);
+
+          return {
+            frameNumber: frame.frameNumber,
+            imageUrl: frame.upscaledUrl || frame.originalUrl,
+            prompt: shotData?.action || shotData?.description || '',
+            dialogue: shotData?.dialogue,
+            includeDialogue: false,
+            duration: suggestedDuration,
+            cameraStyle: 'none' as const,
+            aspectRatio: '16:9',
+            model: 'fast' as const,
+            batchNumber,
+            sceneNumber: shotData?.shotNumber,
+          };
+        });
+        onAddToQueue(framesToAdd);
+      }
+    }
+    // Reset when frames are cleared (new extraction)
+    if (extractedFrames.length === 0) {
+      hasAutoAddedToQueue.current = false;
+    }
+  }, [extractedFrames, isExtracting, totalFrames, onAddToQueue, analyzerShots, batchNumber]);
 
   const handleUploadClick = () => {
     uploadInputRef.current?.click();
@@ -149,16 +227,25 @@ export function StoryboardOutputV2({
     await extractSelectedFrames(
       storyboardResult.grid_image_url,
       projectId,
-      selectedFrames
+      selectedFrames,
+      undefined,
+      {
+        prompt: storyboardResult.prompt,
+        aspectRatio: storyboardResult.frame_aspect_ratio || '16:9',
+        batchNumber,
+      }
     );
     setSelectedFrames([]);
   };
 
   const handleExtractAll = async () => {
     if (!storyboardResult?.grid_image_url || !projectId) return;
-    setExtractAllDialogOpen(false);
 
-    await extractAllFrames(storyboardResult.grid_image_url, projectId);
+    await extractAllFrames(storyboardResult.grid_image_url, projectId, undefined, {
+      prompt: storyboardResult.prompt,
+      aspectRatio: storyboardResult.frame_aspect_ratio || '16:9',
+      batchNumber,
+    });
   };
 
   const handleDownloadGrid = () => {
@@ -200,7 +287,7 @@ export function StoryboardOutputV2({
       <div className="h-full flex items-center justify-center bg-muted/10 rounded-lg border border-dashed border-muted-foreground/20">
         <div className="text-center p-8 max-w-sm">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/30 flex items-center justify-center">
-            <Grid3X3 className="w-8 h-8 text-muted-foreground" />
+            <Grid2X2 className="w-8 h-8 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium text-foreground mb-2">No Storyboard Yet</h3>
           <p className="text-sm text-muted-foreground mb-4">
@@ -378,11 +465,11 @@ export function StoryboardOutputV2({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setExtractAllDialogOpen(true)}
+                  onClick={handleExtractAll}
                   disabled={isExtracting || !projectId || !userId}
                 >
                   <Scissors className="w-4 h-4 mr-1" />
-                  Extract All ({totalFrames} credits)
+                  Extract All (free)
                 </Button>
                 <Button
                   onClick={handleExtractSelected}
@@ -418,7 +505,7 @@ export function StoryboardOutputV2({
           </div>
           <Progress value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0} className="h-2" />
           <p className="text-xs text-muted-foreground">
-            Cropping and upscaling to 2560×1440 (2K). 1 credit per frame.
+            Cropping frames to 1920×1080 (Full HD). Free — no upscaling needed.
           </p>
         </div>
       )}
@@ -450,13 +537,16 @@ export function StoryboardOutputV2({
                     ? completedFrames.filter(f => selectedForQueue.includes(f.frameNumber))
                     : completedFrames
                   ).map(frame => {
-                    // Find matching shot data from analyzer
-                    const shotData = analyzerShots?.find(s => s.shotNumber === frame.frameNumber);
+                    // Match shot data by position (frame 1 → index 0, etc.)
+                    // Can't use shotNumber because batch 2+ has scene numbers 5-8 while frames are always 1-4
+                    const shotData = analyzerShots?.[frame.frameNumber - 1];
                     // Parse duration from shot (e.g., "3s" -> 6 or 10)
                     const durationMatch = shotData?.duration?.match(/(\d+\.?\d*)/);
                     const shotSeconds = durationMatch ? parseFloat(durationMatch[1]) : 6;
-                    // Suggest duration: Fast mode minimum is 6s, suggest 10s for longer shots
-                    const suggestedDuration = shotSeconds > 7 ? 10 : 6;
+                    // Use dialogue length for duration estimate, fall back to shot duration hint
+                    const suggestedDuration = shotData?.dialogue
+                      ? estimateDurationFromDialogue(shotData.dialogue)
+                      : (shotSeconds > 7 ? 10 : 6);
 
                     return {
                       frameNumber: frame.frameNumber,
@@ -468,6 +558,8 @@ export function StoryboardOutputV2({
                       cameraStyle: 'none' as const,
                       aspectRatio: '16:9',
                       model: 'fast' as const,  // Default to Fast mode
+                      batchNumber,
+                      sceneNumber: shotData?.shotNumber,
                     };
                   });
 
@@ -618,34 +710,6 @@ export function StoryboardOutputV2({
         </DialogContent>
       </Dialog>
 
-      {/* Extract All Confirmation Dialog */}
-      <Dialog open={extractAllDialogOpen} onOpenChange={setExtractAllDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Extract All {totalFrames} Frames?</DialogTitle>
-            <DialogDescription>
-              This will:
-              <ul className="list-disc ml-4 mt-2 space-y-1">
-                <li>Crop all {totalFrames} frames from the grid</li>
-                <li>Upscale each to 2560×1440 (2K)</li>
-                <li>Save them to your project</li>
-              </ul>
-              <p className="mt-2 font-medium text-foreground">
-                Cost: {totalFrames} credits (1 credit per frame)
-              </p>
-              <p className="mt-1 text-xs">This may take 1-2 minutes. Frames will appear as they complete.</p>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setExtractAllDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleExtractAll}>
-              Extract All Frames
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

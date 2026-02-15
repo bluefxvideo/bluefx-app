@@ -137,7 +137,7 @@ export function ScriptBreakdownOutput({
     }
   };
 
-  // Group scenes into batches of 9
+  // Group scenes into batches of 4 (2x2 grid)
   const batches = useMemo(() => {
     if (!result?.scenes) return [];
     return groupScenesIntoBatches(result.scenes);
@@ -155,7 +155,7 @@ export function ScriptBreakdownOutput({
     });
   };
 
-  const handleSendToStoryboard = (batch: BreakdownScene[], _batchIndex: number) => {
+  const handleSendToStoryboard = (batch: BreakdownScene[], batchIndex: number) => {
     if (!result) return;
 
     const promptId = `scene-breakdown-${Date.now()}`;
@@ -163,7 +163,7 @@ export function ScriptBreakdownOutput({
     // Build storyboard prompt: global aesthetic + frame descriptions
     const combinedPrompt = `${result.globalAestheticPrompt}
 
-Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).
+Create a 2x2 cinematic storyboard grid (2 columns, 2 rows = 4 frames).
 CRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge.
 
 ${batch.map((s, i) =>
@@ -177,6 +177,9 @@ Maintain visual consistency across all frames.`;
     // Convert to analyzerShots format for motion pre-fill
     const shots = scenesToAnalyzerShots(batch);
     localStorage.setItem(`${promptId}-shots`, JSON.stringify(shots));
+
+    // Store batch number for tracking through the pipeline
+    localStorage.setItem(`${promptId}-batchNumber`, String(batchIndex + 1));
 
     // Navigate to storyboard tab
     router.push(`/dashboard/ai-cinematographer/storyboard?promptId=${promptId}`);
@@ -353,7 +356,7 @@ Maintain visual consistency across all frames.`;
       {/* Batches */}
       {batches.map((batch, batchIndex) => {
         const isExpanded = expandedBatches.has(batchIndex);
-        const startScene = batchIndex * 9 + 1;
+        const startScene = batchIndex * 4 + 1;
         const endScene = startScene + batch.length - 1;
 
         return (

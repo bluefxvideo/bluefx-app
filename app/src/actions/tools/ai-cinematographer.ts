@@ -769,7 +769,7 @@ export async function executeStartingShot(
 }
 
 // ============================================================================
-// STORYBOARD - 3x3 Grid Generation & Frame Extraction
+// STORYBOARD - 2x2 Grid Generation & Frame Extraction
 // ============================================================================
 
 // Visual style labels for prompt construction
@@ -836,7 +836,7 @@ export interface FrameExtractionResponse {
 }
 
 /**
- * Generate Storyboard - 3x3 Cinematic Grid
+ * Generate Storyboard - 2x2 Cinematic Grid
  * Uses google/nano-banana-pro for higher quality image generation
  * Cost: 6 credits per storyboard grid
  */
@@ -902,8 +902,8 @@ export async function executeStoryboardGeneration(
       }
     }
 
-    // Step 3: Construct the storyboard prompt (VERSION 4 - 3x3 Grid for better quality)
-    // 3x3 at 4K = 1280x720 per frame, much better source quality for upscaling
+    // Step 3: Construct the storyboard prompt (VERSION 5 - 2x2 Grid for native Full HD)
+    // 2x2 at 4K = 1920x1080 per frame (Full HD), no upscaling needed
     const visualStylePrompt = request.visual_style === 'custom'
       ? request.custom_style || ''
       : VISUAL_STYLE_PROMPTS[request.visual_style] || VISUAL_STYLE_PROMPTS.cinematic_realism;
@@ -913,14 +913,14 @@ export async function executeStoryboardGeneration(
     const isVertical = frameAspectRatio === '9:16';
 
     // For vertical frames, we generate the entire grid in portrait orientation (9:16)
-    // This way the 3x3 grid contains 9 vertical frames that can be extracted correctly
+    // This way the 2x2 grid contains 4 vertical frames that can be extracted correctly
     // For landscape, we keep the 16:9 grid with 16:9 frames inside
     const gridAspectRatio = isVertical ? '9:16' : '16:9';
     const frameOrientationDescription = isVertical
       ? '9:16 vertical/portrait orientation (tall frames, like TikTok/Reels/Shorts)'
       : '16:9 landscape/horizontal orientation (wide frames, like YouTube/TV)';
 
-    const storyboardPrompt = `Create a 3x3 cinematic storyboard grid (3 columns, 3 rows = 9 frames).
+    const storyboardPrompt = `Create a 2x2 cinematic storyboard grid (2 columns, 2 rows = 4 frames).
 
 CRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge in a seamless grid.
 
@@ -1224,7 +1224,7 @@ export interface UploadGridImageResponse {
 
 /**
  * Upload a grid image to Supabase storage for frame extraction
- * This allows users to upload their own 3x3 grid images
+ * This allows users to upload their own grid images for frame extraction
  */
 export async function uploadGridImageToStorage(
   file: File,

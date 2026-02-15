@@ -156,128 +156,129 @@ export async function postToTwitter(params: TwitterPostParams): Promise<TwitterP
       return { success: false, error: tokenError || 'Failed to get access token' };
     }
 
-    // Download the video
-    console.log('Downloading video for Twitter...');
-    const videoData = await downloadVideo(params.videoUrl);
+    // Try media upload first, fall back to text-only if Free tier (403)
+    let mediaId: string | null = null;
 
-    if (!videoData || videoData.error) {
-      return { success: false, error: videoData?.error || 'Failed to download video' };
-    }
+    try {
+      // Download the video
+      console.log('Downloading video for Twitter...');
+      const videoData = await downloadVideo(params.videoUrl);
 
-    // Step 1: Initialize media upload (INIT)
-    console.log('Initializing Twitter media upload...');
-    const initResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        command: 'INIT',
-        total_bytes: videoData.buffer.length.toString(),
-        media_type: videoData.contentType,
-        media_category: 'tweet_video',
-      }),
-    });
+      if (videoData && !videoData.error) {
+        // Step 1: Initialize media upload (INIT)
+        console.log('Initializing Twitter media upload...');
+        const initResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            command: 'INIT',
+            total_bytes: videoData.buffer.length.toString(),
+            media_type: videoData.contentType,
+            media_category: 'tweet_video',
+          }),
+        });
 
-    if (!initResponse.ok) {
-      const errorText = await initResponse.text();
-      console.error('Twitter media init failed:', errorText);
-      return { success: false, error: `Twitter media init failed: ${initResponse.status}` };
-    }
+        if (initResponse.ok) {
+          const initData = await initResponse.json();
+          mediaId = initData.media_id_string;
 
-    const initData = await initResponse.json();
-    const mediaId = initData.media_id_string;
+          // Step 2: Upload media chunks (APPEND)
+          console.log('Uploading video chunks to Twitter...');
+          const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+          let segmentIndex = 0;
 
-    // Step 2: Upload media chunks (APPEND)
-    console.log('Uploading video chunks to Twitter...');
-    const chunkSize = 5 * 1024 * 1024; // 5MB chunks
-    let segmentIndex = 0;
+          for (let i = 0; i < videoData.buffer.length; i += chunkSize) {
+            const chunk = videoData.buffer.slice(i, i + chunkSize);
 
-    for (let i = 0; i < videoData.buffer.length; i += chunkSize) {
-      const chunk = videoData.buffer.slice(i, i + chunkSize);
+            const appendResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                command: 'APPEND',
+                media_id: mediaId!,
+                media_data: chunk.toString('base64'),
+                segment_index: segmentIndex.toString(),
+              }),
+            });
 
-      const appendResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          command: 'APPEND',
-          media_id: mediaId,
-          media_data: chunk.toString('base64'),
-          segment_index: segmentIndex.toString(),
-        }),
-      });
+            if (!appendResponse.ok) {
+              console.error('Twitter media append failed, falling back to text-only');
+              mediaId = null;
+              break;
+            }
 
-      if (!appendResponse.ok) {
-        const errorText = await appendResponse.text();
-        console.error('Twitter media append failed:', errorText);
-        return { success: false, error: `Twitter media upload failed at chunk ${segmentIndex}` };
-      }
-
-      segmentIndex++;
-    }
-
-    // Step 3: Finalize upload (FINALIZE)
-    console.log('Finalizing Twitter media upload...');
-    const finalizeResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        command: 'FINALIZE',
-        media_id: mediaId,
-      }),
-    });
-
-    if (!finalizeResponse.ok) {
-      const errorText = await finalizeResponse.text();
-      console.error('Twitter media finalize failed:', errorText);
-      return { success: false, error: 'Twitter media finalize failed' };
-    }
-
-    const finalizeData = await finalizeResponse.json();
-
-    // Step 4: Check processing status if needed
-    if (finalizeData.processing_info) {
-      console.log('Waiting for Twitter video processing...');
-      let processingComplete = false;
-      let checkCount = 0;
-      const maxChecks = 30; // Max 5 minutes of waiting
-
-      while (!processingComplete && checkCount < maxChecks) {
-        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-
-        const statusResponse = await fetch(
-          `https://upload.twitter.com/1.1/media/upload.json?command=STATUS&media_id=${mediaId}`,
-          {
-            headers: { 'Authorization': `Bearer ${accessToken}` },
+            segmentIndex++;
           }
-        );
 
-        if (statusResponse.ok) {
-          const statusData = await statusResponse.json();
-          if (statusData.processing_info?.state === 'succeeded') {
-            processingComplete = true;
-          } else if (statusData.processing_info?.state === 'failed') {
-            return { success: false, error: 'Twitter video processing failed' };
+          if (mediaId) {
+            // Step 3: Finalize upload (FINALIZE)
+            console.log('Finalizing Twitter media upload...');
+            const finalizeResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                command: 'FINALIZE',
+                media_id: mediaId,
+              }),
+            });
+
+            if (!finalizeResponse.ok) {
+              console.error('Twitter media finalize failed, falling back to text-only');
+              mediaId = null;
+            } else {
+              const finalizeData = await finalizeResponse.json();
+
+              // Step 4: Check processing status if needed
+              if (finalizeData.processing_info) {
+                console.log('Waiting for Twitter video processing...');
+                let processingComplete = false;
+                let checkCount = 0;
+                const maxChecks = 30;
+
+                while (!processingComplete && checkCount < maxChecks) {
+                  await new Promise(resolve => setTimeout(resolve, 10000));
+
+                  const statusResponse = await fetch(
+                    `https://upload.twitter.com/1.1/media/upload.json?command=STATUS&media_id=${mediaId}`,
+                    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+                  );
+
+                  if (statusResponse.ok) {
+                    const statusData = await statusResponse.json();
+                    if (statusData.processing_info?.state === 'succeeded') {
+                      processingComplete = true;
+                    } else if (statusData.processing_info?.state === 'failed') {
+                      mediaId = null;
+                      break;
+                    }
+                  }
+                  checkCount++;
+                }
+
+                if (!processingComplete) mediaId = null;
+              }
+            }
           }
+        } else {
+          console.log('Twitter media upload not available (Free tier), posting text-only');
         }
-
-        checkCount++;
       }
-
-      if (!processingComplete) {
-        return { success: false, error: 'Twitter video processing timeout' };
-      }
+    } catch (mediaError) {
+      console.error('Twitter media upload error, falling back to text-only:', mediaError);
+      mediaId = null;
     }
 
-    // Step 5: Create tweet with media
-    console.log('Creating Twitter post...');
+    // Step 5: Create tweet (with media if available, text-only otherwise)
+    console.log(`Creating Twitter post (${mediaId ? 'with video' : 'text-only'})...`);
     const tweetResponse = await fetch('https://api.twitter.com/2/tweets', {
       method: 'POST',
       headers: {
@@ -285,17 +286,21 @@ export async function postToTwitter(params: TwitterPostParams): Promise<TwitterP
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: params.text.substring(0, 280), // Twitter 280 char limit
-        media: {
-          media_ids: [mediaId],
-        },
+        text: params.text.substring(0, 280),
+        ...(mediaId ? { media: { media_ids: [mediaId] } } : {}),
       }),
     });
 
     if (!tweetResponse.ok) {
       const errorText = await tweetResponse.text();
       console.error('Twitter tweet creation failed:', errorText);
-      return { success: false, error: 'Failed to create tweet' };
+      try {
+        const errorJson = JSON.parse(errorText);
+        const detail = errorJson.detail || errorJson.errors?.[0]?.message || errorJson.title || `HTTP ${tweetResponse.status}`;
+        return { success: false, error: `Twitter: ${detail}` };
+      } catch {
+        return { success: false, error: `Twitter error: ${tweetResponse.status}` };
+      }
     }
 
     const tweetData = await tweetResponse.json();

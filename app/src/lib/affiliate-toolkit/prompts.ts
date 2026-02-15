@@ -462,7 +462,7 @@ WEEK 4: ACTION & URGENCY (Days 22-30)
 - Story Sequences: X`;
 
     case 'cinematic_storyboard':
-      return `You are a professional cinematographer and storyboard artist. Generate a comprehensive 9-panel cinematic storyboard for video production.
+      return `You are a professional cinematographer and storyboard artist. Generate a comprehensive 4-panel cinematic storyboard for video production.
 
 ${offer.name !== 'Custom Content' ? `PRODUCT/OFFER CONTEXT:
 - Product: ${offer.name}
@@ -478,19 +478,19 @@ TASK: Before generating the storyboard, analyze the story to understand:
 - What is the mood/tone?
 - What is the visual style?
 
-Then create a complete 9-panel storyboard with detailed visual descriptions optimized for AI image generation.
+Then create a complete 4-panel storyboard with detailed visual descriptions optimized for AI image generation.
 
 CRITICAL REQUIREMENTS:
 1. Each frame description MUST be 2-3 detailed sentences (not just bullet points)
 2. SUBJECT DESCRIPTION: Include detailed character/subject description (age, physical features, build, facial features, hair, clothing details, accessories, expression, demeanor)
 3. ENVIRONMENT DESCRIPTION: Include detailed setting (specific location type, time of day, lighting conditions, key environmental elements, atmosphere, color palette)
-4. Maintain STRICT CONSISTENCY across all 9 frames (same character appearance, same clothing, same environment, same lighting)
+4. Maintain STRICT CONSISTENCY across all 4 frames (same character appearance, same clothing, same environment, same lighting)
 5. Each description should work as a standalone AI image generation prompt
 6. Use professional cinematography terminology
 
 OUTPUT FORMAT (follow this exact structure):
 
-3x3 cinematic contact sheet with 9 landscape-oriented 16:9 frames arranged in grid format. Each individual panel must be 16:9 widescreen aspect ratio.
+2x2 cinematic contact sheet with 4 landscape-oriented 16:9 frames arranged in grid format. Each individual panel must be 16:9 widescreen aspect ratio.
 
 CINEMATIC STORYBOARD
 
@@ -504,59 +504,41 @@ ENVIRONMENT DESCRIPTION:
 
 CAMERA COVERAGE:
 
-Row 1 (Establishing Wide Shots):
-
-EXTREME LONG SHOT (ELS):
-[Detailed scene description showing subject small within vast environment, spatial context, environmental scope, wide perspective - 2-3 sentences]
+Row 1 (Establishing & Context):
 
 LONG SHOT (LS):
-[Full body head-to-toe view, complete subject visible, surrounding environment context, natural positioning - 2-3 sentences]
-
-MEDIUM LONG SHOT (MLS):
-[Subject framed from knees up, three-quarter or American shot style, action beginning to be visible, environmental context still present - 2-3 sentences]
-
-Row 2 (Core Character Coverage):
+[Full body head-to-toe view, complete subject visible, surrounding environment context, natural positioning, spatial context - 2-3 sentences]
 
 MEDIUM SHOT (MS):
 [Waist-up framing, focus on action and interaction, upper body clearly visible, specific action description, environmental elements in background - 2-3 sentences]
 
-MEDIUM CLOSE-UP (MCU):
-[Chest-up framing, intimate character view, facial expression details, emotional state visible, shallow depth of field beginning - 2-3 sentences]
+Row 2 (Character & Detail):
 
 CLOSE-UP (CU):
 [Tight face framing only, detailed facial features, authentic human expression, emotional nuance, skin texture visible, shallow depth of field with background bokeh - 2-3 sentences]
 
-Row 3 (Details & Perspective):
-
-EXTREME CLOSE-UP (ECU):
-[Macro detail shot of specific element: hands, eyes, object, texture - extreme detail description, tactile quality, minute details visible - 2-3 sentences]
-
-LOW ANGLE SHOT:
-[Worm's eye view looking upward at subject, heroic or imposing perspective, environmental context above, perspective distortion noted - 2-3 sentences]
-
-HIGH ANGLE SHOT:
-[Bird's eye view looking down on subject, overhead perspective, spatial relationship visible, top-down composition - 2-3 sentences]
+DETAIL / PERSPECTIVE SHOT:
+[Macro detail shot or unique angle (low angle, high angle, ECU of hands/object) - extreme detail description, tactile quality, unique perspective - 2-3 sentences]
 
 
 TECHNICAL SPECIFICATIONS:
 Camera System: Shot on Arri Alexa LF cinema camera
 Image Quality: Ultra-photorealistic, professional cinematography, 8k resolution, highly detailed
-Grid Format: 3x3 layout where each individual frame is 16:9 widescreen (horizontal/landscape orientation), NOT square panels
+Grid Format: 2x2 layout where each individual frame is 16:9 widescreen (horizontal/landscape orientation), NOT square panels
 Lighting: [Specific lighting description based on environment - e.g., "Natural golden hour sunlight", "Soft overcast daylight", "Interior fluorescent and window light mix", etc.]
 Color Grading: [Specific color palette - e.g., "Natural desaturated tones with warm amber highlights", "Cool blue-gray tones", "Rich saturated colors", etc.]
 Texture Detail: Authentic skin texture and fabric detail, realistic material surfaces, natural imperfections
 Depth of Field: Realistic cinema lens bokeh, shallow depth on close-ups, natural focus fall-off
 Film Characteristics: Film grain texture, natural photographic quality
-Consistency: Same character appearance across all 9 frames (identical face, hair, clothing, environment), same lighting and time of day throughout
+Consistency: Same character appearance across all 4 frames (identical face, hair, clothing, environment), same lighting and time of day throughout
 Aesthetic: Documentary realism style, 100% photographic reality, zero cartoon or illustration qualities
 
 DIALOGUE/NARRATION NOTES: (Optional - only include if story requires it)
 Frame [number]: "[Dialogue or narration text]"
-Frame [number]: "[Dialogue or narration text]"
-[Include 2-5 key dialogue/narration moments if applicable]
+[Include key dialogue/narration moments if applicable]
 
 USAGE NOTES:
-Copy this entire storyboard script into the AI Cinematographer Storyboard tab to generate your 9-panel visual storyboard grid.
+Copy this entire storyboard script into the AI Cinematographer Storyboard tab to generate your 4-panel visual storyboard grid.
 
 ---
 

@@ -2,23 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LayoutGrid, X, Upload, Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 
-// Visual style options for storyboard generation
-const VISUAL_STYLES = [
-  { id: 'cinematic_realism', label: 'Cinematic Realism' },
-  { id: 'film_noir', label: 'Film Noir' },
-  { id: 'sci_fi', label: 'Sci-Fi' },
-  { id: 'fantasy_epic', label: 'Fantasy Epic' },
-  { id: 'documentary', label: 'Documentary Style' },
-  { id: 'custom', label: 'Custom' },
-] as const;
-
-type VisualStyle = typeof VISUAL_STYLES[number]['id'];
+type VisualStyle = 'cinematic_realism' | 'film_noir' | 'sci_fi' | 'fantasy_epic' | 'documentary' | 'custom';
 
 // Aspect ratio options for individual frames
 const ASPECT_RATIOS = [
@@ -163,8 +152,6 @@ export function StoryboardTab({
     // Use reference images from Step 2 (sent directly to Nano Banana)
     const referenceFiles = referenceImages.map(img => img.file);
 
-    console.log('📤 Submitting storyboard with reference images:', referenceFiles.length);
-
     onGenerate({
       story_description: promptToUse,
       visual_style: formData.visual_style,
@@ -180,7 +167,7 @@ export function StoryboardTab({
   return (
     <TabContentWrapper>
       <TabBody>
-        {/* Step 1: Story Description */}
+        {/* Story Description */}
         <StandardStep
           stepNumber={1}
           title="Story Description"
@@ -199,7 +186,7 @@ export function StoryboardTab({
           </div>
         </StandardStep>
 
-        {/* Step 2: Reference Images - MAIN input for Nano Banana */}
+        {/* Reference Images - MAIN input for Nano Banana */}
         <StandardStep
           stepNumber={2}
           title="Reference Images"
@@ -274,7 +261,7 @@ export function StoryboardTab({
           </div>
         </StandardStep>
 
-        {/* Step 3: Frame Aspect Ratio */}
+        {/* Frame Aspect Ratio */}
         <StandardStep
           stepNumber={3}
           title="Frame Aspect Ratio"
@@ -300,42 +287,6 @@ export function StoryboardTab({
           </div>
         </StandardStep>
 
-        {/* Step 4: Visual Style */}
-        <StandardStep
-          stepNumber={4}
-          title="Visual Style"
-          description="Choose the visual aesthetic for your storyboard"
-        >
-          <Select
-            value={formData.visual_style}
-            onValueChange={(value: VisualStyle) => setFormData(prev => ({ ...prev, visual_style: value }))}
-            disabled={isGenerating}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {VISUAL_STYLES.map((style) => (
-                <SelectItem key={style.id} value={style.id}>
-                  {style.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {formData.visual_style === 'custom' && (
-            <Textarea
-              placeholder="e.g., dark moody atmosphere, nordic aesthetic, natural lighting..."
-              value={formData.custom_style}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                custom_style: e.target.value.slice(0, 200)
-              }))}
-              className="min-h-[80px] resize-y mt-3"
-              disabled={isGenerating}
-            />
-          )}
-        </StandardStep>
       </TabBody>
 
       <TabFooter>

@@ -2,7 +2,7 @@ import { AICinematographerPage } from '@/components/ai-cinematographer/ai-cinema
 
 /**
  * AI Cinematographer Storyboard Route - /dashboard/ai-cinematographer/storyboard
- * 3x3 cinematic storyboard grid generation tab
+ * 2x2 cinematic storyboard grid generation tab
  */
 export default function AICinematographerStoryboardPage() {
   return <AICinematographerPage />;

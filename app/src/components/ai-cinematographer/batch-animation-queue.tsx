@@ -38,6 +38,8 @@ export interface QueueItem {
   videoUrl?: string;
   error?: string;
   batchId?: string; // Track which database record this corresponds to
+  batchNumber?: number; // Which script breakdown batch (1-based)
+  sceneNumber?: number; // Original scene number from script breakdown
 }
 
 interface BatchAnimationQueueProps {
@@ -59,13 +61,6 @@ interface BatchAnimationQueueProps {
   }>;
 }
 
-const CAMERA_PRESETS: Record<QueueItem['cameraStyle'], string> = {
-  none: 'None',
-  amateur: 'Amateur',
-  stable: 'Stable',
-  cinematic: 'Cinematic',
-};
-
 // Duration options by model
 const FAST_DURATIONS = [6, 8, 10, 12, 14, 16, 18, 20];
 const PRO_DURATIONS = [5, 6, 7, 8, 9, 10];
@@ -80,6 +75,54 @@ const ASPECT_RATIOS = [
   { value: '21:9', label: '21:9 (Ultrawide)' },
   { value: '9:21', label: '9:21' },
 ];
+
+// Generate a descriptive filename for a queue item video
+function generateVideoFilename(item: QueueItem): string {
+  const parts: string[] = [];
+  if (item.batchNumber) parts.push(`b${item.batchNumber}`);
+  parts.push(`f${item.frameNumber}`);
+
+  // Add truncated dialogue snippet
+  const text = item.dialogue || item.prompt;
+  if (text) {
+    const snippet = text
+      .substring(0, 40)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .trim()
+      .replace(/\s+/g, '-');
+    if (snippet) parts.push(snippet);
+  }
+
+  return `${parts.join('-')}.mp4`;
+}
+
+// Download a video with a proper filename
+async function downloadVideoWithName(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    // Fallback: open in new tab
+    window.open(url, '_blank');
+  }
+}
+
+// Estimate minimum duration for dialogue at natural pace (~15 chars/sec)
+function estimateMinDuration(dialogue: string | undefined, model: 'fast' | 'pro'): number | null {
+  if (!dialogue) return null;
+  const rawSeconds = Math.ceil(dialogue.length / 15);
+  const durations = model === 'pro' ? PRO_DURATIONS : FAST_DURATIONS;
+  return durations.find(d => d >= rawSeconds) || durations[durations.length - 1];
+}
 
 // Calculate credits for an item
 const calculateItemCredits = (item: QueueItem): number => {
@@ -351,6 +394,15 @@ export function BatchAnimationQueue({
                           </button>
                         ))}
                       </div>
+                      {/* Duration warning when too short for dialogue */}
+                      {(() => {
+                        const minDur = estimateMinDuration(item.dialogue, item.model);
+                        return minDur && item.duration < minDur ? (
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            Dialogue needs ~{minDur}s for natural pace
+                          </p>
+                        ) : null;
+                      })()}
 
                       {/* Aspect ratio - only for Pro mode */}
                       {item.model === 'pro' && (
@@ -374,36 +426,18 @@ export function BatchAnimationQueue({
                         </div>
                       )}
 
-                      {/* Camera style */}
-                      <div className="flex gap-1">
-                        {(Object.entries(CAMERA_PRESETS) as [QueueItem['cameraStyle'], string][]).map(([key, label]) => (
-                          <button
-                            key={key}
-                            className={`px-2 py-0.5 rounded text-xs transition-colors ${
-                              item.cameraStyle === key
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted hover:bg-muted/80'
-                            }`}
-                            onClick={() => onUpdateItem(item.id, { cameraStyle: key })}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   )}
 
-                  {/* Completed: show download */}
+                  {/* Completed: show download with smart filename */}
                   {item.status === 'completed' && item.videoUrl && (
-                    <a
-                      href={item.videoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => downloadVideoWithName(item.videoUrl!, generateVideoFilename(item))}
                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
                       <Download className="w-3 h-3" />
-                      Download video
-                    </a>
+                      Download {item.batchNumber ? `b${item.batchNumber}-` : ''}f{item.frameNumber}
+                    </button>
                   )}
 
                   {/* Failed: show error and retry button */}
@@ -459,6 +493,54 @@ export function BatchAnimationQueue({
               </>
             )}
           </Button>
+        </div>
+      )}
+
+      {/* Download All + Shot Sheet (when there are completed items) */}
+      {completedCount > 0 && (
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="text-sm text-muted-foreground">
+            {completedCount} video{completedCount > 1 ? 's' : ''} ready
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const lines = ['SHOT SHEET', `Generated: ${new Date().toLocaleString()}`, ''];
+                queue.forEach(item => {
+                  const label = `${item.batchNumber ? `B${item.batchNumber}-` : ''}F${item.frameNumber}`;
+                  const status = item.status === 'completed' ? 'OK' : item.status;
+                  const dialogue = item.dialogue ? `"${item.dialogue}"` : '(no dialogue)';
+                  lines.push(`${label} | ${item.duration}s | ${status} | ${dialogue}`);
+                });
+                const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'shot-sheet.txt';
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Shot Sheet
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={async () => {
+                const completed = queue.filter(i => i.status === 'completed' && i.videoUrl);
+                for (const item of completed) {
+                  await downloadVideoWithName(item.videoUrl!, generateVideoFilename(item));
+                  // Small delay between downloads to avoid browser throttling
+                  await new Promise(r => setTimeout(r, 500));
+                }
+              }}
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Download All ({completedCount})
+            </Button>
+          </div>
         </div>
       )}
     </div>

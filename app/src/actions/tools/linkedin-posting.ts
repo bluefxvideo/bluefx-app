@@ -179,8 +179,9 @@ export async function postToLinkedIn(params: LinkedInPostParams): Promise<Linked
     }
 
     // Download the video
-    console.log('Downloading video for LinkedIn...');
+    console.log('Downloading video for LinkedIn from:', params.videoUrl);
     const videoData = await downloadVideo(params.videoUrl);
+    console.log('Video download result:', videoData ? `${(videoData.buffer.length / 1024 / 1024).toFixed(1)}MB, type: ${videoData.contentType}` : 'FAILED', videoData?.error || '');
 
     if (!videoData || videoData.error) {
       return { success: false, error: videoData?.error || 'Failed to download video' };
@@ -211,8 +212,10 @@ export async function postToLinkedIn(params: LinkedInPostParams): Promise<Linked
 
     if (!registerResponse.ok) {
       const errorText = await registerResponse.text();
-      console.error('LinkedIn register upload failed:', errorText);
-      return { success: false, error: `LinkedIn upload registration failed: ${registerResponse.status}` };
+      console.error('LinkedIn register upload failed:', registerResponse.status, errorText);
+      let detail = '';
+      try { detail = JSON.parse(errorText).message || errorText.substring(0, 200); } catch { detail = errorText.substring(0, 200); }
+      return { success: false, error: `LinkedIn upload registration failed (${registerResponse.status}): ${detail}` };
     }
 
     const registerData = await registerResponse.json();
@@ -236,8 +239,8 @@ export async function postToLinkedIn(params: LinkedInPostParams): Promise<Linked
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
-      console.error('LinkedIn video upload failed:', errorText);
-      return { success: false, error: `LinkedIn video upload failed: ${uploadResponse.status}` };
+      console.error('LinkedIn video upload failed:', uploadResponse.status, errorText);
+      return { success: false, error: `LinkedIn video upload failed (${uploadResponse.status}): ${errorText.substring(0, 200)}` };
     }
 
     // Step 3: Create the post with the video
@@ -274,8 +277,14 @@ export async function postToLinkedIn(params: LinkedInPostParams): Promise<Linked
 
     if (!postResponse.ok) {
       const errorText = await postResponse.text();
-      console.error('LinkedIn post creation failed:', errorText);
-      return { success: false, error: 'Failed to create LinkedIn post' };
+      console.error('LinkedIn post creation failed:', postResponse.status, errorText);
+      // Parse error for readable message
+      let detail = `LinkedIn API ${postResponse.status}`;
+      try {
+        const errJson = JSON.parse(errorText);
+        detail = errJson.message || errJson.error || detail;
+      } catch {}
+      return { success: false, error: `Failed to create LinkedIn post: ${detail}` };
     }
 
     const postData = await postResponse.json();
