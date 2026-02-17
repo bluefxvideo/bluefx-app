@@ -261,27 +261,26 @@ async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl: stri
       .filter((v: { url?: string; extension?: string; hasAudio?: boolean }) =>
         v.url && v.extension === 'mp4' && v.hasAudio
       )
-      .sort((a: { qualityNumber?: number }, b: { qualityNumber?: number }) =>
-        (b.qualityNumber || 0) - (a.qualityNumber || 0)
+      .sort((a: { height?: number }, b: { height?: number }) =>
+        (b.height || 0) - (a.height || 0)
       );
 
     if (progressive.length > 0) {
-      // Pick best quality up to 1080p
-      const best = progressive.find((v: { qualityNumber?: number }) => (v.qualityNumber || 0) <= 1080) || progressive[0];
-      console.log('Found progressive mp4:', best.quality, best.qualityNumber);
+      const best = progressive.find((v: { height?: number }) => (v.height || 0) <= 1080) || progressive[0];
+      console.log('Found progressive mp4:', best.quality, best.height + 'p', best.sizeText);
       return { downloadUrl: best.url };
     }
 
     // Second try: any mp4 video stream (may not have audio)
     const anyMp4 = videos
       .filter((v: { url?: string; extension?: string }) => v.url && v.extension === 'mp4')
-      .sort((a: { qualityNumber?: number }, b: { qualityNumber?: number }) =>
-        (b.qualityNumber || 0) - (a.qualityNumber || 0)
+      .sort((a: { height?: number }, b: { height?: number }) =>
+        (b.height || 0) - (a.height || 0)
       );
 
     if (anyMp4.length > 0) {
-      const best = anyMp4.find((v: { qualityNumber?: number }) => (v.qualityNumber || 0) <= 1080) || anyMp4[0];
-      console.log('Found mp4 (may lack audio):', best.quality, best.qualityNumber);
+      const best = anyMp4.find((v: { height?: number }) => (v.height || 0) <= 1080) || anyMp4[0];
+      console.log('Found mp4 (may lack audio):', best.quality, best.height + 'p', best.sizeText);
       return { downloadUrl: best.url };
     }
 
