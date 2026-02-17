@@ -223,14 +223,11 @@ export async function extractYouTubeData(url: string): Promise<ExtractYouTubeDat
  * Download video via RapidAPI YouTube Media Downloader.
  * Returns a direct download URL for the video.
  */
-async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl: string; error?: string } | null> {
+async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl?: string; error: string }> {
   const apiKey = process.env.RAPIDAPI_KEY || process.env.APP_RAPIDAPI_KEY;
   if (!apiKey) {
-    console.log('No RapidAPI key — skipping API download');
-    return null;
+    return { error: 'No RAPIDAPI_KEY env var set' };
   }
-
-  console.log('Trying RapidAPI YouTube Media Downloader...');
 
   try {
     const response = await fetch(
@@ -246,15 +243,18 @@ async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl: stri
     );
 
     if (!response.ok) {
-      console.log('RapidAPI response not ok:', response.status);
-      return null;
+      const body = await response.text().catch(() => '');
+      return { error: `API ${response.status}: ${body.substring(0, 200)}` };
     }
 
     const data = await response.json();
 
     // Find best mp4 video with audio (progressive streams)
-    // The API returns videos.items[] with { url, extension, quality, hasAudio }
     const videos = data?.videos?.items || [];
+
+    if (videos.length === 0) {
+      return { error: `API returned no video items. Keys: ${Object.keys(data || {}).join(',')}` };
+    }
 
     // First try: progressive mp4 with audio (single file, no merging needed)
     const progressive = videos
@@ -268,7 +268,7 @@ async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl: stri
     if (progressive.length > 0) {
       const best = progressive.find((v: { height?: number }) => (v.height || 0) <= 1080) || progressive[0];
       console.log('Found progressive mp4:', best.quality, best.height + 'p', best.sizeText);
-      return { downloadUrl: best.url };
+      return { downloadUrl: best.url, error: '' };
     }
 
     // Second try: any mp4 video stream (may not have audio)
@@ -281,14 +281,16 @@ async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl: stri
     if (anyMp4.length > 0) {
       const best = anyMp4.find((v: { height?: number }) => (v.height || 0) <= 1080) || anyMp4[0];
       console.log('Found mp4 (may lack audio):', best.quality, best.height + 'p', best.sizeText);
-      return { downloadUrl: best.url };
+      return { downloadUrl: best.url, error: '' };
     }
 
-    console.log('No suitable download URL found in API response');
-    return null;
+    // Log what we got for debugging
+    const formats = videos.map((v: { extension?: string; hasAudio?: boolean; quality?: string }) =>
+      `${v.extension}/${v.quality}/${v.hasAudio ? 'audio' : 'no-audio'}`
+    ).join(', ');
+    return { error: `No mp4 found. Formats: ${formats}` };
   } catch (error) {
-    console.error('RapidAPI download error:', error);
-    return null;
+    return { error: `Exception: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
@@ -366,8 +368,9 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
     let videoBuffer: Buffer | null = null;
 
     // Method 1: Try RapidAPI (works on servers, no bot detection issues)
+    let apiError = '';
     const apiResult = await downloadViaRapidAPI(videoId);
-    if (apiResult?.downloadUrl) {
+    if (apiResult.downloadUrl) {
       console.log('Downloading video from API URL...');
       try {
         const response = await fetch(apiResult.downloadUrl, {
@@ -379,16 +382,18 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
           const sizeMB = Math.round(videoBuffer.length / 1024 / 1024);
           console.log(`Video fetched via API: ${sizeMB}MB`);
         } else {
-          console.log('API download URL returned:', response.status);
+          apiError = `Download URL returned ${response.status}`;
         }
       } catch (fetchErr) {
-        console.error('Failed to fetch video from API URL:', fetchErr);
+        apiError = `Fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`;
       }
+    } else {
+      apiError = apiResult.error;
     }
 
     // Method 2: Fall back to yt-dlp (works locally)
     if (!videoBuffer) {
-      console.log('Falling back to yt-dlp...');
+      console.log('API failed:', apiError, '— falling back to yt-dlp...');
       const ytResult = await downloadViaYtDlp(videoId);
 
       if (ytResult?.tempFile && !ytResult.error) {
@@ -399,7 +404,7 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
         await unlink(ytResult.tempFile).catch(() => {});
       } else {
         const ytError = ytResult?.error || 'yt-dlp not available';
-        return { success: false, error: `Video download failed. API: no download URL found. yt-dlp: ${ytError}` };
+        return { success: false, error: `Video download failed. API: ${apiError}. yt-dlp: ${ytError}` };
       }
     }
 
