@@ -252,11 +252,22 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
     const tempBase = join(tmpdir(), `yt_video_${videoId}_${Date.now()}`);
     const tempOutput = `${tempBase}.%(ext)s`;
 
-    // Download video with yt-dlp — h264 video + aac audio, 1080p max, merged to mp4
-    const command = `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]" --merge-output-format mp4 --no-warnings -o "${tempOutput}" "https://www.youtube.com/watch?v=${videoId}" 2>&1`;
+    // Download video with yt-dlp — best quality up to 1080p, merged to mp4
+    // Use flexible format: prefer mp4+m4a, fall back to best available
+    const command = `yt-dlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" --merge-output-format mp4 --no-warnings -o "${tempOutput}" "https://www.youtube.com/watch?v=${videoId}" 2>&1`;
 
     console.log('Running yt-dlp with output template:', tempOutput);
-    const { stdout } = await execAsync(command, { timeout: 600000 }); // 10 min timeout
+    let stdout: string;
+    try {
+      const result = await execAsync(command, { timeout: 600000 }); // 10 min timeout
+      stdout = result.stdout;
+    } catch (execError: unknown) {
+      // exec throws on non-zero exit — capture stdout/stderr for diagnostics
+      const e = execError as { stdout?: string; stderr?: string; message?: string };
+      const output = e.stdout || e.stderr || e.message || 'Unknown error';
+      console.error('yt-dlp failed:', output.substring(0, 1000));
+      return { success: false, error: `yt-dlp error: ${output.substring(0, 300)}` };
+    }
     console.log('yt-dlp output:', stdout.substring(0, 500));
 
     // Find the actual output file — yt-dlp may have created .mp4 or .mkv etc.
