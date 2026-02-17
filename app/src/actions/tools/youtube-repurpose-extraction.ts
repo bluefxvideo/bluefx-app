@@ -220,8 +220,134 @@ export async function extractYouTubeData(url: string): Promise<ExtractYouTubeDat
 // ============================================================================
 
 /**
- * Downloads a YouTube video using yt-dlp and uploads to Supabase Storage.
- * This is the slow operation — can take 1-5 minutes depending on video length.
+ * Download video via RapidAPI YouTube Media Downloader.
+ * Returns a direct download URL for the video.
+ */
+async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl: string; error?: string } | null> {
+  const apiKey = process.env.RAPIDAPI_KEY || process.env.APP_RAPIDAPI_KEY;
+  if (!apiKey) {
+    console.log('No RapidAPI key — skipping API download');
+    return null;
+  }
+
+  console.log('Trying RapidAPI YouTube Media Downloader...');
+
+  try {
+    const response = await fetch(
+      `https://youtube-media-downloader.p.rapidapi.com/v2/video/details?videoId=${videoId}`,
+      {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': 'youtube-media-downloader.p.rapidapi.com',
+        },
+        signal: AbortSignal.timeout(30000),
+      }
+    );
+
+    if (!response.ok) {
+      console.log('RapidAPI response not ok:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    // Find best mp4 video with audio (progressive streams)
+    // The API returns videos.items[] with { url, extension, quality, hasAudio }
+    const videos = data?.videos?.items || [];
+
+    // First try: progressive mp4 with audio (single file, no merging needed)
+    const progressive = videos
+      .filter((v: { url?: string; extension?: string; hasAudio?: boolean }) =>
+        v.url && v.extension === 'mp4' && v.hasAudio
+      )
+      .sort((a: { qualityNumber?: number }, b: { qualityNumber?: number }) =>
+        (b.qualityNumber || 0) - (a.qualityNumber || 0)
+      );
+
+    if (progressive.length > 0) {
+      // Pick best quality up to 1080p
+      const best = progressive.find((v: { qualityNumber?: number }) => (v.qualityNumber || 0) <= 1080) || progressive[0];
+      console.log('Found progressive mp4:', best.quality, best.qualityNumber);
+      return { downloadUrl: best.url };
+    }
+
+    // Second try: any mp4 video stream (may not have audio)
+    const anyMp4 = videos
+      .filter((v: { url?: string; extension?: string }) => v.url && v.extension === 'mp4')
+      .sort((a: { qualityNumber?: number }, b: { qualityNumber?: number }) =>
+        (b.qualityNumber || 0) - (a.qualityNumber || 0)
+      );
+
+    if (anyMp4.length > 0) {
+      const best = anyMp4.find((v: { qualityNumber?: number }) => (v.qualityNumber || 0) <= 1080) || anyMp4[0];
+      console.log('Found mp4 (may lack audio):', best.quality, best.qualityNumber);
+      return { downloadUrl: best.url };
+    }
+
+    console.log('No suitable download URL found in API response');
+    return null;
+  } catch (error) {
+    console.error('RapidAPI download error:', error);
+    return null;
+  }
+}
+
+/**
+ * Download video via yt-dlp CLI (works locally, may fail on servers due to bot detection).
+ * Returns a path to the downloaded temp file.
+ */
+async function downloadViaYtDlp(videoId: string): Promise<{ tempFile: string; error?: string } | null> {
+  try {
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const { tmpdir } = await import('os');
+    const { join } = await import('path');
+    const { readdir } = await import('fs/promises');
+
+    const execAsync = promisify(exec);
+
+    const tempBase = join(tmpdir(), `yt_video_${videoId}_${Date.now()}`);
+    const tempOutput = `${tempBase}.%(ext)s`;
+
+    const command = `yt-dlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" --merge-output-format mp4 --no-warnings -o "${tempOutput}" "https://www.youtube.com/watch?v=${videoId}" 2>&1`;
+
+    console.log('Running yt-dlp...');
+    let stdout: string;
+    try {
+      const result = await execAsync(command, { timeout: 600000 });
+      stdout = result.stdout;
+    } catch (execError: unknown) {
+      const e = execError as { stdout?: string; stderr?: string; message?: string };
+      const output = e.stdout || e.stderr || e.message || 'Unknown error';
+      console.error('yt-dlp failed:', output.substring(0, 500));
+      return { tempFile: '', error: output.substring(0, 300) };
+    }
+    console.log('yt-dlp output:', stdout.substring(0, 500));
+
+    // Find the output file
+    const tempDir = tmpdir();
+    const prefix = `yt_video_${videoId}_`;
+    const files = await readdir(tempDir);
+    const outputFile = files
+      .filter(f => f.startsWith(prefix) && (f.endsWith('.mp4') || f.endsWith('.mkv') || f.endsWith('.webm')))
+      .sort()
+      .pop();
+
+    if (!outputFile) {
+      return { tempFile: '', error: 'Output file not found after download' };
+    }
+
+    return { tempFile: join(tempDir, outputFile) };
+  } catch (error) {
+    console.error('yt-dlp error:', error);
+    return null;
+  }
+}
+
+/**
+ * Downloads a YouTube video and uploads to Supabase Storage.
+ * Tries RapidAPI first (works on servers), falls back to yt-dlp (works locally).
  */
 export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTubeVideoResult> {
   try {
@@ -230,7 +356,6 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
       return { success: false, error: 'Invalid YouTube URL' };
     }
 
-    // Authenticate user
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -239,61 +364,51 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
 
     console.log('Downloading YouTube video:', videoId);
 
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const { readFile, unlink, stat } = await import('fs/promises');
-    const { tmpdir } = await import('os');
-    const { join } = await import('path');
+    let videoBuffer: Buffer | null = null;
 
-    const execAsync = promisify(exec);
-    const { readdir } = await import('fs/promises');
-
-    // Use a base name WITHOUT extension — yt-dlp will add the correct extension
-    const tempBase = join(tmpdir(), `yt_video_${videoId}_${Date.now()}`);
-    const tempOutput = `${tempBase}.%(ext)s`;
-
-    // Download video with yt-dlp — best quality up to 1080p, merged to mp4
-    // Use flexible format: prefer mp4+m4a, fall back to best available
-    const command = `yt-dlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" --merge-output-format mp4 --no-warnings -o "${tempOutput}" "https://www.youtube.com/watch?v=${videoId}" 2>&1`;
-
-    console.log('Running yt-dlp with output template:', tempOutput);
-    let stdout: string;
-    try {
-      const result = await execAsync(command, { timeout: 600000 }); // 10 min timeout
-      stdout = result.stdout;
-    } catch (execError: unknown) {
-      // exec throws on non-zero exit — capture stdout/stderr for diagnostics
-      const e = execError as { stdout?: string; stderr?: string; message?: string };
-      const output = e.stdout || e.stderr || e.message || 'Unknown error';
-      console.error('yt-dlp failed:', output.substring(0, 1000));
-      return { success: false, error: `yt-dlp error: ${output.substring(0, 300)}` };
-    }
-    console.log('yt-dlp output:', stdout.substring(0, 500));
-
-    // Find the actual output file — yt-dlp may have created .mp4 or .mkv etc.
-    const tempDir = tmpdir();
-    const prefix = `yt_video_${videoId}_`;
-    const files = await readdir(tempDir);
-    const outputFile = files
-      .filter(f => f.startsWith(prefix) && (f.endsWith('.mp4') || f.endsWith('.mkv') || f.endsWith('.webm')))
-      .sort()
-      .pop(); // most recent
-
-    if (!outputFile) {
-      console.error('No output file found. yt-dlp stdout:', stdout);
-      return { success: false, error: 'Video download completed but output file not found. Check yt-dlp output.' };
+    // Method 1: Try RapidAPI (works on servers, no bot detection issues)
+    const apiResult = await downloadViaRapidAPI(videoId);
+    if (apiResult?.downloadUrl) {
+      console.log('Downloading video from API URL...');
+      try {
+        const response = await fetch(apiResult.downloadUrl, {
+          signal: AbortSignal.timeout(300000), // 5 min timeout
+        });
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          videoBuffer = Buffer.from(arrayBuffer);
+          const sizeMB = Math.round(videoBuffer.length / 1024 / 1024);
+          console.log(`Video fetched via API: ${sizeMB}MB`);
+        } else {
+          console.log('API download URL returned:', response.status);
+        }
+      } catch (fetchErr) {
+        console.error('Failed to fetch video from API URL:', fetchErr);
+      }
     }
 
-    const tempFile = join(tempDir, outputFile);
-    console.log('Found output file:', tempFile);
+    // Method 2: Fall back to yt-dlp (works locally)
+    if (!videoBuffer) {
+      console.log('Falling back to yt-dlp...');
+      const ytResult = await downloadViaYtDlp(videoId);
 
-    // Check file exists and get size
-    const fileStats = await stat(tempFile);
-    const fileSizeMB = Math.round(fileStats.size / 1024 / 1024);
-    console.log(`Video downloaded: ${fileSizeMB}MB`);
+      if (ytResult?.tempFile && !ytResult.error) {
+        const { readFile, unlink, stat } = await import('fs/promises');
+        const fileStats = await stat(ytResult.tempFile);
+        console.log(`Video downloaded via yt-dlp: ${Math.round(fileStats.size / 1024 / 1024)}MB`);
+        videoBuffer = await readFile(ytResult.tempFile);
+        await unlink(ytResult.tempFile).catch(() => {});
+      } else {
+        const ytError = ytResult?.error || 'yt-dlp not available';
+        return { success: false, error: `Video download failed. API: no download URL found. yt-dlp: ${ytError}` };
+      }
+    }
 
-    // Read file into buffer
-    const videoBuffer = await readFile(tempFile);
+    if (!videoBuffer || videoBuffer.length === 0) {
+      return { success: false, error: 'Downloaded video is empty' };
+    }
+
+    const fileSizeMB = Math.round(videoBuffer.length / 1024 / 1024);
 
     // Upload to Supabase Storage
     const fileName = `${user.id}/yt-${videoId}-${Date.now()}.mp4`;
@@ -306,15 +421,11 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
         upsert: false,
       });
 
-    // Clean up temp file
-    await unlink(tempFile).catch(() => {});
-
     if (uploadError) {
       console.error('Supabase upload error:', uploadError);
       return { success: false, error: `Upload failed: ${uploadError.message}` };
     }
 
-    // Get public URL
     const { data: urlData } = supabase.storage
       .from('content-multiplier-videos')
       .getPublicUrl(uploadData.path);
@@ -328,17 +439,10 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
     };
   } catch (error) {
     console.error('YouTube video download error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to download video';
-
-    // Provide helpful error messages
-    if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
-      return { success: false, error: 'yt-dlp is not available on this server.' };
-    }
-    if (errorMessage.includes('timeout')) {
-      return { success: false, error: 'Video download timed out. The video might be too long.' };
-    }
-
-    return { success: false, error: errorMessage };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to download video',
+    };
   }
 }
 
