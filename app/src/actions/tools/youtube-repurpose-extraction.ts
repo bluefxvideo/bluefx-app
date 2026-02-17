@@ -320,8 +320,8 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
     const errorMessage = error instanceof Error ? error.message : 'Failed to download video';
 
     // Provide helpful error messages
-    if (errorMessage.includes('yt-dlp')) {
-      return { success: false, error: 'yt-dlp is not installed. Install with: brew install yt-dlp' };
+    if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
+      return { success: false, error: 'yt-dlp is not available on this server.' };
     }
     if (errorMessage.includes('timeout')) {
       return { success: false, error: 'Video download timed out. The video might be too long.' };

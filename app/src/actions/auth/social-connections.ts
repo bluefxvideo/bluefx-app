@@ -25,7 +25,7 @@ export async function getSocialConnections(): Promise<{
 
     const { data: rows } = await supabase
       .from('social_platform_connections')
-      .select('platform, connected, username')
+      .select('platform, connection_status, username')
       .eq('user_id', user.id)
       .in('platform', ['linkedin']);
 
@@ -36,7 +36,7 @@ export async function getSocialConnections(): Promise<{
     for (const row of rows || []) {
       const p = row.platform as keyof SocialConnectionStatus;
       if (connections[p]) {
-        connections[p] = { connected: !!row.connected, username: row.username };
+        connections[p] = { connected: row.connection_status === 'active', username: row.username };
       }
     }
 

@@ -523,18 +523,22 @@ export const useYouTubeRepurposeStore = create<YouTubeRepurposeState>()(
 
           const wpProgress = postingProgress.find(p => p.platform === 'wordpress');
 
-          await supabase.from('youtube_repurpose_posts').insert({
-            youtube_url: youtubeUrl,
-            youtube_video_id: youtubeMetadata?.videoId || '',
-            video_storage_url: null, // Don't store URL — video is temporary
-            youtube_metadata: youtubeMetadata,
-            blog_post: blogPost,
-            social_content: socialContent,
-            wordpress_post_url: wpProgress?.url || null,
-            social_post_urls: socialPostUrls,
-            status: postingProgress.some(p => p.status === 'done') ? 'published' : 'failed',
-            published_at: new Date().toISOString(),
-          });
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('youtube_repurpose_posts').insert({
+              user_id: user.id,
+              youtube_url: youtubeUrl,
+              youtube_video_id: youtubeMetadata?.videoId || '',
+              video_storage_url: null, // Don't store URL — video is temporary
+              youtube_metadata: youtubeMetadata,
+              blog_post: blogPost,
+              social_content: socialContent,
+              wordpress_post_url: wpProgress?.url || null,
+              social_post_urls: socialPostUrls,
+              status: postingProgress.some(p => p.status === 'done') ? 'published' : 'failed',
+              published_at: new Date().toISOString(),
+            });
+          }
         } catch (error) {
           console.error('Failed to save repurpose record:', error);
         }
