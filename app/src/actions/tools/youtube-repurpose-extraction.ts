@@ -374,6 +374,11 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
       console.log('Downloading video from API URL...');
       try {
         const response = await fetch(apiResult.downloadUrl, {
+          headers: {
+            'Referer': 'https://www.youtube.com/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          },
+          redirect: 'follow',
           signal: AbortSignal.timeout(300000), // 5 min timeout
         });
         if (response.ok) {
