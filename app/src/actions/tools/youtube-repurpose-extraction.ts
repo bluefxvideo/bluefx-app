@@ -371,26 +371,30 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
     let apiError = '';
     const apiResult = await downloadViaRapidAPI(videoId);
     if (apiResult.downloadUrl) {
-      console.log('Downloading video from API URL...');
+      console.log('Downloading video from API URL via curl...');
       try {
-        const response = await fetch(apiResult.downloadUrl, {
-          headers: {
-            'Referer': 'https://www.youtube.com/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          },
-          redirect: 'follow',
-          signal: AbortSignal.timeout(300000), // 5 min timeout
-        });
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          videoBuffer = Buffer.from(arrayBuffer);
-          const sizeMB = Math.round(videoBuffer.length / 1024 / 1024);
-          console.log(`Video fetched via API: ${sizeMB}MB`);
-        } else {
-          apiError = `Download URL returned ${response.status}`;
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const { readFile, unlink } = await import('fs/promises');
+        const { tmpdir } = await import('os');
+        const { join } = await import('path');
+        const execAsync = promisify(exec);
+
+        const tempFile = join(tmpdir(), `yt_api_${videoId}_${Date.now()}.mp4`);
+        await execAsync(
+          `curl -L -s -o "${tempFile}" -H "Referer: https://www.youtube.com/" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" "${apiResult.downloadUrl}"`,
+          { timeout: 300000 }
+        );
+        videoBuffer = await readFile(tempFile);
+        await unlink(tempFile).catch(() => {});
+        const sizeMB = Math.round(videoBuffer.length / 1024 / 1024);
+        console.log(`Video fetched via API + curl: ${sizeMB}MB`);
+        if (videoBuffer.length < 10000) {
+          apiError = `Download too small (${videoBuffer.length} bytes), likely an error page`;
+          videoBuffer = null;
         }
-      } catch (fetchErr) {
-        apiError = `Fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`;
+      } catch (curlErr) {
+        apiError = `curl failed: ${curlErr instanceof Error ? curlErr.message : String(curlErr)}`;
       }
     } else {
       apiError = apiResult.error;
