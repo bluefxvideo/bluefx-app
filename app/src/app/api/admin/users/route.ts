@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/app/supabase/server'
 import type { Tables } from '@/types/database'
 
+export const dynamic = 'force-dynamic' // Always fetch fresh data for admin dashboard
+
 interface UserWithStats extends Tables<'profiles'> {
   email?: string
   is_suspended?: boolean
