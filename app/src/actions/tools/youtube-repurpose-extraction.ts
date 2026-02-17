@@ -220,77 +220,71 @@ export async function extractYouTubeData(url: string): Promise<ExtractYouTubeDat
 // ============================================================================
 
 /**
- * Download video via RapidAPI YouTube Media Downloader.
- * Returns a direct download URL for the video.
+ * Get a direct video download URL via YouTube's innertube API (ANDROID client).
+ * This calls YouTube directly from our server, so the URLs are valid for our IP.
+ * No third-party API needed — no IP-locking issues.
  */
-async function downloadViaRapidAPI(videoId: string): Promise<{ downloadUrl?: string; error: string }> {
-  const apiKey = process.env.RAPIDAPI_KEY || process.env.APP_RAPIDAPI_KEY;
-  if (!apiKey) {
-    return { error: 'No RAPIDAPI_KEY env var set' };
-  }
-
+async function getVideoUrlViaInnertube(videoId: string): Promise<{ downloadUrl?: string; error: string }> {
   try {
-    const response = await fetch(
-      `https://youtube-media-downloader.p.rapidapi.com/v2/video/details?videoId=${videoId}`,
-      {
-        method: 'GET',
-        headers: {
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': 'youtube-media-downloader.p.rapidapi.com',
+    const response = await fetch('https://www.youtube.com/youtubei/v1/player', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'ANDROID',
+            clientVersion: '19.09.37',
+            androidSdkVersion: 30,
+            hl: 'en',
+            gl: 'US',
+          },
         },
-        signal: AbortSignal.timeout(30000),
-      }
-    );
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      return { error: `API ${response.status}: ${body.substring(0, 200)}` };
+      return { error: `Innertube ${response.status}` };
     }
 
     const data = await response.json();
-
-    // Find best mp4 video with audio (progressive streams)
-    const videos = data?.videos?.items || [];
-
-    if (videos.length === 0) {
-      return { error: `API returned no video items. Keys: ${Object.keys(data || {}).join(',')}` };
+    const status = data?.playabilityStatus?.status;
+    if (status !== 'OK') {
+      return { error: `Video not playable: ${status} - ${data?.playabilityStatus?.reason || 'unknown'}` };
     }
 
-    // First try: progressive mp4 with audio (single file, no merging needed)
-    const progressive = videos
-      .filter((v: { url?: string; extension?: string; hasAudio?: boolean }) =>
-        v.url && v.extension === 'mp4' && v.hasAudio
-      )
-      .sort((a: { height?: number }, b: { height?: number }) =>
-        (b.height || 0) - (a.height || 0)
-      );
+    // Progressive formats have both video+audio in one file
+    const formats = data?.streamingData?.formats || [];
+    // Find best mp4 progressive stream
+    const mp4 = formats
+      .filter((f: { url?: string; mimeType?: string }) => f.url && f.mimeType?.startsWith('video/mp4'))
+      .sort((a: { height?: number }, b: { height?: number }) => (b.height || 0) - (a.height || 0));
 
-    if (progressive.length > 0) {
-      const best = progressive.find((v: { height?: number }) => (v.height || 0) <= 1080) || progressive[0];
-      console.log('Found progressive mp4:', best.quality, best.height + 'p', best.sizeText);
+    if (mp4.length > 0) {
+      const best = mp4.find((f: { height?: number }) => (f.height || 0) <= 1080) || mp4[0];
+      console.log('Innertube: found', best.qualityLabel, best.mimeType?.substring(0, 20));
       return { downloadUrl: best.url, error: '' };
     }
 
-    // Second try: any mp4 video stream (may not have audio)
-    const anyMp4 = videos
-      .filter((v: { url?: string; extension?: string }) => v.url && v.extension === 'mp4')
-      .sort((a: { height?: number }, b: { height?: number }) =>
-        (b.height || 0) - (a.height || 0)
-      );
+    // Fall back to adaptive formats (video-only, but still usable)
+    const adaptive = data?.streamingData?.adaptiveFormats || [];
+    const adaptiveMp4 = adaptive
+      .filter((f: { url?: string; mimeType?: string }) => f.url && f.mimeType?.startsWith('video/mp4'))
+      .sort((a: { height?: number }, b: { height?: number }) => (b.height || 0) - (a.height || 0));
 
-    if (anyMp4.length > 0) {
-      const best = anyMp4.find((v: { height?: number }) => (v.height || 0) <= 1080) || anyMp4[0];
-      console.log('Found mp4 (may lack audio):', best.quality, best.height + 'p', best.sizeText);
+    if (adaptiveMp4.length > 0) {
+      const best = adaptiveMp4.find((f: { height?: number }) => (f.height || 0) <= 1080) || adaptiveMp4[0];
+      console.log('Innertube adaptive:', best.qualityLabel, best.mimeType?.substring(0, 20));
       return { downloadUrl: best.url, error: '' };
     }
 
-    // Log what we got for debugging
-    const formats = videos.map((v: { extension?: string; hasAudio?: boolean; quality?: string }) =>
-      `${v.extension}/${v.quality}/${v.hasAudio ? 'audio' : 'no-audio'}`
-    ).join(', ');
-    return { error: `No mp4 found. Formats: ${formats}` };
+    return { error: `No mp4 streams. Formats: ${formats.length}, Adaptive: ${adaptive.length}` };
   } catch (error) {
-    return { error: `Exception: ${error instanceof Error ? error.message : String(error)}` };
+    return { error: `Innertube error: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
@@ -367,42 +361,32 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
 
     let videoBuffer: Buffer | null = null;
 
-    // Method 1: Try RapidAPI (works on servers, no bot detection issues)
-    let apiError = '';
-    const apiResult = await downloadViaRapidAPI(videoId);
-    if (apiResult.downloadUrl) {
-      console.log('Downloading video from API URL via curl...');
+    // Method 1: YouTube innertube API (direct, no third-party, IP-correct)
+    let dlError = '';
+    const innertube = await getVideoUrlViaInnertube(videoId);
+    if (innertube.downloadUrl) {
+      console.log('Downloading video from innertube URL...');
       try {
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const { readFile, unlink } = await import('fs/promises');
-        const { tmpdir } = await import('os');
-        const { join } = await import('path');
-        const execAsync = promisify(exec);
-
-        const tempFile = join(tmpdir(), `yt_api_${videoId}_${Date.now()}.mp4`);
-        await execAsync(
-          `curl -L -s -o "${tempFile}" -H "Referer: https://www.youtube.com/" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" "${apiResult.downloadUrl}"`,
-          { timeout: 300000 }
-        );
-        videoBuffer = await readFile(tempFile);
-        await unlink(tempFile).catch(() => {});
-        const sizeMB = Math.round(videoBuffer.length / 1024 / 1024);
-        console.log(`Video fetched via API + curl: ${sizeMB}MB`);
-        if (videoBuffer.length < 10000) {
-          apiError = `Download too small (${videoBuffer.length} bytes), likely an error page`;
-          videoBuffer = null;
+        const response = await fetch(innertube.downloadUrl, {
+          signal: AbortSignal.timeout(300000), // 5 min
+        });
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          videoBuffer = Buffer.from(arrayBuffer);
+          console.log(`Video fetched via innertube: ${Math.round(videoBuffer.length / 1024 / 1024)}MB`);
+        } else {
+          dlError = `Innertube download returned ${response.status}`;
         }
-      } catch (curlErr) {
-        apiError = `curl failed: ${curlErr instanceof Error ? curlErr.message : String(curlErr)}`;
+      } catch (fetchErr) {
+        dlError = `Innertube fetch: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`;
       }
     } else {
-      apiError = apiResult.error;
+      dlError = innertube.error;
     }
 
     // Method 2: Fall back to yt-dlp (works locally)
     if (!videoBuffer) {
-      console.log('API failed:', apiError, '— falling back to yt-dlp...');
+      console.log('Innertube failed:', dlError, '— trying yt-dlp...');
       const ytResult = await downloadViaYtDlp(videoId);
 
       if (ytResult?.tempFile && !ytResult.error) {
@@ -413,7 +397,7 @@ export async function downloadYouTubeVideo(url: string): Promise<DownloadYouTube
         await unlink(ytResult.tempFile).catch(() => {});
       } else {
         const ytError = ytResult?.error || 'yt-dlp not available';
-        return { success: false, error: `Video download failed. API: ${apiError}. yt-dlp: ${ytError}` };
+        return { success: false, error: `Video download failed. Innertube: ${dlError}. yt-dlp: ${ytError}` };
       }
     }
 
