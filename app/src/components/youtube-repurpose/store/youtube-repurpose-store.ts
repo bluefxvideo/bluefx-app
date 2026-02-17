@@ -41,6 +41,7 @@ interface YouTubeRepurposeState {
   videoStorageUrl: string | null;
   videoFileSizeMB: number | null;
   isDownloadingVideo: boolean;
+  videoDownloadWarning: string | null;
 
   // Editable URLs (auto-populated from metadata, user can override)
   productUrl: string;
@@ -121,6 +122,7 @@ const initialState = {
   videoStorageUrl: null,
   videoFileSizeMB: null,
   isDownloadingVideo: false,
+  videoDownloadWarning: null,
   productUrl: '',
   wordpressConnected: false,
   wordpressSiteUrl: null,
@@ -209,8 +211,10 @@ export const useYouTubeRepurposeStore = create<YouTubeRepurposeState>()(
           const result = await downloadYouTubeVideo(youtubeUrl);
 
           if (!result.success) {
+            // Non-fatal: video download failed, but feature still works for WordPress
+            console.warn('Video download failed:', result.error);
             set({
-              error: result.error || 'Video download failed',
+              videoDownloadWarning: result.error || 'Video download unavailable',
               isDownloadingVideo: false,
               extractionStatus: '',
             });
@@ -483,22 +487,23 @@ export const useYouTubeRepurposeStore = create<YouTubeRepurposeState>()(
           }
         }
 
-        // 2. Post to social platforms (need video URL)
-        if (!videoStorageUrl) {
-          // Skip social posts if no video
-          for (const platform of selectedPlatforms.filter(p => p !== 'wordpress')) {
-            updateProgress(platform, 'error', 'No video available. Download the video first.');
-          }
-        } else {
+        // 2. Post to social platforms
+        {
           // Post to LinkedIn
           if (selectedPlatforms.includes('linkedin') && socialContent.linkedin) {
             updateProgress('linkedin', 'posting');
             try {
               const { postToLinkedIn } = await import('@/actions/tools/linkedin-posting');
               const hashtagsText = socialContent.linkedin.hashtags.map(h => `#${h}`).join(' ');
-              const text = `${socialContent.linkedin.caption}\n\n${hashtagsText}`.trim();
+              let text = `${socialContent.linkedin.caption}\n\n${hashtagsText}`.trim();
 
-              const result = await postToLinkedIn({ videoUrl: videoStorageUrl, text });
+              // If no video downloaded, append YouTube URL for link sharing
+              if (!videoStorageUrl) {
+                const { youtubeUrl } = get();
+                text = `${text}\n\n${youtubeUrl}`;
+              }
+
+              const result = await postToLinkedIn({ videoUrl: videoStorageUrl || '', text });
               if (result.success) {
                 updateProgress('linkedin', 'done', 'Posted', result.postUrl);
               } else {
@@ -574,15 +579,14 @@ export const useYouTubeRepurposeStore = create<YouTubeRepurposeState>()(
       },
 
       canPublish: () => {
-        const { selectedPlatforms, blogPost, socialContent, videoStorageUrl } = get();
+        const { selectedPlatforms, blogPost, socialContent } = get();
         if (selectedPlatforms.length === 0) return false;
 
         // WordPress needs blog post
         if (selectedPlatforms.includes('wordpress') && !blogPost) return false;
 
-        // Social platforms need video + captions
+        // Social platforms need captions (video is optional — posts as link share without it)
         const socialPlatforms = selectedPlatforms.filter(p => p !== 'wordpress') as SocialPlatform[];
-        if (socialPlatforms.length > 0 && !videoStorageUrl) return false;
         if (socialPlatforms.some(p => !socialContent[p])) return false;
 
         return true;

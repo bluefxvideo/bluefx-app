@@ -34,6 +34,7 @@ export function Step1Input() {
   const wordpressConnected = useYouTubeRepurposeStore((s) => s.wordpressConnected);
   const wordpressSiteUrl = useYouTubeRepurposeStore((s) => s.wordpressSiteUrl);
   const error = useYouTubeRepurposeStore((s) => s.error);
+  const videoDownloadWarning = useYouTubeRepurposeStore((s) => s.videoDownloadWarning);
 
   const productUrl = useYouTubeRepurposeStore((s) => s.productUrl);
 
@@ -54,10 +55,10 @@ export function Step1Input() {
 
   const handleExtractAndDownload = async () => {
     await extractYouTubeData();
-    // Auto-start video download after metadata extraction succeeds
+    // Try video download in background — non-fatal if it fails
     const state = useYouTubeRepurposeStore.getState();
     if (state.youtubeMetadata && !state.videoStorageUrl) {
-      await downloadVideo();
+      downloadVideo();
     }
   };
 
@@ -178,6 +179,10 @@ export function Step1Input() {
                   <span className="text-green-600">
                     Video ready ({videoFileSizeMB}MB)
                   </span>
+                ) : videoDownloadWarning ? (
+                  <span className="text-yellow-600 text-sm">
+                    Video unavailable — LinkedIn will post as link share
+                  </span>
                 ) : (
                   <span className="text-muted-foreground flex items-center gap-1.5">
                     <Button
@@ -188,7 +193,7 @@ export function Step1Input() {
                     >
                       Download video
                     </Button>
-                    <span className="text-xs">(needed for social posting)</span>
+                    <span className="text-xs">(optional — for native video posts)</span>
                   </span>
                 )}
               </div>

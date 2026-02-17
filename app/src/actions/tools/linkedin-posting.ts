@@ -178,7 +178,49 @@ export async function postToLinkedIn(params: LinkedInPostParams): Promise<Linked
       return { success: false, error: 'Could not get LinkedIn user ID' };
     }
 
-    // Download the video
+    // If no video URL, post as text-only (with YouTube link in the text)
+    if (!params.videoUrl) {
+      console.log('No video — posting as text to LinkedIn...');
+      const postResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+        body: JSON.stringify({
+          author: personUrn,
+          lifecycleState: 'PUBLISHED',
+          specificContent: {
+            'com.linkedin.ugc.ShareContent': {
+              shareCommentary: {
+                text: params.text.substring(0, 3000),
+              },
+              shareMediaCategory: 'NONE',
+            },
+          },
+          visibility: {
+            'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+          },
+        }),
+      });
+
+      if (!postResponse.ok) {
+        const errorText = await postResponse.text();
+        let detail = `LinkedIn API ${postResponse.status}`;
+        try { const errJson = JSON.parse(errorText); detail = errJson.message || errJson.error || detail; } catch {}
+        return { success: false, error: `Failed to create LinkedIn post: ${detail}` };
+      }
+
+      const postData = await postResponse.json();
+      return {
+        success: true,
+        postId: postData.id,
+        postUrl: postData.id ? `https://www.linkedin.com/feed/update/${postData.id}` : undefined,
+      };
+    }
+
+    // Download the video for native video post
     console.log('Downloading video for LinkedIn from:', params.videoUrl);
     const videoData = await downloadVideo(params.videoUrl);
     console.log('Video download result:', videoData ? `${(videoData.buffer.length / 1024 / 1024).toFixed(1)}MB, type: ${videoData.contentType}` : 'FAILED', videoData?.error || '');
@@ -244,7 +286,7 @@ export async function postToLinkedIn(params: LinkedInPostParams): Promise<Linked
     }
 
     // Step 3: Create the post with the video
-    console.log('Creating LinkedIn post...');
+    console.log('Creating LinkedIn post with video...');
     const postResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
@@ -258,7 +300,7 @@ export async function postToLinkedIn(params: LinkedInPostParams): Promise<Linked
         specificContent: {
           'com.linkedin.ugc.ShareContent': {
             shareCommentary: {
-              text: params.text.substring(0, 3000), // LinkedIn 3000 char limit
+              text: params.text.substring(0, 3000),
             },
             shareMediaCategory: 'VIDEO',
             media: [

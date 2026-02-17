@@ -57,7 +57,6 @@ export function Step3Publish() {
   const postingProgress = useYouTubeRepurposeStore((s) => s.postingProgress);
   const wordpressConnected = useYouTubeRepurposeStore((s) => s.wordpressConnected);
   const socialConnections = useYouTubeRepurposeStore((s) => s.socialConnections);
-  const videoStorageUrl = useYouTubeRepurposeStore((s) => s.videoStorageUrl);
   const error = useYouTubeRepurposeStore((s) => s.error);
 
   const togglePlatform = useYouTubeRepurposeStore((s) => s.togglePlatform);
@@ -161,7 +160,7 @@ export function Step3Publish() {
             const isNotConnected = isSocialPlatform
               ? !socialConnections[platform as keyof typeof socialConnections]?.connected
               : !wordpressConnected;
-            const isDisabled = isNotConnected || (isSocialPlatform && !videoStorageUrl);
+            const isDisabled = isNotConnected;
 
             return (
               <label
