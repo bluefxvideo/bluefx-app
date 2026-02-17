@@ -3,6 +3,8 @@ import { createAdminClient } from '@/app/supabase/server'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 
+export const maxDuration = 30 // Allow up to 30s for webhook processing (multiple API calls)
+
 // Credit allocation constants
 const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
 const FULL_CREDITS = 600;   // Full allocation for paid subscribers
@@ -491,13 +493,18 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   const periodDays = isYearlyPlan ? 365 : 30 // 1 year for yearly, 30 days for monthly
   const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
 
-  // Upsert subscription — atomic operation prevents duplicates from race conditions
+  // Delete any existing subscriptions then insert fresh — prevents duplicates from race conditions
   // when multiple webhooks arrive simultaneously (e.g., subscription.activated + order.completed)
   // Trial users get status: 'trial', paid users get status: 'active'
   // credits_per_month is always 600 for future renewals (not the initial allocation)
+  await supabase
+    .from('user_subscriptions')
+    .delete()
+    .eq('user_id', userId)
+
   const { error: subscriptionError } = await supabase
     .from('user_subscriptions')
-    .upsert({
+    .insert({
       user_id: userId,
       plan_type: planType,
       status: isTrial ? 'trial' : 'active',
@@ -507,35 +514,40 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
       max_concurrent_jobs: 5,
       fastspring_subscription_id: subscriptionId,
       updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' })
+    })
 
   if (subscriptionError) {
-    console.error('FastSpring subscription upsert error:', subscriptionError)
+    console.error('FastSpring subscription insert error:', subscriptionError)
     throw new Error(`Failed to create subscription: ${subscriptionError.message}`)
   }
-  console.log(`✅ Upserted FastSpring subscription for user ${customerEmail}`)
+  console.log(`✅ Created FastSpring subscription for user ${customerEmail}`)
 
-  // Upsert credits — atomic operation prevents duplicates from race conditions
+  // Delete any existing credits then insert fresh — prevents duplicates from race conditions
   // Credits period is always 30 days for monthly renewal, regardless of billing cycle
   // Yearly subscribers still get credits renewed monthly via auto-topup when period expires
   const creditsPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
+  await supabase
+    .from('user_credits')
+    .delete()
+    .eq('user_id', userId)
+
   const { error: creditsError } = await supabase
     .from('user_credits')
-    .upsert({
+    .insert({
       user_id: userId,
       total_credits: creditsAllocation,
       used_credits: 0,
       period_start: currentPeriodStart.toISOString(),
       period_end: creditsPeriodEnd.toISOString(),
       updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' })
+    })
 
   if (creditsError) {
-    console.error('FastSpring credits upsert error:', creditsError)
+    console.error('FastSpring credits insert error:', creditsError)
     throw new Error(`Failed to create credits: ${creditsError.message}`)
   }
-  console.log(`✅ Upserted ${creditsAllocation} credits for user ${customerEmail}`)
+  console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}`)
 
   console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
 }
