@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -45,6 +45,9 @@ export function ProTab({
   const [transcript, setTranscript] = useState<string | null>(null);
   const [videoTitle, setVideoTitle] = useState<string | null>(null);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
+
+  // Drag-and-drop state for reference images
+  const [refDragActive, setRefDragActive] = useState(false);
 
   // YouTube thumbnail grab state
   const [ytThumbnailUrl, setYtThumbnailUrl] = useState('');
@@ -106,12 +109,9 @@ export function ProTab({
     }));
   };
 
-  const handleReferenceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+  const uploadReferenceFiles = async (files: File[]) => {
     const remaining = 14 - referenceImages.length;
-    const filesToUpload = Array.from(files).slice(0, remaining);
+    const filesToUpload = files.slice(0, remaining);
 
     setIsUploadingRef(true);
     try {
@@ -134,6 +134,35 @@ export function ProTab({
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  const handleReferenceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await uploadReferenceFiles(Array.from(files));
+  };
+
+  const handleRefDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setRefDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setRefDragActive(false);
+    }
+  }, []);
+
+  const handleRefDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRefDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const imageFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (imageFiles.length > 0) {
+        uploadReferenceFiles(imageFiles);
+      }
+    }
+  }, [referenceImages.length]);
 
   const removeReferenceImage = (index: number) => {
     setReferenceImages(prev => prev.filter((_, i) => i !== index));
@@ -283,7 +312,13 @@ export function ProTab({
           title="Reference Images"
           description={`Upload images to guide the generation — up to 14 (${referenceImages.length}/14)`}
         >
-          <div className="space-y-3">
+          <div
+            className="space-y-3"
+            onDragEnter={handleRefDrag}
+            onDragOver={handleRefDrag}
+            onDragLeave={handleRefDrag}
+            onDrop={handleRefDrop}
+          >
             {/* Grab thumbnail from YouTube URL */}
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -308,7 +343,9 @@ export function ProTab({
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className={`flex flex-wrap gap-2 rounded-lg p-2 transition-colors ${
+              refDragActive ? 'bg-primary/10 ring-2 ring-primary/50' : ''
+            }`}>
               {referenceImages.map((url, i) => (
                 <div key={i} className="relative">
                   <img
