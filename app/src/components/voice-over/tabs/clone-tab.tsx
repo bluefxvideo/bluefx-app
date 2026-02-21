@@ -76,11 +76,16 @@ export function CloneTab({
 
   const validateAndSetFile = async (file: File) => {
     const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+    const validExtensions = ['.mp3', '.wav', '.m4a'];
     const maxSize = 20 * 1024 * 1024; // 20MB
     const minDuration = 10; // seconds
-    const maxDuration = 300; // 5 minutes
+    const maxDuration = 300; // 5 minutes (Minimax API hard limit)
 
-    if (!validTypes.includes(file.type)) {
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    const hasValidType = validTypes.includes(file.type);
+    const hasValidExtension = validExtensions.includes(fileExtension);
+
+    if (!hasValidType && !hasValidExtension) {
       toast.error('Invalid file type. Please upload MP3, WAV, or M4A.');
       return;
     }
@@ -98,7 +103,7 @@ export function CloneTab({
         return;
       }
       if (duration > maxDuration) {
-        toast.error(`Audio too long. Maximum 5 minutes allowed.`);
+        toast.error(`Audio too long (${Math.round(duration)}s). Maximum 5 minutes allowed.`);
         return;
       }
     } catch {
@@ -115,15 +120,21 @@ export function CloneTab({
     }
   };
 
-  // Helper to get audio duration
+  // Helper to get audio duration with timeout to prevent hanging
   const getAudioDuration = (file: File): Promise<number> => {
     return new Promise((resolve, reject) => {
       const audio = new Audio();
+      const timeout = setTimeout(() => {
+        URL.revokeObjectURL(audio.src);
+        reject(new Error('Timeout loading audio metadata'));
+      }, 5000);
       audio.onloadedmetadata = () => {
+        clearTimeout(timeout);
         resolve(audio.duration);
         URL.revokeObjectURL(audio.src);
       };
       audio.onerror = () => {
+        clearTimeout(timeout);
         reject(new Error('Could not load audio'));
         URL.revokeObjectURL(audio.src);
       };
