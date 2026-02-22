@@ -224,9 +224,20 @@ export function WinningAdsPage() {
             <p className="text-zinc-400 text-lg mb-2">
               No ads found{selectedNiche !== 'all' ? ` for ${selectedNiche}` : ''}.
             </p>
-            <p className="text-zinc-500 text-sm">
-              We update every few days — check back soon!
+            <p className="text-zinc-500 text-sm max-w-md">
+              Ads are scraped automatically every few days. Make sure the database
+              migration has been applied and check back after the next scheduled scrape.
             </p>
+            {selectedNiche !== 'all' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => setSelectedNiche('all')}
+              >
+                View all niches
+              </Button>
+            )}
           </div>
         ) : (
           <>
