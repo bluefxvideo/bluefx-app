@@ -32,6 +32,15 @@ CREATE INDEX IF NOT EXISTS idx_winning_ads_clone_score ON winning_ads(clone_scor
 CREATE INDEX IF NOT EXISTS idx_winning_ads_active ON winning_ads(is_active);
 CREATE INDEX IF NOT EXISTS idx_winning_ads_material_id ON winning_ads(tiktok_material_id);
 
+-- Enable RLS and allow all authenticated users to read winning ads (shared data)
+ALTER TABLE winning_ads ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view winning ads" ON winning_ads
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Service role full access on winning_ads" ON winning_ads
+  FOR ALL USING (auth.role() = 'service_role');
+
 -- Seed data: top-performing TikTok ads across all niches
 -- These are initial ads so the page isn't empty before the first cron run.
 -- The cron job will upsert fresh ads on its regular schedule.
