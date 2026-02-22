@@ -36,6 +36,7 @@ import {
   Home,
   ScanSearch,
   Share2,
+  Flame,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -192,6 +193,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
     id: "research",
     name: "Research",
     tools: [
+      {
+        name: "Winning Ads",
+        route: "/dashboard/winning-ads",
+        icon: Flame,
+        gradient: "bg-primary",
+        description: "Find top-performing TikTok ads to clone",
+      },
       {
         name: "Trending Keywords",
         route: "/dashboard/trending-keywords",

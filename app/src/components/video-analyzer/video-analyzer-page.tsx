@@ -44,15 +44,16 @@ type InputMode = 'file' | 'url';
 export function VideoAnalyzerPage() {
   const searchParams = useSearchParams();
   const projectIdFromUrl = searchParams.get('projectId');
+  const videoUrlFromParams = searchParams.get('videoUrl');
 
   // Project context
   const { projectId, loadProject, updateProject } = useProject();
 
-  const [inputMode, setInputMode] = useState<InputMode>('file');
+  const [inputMode, setInputMode] = useState<InputMode>(videoUrlFromParams ? 'url' : 'file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
-  const [videoUrl, setVideoUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState(videoUrlFromParams || '');
   const [analysisType, setAnalysisType] = useState<AnalysisType>('storyboard_recreation');
   const [customPrompt, setCustomPrompt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
