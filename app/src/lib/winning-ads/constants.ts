@@ -27,11 +27,11 @@ export const NICHE_MAP: Record<string, NicheConfig> = {
   },
   'finance-investing': {
     displayName: 'Finance & Investing',
-    industryKeys: ['13000000000'],
+    industryKeys: ['13116000000', '13102000000', '13117000000', '13111000000'],
   },
   'real-estate': {
     displayName: 'Real Estate',
-    industryKeys: ['24100000000'],
+    industryKeys: ['24100000000', '23130000000'],
   },
   'apps-software': {
     displayName: 'Apps & Software',
@@ -39,15 +39,15 @@ export const NICHE_MAP: Record<string, NicheConfig> = {
   },
   'education-courses': {
     displayName: 'Education & Courses',
-    industryKeys: ['10000000000'],
+    industryKeys: ['10104000000', '10105000000', '10106000000', '10102000000'],
   },
   'home-living': {
     displayName: 'Home & Living',
-    industryKeys: ['21000000000'],
+    industryKeys: ['21101000000', '21104000000', '18000000000'],
   },
   'fashion-apparel': {
     displayName: 'Fashion & Apparel',
-    industryKeys: ['22000000000'],
+    industryKeys: ['22110000000', '22108000000', '22109000000', '22111000000'],
   },
 };
 
