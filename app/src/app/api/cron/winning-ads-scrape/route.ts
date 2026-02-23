@@ -19,7 +19,8 @@ import { NICHE_MAP, calculateCloneScore } from '@/lib/winning-ads/constants';
  */
 
 const APIFY_ACTOR_ID = 'ELdgImFK68BFni8ni';
-const ADS_PER_NICHE = 20;
+const ADS_PER_PAGE = 20; // actor max per request
+const PAGES_PER_INDUSTRY_KEY = 3; // 3 pages × 20 = 60 ads per industry key
 
 interface AdMaterial {
   ad_title?: string;
@@ -100,57 +101,55 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       try {
         console.log(`Scraping niche: ${nicheConfig.displayName}`);
 
-        // Use the first industry key for the primary query
-        const primaryIndustryKey = nicheConfig.industryKeys[0];
-
-        const runInput = {
-          target: 'top_ads_dashboard',
-          cookies,
-          dashboard_keyword: '',
-          dashboard_region: ['US'],
-          dashboard_industry: [primaryIndustryKey],
-          dashboard_objective: [],
-          dashboard_period: '30',
-          dashboard_ad_language: ['en'],
-          dashboard_likes: [],
-          dashboard_sort_by: 'like',
-          dashboard_page: 1,
-          dashboard_limit: ADS_PER_NICHE,
-        };
-
-        const run = await client.actor(APIFY_ACTOR_ID).call(runInput, {
-          waitSecs: 120,
-        });
-
-        if (!run?.defaultDatasetId) {
-          nicheResults.push({
-            niche: nicheConfig.displayName,
-            ads: 0,
-            error: 'No dataset returned from Apify',
-          });
-          totalErrors++;
-          continue;
-        }
-
-        const { items } = await client.dataset(run.defaultDatasetId).listItems();
-
-        if (!items || items.length === 0) {
-          nicheResults.push({
-            niche: nicheConfig.displayName,
-            ads: 0,
-            error: 'No ads returned',
-          });
-          continue;
-        }
-
-        // The actor returns one item per API response: { code, data: { materials: [...] } }
-        // Flatten all materials across all response items
+        // Collect all materials across all industry keys and pages
         const allMaterials: AdMaterial[] = [];
-        for (const rawItem of items) {
-          const response = rawItem as unknown as ApifyAdResult;
-          if (response.code === 0 && response.data?.materials) {
-            allMaterials.push(...response.data.materials);
+
+        for (const industryKey of nicheConfig.industryKeys) {
+          for (let page = 1; page <= PAGES_PER_INDUSTRY_KEY; page++) {
+            const runInput = {
+              target: 'top_ads_dashboard',
+              cookies,
+              dashboard_keyword: '',
+              dashboard_region: ['US'],
+              dashboard_industry: [industryKey],
+              dashboard_objective: [],
+              dashboard_period: '30',
+              dashboard_ad_language: ['en'],
+              dashboard_likes: [],
+              dashboard_sort_by: 'like',
+              dashboard_page: page,
+              dashboard_limit: ADS_PER_PAGE,
+            };
+
+            const run = await client.actor(APIFY_ACTOR_ID).call(runInput, { waitSecs: 120 });
+
+            if (!run?.defaultDatasetId) {
+              totalErrors++;
+              break;
+            }
+
+            const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+            if (!items || items.length === 0) break;
+
+            let pageHadMaterials = false;
+            for (const rawItem of items) {
+              const response = rawItem as unknown as ApifyAdResult;
+              if (response.code === 0 && response.data?.materials?.length) {
+                allMaterials.push(...response.data.materials);
+                pageHadMaterials = true;
+              }
+            }
+
+            // Stop paginating this key if no materials returned (end of results)
+            if (!pageHadMaterials) break;
+
+            // Delay between pages to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
+
+          // Delay between industry keys
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
         if (allMaterials.length === 0) {
@@ -191,7 +190,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             ad_title: item.ad_title ?? null,
             brand_name: item.brand_name ?? null,
             niche: nicheConfig.displayName,
-            industry_key: item.industry_key ?? primaryIndustryKey,
+            industry_key: item.industry_key ?? nicheConfig.industryKeys[0],
             likes,
             comments,
             shares,
