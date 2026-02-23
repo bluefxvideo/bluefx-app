@@ -11,43 +11,43 @@ export interface NicheConfig {
 export const NICHE_MAP: Record<string, NicheConfig> = {
   'health-supplements': {
     displayName: 'Health & Supplements',
-    industryKeys: ['label_29102000000', 'label_29103000000'],
+    industryKeys: ['29102000000', '29103000000'],
   },
   'skincare-beauty': {
     displayName: 'Skincare & Beauty',
-    industryKeys: ['label_14103000000', 'label_14104000000', 'label_14000000000'],
+    industryKeys: ['14103000000', '14104000000', '14000000000'],
   },
   'food-recipe': {
     displayName: 'Food & Recipe',
-    industryKeys: ['label_27100000000', 'label_27104000000'],
+    industryKeys: ['27100000000', '27104000000'],
   },
   'ecommerce-products': {
     displayName: 'E-Commerce & Products',
-    industryKeys: ['label_30000000000', 'label_30102000000'],
+    industryKeys: ['30000000000', '30102000000'],
   },
   'finance-investing': {
     displayName: 'Finance & Investing',
-    industryKeys: ['label_13000000000'],
+    industryKeys: ['13000000000'],
   },
   'real-estate': {
     displayName: 'Real Estate',
-    industryKeys: ['label_24100000000'],
+    industryKeys: ['24100000000'],
   },
   'apps-software': {
     displayName: 'Apps & Software',
-    industryKeys: ['label_20000000000'],
+    industryKeys: ['20000000000'],
   },
   'education-courses': {
     displayName: 'Education & Courses',
-    industryKeys: ['label_10000000000'],
+    industryKeys: ['10000000000'],
   },
   'home-living': {
     displayName: 'Home & Living',
-    industryKeys: ['label_21000000000'],
+    industryKeys: ['21000000000'],
   },
   'fashion-apparel': {
     displayName: 'Fashion & Apparel',
-    industryKeys: ['label_22000000000'],
+    industryKeys: ['22000000000'],
   },
 };
 
