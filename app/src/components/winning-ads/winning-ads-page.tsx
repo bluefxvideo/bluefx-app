@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Flame,
@@ -10,16 +10,20 @@ import {
   Clock,
   ArrowUpDown,
   Filter,
-  Loader2,
   ExternalLink,
   Copy,
   Check,
   ChevronLeft,
   ChevronRight,
+  Play,
+  Search,
+  Bookmark,
+  BookmarkCheck,
 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -83,6 +87,13 @@ function getCtrPercentile(ctr: number): string | null {
   return null;
 }
 
+function isNewAd(dateScraped: string): boolean {
+  const scraped = new Date(dateScraped);
+  const fortyEightHoursAgo = new Date();
+  fortyEightHoursAgo.setHours(fortyEightHoursAgo.getHours() - 48);
+  return scraped > fortyEightHoursAgo;
+}
+
 export function WinningAdsPage() {
   const router = useRouter();
   const [ads, setAds] = useState<WinningAd[]>([]);
@@ -96,7 +107,23 @@ export function WinningAdsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNiche, setSelectedNiche] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('clone_score');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [savedAdIds, setSavedAdIds] = useState<Set<number>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchQuery]);
 
   const fetchAds = useCallback(async (page = 1) => {
     setIsLoading(true);
@@ -106,6 +133,7 @@ export function WinningAdsPage() {
       params.set('sort', sortBy);
       params.set('page', page.toString());
       params.set('limit', '20');
+      if (debouncedSearch) params.set('search', debouncedSearch);
 
       const response = await fetch(`/api/winning-ads?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch ads');
@@ -119,7 +147,7 @@ export function WinningAdsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedNiche, sortBy]);
+  }, [selectedNiche, sortBy, debouncedSearch]);
 
   const fetchNiches = useCallback(async () => {
     try {
@@ -132,18 +160,28 @@ export function WinningAdsPage() {
     }
   }, []);
 
+  const fetchSavedAdIds = useCallback(async () => {
+    try {
+      const response = await fetch('/api/winning-ads/saved');
+      if (!response.ok) return;
+      const data = await response.json();
+      setSavedAdIds(new Set(data.saved_ad_ids ?? []));
+    } catch (error) {
+      console.error('Failed to fetch saved ads:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchNiches();
-  }, [fetchNiches]);
+    fetchSavedAdIds();
+  }, [fetchNiches, fetchSavedAdIds]);
 
   useEffect(() => {
     fetchAds(1);
   }, [fetchAds]);
 
   const handleCloneAd = (ad: WinningAd) => {
-    // Build the TikTok Creative Center URL for this ad
     const adUrl = `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
-    // Navigate to Video Analyzer with the URL pre-filled
     router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
   };
 
@@ -155,10 +193,47 @@ export function WinningAdsPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleToggleSave = async (ad: WinningAd) => {
+    const isSaved = savedAdIds.has(ad.id);
+
+    // Optimistic update
+    setSavedAdIds((prev) => {
+      const next = new Set(prev);
+      if (isSaved) next.delete(ad.id);
+      else next.add(ad.id);
+      return next;
+    });
+
+    try {
+      const response = await fetch('/api/winning-ads/saved', {
+        method: isSaved ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          winning_ad_id: ad.id,
+          tiktok_material_id: ad.tiktok_material_id,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Request failed');
+      toast.success(isSaved ? 'Removed from saved' : 'Ad saved!');
+    } catch {
+      // Revert optimistic update on error
+      setSavedAdIds((prev) => {
+        const next = new Set(prev);
+        if (isSaved) next.add(ad.id);
+        else next.delete(ad.id);
+        return next;
+      });
+      toast.error('Failed to update saved ads');
+    }
+  };
+
   const handlePageChange = (newPage: number) => {
     fetchAds(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const displayedAds = showSavedOnly ? ads.filter((ad) => savedAdIds.has(ad.id)) : ads;
 
   return (
     <StandardToolPage
@@ -170,10 +245,22 @@ export function WinningAdsPage() {
       <div className="flex-1 p-4 lg:p-6 overflow-auto">
         {/* Filters Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="flex items-center gap-2 flex-1">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search ad titles..."
+              className="pl-8 bg-background border-border"
+            />
+          </div>
+
+          {/* Niche filter */}
+          <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-zinc-400 shrink-0" />
             <Select value={selectedNiche} onValueChange={setSelectedNiche}>
-              <SelectTrigger className="bg-background border-border w-full sm:w-[220px]">
+              <SelectTrigger className="bg-background border-border w-full sm:w-[200px]">
                 <SelectValue placeholder="All Niches" />
               </SelectTrigger>
               <SelectContent>
@@ -187,10 +274,11 @@ export function WinningAdsPage() {
             </Select>
           </div>
 
+          {/* Sort */}
           <div className="flex items-center gap-2">
             <ArrowUpDown className="w-4 h-4 text-zinc-400 shrink-0" />
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="bg-background border-border w-full sm:w-[180px]">
+              <SelectTrigger className="bg-background border-border w-full sm:w-[170px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -201,13 +289,25 @@ export function WinningAdsPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Saved toggle */}
+          <Button
+            variant={showSavedOnly ? 'default' : 'outline'}
+            size="sm"
+            className="gap-1.5 shrink-0 h-10"
+            onClick={() => setShowSavedOnly((v) => !v)}
+          >
+            <Bookmark className="w-4 h-4" />
+            Saved {savedAdIds.size > 0 && `(${savedAdIds.size})`}
+          </Button>
         </div>
 
         {/* Results count */}
         {!isLoading && (
           <p className="text-sm text-zinc-400 mb-4">
-            {pagination.total} ads found
-            {selectedNiche !== 'all' ? ` in ${selectedNiche}` : ''}
+            {showSavedOnly
+              ? `${displayedAds.length} saved ad${displayedAds.length !== 1 ? 's' : ''}`
+              : `${pagination.total} ads found${selectedNiche !== 'all' ? ` in ${selectedNiche}` : ''}${debouncedSearch ? ` matching "${debouncedSearch}"` : ''}`}
           </p>
         )}
 
@@ -218,17 +318,20 @@ export function WinningAdsPage() {
               <SkeletonCard key={i} />
             ))}
           </div>
-        ) : ads.length === 0 ? (
+        ) : displayedAds.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Flame className="w-12 h-12 text-zinc-600 mb-4" />
             <p className="text-zinc-400 text-lg mb-2">
-              No ads found{selectedNiche !== 'all' ? ` for ${selectedNiche}` : ''}.
+              {showSavedOnly
+                ? 'No saved ads yet.'
+                : `No ads found${selectedNiche !== 'all' ? ` for ${selectedNiche}` : ''}.`}
             </p>
             <p className="text-zinc-500 text-sm max-w-md">
-              Ads are scraped automatically every few days. Make sure the database
-              migration has been applied and check back after the next scheduled scrape.
+              {showSavedOnly
+                ? 'Bookmark ads by clicking the bookmark icon on any ad card.'
+                : 'Ads are scraped automatically every few days. Make sure the database migration has been applied and check back after the next scheduled scrape.'}
             </p>
-            {selectedNiche !== 'all' && (
+            {!showSavedOnly && selectedNiche !== 'all' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -238,23 +341,35 @@ export function WinningAdsPage() {
                 View all niches
               </Button>
             )}
+            {showSavedOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => setShowSavedOnly(false)}
+              >
+                Browse all ads
+              </Button>
+            )}
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {ads.map((ad) => (
+              {displayedAds.map((ad) => (
                 <AdCard
                   key={ad.id}
                   ad={ad}
                   onClone={() => handleCloneAd(ad)}
                   onCopyUrl={() => handleCopyUrl(ad)}
+                  onToggleSave={() => handleToggleSave(ad)}
                   isCopied={copiedId === ad.tiktok_material_id}
+                  isSaved={savedAdIds.has(ad.id)}
                 />
               ))}
             </div>
 
-            {/* Pagination */}
-            {pagination.total > pagination.limit && (
+            {/* Pagination — only when not in saved-only mode */}
+            {!showSavedOnly && pagination.total > pagination.limit && (
               <div className="flex items-center justify-center gap-4 mt-8">
                 <Button
                   variant="outline"
@@ -291,19 +406,32 @@ function AdCard({
   ad,
   onClone,
   onCopyUrl,
+  onToggleSave,
   isCopied,
+  isSaved,
 }: {
   ad: WinningAd;
   onClone: () => void;
   onCopyUrl: () => void;
+  onToggleSave: () => void;
   isCopied: boolean;
+  isSaved: boolean;
 }) {
   const ctrBadge = getCtrPercentile(ad.ctr);
+  const fresh = isNewAd(ad.date_scraped);
 
   return (
     <Card className="overflow-hidden border border-border/50 hover:border-border transition-colors flex flex-col">
       {/* Thumbnail */}
-      <div className="relative aspect-[9/16] bg-zinc-900 max-h-[320px]">
+      <div
+        className="relative aspect-[9/16] bg-zinc-900 max-h-[320px] cursor-pointer group"
+        onClick={() =>
+          window.open(
+            `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`,
+            '_blank'
+          )
+        }
+      >
         {ad.video_cover_url ? (
           <img
             src={ad.video_cover_url}
@@ -317,6 +445,13 @@ function AdCard({
           </div>
         )}
 
+        {/* Play button overlay */}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-all duration-200">
+          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+          </div>
+        </div>
+
         {/* Duration badge */}
         {ad.video_duration && (
           <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
@@ -325,7 +460,16 @@ function AdCard({
           </div>
         )}
 
-        {/* CTR badge */}
+        {/* "New" badge — top-left */}
+        {fresh && (
+          <div className="absolute top-2 left-2">
+            <Badge className="bg-amber-500/90 text-white text-[10px] border-0 px-1.5">
+              New
+            </Badge>
+          </div>
+        )}
+
+        {/* CTR badge — top-right */}
         {ctrBadge && (
           <div className="absolute top-2 right-2">
             <Badge
@@ -376,11 +520,7 @@ function AdCard({
 
         {/* Action buttons */}
         <div className="flex gap-2">
-          <Button
-            className="flex-1"
-            size="sm"
-            onClick={onClone}
-          >
+          <Button className="flex-1" size="sm" onClick={onClone}>
             <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
             Clone This Ad
           </Button>
@@ -394,6 +534,18 @@ function AdCard({
               <Check className="w-3.5 h-3.5" />
             ) : (
               <Copy className="w-3.5 h-3.5" />
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={`px-2.5 ${isSaved ? 'text-amber-400 border-amber-400/40' : ''}`}
+            onClick={onToggleSave}
+          >
+            {isSaved ? (
+              <BookmarkCheck className="w-3.5 h-3.5" />
+            ) : (
+              <Bookmark className="w-3.5 h-3.5" />
             )}
           </Button>
         </div>

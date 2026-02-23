@@ -9,6 +9,7 @@ import { createClient } from '@/app/supabase/server';
  * Query parameters:
  * - niche (string) - filter by niche display name
  * - sort (string) - "likes", "ctr", "clone_score", "newest". Default: "clone_score"
+ * - search (string) - filter by ad_title (ILIKE)
  * - country (string) - filter by country code
  * - page (number) - default 1
  * - limit (number) - default 20, max 50
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const searchParams = request.nextUrl.searchParams;
     const niche = searchParams.get('niche');
     const sort = searchParams.get('sort') || 'clone_score';
+    const search = searchParams.get('search');
     const country = searchParams.get('country');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')));
@@ -40,6 +42,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Apply niche filter
     if (niche) {
       query = query.eq('niche', niche);
+    }
+
+    // Apply keyword search
+    if (search) {
+      query = query.ilike('ad_title', `%${search}%`);
     }
 
     // Apply country filter

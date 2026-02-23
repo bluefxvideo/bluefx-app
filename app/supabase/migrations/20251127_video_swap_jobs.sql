@@ -58,23 +58,29 @@ CREATE INDEX IF NOT EXISTS idx_video_swap_jobs_external_job_id ON public.video_s
 ALTER TABLE public.video_swap_jobs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: Users can only access their own video swap jobs
-CREATE POLICY "Users can view own video swap jobs" ON public.video_swap_jobs
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own video swap jobs" ON public.video_swap_jobs FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can insert own video swap jobs" ON public.video_swap_jobs
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can insert own video swap jobs" ON public.video_swap_jobs FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can update own video swap jobs" ON public.video_swap_jobs
-  FOR UPDATE USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can update own video swap jobs" ON public.video_swap_jobs FOR UPDATE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can delete own video swap jobs" ON public.video_swap_jobs
-  FOR DELETE USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can delete own video swap jobs" ON public.video_swap_jobs FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Service role policy for webhooks (service role bypasses RLS by default, but explicit policy for clarity)
-CREATE POLICY "Service role full access on video_swap_jobs" ON public.video_swap_jobs
-  FOR ALL USING (auth.role() = 'service_role');
+DO $$ BEGIN
+  CREATE POLICY "Service role full access on video_swap_jobs" ON public.video_swap_jobs FOR ALL USING (auth.role() = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Trigger for auto-updating updated_at timestamp
+DROP TRIGGER IF EXISTS update_video_swap_jobs_updated_at ON public.video_swap_jobs;
 CREATE TRIGGER update_video_swap_jobs_updated_at
   BEFORE UPDATE ON public.video_swap_jobs
   FOR EACH ROW
