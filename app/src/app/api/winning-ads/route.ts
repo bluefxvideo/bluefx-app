@@ -7,7 +7,8 @@ import { createClient } from '@/app/supabase/server';
  * Returns paginated list of winning ads with optional filters.
  *
  * Query parameters:
- * - niche (string) - filter by niche display name
+ * - platform (string) - "tiktok" (default) or "facebook"
+ * - niche (string) - filter by niche display name (TikTok only)
  * - sort (string) - "likes", "ctr", "clone_score", "newest". Default: "clone_score"
  * - search (string) - filter by ad_title (ILIKE)
  * - country (string) - filter by country code
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const searchParams = request.nextUrl.searchParams;
+    const platform = searchParams.get('platform') || 'tiktok';
     const niche = searchParams.get('niche');
     const sort = searchParams.get('sort') || 'clone_score';
     const search = searchParams.get('search');
@@ -37,7 +39,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let query = supabase
       .from('winning_ads')
       .select('*', { count: 'exact' })
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('platform', platform);
 
     // Apply niche filter
     if (niche) {

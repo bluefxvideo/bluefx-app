@@ -187,6 +187,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
           const adRecord = {
             tiktok_material_id: item.id,
+            platform: 'tiktok',
             ad_title: item.ad_title ?? null,
             brand_name: item.brand_name ?? null,
             niche: nicheConfig.displayName,
@@ -214,7 +215,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           const { error: upsertError } = await supabase
             .from('winning_ads')
             .upsert(adRecord, {
-              onConflict: 'tiktok_material_id',
+              onConflict: 'platform,tiktok_material_id',
             });
 
           if (upsertError) {

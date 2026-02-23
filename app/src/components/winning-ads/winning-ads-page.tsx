@@ -19,8 +19,11 @@ import {
   Search,
   Bookmark,
   BookmarkCheck,
+  Facebook,
+  Globe,
 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
+import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,12 +37,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
+type Platform = 'tiktok' | 'facebook';
+
 interface WinningAd {
   id: number;
   tiktok_material_id: string;
   ad_title: string | null;
   brand_name: string | null;
   niche: string;
+  platform: Platform;
   likes: number;
   comments: number;
   shares: number;
@@ -66,6 +72,11 @@ interface PaginationInfo {
   total: number;
   has_more: boolean;
 }
+
+const WINNING_ADS_TABS = [
+  { id: 'tiktok',   label: 'TikTok Ads',   icon: Flame,    path: '/dashboard/winning-ads' },
+  { id: 'facebook', label: 'Facebook Ads', icon: Facebook, path: '/dashboard/winning-ads/facebook' },
+];
 
 function formatNumber(num: number): string {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -94,7 +105,11 @@ function isNewAd(dateScraped: string): boolean {
   return scraped > fortyEightHoursAgo;
 }
 
-export function WinningAdsPage() {
+function getDaysRunning(dateScraped: string): number {
+  return Math.floor((Date.now() - new Date(dateScraped).getTime()) / 86_400_000);
+}
+
+export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform }) {
   const router = useRouter();
   const [ads, setAds] = useState<WinningAd[]>([]);
   const [niches, setNiches] = useState<NicheInfo[]>([]);
@@ -114,6 +129,14 @@ export function WinningAdsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Reset niche filter when switching platforms (Facebook has no niches)
+  useEffect(() => {
+    setSelectedNiche('all');
+    setSortBy('clone_score');
+    setSearchQuery('');
+    setDebouncedSearch('');
+  }, [platform]);
+
   // Debounce search input
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -129,6 +152,7 @@ export function WinningAdsPage() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
+      params.set('platform', platform);
       if (selectedNiche !== 'all') params.set('niche', selectedNiche);
       params.set('sort', sortBy);
       params.set('page', page.toString());
@@ -147,9 +171,10 @@ export function WinningAdsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedNiche, sortBy, debouncedSearch]);
+  }, [platform, selectedNiche, sortBy, debouncedSearch]);
 
   const fetchNiches = useCallback(async () => {
+    if (platform === 'facebook') return; // no niche filter for Facebook
     try {
       const response = await fetch('/api/winning-ads/niches');
       if (!response.ok) throw new Error('Failed to fetch niches');
@@ -158,7 +183,7 @@ export function WinningAdsPage() {
     } catch (error) {
       console.error('Failed to fetch niches:', error);
     }
-  }, []);
+  }, [platform]);
 
   const fetchSavedAdIds = useCallback(async () => {
     try {
@@ -181,12 +206,22 @@ export function WinningAdsPage() {
   }, [fetchAds]);
 
   const handleCloneAd = (ad: WinningAd) => {
-    const adUrl = `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
-    router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
+    if (ad.platform === 'facebook') {
+      window.open(
+        `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`,
+        '_blank'
+      );
+    } else {
+      const adUrl = `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
+      router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
+    }
   };
 
   const handleCopyUrl = async (ad: WinningAd) => {
-    const adUrl = `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
+    const adUrl =
+      ad.platform === 'facebook'
+        ? `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`
+        : `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
     await navigator.clipboard.writeText(adUrl);
     setCopiedId(ad.tiktok_material_id);
     toast.success('URL copied to clipboard');
@@ -195,15 +230,12 @@ export function WinningAdsPage() {
 
   const handleToggleSave = async (ad: WinningAd) => {
     const isSaved = savedAdIds.has(ad.id);
-
-    // Optimistic update
     setSavedAdIds((prev) => {
       const next = new Set(prev);
       if (isSaved) next.delete(ad.id);
       else next.add(ad.id);
       return next;
     });
-
     try {
       const response = await fetch('/api/winning-ads/saved', {
         method: isSaved ? 'DELETE' : 'POST',
@@ -213,11 +245,9 @@ export function WinningAdsPage() {
           tiktok_material_id: ad.tiktok_material_id,
         }),
       });
-
       if (!response.ok) throw new Error('Request failed');
       toast.success(isSaved ? 'Removed from saved' : 'Ad saved!');
     } catch {
-      // Revert optimistic update on error
       setSavedAdIds((prev) => {
         const next = new Set(prev);
         if (isSaved) next.add(ad.id);
@@ -235,12 +265,25 @@ export function WinningAdsPage() {
 
   const displayedAds = showSavedOnly ? ads.filter((ad) => savedAdIds.has(ad.id)) : ads;
 
+  const isTikTok = platform === 'tiktok';
+
   return (
     <StandardToolPage
-      icon={Flame}
-      title="Winning Ads Right Now"
-      description="See what's performing on TikTok. Clone any ad in one click."
+      icon={isTikTok ? Flame : Facebook}
+      title={isTikTok ? 'Winning TikTok Ads' : 'Winning Facebook Ads'}
+      description={
+        isTikTok
+          ? "See what's performing on TikTok. Clone any ad in one click."
+          : 'Long-running active ads on Facebook & Instagram.'
+      }
       toolName="Winning Ads Finder"
+      tabs={
+        <StandardToolTabs
+          tabs={WINNING_ADS_TABS}
+          activeTab={platform}
+          basePath="/dashboard/winning-ads"
+        />
+      }
     >
       <div className="flex-1 p-4 lg:p-6 overflow-auto">
         {/* Filters Bar */}
@@ -256,23 +299,25 @@ export function WinningAdsPage() {
             />
           </div>
 
-          {/* Niche filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-zinc-400 shrink-0" />
-            <Select value={selectedNiche} onValueChange={setSelectedNiche}>
-              <SelectTrigger className="bg-background border-border w-full sm:w-[200px]">
-                <SelectValue placeholder="All Niches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Niches</SelectItem>
-                {niches.map((niche) => (
-                  <SelectItem key={niche.slug} value={niche.name}>
-                    {niche.name} ({niche.ad_count})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Niche filter — TikTok only */}
+          {isTikTok && (
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-zinc-400 shrink-0" />
+              <Select value={selectedNiche} onValueChange={setSelectedNiche}>
+                <SelectTrigger className="bg-background border-border w-full sm:w-[200px]">
+                  <SelectValue placeholder="All Niches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Niches</SelectItem>
+                  {niches.map((niche) => (
+                    <SelectItem key={niche.slug} value={niche.name}>
+                      {niche.name} ({niche.ad_count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Sort */}
           <div className="flex items-center gap-2">
@@ -282,9 +327,15 @@ export function WinningAdsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="clone_score">Best Clone Score</SelectItem>
-                <SelectItem value="likes">Most Liked</SelectItem>
-                <SelectItem value="ctr">Highest CTR</SelectItem>
+                <SelectItem value="clone_score">
+                  {isTikTok ? 'Best Clone Score' : 'Longest Running'}
+                </SelectItem>
+                {isTikTok && (
+                  <>
+                    <SelectItem value="likes">Most Liked</SelectItem>
+                    <SelectItem value="ctr">Highest CTR</SelectItem>
+                  </>
+                )}
                 <SelectItem value="newest">Newest</SelectItem>
               </SelectContent>
             </Select>
@@ -307,7 +358,7 @@ export function WinningAdsPage() {
           <p className="text-sm text-zinc-400 mb-4">
             {showSavedOnly
               ? `${displayedAds.length} saved ad${displayedAds.length !== 1 ? 's' : ''}`
-              : `${pagination.total} ads found${selectedNiche !== 'all' ? ` in ${selectedNiche}` : ''}${debouncedSearch ? ` matching "${debouncedSearch}"` : ''}`}
+              : `${pagination.total} ads found${isTikTok && selectedNiche !== 'all' ? ` in ${selectedNiche}` : ''}${debouncedSearch ? ` matching "${debouncedSearch}"` : ''}`}
           </p>
         )}
 
@@ -320,27 +371,21 @@ export function WinningAdsPage() {
           </div>
         ) : displayedAds.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Flame className="w-12 h-12 text-zinc-600 mb-4" />
+            {isTikTok ? (
+              <Flame className="w-12 h-12 text-zinc-600 mb-4" />
+            ) : (
+              <Facebook className="w-12 h-12 text-zinc-600 mb-4" />
+            )}
             <p className="text-zinc-400 text-lg mb-2">
               {showSavedOnly
                 ? 'No saved ads yet.'
-                : `No ads found${selectedNiche !== 'all' ? ` for ${selectedNiche}` : ''}.`}
+                : `No ${isTikTok ? 'TikTok' : 'Facebook'} ads found.`}
             </p>
             <p className="text-zinc-500 text-sm max-w-md">
               {showSavedOnly
                 ? 'Bookmark ads by clicking the bookmark icon on any ad card.'
-                : 'Ads are scraped automatically every few days. Make sure the database migration has been applied and check back after the next scheduled scrape.'}
+                : 'Ads are scraped automatically every few days. Check back after the next scheduled scrape.'}
             </p>
-            {!showSavedOnly && selectedNiche !== 'all' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => setSelectedNiche('all')}
-              >
-                View all niches
-              </Button>
-            )}
             {showSavedOnly && (
               <Button
                 variant="outline"
@@ -349,6 +394,16 @@ export function WinningAdsPage() {
                 onClick={() => setShowSavedOnly(false)}
               >
                 Browse all ads
+              </Button>
+            )}
+            {!showSavedOnly && isTikTok && selectedNiche !== 'all' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => setSelectedNiche('all')}
+              >
+                View all niches
               </Button>
             )}
           </div>
@@ -368,7 +423,7 @@ export function WinningAdsPage() {
               ))}
             </div>
 
-            {/* Pagination — only when not in saved-only mode */}
+            {/* Pagination */}
             {!showSavedOnly && pagination.total > pagination.limit && (
               <div className="flex items-center justify-center gap-4 mt-8">
                 <Button
@@ -417,31 +472,36 @@ function AdCard({
   isCopied: boolean;
   isSaved: boolean;
 }) {
-  const ctrBadge = getCtrPercentile(ad.ctr);
+  const isTikTok = ad.platform === 'tiktok';
+  const ctrBadge = isTikTok ? getCtrPercentile(ad.ctr) : null;
   const fresh = isNewAd(ad.date_scraped);
+  const daysRunning = getDaysRunning(ad.date_scraped);
+
+  const adUrl = isTikTok
+    ? `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`
+    : `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`;
 
   return (
     <Card className="overflow-hidden border border-border/50 hover:border-border transition-colors flex flex-col">
       {/* Thumbnail */}
       <div
         className="relative aspect-[9/16] bg-zinc-900 max-h-[320px] cursor-pointer group"
-        onClick={() =>
-          window.open(
-            `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`,
-            '_blank'
-          )
-        }
+        onClick={() => window.open(adUrl, '_blank')}
       >
         {ad.video_cover_url ? (
           <img
             src={ad.video_cover_url}
-            alt={ad.ad_title || 'TikTok Ad'}
+            alt={ad.ad_title || (isTikTok ? 'TikTok Ad' : 'Facebook Ad')}
             className="w-full h-full object-cover"
             loading="lazy"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Flame className="w-8 h-8 text-zinc-700" />
+            {isTikTok ? (
+              <Flame className="w-8 h-8 text-zinc-700" />
+            ) : (
+              <Facebook className="w-8 h-8 text-zinc-700" />
+            )}
           </div>
         )}
 
@@ -452,8 +512,8 @@ function AdCard({
           </div>
         </div>
 
-        {/* Duration badge */}
-        {ad.video_duration && (
+        {/* Duration badge (TikTok only) */}
+        {isTikTok && ad.video_duration && (
           <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {formatDuration(ad.video_duration)}
@@ -469,7 +529,7 @@ function AdCard({
           </div>
         )}
 
-        {/* CTR badge — top-right */}
+        {/* CTR badge — top-right (TikTok only) */}
         {ctrBadge && (
           <div className="absolute top-2 right-2">
             <Badge
@@ -484,45 +544,67 @@ function AdCard({
 
       {/* Card body */}
       <div className="p-3 flex flex-col flex-1">
-        {/* Title */}
+        {/* Title / ad copy */}
         {ad.ad_title && (
-          <p className="text-sm font-medium text-white truncate mb-2">
+          <p className="text-sm font-medium text-white line-clamp-2 mb-2">
             {ad.ad_title}
           </p>
         )}
 
-        {/* Engagement stats */}
-        <div className="flex items-center gap-3 text-xs text-zinc-400 mb-2">
-          <span className="flex items-center gap-1">
-            <Heart className="w-3 h-3 text-red-400" />
-            {formatNumber(ad.likes)}
-          </span>
-          <span className="flex items-center gap-1">
-            <MessageCircle className="w-3 h-3 text-blue-400" />
-            {formatNumber(ad.comments)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Share2 className="w-3 h-3 text-green-400" />
-            {formatNumber(ad.shares)}
-          </span>
-        </div>
+        {/* Stats row */}
+        {isTikTok ? (
+          <div className="flex items-center gap-3 text-xs text-zinc-400 mb-2">
+            <span className="flex items-center gap-1">
+              <Heart className="w-3 h-3 text-red-400" />
+              {formatNumber(ad.likes)}
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageCircle className="w-3 h-3 text-blue-400" />
+              {formatNumber(ad.comments)}
+            </span>
+            <span className="flex items-center gap-1">
+              <Share2 className="w-3 h-3 text-green-400" />
+              {formatNumber(ad.shares)}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 text-xs text-zinc-400 mb-2">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3 text-blue-400" />
+              {daysRunning}d running
+            </span>
+            <span className="flex items-center gap-1">
+              <Globe className="w-3 h-3 text-zinc-500" />
+              {ad.brand_name ?? 'Facebook'}
+            </span>
+          </div>
+        )}
 
-        {/* Niche tag */}
-        <Badge
-          variant="outline"
-          className="text-[10px] w-fit mb-3 text-zinc-400 border-zinc-700"
-        >
-          {ad.niche}
-        </Badge>
+        {/* Niche tag (TikTok) / platform badge (Facebook) */}
+        {isTikTok ? (
+          <Badge
+            variant="outline"
+            className="text-[10px] w-fit mb-3 text-zinc-400 border-zinc-700"
+          >
+            {ad.niche}
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="text-[10px] w-fit mb-3 text-blue-400 border-blue-900"
+          >
+            Facebook Ads
+          </Badge>
+        )}
 
-        {/* Spacer to push buttons to bottom */}
+        {/* Spacer */}
         <div className="flex-1" />
 
         {/* Action buttons */}
         <div className="flex gap-2">
           <Button className="flex-1" size="sm" onClick={onClone}>
             <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-            Clone This Ad
+            {isTikTok ? 'Clone This Ad' : 'View Ad'}
           </Button>
           <Button
             variant="outline"
