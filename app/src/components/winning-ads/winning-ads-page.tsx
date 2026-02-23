@@ -121,6 +121,7 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
   });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNiche, setSelectedNiche] = useState<string>('all');
+  const [mediaType, setMediaType] = useState<'all' | 'video' | 'image'>('all');
   const [sortBy, setSortBy] = useState<string>('clone_score');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedSearch, setDebouncedSearch] = useState<string>('');
@@ -129,9 +130,10 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset niche filter when switching platforms (Facebook has no niches)
+  // Reset filters when switching platforms
   useEffect(() => {
     setSelectedNiche('all');
+    setMediaType('all');
     setSortBy('clone_score');
     setSearchQuery('');
     setDebouncedSearch('');
@@ -154,6 +156,7 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
       const params = new URLSearchParams();
       params.set('platform', platform);
       if (selectedNiche !== 'all') params.set('niche', selectedNiche);
+      if (platform === 'facebook' && mediaType !== 'all') params.set('media_type', mediaType);
       params.set('sort', sortBy);
       params.set('page', page.toString());
       params.set('limit', '20');
@@ -171,12 +174,11 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
     } finally {
       setIsLoading(false);
     }
-  }, [platform, selectedNiche, sortBy, debouncedSearch]);
+  }, [platform, selectedNiche, mediaType, sortBy, debouncedSearch]);
 
   const fetchNiches = useCallback(async () => {
-    if (platform === 'facebook') return; // no niche filter for Facebook
     try {
-      const response = await fetch('/api/winning-ads/niches');
+      const response = await fetch(`/api/winning-ads/niches?platform=${platform}`);
       if (!response.ok) throw new Error('Failed to fetch niches');
       const data = await response.json();
       setNiches(data.niches);
@@ -299,25 +301,42 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
             />
           </div>
 
-          {/* Niche filter — TikTok only */}
-          {isTikTok && (
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-zinc-400 shrink-0" />
-              <Select value={selectedNiche} onValueChange={setSelectedNiche}>
-                <SelectTrigger className="bg-background border-border w-full sm:w-[200px]">
-                  <SelectValue placeholder="All Niches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Niches</SelectItem>
-                  {niches.map((niche) => (
-                    <SelectItem key={niche.slug} value={niche.name}>
-                      {niche.name} ({niche.ad_count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Media type filter — Facebook only */}
+          {!isTikTok && (
+            <div className="flex items-center gap-1 bg-zinc-900 border border-border rounded-md p-1">
+              {(['all', 'video', 'image'] as const).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setMediaType(type)}
+                  className={`px-3 py-1 text-xs rounded transition-colors capitalize ${
+                    mediaType === type
+                      ? 'bg-zinc-700 text-white'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {type === 'all' ? 'All' : type === 'video' ? 'Video' : 'Image'}
+                </button>
+              ))}
             </div>
           )}
+
+          {/* Niche / Category filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-zinc-400 shrink-0" />
+            <Select value={selectedNiche} onValueChange={setSelectedNiche}>
+              <SelectTrigger className="bg-background border-border w-full sm:w-[200px]">
+                <SelectValue placeholder={isTikTok ? 'All Niches' : 'All Categories'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isTikTok ? 'All Niches' : 'All Categories'}</SelectItem>
+                {niches.map((niche) => (
+                  <SelectItem key={niche.slug} value={niche.name}>
+                    {niche.name} ({niche.ad_count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Sort */}
           <div className="flex items-center gap-2">
@@ -484,9 +503,11 @@ function AdCard({
   return (
     <Card className="overflow-hidden border border-border/50 hover:border-border transition-colors flex flex-col">
       {/* Thumbnail */}
-      <div
-        className="relative aspect-[9/16] bg-zinc-900 max-h-[320px] cursor-pointer group"
-        onClick={() => window.open(adUrl, '_blank')}
+      <a
+        href={adUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative aspect-[9/16] bg-zinc-900 max-h-[320px] block group"
       >
         {ad.video_cover_url ? (
           <img
@@ -505,12 +526,14 @@ function AdCard({
           </div>
         )}
 
-        {/* Play button overlay */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-all duration-200">
-          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+        {/* Play button overlay — only for videos */}
+        {(isTikTok || ad.video_url) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-all duration-200">
+            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Duration badge (TikTok only) */}
         {isTikTok && ad.video_duration && (
@@ -540,7 +563,7 @@ function AdCard({
             </Badge>
           </div>
         )}
-      </div>
+      </a>
 
       {/* Card body */}
       <div className="p-3 flex flex-col flex-1">
@@ -602,10 +625,19 @@ function AdCard({
 
         {/* Action buttons */}
         <div className="flex gap-2">
-          <Button className="flex-1" size="sm" onClick={onClone}>
-            <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-            {isTikTok ? 'Clone This Ad' : 'View Ad'}
-          </Button>
+          {isTikTok ? (
+            <Button className="flex-1" size="sm" onClick={onClone}>
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              Clone This Ad
+            </Button>
+          ) : (
+            <Button className="flex-1" size="sm" asChild>
+              <a href={adUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Clone This Ad
+              </a>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

@@ -9,6 +9,7 @@ import { createClient } from '@/app/supabase/server';
  * Query parameters:
  * - platform (string) - "tiktok" (default) or "facebook"
  * - niche (string) - filter by niche display name (TikTok only)
+ * - media_type (string) - "video" or "image" (Facebook only). Omit for all.
  * - sort (string) - "likes", "ctr", "clone_score", "newest". Default: "clone_score"
  * - search (string) - filter by ad_title (ILIKE)
  * - country (string) - filter by country code
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const searchParams = request.nextUrl.searchParams;
     const platform = searchParams.get('platform') || 'tiktok';
     const niche = searchParams.get('niche');
+    const mediaType = searchParams.get('media_type'); // 'video' | 'image' | null
     const sort = searchParams.get('sort') || 'clone_score';
     const search = searchParams.get('search');
     const country = searchParams.get('country');
@@ -42,9 +44,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .eq('is_active', true)
       .eq('platform', platform);
 
-    // Apply niche filter
+    // For Facebook, only show ads that have a cover image; optionally filter by media type
+    if (platform === 'facebook') {
+      query = query.not('video_cover_url', 'is', null);
+      if (mediaType === 'video') {
+        query = query.not('video_url', 'is', null);
+      } else if (mediaType === 'image') {
+        query = query.is('video_url', null);
+      }
+    }
+
+    // Apply niche/category filter
     if (niche) {
-      query = query.eq('niche', niche);
+      if (platform === 'facebook') {
+        // Facebook uses industry_key (search term) as the category
+        query = query.eq('industry_key', niche);
+      } else {
+        query = query.eq('niche', niche);
+      }
     }
 
     // Apply keyword search
@@ -70,7 +87,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         break;
       case 'clone_score':
       default:
-        query = query.order('clone_score', { ascending: false });
+        // For Facebook "all" view, show video ads before image ads
+        if (platform === 'facebook' && !mediaType) {
+          query = query
+            .order('has_video', { ascending: false })
+            .order('clone_score', { ascending: false });
+        } else {
+          query = query.order('clone_score', { ascending: false });
+        }
         break;
     }
 
