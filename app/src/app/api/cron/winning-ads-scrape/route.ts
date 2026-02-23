@@ -19,9 +19,9 @@ import { NICHE_MAP, calculateCloneScore } from '@/lib/winning-ads/constants';
  */
 
 const APIFY_ACTOR_ID = 'ELdgImFK68BFni8ni';
-const ADS_PER_NICHE = 50;
+const ADS_PER_NICHE = 20;
 
-interface ApifyAdResult {
+interface AdMaterial {
   ad_title?: string;
   brand_name?: string;
   id: string;
@@ -47,6 +47,14 @@ interface ApifyAdResult {
     landing_page?: string;
     keyword_list?: string[];
     source?: string;
+  };
+}
+
+interface ApifyAdResult {
+  code: number;
+  msg: string;
+  data?: {
+    materials?: AdMaterial[];
   };
 }
 
@@ -88,7 +96,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const nicheResults: Array<{ niche: string; ads: number; error?: string }> = [];
 
     // Process each niche sequentially to avoid rate limits
-    for (const [nicheSlug, nicheConfig] of Object.entries(NICHE_MAP)) {
+    for (const [, nicheConfig] of Object.entries(NICHE_MAP)) {
       try {
         console.log(`Scraping niche: ${nicheConfig.displayName}`);
 
@@ -104,8 +112,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           dashboard_objective: [],
           dashboard_period: '30',
           dashboard_ad_language: ['en'],
-          dashboard_ad_format: '',
-          dashboard_likes: '',
+          dashboard_likes: [],
           dashboard_sort_by: 'like',
           dashboard_page: 1,
           dashboard_limit: ADS_PER_NICHE,
@@ -136,12 +143,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           continue;
         }
 
+        // The actor returns one item per API response: { code, data: { materials: [...] } }
+        // Flatten all materials across all response items
+        const allMaterials: AdMaterial[] = [];
+        for (const rawItem of items) {
+          const response = rawItem as unknown as ApifyAdResult;
+          if (response.code === 0 && response.data?.materials) {
+            allMaterials.push(...response.data.materials);
+          }
+        }
+
+        if (allMaterials.length === 0) {
+          nicheResults.push({
+            niche: nicheConfig.displayName,
+            ads: 0,
+            error: 'No materials in response',
+          });
+          continue;
+        }
+
         // Process and upsert ads
         const now = new Date().toISOString();
         let nicheAdCount = 0;
 
-        for (const rawItem of items) {
-          const item = rawItem as ApifyAdResult;
+        for (const item of allMaterials) {
           if (!item.id) continue;
 
           const likes = item.like ?? 0;
@@ -210,6 +235,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         console.log(
           `Scraped ${nicheAdCount} ads for ${nicheConfig.displayName}`
         );
+
+        // Delay between niches to avoid TikTok rate limits
+        await new Promise(resolve => setTimeout(resolve, 3000));
       } catch (nicheError) {
         const errorMsg =
           nicheError instanceof Error ? nicheError.message : 'Unknown error';
