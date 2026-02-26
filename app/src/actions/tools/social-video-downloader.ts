@@ -26,6 +26,100 @@ export interface SocialVideoDownloadResult {
 }
 
 /**
+ * Extract video from a Facebook Ads Library URL.
+ * 1. Tries scraping the page HTML (fast, free).
+ * 2. Falls back to apify/facebook-ads-scraper which accepts Ads Library URLs
+ *    and returns video_hd_url / video_sd_url inside a snapshot object.
+ */
+async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoDownloadResult> {
+  const adId = url.match(/[?&]id=(\d+)/)?.[1];
+  console.log(`🎯 Detected Facebook Ads Library URL, ad ID: ${adId}`);
+
+  // Step 1: try HTML extraction (fast, no cost — usually blocked by bot challenge)
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    const html = await response.text();
+
+    const hdMatch = html.match(/"video_hd_url":"([^"]+)"/);
+    const sdMatch = html.match(/"video_sd_url":"([^"]+)"/);
+    const ogVideoMatch = html.match(/<meta[^>]+property="og:video(?::url)?"[^>]+content="([^"]+)"/);
+    const playableMatch = html.match(/"playable_url":"([^"]+)"/);
+    const playableHdMatch = html.match(/"playable_url_quality_hd":"([^"]+)"/);
+
+    const rawUrl =
+      playableHdMatch?.[1] ||
+      hdMatch?.[1] ||
+      playableMatch?.[1] ||
+      sdMatch?.[1] ||
+      ogVideoMatch?.[1];
+
+    if (rawUrl) {
+      const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\/g, '');
+      console.log(`✅ Extracted Ads Library video URL via HTML: ${cleanUrl.slice(0, 100)}...`);
+      return { success: true, videoUrl: cleanUrl, title: `Facebook Ad ${adId || ''}`.trim(), platform: 'facebook' };
+    }
+  } catch (err) {
+    console.error('Ads Library HTML fetch error:', err);
+  }
+
+  // Step 2: use apify/facebook-ads-scraper — accepts Ads Library URLs and
+  // returns video_hd_url / video_sd_url inside snapshot.videos[]
+  console.log('⚠️ HTML extraction failed, trying apify/facebook-ads-scraper...');
+  try {
+    const run = await client.actor('apify/facebook-ads-scraper').call(
+      { startUrls: [{ url }], maxItems: 1 },
+      { timeout: 120 },
+    );
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+    if (items && items.length > 0) {
+      const ad = items[0] as Record<string, unknown>;
+      const snapshot = ad.snapshot as Record<string, unknown> | undefined;
+      const videos = snapshot?.videos as Array<Record<string, unknown>> | undefined;
+
+      // Videos are inside snapshot.cards[].videoHdUrl (camelCase), not snapshot.videos
+      const cards = snapshot?.cards as Array<Record<string, unknown>> | undefined;
+      const videoUrl =
+        (cards?.[0]?.videoHdUrl as string | undefined) ||
+        (cards?.[0]?.videoSdUrl as string | undefined) ||
+        (videos?.[0]?.video_hd_url as string | undefined) ||
+        (videos?.[0]?.video_sd_url as string | undefined) ||
+        (snapshot?.video_hd_url as string | undefined) ||
+        (snapshot?.video_sd_url as string | undefined);
+
+      if (videoUrl) {
+        console.log(`✅ Extracted Ads Library video URL via apify/facebook-ads-scraper: ${videoUrl.slice(0, 100)}...`);
+        return {
+          success: true,
+          videoUrl,
+          title: (snapshot?.pageName as string | undefined) ? `Facebook Ad – ${snapshot?.pageName}` : `Facebook Ad ${adId || ''}`.trim(),
+          thumbnail: (cards?.[0]?.videoPreviewImageUrl as string | undefined) || undefined,
+          platform: 'facebook',
+        };
+      }
+
+      console.error('apify/facebook-ads-scraper returned item but no video URL:', JSON.stringify(ad, null, 2));
+    }
+  } catch (err) {
+    console.error('apify/facebook-ads-scraper error:', err);
+  }
+
+  return {
+    success: false,
+    error:
+      'Could not extract the video from this Facebook Ads Library link. ' +
+      'Please download the video file and upload it directly.',
+  };
+}
+
+/**
  * Download a video from TikTok or Instagram using Apify
  * Returns the direct video URL that can be used for analysis
  */
@@ -84,6 +178,11 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       };
       console.log(`📎 Normalized Instagram URL: ${normalizedUrl}`);
     } else if (platform === 'facebook') {
+      // Handle Facebook Ads Library URLs — use dedicated extractor.
+      if (url.includes('/ads/library/')) {
+        return await extractFacebookAdsLibraryVideo(url);
+      }
+
       // Normalize Facebook URL for the Apify actor
       // Actor requires: www.facebook.com with /watch?v=, /reel/, or /photo paths
       let normalizedUrl = url;
