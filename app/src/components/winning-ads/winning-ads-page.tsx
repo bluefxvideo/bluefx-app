@@ -209,10 +209,8 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
 
   const handleCloneAd = (ad: WinningAd) => {
     if (ad.platform === 'facebook') {
-      window.open(
-        `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`,
-        '_blank'
-      );
+      const adUrl = `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`;
+      router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
     } else {
       const adUrl = `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
       router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
@@ -511,20 +509,32 @@ function AdCard({
       >
         {ad.video_cover_url ? (
           <img
-            src={ad.video_cover_url}
+            src={
+              isTikTok
+                ? `/api/proxy/image?url=${encodeURIComponent(ad.video_cover_url)}`
+                : ad.video_cover_url
+            }
             alt={ad.ad_title || (isTikTok ? 'TikTok Ad' : 'Facebook Ad')}
             className="w-full h-full object-cover"
             loading="lazy"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.style.display = 'none';
+              const fallback = target.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = 'flex';
+            }}
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            {isTikTok ? (
-              <Flame className="w-8 h-8 text-zinc-700" />
-            ) : (
-              <Facebook className="w-8 h-8 text-zinc-700" />
-            )}
-          </div>
-        )}
+        ) : null}
+        <div
+          className="w-full h-full items-center justify-center"
+          style={{ display: ad.video_cover_url ? 'none' : 'flex' }}
+        >
+          {isTikTok ? (
+            <Flame className="w-8 h-8 text-zinc-700" />
+          ) : (
+            <Facebook className="w-8 h-8 text-zinc-700" />
+          )}
+        </div>
 
         {/* Play button overlay — only for videos */}
         {(isTikTok || ad.video_url) && (

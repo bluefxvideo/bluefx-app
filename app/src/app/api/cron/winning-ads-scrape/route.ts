@@ -185,6 +185,40 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             date_scraped: now,
           });
 
+          // Download the TikTok CDN cover image and store it in Supabase Storage
+          // so thumbnails remain permanently accessible (CDN signed URLs expire/geo-restrict).
+          let coverUrl: string | null = item.video_info?.cover ?? null;
+          if (coverUrl) {
+            try {
+              const imgRes = await fetch(coverUrl, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  'Referer': 'https://ads.tiktok.com/',
+                  ...(cookies ? { Cookie: Array.isArray(JSON.parse(cookies))
+                    ? (JSON.parse(cookies) as Array<{name: string; value: string}>).map(c => `${c.name}=${c.value}`).join('; ')
+                    : cookies } : {}),
+                },
+              });
+              if (imgRes.ok) {
+                const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+                const ext = contentType.includes('png') ? 'png' : 'jpg';
+                const imgBuffer = await imgRes.arrayBuffer();
+                const storagePath = `winning-ads/tiktok/${item.id}.${ext}`;
+                const { error: uploadError } = await supabase.storage
+                  .from('images')
+                  .upload(storagePath, imgBuffer, { contentType, upsert: true });
+                if (!uploadError) {
+                  const { data: publicUrlData } = supabase.storage.from('images').getPublicUrl(storagePath);
+                  coverUrl = publicUrlData.publicUrl;
+                } else {
+                  console.warn(`Cover upload failed for ${item.id}:`, uploadError.message);
+                }
+              }
+            } catch (imgErr) {
+              console.warn(`Cover download failed for ${item.id}:`, imgErr);
+            }
+          }
+
           const adRecord = {
             tiktok_material_id: item.id,
             platform: 'tiktok',
@@ -199,7 +233,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             cost_level: item.cost ?? null,
             objective,
             video_duration: videoDuration,
-            video_cover_url: item.video_info?.cover ?? null,
+            video_cover_url: coverUrl,
             video_url: item.video_info?.video_url?.['720p'] ?? null,
             video_width: item.video_info?.width ?? null,
             video_height: item.video_info?.height ?? null,
