@@ -198,6 +198,27 @@ export function AICinematographerPage() {
         setCurrentBatchNumber(parseInt(storedBatchNumber));
         localStorage.removeItem(`${promptId}-batchNumber`);
       }
+      // Restore reference images serialized by "Send to Storyboard"
+      const storedImages = localStorage.getItem(`${promptId}-images`);
+      if (storedImages) {
+        localStorage.removeItem(`${promptId}-images`);
+        (async () => {
+          try {
+            const parsed: Array<{ dataUrl: string; name: string; type: string }> = JSON.parse(storedImages);
+            const images = await Promise.all(
+              parsed.map(async ({ dataUrl, name, type }) => {
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
+                const file = new File([blob], name, { type });
+                return { file, preview: URL.createObjectURL(blob) };
+              })
+            );
+            setBreakdownReferenceImages(images);
+          } catch (e) {
+            console.error('Failed to restore reference images:', e);
+          }
+        })();
+      }
     }
   }, [searchParams, setAnalyzerShots]);
 
@@ -400,6 +421,7 @@ export function AICinematographerPage() {
             onUpdateScene={handleUpdateScene}
             onUpdateGlobalAesthetic={handleUpdateGlobalAesthetic}
             onLoadBreakdown={handleLoadBreakdown}
+            referenceImages={breakdownReferenceImages}
           />
         </StandardToolLayout>
       ) : activeTab === 'storyboard' ? (

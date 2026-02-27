@@ -40,6 +40,7 @@ interface ScriptBreakdownOutputProps {
   onUpdateScene: (sceneNumber: number, updates: Partial<BreakdownScene>) => void;
   onUpdateGlobalAesthetic: (prompt: string) => void;
   onLoadBreakdown: (breakdown: SavedBreakdown) => void;
+  referenceImages?: { file: File; preview: string }[];
 }
 
 export function ScriptBreakdownOutput({
@@ -49,6 +50,7 @@ export function ScriptBreakdownOutput({
   onUpdateScene,
   onUpdateGlobalAesthetic,
   onLoadBreakdown,
+  referenceImages,
 }: ScriptBreakdownOutputProps) {
   const [expandedBatches, setExpandedBatches] = useState<Set<number>>(new Set([0])); // First batch expanded by default
 
@@ -153,7 +155,7 @@ export function ScriptBreakdownOutput({
     });
   };
 
-  const handleSendToStoryboard = (batch: BreakdownScene[], batchIndex: number) => {
+  const handleSendToStoryboard = async (batch: BreakdownScene[], batchIndex: number) => {
     if (!result) return;
 
     const promptId = `scene-breakdown-${Date.now()}`;
@@ -178,6 +180,23 @@ Maintain visual consistency across all frames.`;
 
     // Store batch number for tracking through the pipeline
     localStorage.setItem(`${promptId}-batchNumber`, String(batchIndex + 1));
+
+    // Serialize reference images so the new tab can pre-populate them
+    if (referenceImages && referenceImages.length > 0) {
+      try {
+        const serialized = await Promise.all(
+          referenceImages.map(img => new Promise<{ dataUrl: string; name: string; type: string }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ dataUrl: reader.result as string, name: img.file.name, type: img.file.type });
+            reader.onerror = reject;
+            reader.readAsDataURL(img.file);
+          }))
+        );
+        localStorage.setItem(`${promptId}-images`, JSON.stringify(serialized));
+      } catch (e) {
+        console.warn('Failed to serialize reference images for new tab:', e);
+      }
+    }
 
     // Open storyboard in a new tab
     window.open(`/dashboard/ai-cinematographer/storyboard?promptId=${promptId}`, '_blank');
