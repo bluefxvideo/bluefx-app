@@ -167,6 +167,7 @@ export function StoryboardOutputV2({
             ? estimateDurationFromDialogue(shotData.dialogue)
             : (shotSeconds > 7 ? 10 : 6);
 
+          const frameAspectRatio = storyboardResult?.frame_aspect_ratio || '16:9';
           return {
             frameNumber: frame.frameNumber,
             imageUrl: frame.upscaledUrl || frame.originalUrl,
@@ -175,8 +176,8 @@ export function StoryboardOutputV2({
             includeDialogue: false,
             duration: suggestedDuration,
             cameraStyle: 'none' as const,
-            aspectRatio: '16:9',
-            model: 'fast' as const,
+            aspectRatio: frameAspectRatio,
+            model: frameAspectRatio === '9:16' ? 'pro' as const : 'fast' as const,
             batchNumber,
             sceneNumber: shotData?.shotNumber,
           };
@@ -548,6 +549,7 @@ export function StoryboardOutputV2({
                       ? estimateDurationFromDialogue(shotData.dialogue)
                       : (shotSeconds > 7 ? 10 : 6);
 
+                    const frameAspectRatio = storyboardResult?.frame_aspect_ratio || '16:9';
                     return {
                       frameNumber: frame.frameNumber,
                       imageUrl: frame.upscaledUrl || frame.originalUrl,
@@ -556,8 +558,8 @@ export function StoryboardOutputV2({
                       includeDialogue: false,  // Off by default - user has separate voiceover
                       duration: suggestedDuration,
                       cameraStyle: 'none' as const,
-                      aspectRatio: '16:9',
-                      model: 'fast' as const,  // Default to Fast mode
+                      aspectRatio: frameAspectRatio,
+                      model: frameAspectRatio === '9:16' ? 'pro' as const : 'fast' as const,
                       batchNumber,
                       sceneNumber: shotData?.shotNumber,
                     };

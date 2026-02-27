@@ -1,9 +1,7 @@
-import { AICinematographerPage } from '@/components/ai-cinematographer/ai-cinematographer-page';
-
 /**
  * AI Cinematographer Starting Shot Route - /dashboard/ai-cinematographer/starting-shot
- * First frame image generation tab
+ * Content is rendered by the parent layout (ai-cinematographer/layout.tsx).
  */
 export default function AICinematographerStartingShotPage() {
-  return <AICinematographerPage />;
+  return null;
 }

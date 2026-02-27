@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -51,7 +50,6 @@ export function ScriptBreakdownOutput({
   onUpdateGlobalAesthetic,
   onLoadBreakdown,
 }: ScriptBreakdownOutputProps) {
-  const router = useRouter();
   const [expandedBatches, setExpandedBatches] = useState<Set<number>>(new Set([0])); // First batch expanded by default
 
   // Save/Load state
@@ -181,8 +179,8 @@ Maintain visual consistency across all frames.`;
     // Store batch number for tracking through the pipeline
     localStorage.setItem(`${promptId}-batchNumber`, String(batchIndex + 1));
 
-    // Navigate to storyboard tab
-    router.push(`/dashboard/ai-cinematographer/storyboard?promptId=${promptId}`);
+    // Open storyboard in a new tab
+    window.open(`/dashboard/ai-cinematographer/storyboard?promptId=${promptId}`, '_blank');
   };
 
   // Loading state

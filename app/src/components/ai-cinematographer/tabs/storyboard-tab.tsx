@@ -34,6 +34,8 @@ interface StoryboardTabProps {
   // Pre-fill values (e.g., from Video Analyzer "Send to Storyboard" button)
   initialPrompt?: string;
   initialStyle?: string;
+  // Pre-populated reference images from Script Breakdown tab (upload once, carry to all batches)
+  initialReferenceImages?: { file: File; preview: string }[];
 }
 
 const CREDIT_COST = 6; // 6 credits for Nano Banana Pro grid generation
@@ -47,12 +49,20 @@ export function StoryboardTab({
   isLoadingCredits,
   initialPrompt,
   initialStyle,
+  initialReferenceImages,
 }: StoryboardTabProps) {
   // Story description prompt (user can edit directly)
   const [storyPrompt, setStoryPrompt] = useState(initialPrompt || '');
 
   // Reference images for Nano Banana (the main image generation input)
   const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([]);
+
+  // Pre-populate reference images from Script Breakdown when they arrive (only if none added yet)
+  useEffect(() => {
+    if (initialReferenceImages && initialReferenceImages.length > 0 && referenceImages.length === 0) {
+      setReferenceImages(initialReferenceImages);
+    }
+  }, [initialReferenceImages]);
 
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

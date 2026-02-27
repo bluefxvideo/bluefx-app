@@ -1,9 +1,7 @@
-import { AICinematographerPage } from '@/components/ai-cinematographer/ai-cinematographer-page';
-
 /**
  * AI Cinematographer History Route - /dashboard/ai-cinematographer/history
- * Pre-selects the history tab
+ * Content is rendered by the parent layout (ai-cinematographer/layout.tsx).
  */
 export default function AICinematographerHistoryPage() {
-  return <AICinematographerPage />;
+  return null;
 }

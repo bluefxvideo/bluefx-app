@@ -41,6 +41,8 @@ export function AICinematographerPage() {
   const [isProcessingBreakdown, setIsProcessingBreakdown] = useState(false);
   const [breakdownResult, setBreakdownResult] = useState<SceneBreakdownResult | null>(null);
   const [breakdownScriptText, setBreakdownScriptText] = useState<string>('');
+  // Shared reference images — uploaded once in Script Breakdown, carried to all storyboard batches
+  const [breakdownReferenceImages, setBreakdownReferenceImages] = useState<{ file: File; preview: string }[]>([]);
 
   // Batch number from script breakdown (carried through pipeline)
   const [currentBatchNumber, setCurrentBatchNumber] = useState<number | undefined>();
@@ -384,7 +386,9 @@ export function AICinematographerPage() {
             <ScriptBreakdownTab
               onBreakdown={handleScriptBreakdown}
               isProcessing={isProcessingBreakdown}
-              initialScript={analysisTextForBreakdown}
+              initialScript={analysisTextForBreakdown || breakdownScriptText || undefined}
+              referenceImages={breakdownReferenceImages}
+              onReferenceImagesChange={setBreakdownReferenceImages}
             />
           </div>
 
@@ -410,6 +414,7 @@ export function AICinematographerPage() {
               isLoadingCredits={isLoadingCredits}
               initialPrompt={storyboardPromptFromUrl}
               initialStyle={storyboardStyleFromUrl ? decodeURIComponent(storyboardStyleFromUrl) : undefined}
+              initialReferenceImages={breakdownReferenceImages}
             />
           </div>
 
@@ -449,9 +454,6 @@ export function AICinematographerPage() {
                   }
                 }}
                 onUploadGrid={uploadGridImage}
-                onFramesExtracted={(frames) => {
-                  console.log('Frames extracted:', frames.length);
-                }}
                 onAddToQueue={addToAnimationQueue}
                 analyzerShots={analyzerShots}
                 batchNumber={currentBatchNumber}
@@ -498,6 +500,8 @@ export function AICinematographerPage() {
           />
         </StandardToolLayout>
       )}
+
+
     </StandardToolPage>
   );
 }
