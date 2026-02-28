@@ -641,11 +641,9 @@ function AdCard({
               Clone This Ad
             </Button>
           ) : (
-            <Button className="flex-1" size="sm" asChild>
-              <a href={adUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                Clone This Ad
-              </a>
+            <Button className="flex-1" size="sm" onClick={onClone}>
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              Clone This Ad
             </Button>
           )}
           <Button

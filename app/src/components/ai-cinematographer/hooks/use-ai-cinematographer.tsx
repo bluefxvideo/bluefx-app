@@ -136,14 +136,33 @@ export function useAICinematographer() {
     }
   }, [user?.id]);
 
+  // Convert unsupported image formats (AVIF, WebP, etc.) to JPEG for Supabase Storage
+  const convertToJpeg = async (file: File): Promise<File> => {
+    if (['image/jpeg', 'image/png'].includes(file.type)) return file;
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(bitmap, 0, 0);
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        resolve(new File([blob!], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.95);
+    });
+  };
+
   // Helper function to upload file via API route
   const uploadFileViaApi = async (
     file: File,
     type: 'reference' | 'last_frame',
     batchId: string
   ): Promise<{ success: boolean; url?: string; error?: string }> => {
+    // Convert unsupported formats to JPEG before upload
+    const uploadFile = await convertToJpeg(file);
+
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', uploadFile);
     formData.append('type', type);
     formData.append('batchId', batchId);
 
@@ -352,13 +371,10 @@ export function useAICinematographer() {
       const referenceImageUrls: string[] = [...(request.reference_image_urls || [])];
       if (request.reference_image_files && request.reference_image_files.length > 0) {
         const batch_id = crypto.randomUUID();
-        console.log(`📤 Uploading ${request.reference_image_files.length} storyboard reference image(s) via API...`);
         for (const file of request.reference_image_files) {
           const uploadResult = await uploadFileViaApi(file, 'reference', batch_id);
           if (uploadResult.success && uploadResult.url) {
             referenceImageUrls.push(uploadResult.url);
-          } else {
-            console.warn('⚠️ Failed to upload storyboard reference image:', uploadResult.error);
           }
         }
       }

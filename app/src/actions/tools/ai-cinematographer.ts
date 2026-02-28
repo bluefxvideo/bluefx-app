@@ -932,7 +932,7 @@ STYLE: ${visualStylePrompt}, consistent characters throughout all frames, seamle
 
     console.log(`📊 Generating storyboard (${gridAspectRatio} grid, ${frameAspectRatio} frames) with prompt length: ${storyboardPrompt.length}`);
 
-    // Step 4: Generate image using nano-banana-pro for higher quality storyboard grids
+    // Step 4: Generate image using nano-banana-2 for higher quality storyboard grids
     // Grid aspect ratio matches frame aspect ratio: 16:9 grid for landscape, 9:16 grid for vertical
     const hasReferenceImages = referenceImageUrls.length > 0;
     const imageResult = await generateImageWithPro(
