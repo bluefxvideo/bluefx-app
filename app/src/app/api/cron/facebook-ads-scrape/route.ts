@@ -21,6 +21,42 @@ import { FACEBOOK_SEARCH_TERMS } from '@/lib/winning-ads/facebook-constants';
 
 const ACTOR_ID = 'curious_coder/facebook-ads-library-scraper';
 const ADS_PER_TERM = 20;
+const STORAGE_BUCKET = 'images';
+const STORAGE_FOLDER = 'winning-ads';
+
+/**
+ * Download image from a (temporary) URL and persist it to Supabase storage.
+ * Returns the permanent public URL, or null on failure.
+ */
+async function persistImage(
+  supabase: ReturnType<typeof createAdminClient>,
+  sourceUrl: string,
+  adId: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(sourceUrl, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const ext = contentType.includes('png') ? 'png' : 'jpg';
+    const filePath = `${STORAGE_FOLDER}/fb_${adId}.${ext}`;
+    const buffer = Buffer.from(await res.arrayBuffer());
+
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(filePath, buffer, { contentType, upsert: true });
+
+    if (error) {
+      console.error(`Storage upload failed for ${adId}:`, error.message);
+      return null;
+    }
+
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+    return data.publicUrl;
+  } catch {
+    return null;
+  }
+}
 
 interface FbAdCard {
   body?: string;
@@ -130,7 +166,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             snap.title ??
             null;
 
-          const coverUrl =
+          const rawCoverUrl =
             cards.find((c) => c.video_preview_image_url)?.video_preview_image_url ??
             cards.find((c) => c.original_image_url)?.original_image_url ??
             null;
@@ -139,6 +175,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             cards.find((c) => c.video_hd_url)?.video_hd_url ??
             cards.find((c) => c.video_sd_url)?.video_sd_url ??
             null;
+
+          // Persist cover image to Supabase storage (FB CDN URLs expire)
+          const coverUrl = rawCoverUrl
+            ? (await persistImage(supabase, rawCoverUrl, item.ad_archive_id!)) ?? rawCoverUrl
+            : null;
 
           const landingPage = snap.link_url ?? cards[0]?.link_url ?? null;
 
