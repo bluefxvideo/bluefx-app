@@ -267,8 +267,27 @@ export function useAICinematographer() {
     setStartingShotResult(undefined);
 
     try {
+      // Upload reference image files client-side first, then pass URLs to server action
+      // (File objects don't serialize reliably across the server action boundary)
+      const referenceImageUrls: string[] = [...(request.reference_image_urls || [])];
+
+      if (request.reference_image_files && request.reference_image_files.length > 0) {
+        const batch_id = crypto.randomUUID();
+        console.log(`📤 Uploading ${request.reference_image_files.length} reference image(s) via API...`);
+        for (const file of request.reference_image_files) {
+          const uploadResult = await uploadFileViaApi(file, 'reference', batch_id);
+          if (uploadResult.success && uploadResult.url) {
+            referenceImageUrls.push(uploadResult.url);
+          } else {
+            console.error('Failed to upload reference image:', uploadResult.error);
+          }
+        }
+      }
+
       const response = await executeStartingShot({
         ...request,
+        reference_image_files: undefined, // Don't send File objects to server action
+        reference_image_urls: referenceImageUrls.length > 0 ? referenceImageUrls : undefined,
         user_id: user.id,
       });
 
@@ -329,8 +348,25 @@ export function useAICinematographer() {
     setExtractedFrames([]); // Clear any previous extracted frames
 
     try {
+      // Upload reference image files client-side first (File objects don't serialize across server action boundaries)
+      const referenceImageUrls: string[] = [...(request.reference_image_urls || [])];
+      if (request.reference_image_files && request.reference_image_files.length > 0) {
+        const batch_id = crypto.randomUUID();
+        console.log(`📤 Uploading ${request.reference_image_files.length} storyboard reference image(s) via API...`);
+        for (const file of request.reference_image_files) {
+          const uploadResult = await uploadFileViaApi(file, 'reference', batch_id);
+          if (uploadResult.success && uploadResult.url) {
+            referenceImageUrls.push(uploadResult.url);
+          } else {
+            console.warn('⚠️ Failed to upload storyboard reference image:', uploadResult.error);
+          }
+        }
+      }
+
       const response = await executeStoryboardGeneration({
         ...request,
+        reference_image_files: undefined, // Don't send File objects to server action
+        reference_image_urls: referenceImageUrls.length > 0 ? referenceImageUrls : undefined,
         user_id: user.id,
       });
 

@@ -826,12 +826,12 @@ async function executeProGenerationWorkflow(
 
     console.log('📝 Pro prompt:', enhancedPrompt.substring(0, 200) + '...');
 
-    // Step 3: Generate with fal.ai nano-banana-pro (synchronous — no polling needed)
-    const { generateWithFalNanaBananaPro } = await import('../models/fal-nano-banana-pro');
+    // Step 3: Generate with fal.ai nano-banana-2 (synchronous — no polling needed)
+    const { generateWithFalNanaBanana2 } = await import('../models/fal-nano-banana-2');
 
     await updatePredictionRecord(batch_id, { status: 'processing' });
 
-    const falResult = await generateWithFalNanaBananaPro({
+    const falResult = await generateWithFalNanaBanana2({
       prompt: enhancedPrompt,
       aspect_ratio: (request.aspect_ratio as any) || '16:9',
       resolution: '1K',

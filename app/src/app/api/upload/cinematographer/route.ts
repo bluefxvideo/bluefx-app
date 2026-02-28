@@ -40,7 +40,8 @@ export async function POST(request: NextRequest) {
     const bucket = 'images';
     const folder = 'cinematographer';
     const extension = file.name.split('.').pop() || 'jpg';
-    const filename = `${batchId}_${type}.${extension}`;
+    const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const filename = `${batchId}_${type}_${uniqueSuffix}.${extension}`;
     const filePath = `${folder}/${filename}`;
 
     console.log(`📤 Uploading ${type} image to ${bucket}/${filePath}`, {

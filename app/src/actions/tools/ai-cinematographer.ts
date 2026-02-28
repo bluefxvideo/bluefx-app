@@ -3,7 +3,7 @@
 import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { createSeedancePrediction, type SeedanceAspectRatio, type SeedanceDuration } from '@/actions/models/video-generation-seedance';
 import { generateImage } from '@/actions/models/fal-nano-banana';
-import { generateImageWithPro, generateImageWithProAsync } from '@/actions/models/fal-nano-banana-pro';
+import { generateImageWithPro, generateImageWithProAsync } from '@/actions/models/fal-nano-banana-2';
 import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
 import {
   getUserCredits,

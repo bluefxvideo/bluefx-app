@@ -89,13 +89,17 @@ export async function generateAvatarImage(
       output_format: 'png',
     };
 
-    // Add reference image for image-to-image
-    if (request.reference_image_url) {
-      body.image_url = request.reference_image_url;
+    // Add reference image for image-to-image (uses /edit endpoint with image_urls array)
+    const hasReferenceImage = !!request.reference_image_url;
+    if (hasReferenceImage) {
+      body.image_urls = [request.reference_image_url];
     }
 
-    // Call fal.ai Nano Banana Pro
-    const response = await fetch('https://fal.run/fal-ai/nano-banana-pro', {
+    // Use /edit endpoint when reference image provided, base endpoint otherwise
+    const endpoint = hasReferenceImage
+      ? 'https://fal.run/fal-ai/nano-banana-2/edit'
+      : 'https://fal.run/fal-ai/nano-banana-2';
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
