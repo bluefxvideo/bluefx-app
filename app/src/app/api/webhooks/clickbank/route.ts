@@ -216,14 +216,14 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
     // Check for existing subscription to decide upgrade vs new subscription
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
-      .select('id, plan_type')
+      .select('id, plan_type, status')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .in('status', ['active', 'trial'])
       .single()
 
     if (existingSubscription && (isLifetime || isYearly)) {
       const upgradeType = isLifetime ? 'lifetime' : 'yearly'
-      console.log(`Upgrading existing subscription to ${upgradeType} for user ${userId}`)
+      console.log(`Upgrading existing ${existingSubscription.status} subscription to ${upgradeType} for user ${userId}`)
 
       // Update existing subscription to new terms
       const currentPeriodStart = new Date()
@@ -233,6 +233,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       const { error: subscriptionUpdateError } = await supabase
         .from('user_subscriptions')
         .update({
+          status: 'active',  // Upgrade trial to active
           current_period_start: currentPeriodStart.toISOString(),
           current_period_end: currentPeriodEnd.toISOString(),
           credits_per_month: creditsAllocation,
@@ -251,6 +252,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
         .from('user_credits')
         .update({
           total_credits: creditsAllocation,
+          used_credits: 0,  // Reset usage for fresh start
           period_start: currentPeriodStart.toISOString(),
           period_end: currentPeriodEnd.toISOString(),
           updated_at: new Date().toISOString()

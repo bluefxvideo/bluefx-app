@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     switch (eventType) {
       case 'subscription.activated':
       case 'subscription.charge.completed':
-        await handleFastSpringSubscription(eventData)
+        await handleFastSpringSubscription(eventData, eventType)
         break
 
       case 'subscription.updated':
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleFastSpringSubscription(data: FastSpringEventData) {
+async function handleFastSpringSubscription(data: FastSpringEventData, eventType: string) {
   const supabase = createAdminClient()
   
   // Extract customer information from FastSpring format - handle both payload types
@@ -310,15 +310,19 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   }
 
   // Check for duplicate processing
+  // Use both subscription ID AND event type to avoid false duplicates —
+  // e.g. subscription.activated (trial) and subscription.charge.completed (yearly upgrade)
+  // share the same subscription ID but are distinct events that both need processing
+  const dedupKey = `${subscriptionId}_${eventType}`
   const { data: existingEvent } = await supabase
     .from('webhook_events')
     .select('id')
-    .eq('event_id', subscriptionId)
+    .eq('event_id', dedupKey)
     .eq('processor', 'fastspring')
     .single()
 
   if (existingEvent) {
-    console.log('Duplicate FastSpring event, skipping:', subscriptionId)
+    console.log('Duplicate FastSpring event, skipping:', dedupKey)
     return
   }
 
@@ -326,10 +330,10 @@ async function handleFastSpringSubscription(data: FastSpringEventData) {
   await supabase
     .from('webhook_events')
     .insert({
-      event_id: subscriptionId,
-      event_type: 'SUBSCRIPTION',
+      event_id: dedupKey,
+      event_type: eventType === 'subscription.charge.completed' ? 'SUBSCRIPTION_CHARGE' : 'SUBSCRIPTION',
       processor: 'fastspring',
-      payload: { data, customerEmail, subscriptionId } as unknown as Json
+      payload: { data, customerEmail, subscriptionId, eventType } as unknown as Json
     })
 
   // Determine plan type and credits based on product - handle both formats
