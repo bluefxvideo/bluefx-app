@@ -394,6 +394,13 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
       .in('status', ['active', 'trial'])
       .single()
 
+    if (existingSubscription && existingSubscription.status === 'active' && !isYearlyPlan) {
+      // Existing active subscriber getting a stale monthly event (e.g. trial charge.completed
+      // arriving after yearly upgrade) — do NOT downgrade them
+      console.log(`⚠️ Skipping stale monthly event for already-active user ${customerEmail} (sub: ${existingSubscription.fastspring_subscription_id})`)
+      return
+    }
+
     if (existingSubscription && isYearlyPlan) {
       console.log(`Upgrading existing ${existingSubscription.status} subscription to yearly for user ${userId}`)
 
