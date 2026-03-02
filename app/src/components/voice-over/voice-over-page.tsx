@@ -10,7 +10,8 @@ import { GeneratorTab } from './tabs/generator-tab';
 import { CloneTab } from './tabs/clone-tab';
 import { VoiceOverOutput } from './output-panel/voice-over-output';
 import { HistoryOutput } from './output-panel/history-output';
-import { Mic, History, Mic2 } from 'lucide-react';
+import { VoiceChangerTab } from './tabs/voice-changer-tab';
+import { Mic, History, Mic2, Repeat2 } from 'lucide-react';
 
 export function VoiceOverPage() {
   const voiceOverState = useVoiceOver();
@@ -50,6 +51,12 @@ export function VoiceOverPage() {
       path: '/dashboard/voice-over/clone'
     },
     {
+      id: 'voice-changer',
+      label: 'Voice Changer',
+      icon: Repeat2,
+      path: '/dashboard/voice-over/voice-changer'
+    },
+    {
       id: 'history',
       label: 'History',
       icon: History,
@@ -75,7 +82,16 @@ export function VoiceOverPage() {
       toolName="Voice Over Studio"
       tabs={tabsComponent}
     >
-      {activeTab === 'history' ? (
+      {activeTab === 'voice-changer' ? (
+        <div className={`h-full ${containerStyles.panel} p-4`}>
+          <VoiceChangerTab
+            onChangeVoice={voiceOverState.changeVoice}
+            credits={userCredits?.available_credits || 0}
+            isChanging={voiceOverState.state.isChangingVoice}
+            changedAudioUrl={voiceOverState.state.changedAudioUrl}
+          />
+        </div>
+      ) : activeTab === 'history' ? (
         <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput
             voiceOverState={{

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { executeVoiceOver, VoiceOverRequest, VoiceOption, GeneratedVoice } from '@/actions/tools/voice-over';
+import { executeVoiceOver, VoiceOverRequest, VoiceOption, GeneratedVoice, executeVoiceChanger } from '@/actions/tools/voice-over';
 import { getVoiceOverHistory, deleteGeneratedVoice } from '@/actions/database/voice-over-database';
 import { getUserClonedVoices, deleteClonedVoice, saveClonedVoice } from '@/actions/database/cloned-voices-database';
 import { cloneVoiceFromFile } from '@/actions/services/minimax-clone-service';
@@ -58,12 +58,17 @@ export interface VoiceOverState {
   // Cloned voices
   clonedVoices: ClonedVoice[];
   isCloning: boolean;
+
+  // Voice changer
+  isChangingVoice: boolean;
+  changedAudioUrl: string | null;
 }
 
 export function useVoiceOver() {
   const pathname = usePathname();
   
   const getActiveTabFromPath = useCallback(() => {
+    if (pathname.includes('/voice-changer')) return 'voice-changer';
     if (pathname.includes('/history')) return 'history';
     if (pathname.includes('/settings')) return 'settings';
     if (pathname.includes('/clone')) return 'clone';
@@ -99,6 +104,8 @@ export function useVoiceOver() {
     estimatedCredits: 2,
     clonedVoices: [],
     isCloning: false,
+    isChangingVoice: false,
+    changedAudioUrl: null,
   });
 
   // Update active tab when pathname changes
@@ -483,6 +490,66 @@ export function useVoiceOver() {
     toast.success('Cloned voice selected');
   }, []);
 
+  // Voice changer — convert voice using ChatterboxHD S2S
+  const changeVoice = useCallback(async (
+    sourceFile: File,
+    targetVoiceFile: File,
+    highQuality?: boolean
+  ) => {
+    if (!user) return;
+
+    setState(prev => ({ ...prev, isChangingVoice: true, changedAudioUrl: null, error: null }));
+
+    try {
+      // Convert source file to base64
+      const sourceBuffer = await sourceFile.arrayBuffer();
+      const sourceUint8 = new Uint8Array(sourceBuffer);
+      let sourceBinary = '';
+      for (let i = 0; i < sourceUint8.length; i++) {
+        sourceBinary += String.fromCharCode(sourceUint8[i]);
+      }
+      const sourceBase64 = btoa(sourceBinary);
+
+      // Convert target voice file to base64
+      const targetBuffer = await targetVoiceFile.arrayBuffer();
+      const targetUint8 = new Uint8Array(targetBuffer);
+      let targetBinary = '';
+      for (let i = 0; i < targetUint8.length; i++) {
+        targetBinary += String.fromCharCode(targetUint8[i]);
+      }
+      const targetBase64 = btoa(targetBinary);
+
+      const response = await executeVoiceChanger({
+        source_audio_base64: sourceBase64,
+        source_filename: sourceFile.name,
+        target_mode: 'custom',
+        target_voice_base64: targetBase64,
+        target_voice_filename: targetVoiceFile.name,
+        high_quality_audio: highQuality || false,
+      });
+
+      if (response.success && response.audio_url) {
+        setState(prev => ({
+          ...prev,
+          isChangingVoice: false,
+          changedAudioUrl: response.audio_url!,
+        }));
+        toast.success('Voice converted successfully!');
+      } else {
+        throw new Error(response.error || 'Voice conversion failed');
+      }
+    } catch (error) {
+      console.error('Voice changer error:', error);
+      setState(prev => ({
+        ...prev,
+        isChangingVoice: false,
+        error: error instanceof Error ? error.message : 'Voice conversion failed',
+      }));
+      toast.error(error instanceof Error ? error.message : 'Voice conversion failed');
+      throw error;
+    }
+  }, [user]);
+
   return {
     activeTab,
     setActiveTab,
@@ -500,5 +567,7 @@ export function useVoiceOver() {
     deleteClonedVoice: handleDeleteClonedVoice,
     selectClonedVoice,
     loadClonedVoices,
+    // Voice changer
+    changeVoice,
   };
 }

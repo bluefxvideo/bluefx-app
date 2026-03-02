@@ -4,6 +4,7 @@ import { createClient } from '@/app/supabase/server';
 import { createPredictionRecord, updatePredictionRecord } from '@/actions/database/thumbnail-database';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { MINIMAX_VOICE_OPTIONS, type MinimaxEmotion } from '@/components/shared/voice-constants';
+import { convertVoiceWithChatterbox, type ChatterboxPresetVoice } from '@/actions/models/fal-chatterbox-s2s';
 
 // Request/Response types for Voice Over
 export interface VoiceOverRequest {
@@ -427,7 +428,7 @@ async function triggerVoiceOverWebhookCompletion(
 ): Promise<void> {
   try {
     const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/voice-over-ai`;
-    
+
     const payload = {
       prediction_id: predictionId,
       user_id: userId,
@@ -450,9 +451,171 @@ async function triggerVoiceOverWebhookCompletion(
     }
 
     console.log(`🎙️ Voice Over webhook completion triggered: ${predictionId}`);
-    
+
   } catch (error) {
     console.error('Voice Over webhook trigger failed:', error);
     // Don't throw - this is non-critical
+  }
+}
+
+// ─── Voice Changer (ChatterboxHD Speech-to-Speech) ─────────────────────────
+
+export interface VoiceChangerRequest {
+  source_audio_base64: string;
+  source_filename: string;
+  target_mode: 'preset' | 'custom';
+  target_voice?: ChatterboxPresetVoice;
+  target_voice_base64?: string;
+  target_voice_filename?: string;
+  high_quality_audio: boolean;
+}
+
+export interface VoiceChangerResponse {
+  success: boolean;
+  audio_url?: string;
+  batch_id: string;
+  generation_time_ms: number;
+  credits_used: number;
+  remaining_credits: number;
+  error?: string;
+}
+
+const VOICE_CHANGER_BASE_CREDITS = 3;
+const VOICE_CHANGER_HQ_CREDITS = 4;
+
+/**
+ * Voice Changer — converts voice in uploaded audio using ChatterboxHD S2S.
+ * Uploads source audio to Supabase Storage, calls fal.ai, persists result.
+ */
+export async function executeVoiceChanger(
+  request: VoiceChangerRequest
+): Promise<VoiceChangerResponse> {
+  const startTime = Date.now();
+
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required', batch_id: '', generation_time_ms: 0, credits_used: 0, remaining_credits: 0 };
+    }
+
+    const batch_id = `voice_changer_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    const creditCost = request.high_quality_audio ? VOICE_CHANGER_HQ_CREDITS : VOICE_CHANGER_BASE_CREDITS;
+
+    // Verify credits
+    const userCredits = await getUserCredits(supabase, user.id);
+    if (userCredits < creditCost) {
+      return { success: false, error: `Insufficient credits. Required: ${creditCost}, Available: ${userCredits}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+    }
+
+    // Upload source audio to Supabase Storage
+    const sourceBuffer = Buffer.from(request.source_audio_base64, 'base64');
+    const sourceExt = request.source_filename.split('.').pop()?.toLowerCase() || 'mp3';
+    const sourcePath = `${user.id}/voice-changer/${batch_id}_source.${sourceExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('script-videos')
+      .upload(sourcePath, sourceBuffer, { contentType: `audio/${sourceExt === 'mp3' ? 'mpeg' : sourceExt}` });
+
+    if (uploadError) {
+      return { success: false, error: `Failed to upload source audio: ${uploadError.message}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+    }
+
+    const { data: { publicUrl: sourceUrl } } = supabase.storage.from('script-videos').getPublicUrl(sourcePath);
+
+    // Upload custom target voice if provided
+    let targetVoiceUrl: string | undefined;
+    if (request.target_mode === 'custom' && request.target_voice_base64 && request.target_voice_filename) {
+      const targetBuffer = Buffer.from(request.target_voice_base64, 'base64');
+      const targetExt = request.target_voice_filename.split('.').pop()?.toLowerCase() || 'mp3';
+      const targetPath = `${user.id}/voice-changer/${batch_id}_target.${targetExt}`;
+
+      const { error: targetUploadError } = await supabase.storage
+        .from('script-videos')
+        .upload(targetPath, targetBuffer, { contentType: `audio/${targetExt === 'mp3' ? 'mpeg' : targetExt}` });
+
+      if (targetUploadError) {
+        return { success: false, error: `Failed to upload target voice: ${targetUploadError.message}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('script-videos').getPublicUrl(targetPath);
+      targetVoiceUrl = publicUrl;
+    }
+
+    // Call ChatterboxHD
+    console.log(`🔄 Voice Changer: starting conversion (batch: ${batch_id})`);
+    const result = await convertVoiceWithChatterbox({
+      source_audio_url: sourceUrl,
+      target_voice: request.target_mode === 'preset' ? request.target_voice : undefined,
+      target_voice_audio_url: request.target_mode === 'custom' ? targetVoiceUrl : undefined,
+      high_quality_audio: request.high_quality_audio,
+    });
+
+    if (!result.success || !result.audioUrl) {
+      return { success: false, error: result.error || 'Voice conversion failed', batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+    }
+
+    // Download result and persist to Supabase Storage
+    const resultResponse = await fetch(result.audioUrl);
+    if (!resultResponse.ok) {
+      return { success: false, error: 'Failed to download converted audio', batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+    }
+
+    const resultBuffer = Buffer.from(await resultResponse.arrayBuffer());
+    const resultPath = `${user.id}/voice-changer/${batch_id}_result.wav`;
+
+    const { error: resultUploadError } = await supabase.storage
+      .from('script-videos')
+      .upload(resultPath, resultBuffer, { contentType: 'audio/wav' });
+
+    if (resultUploadError) {
+      // Still return the fal.ai URL if persist fails — it's temporary but usable
+      console.warn('Failed to persist result audio:', resultUploadError.message);
+    }
+
+    const { data: { publicUrl: persistedUrl } } = supabase.storage.from('script-videos').getPublicUrl(resultPath);
+    const finalAudioUrl = resultUploadError ? result.audioUrl : persistedUrl;
+
+    // Deduct credits
+    await deductCredits(supabase, user.id, creditCost, batch_id, 'voice_changer');
+
+    // Save to generated_voices table
+    await supabase.from('generated_voices').insert({
+      id: batch_id,
+      user_id: user.id,
+      text_content: `Voice Changer: ${request.target_mode === 'preset' ? request.target_voice : 'Custom voice'}`,
+      voice_id: request.target_mode === 'preset' ? `chatterbox_${request.target_voice}` : 'chatterbox_custom',
+      voice_name: request.target_mode === 'preset' ? `ChatterboxHD ${request.target_voice}` : 'ChatterboxHD Custom',
+      voice_provider: 'chatterbox',
+      audio_format: 'wav',
+      audio_url: finalAudioUrl,
+      duration_seconds: 0,
+      file_size_bytes: resultBuffer.length,
+      voice_settings: { mode: request.target_mode, high_quality: request.high_quality_audio },
+      created_at: new Date().toISOString(),
+    });
+
+    console.log(`✅ Voice Changer: done (${Date.now() - startTime}ms, ${creditCost} credits)`);
+
+    return {
+      success: true,
+      audio_url: finalAudioUrl,
+      batch_id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: creditCost,
+      remaining_credits: userCredits - creditCost,
+    };
+
+  } catch (error) {
+    console.error('Voice Changer error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Voice conversion failed',
+      batch_id: `error_${Date.now()}`,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: 0,
+      remaining_credits: 0,
+    };
   }
 }
