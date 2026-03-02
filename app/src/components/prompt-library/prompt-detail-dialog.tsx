@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Video,
   Megaphone,
+  Clapperboard,
   GraduationCap,
   Share2,
   Mail,
@@ -35,6 +36,7 @@ interface PromptDetailDialogProps {
 const categoryIcons: Record<PromptCategory, React.ReactNode> = {
   video_scripts: <Video className="w-4 h-4" />,
   marketing: <Megaphone className="w-4 h-4" />,
+  ugc_ads: <Clapperboard className="w-4 h-4" />,
   educational: <GraduationCap className="w-4 h-4" />,
   social_media: <Share2 className="w-4 h-4" />,
   email: <Mail className="w-4 h-4" />,
@@ -44,6 +46,7 @@ const categoryIcons: Record<PromptCategory, React.ReactNode> = {
 const categoryLabels: Record<PromptCategory, string> = {
   video_scripts: 'Video Scripts',
   marketing: 'Marketing',
+  ugc_ads: 'UGC Ads',
   educational: 'Educational',
   social_media: 'Social Media',
   email: 'Email',

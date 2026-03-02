@@ -11,6 +11,7 @@ import {
   Trash2,
   Video,
   Megaphone,
+  Clapperboard,
   GraduationCap,
   Share2,
   Mail,
@@ -30,6 +31,7 @@ interface PromptCardProps {
 const categoryIcons: Record<PromptCategory, React.ReactNode> = {
   video_scripts: <Video className="w-3 h-3" />,
   marketing: <Megaphone className="w-3 h-3" />,
+  ugc_ads: <Clapperboard className="w-3 h-3" />,
   educational: <GraduationCap className="w-3 h-3" />,
   social_media: <Share2 className="w-3 h-3" />,
   email: <Mail className="w-3 h-3" />,
@@ -39,6 +41,7 @@ const categoryIcons: Record<PromptCategory, React.ReactNode> = {
 const categoryLabels: Record<PromptCategory, string> = {
   video_scripts: 'Video Scripts',
   marketing: 'Marketing',
+  ugc_ads: 'UGC Ads',
   educational: 'Educational',
   social_media: 'Social Media',
   email: 'Email',

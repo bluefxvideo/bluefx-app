@@ -18,11 +18,13 @@ export type PromptCategory =
   | 'educational'
   | 'social_media'
   | 'email'
+  | 'ugc_ads'
   | 'general';
 
 export const PROMPT_CATEGORIES: { id: PromptCategory; name: string; icon: string }[] = [
   { id: 'video_scripts', name: 'Video Scripts', icon: 'Video' },
   { id: 'marketing', name: 'Marketing', icon: 'Megaphone' },
+  { id: 'ugc_ads', name: 'UGC Ads', icon: 'Clapperboard' },
   { id: 'educational', name: 'Educational', icon: 'GraduationCap' },
   { id: 'social_media', name: 'Social Media', icon: 'Share2' },
   { id: 'email', name: 'Email', icon: 'Mail' },
