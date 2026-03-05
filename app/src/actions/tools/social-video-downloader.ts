@@ -120,6 +120,161 @@ async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoD
 }
 
 /**
+ * Download a Facebook reel using the standard facebook-media-downloader actor.
+ * This actor accepts /reel/ URLs natively.
+ */
+async function downloadReelVideo(reelUrl: string): Promise<SocialVideoDownloadResult> {
+  console.log(`🎬 Downloading reel via facebook-media-downloader: ${reelUrl}`);
+  try {
+    const run = await client.actor(ACTOR_IDS.facebook).call(
+      { urls: [reelUrl] },
+      { timeout: 120 },
+    );
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    if (items && items.length > 0) {
+      const result = items[0] as Record<string, unknown>;
+      const videoUrl = (result.hdVideoUrl || result.videoUrl || result.video_url || result.sdVideoUrl) as string | undefined;
+      if (videoUrl) {
+        console.log(`✅ Got reel video: ${videoUrl.slice(0, 100)}...`);
+        return { success: true, videoUrl, title: (result.title || result.description) as string | undefined, platform: 'facebook' };
+      }
+    }
+  } catch (err) {
+    console.error('Reel download error:', err);
+  }
+  return { success: false, error: 'Could not download the reel video.' };
+}
+
+/**
+ * Extract video from a Facebook /posts/ URL.
+ * 1. Tries HTML scraping for embedded video URLs (fast, free).
+ * 2. Falls back to apify/facebook-posts-scraper.
+ */
+async function extractFacebookPostVideo(url: string): Promise<SocialVideoDownloadResult> {
+  console.log(`📘 Facebook /posts/ URL detected, attempting video extraction...`);
+
+  // Step 1: try HTML extraction (fast, no cost)
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    const html = await response.text();
+    console.log(`📄 Fetched post page HTML (${html.length} bytes)`);
+
+    // Look for video URLs in various Facebook HTML embedding patterns
+    const playableHdMatch = html.match(/"playable_url_quality_hd":"([^"]+)"/);
+    const playableMatch = html.match(/"playable_url":"([^"]+)"/);
+    const hdMatch = html.match(/"video_hd_url":"([^"]+)"/);
+    const sdMatch = html.match(/"video_sd_url":"([^"]+)"/);
+    const ogVideoMatch = html.match(/<meta[^>]+property="og:video(?::url)?"[^>]+content="([^"]+)"/);
+    const browserNativeHdMatch = html.match(/"browser_native_hd_url":"([^"]+)"/);
+    const browserNativeSdMatch = html.match(/"browser_native_sd_url":"([^"]+)"/);
+
+    const rawUrl =
+      playableHdMatch?.[1] ||
+      browserNativeHdMatch?.[1] ||
+      hdMatch?.[1] ||
+      playableMatch?.[1] ||
+      browserNativeSdMatch?.[1] ||
+      sdMatch?.[1] ||
+      ogVideoMatch?.[1];
+
+    if (rawUrl) {
+      const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\/g, '');
+      console.log(`✅ Extracted Facebook post video URL via HTML: ${cleanUrl.slice(0, 100)}...`);
+      return { success: true, videoUrl: cleanUrl, platform: 'facebook' };
+    }
+
+    console.log('⚠️ No video URL found in post HTML, trying Apify fallback...');
+  } catch (err) {
+    console.error('Facebook post HTML fetch error:', err);
+  }
+
+  // Step 2: fall back to apify/facebook-posts-scraper
+  try {
+    const run = await client.actor('apify/facebook-posts-scraper').call(
+      {
+        startUrls: [{ url }],
+        resultsLimit: 1,
+      },
+      { timeout: 120 },
+    );
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+    if (items && items.length > 0) {
+      const post = items[0] as Record<string, unknown>;
+      console.log(`📋 facebook-posts-scraper returned keys: ${Object.keys(post).join(', ')}`);
+
+      // Try all known video URL fields (flat)
+      let videoUrl =
+        (post.videoUrl as string | undefined) ||
+        (post.video_url as string | undefined) ||
+        (post.videoHdUrl as string | undefined) ||
+        (post.videoSdUrl as string | undefined);
+
+      // Check media array — actor returns media[].videoDeliveryLegacyFields with video URLs
+      if (!videoUrl && Array.isArray(post.media)) {
+        const mediaArr = post.media as Array<Record<string, unknown>>;
+        for (const m of mediaArr) {
+          // Primary: videoDeliveryLegacyFields.browser_native_hd_url / browser_native_sd_url
+          const delivery = m.videoDeliveryLegacyFields as Record<string, unknown> | undefined;
+          if (delivery) {
+            videoUrl = (delivery.browser_native_hd_url || delivery.browser_native_sd_url) as string | undefined;
+            if (videoUrl) break;
+          }
+          // Fallback: direct fields
+          if (m.video_url) { videoUrl = m.video_url as string; break; }
+          if (m.video) { videoUrl = m.video as string; break; }
+          if (m.source) { videoUrl = m.source as string; break; }
+        }
+      }
+
+      // If still no video URL but the post links to a reel, use that URL with the regular Facebook downloader
+      if (!videoUrl && post.url && typeof post.url === 'string' && post.url.includes('/reel/')) {
+        console.log(`📎 Post links to reel: ${post.url}, downloading via regular Facebook actor...`);
+        const reelResult = await downloadReelVideo(post.url as string);
+        if (reelResult.success && reelResult.videoUrl) {
+          return {
+            ...reelResult,
+            title: (post.text as string | undefined)?.slice(0, 100) || reelResult.title,
+          };
+        }
+      }
+
+      if (videoUrl) {
+        console.log(`✅ Got video via facebook-posts-scraper: ${videoUrl.slice(0, 100)}...`);
+        return {
+          success: true,
+          videoUrl,
+          title: (post.text || post.title || post.description) as string | undefined,
+          thumbnail: (post.thumbnailUrl || post.thumbnail) as string | undefined,
+          platform: 'facebook',
+        };
+      }
+
+      // Log full result for debugging if no video URL found
+      console.error('facebook-posts-scraper: no video URL found in result:', JSON.stringify(post, null, 2).slice(0, 2000));
+    } else {
+      console.error('facebook-posts-scraper: no items returned');
+    }
+  } catch (err) {
+    console.error('facebook-posts-scraper error:', err);
+  }
+
+  return {
+    success: false,
+    error:
+      'Could not extract the video from this Facebook post. ' +
+      'Please download the video file and upload it directly.',
+  };
+}
+
+/**
  * Download a video from TikTok or Instagram using Apify
  * Returns the direct video URL that can be used for analysis
  */
@@ -212,6 +367,12 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
         const videoId = videosMatch[1];
         normalizedUrl = `https://www.facebook.com/watch?v=${videoId}`;
         console.log(`🔄 Converted /videos/ URL to /watch?v= format: ${normalizedUrl}`);
+      }
+
+      // Handle /posts/ URLs — use dedicated extraction flow
+      // Post IDs are NOT video IDs, so we can't just convert to /watch?v=
+      if (normalizedUrl.includes('/posts/') && !videosMatch) {
+        return await extractFacebookPostVideo(url);
       }
 
       // Handle /share/v/ URLs - these need to be resolved to canonical format
