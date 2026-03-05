@@ -308,14 +308,15 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       updated_at: new Date().toISOString()
     })
 
-    // Send password setup email
-    await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/setup-password`
-      }
+    // Send password reset email via Supabase (uses Brevo SMTP)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/setup-password`
     })
+    if (resetError) {
+      console.error('Failed to send password reset email:', resetError)
+    } else {
+      console.log(`Password reset email sent to ${email}`)
+    }
   }
 
   // Create subscription (following admin pattern) - set correct period based on plan type
