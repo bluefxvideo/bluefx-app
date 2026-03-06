@@ -309,8 +309,9 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
     })
 
     // Send password reset email via Supabase (uses Brevo SMTP)
+    // redirectTo must point to auth-callback which verifies the token and redirects to setup-password
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/setup-password`
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`
     })
     if (resetError) {
       console.error('Failed to send password reset email:', resetError)

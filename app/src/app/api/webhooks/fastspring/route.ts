@@ -489,14 +489,15 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
       avatar_url: null
     })
 
-    // Send password setup email (matches legacy logic)
-    await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: customerEmail,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/setup-password`
-      }
+    // Send password reset email via Supabase (uses Brevo SMTP)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(customerEmail, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`
     })
+    if (resetError) {
+      console.error('Failed to send password reset email:', resetError)
+    } else {
+      console.log(`Password reset email sent to ${customerEmail}`)
+    }
   }
 
   // Create subscription (following admin pattern) - set correct period based on plan type
