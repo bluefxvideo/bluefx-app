@@ -12,7 +12,7 @@ import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-co
 import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import type { CinematographerRequest } from '@/types/cinematographer';
-import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio } from '@/types/cinematographer';
+import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
 
 // Camera style presets that append to the prompt
 const CAMERA_PRESETS: Record<string, string> = {
@@ -44,7 +44,7 @@ interface GeneratorTabProps {
 /**
  * Video Generation Tab - Multi-model cinematic video creation
  * Features:
- * - Fast Mode (LTX-2-Fast): Quick generation, longer videos, higher resolutions
+ * - Fast Mode (LTX-2.3-Fast): Quick generation, longer videos, higher resolutions, camera movements, 9:16
  * - Pro Mode (Seedance 1.5 Pro): Better quality, lip sync, singing, frame control
  */
 export function GeneratorTab({
@@ -69,8 +69,10 @@ export function GeneratorTab({
     generate_audio: true,
     seed: '' as string,
     camera_fixed: false,
+    camera_motion: 'none' as FastCameraMotion,
   });
 
+  // Camera style presets only used for Pro mode (Fast uses native camera_motion)
   const [cameraStyle, setCameraStyle] = useState<string>('none');
   const [customCameraText, setCustomCameraText] = useState<string>('');
 
@@ -105,12 +107,12 @@ export function GeneratorTab({
       duration: newConfig.durations[0],
       // Reset resolution based on model
       resolution: newModel === 'fast' ? '1080p' : '720p',
-      // Reset aspect ratio for Pro model
-      aspect_ratio: newModel === 'pro' ? '16:9' : prev.aspect_ratio,
-      // Clear last frame image if switching to Fast mode (not supported)
-      last_frame_image: newModel === 'fast' ? null : prev.last_frame_image,
+      // Reset aspect ratio to 16:9 (valid for both models)
+      aspect_ratio: '16:9',
       // Clear seed if switching to Fast mode (not supported)
       seed: newModel === 'fast' ? '' : prev.seed,
+      // Reset camera motion when switching models
+      camera_motion: 'none' as FastCameraMotion,
     }));
   };
 
@@ -135,13 +137,17 @@ export function GeneratorTab({
   const handleSubmit = () => {
     if (!formData.prompt?.trim()) return;
 
-    // Build final prompt with camera style
-    const cameraText = cameraStyle === 'custom'
-      ? customCameraText
-      : CAMERA_PRESETS[cameraStyle];
-    const finalPrompt = cameraText
-      ? `${formData.prompt} ${cameraText}`
-      : formData.prompt;
+    // For Pro mode, append text-based camera style to prompt
+    // For Fast mode, camera is controlled via native camera_motion param
+    let finalPrompt = formData.prompt;
+    if (formData.model === 'pro') {
+      const cameraText = cameraStyle === 'custom'
+        ? customCameraText
+        : CAMERA_PRESETS[cameraStyle];
+      if (cameraText) {
+        finalPrompt = `${formData.prompt} ${cameraText}`;
+      }
+    }
 
     // Build base request
     const request: any = {
@@ -152,6 +158,7 @@ export function GeneratorTab({
       workflow_intent: 'generate',
       user_id: '',
       model: formData.model,
+      aspect_ratio: formData.aspect_ratio,
     };
 
     // Add reference image only if present
@@ -161,16 +168,19 @@ export function GeneratorTab({
       request.reference_image_url = pendingImageUrl;
     }
 
-    // Add Pro model specific fields only when in Pro mode
-    if (formData.model === 'pro') {
-      request.aspect_ratio = formData.aspect_ratio;
-      request.camera_fixed = formData.camera_fixed;
+    // Add last_frame_image if present (both models support it)
+    if (formData.last_frame_image) {
+      request.last_frame_image = formData.last_frame_image;
+    }
 
-      // Only add last_frame_image if actually present
-      if (formData.last_frame_image) {
-        request.last_frame_image = formData.last_frame_image;
-      }
-      // Only add seed if actually set
+    // Add Fast model specific fields
+    if (formData.model === 'fast') {
+      request.camera_motion = formData.camera_motion;
+    }
+
+    // Add Pro model specific fields
+    if (formData.model === 'pro') {
+      request.camera_fixed = formData.camera_fixed;
       if (formData.seed) {
         request.seed = parseInt(formData.seed);
       }
@@ -215,7 +225,7 @@ export function GeneratorTab({
           >
             <Zap className="w-4 h-4" />
             <span className="font-medium">Fast</span>
-            <span className="text-xs opacity-70 hidden sm:inline">6-20s • Up to 4K</span>
+            <span className="text-xs opacity-70 hidden sm:inline">6-20s • Up to 4K • 9:16</span>
           </Button>
           <Button
             type="button"
@@ -234,8 +244,8 @@ export function GeneratorTab({
         <div className="text-xs text-muted-foreground mb-4 p-2 rounded bg-muted/30">
           {formData.model === 'fast' ? (
             <>
-              <strong>Fast Mode:</strong> Quick generation (15-30s wait), longer videos up to 20s, 1080p/2K/4K resolutions.
-              Good for landscapes, abstract scenes, and fast turnaround. Has basic lip sync support.
+              <strong>Fast Mode:</strong> Quick generation (15-30s wait), up to 20s, 1080p/2K/4K, landscape or portrait (9:16).
+              Camera movements (dolly, jib, focus shift), first & last frame control. Good for landscapes, scenes, and fast turnaround.
             </>
           ) : (
             <>
@@ -342,48 +352,74 @@ export function GeneratorTab({
             <span>{formData.prompt.length}/500</span>
           </div>
 
-          {/* Camera Style Preset */}
-          <div className="space-y-2 mt-4">
-            <Label>Camera Style</Label>
-            <Select
-              value={cameraStyle}
-              onValueChange={setCameraStyle}
-              disabled={isGenerating}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select camera style" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None (Default)</SelectItem>
-                <SelectItem value="amateur">Amateur / Handheld</SelectItem>
-                <SelectItem value="stable">Stable / Gimbal</SelectItem>
-                <SelectItem value="cinematic">Cinematic / Epic</SelectItem>
-                <SelectItem value="custom">Custom...</SelectItem>
-              </SelectContent>
-            </Select>
-            {cameraStyle === 'custom' && (
-              <Textarea
-                placeholder="Enter your custom camera style description..."
-                value={customCameraText}
-                onChange={(e) => setCustomCameraText(e.target.value)}
-                className="mt-2 min-h-[60px]"
+          {/* Camera Control */}
+          {formData.model === 'fast' ? (
+            <div className="space-y-2 mt-4">
+              <Label>Camera Movement</Label>
+              <Select
+                value={formData.camera_motion}
+                onValueChange={(value: FastCameraMotion) => setFormData(prev => ({ ...prev, camera_motion: value }))}
                 disabled={isGenerating}
-              />
-            )}
-            <p className="text-xs text-muted-foreground">
-              Adds camera movement style to your prompt
-            </p>
-          </div>
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select camera movement" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (Default)</SelectItem>
+                  <SelectItem value="dolly_in">Dolly In</SelectItem>
+                  <SelectItem value="dolly_out">Dolly Out</SelectItem>
+                  <SelectItem value="dolly_left">Dolly Left</SelectItem>
+                  <SelectItem value="dolly_right">Dolly Right</SelectItem>
+                  <SelectItem value="jib_up">Jib Up</SelectItem>
+                  <SelectItem value="jib_down">Jib Down</SelectItem>
+                  <SelectItem value="static">Static</SelectItem>
+                  <SelectItem value="focus_shift">Focus Shift</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Standard camera movement applied to the video
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 mt-4">
+              <Label>Camera Style</Label>
+              <Select
+                value={cameraStyle}
+                onValueChange={setCameraStyle}
+                disabled={isGenerating}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select camera style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (Default)</SelectItem>
+                  <SelectItem value="amateur">Amateur / Handheld</SelectItem>
+                  <SelectItem value="stable">Stable / Gimbal</SelectItem>
+                  <SelectItem value="cinematic">Cinematic / Epic</SelectItem>
+                  <SelectItem value="custom">Custom...</SelectItem>
+                </SelectContent>
+              </Select>
+              {cameraStyle === 'custom' && (
+                <Textarea
+                  placeholder="Enter your custom camera style description..."
+                  value={customCameraText}
+                  onChange={(e) => setCustomCameraText(e.target.value)}
+                  className="mt-2 min-h-[60px]"
+                  disabled={isGenerating}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                Adds camera movement style to your prompt
+              </p>
+            </div>
+          )}
         </StandardStep>
 
         {/* Step 2: Reference Image (First Frame) */}
         <StandardStep
           stepNumber={2}
-          title={formData.model === 'pro' ? 'First Frame Image' : 'Reference Image'}
-          description={formData.model === 'pro'
-            ? 'Upload a starting frame for image-to-video generation'
-            : 'Optional: Upload a first frame for image-to-video generation'
-          }
+          title="First Frame Image"
+          description="Optional: Upload a starting frame for image-to-video generation"
         >
           {usingPendingImage ? (
             // Show pending image from Starting Shot
@@ -422,10 +458,7 @@ export function GeneratorTab({
                 onFileSelect={handleImageUpload}
                 disabled={isGenerating}
                 title="Drop image or click to upload"
-                description={formData.model === 'pro'
-                  ? 'Upload a starting frame for your video'
-                  : 'Optional - Leave empty for text-to-video mode'
-                }
+                description="Optional - Leave empty for text-to-video mode"
                 previewSize="medium"
               />
               <p className="text-xs text-muted-foreground mt-2">
@@ -435,8 +468,8 @@ export function GeneratorTab({
           )}
         </StandardStep>
 
-        {/* Step 2.5: Last Frame Image (Pro mode only) */}
-        {formData.model === 'pro' && config.features.lastFrame && (
+        {/* Step 2.5: Last Frame Image (both models) */}
+        {config.features.lastFrame && (
           <StandardStep
             stepNumber={2.5}
             title="Last Frame Image"
@@ -452,7 +485,7 @@ export function GeneratorTab({
               previewSize="medium"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              Pro feature: Control how your video ends by specifying the last frame.
+              Control how your video ends by specifying the last frame. Requires a first frame image.
             </p>
           </StandardStep>
         )}
@@ -464,14 +497,14 @@ export function GeneratorTab({
           description="Configure duration, resolution, and audio"
         >
           <div className="space-y-4">
-            {/* Aspect Ratio (Pro mode only) */}
-            {formData.model === 'pro' && config.aspectRatios && (
+            {/* Aspect Ratio (both models) */}
+            {config.aspectRatios && (
               <div className="space-y-2">
                 <Label>Aspect Ratio</Label>
                 <Select
                   value={formData.aspect_ratio}
-                  onValueChange={(value: ProAspectRatio) => {
-                    setFormData(prev => ({ ...prev, aspect_ratio: value }));
+                  onValueChange={(value: string) => {
+                    setFormData(prev => ({ ...prev, aspect_ratio: value as ProAspectRatio }));
                     onAspectRatioChange?.(value);
                   }}
                   disabled={isGenerating}

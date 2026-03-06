@@ -184,9 +184,9 @@ export async function executeAICinematographer(
       }
     }
 
-    // Handle last frame image upload (Pro model only)
+    // Handle last frame image upload (both Fast and Pro models)
     let lastFrameImageUrl: string | undefined;
-    if (request.model === 'pro') {
+    if (request.last_frame_image_url || request.last_frame_image) {
       if (request.last_frame_image_url) {
         lastFrameImageUrl = request.last_frame_image_url;
         console.log('📸 Using last frame image URL:', lastFrameImageUrl);
@@ -274,14 +274,14 @@ async function handleVideoGeneration(
 ): Promise<CinematographerResponse> {
   try {
     const model = request.model || 'fast';
-    const modelVersion = model === 'fast' ? 'ltx-2-fast' : 'seedance-1.5-pro';
+    const modelVersion = model === 'fast' ? 'ltx-2.3-fast' : 'seedance-1.5-pro';
 
     // Create video generation prediction based on model selection
     let prediction;
     try {
       if (model === 'fast') {
-        // LTX-2-Fast model
-        console.log('🎬 Attempting to create LTX-2-Fast prediction...');
+        // LTX-2.3-Fast model
+        console.log('🎬 Attempting to create LTX-2.3-Fast prediction...');
 
         // Validate duration for Fast model (6, 8, 10, 12, 14, 16, 18, 20)
         const fastDuration = (request.duration || 6) as 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20;
@@ -290,8 +290,11 @@ async function handleVideoGeneration(
         prediction = await createVideoGenerationPrediction({
           prompt: request.prompt,
           image: referenceImageUrl,
+          last_frame_image: lastFrameImageUrl,
           duration: fastDuration,
           resolution: fastResolution,
+          aspect_ratio: (request.aspect_ratio as '16:9' | '9:16') || '16:9',
+          camera_motion: request.camera_motion,
           generate_audio: request.generate_audio !== false,
           webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
         });
@@ -384,9 +387,12 @@ async function handleVideoGeneration(
           resolution: effectiveResolution,
           generate_audio: request.generate_audio !== false,
           reference_image: referenceImageUrl,
+          aspect_ratio: request.aspect_ratio || '16:9',
+          last_frame_image: lastFrameImageUrl,
+          ...(model === 'fast' && {
+            camera_motion: request.camera_motion,
+          }),
           ...(model === 'pro' && {
-            aspect_ratio: request.aspect_ratio || '16:9',
-            last_frame_image: lastFrameImageUrl,
             seed: request.seed,
             camera_fixed: request.camera_fixed,
           })
@@ -414,9 +420,12 @@ async function handleVideoGeneration(
           duration: effectiveDuration,
           resolution: effectiveResolution,
           generate_audio: request.generate_audio !== false,
+          aspect_ratio: request.aspect_ratio || '16:9',
+          last_frame_image: lastFrameImageUrl,
+          ...(model === 'fast' && {
+            camera_motion: request.camera_motion,
+          }),
           ...(model === 'pro' && {
-            aspect_ratio: request.aspect_ratio || '16:9',
-            last_frame_image: lastFrameImageUrl,
             seed: request.seed,
             camera_fixed: request.camera_fixed,
           })

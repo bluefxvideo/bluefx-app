@@ -33,24 +33,26 @@ export const VIDEO_MODEL_CONFIG = {
   fast: {
     id: 'fast',
     name: 'Fast',
-    description: 'Quick generation, longer videos, higher resolutions',
-    model: 'lightricks/ltx-2-fast',
+    description: 'Quick generation, longer videos, higher resolutions, camera movements',
+    model: 'lightricks/ltx-2.3-fast',
     maxDuration: 20,
     minDuration: 6,
     durations: [6, 8, 10, 12, 14, 16, 18, 20] as const,
     resolutions: ['1080p', '2k', '4k'] as const,
-    aspectRatios: null, // Fixed by resolution
+    aspectRatios: ['16:9', '9:16'] as const,
     creditsPerSecond: {
       '1080p': 1,
       '2k': 2,
       '4k': 4,
     },
+    cameraMotions: ['none', 'dolly_in', 'dolly_out', 'dolly_left', 'dolly_right', 'jib_up', 'jib_down', 'static', 'focus_shift'] as const,
     features: {
       firstFrame: true,
-      lastFrame: false,
+      lastFrame: true,
       seed: false,
-      lipSync: true, // Basic lip sync support
+      lipSync: true,
       singing: false,
+      cameraMotion: true,
     },
   },
   pro: {
@@ -81,6 +83,8 @@ export type FastDuration = typeof VIDEO_MODEL_CONFIG.fast.durations[number];
 export type ProDuration = typeof VIDEO_MODEL_CONFIG.pro.durations[number];
 export type FastResolution = typeof VIDEO_MODEL_CONFIG.fast.resolutions[number];
 export type ProResolution = '720p'; // 720p native resolution
+export type FastAspectRatio = typeof VIDEO_MODEL_CONFIG.fast.aspectRatios[number];
+export type FastCameraMotion = typeof VIDEO_MODEL_CONFIG.fast.cameraMotions[number];
 export type ProAspectRatio = typeof VIDEO_MODEL_CONFIG.pro.aspectRatios[number];
 
 // ============================================
@@ -99,11 +103,14 @@ export interface CinematographerRequest {
   audio_file?: File | null;
   user_id: string;
   // Model selection
-  model?: VideoModel; // 'fast' = LTX-2-Fast, 'pro' = Seedance 1.5 Pro
-  // Pro model specific options
-  aspect_ratio?: ProAspectRatio;
-  last_frame_image?: File | null; // Ending frame for Pro model
+  model?: VideoModel; // 'fast' = LTX-2.3-Fast, 'pro' = Seedance 1.5 Pro
+  // Shared options (both models)
+  aspect_ratio?: ProAspectRatio | FastAspectRatio;
+  last_frame_image?: File | null; // Ending frame (both models)
   last_frame_image_url?: string; // URL of ending frame
+  // Fast model specific options
+  camera_motion?: FastCameraMotion; // Native camera movement (Fast only)
+  // Pro model specific options
   seed?: number; // Seed for reproducibility (Pro only)
   camera_fixed?: boolean; // Lock camera movement (Pro only)
 }
