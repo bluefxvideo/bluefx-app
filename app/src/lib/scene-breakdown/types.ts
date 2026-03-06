@@ -45,6 +45,7 @@ export interface AnalyzerShot {
   shotType?: string;
   action?: string;           // ← motionPrompt (pre-fills in Batch Animation Queue)
   dialogue?: string;         // ← narration
+  motionPresetId?: number | null; // ← motionPresetId (maps to native camera_motion)
 }
 
 /**
@@ -57,6 +58,7 @@ export function scenesToAnalyzerShots(scenes: BreakdownScene[]): AnalyzerShot[] 
     duration: scene.duration,
     action: scene.motionPrompt,
     dialogue: scene.narration,
+    motionPresetId: scene.motionPresetId,
   }));
 }
 

@@ -4,6 +4,7 @@
  */
 
 import type { MotionPreset } from './types';
+import type { FastCameraMotion } from '@/types/cinematographer';
 
 export const MOTION_PRESETS: MotionPreset[] = [
   { id: 1, name: 'Static', prompt: 'Camera remains completely static, no movement' },
@@ -55,4 +56,34 @@ export function findMatchingPreset(promptText: string): number {
   }
 
   return 15; // Default to Custom
+}
+
+/**
+ * Map a motion preset ID to LTX 2.3's native camera_motion parameter.
+ * Presets without a native equivalent (Arc Shot, Custom) return 'none'
+ * so the text prompt is used instead.
+ */
+const PRESET_TO_NATIVE: Record<number, FastCameraMotion> = {
+  1: 'static',
+  2: 'dolly_left',   // Pan Left
+  3: 'dolly_right',  // Pan Right
+  4: 'jib_up',       // Tilt Up
+  5: 'jib_down',     // Tilt Down
+  6: 'dolly_in',     // Zoom In
+  7: 'dolly_out',    // Zoom Out
+  8: 'dolly_in',     // Dolly In
+  9: 'dolly_out',    // Dolly Out
+  10: 'dolly_left',  // Track Left
+  11: 'dolly_right', // Track Right
+  12: 'dolly_in',    // Push In
+  13: 'jib_up',      // Crane Up
+  14: 'none',        // Arc Shot — no native equivalent
+  15: 'none',        // Custom — keep text in prompt
+};
+
+export function motionPresetToNativeCameraMotion(
+  presetId: number | null | undefined
+): FastCameraMotion {
+  if (presetId == null) return 'none';
+  return PRESET_TO_NATIVE[presetId] ?? 'none';
 }

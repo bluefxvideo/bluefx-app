@@ -54,6 +54,7 @@ export function useAICinematographer() {
     shotType?: string;
     action?: string;    // What movement/action happens
     dialogue?: string;  // What is being said (narration, voiceover, dialogue)
+    motionPresetId?: number | null; // Maps to native camera_motion for Fast model
   }>>([]);
 
   // Stored asset references for cross-grid consistency
@@ -75,6 +76,7 @@ export function useAICinematographer() {
     includeDialogue?: boolean; // Whether to include dialogue in video generation prompt (default: false)
     duration: number;
     cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+    camera_motion?: 'none' | 'dolly_in' | 'dolly_out' | 'dolly_left' | 'dolly_right' | 'jib_up' | 'jib_down' | 'static' | 'focus_shift';
     aspectRatio: string;
     model: 'fast' | 'pro';
     status: 'pending' | 'generating' | 'completed' | 'failed';
@@ -891,13 +893,14 @@ export function useAICinematographer() {
       setQueueProgress({ current: i + 1, total: pendingItems.length });
 
       try {
-        // Build prompt with camera style
+        // Build prompt with camera style (text fallback for Pro model)
         let finalPrompt = item.prompt;
         // Only include dialogue if user explicitly enabled it (off by default)
         if (item.dialogue && item.includeDialogue) {
           finalPrompt += `\n\nNarration: "${item.dialogue}"`;
         }
-        if (item.cameraStyle !== 'none') {
+        // For Pro model, use text-based camera style in prompt (no native camera_motion)
+        if (item.model === 'pro' && item.cameraStyle !== 'none') {
           const cameraText = {
             amateur: 'Amateur shot, handheld camera, slight shake.',
             stable: 'Stable tripod shot, smooth framing.',
@@ -913,11 +916,15 @@ export function useAICinematographer() {
             reference_image_url: item.imageUrl,
             duration: item.duration,
             aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '9:21',
-            model: item.model,  // Use item's model selection (fast or pro)
-            resolution: '1080p',  // Always use 1080p for batch queue simplicity
+            model: item.model,
+            resolution: '1080p',
             generate_audio: true,
             workflow_intent: 'generate',
             user_id: user.id,
+            // Pass native camera_motion for Fast model
+            ...(item.model === 'fast' && item.camera_motion && item.camera_motion !== 'none' && {
+              camera_motion: item.camera_motion,
+            }),
           });
         });
 
@@ -981,13 +988,12 @@ export function useAICinematographer() {
     );
 
     try {
-      // Build prompt with camera style
+      // Build prompt with camera style (text fallback for Pro model)
       let finalPrompt = item.prompt;
-      // Only include dialogue if user explicitly enabled it (off by default)
       if (item.dialogue && item.includeDialogue) {
         finalPrompt += `\n\nNarration: "${item.dialogue}"`;
       }
-      if (item.cameraStyle !== 'none') {
+      if (item.model === 'pro' && item.cameraStyle !== 'none') {
         const cameraText = {
           amateur: 'Amateur shot, handheld camera, slight shake.',
           stable: 'Stable tripod shot, smooth framing.',
@@ -1008,6 +1014,9 @@ export function useAICinematographer() {
           generate_audio: true,
           workflow_intent: 'generate',
           user_id: user.id,
+          ...(item.model === 'fast' && item.camera_motion && item.camera_motion !== 'none' && {
+            camera_motion: item.camera_motion,
+          }),
         });
       });
 

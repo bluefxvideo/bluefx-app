@@ -19,8 +19,6 @@ import {
   AlertCircle,
   Download,
   Trash2,
-  Zap,
-  Sparkles,
 } from 'lucide-react';
 
 export interface QueueItem {
@@ -32,6 +30,7 @@ export interface QueueItem {
   includeDialogue?: boolean; // Whether to include dialogue in video generation prompt (default: false)
   duration: number;
   cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+  camera_motion?: 'none' | 'dolly_in' | 'dolly_out' | 'dolly_left' | 'dolly_right' | 'jib_up' | 'jib_down' | 'static' | 'focus_shift';
   aspectRatio: string;
   model: 'fast' | 'pro';
   status: 'pending' | 'generating' | 'completed' | 'failed';
@@ -63,18 +62,20 @@ interface BatchAnimationQueueProps {
 
 // Duration options by model
 const FAST_DURATIONS = [6, 8, 10, 12, 14, 16, 18, 20];
-const PRO_DURATIONS = [5, 6, 7, 8, 9, 10];
 
-// Aspect ratio options for Pro mode
-const ASPECT_RATIOS = [
-  { value: '16:9', label: '16:9 (Landscape)' },
-  { value: '9:16', label: '9:16 (Portrait)' },
-  { value: '1:1', label: '1:1 (Square)' },
-  { value: '4:3', label: '4:3' },
-  { value: '3:4', label: '3:4' },
-  { value: '21:9', label: '21:9 (Ultrawide)' },
-  { value: '9:21', label: '9:21' },
+// Native camera movement options for Fast mode (LTX 2.3)
+const CAMERA_MOTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'dolly_in', label: 'Dolly In' },
+  { value: 'dolly_out', label: 'Dolly Out' },
+  { value: 'dolly_left', label: 'Dolly Left' },
+  { value: 'dolly_right', label: 'Dolly Right' },
+  { value: 'jib_up', label: 'Jib Up' },
+  { value: 'jib_down', label: 'Jib Down' },
+  { value: 'static', label: 'Static' },
+  { value: 'focus_shift', label: 'Focus Shift' },
 ];
+
 
 // Generate a descriptive filename for a queue item video
 function generateVideoFilename(item: QueueItem): string {
@@ -117,19 +118,15 @@ async function downloadVideoWithName(url: string, filename: string) {
 }
 
 // Estimate minimum duration for dialogue at natural pace (~15 chars/sec)
-function estimateMinDuration(dialogue: string | undefined, model: 'fast' | 'pro'): number | null {
+function estimateMinDuration(dialogue: string | undefined): number | null {
   if (!dialogue) return null;
   const rawSeconds = Math.ceil(dialogue.length / 15);
-  const durations = model === 'pro' ? PRO_DURATIONS : FAST_DURATIONS;
-  return durations.find(d => d >= rawSeconds) || durations[durations.length - 1];
+  return FAST_DURATIONS.find(d => d >= rawSeconds) || FAST_DURATIONS[FAST_DURATIONS.length - 1];
 }
 
 // Calculate credits for an item
 const calculateItemCredits = (item: QueueItem): number => {
-  if (item.model === 'pro') {
-    return item.duration * 2;  // Pro: 2 credits/sec
-  }
-  return item.duration;  // Fast: 1 credit/sec (always 1080p)
+  return item.duration;  // Fast: 1 credit/sec (1080p)
 };
 
 export function BatchAnimationQueue({
@@ -156,22 +153,6 @@ export function BatchAnimationQueue({
     .reduce((sum, item) => sum + calculateItemCredits(item), 0);
 
   const hasEnoughCredits = credits >= totalCredits;
-
-  // Handle model change - also reset duration if needed
-  const handleModelChange = (itemId: string, newModel: 'fast' | 'pro') => {
-    const item = queue.find(i => i.id === itemId);
-    if (!item) return;
-
-    const validDurations = newModel === 'fast' ? FAST_DURATIONS : PRO_DURATIONS;
-    const newDuration = validDurations.includes(item.duration)
-      ? item.duration
-      : validDurations[0];
-
-    onUpdateItem(itemId, {
-      model: newModel,
-      duration: newDuration,
-    });
-  };
 
   if (queue.length === 0) {
     return null;
@@ -217,7 +198,7 @@ export function BatchAnimationQueue({
       <div className="space-y-3 max-h-[500px] overflow-y-auto">
         {queue.map((item) => {
           const itemCredits = calculateItemCredits(item);
-          const durations = item.model === 'fast' ? FAST_DURATIONS : PRO_DURATIONS;
+          const durations = FAST_DURATIONS;
 
           return (
             <div
@@ -349,34 +330,6 @@ export function BatchAnimationQueue({
                   {/* Settings row - only for pending items */}
                   {item.status === 'pending' && !isProcessing && (
                     <div className="space-y-2">
-                      {/* Model selector */}
-                      <div className="flex gap-1">
-                        <button
-                          className={`px-2 py-0.5 rounded text-xs transition-colors flex items-center gap-1 ${
-                            item.model === 'fast'
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted hover:bg-muted/80'
-                          }`}
-                          onClick={() => handleModelChange(item.id, 'fast')}
-                        >
-                          <Zap className="w-3 h-3" />
-                          Fast
-                        </button>
-                        <button
-                          className={`px-2 py-0.5 rounded text-xs transition-colors flex items-center gap-1 ${
-                            item.model === 'pro'
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted hover:bg-muted/80'
-                          }`}
-                          onClick={() => handleModelChange(item.id, 'pro')}
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          Pro
-                        </button>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {item.model === 'fast' ? '6-20s • 1080p' : '5-10s • Better lip-sync'}
-                        </span>
-                      </div>
 
                       {/* Duration */}
                       <div className="flex gap-1 flex-wrap">
@@ -396,7 +349,7 @@ export function BatchAnimationQueue({
                       </div>
                       {/* Duration warning when too short for dialogue */}
                       {(() => {
-                        const minDur = estimateMinDuration(item.dialogue, item.model);
+                        const minDur = estimateMinDuration(item.dialogue);
                         return minDur && item.duration < minDur ? (
                           <p className="text-xs text-amber-600 dark:text-amber-400">
                             Dialogue needs ~{minDur}s for natural pace
@@ -404,27 +357,25 @@ export function BatchAnimationQueue({
                         ) : null;
                       })()}
 
-                      {/* Aspect ratio - only for Pro mode */}
-                      {item.model === 'pro' && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Aspect:</span>
-                          <Select
-                            value={item.aspectRatio}
-                            onValueChange={(value) => onUpdateItem(item.id, { aspectRatio: value })}
-                          >
-                            <SelectTrigger className="h-7 w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ASPECT_RATIOS.map((ratio) => (
-                                <SelectItem key={ratio.value} value={ratio.value} className="text-xs">
-                                  {ratio.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                      {/* Camera Movement (native LTX 2.3 API param) */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Camera:</span>
+                        <Select
+                          value={item.camera_motion || 'none'}
+                          onValueChange={(value) => onUpdateItem(item.id, { camera_motion: value as QueueItem['camera_motion'] })}
+                        >
+                          <SelectTrigger className="h-7 w-36 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CAMERA_MOTIONS.map((motion) => (
+                              <SelectItem key={motion.value} value={motion.value} className="text-xs">
+                                {motion.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
                     </div>
                   )}

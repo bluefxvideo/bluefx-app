@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useGridExtraction, ExtractedFrameResult } from '../hooks/use-grid-extraction';
+import { motionPresetToNativeCameraMotion } from '@/lib/scene-breakdown/motion-presets';
 
 export interface StoryboardResult {
   id: string;
@@ -56,6 +57,7 @@ interface StoryboardOutputV2Props {
     dialogue?: string;
     duration: number;
     cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+    camera_motion?: 'none' | 'dolly_in' | 'dolly_out' | 'dolly_left' | 'dolly_right' | 'jib_up' | 'jib_down' | 'static' | 'focus_shift';
     aspectRatio: string;
     model: 'fast' | 'pro';
     batchNumber?: number;
@@ -67,6 +69,7 @@ interface StoryboardOutputV2Props {
     duration: string;
     action?: string;
     dialogue?: string;
+    motionPresetId?: number | null;
   }>;
   batchNumber?: number; // From script breakdown pipeline
 }
@@ -176,8 +179,9 @@ export function StoryboardOutputV2({
             includeDialogue: false,
             duration: suggestedDuration,
             cameraStyle: 'none' as const,
+            camera_motion: motionPresetToNativeCameraMotion(shotData?.motionPresetId),
             aspectRatio: frameAspectRatio,
-            model: frameAspectRatio === '9:16' ? 'pro' as const : 'fast' as const,
+            model: 'fast' as const,
             batchNumber,
             sceneNumber: shotData?.shotNumber,
           };
@@ -558,8 +562,9 @@ export function StoryboardOutputV2({
                       includeDialogue: false,  // Off by default - user has separate voiceover
                       duration: suggestedDuration,
                       cameraStyle: 'none' as const,
+                      camera_motion: motionPresetToNativeCameraMotion(shotData?.motionPresetId),
                       aspectRatio: frameAspectRatio,
-                      model: frameAspectRatio === '9:16' ? 'pro' as const : 'fast' as const,
+                      model: 'fast' as const,
                       batchNumber,
                       sceneNumber: shotData?.shotNumber,
                     };
