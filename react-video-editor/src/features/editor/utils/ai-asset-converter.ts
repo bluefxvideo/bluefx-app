@@ -180,11 +180,21 @@ export function convertAIAssetsToEditorFormat(
         return;
       }
 
-      // Use uniform zoom-in effect for all images
-      const selectedPreset = 'zoom-in';
-      
-      // Use consistent intensity for uniform effect
-      const intensity = 40; // Stronger zoom intensity for more noticeable effect
+      // Map camera_motion from analysis → Ken Burns preset
+      const cameraMotion = (segment as any).camera_motion;
+      const motionToPreset: Record<string, string> = {
+        dolly_in: 'zoom-in',
+        dolly_out: 'zoom-out',
+        dolly_left: 'pan-left',
+        dolly_right: 'pan-right',
+        jib_up: 'pan-up',
+        jib_down: 'pan-down',
+        static: 'zoom-in',
+        focus_shift: 'zoom-in',
+        none: 'zoom-in',
+      };
+      const selectedPreset = motionToPreset[cameraMotion] || 'zoom-in';
+      const intensity = 40;
 
       const imageTrack: ITrackItem = {
         id: generateId(),

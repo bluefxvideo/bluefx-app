@@ -805,7 +805,8 @@ function convertBlueFXDataToAIAssets(videoData: any) {
       start_time: calculatedStartTime,
       end_time: calculatedEndTime || (calculatedStartTime + calculatedDuration),
       duration: calculatedDuration,
-      image_prompt: segment.image_prompt || segment.visual_description || `Image prompt ${index + 1}`
+      image_prompt: segment.image_prompt || segment.visual_description || `Image prompt ${index + 1}`,
+      camera_motion: segment.camera_motion || undefined,
     };
     
     console.log(`🔍 Final segment ${index}:`, convertedSegment);

@@ -53,15 +53,23 @@ function formatListingForEditor(listing: any, userId: string) {
   const aspectRatio = listing.aspect_ratio || '16:9';
   const listingData = listing.listing_data;
 
-  // Build selected segments in order, with timing
+  // Build selected segments in order, with timing scaled to voiceover duration
   const selectedSegments = segments.filter(
     (s: any) => selectedIndices.includes(s.image_index),
   );
 
+  // First pass: get raw segment durations
+  const rawDurations = selectedSegments.map((seg: any) => seg.duration_seconds || 3);
+  const rawTotal = rawDurations.reduce((sum: number, d: number) => sum + d, 0);
+
+  // Scale factor: stretch/compress images to fill the voiceover
+  const totalDuration = voiceoverDuration || rawTotal || 30;
+  const scale = rawTotal > 0 ? totalDuration / rawTotal : 1;
+
   let currentTime = 0;
   const editorSegments = selectedSegments.map((seg: any, i: number) => {
     const analysis = analyses.find((a: any) => a.index === seg.image_index);
-    const duration = seg.duration_seconds || 3;
+    const duration = rawDurations[i] * scale;
     const startTime = currentTime;
     currentTime += duration;
 
@@ -75,8 +83,6 @@ function formatListingForEditor(listing: any, userId: string) {
       camera_motion: analysis?.camera_motion || 'none',
     };
   });
-
-  const totalDuration = voiceoverDuration || currentTime || 30;
 
   // Build image URLs list matching segment order
   const imageUrls = selectedSegments.map((seg: any) => photos[seg.image_index]);
