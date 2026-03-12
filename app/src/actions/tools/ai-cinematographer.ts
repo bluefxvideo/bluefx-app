@@ -26,9 +26,8 @@ export interface StartingShotRequest {
   reference_image_files?: File[]; // Optional reference image files to upload (up to 3)
   reference_image_urls?: string[]; // Optional reference image URLs already uploaded (up to 3)
   user_id: string;
-  // Pro mode options
-  model?: 'fast' | 'pro'; // 'fast' = nano-banana, 'pro' = nano-banana-pro
-  resolution?: '1K' | '2K' | '4K'; // Pro only - default 2K
+  model?: 'fast' | 'pro'; // kept for backwards compatibility, defaults to 'pro'
+  resolution?: '1K' | '2K' | '4K'; // default 2K
 }
 
 export interface StartingShotResponse {
@@ -595,8 +594,8 @@ export async function executeStartingShot(
   const batch_id = crypto.randomUUID();
 
   // Calculate credit cost based on model and resolution
-  // Fast: 1 credit | Pro 1K: 4 credits | Pro 2K: 5 credits | Pro 4K: 10 credits
-  const isPro = request.model === 'pro';
+  // 1K: 4 credits | 2K: 5 credits | 4K: 10 credits (Fast legacy: 1 credit)
+  const isPro = request.model !== 'fast';
   const CREDIT_COST = isPro
     ? (request.resolution === '4K' ? 10 : request.resolution === '1K' ? 4 : 5)
     : 1;

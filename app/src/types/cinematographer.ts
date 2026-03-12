@@ -5,17 +5,12 @@
 
 // Valid aspect ratios for Starting Shot (nano-banana)
 export type NanoBananaAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '2:3' | '3:2' | '21:9';
-export const NANO_BANANA_ASPECT_RATIOS: readonly NanoBananaAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4'];
-
-// All aspect ratios for Pro mode (nano-banana-pro)
+// All aspect ratios (nano-banana-pro)
 export const NANO_BANANA_PRO_ASPECT_RATIOS: readonly NanoBananaAspectRatio[] = [
   '16:9', '9:16', '1:1', '4:3', '3:4', '2:3', '3:2', '21:9'
 ];
 
-// Starting Shot model type
-export type StartingShotModel = 'fast' | 'pro';
-
-// Starting Shot resolution (Pro only)
+// Starting Shot resolution
 export type StartingShotResolution = '1K' | '2K' | '4K';
 
 // Alias for Starting Shot
