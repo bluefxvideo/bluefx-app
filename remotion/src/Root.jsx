@@ -3,7 +3,6 @@ import { Composition, registerRoot } from 'remotion';
 import { MyVideo } from './MyVideo.js';
 import { ScriptToVideo } from './ScriptToVideo.js';
 import { VideoEditor } from './VideoEditor.js';
-import { FounderStory, FOUNDER_STORY_TOTAL_FRAMES } from './FounderStory.jsx';
 import { ReelEstateVideo } from './ReelEstateVideo.jsx';
 
 /**
@@ -51,16 +50,6 @@ export const RemotionRoot = () => {
           aspectRatio: '9:16',
           dimensions: { width: 720, height: 1280 },
         }}
-      />
-
-      {/* Dark Mist Founder Story */}
-      <Composition
-        id="FounderStory"
-        component={FounderStory}
-        durationInFrames={FOUNDER_STORY_TOTAL_FRAMES}
-        fps={30}
-        width={1920}
-        height={1080}
       />
 
       {/* ReelEstate listing video — Ken Burns photos + voiceover */}
