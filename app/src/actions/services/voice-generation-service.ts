@@ -87,6 +87,7 @@ export async function generateVoiceForScript(
   success: boolean;
   audio_url?: string;
   credits_used: number;
+  duration?: number;
   error?: string;
 }> {
   try {
@@ -116,6 +117,7 @@ export async function generateVoiceForScript(
       success: result.success,
       audio_url: result.audio_url,
       credits_used: result.credits_used,
+      duration: result.metadata?.actual_duration as number | undefined,
       error: result.error
     };
   } catch (error) {

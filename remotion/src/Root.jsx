@@ -3,6 +3,8 @@ import { Composition, registerRoot } from 'remotion';
 import { MyVideo } from './MyVideo.js';
 import { ScriptToVideo } from './ScriptToVideo.js';
 import { VideoEditor } from './VideoEditor.js';
+import { FounderStory, FOUNDER_STORY_TOTAL_FRAMES } from './FounderStory.jsx';
+import { ReelEstateVideo } from './ReelEstateVideo.jsx';
 
 /**
  * Remotion Root - Register all compositions here
@@ -48,6 +50,45 @@ export const RemotionRoot = () => {
           totalDuration: 3,
           aspectRatio: '9:16',
           dimensions: { width: 720, height: 1280 },
+        }}
+      />
+
+      {/* Dark Mist Founder Story */}
+      <Composition
+        id="FounderStory"
+        component={FounderStory}
+        durationInFrames={FOUNDER_STORY_TOTAL_FRAMES}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+
+      {/* ReelEstate listing video — Ken Burns photos + voiceover */}
+      <Composition
+        id="ReelEstateVideo"
+        component={ReelEstateVideo}
+        durationInFrames={900}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          photos: {},
+          segments: [],
+          audioUrl: '',
+          listing: null,
+          totalDuration: 30,
+          aspectRatio: '16:9',
+        }}
+        calculateMetadata={({ props }) => {
+          const fps = 30;
+          const duration = props.totalDuration || 30;
+          const isPortrait = props.aspectRatio === '9:16';
+          return {
+            durationInFrames: Math.ceil(duration * fps),
+            fps,
+            width: isPortrait ? 1080 : 1920,
+            height: isPortrait ? 1920 : 1080,
+          };
         }}
       />
 
