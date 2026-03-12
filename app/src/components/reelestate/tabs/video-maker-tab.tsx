@@ -26,7 +26,7 @@ interface VideoMakerTabProps {
   onAnalyzePhotos: () => void;
   onGenerateScript: () => void;
   onGenerateVoiceover: () => void;
-  onRenderVideo: () => void;
+  onOpenInEditor: () => void;
   onSetSelectedIndices: (indices: number[]) => void;
   onUpdateScriptSegment: (index: number, voiceover: string) => void;
   onSetAspectRatio: (ratio: '16:9' | '9:16') => void;
@@ -45,7 +45,7 @@ export function VideoMakerTab({
   onAnalyzePhotos,
   onGenerateScript,
   onGenerateVoiceover,
-  onRenderVideo,
+  onOpenInEditor,
   onSetSelectedIndices,
   onUpdateScriptSegment,
   onSetAspectRatio,
@@ -346,31 +346,17 @@ export function VideoMakerTab({
         )}
       </TabBody>
 
-      {/* Render button */}
+      {/* Open in Editor button */}
       {hasVoiceover && (
         <TabFooter>
           <Button
-            onClick={onRenderVideo}
-            disabled={isWorking || (!isLoadingCredits && credits < 2)}
+            onClick={onOpenInEditor}
+            disabled={isWorking}
             className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
             size="lg"
           >
-            {project.status === 'rendering' ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Rendering Video...
-              </>
-            ) : project.finalVideoUrl ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Re-render Video (2 credits)
-              </>
-            ) : (
-              <>
-                <Film className="w-4 h-4 mr-2" />
-                Render Video (2 credits)
-              </>
-            )}
+            <Film className="w-4 h-4 mr-2" />
+            Open in Video Editor
           </Button>
 
           {project.error && (

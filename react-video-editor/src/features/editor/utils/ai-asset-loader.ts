@@ -169,14 +169,42 @@ export function loadAIAssetsFromURL(): Promise<any> {
       // Check for storyboard format
       const storyboardId = urlParams.get('storyboardId');
 
+      // Check for ReelEstate listing format
+      const listingId = urlParams.get('listingId');
+
       // Check for legacy format
       const legacyVideoId = urlParams.get('loadAI');
       const mockMode = urlParams.get('mock') === 'true';
 
-      console.log('🔍 STEP 3: Legacy/Storyboard parameters:', { legacyVideoId, mockMode, storyboardId });
+      console.log('🔍 STEP 3: Legacy/Storyboard/Listing parameters:', { legacyVideoId, mockMode, storyboardId, listingId });
 
-      // Check for storyboard loading first
-      if (storyboardId && userId) {
+      // Check for ReelEstate listing loading first
+      if (listingId && userId) {
+        console.log('🏠 Loading ReelEstate listing:', { listingId, userId });
+        isLoading = true;
+
+        loadReelEstateListing({
+          listingId,
+          userId,
+          apiUrl: apiUrl || window.location.origin,
+          onProgress: (stage, progress) => {
+            console.log(`📊 ReelEstate Loading progress: ${stage} (${progress}%)`);
+          },
+          onSuccess: (id) => {
+            console.log('🎉 ReelEstate loading completed:', id);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            resolve({ success: true, video_id: id, source: 'reelestate' });
+          },
+          onError: (error) => {
+            console.error('❌ ReelEstate loading failed:', error);
+            isLoading = false;
+            clearTimeout(loadingTimeout);
+            reject(new Error(error));
+          }
+        });
+
+      } else if (storyboardId && userId) {
         console.log('🎬 Loading storyboard frames:', { storyboardId, userId });
         isLoading = true;
 
@@ -510,6 +538,112 @@ async function loadAIAssetsFromBlueFX({
       stack: error instanceof Error ? error.stack : 'No stack trace'
     });
     
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    onError?.(errorMessage);
+    throw error;
+  }
+}
+
+/**
+ * Load ReelEstate listing photos + voiceover into the editor.
+ *
+ * The `/api/reelestate/editor-data` endpoint returns the same shape
+ * as `/api/script-video/editor-data`, so we reuse the BlueFX loader
+ * but hit the ReelEstate endpoint instead.
+ */
+async function loadReelEstateListing({
+  listingId,
+  userId,
+  apiUrl,
+  onProgress,
+  onSuccess,
+  onError,
+}: {
+  listingId: string;
+  userId: string;
+  apiUrl: string;
+  onProgress?: (stage: string, progress: number) => void;
+  onSuccess?: (listing_id: string) => void;
+  onError?: (error: string) => void;
+}) {
+  console.log('🏠 Starting ReelEstate listing loading:', { listingId, userId, apiUrl });
+
+  try {
+    onProgress?.('Fetching listing data...', 10);
+
+    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    const editorDataUrl = `${cleanApiUrl}/api/reelestate/editor-data`;
+
+    console.log('🔗 Fetching ReelEstate editor data from:', editorDataUrl);
+
+    const response = await fetch(editorDataUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: JSON.stringify({ user_id: userId, listingId }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`ReelEstate API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success || !data.data) {
+      throw new Error(data.error || 'ReelEstate API returned error');
+    }
+
+    const videoData = data.data;
+    console.log('✅ Received ReelEstate data:', {
+      listingId: videoData.videoId,
+      imageCount: videoData.images?.urls?.length || 0,
+      segmentCount: videoData.images?.segments?.length || 0,
+      hasVoiceover: !!videoData.voice?.url,
+      aspectRatio: videoData.imageData?.generation_params?.aspect_ratio,
+    });
+
+    onProgress?.('Converting to editor format...', 40);
+
+    // Convert using the same pipeline as BlueFX (same data shape)
+    const aiAssets = convertBlueFXDataToAIAssets(videoData);
+
+    const aspectRatio =
+      videoData.imageData?.generation_params?.aspect_ratio ||
+      videoData.image_data?.generation_params?.aspect_ratio ||
+      '16:9';
+
+    const isValid = validateAIAssets(aiAssets);
+    if (!isValid) {
+      throw new Error('Invalid converted ReelEstate assets');
+    }
+
+    onProgress?.('Loading into editor...', 70);
+
+    const editorPayload = convertAIAssetsToEditorFormat(aiAssets, aspectRatio);
+
+    console.log('📤 Dispatching DESIGN_LOAD for ReelEstate listing...');
+    dispatch(DESIGN_LOAD, { payload: editorPayload });
+
+    // Resize canvas to match aspect ratio
+    setTimeout(() => {
+      dispatch(DESIGN_RESIZE, {
+        payload: {
+          width: editorPayload.size.width,
+          height: editorPayload.size.height,
+          name: aspectRatio,
+        },
+      });
+    }, 500);
+
+    onProgress?.('Complete!', 100);
+    onSuccess?.(listingId);
+
+    console.log('🎉 ReelEstate listing loaded successfully into editor!');
+  } catch (error) {
+    console.error('❌ Failed to load ReelEstate listing:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     onError?.(errorMessage);
     throw error;

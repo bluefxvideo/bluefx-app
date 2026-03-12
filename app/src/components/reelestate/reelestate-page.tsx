@@ -52,7 +52,7 @@ export function ReelEstatePage() {
     analyzePhotos,
     generateScript,
     generateVoiceover,
-    renderVideo,
+    openInEditor,
     generateClips,
     regenerateClip,
     pollClips,
@@ -146,7 +146,7 @@ export function ReelEstatePage() {
               onAnalyzePhotos={analyzePhotos}
               onGenerateScript={generateScript}
               onGenerateVoiceover={generateVoiceover}
-              onRenderVideo={renderVideo}
+              onOpenInEditor={openInEditor}
               onSetSelectedIndices={setSelectedIndices}
               onUpdateScriptSegment={updateScriptSegment}
               onSetAspectRatio={setAspectRatio}

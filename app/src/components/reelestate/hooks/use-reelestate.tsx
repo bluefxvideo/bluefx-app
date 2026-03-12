@@ -9,8 +9,6 @@ import {
   generateScript as serverGenerateScript,
   generateClips as serverGenerateClips,
   generateListingVoiceover,
-  renderListingVideo,
-  checkListingRenderProgress,
   cleanupListingPhoto,
 } from '@/actions/tools/reelestate/orchestrator';
 import { generateListingClip, pollClipStatus } from '@/actions/tools/reelestate/clip-generator';
@@ -233,74 +231,31 @@ export function useReelEstate() {
     toast.success('Voiceover generated');
   }, [project.id, project.script, project.selectedIndices, project.voiceId, updateProject, refreshCredits]);
 
-  // ─── Step 5: Render Video (Remotion) ─────────────
-  const renderPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const renderVideo = useCallback(async () => {
+  // ─── Step 5: Open in Video Editor ───────────────
+  const openInEditor = useCallback(async () => {
     if (!project.id || !project.voiceover || !project.script) return;
 
-    updateProject({ status: 'rendering', error: null, renderProgress: 0, finalVideoUrl: null });
-
-    const result = await renderListingVideo(project.id);
-
-    if (!result.success || !result.renderId) {
-      updateProject({ status: 'script_ready', error: result.error || 'Failed to start render' });
-      toast.error(result.error || 'Failed to start render');
-      return;
-    }
-
-    updateProject({ renderId: result.renderId });
-    toast.success('Video render started');
-  }, [project.id, project.voiceover, project.script, updateProject]);
-
-  // Render progress polling
-  const pollRender = useCallback(async () => {
-    if (!project.id || !project.renderId) return;
-
-    const result = await checkListingRenderProgress(project.id);
-
-    if (!result.success || result.status === 'failed') {
-      updateProject({
-        status: 'script_ready',
-        error: result.error || 'Render failed',
-        renderProgress: null,
-        renderId: null,
-      });
-      toast.error(result.error || 'Video render failed');
-      return;
-    }
-
-    if (result.status === 'completed' && result.videoUrl) {
-      updateProject({
-        finalVideoUrl: result.videoUrl,
-        status: 'completed',
-        renderProgress: 1,
-      });
-      await refreshCredits();
-      toast.success('Video rendered successfully!');
-      return;
-    }
-
-    // Still in progress
-    updateProject({ renderProgress: result.progress });
-  }, [project.id, project.renderId, updateProject, refreshCredits]);
-
-  // Auto-poll render every 5s when rendering
-  useEffect(() => {
-    if (project.status === 'rendering' && project.renderId && !renderPollRef.current) {
-      renderPollRef.current = setInterval(pollRender, 5000);
-    } else if (project.status !== 'rendering' && renderPollRef.current) {
-      clearInterval(renderPollRef.current);
-      renderPollRef.current = null;
-    }
-
-    return () => {
-      if (renderPollRef.current) {
-        clearInterval(renderPollRef.current);
-        renderPollRef.current = null;
+    try {
+      // Get current user ID for the editor URL
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Authentication required');
+        return;
       }
-    };
-  }, [project.status, project.renderId, pollRender]);
+
+      const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
+      const apiBaseUrl = window.location.origin;
+      const editorUrl = `${editorBaseUrl}/?listingId=${project.id}&userId=${user.id}&apiUrl=${encodeURIComponent(apiBaseUrl)}`;
+
+      console.log('🎬 Opening ReelEstate in editor:', editorUrl);
+      window.open(editorUrl, '_blank');
+      toast.success('Opening video editor...');
+    } catch (error) {
+      console.error('❌ Failed to open editor:', error);
+      toast.error('Failed to open video editor');
+    }
+  }, [project.id, project.voiceover, project.script]);
 
   // ─── Generate Clips (optional, for editor) ──────
   const generateClips = useCallback(async () => {
@@ -592,7 +547,7 @@ export function useReelEstate() {
     analyzePhotos,
     generateScript,
     generateVoiceover,
-    renderVideo,
+    openInEditor,
     generateClips,
     regenerateClip,
     pollClips,

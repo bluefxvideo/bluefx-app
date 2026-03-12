@@ -124,11 +124,12 @@ export async function checkRemotionProgress(
 
     // Build video URL when completed
     let videoUrl: string | undefined;
-    if (data.status === 'completed' && data.videoUrl) {
+    const rawVideoUrl = data.videoUrl || data.downloadUrl;
+    if (data.status === 'completed' && rawVideoUrl) {
       // videoUrl from server is relative (e.g. /output/file.mp4)
-      videoUrl = data.videoUrl.startsWith('http')
-        ? data.videoUrl
-        : `${REMOTION_SERVER_URL}${data.videoUrl}`;
+      videoUrl = rawVideoUrl.startsWith('http')
+        ? rawVideoUrl
+        : `${REMOTION_SERVER_URL}${rawVideoUrl}`;
     }
 
     return {
