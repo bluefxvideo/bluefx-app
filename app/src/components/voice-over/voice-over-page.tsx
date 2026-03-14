@@ -89,6 +89,8 @@ export function VoiceOverPage() {
             credits={userCredits?.available_credits || 0}
             isChanging={voiceOverState.state.isChangingVoice}
             changedAudioUrl={voiceOverState.state.changedAudioUrl}
+            changedVideoUrl={voiceOverState.state.changedVideoUrl}
+            changedResultType={voiceOverState.state.changedResultType}
           />
         </div>
       ) : activeTab === 'history' ? (

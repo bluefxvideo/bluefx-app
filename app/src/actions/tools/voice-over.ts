@@ -5,6 +5,7 @@ import { createPredictionRecord, updatePredictionRecord } from '@/actions/databa
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { MINIMAX_VOICE_OPTIONS, type MinimaxEmotion } from '@/components/shared/voice-constants';
 import { convertVoiceWithChatterbox, type ChatterboxPresetVoice } from '@/actions/models/fal-chatterbox-s2s';
+import type { Json } from '@/types/supabase';
 
 // Request/Response types for Voice Over
 export interface VoiceOverRequest {
@@ -463,6 +464,7 @@ async function triggerVoiceOverWebhookCompletion(
 export interface VoiceChangerRequest {
   source_audio_base64: string;
   source_filename: string;
+  source_is_video?: boolean;
   target_mode: 'preset' | 'custom';
   target_voice?: ChatterboxPresetVoice;
   target_voice_base64?: string;
@@ -473,6 +475,8 @@ export interface VoiceChangerRequest {
 export interface VoiceChangerResponse {
   success: boolean;
   audio_url?: string;
+  video_url?: string;
+  result_type?: 'audio' | 'video';
   batch_id: string;
   generation_time_ms: number;
   credits_used: number;
@@ -509,20 +513,64 @@ export async function executeVoiceChanger(
       return { success: false, error: `Insufficient credits. Required: ${creditCost}, Available: ${userCredits}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
     }
 
-    // Upload source audio to Supabase Storage
+    // Upload source to Supabase Storage
     const sourceBuffer = Buffer.from(request.source_audio_base64, 'base64');
     const sourceExt = request.source_filename.split('.').pop()?.toLowerCase() || 'mp3';
     const sourcePath = `${user.id}/voice-changer/${batch_id}_source.${sourceExt}`;
 
+    const videoExts = ['mp4', 'mov', 'webm', 'avi', 'mkv'];
+    const isVideo = request.source_is_video || videoExts.includes(sourceExt);
+    const sourceContentType = isVideo
+      ? `video/${sourceExt === 'mov' ? 'quicktime' : sourceExt}`
+      : `audio/${sourceExt === 'mp3' ? 'mpeg' : sourceExt}`;
+
     const { error: uploadError } = await supabase.storage
       .from('script-videos')
-      .upload(sourcePath, sourceBuffer, { contentType: `audio/${sourceExt === 'mp3' ? 'mpeg' : sourceExt}` });
+      .upload(sourcePath, sourceBuffer, { contentType: sourceContentType });
 
     if (uploadError) {
-      return { success: false, error: `Failed to upload source audio: ${uploadError.message}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+      return { success: false, error: `Failed to upload source: ${uploadError.message}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
     }
 
     const { data: { publicUrl: sourceUrl } } = supabase.storage.from('script-videos').getPublicUrl(sourcePath);
+
+    // ─── Video: extract audio via server-side ffmpeg ──────────
+    let chatterboxSourceUrl = sourceUrl;
+    const tempFiles: string[] = [];
+
+    if (isVideo) {
+      const { writeFile, readFile } = await import('fs/promises');
+      const {
+        extractAudioFromVideo,
+        createTempPath,
+        cleanupTempFiles,
+      } = await import('@/actions/services/ffmpeg-service');
+
+      const videoTempPath = await createTempPath('vc_video', sourceExt);
+      tempFiles.push(videoTempPath);
+      await writeFile(videoTempPath, sourceBuffer);
+
+      const audioTempPath = await createTempPath('vc_extracted', 'wav');
+      tempFiles.push(audioTempPath);
+
+      console.log(`🎬 Voice Changer: extracting audio from video (batch: ${batch_id})`);
+      await extractAudioFromVideo(videoTempPath, audioTempPath);
+
+      const extractedAudioBuffer = await readFile(audioTempPath);
+      const extractedPath = `${user.id}/voice-changer/${batch_id}_extracted.wav`;
+
+      const { error: extractUploadError } = await supabase.storage
+        .from('script-videos')
+        .upload(extractedPath, extractedAudioBuffer, { contentType: 'audio/wav' });
+
+      if (extractUploadError) {
+        await cleanupTempFiles(...tempFiles);
+        return { success: false, error: `Failed to upload extracted audio: ${extractUploadError.message}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+      }
+
+      const { data: { publicUrl: extractedUrl } } = supabase.storage.from('script-videos').getPublicUrl(extractedPath);
+      chatterboxSourceUrl = extractedUrl;
+    }
 
     // Upload custom target voice if provided
     let targetVoiceUrl: string | undefined;
@@ -536,6 +584,10 @@ export async function executeVoiceChanger(
         .upload(targetPath, targetBuffer, { contentType: `audio/${targetExt === 'mp3' ? 'mpeg' : targetExt}` });
 
       if (targetUploadError) {
+        if (isVideo) {
+          const { cleanupTempFiles } = await import('@/actions/services/ffmpeg-service');
+          await cleanupTempFiles(...tempFiles);
+        }
         return { success: false, error: `Failed to upload target voice: ${targetUploadError.message}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
       }
 
@@ -546,23 +598,98 @@ export async function executeVoiceChanger(
     // Call ChatterboxHD
     console.log(`🔄 Voice Changer: starting conversion (batch: ${batch_id})`);
     const result = await convertVoiceWithChatterbox({
-      source_audio_url: sourceUrl,
+      source_audio_url: chatterboxSourceUrl,
       target_voice: request.target_mode === 'preset' ? request.target_voice : undefined,
       target_voice_audio_url: request.target_mode === 'custom' ? targetVoiceUrl : undefined,
       high_quality_audio: request.high_quality_audio,
     });
 
     if (!result.success || !result.audioUrl) {
+      if (isVideo) {
+        const { cleanupTempFiles } = await import('@/actions/services/ffmpeg-service');
+        await cleanupTempFiles(...tempFiles);
+      }
       return { success: false, error: result.error || 'Voice conversion failed', batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
     }
 
-    // Download result and persist to Supabase Storage
+    // Download converted audio
     const resultResponse = await fetch(result.audioUrl);
     if (!resultResponse.ok) {
+      if (isVideo) {
+        const { cleanupTempFiles } = await import('@/actions/services/ffmpeg-service');
+        await cleanupTempFiles(...tempFiles);
+      }
       return { success: false, error: 'Failed to download converted audio', batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
     }
 
     const resultBuffer = Buffer.from(await resultResponse.arrayBuffer());
+
+    // ─── Video: replace audio in original video ──────────────
+    if (isVideo) {
+      const { writeFile: writeFile2, readFile: readFile2 } = await import('fs/promises');
+      const {
+        replaceAudioInVideo,
+        createTempPath: createTempPath2,
+        cleanupTempFiles,
+      } = await import('@/actions/services/ffmpeg-service');
+
+      const convertedAudioPath = await createTempPath2('vc_converted', 'wav');
+      tempFiles.push(convertedAudioPath);
+      await writeFile2(convertedAudioPath, resultBuffer);
+
+      const outputVideoPath = await createTempPath2('vc_output', 'mp4');
+      tempFiles.push(outputVideoPath);
+
+      console.log(`🎬 Voice Changer: replacing audio in video (batch: ${batch_id})`);
+      await replaceAudioInVideo(tempFiles[0], convertedAudioPath, outputVideoPath);
+
+      const finalVideoBuffer = await readFile2(outputVideoPath);
+      await cleanupTempFiles(...tempFiles);
+
+      const finalVideoPath = `${user.id}/voice-changer/${batch_id}_result.mp4`;
+      const { error: videoUploadError } = await supabase.storage
+        .from('script-videos')
+        .upload(finalVideoPath, finalVideoBuffer, { contentType: 'video/mp4' });
+
+      if (videoUploadError) {
+        return { success: false, error: `Failed to upload result video: ${videoUploadError.message}`, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: userCredits };
+      }
+
+      const { data: { publicUrl: videoPublicUrl } } = supabase.storage.from('script-videos').getPublicUrl(finalVideoPath);
+
+      // Deduct credits
+      await deductCredits(supabase, user.id, creditCost, batch_id, 'voice_changer');
+
+      // Save to generated_voices table
+      await supabase.from('generated_voices').insert({
+        id: batch_id,
+        user_id: user.id,
+        text_content: `Voice Changer (Video): ${request.target_mode === 'preset' ? request.target_voice : 'Custom voice'}`,
+        voice_id: request.target_mode === 'preset' ? `chatterbox_${request.target_voice}` : 'chatterbox_custom',
+        voice_name: request.target_mode === 'preset' ? `ChatterboxHD ${request.target_voice}` : 'ChatterboxHD Custom',
+        voice_provider: 'chatterbox',
+        audio_format: 'mp4',
+        audio_url: videoPublicUrl,
+        duration_seconds: 0,
+        file_size_bytes: finalVideoBuffer.length,
+        voice_settings: { mode: request.target_mode, high_quality: request.high_quality_audio, source_type: 'video' } as unknown as Json,
+        created_at: new Date().toISOString(),
+      });
+
+      console.log(`✅ Voice Changer (Video): done (${Date.now() - startTime}ms, ${creditCost} credits)`);
+
+      return {
+        success: true,
+        video_url: videoPublicUrl,
+        result_type: 'video',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: creditCost,
+        remaining_credits: userCredits - creditCost,
+      };
+    }
+
+    // ─── Audio-only path (existing, unchanged) ───────────────
     const resultPath = `${user.id}/voice-changer/${batch_id}_result.wav`;
 
     const { error: resultUploadError } = await supabase.storage
@@ -570,7 +697,6 @@ export async function executeVoiceChanger(
       .upload(resultPath, resultBuffer, { contentType: 'audio/wav' });
 
     if (resultUploadError) {
-      // Still return the fal.ai URL if persist fails — it's temporary but usable
       console.warn('Failed to persist result audio:', resultUploadError.message);
     }
 
@@ -592,7 +718,7 @@ export async function executeVoiceChanger(
       audio_url: finalAudioUrl,
       duration_seconds: 0,
       file_size_bytes: resultBuffer.length,
-      voice_settings: { mode: request.target_mode, high_quality: request.high_quality_audio },
+      voice_settings: { mode: request.target_mode, high_quality: request.high_quality_audio } as unknown as Json,
       created_at: new Date().toISOString(),
     });
 
@@ -601,6 +727,7 @@ export async function executeVoiceChanger(
     return {
       success: true,
       audio_url: finalAudioUrl,
+      result_type: 'audio',
       batch_id,
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Repeat2, Upload, Mic2, AlertCircle, Sparkles } from 'lucide-react';
+import { Repeat2, Upload, Mic2, AlertCircle, Sparkles, FileVideo, Download } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { toast } from 'sonner';
@@ -19,16 +19,32 @@ interface VoiceChangerTabProps {
   credits: number;
   isChanging: boolean;
   changedAudioUrl: string | null;
+  changedVideoUrl: string | null;
+  changedResultType: 'audio' | 'video' | null;
 }
 
 const BASE_CREDITS = 3;
 const HQ_CREDITS = 4;
+
+const AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a'];
+const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm'];
+const MAX_AUDIO_SIZE = 20 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 200 * 1024 * 1024;
+
+function isVideoFile(file: File): boolean {
+  const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+  return VIDEO_TYPES.includes(file.type) || VIDEO_EXTENSIONS.includes(ext);
+}
 
 export function VoiceChangerTab({
   onChangeVoice,
   credits,
   isChanging,
   changedAudioUrl,
+  changedVideoUrl,
+  changedResultType,
 }: VoiceChangerTabProps) {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [targetVoiceFile, setTargetVoiceFile] = useState<File | null>(null);
@@ -37,6 +53,7 @@ export function VoiceChangerTab({
   const [targetDragActive, setTargetDragActive] = useState(false);
 
   const creditCost = highQuality ? HQ_CREDITS : BASE_CREDITS;
+  const sourceIsVideo = sourceFile ? isVideoFile(sourceFile) : false;
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -58,17 +75,31 @@ export function VoiceChangerTab({
     }
   }, []);
 
-  const validateAudioFile = (file: File): boolean => {
-    const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
-    const validExtensions = ['.mp3', '.wav', '.m4a'];
-    const maxSize = 20 * 1024 * 1024;
+  const validateSourceFile = (file: File): boolean => {
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    const allValidTypes = [...AUDIO_TYPES, ...VIDEO_TYPES];
+    const allValidExtensions = [...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS];
 
-    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!validTypes.includes(file.type) && !validExtensions.includes(ext)) {
+    if (!allValidTypes.includes(file.type) && !allValidExtensions.includes(ext)) {
+      toast.error('Invalid file type. Please upload MP3, WAV, M4A, MP4, MOV, or WebM.');
+      return false;
+    }
+    const maxSize = isVideoFile(file) ? MAX_VIDEO_SIZE : MAX_AUDIO_SIZE;
+    if (file.size > maxSize) {
+      const limitMB = maxSize / 1024 / 1024;
+      toast.error(`File too large. Maximum size is ${limitMB}MB.`);
+      return false;
+    }
+    return true;
+  };
+
+  const validateAudioFile = (file: File): boolean => {
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!AUDIO_TYPES.includes(file.type) && !AUDIO_EXTENSIONS.includes(ext)) {
       toast.error('Invalid file type. Please upload MP3, WAV, or M4A.');
       return false;
     }
-    if (file.size > maxSize) {
+    if (file.size > MAX_AUDIO_SIZE) {
       toast.error('File too large. Maximum size is 20MB.');
       return false;
     }
@@ -81,7 +112,7 @@ export function VoiceChangerTab({
     setDragActive(false);
     if (e.dataTransfer.files?.[0]) {
       const file = e.dataTransfer.files[0];
-      if (validateAudioFile(file)) setSourceFile(file);
+      if (validateSourceFile(file)) setSourceFile(file);
     }
   }, []);
 
@@ -98,7 +129,7 @@ export function VoiceChangerTab({
   const handleSourceSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const file = e.target.files[0];
-      if (validateAudioFile(file)) setSourceFile(file);
+      if (validateSourceFile(file)) setSourceFile(file);
     }
   };
 
@@ -111,7 +142,7 @@ export function VoiceChangerTab({
 
   const handleGenerate = async () => {
     if (!sourceFile || !targetVoiceFile) {
-      toast.error('Please upload both a source audio and a target voice sample.');
+      toast.error('Please upload both a source file and a target voice sample.');
       return;
     }
 
@@ -127,11 +158,11 @@ export function VoiceChangerTab({
   return (
     <TabContentWrapper>
       <TabBody>
-        {/* Step 1: Upload Source Audio */}
+        {/* Step 1: Upload Source */}
         <StandardStep
           stepNumber={1}
-          title="Upload Source Audio"
-          description="The audio whose voice you want to change"
+          title="Upload Source"
+          description="The audio or video whose voice you want to change"
         >
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -146,10 +177,19 @@ export function VoiceChangerTab({
           >
             {sourceFile ? (
               <div className="space-y-2">
-                <Mic2 className="w-10 h-10 mx-auto text-primary" />
+                {sourceIsVideo ? (
+                  <FileVideo className="w-10 h-10 mx-auto text-primary" />
+                ) : (
+                  <Mic2 className="w-10 h-10 mx-auto text-primary" />
+                )}
                 <p className="font-medium">{sourceFile.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {(sourceFile.size / 1024 / 1024).toFixed(2)} MB
+                  {sourceIsVideo && (
+                    <span className="ml-2 text-xs bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full">
+                      Video
+                    </span>
+                  )}
                 </p>
                 <Button variant="outline" size="sm" onClick={() => setSourceFile(null)}>
                   Remove
@@ -159,12 +199,12 @@ export function VoiceChangerTab({
               <div className="space-y-2">
                 <Upload className="w-10 h-10 mx-auto text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Drag and drop your audio file here, or
+                  Drag and drop your audio or video file here, or
                 </p>
                 <label>
                   <input
                     type="file"
-                    accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"
+                    accept=".mp3,.wav,.m4a,.mp4,.mov,.webm,audio/mpeg,audio/wav,audio/mp4,video/mp4,video/quicktime,video/webm"
                     onChange={handleSourceSelect}
                     className="hidden"
                   />
@@ -173,7 +213,7 @@ export function VoiceChangerTab({
                   </Button>
                 </label>
                 <p className="text-xs text-muted-foreground mt-2">
-                  MP3, WAV, or M4A • Max 20MB
+                  Audio: MP3, WAV, M4A (max 20MB) | Video: MP4, MOV, WebM (max 200MB)
                 </p>
               </div>
             )}
@@ -259,9 +299,10 @@ export function VoiceChangerTab({
             <div className="text-sm text-blue-800 dark:text-blue-200">
               <p className="font-medium mb-1">How it works:</p>
               <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>Upload any audio recording as the source</li>
+                <li>Upload any audio or video recording as the source</li>
                 <li>Upload a voice sample of the voice you want to clone</li>
                 <li>The AI will re-speak the source audio in the target voice</li>
+                <li>For video files, the converted voice replaces the original audio</li>
                 <li>Works best with clear speech without background music</li>
               </ul>
             </div>
@@ -269,23 +310,37 @@ export function VoiceChangerTab({
         </Card>
 
         {/* Result */}
-        {changedAudioUrl && (
+        {(changedAudioUrl || changedVideoUrl) && (
           <Card className="p-4">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <h3 className="font-medium text-sm">Converted Audio</h3>
+                <h3 className="font-medium text-sm">
+                  {changedResultType === 'video' ? 'Converted Video' : 'Converted Audio'}
+                </h3>
               </div>
-              <audio controls src={changedAudioUrl} className="w-full" />
-              <a
-                href={changedAudioUrl}
-                download="voice-changed.wav"
-                className="inline-block"
-              >
-                <Button variant="outline" size="sm">
-                  Download
-                </Button>
-              </a>
+
+              {changedResultType === 'video' && changedVideoUrl ? (
+                <>
+                  <video controls src={changedVideoUrl} className="w-full rounded-lg" />
+                  <a href={changedVideoUrl} download="voice-changed.mp4" className="inline-block">
+                    <Button variant="outline" size="sm">
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                      Download Video
+                    </Button>
+                  </a>
+                </>
+              ) : changedAudioUrl ? (
+                <>
+                  <audio controls src={changedAudioUrl} className="w-full" />
+                  <a href={changedAudioUrl} download="voice-changed.wav" className="inline-block">
+                    <Button variant="outline" size="sm">
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                      Download
+                    </Button>
+                  </a>
+                </>
+              ) : null}
             </div>
           </Card>
         )}
@@ -301,7 +356,7 @@ export function VoiceChangerTab({
           {isChanging ? (
             <>
               <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Converting Voice...
+              {sourceIsVideo ? 'Processing Video...' : 'Converting Voice...'}
             </>
           ) : (
             <>

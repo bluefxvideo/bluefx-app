@@ -62,6 +62,8 @@ export interface VoiceOverState {
   // Voice changer
   isChangingVoice: boolean;
   changedAudioUrl: string | null;
+  changedVideoUrl: string | null;
+  changedResultType: 'audio' | 'video' | null;
 }
 
 export function useVoiceOver() {
@@ -106,6 +108,8 @@ export function useVoiceOver() {
     isCloning: false,
     isChangingVoice: false,
     changedAudioUrl: null,
+    changedVideoUrl: null,
+    changedResultType: null,
   });
 
   // Update active tab when pathname changes
@@ -498,9 +502,15 @@ export function useVoiceOver() {
   ) => {
     if (!user) return;
 
-    setState(prev => ({ ...prev, isChangingVoice: true, changedAudioUrl: null, error: null }));
+    setState(prev => ({ ...prev, isChangingVoice: true, changedAudioUrl: null, changedVideoUrl: null, changedResultType: null, error: null }));
 
     try {
+      // Detect if source is video
+      const videoExtensions = ['.mp4', '.mov', '.webm', '.avi', '.mkv'];
+      const videoMimeTypes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo'];
+      const ext = '.' + (sourceFile.name.split('.').pop()?.toLowerCase() || '');
+      const isVideo = videoMimeTypes.includes(sourceFile.type) || videoExtensions.includes(ext);
+
       // Convert source file to base64
       const sourceBuffer = await sourceFile.arrayBuffer();
       const sourceUint8 = new Uint8Array(sourceBuffer);
@@ -522,19 +532,22 @@ export function useVoiceOver() {
       const response = await executeVoiceChanger({
         source_audio_base64: sourceBase64,
         source_filename: sourceFile.name,
+        source_is_video: isVideo,
         target_mode: 'custom',
         target_voice_base64: targetBase64,
         target_voice_filename: targetVoiceFile.name,
         high_quality_audio: highQuality || false,
       });
 
-      if (response.success && response.audio_url) {
+      if (response.success && (response.audio_url || response.video_url)) {
         setState(prev => ({
           ...prev,
           isChangingVoice: false,
-          changedAudioUrl: response.audio_url!,
+          changedAudioUrl: response.audio_url || null,
+          changedVideoUrl: response.video_url || null,
+          changedResultType: response.result_type || 'audio',
         }));
-        toast.success('Voice converted successfully!');
+        toast.success(isVideo ? 'Video voice converted!' : 'Voice converted successfully!');
       } else {
         throw new Error(response.error || 'Voice conversion failed');
       }
