@@ -10,6 +10,7 @@ export interface CaptionGenerationOptions {
   frameRate?: number;             // Default: 30fps
   maxCharsPerLine?: number;       // Default: 42 characters
   contentType?: 'educational' | 'standard' | 'fast';  // Default: 'standard'
+  audioDuration?: number;         // Known audio duration in seconds for boundary checking
 }
 
 export interface ProfessionalCaptionChunk {

@@ -121,29 +121,42 @@ export async function generateCaptionsForAudio(
       console.log('✅ Whisper analysis completed');
     }
 
-    // Step 2: Extract all word timings from all segments
+    // Step 2: Extract all word timings from segments or raw_word_timings
     const allWords: any[] = [];
-    if (whisperData.segment_timings) {
-      console.log('🔍 DEBUG Whisper segments:', whisperData.segment_timings.length);
+
+    // First try: extract from segment_timings (populated when segments are provided)
+    if (whisperData.segment_timings && whisperData.segment_timings.length > 0) {
+      console.log('🔍 Extracting words from segment_timings:', whisperData.segment_timings.length, 'segments');
       whisperData.segment_timings.forEach((segment, idx) => {
-        console.log(`🔍 DEBUG Segment ${idx}: start=${segment.start_time}, end=${segment.end_time}`);
         if (segment.word_timings) {
           segment.word_timings.forEach(word => {
-            // Word timings from Whisper are already absolute, not relative
             allWords.push({
               ...word,
-              start: word.start,  // Already absolute timing
-              end: word.end       // Already absolute timing
+              start: word.start,
+              end: word.end
             });
           });
         }
       });
     }
-    
+
+    // Fallback: use raw_word_timings (populated when segments is empty [])
+    if (allWords.length === 0 && whisperData.raw_word_timings && whisperData.raw_word_timings.length > 0) {
+      console.log('🔍 Using raw_word_timings fallback:', whisperData.raw_word_timings.length, 'words');
+      whisperData.raw_word_timings.forEach(word => {
+        allWords.push({
+          word: word.word,
+          start: word.start,
+          end: word.end,
+          confidence: word.confidence || 0.9
+        });
+      });
+    }
+
     // Debug: Check if words extend beyond expected duration
     if (allWords.length > 0) {
       const maxWordEnd = Math.max(...allWords.map(w => w.end));
-      console.log(`🔍 DEBUG Max word end time: ${maxWordEnd}s (should be ~30s for 30s audio)`);
+      console.log(`🔍 Word timings: ${allWords.length} words, max end time: ${maxWordEnd.toFixed(2)}s`);
       if (maxWordEnd > 35) {
         console.warn(`⚠️ WARNING: Word timings extend to ${maxWordEnd}s, which exceeds expected audio duration!`);
       }

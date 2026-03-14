@@ -15,6 +15,8 @@ import Brightness from "./common/brightness";
 import useLayoutStore from "../store/use-layout-store";
 import { Label } from "@/components/ui/label";
 import { KenBurnsControl } from "./ken-burns-control";
+import { AnimateImageControl } from "./animate-image-control";
+import { EditImageControl } from "./edit-image-control";
 import useStore from "../store/use-store";
 
 const BasicImage = ({
@@ -202,6 +204,18 @@ const BasicImage = ({
 			),
 		},
 		{
+			key: "animate",
+			component: (
+				<AnimateImageControl trackItem={trackItem} />
+			),
+		},
+		{
+			key: "edit-ai",
+			component: (
+				<EditImageControl trackItem={trackItem} />
+			),
+		},
+		{
 			key: "kenburns",
 			component: (
 				<div className="flex flex-col gap-2">
@@ -268,12 +282,12 @@ const BasicImage = ({
 		},
 	];
 	return (
-		<div className="flex flex-1 flex-col">
+		<div className="flex flex-1 flex-col min-h-0">
 			<div className="text-text-primary flex h-12 flex-none items-center px-4 text-sm font-medium">
 				Image
 			</div>
-			<ScrollArea className="h-full">
-				<div className="flex flex-col gap-2 px-4 py-4">
+			<ScrollArea className="flex-1 min-h-0">
+				<div className="flex flex-col gap-2 px-4 py-4 pb-8">
 					{components
 						.filter((comp) => showAll || comp.key === type)
 						.map((comp) => (

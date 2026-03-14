@@ -9,7 +9,7 @@ import { PhotoGrid } from '../components/photo-grid';
 import { ScriptEditor } from '../components/script-editor';
 import { Loader2, Scan, FileText, Film, Mic, RefreshCw, Download } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { MINIMAX_VOICE_OPTIONS } from '@/components/shared/voice-constants';
+import { VoiceSelector } from '../components/voice-selector';
 import type { ReelEstateProject, TargetDuration, ZillowListingData } from '@/types/reelestate';
 import { TARGET_DURATIONS } from '@/types/reelestate';
 
@@ -29,9 +29,13 @@ interface VideoMakerTabProps {
   onOpenInEditor: () => void;
   onSetSelectedIndices: (indices: number[]) => void;
   onUpdateScriptSegment: (index: number, voiceover: string) => void;
+  onDeleteScriptSegment: (index: number) => void;
+  onMoveScriptSegment: (index: number, direction: 'up' | 'down') => void;
   onSetAspectRatio: (ratio: '16:9' | '9:16') => void;
   onSetTargetDuration: (duration: TargetDuration) => void;
   onSetVoiceId: (voiceId: string) => void;
+  onSetVoiceSpeed: (speed: number) => void;
+  userId?: string;
   onCleanupPhoto?: (index: number) => void;
   cleaningIndices?: number[];
 }
@@ -48,9 +52,13 @@ export function VideoMakerTab({
   onOpenInEditor,
   onSetSelectedIndices,
   onUpdateScriptSegment,
+  onDeleteScriptSegment,
+  onMoveScriptSegment,
   onSetAspectRatio,
   onSetTargetDuration,
   onSetVoiceId,
+  onSetVoiceSpeed,
+  userId,
   onCleanupPhoto,
   cleaningIndices,
 }: VideoMakerTabProps) {
@@ -165,31 +173,14 @@ export function VideoMakerTab({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Voiceover Voice</label>
-                <Select
-                  value={project.voiceId}
-                  onValueChange={onSetVoiceId}
-                  disabled={isWorking}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MINIMAX_VOICE_OPTIONS.map(v => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name} ({v.gender})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {(() => {
-                  const selectedVoice = MINIMAX_VOICE_OPTIONS.find(v => v.id === project.voiceId);
-                  return selectedVoice ? (
-                    <p className="text-xs text-muted-foreground mt-1">{selectedVoice.description}</p>
-                  ) : null;
-                })()}
-              </div>
+              <VoiceSelector
+                voiceId={project.voiceId}
+                onVoiceChange={onSetVoiceId}
+                speed={project.voiceSpeed}
+                onSpeedChange={onSetVoiceSpeed}
+                disabled={isWorking}
+                userId={userId}
+              />
             </div>
 
             {!hasScript ? (
@@ -217,6 +208,8 @@ export function VideoMakerTab({
                 )}
                 photos={project.photos}
                 onUpdateSegment={onUpdateScriptSegment}
+                onDeleteSegment={onDeleteScriptSegment}
+                onMoveSegment={onMoveScriptSegment}
                 disabled={isWorking}
               />
             )}

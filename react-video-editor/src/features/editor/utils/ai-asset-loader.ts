@@ -2,6 +2,7 @@ import { dispatch } from "@designcombo/events";
 import { DESIGN_LOAD, ADD_ITEMS, DESIGN_RESIZE } from "@designcombo/state";
 import { convertAIAssetsToEditorFormat, validateAIAssets, createMockAIComposition } from "./ai-asset-converter";
 import { fixAllAIAssetPositioning } from "./ai-positioning-fix";
+import useStore from "../store/use-store";
 
 /**
  * AI Asset Loader
@@ -488,17 +489,14 @@ async function loadAIAssetsFromBlueFX({
     
     // Dispatch the complete payload with all items and proper single track for images
     dispatch(DESIGN_LOAD, { payload: editorPayload });
-    
+
+    // Explicitly sync canvas size to Zustand store
+    useStore.setState({ size: editorPayload.size });
+
     // Ensure canvas size matches the aspect ratio (since StateManager might be initialized with default size)
     // Add delay to ensure DESIGN_LOAD is fully processed and all state is settled
     setTimeout(() => {
       console.log('📐 Dispatching DESIGN_RESIZE to match aspect ratio:', editorPayload.size);
-      console.log('📐 DESIGN_RESIZE payload:', {
-        width: editorPayload.size.width,
-        height: editorPayload.size.height,
-        name: aspectRatio
-      });
-      console.log('📐 DESIGN_RESIZE event being dispatched now...');
       dispatch(DESIGN_RESIZE, {
         payload: {
           width: editorPayload.size.width,
@@ -506,7 +504,7 @@ async function loadAIAssetsFromBlueFX({
           name: aspectRatio
         }
       });
-      console.log('📐 DESIGN_RESIZE dispatched successfully');
+      useStore.setState({ size: editorPayload.size });
     }, 500); // Increased delay to ensure all loading is complete
 
     // Check for existing captions before completing (will auto-generate if missing)
@@ -627,6 +625,10 @@ async function loadReelEstateListing({
     console.log('📤 Dispatching DESIGN_LOAD for ReelEstate listing...');
     dispatch(DESIGN_LOAD, { payload: editorPayload });
 
+    // Explicitly sync canvas size to Zustand store (DESIGN_LOAD may not propagate it)
+    useStore.setState({ size: editorPayload.size });
+    console.log('📐 Canvas size synced to Zustand:', editorPayload.size);
+
     // Resize canvas to match aspect ratio
     setTimeout(() => {
       dispatch(DESIGN_RESIZE, {
@@ -636,7 +638,21 @@ async function loadReelEstateListing({
           name: aspectRatio,
         },
       });
+      // Sync again after DESIGN_RESIZE to be safe
+      useStore.setState({ size: editorPayload.size });
     }, 500);
+
+    onProgress?.('Loading captions...', 85);
+
+    // Auto-generate captions using existing Whisper data (no extra API call)
+    const totalDuration = aiAssets.timeline_data?.total_duration || videoData.metadata?.totalDuration;
+    try {
+      // Wait a bit for the design to fully load before adding captions
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await autoGenerateCaptions(videoData, userId, cleanApiUrl, onProgress, totalDuration);
+    } catch (captionError) {
+      console.warn('⚠️ Auto-caption generation failed (non-blocking):', captionError);
+    }
 
     onProgress?.('Complete!', 100);
     onSuccess?.(listingId);
@@ -776,26 +792,26 @@ function convertBlueFXDataToAIAssets(videoData: any) {
       duration: segment.duration
     });
     
-    // Fix null start_time by using word_timings data or calculating from whisper analysis
+    // Fix null/undefined start_time (use strict null checks — 0 is a valid start_time)
     let calculatedStartTime = segment.start_time;
     let calculatedEndTime = segment.end_time;
     let calculatedDuration = segment.duration;
-    
-    if (!calculatedStartTime && segment.word_timings && segment.word_timings.length > 0) {
+
+    if (calculatedStartTime == null && segment.word_timings && segment.word_timings.length > 0) {
       // Use first word's start time
       calculatedStartTime = segment.word_timings[0].start;
       console.log(`🔧 Fixed start_time for segment ${index} using word timings: ${calculatedStartTime}`);
     }
-    
-    if (!calculatedStartTime) {
+
+    if (calculatedStartTime == null) {
       // Fallback: use index-based timing
       calculatedStartTime = index * 5;
       console.log(`🔧 Fallback start_time for segment ${index}: ${calculatedStartTime}`);
     }
-    
-    if (!calculatedDuration && calculatedEndTime && calculatedStartTime) {
+
+    if ((calculatedDuration == null || calculatedDuration === 0) && calculatedEndTime != null && calculatedStartTime != null) {
       calculatedDuration = calculatedEndTime - calculatedStartTime;
-    } else if (!calculatedDuration) {
+    } else if (calculatedDuration == null || calculatedDuration === 0) {
       calculatedDuration = 5; // Default 5 seconds
     }
     
@@ -1062,11 +1078,18 @@ async function autoGenerateCaptions(
     // Import caption generation functions
     const { generateCaptionsFromRequest } = await import('../../../actions/generate-captions');
 
+    // Reuse existing Whisper data if available (avoids redundant API call)
+    const existingWhisperData = videoData.voice?.whisperData || undefined;
+    if (existingWhisperData) {
+      console.log('✅ Reusing existing Whisper data for captions (no extra API call)');
+    }
+
     // Generate captions with simple, clear options
     const captionRequest = {
       audioUrl: audioUrl,
       userId: userId,
       videoId: videoData.videoId,
+      existingWhisperData: existingWhisperData,
       options: {
         maxWordsPerChunk: 5,      // 3-5 words per chunk
         minChunkDuration: 0.833,  // Minimum duration

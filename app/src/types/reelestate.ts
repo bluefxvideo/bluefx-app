@@ -263,6 +263,7 @@ export interface ReelEstateProject {
   aspectRatio: '16:9' | '9:16';
   targetDuration: TargetDuration;
   voiceId: string;
+  voiceSpeed: number;
   creditsUsed: number;
 }
 
@@ -280,6 +281,39 @@ export function cameraMotionToKenBurns(motion: CameraMotion): string {
     none: 'zoom_in',
   };
   return map[motion] || 'zoom_in';
+}
+
+// ═══════════════════════════════════════════
+// Agent Clone Types
+// ═══════════════════════════════════════════
+
+export type AgentCloneShotStatus = 'idle' | 'compositing' | 'composite_ready' | 'animating' | 'ready' | 'failed';
+
+export const AGENT_CLONE_CAMERA_MOTIONS = [
+  'none', 'dolly_in', 'dolly_out', 'dolly_left', 'dolly_right',
+  'jib_up', 'jib_down', 'static', 'focus_shift',
+] as const;
+
+export type AgentCloneCameraMotion = typeof AGENT_CLONE_CAMERA_MOTIONS[number];
+
+export const AGENT_CLONE_DURATIONS = [6, 8, 10, 12, 14, 16, 18, 20] as const;
+export type AgentCloneDuration = typeof AGENT_CLONE_DURATIONS[number];
+
+export interface AgentCloneShot {
+  id: string;
+  generationId: string | null;
+  agentPhotoUrl: string;
+  backgroundUrl: string;
+  compositeUrl: string | null;
+  videoUrl: string | null;
+  predictionId: string | null;
+  status: AgentCloneShotStatus;
+  prompt: string;
+  dialogue: string;
+  action: string;
+  cameraMotion: AgentCloneCameraMotion;
+  duration: AgentCloneDuration;
+  error: string | null;
 }
 
 // ═══════════════════════════════════════════
@@ -323,4 +357,25 @@ export interface ReelEstateCleanupRow {
   error_message: string | null;
   credits_used: number;
   created_at: string;
+}
+
+export interface AgentCloneGenerationRow {
+  id: string;
+  user_id: string;
+  agent_photo_url: string;
+  background_url: string;
+  composite_url: string | null;
+  video_url: string | null;
+  prompt: string;
+  dialogue: string;
+  action: string;
+  camera_motion: string;
+  duration: number;
+  aspect_ratio: string;
+  status: string;
+  prediction_id: string | null;
+  error_message: string | null;
+  credits_used: number;
+  created_at: string;
+  updated_at: string;
 }

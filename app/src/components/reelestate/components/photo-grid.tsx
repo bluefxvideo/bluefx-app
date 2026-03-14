@@ -1,8 +1,10 @@
 'use client';
 
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, AlertTriangle, Camera, Sparkles, Loader2 } from 'lucide-react';
+import { Check, AlertTriangle, Camera, Sparkles, Loader2, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import type { ImageAnalysis } from '@/types/reelestate';
 
 interface PhotoGridProps {
@@ -24,6 +26,33 @@ export function PhotoGrid({
   cleaningIndices = [],
   disabled,
 }: PhotoGridProps) {
+  const downloadPhoto = useCallback(async (url: string, index: number) => {
+    try {
+      // Use proxy for external URLs (Zillow etc. block CORS)
+      const isExternal = url.startsWith('http');
+      const fetchUrl = isExternal
+        ? `/api/reelestate/proxy-image?url=${encodeURIComponent(url)}`
+        : url;
+      const res = await fetch(fetchUrl);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `photo-${index + 1}.jpg`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error(`Failed to download photo ${index + 1}`);
+    }
+  }, []);
+
+  const downloadAll = useCallback(async () => {
+    const indices = selectedIndices.length > 0 ? selectedIndices : photos.map((_, i) => i);
+    toast.info(`Downloading ${indices.length} photos...`);
+    for (const i of indices) {
+      await downloadPhoto(photos[i], i);
+    }
+  }, [photos, selectedIndices, downloadPhoto]);
+
   const toggleSelection = (index: number) => {
     if (disabled) return;
     if (selectedIndices.includes(index)) {
@@ -50,9 +79,13 @@ export function PhotoGrid({
           <Button variant="outline" size="sm" onClick={selectNone} disabled={disabled}>
             Deselect All
           </Button>
-          <span className="text-sm text-muted-foreground ml-auto">
+          <span className="text-sm text-muted-foreground ml-auto mr-2">
             {selectedIndices.length}/{photos.length} selected
           </span>
+          <Button variant="outline" size="sm" onClick={downloadAll} disabled={disabled}>
+            <Download className="w-3.5 h-3.5 mr-1" />
+            Download {selectedIndices.length > 0 ? `(${selectedIndices.length})` : 'All'}
+          </Button>
         </div>
       )}
 
@@ -146,15 +179,27 @@ export function PhotoGrid({
                 </div>
               )}
 
-              {/* Quality score */}
-              {analysis && !isCleaning && !analysis.cleanup_needed && (
-                <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Badge
-                    variant={analysis.quality_score >= 7 ? 'default' : analysis.quality_score >= 4 ? 'secondary' : 'destructive'}
-                    className="text-[10px] px-1 py-0 h-4"
+              {/* Quality score + download */}
+              {analysis && !isCleaning && (
+                <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  {!analysis.cleanup_needed && (
+                    <Badge
+                      variant={analysis.quality_score >= 7 ? 'default' : analysis.quality_score >= 4 ? 'secondary' : 'destructive'}
+                      className="text-[10px] px-1 py-0 h-4"
+                    >
+                      Q:{analysis.quality_score}/10
+                    </Badge>
+                  )}
+                  <button
+                    type="button"
+                    className="w-5 h-5 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadPhoto(url, index);
+                    }}
                   >
-                    Q:{analysis.quality_score}/10
-                  </Badge>
+                    <Download className="w-3 h-3 text-white" />
+                  </button>
                 </div>
               )}
             </button>

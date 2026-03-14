@@ -69,20 +69,14 @@ function ImageWithKenBurns({
 	);
 	
 	// Merge Ken Burns transform with existing styles
-	const mediaStyles = {
-		...calculateMediaStyles(details, crop),
-		// Apply Ken Burns transform if active
-		...(kenBurnsConfig.preset !== 'none' && {
-			transform: kenBurnsTransform.transform,
-			transformOrigin: 'center center'
-		})
-	};
+	const mediaStyles = calculateMediaStyles(details, crop);
+	const hasKenBurns = kenBurnsConfig.preset !== 'none';
 
 	return (
-		<div style={mediaStyles}>
-			{/* image layer */}
-			<Img 
-				data-id={item.id} 
+		<div style={{ ...mediaStyles, overflow: 'hidden' }}>
+			{/* image layer — Ken Burns transform applied to inner element so overflow:hidden clips edges */}
+			<Img
+				data-id={item.id}
 				src={details.src}
 				style={{
 					width: '100%',
@@ -90,7 +84,11 @@ function ImageWithKenBurns({
 					objectFit: 'cover',
 					position: 'absolute',
 					top: 0,
-					left: 0
+					left: 0,
+					...(hasKenBurns && {
+						transform: kenBurnsTransform.transform,
+						transformOrigin: 'center center',
+					}),
 				}}
 			/>
 		</div>

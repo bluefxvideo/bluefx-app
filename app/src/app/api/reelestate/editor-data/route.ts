@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { analyzeAudioWithWhisper } from '@/actions/services/whisper-analysis-service';
 
 /**
  * ReelEstate Editor Data API
@@ -43,7 +44,7 @@ function corsHeaders(request: NextRequest) {
 
 // ─── Shared formatting logic ───────────────────────────────────────────
 
-function formatListingForEditor(listing: any, userId: string) {
+async function formatListingForEditor(listing: any, userId: string) {
   const segments = listing.script_segments || [];
   const analyses = listing.image_analysis || [];
   const photos = listing.photo_urls || [];
@@ -53,36 +54,124 @@ function formatListingForEditor(listing: any, userId: string) {
   const aspectRatio = listing.aspect_ratio || '16:9';
   const listingData = listing.listing_data;
 
-  // Build selected segments in order, with timing scaled to voiceover duration
+  // Build selected segments in order
   const selectedSegments = segments.filter(
     (s: any) => selectedIndices.includes(s.image_index),
   );
 
-  // First pass: get raw segment durations
-  const rawDurations = selectedSegments.map((seg: any) => seg.duration_seconds || 3);
-  const rawTotal = rawDurations.reduce((sum: number, d: number) => sum + d, 0);
+  // ─── Whisper-based timing (precise) ──────────────────────────────────
+  // Use Whisper raw word timings + word-count splitting for reliable segment boundaries.
+  // This avoids the fragile text-matching approach: we simply count how many words
+  // each segment has and assign Whisper words sequentially.
+  let whisperWordTimings: any[] = [];
+  let editorSegments: any[];
+  let usedWhisper = false;
 
-  // Scale factor: stretch/compress images to fill the voiceover
-  const totalDuration = voiceoverDuration || rawTotal || 30;
-  const scale = rawTotal > 0 ? totalDuration / rawTotal : 1;
+  if (voiceoverUrl && selectedSegments.length > 0) {
+    try {
+      console.log('🎤 Running Whisper analysis on voiceover for segment timing...');
+      const whisperSegments = selectedSegments.map((seg: any, i: number) => ({
+        id: `segment-${i}`,
+        text: seg.voiceover || '',
+      }));
 
-  let currentTime = 0;
-  const editorSegments = selectedSegments.map((seg: any, i: number) => {
-    const analysis = analyses.find((a: any) => a.index === seg.image_index);
-    const duration = rawDurations[i] * scale;
-    const startTime = currentTime;
-    currentTime += duration;
+      const whisperResult = await analyzeAudioWithWhisper({
+        audio_url: voiceoverUrl,
+        segments: whisperSegments,
+      });
 
-    return {
-      id: `segment-${i}`,
-      text: seg.voiceover || `Segment ${i + 1}`,
-      start_time: startTime,
-      end_time: currentTime,
-      duration,
-      image_prompt: analysis?.description || `Photo ${seg.image_index + 1}`,
-      camera_motion: analysis?.camera_motion || 'none',
-    };
-  });
+      // Use raw_word_timings for reliable word-count-based splitting
+      const rawWords = whisperResult.raw_word_timings || [];
+
+      if (whisperResult.success && rawWords.length > 0) {
+        console.log(`✅ Whisper returned ${rawWords.length} raw word timings`);
+
+        // Count words per segment
+        const segmentWordCounts = selectedSegments.map(
+          (seg: any) => (seg.voiceover || '').split(/\s+/).filter(Boolean).length,
+        );
+        const totalExpectedWords = segmentWordCounts.reduce((a: number, b: number) => a + b, 0);
+        console.log(`📊 Expected words: ${totalExpectedWords}, Whisper words: ${rawWords.length}`);
+
+        // Assign Whisper words to segments by word count
+        let wordIdx = 0;
+        editorSegments = selectedSegments.map((seg: any, i: number) => {
+          const analysis = analyses.find((a: any) => a.index === seg.image_index);
+          const expectedWords = segmentWordCounts[i];
+
+          // How many Whisper words to assign to this segment
+          // Scale proportionally if counts don't match exactly
+          const ratio = rawWords.length / Math.max(totalExpectedWords, 1);
+          const assignCount = Math.max(1, Math.round(expectedWords * ratio));
+
+          const segStart = wordIdx;
+          const segEnd = Math.min(wordIdx + assignCount, rawWords.length);
+          const assignedWords = rawWords.slice(segStart, segEnd);
+          wordIdx = segEnd;
+
+          // For the last segment, grab any remaining words
+          if (i === selectedSegments.length - 1 && wordIdx < rawWords.length) {
+            assignedWords.push(...rawWords.slice(wordIdx));
+            wordIdx = rawWords.length;
+          }
+
+          const startTime = assignedWords.length > 0 ? assignedWords[0].start : 0;
+          const endTime = assignedWords.length > 0
+            ? assignedWords[assignedWords.length - 1].end
+            : startTime + 3;
+
+          return {
+            id: `segment-${i}`,
+            text: seg.voiceover || `Segment ${i + 1}`,
+            start_time: startTime,
+            end_time: endTime,
+            duration: endTime - startTime,
+            image_prompt: analysis?.description || `Photo ${seg.image_index + 1}`,
+            camera_motion: analysis?.camera_motion || 'none',
+          };
+        });
+
+        // Collect all raw word timings for captions
+        whisperWordTimings = rawWords;
+        usedWhisper = true;
+
+        console.log('🎯 Using Whisper word-count-based segment timings:');
+        editorSegments.forEach((seg, i) => {
+          console.log(`  Segment ${i}: ${seg.start_time.toFixed(2)}s → ${seg.end_time.toFixed(2)}s (${seg.duration.toFixed(2)}s) — "${seg.text.substring(0, 40)}..."`);
+        });
+      } else {
+        console.warn('⚠️ Whisper analysis returned no word timings, falling back to proportional');
+      }
+    } catch (err) {
+      console.warn('⚠️ Whisper analysis failed, falling back to proportional:', err);
+    }
+  }
+
+  // ─── Fallback: proportional scaling ────────────────────────────────
+  if (!usedWhisper) {
+    const rawDurations = selectedSegments.map((seg: any) => seg.duration_seconds || 3);
+    const rawTotal = rawDurations.reduce((sum: number, d: number) => sum + d, 0);
+    const totalDur = voiceoverDuration || rawTotal || 30;
+    const scale = rawTotal > 0 ? totalDur / rawTotal : 1;
+
+    let currentTime = 0;
+    editorSegments = selectedSegments.map((seg: any, i: number) => {
+      const analysis = analyses.find((a: any) => a.index === seg.image_index);
+      const duration = rawDurations[i] * scale;
+      const startTime = currentTime;
+      currentTime += duration;
+      return {
+        id: `segment-${i}`,
+        text: seg.voiceover || `Segment ${i + 1}`,
+        start_time: startTime,
+        end_time: currentTime,
+        duration,
+        image_prompt: analysis?.description || `Photo ${seg.image_index + 1}`,
+        camera_motion: analysis?.camera_motion || 'none',
+      };
+    });
+    console.log('📐 Using proportional segment timings (Whisper unavailable)');
+  }
 
   // Build image URLs list matching segment order
   const imageUrls = selectedSegments.map((seg: any) => photos[seg.image_index]);
@@ -102,10 +191,25 @@ function formatListingForEditor(listing: any, userId: string) {
       generation_params: { aspect_ratio: aspectRatio },
     },
 
-    // Audio
+    // Audio — include Whisper word timings so editor can auto-generate captions
     voice: {
       url: voiceoverUrl || '',
-      whisperData: null,
+      whisperData: whisperWordTimings.length > 0
+        ? {
+            success: true,
+            total_duration: editorSegments.length > 0
+              ? editorSegments[editorSegments.length - 1].end_time
+              : (voiceoverDuration || 0),
+            segment_timings: [],
+            raw_word_timings: whisperWordTimings,
+            word_count: whisperWordTimings.length,
+            speaking_rate: 150,
+            confidence_score: 0.9,
+            alignment_quality: 'high' as const,
+            frame_rate: 30,
+            timing_precision: 'frame' as const,
+          }
+        : null,
     },
 
     // Images + segments
@@ -127,7 +231,9 @@ function formatListingForEditor(listing: any, userId: string) {
 
     // Metadata
     metadata: {
-      totalDuration,
+      totalDuration: editorSegments.length > 0
+        ? editorSegments[editorSegments.length - 1].end_time
+        : (voiceoverDuration || 30),
       frameRate: 30,
       wordCount: selectedSegments.reduce(
         (acc: number, s: any) => acc + (s.voiceover || '').split(/\s+/).length,
@@ -137,8 +243,12 @@ function formatListingForEditor(listing: any, userId: string) {
       creditsUsed: listing.total_credits_used || 0,
     },
 
-    // Captions & word timings (empty — editor can generate on-demand)
-    captions: { data: null, chunks: [], wordTimings: [] },
+    // Captions & word timings from Whisper (if available)
+    captions: {
+      data: null,
+      chunks: [],
+      wordTimings: whisperWordTimings,
+    },
 
     apiEndpoint: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/reelestate/editor-data?listingId=${listing.id}`,
   };
@@ -173,7 +283,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const editorData = formatListingForEditor(listing, user_id);
+    const editorData = await formatListingForEditor(listing, user_id);
 
     return NextResponse.json(
       { success: true, data: editorData },
@@ -219,7 +329,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const editorData = formatListingForEditor(listing, userId);
+    const editorData = await formatListingForEditor(listing, userId);
 
     return NextResponse.json(
       { success: true, data: editorData },

@@ -295,6 +295,7 @@ export async function generateListingVoiceover(
   listingId: string,
   scriptText: string,
   voiceId: string,
+  speed: number = 1.0,
 ): Promise<{ success: boolean; audio_url?: string; duration?: number; error?: string }> {
   try {
     const supabase = await createClient();
@@ -310,7 +311,7 @@ export async function generateListingVoiceover(
 
     const result = await generateVoiceForScript(
       scriptText,
-      { voice_id: voiceId, speed: 1.0 },
+      { voice_id: voiceId, speed },
       user.id,
     );
 

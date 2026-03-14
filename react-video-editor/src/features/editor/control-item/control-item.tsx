@@ -46,7 +46,7 @@ const Container = ({ children }: { children: React.ReactNode }) => {
 	}, [activeIds, trackItemsMap]);
 
 	return (
-		<div className="flex w-[272px] flex-none border-l border-border/80 bg-muted hidden lg:block">
+		<div className="flex w-[272px] flex-none border-l border-border/80 bg-muted hidden lg:flex lg:flex-col overflow-hidden h-[calc(100vh-48px)]">
 			{React.cloneElement(children as React.ReactElement<any>, {
 				trackItem,
 				multipleSelection,
@@ -77,11 +77,11 @@ const ActiveControlItem = ({
 	// Show multi-selection controls for images and videos
 	if (multipleSelection && (trackItem.type === "image" || trackItem.type === "video")) {
 		return (
-			<div className="flex flex-1 flex-col">
+			<div className="flex flex-1 flex-col min-h-0">
 				<div className="text-text-primary flex h-12 flex-none items-center px-4 text-sm font-medium">
 					{selectedCount} {trackItem.type}s selected
 				</div>
-				<div className="px-4 py-4">
+				<div className="flex-1 min-h-0 overflow-auto px-4 py-4">
 					{trackItem.type === "image" && <BasicImage trackItem={trackItem as ITrackItem & IImage} />}
 					{trackItem.type === "video" && <BasicVideo trackItem={trackItem as ITrackItem & IVideo} />}
 				</div>

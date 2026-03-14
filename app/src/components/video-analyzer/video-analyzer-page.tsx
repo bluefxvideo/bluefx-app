@@ -179,9 +179,6 @@ export function VideoAnalyzerPage() {
     setAnalysisResult(null);
 
     try {
-      // Deduct credits first
-      deductCredits({ credits: creditsNeeded, service: 'video_analyzer' });
-
       let result;
 
       if (inputMode === 'url') {
@@ -223,6 +220,8 @@ export function VideoAnalyzerPage() {
       }
 
       if (result.success && result.analysis) {
+        // Only deduct credits after successful analysis
+        deductCredits({ credits: creditsNeeded, service: 'video_analyzer' });
         setAnalysisResult(result.analysis);
         toast.success('Video analysis complete!');
         // Refresh history

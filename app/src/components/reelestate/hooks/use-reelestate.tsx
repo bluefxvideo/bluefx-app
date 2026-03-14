@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { getUserCredits } from '@/actions/credit-management';
 import {
@@ -45,6 +46,7 @@ const INITIAL_PROJECT: ReelEstateProject = {
   aspectRatio: '16:9',
   targetDuration: 30,
   voiceId: 'Friendly_Person',
+  voiceSpeed: 1.0,
   creditsUsed: 0,
 };
 
@@ -56,6 +58,7 @@ interface CleanupQueueItem {
 }
 
 export function useReelEstate() {
+  const router = useRouter();
   const [project, setProject] = useState<ReelEstateProject>({ ...INITIAL_PROJECT });
   const [credits, setCredits] = useState(0);
   const [isLoadingCredits, setIsLoadingCredits] = useState(true);
@@ -214,7 +217,7 @@ export function useReelEstate() {
 
     const fullScript = selectedSegments.map(s => s.voiceover.trim()).join('... ');
 
-    const result = await generateListingVoiceover(project.id!, fullScript, project.voiceId);
+    const result = await generateListingVoiceover(project.id!, fullScript, project.voiceId, project.voiceSpeed);
 
     if (!result.success || !result.audio_url) {
       updateProject({ status: 'script_ready', error: result.error || 'Voiceover generation failed' });
@@ -229,7 +232,7 @@ export function useReelEstate() {
     });
     await refreshCredits();
     toast.success('Voiceover generated');
-  }, [project.id, project.script, project.selectedIndices, project.voiceId, updateProject, refreshCredits]);
+  }, [project.id, project.script, project.selectedIndices, project.voiceId, project.voiceSpeed, updateProject, refreshCredits]);
 
   // ─── Step 5: Open in Video Editor ───────────────
   const openInEditor = useCallback(async () => {
@@ -402,6 +405,30 @@ export function useReelEstate() {
     });
   }, [project.script, updateProject]);
 
+  const deleteScriptSegment = useCallback((index: number) => {
+    if (!project.script) return;
+    const filtered = project.script.segments
+      .filter(s => s.index !== index)
+      .map((s, i) => ({ ...s, index: i }));
+    const totalDuration = filtered.reduce((acc, s) => acc + s.duration_seconds, 0);
+    updateProject({
+      script: { segments: filtered, total_duration_seconds: totalDuration },
+    });
+  }, [project.script, updateProject]);
+
+  const moveScriptSegment = useCallback((index: number, direction: 'up' | 'down') => {
+    if (!project.script) return;
+    const segments = [...project.script.segments];
+    const currentPos = segments.findIndex(s => s.index === index);
+    const targetPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
+    if (targetPos < 0 || targetPos >= segments.length) return;
+    [segments[currentPos], segments[targetPos]] = [segments[targetPos], segments[currentPos]];
+    const reindexed = segments.map((s, i) => ({ ...s, index: i }));
+    updateProject({
+      script: { ...project.script, segments: reindexed },
+    });
+  }, [project.script, updateProject]);
+
   const setAspectRatio = useCallback((ratio: '16:9' | '9:16') => {
     updateProject({ aspectRatio: ratio });
   }, [updateProject]);
@@ -412,6 +439,10 @@ export function useReelEstate() {
 
   const setVoiceId = useCallback((voiceId: string) => {
     updateProject({ voiceId });
+  }, [updateProject]);
+
+  const setVoiceSpeed = useCallback((voiceSpeed: number) => {
+    updateProject({ voiceSpeed });
   }, [updateProject]);
 
   // ─── Photo Cleanup ─────────────────────────────
@@ -531,16 +562,21 @@ export function useReelEstate() {
       aspectRatio: (listing.aspect_ratio as '16:9' | '9:16') || '16:9',
       targetDuration: (listing.target_duration as TargetDuration) || 30,
       voiceId: listing.voice_id || 'Friendly_Person',
+      voiceSpeed: 1.0,
       creditsUsed: listing.total_credits_used || 0,
     });
+
+    // Navigate to Video Maker tab so the user can see the loaded project
+    router.push('/dashboard/reelestate');
     toast.success('Project loaded');
-  }, []);
+  }, [router]);
 
   // ─── Derived State ─────────────────────────────
   const isWorking = ['scraping', 'analyzing', 'scripting', 'generating_clips', 'generating_voiceover', 'rendering', 'assembling'].includes(project.status);
 
   return {
     project,
+    userId,
     credits,
     isLoadingCredits,
     startProject,
@@ -553,9 +589,12 @@ export function useReelEstate() {
     pollClips,
     setSelectedIndices,
     updateScriptSegment,
+    deleteScriptSegment,
+    moveScriptSegment,
     setAspectRatio,
     setTargetDuration,
     setVoiceId,
+    setVoiceSpeed,
     cleanupPhotos,
     cleanupInlinePhoto,
     cleaningIndices,

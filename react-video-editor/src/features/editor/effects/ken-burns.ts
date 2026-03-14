@@ -65,6 +65,11 @@ export function calculateKenBurnsTransform(
   let translateX = 0;
   let translateY = 0;
   
+  // Base scale for pan effects — ensures image is large enough to cover the
+  // frame during the entire pan movement so no black edges are revealed.
+  // We use 1 + intensityFactor which always exceeds the translate distance.
+  const panBaseScale = 1 + intensityFactor + 0.05; // +0.05 safety margin
+
   // Apply preset transformations
   switch (preset) {
     case 'zoom-in':
@@ -75,7 +80,7 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'zoom-out':
       scale = interpolate(
         progress,
@@ -84,8 +89,9 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-left':
+      scale = panBaseScale;
       translateX = interpolate(
         progress,
         [0, 1],
@@ -93,8 +99,9 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-right':
+      scale = panBaseScale;
       translateX = interpolate(
         progress,
         [0, 1],
@@ -102,8 +109,9 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-up':
+      scale = panBaseScale;
       translateY = interpolate(
         progress,
         [0, 1],
@@ -111,8 +119,9 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-down':
+      scale = panBaseScale;
       translateY = interpolate(
         progress,
         [0, 1],
@@ -120,7 +129,7 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'zoom-in-left':
       scale = interpolate(
         progress,
@@ -135,7 +144,7 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'zoom-in-right':
       scale = interpolate(
         progress,
@@ -150,7 +159,7 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'zoom-out-left':
       scale = interpolate(
         progress,
@@ -165,7 +174,7 @@ export function calculateKenBurnsTransform(
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'zoom-out-right':
       scale = interpolate(
         progress,

@@ -6,16 +6,19 @@ import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { useReelEstate } from './hooks/use-reelestate';
-import { Home, Video, ImageIcon, History } from 'lucide-react';
+import { useAgentClone } from './hooks/use-agent-clone';
+import { Home, Video, ImageIcon, History, UserCircle } from 'lucide-react';
 
 // Tab content
 import { VideoMakerTab } from './tabs/video-maker-tab';
 import { PhotoCleanupTab } from './tabs/photo-cleanup-tab';
+import { AgentCloneTab } from './tabs/agent-clone-tab';
 
 // Output panels
 import { VideoMakerOutput } from './output-panel/video-maker-output';
 import { PhotoCleanupOutput } from './output-panel/photo-cleanup-output';
 import { HistoryOutput } from './output-panel/history-output';
+import { AgentCloneOutput } from './output-panel/agent-clone-output';
 
 const REELESTATE_TABS = [
   {
@@ -29,6 +32,12 @@ const REELESTATE_TABS = [
     label: 'Photo Cleanup',
     icon: ImageIcon,
     path: '/dashboard/reelestate/photo-cleanup',
+  },
+  {
+    id: 'agent-clone',
+    label: 'Agent Clone',
+    icon: UserCircle,
+    path: '/dashboard/reelestate/agent-clone',
   },
   {
     id: 'history',
@@ -60,10 +69,15 @@ export function ReelEstatePage() {
     setSelectedIndices,
     // Script editing
     updateScriptSegment,
+    deleteScriptSegment,
+    moveScriptSegment,
     // Settings
     setAspectRatio,
     setTargetDuration,
     setVoiceId,
+    setVoiceSpeed,
+    // User
+    userId,
     // Photo Cleanup
     cleanupInlinePhoto,
     cleaningIndices,
@@ -83,7 +97,10 @@ export function ReelEstatePage() {
     isWorking,
   } = useReelEstate();
 
+  const agentClone = useAgentClone();
+
   const getActiveTab = () => {
+    if (pathname.includes('/agent-clone')) return 'agent-clone';
     if (pathname.includes('/photo-cleanup')) return 'photo-cleanup';
     if (pathname.includes('/history')) return 'history';
     return 'video-maker';
@@ -110,9 +127,11 @@ export function ReelEstatePage() {
         <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput
             listings={listings}
-            isLoading={isLoadingHistory}
-            onRefresh={loadHistory}
+            agentCloneGenerations={agentClone.history}
+            isLoading={isLoadingHistory || agentClone.isLoadingHistory}
+            onRefresh={() => { loadHistory(); agentClone.loadHistory(); }}
             onLoadProject={loadProject}
+            onDeleteGeneration={agentClone.deleteHistoryItem}
           />
         </div>
       ) : activeTab === 'photo-cleanup' ? (
@@ -134,6 +153,28 @@ export function ReelEstatePage() {
             isCleaning={isCleaningUp}
           />
         </StandardToolLayout>
+      ) : activeTab === 'agent-clone' ? (
+        <StandardToolLayout>
+          <div className="h-full overflow-hidden">
+            <AgentCloneTab
+              agentPhotoUrl={agentClone.agentPhotoUrl}
+              onSetAgentPhoto={agentClone.setAgentPhotoUrl}
+              aspectRatio={agentClone.aspectRatio}
+              onSetAspectRatio={agentClone.setAspectRatio}
+              shots={agentClone.shots}
+              credits={agentClone.credits}
+              isWorking={agentClone.isWorking}
+              onUpdateShot={agentClone.updateShot}
+              onRemoveShot={agentClone.removeShot}
+              onCreateAndGenerate={agentClone.createAndGenerate}
+              onRegenerateComposite={agentClone.regenerateComposite}
+              onAnimateShot={agentClone.animateShot}
+            />
+          </div>
+          <AgentCloneOutput
+            shot={agentClone.shots.length > 0 ? agentClone.shots[agentClone.shots.length - 1] : null}
+          />
+        </StandardToolLayout>
       ) : (
         <StandardToolLayout>
           <div className="h-full overflow-hidden">
@@ -149,9 +190,13 @@ export function ReelEstatePage() {
               onOpenInEditor={openInEditor}
               onSetSelectedIndices={setSelectedIndices}
               onUpdateScriptSegment={updateScriptSegment}
+              onDeleteScriptSegment={deleteScriptSegment}
+              onMoveScriptSegment={moveScriptSegment}
               onSetAspectRatio={setAspectRatio}
               onSetTargetDuration={setTargetDuration}
               onSetVoiceId={setVoiceId}
+              onSetVoiceSpeed={setVoiceSpeed}
+              userId={userId || undefined}
               onCleanupPhoto={cleanupInlinePhoto}
               cleaningIndices={cleaningIndices}
             />

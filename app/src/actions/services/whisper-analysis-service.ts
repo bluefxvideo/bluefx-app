@@ -41,6 +41,8 @@ export interface WhisperAnalysisResponse {
   success: boolean;
   total_duration: number;
   segment_timings: SegmentTiming[];
+  /** Raw word timings straight from Whisper (before segment matching) */
+  raw_word_timings: WordTiming[];
   word_count: number;
   speaking_rate: number; // words per minute
   confidence_score: number;
@@ -189,6 +191,12 @@ export async function analyzeAudioWithWhisper(
       success: true,
       total_duration: totalDuration,
       segment_timings: segmentTimings,
+      raw_word_timings: alignedWords.map((w: any) => ({
+        word: w.word,
+        start: w.start,
+        end: w.end,
+        confidence: w.confidence || 0.9,
+      })),
       word_count: totalWords,
       speaking_rate: speakingRate,
       confidence_score: avgConfidence || 0.95,
@@ -203,6 +211,7 @@ export async function analyzeAudioWithWhisper(
       success: false,
       total_duration: 0,
       segment_timings: [],
+      raw_word_timings: [],
       word_count: 0,
       speaking_rate: 0,
       confidence_score: 0,

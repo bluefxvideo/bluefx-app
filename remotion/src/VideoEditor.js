@@ -276,22 +276,34 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
 const ImageWithKenBurns = ({ image }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  
+
   // Calculate Ken Burns transform if effect is enabled
-  // Use the local frame within the sequence for smooth continuous animation
-  const kenBurnsTransform = image.kenBurns && image.kenBurns.preset !== 'none' 
+  const hasKenBurns = image.kenBurns && image.kenBurns.preset !== 'none';
+  const kenBurnsTransform = hasKenBurns
     ? calculateKenBurnsTransform(frame, image.durationInFrames, image.kenBurns, true)
     : { transform: 'none' };
-  
-  // Combine Ken Burns transform with existing style transform
-  const finalStyle = {
+
+  // Wrapper clips any overflow from pan/zoom, inner element gets the transform
+  const wrapperStyle = {
     ...image.style,
-    transform: kenBurnsTransform.transform !== 'none' 
-      ? kenBurnsTransform.transform 
-      : image.style.transform || 'none'
+    overflow: 'hidden',
   };
-  
-  return <Img src={image.src} style={finalStyle} />;
+
+  const imgStyle = {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    ...(hasKenBurns && {
+      transform: kenBurnsTransform.transform,
+      transformOrigin: 'center center',
+    }),
+  };
+
+  return (
+    <div style={wrapperStyle}>
+      <Img src={image.src} style={imgStyle} />
+    </div>
+  );
 };
 
 /**
@@ -300,29 +312,38 @@ const ImageWithKenBurns = ({ image }) => {
 const VideoWithKenBurns = ({ video }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  
+
   // Calculate Ken Burns transform if effect is enabled
-  // Use the local frame within the sequence for smooth continuous animation
-  const kenBurnsTransform = video.kenBurns && video.kenBurns.preset !== 'none'
+  const hasKenBurns = video.kenBurns && video.kenBurns.preset !== 'none';
+  const kenBurnsTransform = hasKenBurns
     ? calculateKenBurnsTransform(frame, video.durationInFrames, video.kenBurns, true)
     : { transform: 'none' };
-  
-  // Combine Ken Burns transform with existing style transform
-  const finalStyle = {
+
+  const wrapperStyle = {
     ...video.style,
-    transform: kenBurnsTransform.transform !== 'none'
-      ? kenBurnsTransform.transform
-      : video.style.transform || 'none'
+    overflow: 'hidden',
   };
-  
+
+  const videoStyle = {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    ...(hasKenBurns && {
+      transform: kenBurnsTransform.transform,
+      transformOrigin: 'center center',
+    }),
+  };
+
   return (
-    <Video
-      src={video.src}
-      startFrom={video.startFrom || 0}
-      endAt={video.endAt}
-      volume={video.volume}
-      style={finalStyle}
-    />
+    <div style={wrapperStyle}>
+      <Video
+        src={video.src}
+        startFrom={video.startFrom || 0}
+        endAt={video.endAt}
+        volume={video.volume}
+        style={videoStyle}
+      />
+    </div>
   );
 };
 
@@ -353,6 +374,9 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
   let translateX = 0;
   let translateY = 0;
   
+  // Base scale for pan effects — ensures image covers the frame during pan
+  const panBaseScale = 1 + intensityFactor + 0.05;
+
   // Apply preset transformations
   switch (preset) {
     case 'zoom-in':
@@ -363,7 +387,7 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'zoom-out':
       scale = interpolate(
         progressFrame,
@@ -372,8 +396,9 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-left':
+      scale = panBaseScale;
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
@@ -381,8 +406,9 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-right':
+      scale = panBaseScale;
       translateX = interpolate(
         progressFrame,
         [0, durationInFrames],
@@ -390,8 +416,9 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-up':
+      scale = panBaseScale;
       translateY = interpolate(
         progressFrame,
         [0, durationInFrames],
@@ -399,8 +426,9 @@ function calculateKenBurnsTransform(frame, durationInFrames, config, continuous 
         { easing: easingFn, extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       );
       break;
-      
+
     case 'pan-down':
+      scale = panBaseScale;
       translateY = interpolate(
         progressFrame,
         [0, durationInFrames],
