@@ -48,7 +48,6 @@ import {
 import { LogoIcons } from "@/components/shared/logos";
 import Link from "next/link";
 import { saveComposition, AutoSaveManager } from "./utils/save-composition";
-import { checkUserCredits } from "@/lib/supabase";
 import { Coins } from "lucide-react";
 
 export default function Navbar({
@@ -373,11 +372,16 @@ const CreditDisplay = () => {
 	const [credits, setCredits] = useState<number | null>(null);
 
 	const fetchCredits = useCallback(async () => {
-		const userId = new URLSearchParams(window.location.search).get("userId");
+		const urlParams = new URLSearchParams(window.location.search);
+		const userId = urlParams.get("userId");
+		const apiUrl = urlParams.get("apiUrl") || window.location.origin;
 		if (!userId) return;
 		try {
-			const available = await checkUserCredits(userId);
-			setCredits(available);
+			const res = await fetch(`${apiUrl}/api/editor/credits?userId=${userId}`);
+			const data = await res.json();
+			if (data.success) {
+				setCredits(data.credits);
+			}
 		} catch {
 			// Silently fail — credits just won't show
 		}
