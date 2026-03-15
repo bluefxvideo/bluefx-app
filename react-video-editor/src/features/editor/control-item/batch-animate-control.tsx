@@ -60,6 +60,10 @@ function getApiUrl(): string {
 	);
 }
 
+function getUserId(): string | null {
+	return new URLSearchParams(window.location.search).get("userId");
+}
+
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -166,6 +170,8 @@ async function drainQueue() {
 			});
 
 			console.log(`✅ Batch animate: added video for image ${job.itemId}`);
+			// Refresh credit display
+			(window as any).refreshEditorCredits?.();
 		} catch (err) {
 			console.error(
 				`❌ Failed to add video for image ${job.itemId}:`,
@@ -248,6 +254,7 @@ async function processOneImage(
 					camera_motion: settings.cameraMotion,
 					duration: parseInt(settings.duration),
 					aspect_ratio: "16:9",
+					user_id: getUserId(),
 				}),
 			},
 		);
@@ -255,7 +262,10 @@ async function processOneImage(
 		const createData = await createRes.json();
 
 		if (!createData.success) {
-			throw new Error(createData.error || "Failed to start animation");
+			const msg = createData.remaining_credits !== undefined
+				? `${createData.error} (${createData.remaining_credits} credits remaining)`
+				: createData.error || "Failed to start animation";
+			throw new Error(msg);
 		}
 
 		const predictionId = createData.prediction_id;

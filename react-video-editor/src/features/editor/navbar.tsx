@@ -48,6 +48,8 @@ import {
 import { LogoIcons } from "@/components/shared/logos";
 import Link from "next/link";
 import { saveComposition, AutoSaveManager } from "./utils/save-composition";
+import { checkUserCredits } from "@/lib/supabase";
+import { Coins } from "lucide-react";
 
 export default function Navbar({
 	user,
@@ -130,18 +132,21 @@ export default function Navbar({
 			// Expose to window for global access
 			(window as any).autoSaveManager = autoSaveManagerRef.current;
 			
-			// Set up state change listener for auto-save
+			// Subscribe to state changes for auto-save
 			const handleStateChange = () => {
 				autoSaveManagerRef.current?.triggerAutoSave();
 			};
-			
-			// TODO: Add event listener for state changes
-			// stateManager.on('change', handleStateChange);
-			
+
+			const sub1 = stateManager.subscribeToState(handleStateChange);
+			const sub2 = stateManager.subscribeToAddOrRemoveItems(handleStateChange);
+			const sub3 = stateManager.subscribeToUpdateItemDetails(handleStateChange);
+
 			return () => {
 				autoSaveManagerRef.current?.destroy();
 				(window as any).autoSaveManager = null;
-				// stateManager.off('change', handleStateChange);
+				sub1.unsubscribe();
+				sub2.unsubscribe();
+				sub3.unsubscribe();
 			};
 		}
 	}, [stateManager, title]);
@@ -290,8 +295,10 @@ export default function Navbar({
 					)}
 				</Button>
 				
+				<CreditDisplay />
+
 				<DownloadPopover stateManager={stateManager} />
-				
+
 				<CheckActiveExportButton />
 
 				<BatchAnimateIndicator />
@@ -357,6 +364,40 @@ const BatchAnimateIndicator = () => {
 			>
 				<X className="h-3 w-3" />
 			</Button>
+		</div>
+	);
+};
+
+// Credit balance display — fetches on mount and exposes refresh via window
+const CreditDisplay = () => {
+	const [credits, setCredits] = useState<number | null>(null);
+
+	const fetchCredits = useCallback(async () => {
+		const userId = new URLSearchParams(window.location.search).get("userId");
+		if (!userId) return;
+		try {
+			const available = await checkUserCredits(userId);
+			setCredits(available);
+		} catch {
+			// Silently fail — credits just won't show
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchCredits();
+		// Expose refresh function globally so animate/edit controls can trigger it
+		(window as any).refreshEditorCredits = fetchCredits;
+		return () => {
+			(window as any).refreshEditorCredits = null;
+		};
+	}, [fetchCredits]);
+
+	if (credits === null) return null;
+
+	return (
+		<div className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+			<Coins className="h-3.5 w-3.5" />
+			<span>{credits}</span>
 		</div>
 	);
 };

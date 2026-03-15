@@ -191,6 +191,8 @@ const BasicImage = ({
 		.filter(item => item && item.type === "image") as (ITrackItem & IImage)[];
 	const isMultiSelection = activeIds.length > 1;
 
+	const hasMultipleImages = isMultiSelection && selectedImageItems.length > 1;
+
 	const components = [
 		{
 			key: "crop",
@@ -208,13 +210,8 @@ const BasicImage = ({
 				</div>
 			),
 		},
-		{
-			key: "animate",
-			component: (
-				<AnimateImageControl trackItem={trackItem} />
-			),
-		},
-		...(isMultiSelection && selectedImageItems.length > 1
+		// Show batch animate when multiple images selected, single animate otherwise
+		...(hasMultipleImages
 			? [
 					{
 						key: "batch-animate",
@@ -223,7 +220,14 @@ const BasicImage = ({
 						),
 					},
 				]
-			: []),
+			: [
+					{
+						key: "animate",
+						component: (
+							<AnimateImageControl trackItem={trackItem} />
+						),
+					},
+				]),
 		{
 			key: "edit-ai",
 			component: (

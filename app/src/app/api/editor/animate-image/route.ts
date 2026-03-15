@@ -3,14 +3,23 @@ import {
   createVideoGenerationPrediction,
   getVideoGenerationPrediction,
 } from '@/actions/models/video-generation-v1';
+import { getUserCredits } from '@/actions/credit-management';
+import { deductCredits } from '@/actions/database/cinematographer-database';
+import { downloadAndUploadVideo } from '@/actions/supabase-storage';
 
 /**
  * Editor Animate Image API
  *
  * Turns a still image into a video clip using LTX-2.3-Fast (image-to-video).
- * POST: create a prediction (async)
- * GET:  poll prediction status
+ * POST: create a prediction (deducts credits first)
+ * GET:  poll prediction status (persists video to Supabase on completion)
  */
+
+// Credit cost: 1 credit per second (matches cinematographer Fast/LTX pricing)
+const CREDITS_PER_SECOND = 1;
+
+// Cache persisted video URLs to avoid re-uploading on repeated polls
+const videoUrlCache = new Map<string, string>();
 
 const ALLOWED_ORIGINS = [
   'https://editor.bluefx.net',
@@ -38,7 +47,7 @@ function corsHeaders(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { image_url, prompt, camera_motion, duration, aspect_ratio } =
+    const { image_url, prompt, camera_motion, duration, aspect_ratio, user_id } =
       await request.json();
 
     if (!image_url) {
@@ -48,11 +57,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const videoDuration = duration || 6;
+    const creditCost = videoDuration * CREDITS_PER_SECOND;
+
+    // Deduct credits if user_id is provided
+    if (user_id) {
+      const creditCheck = await getUserCredits(user_id);
+      if (!creditCheck.success) {
+        return NextResponse.json(
+          { success: false, error: 'Unable to verify credit balance' },
+          { status: 500, headers: corsHeaders(request) },
+        );
+      }
+
+      const availableCredits = creditCheck.credits || 0;
+      if (availableCredits < creditCost) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Insufficient credits. Need ${creditCost}, have ${availableCredits}`,
+            remaining_credits: availableCredits,
+            required_credits: creditCost,
+          },
+          { status: 402, headers: corsHeaders(request) },
+        );
+      }
+
+      const deduction = await deductCredits(
+        user_id,
+        creditCost,
+        'editor-animate-image',
+        { camera_motion, duration: videoDuration } as Record<string, unknown>,
+      );
+
+      if (!deduction.success) {
+        return NextResponse.json(
+          { success: false, error: deduction.error || 'Credit deduction failed' },
+          { status: 402, headers: corsHeaders(request) },
+        );
+      }
+
+      console.log(`💳 Animate-image: deducted ${creditCost} credits for ${videoDuration}s video (remaining: ${deduction.remainingCredits})`);
+    }
+
     const prediction = await createVideoGenerationPrediction({
       prompt: prompt || 'Smooth cinematic camera movement',
       image: image_url,
       camera_motion: camera_motion || 'none',
-      duration: duration || 6,
+      duration: videoDuration,
       aspect_ratio: aspect_ratio || '16:9',
       generate_audio: false,
       resolution: '1080p',
@@ -65,6 +117,7 @@ export async function POST(request: NextRequest) {
         success: true,
         prediction_id: prediction.id,
         status: prediction.status,
+        credits_used: user_id ? creditCost : 0,
       },
       { headers: corsHeaders(request) },
     );
@@ -91,20 +144,57 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check cache first — return persisted URL if already uploaded
+    const cachedUrl = videoUrlCache.get(predictionId);
+    if (cachedUrl) {
+      return NextResponse.json(
+        {
+          success: true,
+          status: 'succeeded',
+          video_url: cachedUrl,
+          error: null,
+        },
+        { headers: corsHeaders(request) },
+      );
+    }
+
     const prediction = await getVideoGenerationPrediction(predictionId);
 
-    const videoUrl =
+    const replicateVideoUrl =
       typeof prediction.output === 'string'
         ? prediction.output
         : Array.isArray(prediction.output)
           ? prediction.output[0]
           : null;
 
+    // If video is ready, persist to Supabase Storage for permanent URL
+    let finalVideoUrl = replicateVideoUrl;
+    if (prediction.status === 'succeeded' && replicateVideoUrl) {
+      try {
+        const uploadResult = await downloadAndUploadVideo(
+          replicateVideoUrl,
+          'editor-animate',
+          predictionId,
+          { bucket: 'videos', folder: 'editor-animate' },
+        );
+
+        if (uploadResult.success && uploadResult.url) {
+          finalVideoUrl = uploadResult.url;
+          videoUrlCache.set(predictionId, finalVideoUrl);
+          console.log(`✅ Animate-image video persisted to Supabase: ${finalVideoUrl}`);
+        } else {
+          console.warn('⚠️ Failed to persist video, using Replicate URL as fallback');
+        }
+      } catch (uploadErr) {
+        console.warn('⚠️ Video persistence failed, using Replicate URL:', uploadErr);
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
         status: prediction.status,
-        video_url: videoUrl || null,
+        video_url: finalVideoUrl || null,
         error: prediction.error || null,
       },
       { headers: corsHeaders(request) },

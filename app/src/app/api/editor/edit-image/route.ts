@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateWithSeedreamEdit } from '@/actions/models/fal-seedream-edit';
+import { getUserCredits } from '@/actions/credit-management';
+import { deductCredits } from '@/actions/database/cinematographer-database';
 
 /**
  * Editor Edit Image API
@@ -52,15 +54,51 @@ function corsHeaders(request: NextRequest) {
 
 // ─── POST: Edit image with AI ──────────────────────────────────────────
 
+const EDIT_IMAGE_CREDIT_COST = 2;
+
 export async function POST(request: NextRequest) {
   try {
-    const { image_url, prompt, reference_images } = await request.json();
+    const { image_url, prompt, reference_images, user_id } = await request.json();
 
     if (!image_url || !prompt) {
       return NextResponse.json(
         { success: false, error: 'image_url and prompt are required' },
         { status: 400, headers: corsHeaders(request) },
       );
+    }
+
+    // Deduct credits if user_id is provided
+    if (user_id) {
+      const creditCheck = await getUserCredits(user_id);
+      if (creditCheck.success) {
+        const available = creditCheck.credits || 0;
+        if (available < EDIT_IMAGE_CREDIT_COST) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Insufficient credits. Need ${EDIT_IMAGE_CREDIT_COST}, have ${available}`,
+              remaining_credits: available,
+            },
+            { status: 402, headers: corsHeaders(request) },
+          );
+        }
+
+        const deduction = await deductCredits(
+          user_id,
+          EDIT_IMAGE_CREDIT_COST,
+          'editor-edit-image',
+          { prompt: prompt.substring(0, 100) } as Record<string, unknown>,
+        );
+
+        if (!deduction.success) {
+          return NextResponse.json(
+            { success: false, error: deduction.error || 'Credit deduction failed' },
+            { status: 402, headers: corsHeaders(request) },
+          );
+        }
+
+        console.log(`💳 Edit-image: deducted ${EDIT_IMAGE_CREDIT_COST} credits (remaining: ${deduction.remainingCredits})`);
+      }
     }
 
     console.log('🎨 Edit-image request:', { prompt: prompt.substring(0, 100) });

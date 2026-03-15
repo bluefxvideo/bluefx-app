@@ -13,6 +13,10 @@ interface EditImageControlProps {
 	trackItem: ITrackItem & IImage;
 }
 
+function getUserId(): string | null {
+	return new URLSearchParams(window.location.search).get("userId");
+}
+
 function getApiUrl(): string {
 	const urlParams = new URLSearchParams(window.location.search);
 	return (
@@ -65,6 +69,7 @@ export function EditImageControl({ trackItem }: EditImageControlProps) {
 					prompt: prompt.trim(),
 					reference_images:
 						referenceImages.length > 0 ? referenceImages : undefined,
+					user_id: getUserId(),
 				}),
 			});
 
@@ -97,6 +102,8 @@ export function EditImageControl({ trackItem }: EditImageControlProps) {
 
 			console.log("✅ Image edited successfully");
 			setPrompt("");
+			// Refresh credit display
+			(window as any).refreshEditorCredits?.();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Edit failed");
 		} finally {

@@ -16,6 +16,7 @@ import { generateId } from "@designcombo/timeline";
 import { IImage, ITrackItem } from "@designcombo/types";
 import { Film, Loader2 } from "lucide-react";
 import useStore from "../store/use-store";
+import { stateManager } from "../store/state-manager-instance";
 
 interface AnimateImageControlProps {
 	trackItem: ITrackItem & IImage;
@@ -24,6 +25,39 @@ interface AnimateImageControlProps {
 // Helper: update activeIds using Zustand static setState (works even after unmount)
 function setActiveIds(ids: string[]) {
 	useStore.setState({ activeIds: ids });
+}
+
+// Reorder tracks so caption tracks are always rendered in front (on top)
+function reorderCaptionsToTop() {
+	try {
+		const state = stateManager.getState();
+		const { tracks, trackItemsMap } = state;
+
+		const captionTrackIds = new Set<string>();
+		tracks.forEach((track) => {
+			track.items.forEach((itemId) => {
+				const item = trackItemsMap[itemId];
+				if (!item) return;
+				if (
+					(item.type === "text" && (item.details as any)?.isCaptionTrack) ||
+					item.type === "caption"
+				) {
+					captionTrackIds.add(track.id);
+				}
+			});
+		});
+
+		if (captionTrackIds.size === 0) return;
+
+		const captionTracks = tracks.filter((t) => captionTrackIds.has(t.id));
+		const otherTracks = tracks.filter((t) => !captionTrackIds.has(t.id));
+
+		stateManager.updateState({
+			tracks: [...captionTracks, ...otherTracks],
+		});
+	} catch (err) {
+		console.warn("⚠️ Failed to reorder caption tracks:", err);
+	}
 }
 
 const CAMERA_MOTIONS = [
@@ -50,6 +84,10 @@ function getApiUrl(): string {
 		process.env.NEXT_PUBLIC_API_URL ||
 		window.location.origin
 	);
+}
+
+function getUserId(): string | null {
+	return new URLSearchParams(window.location.search).get("userId");
 }
 
 export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
@@ -97,13 +135,17 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 					camera_motion: cameraMotion,
 					duration: parseInt(duration),
 					aspect_ratio: "16:9",
+					user_id: getUserId(),
 				}),
 			});
 
 			const createData = await createRes.json();
 
 			if (!createData.success) {
-				throw new Error(createData.error || "Failed to start animation");
+				const msg = createData.remaining_credits !== undefined
+					? `${createData.error} (${createData.remaining_credits} credits remaining)`
+					: createData.error || "Failed to start animation";
+				throw new Error(msg);
 			}
 
 			const predictionId = createData.prediction_id;
@@ -152,7 +194,10 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 								},
 							});
 
-							// Step 2: Select the original image and delete it
+							// Step 2: Reorder tracks so captions stay on top
+							reorderCaptionsToTop();
+
+							// Step 3: Select the original image and delete it
 							// Use static setActiveIds (works even after component unmount)
 							setTimeout(() => {
 								setActiveIds([itemToDelete]);
@@ -168,6 +213,8 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 										console.log(
 											"✅ Image animated and replaced with video",
 										);
+										// Refresh credit display
+										(window as any).refreshEditorCredits?.();
 									}, 100);
 								}, 100);
 							}, 200);
