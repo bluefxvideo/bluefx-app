@@ -26,12 +26,12 @@ const BasicCaption = ({
 }) => {
 	const [properties, setProperties] = useState<ICaptionControlProps>({
 		baseColor: "#FFFFFF",
-		highlightColor: "#FFEB3B", // Bright yellow like in screenshots
-		backgroundColor: "transparent", // No background box
-		fontSize: 80, // Professional caption size
-		opacity: 100, // Changed to 0-100 scale to match styles.ts
+		highlightColor: "#FACC15",
+		backgroundColor: "rgba(0,0,0,0.75)",
+		fontSize: 80,
+		opacity: 100,
 		fontFamily: "Inter",
-		textShadow: true,
+		textShadow: false,
 		borderRadius: 0,
 		padding: 0,
 	});
@@ -45,12 +45,12 @@ const BasicCaption = ({
 		// Get actual colors from the track item details
 		setProperties({
 			baseColor: (trackItem.details as any)?.appearedColor || "#FFFFFF",
-			highlightColor: (trackItem.details as any)?.activeColor || "#FFEB3B", // Bright yellow
-			backgroundColor: trackItem.details.backgroundColor || "transparent",
+			highlightColor: (trackItem.details as any)?.activeColor || "#FACC15",
+			backgroundColor: trackItem.details.backgroundColor || "rgba(0,0,0,0.75)",
 			fontSize: trackItem.details.fontSize || 80,
-			opacity: trackItem.details.opacity || 100, // Use 0-100 scale
+			opacity: trackItem.details.opacity || 100,
 			fontFamily: trackItem.details.fontFamily || "Inter",
-			textShadow: (trackItem.details as any)?.textShadowEnabled !== false,
+			textShadow: (trackItem.details as any)?.textShadowEnabled === true,
 			borderRadius: (trackItem.details as any)?.borderRadius || 0,
 			padding: (trackItem.details as any)?.padding || 0,
 		});

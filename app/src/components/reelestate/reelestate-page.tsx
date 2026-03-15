@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { containerStyles } from '@/lib/container-styles';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
@@ -99,7 +100,12 @@ export function ReelEstatePage() {
 
   const agentClone = useAgentClone();
 
+  // Tab override: when loadProject is called from History, switch tab via state
+  // (router.push soft navigation doesn't work reliably with this layout structure)
+  const [tabOverride, setTabOverride] = useState<string | null>(null);
+
   const getActiveTab = () => {
+    if (tabOverride) return tabOverride;
     if (pathname.includes('/agent-clone')) return 'agent-clone';
     if (pathname.includes('/photo-cleanup')) return 'photo-cleanup';
     if (pathname.includes('/history')) return 'history';
@@ -107,6 +113,12 @@ export function ReelEstatePage() {
   };
 
   const activeTab = getActiveTab();
+
+  // Wrap loadProject to also switch tab
+  const handleLoadProject = useCallback((...args: Parameters<typeof loadProject>) => {
+    loadProject(...args);
+    setTabOverride('video-maker');
+  }, [loadProject]);
 
   return (
     <StandardToolPage
@@ -120,6 +132,7 @@ export function ReelEstatePage() {
           tabs={REELESTATE_TABS}
           activeTab={activeTab}
           basePath="/dashboard/reelestate"
+          onTabChange={() => setTabOverride(null)}
         />
       }
     >
@@ -130,7 +143,7 @@ export function ReelEstatePage() {
             agentCloneGenerations={agentClone.history}
             isLoading={isLoadingHistory || agentClone.isLoadingHistory}
             onRefresh={() => { loadHistory(); agentClone.loadHistory(); }}
-            onLoadProject={loadProject}
+            onLoadProject={handleLoadProject}
             onDeleteGeneration={agentClone.deleteHistoryItem}
           />
         </div>

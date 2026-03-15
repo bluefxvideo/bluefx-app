@@ -14,45 +14,14 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 	// Calculate relative time based on the text track's position in timeline
 	const trackStartMs = display?.from || 0;
 	const globalTimeMs = (frame * 1000) / fps;
-	const relativeTimeMs = globalTimeMs - trackStartMs;
-	
-	// Use relative time for caption segments
-	const currentTimeMs = relativeTimeMs;
-	
+	const currentTimeMs = globalTimeMs - trackStartMs;
+
 	// Find active caption segment
-	const activeSegment = captionSegments.find((segment: any) => 
+	const activeSegment = captionSegments.find((segment: any) =>
 		currentTimeMs >= segment.start && currentTimeMs < segment.end
 	);
-	
-	// Debug logging
-	if (frame % 30 === 0 && captionSegments.length > 0) {
-		console.log('Caption Text Debug:', {
-			currentTimeMs,
-			trackStartMs,
-			relativeTimeMs,
-			firstSegment: captionSegments[0],
-			activeSegment: activeSegment ? { text: activeSegment.text.substring(0, 20), start: activeSegment.start, end: activeSegment.end } : null
-		});
-		
-		// Debug word timing if we have an active segment
-		if (activeSegment && activeSegment.words?.length > 0) {
-			const firstWord = activeSegment.words[0];
-			const wordStartMs = firstWord.start * 1000;
-			const wordEndMs = firstWord.end * 1000;
-			console.log('Word Debug - Time:', currentTimeMs, 'First word:', JSON.stringify({
-				word: firstWord.word,
-				startSeconds: firstWord.start,
-				endSeconds: firstWord.end,
-				startMs: wordStartMs,
-				endMs: wordEndMs,
-				isActive: currentTimeMs >= wordStartMs && currentTimeMs < wordEndMs,
-				hasEnded: currentTimeMs >= wordEndMs
-			}));
-		}
-	}
-	
+
 	if (!activeSegment) {
-		// No active segment - hide caption completely (no background)
 		const children = (
 			<MotionText
 				key={id}
@@ -63,93 +32,67 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 				onBlur={onTextBlur}
 				style={{
 					...calculateTextStyles(details),
-					backgroundColor: "transparent", // No background when no segment
-					padding: "0px", // No padding when no segment
+					backgroundColor: "transparent",
+					padding: "0px",
 				}}
 			/>
 		);
 		return BaseSequence({ item, options, children });
 	}
 
-	// Word-level highlighting logic
+	// Word-level highlighting
 	const words = activeSegment.words || [];
-	let displayContent;
+	const fontSize = details.fontSize || 80;
 
-	if (words.length > 0) {
-		// Create word-by-word highlighted content
-		const highlightedWords = words.map((word: any, index: number) => {
-			// Word timing is already in milliseconds from caption generator
-			const wordStart = word.start;
-			const wordEnd = word.end;
-			
+	const wordElements = words.length > 0
+		? words.map((word: any, index: number) => {
 			let wordColor;
-			if (currentTimeMs >= wordEnd) {
-				// Word has been spoken - use appeared color (white)
+			if (currentTimeMs >= word.end) {
 				wordColor = activeSegment.style?.appearedColor || (details as any).appearedColor || "#FFFFFF";
-			} else if (currentTimeMs >= wordStart && currentTimeMs < wordEnd) {
-				// Word is currently being spoken - use active color (bright yellow)
-				wordColor = activeSegment.style?.activeColor || (details as any).activeColor || "#FFEB3B";
+			} else if (currentTimeMs >= word.start && currentTimeMs < word.end) {
+				wordColor = activeSegment.style?.activeColor || (details as any).activeColor || "#FACC15";
 			} else {
-				// Word hasn't been spoken yet - use default color (white)
 				wordColor = activeSegment.style?.color || details.color || "#FFFFFF";
 			}
-
 			return (
-				<span 
-					key={index} 
-					style={{ 
-						color: wordColor,
-						transition: 'color 0.15s ease',
-						textTransform: 'uppercase' as const, // Make text uppercase like in screenshots
-					}}
-				>
-					{word.word}
-					{index < words.length - 1 ? " " : ""}
+				<span key={index} style={{ color: wordColor }}>
+					{word.word}{index < words.length - 1 ? " " : ""}
 				</span>
 			);
-		});
+		})
+		: null;
 
-		displayContent = <span>{highlightedWords}</span>;
-	} else {
-		// Fallback to segment text if no word-level data
-		displayContent = activeSegment.text;
-	}
-
-	// Custom styles for captions - Professional look matching screenshots
-	const captionStyles: React.CSSProperties = {
-		...calculateTextStyles(details),
-		// Apply caption-specific styles with stronger shadow and outline
-		textShadow: (details as any).textShadowEnabled !== false 
-			? "0 0 15px rgba(0, 0, 0, 1), 0 0 30px rgba(0, 0, 0, 1), 0 0 45px rgba(0, 0, 0, 0.8), 4px 4px 8px rgba(0, 0, 0, 1)" 
-			: "none",
-		WebkitTextStroke: "4px black", // Stronger black outline like in screenshots
-		paintOrder: "stroke fill", // Stroke behind fill
-		backgroundColor: "transparent", // No background box
-		padding: "0", // No padding
-		borderRadius: "0", // No border radius
-		display: "inline-block",
-		margin: "0 auto",
-		lineHeight: "1.1",
-		textAlign: details.textAlign || "center",
-		maxWidth: "90%",
-		width: "fit-content",
-		fontSize: details.fontSize || 80, // Professional caption size
-		fontWeight: "900", // Extra bold like in screenshots
-		fontFamily: details.fontFamily || "Inter, sans-serif",
-		letterSpacing: "-0.02em", // Tighter letter spacing
-		textTransform: "uppercase" as const, // All caps like in screenshots
-	};
-
+	// Render caption directly (bypass MotionText which forces width:100%)
 	const children = (
-		<MotionText
-			key={id}
-			id={id}
-			content={displayContent}
-			editable={false} // Don't allow editing during caption playback
-			onChange={handleTextChange}
-			onBlur={onTextBlur}
-			style={captionStyles}
-		/>
+		<div
+			style={{
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				width: "100%",
+				height: "100%",
+				pointerEvents: "none",
+			}}
+		>
+			<div
+				style={{
+					backgroundColor: "rgba(0, 0, 0, 0.75)",
+					padding: `${fontSize * 0.25}px ${fontSize * 0.55}px`,
+					borderRadius: `${fontSize * 0.25}px`,
+					lineHeight: "1.3",
+					textAlign: "center" as const,
+					fontSize: fontSize,
+					fontWeight: "800",
+					fontFamily: details.fontFamily || "Inter, sans-serif",
+					letterSpacing: "0.02em",
+					wordSpacing: "0.08em",
+					color: details.color || "#FFFFFF",
+					maxWidth: "95%",
+				}}
+			>
+				{wordElements ? <span>{wordElements}</span> : activeSegment.text}
+			</div>
+		</div>
 	);
 	return BaseSequence({ item, options, children });
 }

@@ -567,6 +567,7 @@ export async function cleanupListingPhoto(
   listingId: string | undefined,
   imageUrl: string,
   preset: CleanupPreset,
+  photoIndex?: number,
 ): Promise<CleanupResult> {
   try {
     const supabase = await createClient();
@@ -580,11 +581,37 @@ export async function cleanupListingPhoto(
 
     const result = await cleanupPhoto(imageUrl, preset);
 
-    if (result.success) {
+    if (result.success && result.cleaned_url) {
       await deductCredits(user.id, CREDITS.CLEANUP, 'reelestate-cleanup', {
         listing_id: listingId,
         preset,
       } as unknown as Json);
+
+      // Persist cleaned URL to the listing's photo_urls array in the database
+      // so the editor loads the cleaned version instead of the original
+      if (listingId && photoIndex !== undefined) {
+        try {
+          const { data: listing } = await supabase
+            .from('reelestate_listings')
+            .select('photo_urls')
+            .eq('id', listingId)
+            .single();
+
+          if (listing?.photo_urls) {
+            const urls = [...(listing.photo_urls as string[])];
+            if (photoIndex < urls.length) {
+              urls[photoIndex] = result.cleaned_url;
+              await supabase
+                .from('reelestate_listings')
+                .update({ photo_urls: urls, updated_at: new Date().toISOString() })
+                .eq('id', listingId);
+              console.log(`✅ Persisted cleaned URL to DB for photo index ${photoIndex}`);
+            }
+          }
+        } catch (dbErr) {
+          console.error('⚠️ Failed to persist cleaned URL to DB (cleanup still succeeded):', dbErr);
+        }
+      }
     }
 
     return result;

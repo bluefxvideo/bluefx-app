@@ -68,16 +68,40 @@ export const VideoEditor = () => {
         </Sequence>
       ))}
 
-      {/* Image Layers */}
-      {imageLayers.map((image) => (
-        <Sequence
-          key={image.id}
-          from={image.startFrame}
-          durationInFrames={image.durationInFrames}
-        >
-          <ImageWithKenBurns image={image} />
-        </Sequence>
-      ))}
+      {/* Image Layers — with crossfade between adjacent images */}
+      {(() => {
+        const CROSSFADE_FRAMES = 15; // ~0.5s at 30fps
+        const sorted = [...imageLayers].sort((a, b) => a.startFrame - b.startFrame);
+
+        return sorted.map((image, index) => {
+          const nextImage = sorted[index + 1];
+          const prevImage = index > 0 ? sorted[index - 1] : null;
+
+          // Adjacent = this image's end meets the next image's start (±2 frames tolerance)
+          const adjacentToNext = nextImage &&
+            Math.abs((image.startFrame + image.durationInFrames) - nextImage.startFrame) <= 2;
+          const adjacentToPrev = prevImage &&
+            Math.abs((prevImage.startFrame + prevImage.durationInFrames) - image.startFrame) <= 2;
+
+          // Extend outgoing image so it stays visible during the crossfade overlap
+          const duration = adjacentToNext
+            ? image.durationInFrames + CROSSFADE_FRAMES
+            : image.durationInFrames;
+
+          return (
+            <Sequence
+              key={image.id}
+              from={image.startFrame}
+              durationInFrames={duration}
+            >
+              <CrossfadeImage
+                image={image}
+                fadeInFrames={adjacentToPrev ? CROSSFADE_FRAMES : 0}
+              />
+            </Sequence>
+          );
+        });
+      })()}
 
       {/* Text Layers */}
       {textLayers.map((text) => (
@@ -168,105 +192,97 @@ const CaptionRenderer = ({ caption, frame, fps }) => {
 
 /**
  * Word Highlight Text Component
- * Renders text with word-by-word highlighting based on timing
+ * Dark background pill, bold text, word-by-word yellow highlight
  */
 const WordHighlightText = ({ segment, style, currentTimeMs }) => {
+  const fontSize = style.fontSize || 80;
+
+  // Container: positioned at bottom center with dark pill background
+  const containerStyle = {
+    position: 'absolute',
+    bottom: '10%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    maxWidth: '90%',
+    textAlign: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    padding: `${fontSize * 0.2}px ${fontSize * 0.5}px`,
+    borderRadius: `${fontSize * 0.2}px`,
+    display: 'inline-block',
+  };
+
+  // Shared text styles
+  const textStyle = {
+    fontSize,
+    fontFamily: style.fontFamily || 'Inter, sans-serif',
+    fontWeight: '800',
+    letterSpacing: '0.02em',
+    wordSpacing: '0.08em',
+    lineHeight: 1.3,
+    textShadow: 'none',
+    WebkitFontSmoothing: 'antialiased',
+  };
+
   // If no words array, just show the text
   if (!segment.words || segment.words.length === 0) {
     return (
       <div style={{
-        position: 'absolute',
-        bottom: '10%', // Position from bottom for better centering
-        left: '50%',
-        transform: 'translateX(-50%) translateZ(0)', // Center horizontally with GPU acceleration
-        width: '80%', // Use percentage of video width
-        maxWidth: '1200px',
-        textAlign: 'center',
-        padding: '16px 24px',
-        backgroundColor: 'transparent', // No background like in editor
-        borderRadius: '8px',
-        fontSize: style.fontSize || 48,
-        fontFamily: style.fontFamily || 'Inter',
-        fontWeight: '900', // Extra bold like in editor
+        ...containerStyle,
+        ...textStyle,
         color: style.color || '#FFFFFF',
-        textTransform: 'uppercase', // All caps like in editor
-        letterSpacing: '-0.02em', // Tighter letter spacing
-        // Enhanced text shadow with stronger outline like in editor
-        textShadow: '0 0 15px rgba(0, 0, 0, 1), 0 0 30px rgba(0, 0, 0, 1), 0 0 45px rgba(0, 0, 0, 0.8), 4px 4px 8px rgba(0, 0, 0, 1)',
-        WebkitTextStroke: '4px black', // Black outline like in editor
-        paintOrder: 'stroke fill', // Stroke behind fill
-        WebkitFontSmoothing: 'antialiased',
-        MozOsxFontSmoothing: 'grayscale',
-        backfaceVisibility: 'hidden',
-        willChange: 'transform'
       }}>
         {segment.text}
       </div>
     );
   }
 
-  // Render each word with appropriate styling
+  // Render with word-level highlighting
   return (
-    <div style={{
-      position: 'absolute',
-      bottom: '10%', // Position from bottom for better centering
-      left: '50%',
-      transform: 'translateX(-50%) translateZ(0)', // Center horizontally and enable GPU acceleration
-      width: '80%', // Use percentage of video width
-      maxWidth: '1200px',
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '0.6em', // Increased word spacing from 0.3em to 0.6em
-      alignItems: 'center',
-      justifyContent: 'center', // Always center captions
-      textAlign: 'center',
-      padding: '0', // No padding like in editor
-      backgroundColor: 'transparent', // No background like in editor
-      borderRadius: '0', // No border radius
-      willChange: 'transform',
-      backfaceVisibility: 'hidden'
-    }}>
+    <div style={containerStyle}>
       {segment.words.map((wordData, index) => {
-        // Determine word state based on current time
-        let wordColor = style.color || '#E0E0E0'; // Default color
-        
+        let wordColor = style.color || '#FFFFFF';
+
         if (currentTimeMs >= wordData.end) {
-          // Word has been spoken (appeared)
           wordColor = style.appearedColor || '#FFFFFF';
         } else if (currentTimeMs >= wordData.start && currentTimeMs < wordData.end) {
-          // Word is currently being spoken (active)
-          wordColor = style.activeColor || '#00FF88';
+          wordColor = style.activeColor || '#FACC15';
         }
 
         return (
           <span
             key={`${wordData.word}-${index}`}
             style={{
-              display: 'inline-block', // Important for proper spacing
+              ...textStyle,
               color: wordColor,
-              fontSize: style.fontSize || 80, // Larger size like in editor
-              fontFamily: style.fontFamily || 'Inter',
-              fontWeight: '900', // Extra bold like in editor
-              textTransform: 'uppercase', // All caps like in editor
-              letterSpacing: '-0.02em', // Tighter letter spacing
-              transition: 'color 0.1s ease-in-out',
-              // Enhanced text shadow with stronger outline like in editor
-              textShadow: '0 0 15px rgba(0, 0, 0, 1), 0 0 30px rgba(0, 0, 0, 1), 0 0 45px rgba(0, 0, 0, 0.8), 4px 4px 8px rgba(0, 0, 0, 1)',
-              WebkitTextStroke: '4px black', // Black outline like in editor
-              paintOrder: 'stroke fill', // Stroke behind fill
-              lineHeight: 1.1,
-              transform: 'translateZ(0)', // GPU acceleration for text shadow
-              WebkitFontSmoothing: 'antialiased',
-              MozOsxFontSmoothing: 'grayscale',
-              backfaceVisibility: 'hidden',
-              willChange: 'transform'
             }}
           >
             {wordData.word}
+            {index < segment.words.length - 1 ? ' ' : ''}
           </span>
         );
       })}
     </div>
+  );
+};
+
+/**
+ * Crossfade wrapper — fades an image in over the first N frames
+ */
+const CrossfadeImage = ({ image, fadeInFrames }) => {
+  const frame = useCurrentFrame();
+
+  let opacity = 1;
+  if (fadeInFrames > 0 && frame < fadeInFrames) {
+    opacity = interpolate(frame, [0, fadeInFrames], [0, 1], {
+      extrapolateRight: 'clamp',
+      easing: Easing.ease,
+    });
+  }
+
+  return (
+    <AbsoluteFill style={{ opacity }}>
+      <ImageWithKenBurns image={image} />
+    </AbsoluteFill>
   );
 };
 

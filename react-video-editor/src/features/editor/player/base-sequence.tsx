@@ -13,6 +13,10 @@ export interface SequenceItemOptions {
 	size?: ISize;
 	frame?: number;
 	isTransition?: boolean;
+	/** Number of frames to extend this sequence beyond its natural end (for crossfade overlap) */
+	extraDurationFrames?: number;
+	/** Number of frames to fade in at the start (crossfade from previous image) */
+	fadeInFrames?: number;
 }
 
 export const BaseSequence = ({
@@ -25,7 +29,7 @@ export const BaseSequence = ({
 	children: React.ReactNode;
 }) => {
 	const { details } = item as ITrackItem;
-	const { fps, isTransition } = options;
+	const { fps, isTransition, extraDurationFrames } = options;
 	const { from, durationInFrames } = calculateFrames(
 		{
 			from: item.display.from,
@@ -40,11 +44,14 @@ export const BaseSequence = ({
 		height: item.details.height,
 	};
 
+	// Extend duration for crossfade overlap (outgoing image stays visible longer)
+	const totalDuration = (durationInFrames || 1 / fps) + (extraDurationFrames || 0);
+
 	return (
 		<Sequence
 			key={item.id}
 			from={from}
-			durationInFrames={durationInFrames || 1 / fps}
+			durationInFrames={totalDuration}
 			style={{
 				pointerEvents: "none",
 			}}

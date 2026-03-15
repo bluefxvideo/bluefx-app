@@ -42,6 +42,8 @@ export interface WhisperAnalysisResponse {
   total_duration: number;
   segment_timings: SegmentTiming[];
   raw_word_timings?: WordTiming[]; // All word timings (populated when segments is empty)
+  /** Full transcript text from Whisper (includes punctuation and capitalization) */
+  full_transcript?: string;
   word_count: number;
   speaking_rate: number; // words per minute
   confidence_score: number;

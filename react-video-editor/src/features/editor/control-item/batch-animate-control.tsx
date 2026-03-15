@@ -1,0 +1,543 @@
+import { useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { dispatch } from "@designcombo/events";
+import { ADD_VIDEO } from "@designcombo/state";
+import { generateId } from "@designcombo/timeline";
+import { IImage, ITrackItem } from "@designcombo/types";
+import {
+	Film,
+	Loader2,
+	X,
+	Image as ImageIcon,
+	Check,
+	AlertCircle,
+} from "lucide-react";
+import {
+	useBatchAnimateState,
+	type AnimationItem,
+} from "../store/use-batch-animate-state";
+import { stateManager } from "../store/state-manager-instance";
+
+interface BatchAnimateControlProps {
+	selectedItems: (ITrackItem & IImage)[];
+}
+
+const CAMERA_MOTIONS = [
+	{ value: "none", label: "None" },
+	{ value: "dolly_in", label: "Dolly In (Zoom In)" },
+	{ value: "dolly_out", label: "Dolly Out (Zoom Out)" },
+	{ value: "dolly_left", label: "Dolly Left" },
+	{ value: "dolly_right", label: "Dolly Right" },
+	{ value: "jib_up", label: "Jib Up (Tilt Up)" },
+	{ value: "jib_down", label: "Jib Down (Tilt Down)" },
+	{ value: "static", label: "Static" },
+];
+
+const DURATIONS = [
+	{ value: "6", label: "6 seconds" },
+	{ value: "8", label: "8 seconds" },
+	{ value: "10", label: "10 seconds" },
+];
+
+const MAX_CONCURRENT = 3;
+
+function getApiUrl(): string {
+	const urlParams = new URLSearchParams(window.location.search);
+	return (
+		urlParams.get("apiUrl") ||
+		process.env.NEXT_PUBLIC_API_URL ||
+		window.location.origin
+	);
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ─── Sequential Video Addition Queue ─────────────────────────
+// Adds videos one at a time, keeps original images, ensures captions stay on top
+
+interface ReplacementJob {
+	itemId: string;
+	videoUrl: string;
+	from: number;
+	durationMs: number;
+	imageSrc: string;
+	cameraMotion: string;
+}
+
+const replacementQueue: ReplacementJob[] = [];
+let isProcessingQueue = false;
+
+async function enqueueReplacement(job: ReplacementJob) {
+	replacementQueue.push(job);
+	if (!isProcessingQueue) {
+		drainQueue();
+	}
+}
+
+// Reorder tracks so caption tracks are always at the top (rendered in front)
+function reorderCaptionsToTop() {
+	try {
+		const state = stateManager.getState();
+		const { tracks, trackItemsMap } = state;
+
+		// Identify caption tracks
+		const captionTrackIds = new Set<string>();
+		tracks.forEach((track) => {
+			track.items.forEach((itemId) => {
+				const item = trackItemsMap[itemId];
+				if (!item) return;
+				if (
+					(item.type === "text" &&
+						(item.details as any)?.isCaptionTrack) ||
+					item.type === "caption"
+				) {
+					captionTrackIds.add(track.id);
+				}
+			});
+		});
+
+		if (captionTrackIds.size === 0) return;
+
+		const captionTracks = tracks.filter((t) =>
+			captionTrackIds.has(t.id),
+		);
+		const otherTracks = tracks.filter(
+			(t) => !captionTrackIds.has(t.id),
+		);
+
+		stateManager.updateState({
+			tracks: [...captionTracks, ...otherTracks],
+		});
+	} catch (err) {
+		console.warn("⚠️ Failed to reorder caption tracks:", err);
+	}
+}
+
+async function drainQueue() {
+	isProcessingQueue = true;
+
+	while (replacementQueue.length > 0) {
+		const job = replacementQueue.shift()!;
+
+		try {
+			// 1. Add the new video (creates a new track)
+			const newVideoId = generateId();
+			dispatch(ADD_VIDEO, {
+				payload: {
+					id: newVideoId,
+					details: {
+						src: job.videoUrl,
+					},
+					display: {
+						from: job.from,
+						to: job.from + job.durationMs,
+					},
+					metadata: {
+						animatedFrom: job.imageSrc,
+						cameraMotion: job.cameraMotion,
+					},
+				},
+				options: {
+					resourceId: "main",
+					scaleMode: "fit",
+				},
+			});
+
+			await sleep(300);
+
+			// 2. Reorder tracks so captions stay on top
+			reorderCaptionsToTop();
+
+			// 3. Mark as done in global store
+			useBatchAnimateState.getState().actions.updateItem(job.itemId, {
+				status: "done",
+			});
+
+			console.log(`✅ Batch animate: added video for image ${job.itemId}`);
+		} catch (err) {
+			console.error(
+				`❌ Failed to add video for image ${job.itemId}:`,
+				err,
+			);
+			useBatchAnimateState.getState().actions.updateItem(job.itemId, {
+				status: "failed",
+				error: "Failed to add video to timeline",
+			});
+		}
+	}
+
+	isProcessingQueue = false;
+}
+
+// ─── Batch Processing Logic ──────────────────────────────────
+// Runs independently of component lifecycle via global store
+
+async function processBatchAnimations() {
+	const store = useBatchAnimateState.getState();
+	const { items, settings } = store;
+	const apiUrl = getApiUrl();
+
+	// Concurrency limiter: process max N at a time
+	let activeCount = 0;
+	let itemIndex = 0;
+
+	const processNext = async (): Promise<void> => {
+		while (itemIndex < items.length) {
+			const currentStore = useBatchAnimateState.getState();
+			if (currentStore.cancelled) return;
+
+			if (activeCount >= MAX_CONCURRENT) {
+				await sleep(1000);
+				continue;
+			}
+
+			const item = items[itemIndex];
+			itemIndex++;
+			activeCount++;
+
+			// Don't await — fire and continue to next
+			processOneImage(item, settings, apiUrl).finally(() => {
+				activeCount--;
+			});
+		}
+
+		// Wait for remaining to finish
+		while (activeCount > 0) {
+			await sleep(500);
+		}
+	};
+
+	await processNext();
+}
+
+async function processOneImage(
+	item: AnimationItem,
+	settings: { cameraMotion: string; duration: string; prompt: string },
+	apiUrl: string,
+) {
+	const { actions } = useBatchAnimateState.getState();
+
+	// Check if cancelled
+	if (useBatchAnimateState.getState().cancelled) return;
+
+	actions.updateItem(item.itemId, { status: "processing" });
+
+	try {
+		// 1. Create prediction
+		const createRes = await fetch(
+			`${apiUrl}/api/editor/animate-image`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					image_url: item.imageSrc,
+					prompt:
+						settings.prompt || "Smooth cinematic camera movement",
+					camera_motion: settings.cameraMotion,
+					duration: parseInt(settings.duration),
+					aspect_ratio: "16:9",
+				}),
+			},
+		);
+
+		const createData = await createRes.json();
+
+		if (!createData.success) {
+			throw new Error(createData.error || "Failed to start animation");
+		}
+
+		const predictionId = createData.prediction_id;
+		actions.updateItem(item.itemId, {
+			status: "polling",
+			predictionId,
+		});
+
+		// 2. Poll for completion
+		while (true) {
+			if (useBatchAnimateState.getState().cancelled) return;
+
+			await sleep(5000);
+
+			const pollRes = await fetch(
+				`${apiUrl}/api/editor/animate-image?predictionId=${predictionId}`,
+			);
+			const pollData = await pollRes.json();
+
+			if (pollData.status === "succeeded" && pollData.video_url) {
+				actions.updateItem(item.itemId, {
+					videoUrl: pollData.video_url,
+				});
+
+				// Enqueue replacement (sequential — no race condition)
+				enqueueReplacement({
+					itemId: item.itemId,
+					videoUrl: pollData.video_url,
+					from: item.originalFrom,
+					durationMs: parseInt(settings.duration) * 1000,
+					imageSrc: item.imageSrc,
+					cameraMotion: settings.cameraMotion,
+				});
+
+				return;
+			} else if (
+				pollData.status === "failed" ||
+				pollData.status === "canceled"
+			) {
+				throw new Error(pollData.error || "Animation failed");
+			}
+			// Otherwise keep polling
+		}
+	} catch (err) {
+		actions.updateItem(item.itemId, {
+			status: "failed",
+			error: err instanceof Error ? err.message : "Animation failed",
+		});
+		console.error(
+			`❌ Batch animate failed for ${item.itemId}:`,
+			err,
+		);
+	}
+}
+
+// ─── Component ───────────────────────────────────────────────
+
+export function BatchAnimateControl({
+	selectedItems,
+}: BatchAnimateControlProps) {
+	const [cameraMotion, setCameraMotion] = useState("dolly_in");
+	const [duration, setDuration] = useState("6");
+	const [prompt, setPrompt] = useState("");
+
+	const { isActive, items, actions } = useBatchAnimateState();
+
+	const imageItems = selectedItems.filter(
+		(item) => item.type === "image" && item.details?.src,
+	);
+
+	const doneCount = items.filter((i) => i.status === "done").length;
+	const failedCount = items.filter((i) => i.status === "failed").length;
+	const totalCount = items.length;
+	const progressPercent =
+		totalCount > 0 ? ((doneCount + failedCount) / totalCount) * 100 : 0;
+
+	const handleAnimateAll = useCallback(() => {
+		if (imageItems.length === 0) return;
+
+		const animationItems: AnimationItem[] = imageItems.map((item) => ({
+			itemId: item.id,
+			imageSrc: item.details?.src as string,
+			originalFrom: item.display?.from || 0,
+			status: "pending" as const,
+		}));
+
+		actions.startBatch(animationItems, {
+			cameraMotion,
+			duration,
+			prompt,
+		});
+
+		// Fire off processing (runs independently via global store)
+		processBatchAnimations();
+	}, [imageItems, cameraMotion, duration, prompt, actions]);
+
+	if (imageItems.length === 0 && !isActive) return null;
+
+	return (
+		<Card className="p-4 space-y-4">
+			<div className="flex items-center justify-between">
+				<div className="flex items-center gap-2">
+					<Film className="h-4 w-4 text-blue-500" />
+					<h3 className="font-semibold text-sm">Animate All</h3>
+				</div>
+				<div className="flex items-center gap-1 text-xs text-muted-foreground">
+					<ImageIcon className="h-3 w-3" />
+					<span>
+						{isActive ? `${totalCount} images` : `${imageItems.length} images`}
+					</span>
+				</div>
+			</div>
+
+			{/* Configuration (only when not active) */}
+			{!isActive && (
+				<div className="space-y-3">
+					<div className="space-y-2">
+						<Label
+							htmlFor="batch-camera-motion"
+							className="text-xs"
+						>
+							Camera Motion
+						</Label>
+						<Select
+							value={cameraMotion}
+							onValueChange={setCameraMotion}
+						>
+							<SelectTrigger
+								id="batch-camera-motion"
+								className="h-8"
+							>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{CAMERA_MOTIONS.map((motion) => (
+									<SelectItem
+										key={motion.value}
+										value={motion.value}
+									>
+										{motion.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+
+					<div className="space-y-2">
+						<Label
+							htmlFor="batch-anim-duration"
+							className="text-xs"
+						>
+							Duration
+						</Label>
+						<Select
+							value={duration}
+							onValueChange={setDuration}
+						>
+							<SelectTrigger
+								id="batch-anim-duration"
+								className="h-8"
+							>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{DURATIONS.map((d) => (
+									<SelectItem
+										key={d.value}
+										value={d.value}
+									>
+										{d.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+
+					<div className="space-y-2">
+						<Label
+							htmlFor="batch-anim-prompt"
+							className="text-xs"
+						>
+							Prompt (optional)
+						</Label>
+						<Textarea
+							id="batch-anim-prompt"
+							placeholder="Describe the motion or scene..."
+							value={prompt}
+							onChange={(e) => setPrompt(e.target.value)}
+							className="h-16 text-xs resize-none"
+						/>
+					</div>
+				</div>
+			)}
+
+			{/* Progress (when active) */}
+			{isActive && (
+				<div className="space-y-3">
+					{/* Progress bar */}
+					<div className="space-y-2">
+						<div className="flex items-center gap-2 text-xs text-muted-foreground">
+							<Loader2 className="h-3 w-3 animate-spin" />
+							<span>
+								{doneCount}/{totalCount} animated
+								{failedCount > 0 &&
+									` (${failedCount} failed)`}
+							</span>
+						</div>
+						<div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+							<div
+								className="h-full bg-blue-500 rounded-full transition-all duration-500"
+								style={{ width: `${progressPercent}%` }}
+							/>
+						</div>
+					</div>
+
+					{/* Per-item status list */}
+					<div className="space-y-1 max-h-32 overflow-y-auto">
+						{items.map((item, idx) => (
+							<div
+								key={item.itemId}
+								className="flex items-center gap-2 text-xs"
+							>
+								{item.status === "done" ? (
+									<Check className="h-3 w-3 text-green-500 shrink-0" />
+								) : item.status === "failed" ? (
+									<AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
+								) : item.status === "pending" ? (
+									<div className="h-3 w-3 rounded-full border border-muted-foreground/30 shrink-0" />
+								) : (
+									<Loader2 className="h-3 w-3 animate-spin text-blue-500 shrink-0" />
+								)}
+								<span className="truncate text-muted-foreground">
+									Image {idx + 1}
+								</span>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
+
+			{/* Completed state */}
+			{!isActive && items.length > 0 && doneCount > 0 && (
+				<div className="flex items-center gap-2 text-xs text-green-500">
+					<Check className="h-3 w-3" />
+					<span>
+						{doneCount === totalCount
+							? `All ${totalCount} images animated`
+							: `${doneCount}/${totalCount} animated`}
+					</span>
+				</div>
+			)}
+
+			{/* Buttons */}
+			{isActive ? (
+				<Button
+					onClick={actions.cancelAll}
+					variant="destructive"
+					size="sm"
+					className="w-full"
+				>
+					<X className="h-4 w-4 mr-2" />
+					Cancel
+				</Button>
+			) : (
+				<Button
+					onClick={handleAnimateAll}
+					disabled={imageItems.length === 0}
+					className="w-full"
+					size="sm"
+				>
+					<Film className="h-4 w-4 mr-2" />
+					Animate All Images ({imageItems.length})
+				</Button>
+			)}
+
+			{!isActive && (
+				<p className="text-xs text-muted-foreground">
+					Turns all {imageItems.length} images into video clips
+					(max {MAX_CONCURRENT} at a time). Takes 1-3 minutes per
+					image.
+				</p>
+			)}
+		</Card>
+	);
+}

@@ -49,16 +49,19 @@ export interface CaptionGenerationResponse {
 export interface GenerateCaptionsRequest {
   // Audio source (one of these required)
   audioUrl?: string;
-  
+
   // Editor data (extract audio from timeline)
   editorData?: {
     trackItems?: any[];
     currentAudioTrack?: any;
   };
-  
+
   // Existing Whisper data (for reuse/optimization)
   existingWhisperData?: any;
-  
+
+  // Original script text (from AI-generated voiceover) — has proper punctuation
+  originalScript?: string;
+
   // Generation options
   options?: CaptionGenerationOptions;
 }

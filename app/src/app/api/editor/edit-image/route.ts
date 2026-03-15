@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateWithFalNanaBanana2 } from '@/actions/models/fal-nano-banana-2';
+import { generateWithSeedreamEdit } from '@/actions/models/fal-seedream-edit';
 
 /**
  * Editor Edit Image API
  *
- * Modifies / cleans up an image using Nano Banana 2 via fal.ai.
+ * Modifies / cleans up an image using Seedream v5 Lite via fal.ai.
  * Synchronous (~5-10s) - returns edited image URL directly.
  *
  * Note: Image URLs are proxied through our server and converted to base64
@@ -85,11 +85,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await generateWithFalNanaBanana2({
+    const result = await generateWithSeedreamEdit({
       prompt,
-      image_input: proxiedImages,
-      resolution: '2K',
-      output_format: 'jpeg',
+      image_urls: proxiedImages,
+      image_size: 'auto_2K',
     });
 
     if (!result.success || !result.imageUrl) {

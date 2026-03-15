@@ -1084,12 +1084,19 @@ async function autoGenerateCaptions(
       console.log('✅ Reusing existing Whisper data for captions (no extra API call)');
     }
 
+    // Extract original script text for better caption punctuation
+    const originalScript = videoData.script || undefined;
+    if (originalScript) {
+      console.log('📝 Using original script for caption punctuation:', originalScript.substring(0, 80) + '...');
+    }
+
     // Generate captions with simple, clear options
     const captionRequest = {
       audioUrl: audioUrl,
       userId: userId,
       videoId: videoData.videoId,
       existingWhisperData: existingWhisperData,
+      originalScript: originalScript,
       options: {
         maxWordsPerChunk: 5,      // 3-5 words per chunk
         minChunkDuration: 0.833,  // Minimum duration

@@ -56,17 +56,21 @@ export interface CaptionGenerationResponse {
 
 /**
  * Main Caption Generation Function
- * Uses direct Whisper word timings for maximum accuracy
+ * Uses direct Whisper word timings for maximum accuracy.
+ * When originalScript is provided (from AI voiceover), uses it for
+ * punctuation, capitalization, and natural sentence boundaries.
  */
 export async function generateCaptionsForAudio(
   audioUrl: string,
   existingWhisperData?: WhisperAnalysisResponse,
-  options: CaptionGenerationOptions = {}
+  options: CaptionGenerationOptions = {},
+  originalScript?: string
 ): Promise<CaptionGenerationResponse> {
   const startTime = Date.now();
   console.log('🎬 Caption Orchestrator: Starting caption generation...');
   console.log('📍 Audio URL:', audioUrl);
   console.log('📊 Using existing Whisper data:', !!existingWhisperData);
+  console.log('📝 Original script available:', !!originalScript);
 
   // Set defaults
   const opts = {
@@ -122,12 +126,12 @@ export async function generateCaptionsForAudio(
     }
 
     // Step 2: Extract all word timings from segments or raw_word_timings
-    const allWords: any[] = [];
+    let allWords: any[] = [];
 
     // First try: extract from segment_timings (populated when segments are provided)
     if (whisperData.segment_timings && whisperData.segment_timings.length > 0) {
       console.log('🔍 Extracting words from segment_timings:', whisperData.segment_timings.length, 'segments');
-      whisperData.segment_timings.forEach((segment, idx) => {
+      whisperData.segment_timings.forEach((segment) => {
         if (segment.word_timings) {
           segment.word_timings.forEach(word => {
             allWords.push({
@@ -153,6 +157,14 @@ export async function generateCaptionsForAudio(
       });
     }
 
+    // Step 2b: Re-attach punctuation — prefer original script (perfect punctuation)
+    // over Whisper's full_transcript (may have minor punctuation issues)
+    const punctuationSource = originalScript || whisperData.full_transcript || '';
+    if (punctuationSource && allWords.length > 0) {
+      allWords = reattachPunctuation(allWords, punctuationSource);
+      console.log(`📝 Re-attached punctuation from ${originalScript ? 'original script' : 'Whisper transcript'}`);
+    }
+
     // Debug: Check if words extend beyond expected duration
     if (allWords.length > 0) {
       const maxWordEnd = Math.max(...allWords.map(w => w.end));
@@ -169,10 +181,10 @@ export async function generateCaptionsForAudio(
     console.log(`📝 Processing ${allWords.length} words into professional captions...`);
 
     // Get audio duration - prefer the known duration from frontend, then Whisper data
-    const audioDuration = opts.audioDuration || 
-      whisperData.total_duration || 
+    const audioDuration = opts.audioDuration ||
+      whisperData.total_duration ||
       (allWords.length > 0 ? Math.max(...allWords.map(w => w.end)) : undefined);
-    
+
     console.log(`🎵 Audio duration: ${audioDuration?.toFixed(2)}s (source: ${opts.audioDuration ? 'frontend' : 'whisper'})`);
 
     // Step 3: Generate Professional Caption Chunks
@@ -217,8 +229,42 @@ export async function generateCaptionsForAudio(
 }
 
 /**
+ * Re-attach punctuation from the full Whisper transcript to individual words.
+ * Whisper's word-level timestamps may strip punctuation that exists in the transcript.
+ */
+function reattachPunctuation(words: any[], fullTranscript: string): any[] {
+  // Split transcript preserving punctuation attached to words
+  const transcriptTokens = fullTranscript.match(/\S+/g) || [];
+  if (transcriptTokens.length === 0) return words;
+
+  // Helper: strip punctuation for comparison
+  const stripPunct = (w: string) => w.toLowerCase().replace(/[^\w]/g, '');
+
+  let tIdx = 0;
+  return words.map(word => {
+    const wordClean = stripPunct(word.word);
+    if (!wordClean) return word;
+
+    // Search forward in transcript tokens for a match (allow small gaps for misalignment)
+    const searchWindow = Math.min(tIdx + 5, transcriptTokens.length);
+    for (let j = tIdx; j < searchWindow; j++) {
+      const tokenClean = stripPunct(transcriptTokens[j]);
+      if (wordClean === tokenClean) {
+        // Found match — use the transcript version which has punctuation + casing
+        const result = { ...word, word: transcriptTokens[j] };
+        tIdx = j + 1;
+        return result;
+      }
+    }
+
+    return word; // No match found, keep original
+  });
+}
+
+/**
  * Create Professional Caption Chunks from Whisper Words
- * Groups words into readable chunks with natural boundaries
+ * Groups words into readable chunks with natural sentence boundaries.
+ * Ensures no timing overlap between consecutive chunks.
  */
 function createProfessionalCaptionChunks(
   words: any[],
@@ -233,80 +279,92 @@ function createProfessionalCaptionChunks(
     const word = words[i];
     currentChunk.push(word);
 
-    // Simple content analysis
-    const isPunctuation = word.word.match(/[.!?]$/);
+    // Content analysis
+    const isSentenceEnd = /[.!?]$/.test(word.word);
+    const isClauseBreak = /[,;:\-—]$/.test(word.word);
     const hasLongPause = i < words.length - 1 && words[i + 1].start - word.end > 0.3;
+    const chunkDuration = word.end - currentChunk[0].start;
+    const isLastWord = i === words.length - 1;
 
-    // Simple check: should we end this chunk?
-    const shouldEndChunk = (
-      // Reached our target word count (3-5 words)
-      currentChunk.length >= options.maxWordsPerChunk ||
-      // Natural pause detected
-      (hasLongPause && currentChunk.length >= 3) ||
-      // End of sentence (with at least 3 words)
-      (isPunctuation && currentChunk.length >= 3) ||
-      // Max duration reached
-      (currentChunk.length > 0 && (word.end - currentChunk[0].start) >= options.maxChunkDuration) ||
-      // Last word
-      i === words.length - 1
-    );
+    // Determine if we should end this chunk — prefer sentence boundaries
+    let shouldEndChunk = false;
+
+    if (isLastWord) {
+      // Always end on the last word
+      shouldEndChunk = true;
+    } else if (isSentenceEnd && currentChunk.length >= 2) {
+      // End of sentence — always break here (even with just 2 words)
+      shouldEndChunk = true;
+    } else if (currentChunk.length >= options.maxWordsPerChunk) {
+      // Reached max word count — break here
+      shouldEndChunk = true;
+    } else if (hasLongPause && currentChunk.length >= 2) {
+      // Long pause (>300ms gap) — natural break point
+      shouldEndChunk = true;
+    } else if (isClauseBreak && currentChunk.length >= 4) {
+      // Clause break (comma, semicolon) with enough words
+      shouldEndChunk = true;
+    } else if (chunkDuration >= options.maxChunkDuration) {
+      // Max duration exceeded — force break
+      shouldEndChunk = true;
+    }
 
     if (shouldEndChunk && currentChunk.length > 0) {
-      // Create chunk from accumulated words
       const chunkStart = currentChunk[0].start;
       const chunkEnd = currentChunk[currentChunk.length - 1].end;
-      const chunkDuration = chunkEnd - chunkStart;
 
-      // Ensure minimum duration, but respect audio boundary
-      const naturalEndTime = chunkEnd;
-      let finalDuration = chunkDuration;
-      let finalEndTime = naturalEndTime;
-      
-      // Only extend duration if we're not at the end of audio and duration is too short
-      if (chunkDuration < options.minChunkDuration) {
-        const extendedEndTime = chunkStart + options.minChunkDuration;
-        
-        // Only extend if it won't exceed audio duration
-        if (!maxAudioDuration || extendedEndTime <= maxAudioDuration) {
-          finalDuration = options.minChunkDuration;
-          finalEndTime = extendedEndTime;
-        } else {
-          // Keep natural timing to stay within audio bounds
-          console.log(`⚠️ Chunk ${chunkIndex}: Keeping natural duration ${chunkDuration.toFixed(3)}s to respect audio boundary`);
-        }
+      // Determine end_time: use natural word end, do NOT extend past next word's start
+      let finalEndTime = chunkEnd;
+
+      // Cap to audio duration
+      if (maxAudioDuration && finalEndTime > maxAudioDuration) {
+        finalEndTime = maxAudioDuration;
       }
 
       const chunkText = currentChunk.map(w => w.word).join(' ').trim();
       const lines = splitIntoLines(chunkText, options.maxCharsPerLine);
 
-      // Ensure we don't exceed audio duration if provided
-      let cappedEndTime = finalEndTime;
-      if (maxAudioDuration && finalEndTime > maxAudioDuration) {
-        cappedEndTime = maxAudioDuration;
-        console.log(`🔍 Capping chunk ${chunkIndex} end from ${finalEndTime}s to ${maxAudioDuration}s`);
-      }
-      
       chunks.push({
         id: `caption-${chunkIndex}`,
         text: chunkText,
-        start_time: alignToFrame(chunkStart, options.frameRate),
-        end_time: alignToFrame(cappedEndTime, options.frameRate),
-        duration: alignToFrame(cappedEndTime - chunkStart, options.frameRate),
+        start_time: chunkStart,
+        end_time: finalEndTime,
+        duration: finalEndTime - chunkStart,
         word_count: currentChunk.length,
         char_count: chunkText.length,
         lines: lines,
         confidence: currentChunk.reduce((sum, w) => sum + (w.confidence || 0.9), 0) / currentChunk.length,
         word_boundaries: currentChunk.map(w => ({
           word: w.word,
-          start: alignToFrame(w.start, options.frameRate),
-          end: alignToFrame(w.end, options.frameRate),
+          start: w.start,
+          end: w.end,
           confidence: w.confidence || 0.9
         }))
       });
 
-      // Reset for next chunk
       currentChunk = [];
       chunkIndex++;
+    }
+  }
+
+  // Post-process: ensure no timing gaps or overlaps between chunks
+  for (let i = 0; i < chunks.length - 1; i++) {
+    const current = chunks[i];
+    const next = chunks[i + 1];
+
+    // If current chunk ends after next chunk starts, cap it
+    if (current.end_time > next.start_time) {
+      current.end_time = next.start_time;
+      current.duration = current.end_time - current.start_time;
+    }
+
+    // Extend current chunk's display to fill the gap until the next chunk
+    // This prevents brief flashes of empty screen between captions
+    const gap = next.start_time - current.end_time;
+    if (gap > 0 && gap < 0.15) {
+      // Small gap (<150ms) — extend current chunk to fill it
+      current.end_time = next.start_time;
+      current.duration = current.end_time - current.start_time;
     }
   }
 

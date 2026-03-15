@@ -8,7 +8,8 @@ import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useDeleteHandler } from "./hooks/use-delete-handler";
 import Scene from "./scene";
 import { SceneRef } from "./scene/scene.types";
-import StateManager, { DESIGN_LOAD } from "@designcombo/state";
+import { DESIGN_LOAD } from "@designcombo/state";
+import { stateManager } from "./store/state-manager-instance";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	ResizableHandle,
@@ -34,12 +35,6 @@ import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
 import { loadAIAssetsFromURL } from "./utils/ai-asset-loader";
 
-const stateManager = new StateManager({
-	size: {
-		width: 1920,
-		height: 1080,
-	},
-});
 
 const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 	const [projectName, setProjectName] = useState<string>("Untitled video");

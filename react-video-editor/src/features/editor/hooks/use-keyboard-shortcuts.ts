@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { dispatch } from "@designcombo/events";
 import { LAYER_DELETE, HISTORY_UNDO, HISTORY_REDO } from "@designcombo/state";
+import { PLAYER_TOGGLE_PLAY } from "../constants/events";
 import useStore from "../store/use-store";
 
 export const useKeyboardShortcuts = () => {
@@ -18,11 +19,16 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
+			// Space - Toggle play/pause
+			if (event.key === " " || event.code === "Space") {
+				event.preventDefault();
+				dispatch(PLAYER_TOGGLE_PLAY);
+			}
+
 			// Delete or Backspace - Delete selected items
 			if (event.key === "Delete" || event.key === "Backspace") {
 				if (activeIds.length > 0) {
 					event.preventDefault();
-					console.log("🗑️ Delete key pressed - deleting items:", activeIds);
 					dispatch(LAYER_DELETE);
 				}
 			}
@@ -30,7 +36,6 @@ export const useKeyboardShortcuts = () => {
 			// Cmd/Ctrl + Z - Undo
 			if ((event.metaKey || event.ctrlKey) && event.key === "z" && !event.shiftKey) {
 				event.preventDefault();
-				console.log("↩️ Undo shortcut triggered");
 				dispatch(HISTORY_UNDO);
 			}
 
@@ -40,7 +45,6 @@ export const useKeyboardShortcuts = () => {
 				((event.metaKey || event.ctrlKey) && event.key === "y")
 			) {
 				event.preventDefault();
-				console.log("↪️ Redo shortcut triggered");
 				dispatch(HISTORY_REDO);
 			}
 		};

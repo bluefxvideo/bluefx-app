@@ -84,12 +84,13 @@ export async function generateCaptionsFromRequest(request: GenerateCaptionsReque
     console.log('🎬 Caption Request:', {
       hasAudioUrl: !!request.audioUrl,
       hasEditorData: !!request.editorData,
-      hasWhisperData: !!request.existingWhisperData
+      hasWhisperData: !!request.existingWhisperData,
+      hasOriginalScript: !!request.originalScript
     });
 
     // Extract audio URL from various sources
     let audioUrl = request.audioUrl;
-    
+
     if (!audioUrl && request.editorData) {
       audioUrl = await extractAudioUrl({
         trackItems: request.editorData.trackItems,
@@ -104,11 +105,12 @@ export async function generateCaptionsFromRequest(request: GenerateCaptionsReque
       };
     }
 
-    // Generate captions using the orchestrator
+    // Generate captions using the orchestrator — pass original script for punctuation
     const result = await generateCaptionsForAudio(
       audioUrl,
       request.existingWhisperData,
-      request.options
+      request.options,
+      request.originalScript
     );
 
     return result;

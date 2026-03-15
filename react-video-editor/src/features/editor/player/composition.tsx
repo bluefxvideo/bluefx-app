@@ -150,11 +150,13 @@ const Composition = () => {
 		return () => subscription.unsubscribe();
 	}, [editableTextId]);
 
+	const CROSSFADE_FRAMES = 15; // ~0.5s at 30fps
+
 	// Create a stable list of all items to prevent hook order changes
 	const allItems = React.useMemo(() => {
 		const items: Array<{ id: string; item: any; key: string }> = [];
-		
-		groupedItems.forEach((group, index) => {
+
+		groupedItems.forEach((group) => {
 			if (group.length === 1) {
 				const item = trackItemsMap[group[0].id];
 				if (item && SequenceItem[item.type]) {
@@ -166,15 +168,46 @@ const Composition = () => {
 				}
 			}
 		});
-		
+
 		return items;
 	}, [groupedItems, trackItemsMap]);
+
+	// Detect adjacent images for crossfade
+	const crossfadeMap = React.useMemo(() => {
+		const map: Record<string, { fadeIn: boolean; extendDuration: boolean }> = {};
+		const imageItems = allItems
+			.filter(({ item }) => item.type === 'image')
+			.sort((a, b) => a.item.display.from - b.item.display.from);
+
+		for (let i = 0; i < imageItems.length; i++) {
+			const current = imageItems[i];
+			const next = imageItems[i + 1];
+			const prev = i > 0 ? imageItems[i - 1] : null;
+
+			// Tolerance: within ~2 frames (66ms at 30fps)
+			const tolerance = (2 / fps) * 1000;
+			const adjacentToNext = next &&
+				Math.abs(current.item.display.to - next.item.display.from) <= tolerance;
+			const adjacentToPrev = prev &&
+				Math.abs(prev.item.display.to - current.item.display.from) <= tolerance;
+
+			if (adjacentToNext || adjacentToPrev) {
+				map[current.id] = {
+					fadeIn: !!adjacentToPrev,
+					extendDuration: !!adjacentToNext,
+				};
+			}
+		}
+
+		return map;
+	}, [allItems, fps]);
 
 	return (
 		<>
 			{allItems.map(({ id, item, key }) => {
 				const itemRenderer = SequenceItem[item.type];
-				
+				const crossfade = crossfadeMap[id];
+
 				return (
 					<React.Fragment key={key}>
 						{itemRenderer(item, {
@@ -185,6 +218,8 @@ const Composition = () => {
 							frame,
 							size,
 							isTransition: false,
+							fadeInFrames: crossfade?.fadeIn ? CROSSFADE_FRAMES : 0,
+							extraDurationFrames: crossfade?.extendDuration ? CROSSFADE_FRAMES : 0,
 						})}
 					</React.Fragment>
 				);

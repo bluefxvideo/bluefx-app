@@ -1,11 +1,11 @@
 'use server';
 
-import { generateWithFalNanaBanana2 } from '@/actions/models/fal-nano-banana-2';
+import { generateWithSeedreamEdit } from '@/actions/models/fal-seedream-edit';
 import { CLEANUP_PRESET_CONFIG } from '@/types/reelestate';
 import type { CleanupPreset, CleanupResult } from '@/types/reelestate';
 
 /**
- * Clean up a single listing photo using Nano Banana 2 /edit endpoint.
+ * Clean up a single listing photo using Seedream v5 Lite /edit endpoint.
  * Uses preset prompts for common real estate cleanup tasks.
  */
 export async function cleanupPhoto(
@@ -19,11 +19,10 @@ export async function cleanupPhoto(
 
     console.log(`🧹 Cleaning photo: ${preset} — ${imageUrl.slice(0, 60)}...`);
 
-    const result = await generateWithFalNanaBanana2({
+    const result = await generateWithSeedreamEdit({
       prompt,
-      image_input: [imageUrl],
-      resolution: '2K',
-      output_format: 'jpeg',
+      image_urls: [imageUrl],
+      image_size: 'auto_2K',
     });
 
     if (!result.success || !result.imageUrl) {

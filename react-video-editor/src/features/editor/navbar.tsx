@@ -24,7 +24,8 @@ import {
 	Sparkles,
 	Loader2,
 	Check,
-	ArrowLeft
+	ArrowLeft,
+	X
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import type StateManager from "@designcombo/state";
 import { generateId } from "@designcombo/timeline";
 import type { IDesign } from "@designcombo/types";
 import { useDownloadState } from "./store/use-download-state";
+import { useBatchAnimateState } from "./store/use-batch-animate-state";
 import DownloadProgressModal from "./download-progress-modal";
 import AutosizeInput from "@/components/ui/autosize-input";
 import { debounce } from "lodash";
@@ -291,7 +293,9 @@ export default function Navbar({
 				<DownloadPopover stateManager={stateManager} />
 				
 				<CheckActiveExportButton />
-				
+
+				<BatchAnimateIndicator />
+
 				<Button
 					variant="ghost"
 					size="sm"
@@ -323,6 +327,37 @@ const CheckActiveExportButton = () => {
 			<Loader2 className="h-4 w-4 mr-1 animate-spin" />
 			View Export
 		</Button>
+	);
+};
+
+// Persistent indicator for batch image animation
+const BatchAnimateIndicator = () => {
+	const { isActive, items, actions } = useBatchAnimateState();
+
+	if (!isActive || items.length === 0) return null;
+
+	const doneCount = items.filter((i) => i.status === "done").length;
+
+	return (
+		<div className="flex items-center gap-1">
+			<Button
+				variant="outline"
+				size="sm"
+				className="flex gap-1 animate-pulse cursor-default"
+			>
+				<Loader2 className="h-4 w-4 animate-spin" />
+				Animating {doneCount}/{items.length}
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				className="h-8 w-8 text-muted-foreground hover:text-destructive"
+				onClick={() => actions.cancelAll()}
+				title="Cancel all animations"
+			>
+				<X className="h-3 w-3" />
+			</Button>
+		</div>
 	);
 };
 

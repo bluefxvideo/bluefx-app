@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { KenBurnsControl } from "./ken-burns-control";
 import { AnimateImageControl } from "./animate-image-control";
 import { EditImageControl } from "./edit-image-control";
+import { BatchAnimateControl } from "./batch-animate-control";
 import useStore from "../store/use-store";
 
 const BasicImage = ({
@@ -180,11 +181,15 @@ const BasicImage = ({
 		});
 	};
 
-	// Get all selected items for Ken Burns bulk application
+	// Get all selected items for bulk operations (Ken Burns, batch animate)
 	const { activeIds, trackItemsMap } = useStore();
 	const selectedMediaItems = activeIds
 		.map(id => trackItemsMap[id])
 		.filter(item => item && (item.type === "image" || item.type === "video")) as IImage[];
+	const selectedImageItems = activeIds
+		.map(id => trackItemsMap[id])
+		.filter(item => item && item.type === "image") as (ITrackItem & IImage)[];
+	const isMultiSelection = activeIds.length > 1;
 
 	const components = [
 		{
@@ -209,6 +214,16 @@ const BasicImage = ({
 				<AnimateImageControl trackItem={trackItem} />
 			),
 		},
+		...(isMultiSelection && selectedImageItems.length > 1
+			? [
+					{
+						key: "batch-animate",
+						component: (
+							<BatchAnimateControl selectedItems={selectedImageItems} />
+						),
+					},
+				]
+			: []),
 		{
 			key: "edit-ai",
 			component: (

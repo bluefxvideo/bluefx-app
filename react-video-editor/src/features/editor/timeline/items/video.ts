@@ -374,7 +374,8 @@ class Video extends Trimmable {
 		ctx.drawImage(this.offscreenCanvas, 0, 0);
 
 		ctx.restore();
-		// this.drawTextIdentity(ctx);
+		this.drawTextIdentity(ctx);
+		this.drawBottomAccent(ctx);
 		this.updateSelected(ctx);
 	}
 
@@ -456,17 +457,33 @@ class Video extends Trimmable {
 		);
 		ctx.save();
 		ctx.translate(-this.width / 2, -this.height / 2);
+
+		// Dark background pill for readability on any thumbnail
+		ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+		ctx.beginPath();
+		ctx.roundRect(4, 4, 68, 20, 4);
+		ctx.fill();
+
 		ctx.translate(0, 14);
 		ctx.font = `400 12px ${SECONDARY_FONT}`;
 		ctx.fillStyle = "#f4f4f5";
 		ctx.textAlign = "left";
-		ctx.clip();
 		ctx.fillText("Video", 36, 10);
 
 		ctx.translate(8, 1);
 
 		ctx.fillStyle = "#f4f4f5";
 		ctx.fill(iconPath);
+		ctx.restore();
+	}
+
+	public drawBottomAccent(ctx: CanvasRenderingContext2D) {
+		ctx.save();
+		ctx.translate(-this.width / 2, -this.height / 2);
+		ctx.fillStyle = "rgba(59, 130, 246, 0.7)";
+		ctx.beginPath();
+		ctx.roundRect(0, this.height - 3, this.width, 3, [0, 0, this.rx, this.ry]);
+		ctx.fill();
 		ctx.restore();
 	}
 

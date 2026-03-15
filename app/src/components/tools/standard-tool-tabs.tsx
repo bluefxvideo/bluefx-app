@@ -14,6 +14,7 @@ interface StandardToolTabsProps {
   tabs: TabDefinition[];
   activeTab: string;
   basePath: string; // e.g., '/dashboard/logo-generator'
+  onTabChange?: () => void;
 }
 
 /**
@@ -21,18 +22,19 @@ interface StandardToolTabsProps {
  * Ensures consistent tab styling across every tool
  * Matches Thumbnail Machine styling exactly
  */
-export function StandardToolTabs({ tabs, activeTab }: StandardToolTabsProps) {
+export function StandardToolTabs({ tabs, activeTab, onTabChange }: StandardToolTabsProps) {
   return (
     <div className="overflow-x-auto scrollbar-none">
       <div className="flex items-center gap-1 min-w-max px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-          
+
           return (
             <Link
               key={tab.id}
               href={tab.path}
+              onClick={onTabChange}
               className={`
                 inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-lg
                 transition-all duration-200 relative whitespace-nowrap flex-shrink-0

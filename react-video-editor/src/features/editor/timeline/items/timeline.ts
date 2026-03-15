@@ -34,6 +34,45 @@ class Timeline extends TimelineBase {
 		}
 	};
 
+	// Override to support shift+click multi-select
+	// The base library always replaces selection on click — this adds toggle behavior
+	__onMouseDown(e: MouseEvent) {
+		if (this.isShiftKey) {
+			const scenePoint = this.getScenePoint(e);
+			const trackItems = this.getTrackItems();
+
+			// Find which item was clicked
+			let clickedItem: (typeof trackItems)[0] | null = null;
+			for (const item of trackItems) {
+				if (item.containsPoint(scenePoint)) {
+					clickedItem = item;
+					break;
+				}
+			}
+
+			if (clickedItem) {
+				const currentIds = [...this.activeIds];
+				const clickedId = (clickedItem as any).id as string;
+				const idx = currentIds.indexOf(clickedId);
+
+				if (idx !== -1) {
+					// Already selected → remove from selection
+					currentIds.splice(idx, 1);
+				} else {
+					// Not selected → add to selection
+					currentIds.push(clickedId);
+				}
+
+				this.setActiveIds(currentIds);
+				this.selectTrackItemByIds(currentIds);
+				return; // Handled — don't call super
+			}
+		}
+
+		// Default behavior for non-shift clicks
+		super.__onMouseDown(e);
+	}
+
 	public purge(): void {
 		super.purge();
 

@@ -80,6 +80,21 @@ export function CaptionGeneratorPanel({
     return Boolean(audioInfo.audioUrl && !state.isGenerating);
   }, [audioInfo.audioUrl, state.isGenerating]);
 
+  // Extract original script text from image track metadata
+  const originalScript = useMemo(() => {
+    const imageItems = Object.values(trackItemsMap)
+      .filter((item: any) => item.type === 'image' && item.metadata?.segmentText)
+      .sort((a: any, b: any) => a.display.from - b.display.from)
+      .map((item: any) => item.metadata.segmentText as string);
+
+    if (imageItems.length > 0) {
+      const script = imageItems.join(' ');
+      console.log('📝 Original script extracted from image tracks:', script.substring(0, 100) + '...');
+      return script;
+    }
+    return undefined;
+  }, [trackItemsMap]);
+
   const handleGenerateClick = async () => {
     if (!audioInfo.audioUrl) {
       console.error('No audio URL found');
@@ -92,6 +107,7 @@ export function CaptionGeneratorPanel({
       const result = await generateCaptions({
         audioUrl: audioInfo.audioUrl,
         existingWhisperData,
+        originalScript,
         options: {
           ...generationOptions,
           maxCharsPerLine: 42, // Professional standard

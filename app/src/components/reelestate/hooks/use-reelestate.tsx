@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { getUserCredits } from '@/actions/credit-management';
 import {
@@ -58,7 +57,6 @@ interface CleanupQueueItem {
 }
 
 export function useReelEstate() {
-  const router = useRouter();
   const [project, setProject] = useState<ReelEstateProject>({ ...INITIAL_PROJECT });
   const [credits, setCredits] = useState(0);
   const [isLoadingCredits, setIsLoadingCredits] = useState(true);
@@ -501,6 +499,7 @@ export function useReelEstate() {
       project.id,
       project.photos[photoIndex],
       preset,
+      photoIndex,
     );
 
     setCleaningIndices(prev => prev.filter(i => i !== photoIndex));
@@ -566,10 +565,8 @@ export function useReelEstate() {
       creditsUsed: listing.total_credits_used || 0,
     });
 
-    // Navigate to Video Maker tab so the user can see the loaded project
-    router.push('/dashboard/reelestate');
     toast.success('Project loaded');
-  }, [router]);
+  }, []);
 
   // ─── Derived State ─────────────────────────────
   const isWorking = ['scraping', 'analyzing', 'scripting', 'generating_clips', 'generating_voiceover', 'rendering', 'assembling'].includes(project.status);

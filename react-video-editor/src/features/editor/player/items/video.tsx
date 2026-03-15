@@ -1,7 +1,7 @@
 import { IVideo } from "@designcombo/types";
 import { BaseSequence, SequenceItemOptions } from "../base-sequence";
 import { calculateMediaStyles } from "../styles";
-import { OffthreadVideo } from "remotion";
+import { Video as RemotionVideo } from "remotion";
 import { calculateFrames } from "../../utils/frames";
 
 export const Video = ({
@@ -86,12 +86,12 @@ function VideoWithKenBurns({
 
 	return (
 		<div style={mediaStyles}>
-			<OffthreadVideo
+			<RemotionVideo
 				startFrom={(item.trim?.from! / 1000) * fps}
 				endAt={(item.trim?.to! / 1000) * fps || 1 / fps}
 				playbackRate={playbackRate}
 				src={details.src}
-				volume={details.volume || 0 / 100}
+				volume={(details.volume ?? 100) / 100}
 			/>
 		</div>
 	);
