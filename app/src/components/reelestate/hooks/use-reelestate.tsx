@@ -13,7 +13,7 @@ import {
 } from '@/actions/tools/reelestate/orchestrator';
 import { generateListingClip, pollClipStatus } from '@/actions/tools/reelestate/clip-generator';
 import { cleanupPhoto } from '@/actions/tools/reelestate/photo-cleanup';
-import { getUserListings } from '@/actions/database/reelestate-database';
+import { getUserListings, updateListing } from '@/actions/database/reelestate-database';
 import { createClient } from '@/app/supabase/client';
 import type {
   ReelEstateProject,
@@ -247,16 +247,20 @@ export function useReelEstate() {
 
       const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
       const apiBaseUrl = window.location.origin;
-      const editorUrl = `${editorBaseUrl}/?listingId=${project.id}&userId=${user.id}&apiUrl=${encodeURIComponent(apiBaseUrl)}`;
+      const editorUrl = `${editorBaseUrl}/?listingId=${project.id}&userId=${user.id}&apiUrl=${encodeURIComponent(apiBaseUrl)}&aspectRatio=${project.aspectRatio}`;
 
+      // Open editor immediately (before any await) to avoid popup blocker
       console.log('🎬 Opening ReelEstate in editor:', editorUrl);
       window.open(editorUrl, '_blank');
       toast.success('Opening video editor...');
+
+      // Persist aspect ratio to database (fire-and-forget; editor takes a moment to load)
+      updateListing(project.id, { aspect_ratio: project.aspectRatio });
     } catch (error) {
       console.error('❌ Failed to open editor:', error);
       toast.error('Failed to open video editor');
     }
-  }, [project.id, project.voiceover, project.script]);
+  }, [project.id, project.voiceover, project.script, project.aspectRatio]);
 
   // ─── Generate Clips (optional, for editor) ──────
   const generateClips = useCallback(async () => {
@@ -429,7 +433,10 @@ export function useReelEstate() {
 
   const setAspectRatio = useCallback((ratio: '16:9' | '9:16') => {
     updateProject({ aspectRatio: ratio });
-  }, [updateProject]);
+    if (project.id) {
+      updateListing(project.id, { aspect_ratio: ratio });
+    }
+  }, [updateProject, project.id]);
 
   const setTargetDuration = useCallback((duration: TargetDuration) => {
     updateProject({ targetDuration: duration });

@@ -27,6 +27,7 @@ import {
 	type AnimationItem,
 } from "../store/use-batch-animate-state";
 import { stateManager } from "../store/state-manager-instance";
+import useStore from "../store/use-store";
 
 interface BatchAnimateControlProps {
 	selectedItems: (ITrackItem & IImage)[];
@@ -66,30 +67,14 @@ function getUserId(): string | null {
 	return new URLSearchParams(window.location.search).get("userId");
 }
 
+function getCanvasAspectRatio(): string {
+	const { size } = useStore.getState();
+	if (size.height > size.width) return "9:16";
+	return "16:9";
+}
+
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// ─── Sequential Video Addition Queue ─────────────────────────
-// Adds videos one at a time, keeps original images, ensures captions stay on top
-
-interface ReplacementJob {
-	itemId: string;
-	videoUrl: string;
-	from: number;
-	durationMs: number;
-	imageSrc: string;
-	cameraMotion: string;
-}
-
-const replacementQueue: ReplacementJob[] = [];
-let isProcessingQueue = false;
-
-async function enqueueReplacement(job: ReplacementJob) {
-	replacementQueue.push(job);
-	if (!isProcessingQueue) {
-		drainQueue();
-	}
 }
 
 // Reorder tracks so caption tracks are always at the top (rendered in front)
@@ -98,7 +83,6 @@ function reorderCaptionsToTop() {
 		const state = stateManager.getState();
 		const { tracks, trackItemsMap } = state;
 
-		// Identify caption tracks
 		const captionTrackIds = new Set<string>();
 		tracks.forEach((track) => {
 			track.items.forEach((itemId) => {
@@ -129,64 +113,6 @@ function reorderCaptionsToTop() {
 	} catch (err) {
 		console.warn("⚠️ Failed to reorder caption tracks:", err);
 	}
-}
-
-async function drainQueue() {
-	isProcessingQueue = true;
-
-	while (replacementQueue.length > 0) {
-		const job = replacementQueue.shift()!;
-
-		try {
-			// 1. Add the new video (creates a new track)
-			const newVideoId = generateId();
-			dispatch(ADD_VIDEO, {
-				payload: {
-					id: newVideoId,
-					details: {
-						src: job.videoUrl,
-					},
-					display: {
-						from: job.from,
-						to: job.from + job.durationMs,
-					},
-					metadata: {
-						animatedFrom: job.imageSrc,
-						cameraMotion: job.cameraMotion,
-					},
-				},
-				options: {
-					resourceId: "main",
-					scaleMode: "fit",
-				},
-			});
-
-			await sleep(300);
-
-			// 2. Reorder tracks so captions stay on top
-			reorderCaptionsToTop();
-
-			// 3. Mark as done in global store
-			useBatchAnimateState.getState().actions.updateItem(job.itemId, {
-				status: "done",
-			});
-
-			console.log(`✅ Batch animate: added video for image ${job.itemId}`);
-			// Refresh credit display
-			(window as any).refreshEditorCredits?.();
-		} catch (err) {
-			console.error(
-				`❌ Failed to add video for image ${job.itemId}:`,
-				err,
-			);
-			useBatchAnimateState.getState().actions.updateItem(job.itemId, {
-				status: "failed",
-				error: "Failed to add video to timeline",
-			});
-		}
-	}
-
-	isProcessingQueue = false;
 }
 
 // ─── Batch Processing Logic ──────────────────────────────────
@@ -255,7 +181,7 @@ async function processOneImage(
 						settings.prompt || "Smooth cinematic camera movement",
 					camera_motion: settings.cameraMotion,
 					duration: parseInt(settings.duration),
-					aspect_ratio: "16:9",
+					aspect_ratio: getCanvasAspectRatio(),
 					user_id: getUserId(),
 				}),
 			},
@@ -292,15 +218,65 @@ async function processOneImage(
 					videoUrl: pollData.video_url,
 				});
 
-				// Enqueue replacement (sequential — no race condition)
-				enqueueReplacement({
-					itemId: item.itemId,
-					videoUrl: pollData.video_url,
-					from: item.originalFrom,
-					durationMs: parseInt(settings.duration) * 1000,
-					imageSrc: item.imageSrc,
-					cameraMotion: settings.cameraMotion,
-				});
+				// Wait for lock — only one ADD_VIDEO at a time
+				const store = useBatchAnimateState.getState;
+				while (store().addingVideo) {
+					await sleep(300);
+				}
+				store().actions.setAddingVideo(true);
+
+				try {
+					const newVideoId = generateId();
+					const durationMs = parseInt(settings.duration) * 1000;
+					console.log(`🎬 Batch animate: adding video for ${item.itemId}`, { videoUrl: pollData.video_url, newVideoId });
+
+					dispatch(ADD_VIDEO, {
+						payload: {
+							id: newVideoId,
+							details: {
+								src: pollData.video_url,
+							},
+							display: {
+								from: item.originalFrom,
+								to: item.originalFrom + durationMs,
+							},
+							metadata: {
+								animatedFrom: item.imageSrc,
+								cameraMotion: settings.cameraMotion,
+							},
+						},
+						options: {
+							resourceId: "main",
+							scaleMode: "fit",
+						},
+					});
+
+					// Poll state manager until this video actually appears in trackItemsMap
+					// (processVideo is async and takes longer for 9:16 videos)
+					let waitAttempts = 0;
+					const maxWaitAttempts = 60; // 30 seconds max
+					while (
+						!stateManager.getState().trackItemsMap[newVideoId] &&
+						waitAttempts < maxWaitAttempts
+					) {
+						await sleep(500);
+						waitAttempts++;
+					}
+
+					if (stateManager.getState().trackItemsMap[newVideoId]) {
+						console.log(`✅ Batch animate: video ${newVideoId} confirmed in state after ${waitAttempts * 500}ms`);
+					} else {
+						console.warn(`⚠️ Batch animate: video ${newVideoId} NOT found in state after ${maxWaitAttempts * 500}ms, proceeding anyway`);
+					}
+
+					reorderCaptionsToTop();
+
+					actions.updateItem(item.itemId, { status: "done" });
+					console.log(`✅ Batch animate: done for ${item.itemId}`);
+					(window as any).refreshEditorCredits?.();
+				} finally {
+					store().actions.setAddingVideo(false);
+				}
 
 				return;
 			} else if (

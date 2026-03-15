@@ -92,6 +92,12 @@ function getUserId(): string | null {
 	return new URLSearchParams(window.location.search).get("userId");
 }
 
+function getCanvasAspectRatio(): string {
+	const { size } = useStore.getState();
+	if (size.height > size.width) return "9:16";
+	return "16:9";
+}
+
 export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 	const [cameraMotion, setCameraMotion] = useState("dolly_in");
 	const [duration, setDuration] = useState("6");
@@ -136,7 +142,7 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 					prompt: prompt || "Smooth cinematic camera movement",
 					camera_motion: cameraMotion,
 					duration: parseInt(duration),
-					aspect_ratio: "16:9",
+					aspect_ratio: getCanvasAspectRatio(),
 					user_id: getUserId(),
 				}),
 			});

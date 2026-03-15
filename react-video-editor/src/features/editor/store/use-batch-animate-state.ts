@@ -21,6 +21,8 @@ interface BatchAnimateState {
 	items: AnimationItem[];
 	settings: BatchAnimateSettings;
 	cancelled: boolean;
+	/** Lock to serialize ADD_VIDEO dispatches (prevents concurrent dispatch issues) */
+	addingVideo: boolean;
 	actions: {
 		startBatch: (
 			items: AnimationItem[],
@@ -32,6 +34,7 @@ interface BatchAnimateState {
 		) => void;
 		cancelAll: () => void;
 		reset: () => void;
+		setAddingVideo: (value: boolean) => void;
 	};
 }
 
@@ -40,6 +43,7 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 	items: [],
 	settings: { cameraMotion: "dolly_in", duration: "6", prompt: "" },
 	cancelled: false,
+	addingVideo: false,
 	actions: {
 		startBatch: (items, settings) =>
 			set({
@@ -47,6 +51,7 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 				items,
 				settings,
 				cancelled: false,
+				addingVideo: false,
 			}),
 
 		updateItem: (itemId, update) =>
@@ -68,6 +73,7 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 			set((state) => ({
 				cancelled: true,
 				isActive: false,
+				addingVideo: false,
 				// Keep completed items as done, mark pending/processing as failed
 				items: state.items.map((item) =>
 					item.status === "done"
@@ -82,6 +88,9 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 				items: [],
 				settings: { cameraMotion: "dolly_in", duration: "6", prompt: "" },
 				cancelled: false,
+				addingVideo: false,
 			}),
+
+		setAddingVideo: (value: boolean) => set({ addingVideo: value }),
 	},
 }));

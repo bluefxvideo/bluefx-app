@@ -179,14 +179,18 @@ export function loadAIAssetsFromURL(): Promise<any> {
 
       console.log('🔍 STEP 3: Legacy/Storyboard/Listing parameters:', { legacyVideoId, mockMode, storyboardId, listingId });
 
+      // Check for aspect ratio override from URL
+      const aspectRatioParam = urlParams.get('aspectRatio');
+
       // Check for ReelEstate listing loading first
       if (listingId && userId) {
-        console.log('🏠 Loading ReelEstate listing:', { listingId, userId });
+        console.log('🏠 Loading ReelEstate listing:', { listingId, userId, aspectRatioParam });
         isLoading = true;
 
         loadReelEstateListing({
           listingId,
           userId,
+          aspectRatioOverride: aspectRatioParam || undefined,
           apiUrl: apiUrl || window.location.origin,
           onProgress: (stage, progress) => {
             console.log(`📊 ReelEstate Loading progress: ${stage} (${progress}%)`);
@@ -553,6 +557,7 @@ async function loadReelEstateListing({
   listingId,
   userId,
   apiUrl,
+  aspectRatioOverride,
   onProgress,
   onSuccess,
   onError,
@@ -560,6 +565,7 @@ async function loadReelEstateListing({
   listingId: string;
   userId: string;
   apiUrl: string;
+  aspectRatioOverride?: string;
   onProgress?: (stage: string, progress: number) => void;
   onSuccess?: (listing_id: string) => void;
   onError?: (error: string) => void;
@@ -608,10 +614,13 @@ async function loadReelEstateListing({
     // Convert using the same pipeline as BlueFX (same data shape)
     const aiAssets = convertBlueFXDataToAIAssets(videoData);
 
+    // Prefer URL parameter (set by main app at click time) over DB value (may lag behind)
     const aspectRatio =
+      aspectRatioOverride ||
       videoData.imageData?.generation_params?.aspect_ratio ||
       videoData.image_data?.generation_params?.aspect_ratio ||
       '16:9';
+    console.log('📐 Using aspect ratio:', aspectRatio, { aspectRatioOverride, fromApi: videoData.imageData?.generation_params?.aspect_ratio });
 
     const isValid = validateAIAssets(aiAssets);
     if (!isValid) {
