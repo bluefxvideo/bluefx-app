@@ -71,6 +71,8 @@ const CAMERA_MOTIONS = [
 	{ value: "static", label: "Static" },
 ];
 
+const CREDITS_PER_SECOND = 1;
+
 const DURATIONS = [
 	{ value: "6", label: "6 seconds" },
 	{ value: "8", label: "8 seconds" },
@@ -301,7 +303,7 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 						<SelectContent>
 							{DURATIONS.map((d) => (
 								<SelectItem key={d.value} value={d.value}>
-									{d.label}
+									{d.label} ({parseInt(d.value) * CREDITS_PER_SECOND} credits)
 								</SelectItem>
 							))}
 						</SelectContent>
@@ -354,13 +356,13 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 				) : (
 					<>
 						<Film className="h-4 w-4 mr-2" />
-						Animate
+						Animate ({parseInt(duration) * CREDITS_PER_SECOND} credits)
 					</>
 				)}
 			</Button>
 
 			<p className="text-xs text-muted-foreground">
-				Turns the image into a video clip using AI. Takes 1-3 minutes.
+				Turns the image into a video clip using AI. Takes 1-3 minutes. Costs 1 credit per second.
 			</p>
 		</Card>
 	);

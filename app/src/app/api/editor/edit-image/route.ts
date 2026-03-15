@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateWithSeedreamEdit } from '@/actions/models/fal-seedream-edit';
-import { getUserCredits } from '@/actions/credit-management';
-import { deductCredits } from '@/actions/database/cinematographer-database';
+import { createAdminClient } from '@/app/supabase/server';
 
 /**
  * Editor Edit Image API
@@ -67,38 +66,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Deduct credits if user_id is provided
+    // Deduct credits if user_id is provided (use admin client — editor has no auth cookies)
     if (user_id) {
-      const creditCheck = await getUserCredits(user_id);
-      if (creditCheck.success) {
-        const available = creditCheck.credits || 0;
-        if (available < EDIT_IMAGE_CREDIT_COST) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: `Insufficient credits. Need ${EDIT_IMAGE_CREDIT_COST}, have ${available}`,
-              remaining_credits: available,
-            },
-            { status: 402, headers: corsHeaders(request) },
-          );
-        }
+      const supabase = createAdminClient();
 
-        const deduction = await deductCredits(
-          user_id,
-          EDIT_IMAGE_CREDIT_COST,
-          'editor-edit-image',
-          { prompt: prompt.substring(0, 100) } as Record<string, unknown>,
+      const { data: creditData } = await supabase
+        .from('user_credits')
+        .select('available_credits')
+        .eq('user_id', user_id)
+        .single();
+
+      const available = creditData?.available_credits || 0;
+      if (available < EDIT_IMAGE_CREDIT_COST) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Insufficient credits. Need ${EDIT_IMAGE_CREDIT_COST}, have ${available}`,
+            remaining_credits: available,
+          },
+          { status: 402, headers: corsHeaders(request) },
         );
-
-        if (!deduction.success) {
-          return NextResponse.json(
-            { success: false, error: deduction.error || 'Credit deduction failed' },
-            { status: 402, headers: corsHeaders(request) },
-          );
-        }
-
-        console.log(`💳 Edit-image: deducted ${EDIT_IMAGE_CREDIT_COST} credits (remaining: ${deduction.remainingCredits})`);
       }
+
+      const { data: deduction, error: deductError } = await supabase
+        .rpc('deduct_user_credits', {
+          p_user_id: user_id,
+          p_amount: EDIT_IMAGE_CREDIT_COST,
+          p_operation: 'editor-edit-image',
+          p_metadata: { prompt: prompt.substring(0, 100) },
+        });
+
+      if (deductError || !deduction?.success) {
+        return NextResponse.json(
+          { success: false, error: deductError?.message || 'Credit deduction failed' },
+          { status: 402, headers: corsHeaders(request) },
+        );
+      }
+
+      console.log(`💳 Edit-image: deducted ${EDIT_IMAGE_CREDIT_COST} credits (remaining: ${deduction.remaining_credits})`);
     }
 
     console.log('🎨 Edit-image request:', { prompt: prompt.substring(0, 100) });

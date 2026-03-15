@@ -3,8 +3,7 @@ import {
   createVideoGenerationPrediction,
   getVideoGenerationPrediction,
 } from '@/actions/models/video-generation-v1';
-import { getUserCredits } from '@/actions/credit-management';
-import { deductCredits } from '@/actions/database/cinematographer-database';
+import { createAdminClient } from '@/app/supabase/server';
 import { downloadAndUploadVideo } from '@/actions/supabase-storage';
 
 /**
@@ -60,17 +59,17 @@ export async function POST(request: NextRequest) {
     const videoDuration = duration || 6;
     const creditCost = videoDuration * CREDITS_PER_SECOND;
 
-    // Deduct credits if user_id is provided
+    // Deduct credits if user_id is provided (use admin client — editor has no auth cookies)
     if (user_id) {
-      const creditCheck = await getUserCredits(user_id);
-      if (!creditCheck.success) {
-        return NextResponse.json(
-          { success: false, error: 'Unable to verify credit balance' },
-          { status: 500, headers: corsHeaders(request) },
-        );
-      }
+      const supabase = createAdminClient();
 
-      const availableCredits = creditCheck.credits || 0;
+      const { data: creditData } = await supabase
+        .from('user_credits')
+        .select('available_credits')
+        .eq('user_id', user_id)
+        .single();
+
+      const availableCredits = creditData?.available_credits || 0;
       if (availableCredits < creditCost) {
         return NextResponse.json(
           {
@@ -83,21 +82,22 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const deduction = await deductCredits(
-        user_id,
-        creditCost,
-        'editor-animate-image',
-        { camera_motion, duration: videoDuration } as Record<string, unknown>,
-      );
+      const { data: deduction, error: deductError } = await supabase
+        .rpc('deduct_user_credits', {
+          p_user_id: user_id,
+          p_amount: creditCost,
+          p_operation: 'editor-animate-image',
+          p_metadata: { camera_motion, duration: videoDuration },
+        });
 
-      if (!deduction.success) {
+      if (deductError || !deduction?.success) {
         return NextResponse.json(
-          { success: false, error: deduction.error || 'Credit deduction failed' },
+          { success: false, error: deductError?.message || 'Credit deduction failed' },
           { status: 402, headers: corsHeaders(request) },
         );
       }
 
-      console.log(`💳 Animate-image: deducted ${creditCost} credits for ${videoDuration}s video (remaining: ${deduction.remainingCredits})`);
+      console.log(`💳 Animate-image: deducted ${creditCost} credits for ${videoDuration}s video (remaining: ${deduction.remaining_credits})`);
     }
 
     const prediction = await createVideoGenerationPrediction({

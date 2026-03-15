@@ -231,7 +231,7 @@ export function EditImageControl({ trackItem }: EditImageControlProps) {
 				) : (
 					<>
 						<Paintbrush className="h-4 w-4 mr-2" />
-						Edit Image
+						Edit Image (2 credits)
 					</>
 				)}
 			</Button>
@@ -251,7 +251,7 @@ export function EditImageControl({ trackItem }: EditImageControlProps) {
 			)}
 
 			<p className="text-xs text-muted-foreground">
-				Modify or clean up the image with AI. Add reference images to guide
+				Modify or clean up the image with AI (2 credits). Add reference images to guide
 				the style or content.
 			</p>
 		</Card>

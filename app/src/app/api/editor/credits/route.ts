@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserCredits } from '@/actions/credit-management';
+import { createAdminClient } from '@/app/supabase/server';
 
 /**
  * Editor Credits API
@@ -43,17 +43,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await getUserCredits(userId);
+    // Use admin client to bypass RLS — the editor has no auth cookies
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('user_credits')
+      .select('available_credits')
+      .eq('user_id', userId)
+      .single();
 
-    if (!result.success) {
+    if (error || !data) {
       return NextResponse.json(
-        { success: false, error: result.error || 'Failed to fetch credits' },
-        { status: 500, headers: corsHeaders(request) },
+        { success: true, credits: 0 },
+        { headers: corsHeaders(request) },
       );
     }
 
     return NextResponse.json(
-      { success: true, credits: result.credits },
+      { success: true, credits: data.available_credits || 0 },
       { headers: corsHeaders(request) },
     );
   } catch (err) {

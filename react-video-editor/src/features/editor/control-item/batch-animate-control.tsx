@@ -43,6 +43,8 @@ const CAMERA_MOTIONS = [
 	{ value: "static", label: "Static" },
 ];
 
+const CREDITS_PER_SECOND = 1;
+
 const DURATIONS = [
 	{ value: "6", label: "6 seconds" },
 	{ value: "8", label: "8 seconds" },
@@ -435,7 +437,7 @@ export function BatchAnimateControl({
 										key={d.value}
 										value={d.value}
 									>
-										{d.label}
+										{d.label} ({parseInt(d.value) * CREDITS_PER_SECOND} credits)
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -536,8 +538,7 @@ export function BatchAnimateControl({
 					className="w-full"
 					size="sm"
 				>
-					<Film className="h-4 w-4 mr-2" />
-					Animate All Images ({imageItems.length})
+					Animate All ({imageItems.length * parseInt(duration) * CREDITS_PER_SECOND} credits)
 				</Button>
 			)}
 
@@ -545,7 +546,7 @@ export function BatchAnimateControl({
 				<p className="text-xs text-muted-foreground">
 					Turns all {imageItems.length} images into video clips
 					(max {MAX_CONCURRENT} at a time). Takes 1-3 minutes per
-					image.
+					image. Costs 1 credit per second.
 				</p>
 			)}
 		</Card>
