@@ -27,7 +27,8 @@ function setActiveIds(ids: string[]) {
 	useStore.setState({ activeIds: ids });
 }
 
-// Reorder tracks so caption tracks are always rendered in front (on top)
+// Reorder tracks so caption tracks are at the end of the tracks array
+// In Remotion, items rendered last appear on top — so captions need to be last
 function reorderCaptionsToTop() {
 	try {
 		const state = stateManager.getState();
@@ -53,7 +54,7 @@ function reorderCaptionsToTop() {
 		const otherTracks = tracks.filter((t) => !captionTrackIds.has(t.id));
 
 		stateManager.updateState({
-			tracks: [...captionTracks, ...otherTracks],
+			tracks: [...otherTracks, ...captionTracks],
 		});
 	} catch (err) {
 		console.warn("⚠️ Failed to reorder caption tracks:", err);

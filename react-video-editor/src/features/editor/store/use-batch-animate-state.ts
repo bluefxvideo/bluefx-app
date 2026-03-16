@@ -4,7 +4,7 @@ export interface AnimationItem {
 	itemId: string;
 	imageSrc: string;
 	originalFrom: number;
-	status: "pending" | "processing" | "polling" | "done" | "failed";
+	status: "pending" | "processing" | "polling" | "ready" | "done" | "failed";
 	predictionId?: string;
 	videoUrl?: string;
 	error?: string;
@@ -23,6 +23,8 @@ interface BatchAnimateState {
 	cancelled: boolean;
 	/** Lock to serialize ADD_VIDEO dispatches (prevents concurrent dispatch issues) */
 	addingVideo: boolean;
+	/** Index of the next item to dispatch ADD_VIDEO for (ordered dispatch queue) */
+	nextDispatchIndex: number;
 	actions: {
 		startBatch: (
 			items: AnimationItem[],
@@ -35,6 +37,7 @@ interface BatchAnimateState {
 		cancelAll: () => void;
 		reset: () => void;
 		setAddingVideo: (value: boolean) => void;
+		advanceDispatchIndex: () => void;
 	};
 }
 
@@ -44,6 +47,7 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 	settings: { cameraMotion: "dolly_in", duration: "6", prompt: "" },
 	cancelled: false,
 	addingVideo: false,
+	nextDispatchIndex: 0,
 	actions: {
 		startBatch: (items, settings) =>
 			set({
@@ -52,6 +56,7 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 				settings,
 				cancelled: false,
 				addingVideo: false,
+				nextDispatchIndex: 0,
 			}),
 
 		updateItem: (itemId, update) =>
@@ -74,7 +79,8 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 				cancelled: true,
 				isActive: false,
 				addingVideo: false,
-				// Keep completed items as done, mark pending/processing as failed
+				nextDispatchIndex: 0,
+				// Keep completed items as done, mark pending/processing/ready as failed
 				items: state.items.map((item) =>
 					item.status === "done"
 						? item
@@ -89,8 +95,14 @@ export const useBatchAnimateState = create<BatchAnimateState>((set, get) => ({
 				settings: { cameraMotion: "dolly_in", duration: "6", prompt: "" },
 				cancelled: false,
 				addingVideo: false,
+				nextDispatchIndex: 0,
 			}),
 
 		setAddingVideo: (value: boolean) => set({ addingVideo: value }),
+
+		advanceDispatchIndex: () =>
+			set((state) => ({
+				nextDispatchIndex: state.nextDispatchIndex + 1,
+			})),
 	},
 }));

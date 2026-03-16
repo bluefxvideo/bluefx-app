@@ -77,7 +77,8 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Reorder tracks so caption tracks are always at the top (rendered in front)
+// Reorder tracks so caption tracks are at the end of the tracks array
+// In Remotion, items rendered last appear on top — so captions need to be last
 function reorderCaptionsToTop() {
 	try {
 		const state = stateManager.getState();
@@ -108,11 +109,110 @@ function reorderCaptionsToTop() {
 		);
 
 		stateManager.updateState({
-			tracks: [...captionTracks, ...otherTracks],
+			tracks: [...otherTracks, ...captionTracks],
 		});
 	} catch (err) {
 		console.warn("⚠️ Failed to reorder caption tracks:", err);
 	}
+}
+
+// ─── Ordered Dispatch Queue ──────────────────────────────────
+// Dispatches ADD_VIDEO in original image order, regardless of completion order
+
+async function tryDispatchInOrder(
+	settings: { cameraMotion: string; duration: string; prompt: string },
+) {
+	const store = useBatchAnimateState.getState;
+
+	// Acquire lock to prevent concurrent dispatch attempts
+	while (store().addingVideo) {
+		await sleep(300);
+	}
+	store().actions.setAddingVideo(true);
+
+	try {
+		// Dispatch all consecutive ready items starting from nextDispatchIndex
+		while (true) {
+			const { items, nextDispatchIndex, cancelled } = store();
+			if (cancelled) break;
+			if (nextDispatchIndex >= items.length) break;
+
+			const item = items[nextDispatchIndex];
+
+			// Skip failed items — advance past them
+			if (item.status === "failed") {
+				store().actions.advanceDispatchIndex();
+				continue;
+			}
+
+			// If this item is ready (video generated), dispatch it
+			if (item.status === "ready" && item.videoUrl) {
+				await dispatchOneVideo(item, settings);
+				store().actions.advanceDispatchIndex();
+				continue;
+			}
+
+			// Otherwise this item isn't ready yet — stop and wait
+			break;
+		}
+	} finally {
+		store().actions.setAddingVideo(false);
+	}
+}
+
+async function dispatchOneVideo(
+	item: AnimationItem,
+	settings: { cameraMotion: string; duration: string; prompt: string },
+) {
+	const { actions } = useBatchAnimateState.getState();
+	const newVideoId = generateId();
+	const durationMs = parseInt(settings.duration) * 1000;
+
+	console.log(`🎬 Batch animate: adding video for ${item.itemId}`, {
+		videoUrl: item.videoUrl,
+		newVideoId,
+	});
+
+	dispatch(ADD_VIDEO, {
+		payload: {
+			id: newVideoId,
+			details: { src: item.videoUrl },
+			display: {
+				from: item.originalFrom,
+				to: item.originalFrom + durationMs,
+			},
+			metadata: {
+				animatedFrom: item.imageSrc,
+				cameraMotion: settings.cameraMotion,
+			},
+		},
+		options: {
+			resourceId: "main",
+			scaleMode: "fit",
+		},
+	});
+
+	// Wait for video to appear in state manager
+	let waitAttempts = 0;
+	const maxWaitAttempts = 60; // 30 seconds max
+	while (
+		!stateManager.getState().trackItemsMap[newVideoId] &&
+		waitAttempts < maxWaitAttempts
+	) {
+		await sleep(500);
+		waitAttempts++;
+	}
+
+	if (stateManager.getState().trackItemsMap[newVideoId]) {
+		console.log(`✅ Batch animate: video ${newVideoId} confirmed in state after ${waitAttempts * 500}ms`);
+	} else {
+		console.warn(`⚠️ Batch animate: video ${newVideoId} NOT found in state after ${maxWaitAttempts * 500}ms, proceeding anyway`);
+	}
+
+	reorderCaptionsToTop();
+	actions.updateItem(item.itemId, { status: "done" });
+	console.log(`✅ Batch animate: done for ${item.itemId}`);
+	(window as any).refreshEditorCredits?.();
 }
 
 // ─── Batch Processing Logic ──────────────────────────────────
@@ -214,69 +314,14 @@ async function processOneImage(
 			const pollData = await pollRes.json();
 
 			if (pollData.status === "succeeded" && pollData.video_url) {
+				// Mark as ready — video generated, waiting for ordered dispatch
 				actions.updateItem(item.itemId, {
 					videoUrl: pollData.video_url,
+					status: "ready",
 				});
 
-				// Wait for lock — only one ADD_VIDEO at a time
-				const store = useBatchAnimateState.getState;
-				while (store().addingVideo) {
-					await sleep(300);
-				}
-				store().actions.setAddingVideo(true);
-
-				try {
-					const newVideoId = generateId();
-					const durationMs = parseInt(settings.duration) * 1000;
-					console.log(`🎬 Batch animate: adding video for ${item.itemId}`, { videoUrl: pollData.video_url, newVideoId });
-
-					dispatch(ADD_VIDEO, {
-						payload: {
-							id: newVideoId,
-							details: {
-								src: pollData.video_url,
-							},
-							display: {
-								from: item.originalFrom,
-								to: item.originalFrom + durationMs,
-							},
-							metadata: {
-								animatedFrom: item.imageSrc,
-								cameraMotion: settings.cameraMotion,
-							},
-						},
-						options: {
-							resourceId: "main",
-							scaleMode: "fit",
-						},
-					});
-
-					// Poll state manager until this video actually appears in trackItemsMap
-					// (processVideo is async and takes longer for 9:16 videos)
-					let waitAttempts = 0;
-					const maxWaitAttempts = 60; // 30 seconds max
-					while (
-						!stateManager.getState().trackItemsMap[newVideoId] &&
-						waitAttempts < maxWaitAttempts
-					) {
-						await sleep(500);
-						waitAttempts++;
-					}
-
-					if (stateManager.getState().trackItemsMap[newVideoId]) {
-						console.log(`✅ Batch animate: video ${newVideoId} confirmed in state after ${waitAttempts * 500}ms`);
-					} else {
-						console.warn(`⚠️ Batch animate: video ${newVideoId} NOT found in state after ${maxWaitAttempts * 500}ms, proceeding anyway`);
-					}
-
-					reorderCaptionsToTop();
-
-					actions.updateItem(item.itemId, { status: "done" });
-					console.log(`✅ Batch animate: done for ${item.itemId}`);
-					(window as any).refreshEditorCredits?.();
-				} finally {
-					store().actions.setAddingVideo(false);
-				}
+				// Try to dispatch this and any consecutive ready items in order
+				await tryDispatchInOrder(settings);
 
 				return;
 			} else if (
@@ -296,6 +341,9 @@ async function processOneImage(
 			`❌ Batch animate failed for ${item.itemId}:`,
 			err,
 		);
+
+		// A failed item might be blocking the dispatch queue — try to advance past it
+		await tryDispatchInOrder(settings);
 	}
 }
 
@@ -470,6 +518,8 @@ export function BatchAnimateControl({
 									<Check className="h-3 w-3 text-green-500 shrink-0" />
 								) : item.status === "failed" ? (
 									<AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
+								) : item.status === "ready" ? (
+									<div className="h-3 w-3 rounded-full bg-blue-400 shrink-0" />
 								) : item.status === "pending" ? (
 									<div className="h-3 w-3 rounded-full border border-muted-foreground/30 shrink-0" />
 								) : (

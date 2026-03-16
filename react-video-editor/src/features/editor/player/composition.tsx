@@ -153,23 +153,31 @@ const Composition = () => {
 	const CROSSFADE_FRAMES = 15; // ~0.5s at 30fps
 
 	// Create a stable list of all items to prevent hook order changes
+	// Caption tracks are rendered last so they appear on top of videos in Remotion
 	const allItems = React.useMemo(() => {
-		const items: Array<{ id: string; item: any; key: string }> = [];
+		const regularItems: Array<{ id: string; item: any; key: string }> = [];
+		const captionItems: Array<{ id: string; item: any; key: string }> = [];
 
 		groupedItems.forEach((group) => {
 			if (group.length === 1) {
 				const item = trackItemsMap[group[0].id];
 				if (item && SequenceItem[item.type]) {
-					items.push({
+					const entry = {
 						id: item.id,
 						item,
 						key: `${item.type}-${item.id}`
-					});
+					};
+					// Caption tracks go last so they render on top of videos
+					if (item.type === 'text' && (item.details as any)?.isCaptionTrack) {
+						captionItems.push(entry);
+					} else {
+						regularItems.push(entry);
+					}
 				}
 			}
 		});
 
-		return items;
+		return [...regularItems, ...captionItems];
 	}, [groupedItems, trackItemsMap]);
 
 	// Detect adjacent images for crossfade
