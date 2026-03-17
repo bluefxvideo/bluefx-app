@@ -21,6 +21,8 @@ import { useCaptionGenerator, extractAudioFromTimeline, captionsToTrackItems } f
 import type { CaptionGenerationOptions } from "@/types/caption-types";
 import useStore from "@/features/editor/store/use-store";
 import { addCaptionTrackToEditor } from "@/features/editor/utils/caption-loader";
+import { stateManager } from "@/features/editor/store/state-manager-instance";
+import { deleteItems } from "@/features/editor/utils/delete-items";
 
 /**
  * AI Caption Generator Panel
@@ -80,6 +82,15 @@ export function CaptionGeneratorPanel({
     return Boolean(audioInfo.audioUrl && !state.isGenerating);
   }, [audioInfo.audioUrl, state.isGenerating]);
 
+  // Detect existing caption tracks
+  const existingCaptionIds = useMemo(() => {
+    return Object.values(trackItemsMap)
+      .filter((item: any) => item.type === 'text' && (item.details as any)?.isCaptionTrack)
+      .map((item: any) => item.id);
+  }, [trackItemsMap]);
+
+  const hasCaptions = existingCaptionIds.length > 0;
+
   // Extract original script text from image track metadata
   const originalScript = useMemo(() => {
     const imageItems = Object.values(trackItemsMap)
@@ -102,6 +113,12 @@ export function CaptionGeneratorPanel({
     }
 
     console.log('🎬 Starting AI caption generation...');
+
+    // Remove existing caption tracks before regenerating
+    if (existingCaptionIds.length > 0) {
+      console.log('🗑️ Removing existing caption tracks:', existingCaptionIds);
+      deleteItems(stateManager, existingCaptionIds);
+    }
 
     try {
       const result = await generateCaptions({
@@ -344,7 +361,7 @@ export function CaptionGeneratorPanel({
             ) : (
               <>
                 <Wand2 className="h-4 w-4 mr-2" />
-                Generate AI Captions
+                {hasCaptions ? 'Regenerate Captions' : 'Generate AI Captions'}
               </>
             )}
           </Button>

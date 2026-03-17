@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Subtitles, FileText, Wand2, Play, Edit, Clock } from "lucide-react";
+import { Subtitles, FileText, Wand2, Play, Edit, Clock, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import useStore from "../store/use-store";
+import { dispatch } from "@designcombo/events";
+import { EDIT_OBJECT } from "@designcombo/state";
 import { CaptionGeneratorPanel } from "@/components/caption-generator-panel";
 
 // Caption segment management component
@@ -56,19 +58,78 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
     setEditEndTime(end);
   };
 
+  const { trackItemsMap } = useStore();
+
+  const updateSegmentInStore = (trackId: string, segmentIndex: number, updates: Record<string, any>) => {
+    const trackItem = trackItemsMap[trackId];
+    if (!trackItem) return;
+
+    const segments = [...((trackItem.details as any)?.captionSegments || [])];
+    if (segmentIndex < 0 || segmentIndex >= segments.length) return;
+
+    segments[segmentIndex] = { ...segments[segmentIndex], ...updates };
+
+    // Also update word boundaries text if text changed
+    if (updates.text && segments[segmentIndex].words) {
+      const newWords = updates.text.split(/\s+/);
+      const oldWords = segments[segmentIndex].words;
+      segments[segmentIndex].words = newWords.map((word: string, i: number) => ({
+        word,
+        start: oldWords[i]?.start ?? segments[segmentIndex].start,
+        end: oldWords[i]?.end ?? segments[segmentIndex].end,
+      }));
+    }
+
+    dispatch(EDIT_OBJECT, {
+      payload: {
+        [trackId]: {
+          details: { captionSegments: segments }
+        }
+      }
+    });
+    console.log('✅ Caption segment updated:', { trackId, segmentIndex, updates });
+  };
+
   const handleSave = () => {
-    // TODO: Update the segment text in the store
-    console.log('Saving text:', editText);
+    const segment = allSegments[editingSegmentIndex!];
+    if (segment) {
+      updateSegmentInStore(segment.trackId, segment.segmentIndex, { text: editText });
+    }
     setEditingSegmentIndex(null);
     setEditText("");
   };
 
   const handleTimingSave = () => {
-    // TODO: Update the segment timing in the store
-    console.log('Saving timing:', { start: editStartTime, end: editEndTime });
+    const segment = allSegments[editingTiming!];
+    if (segment) {
+      updateSegmentInStore(segment.trackId, segment.segmentIndex, {
+        start: editStartTime,
+        end: editEndTime,
+      });
+    }
     setEditingTiming(null);
     setEditStartTime(0);
     setEditEndTime(0);
+  };
+
+  const handleDeleteSegment = (index: number) => {
+    const segment = allSegments[index];
+    if (!segment) return;
+
+    const trackItem = trackItemsMap[segment.trackId];
+    if (!trackItem) return;
+
+    const segments = [...((trackItem.details as any)?.captionSegments || [])];
+    segments.splice(segment.segmentIndex, 1);
+
+    dispatch(EDIT_OBJECT, {
+      payload: {
+        [segment.trackId]: {
+          details: { captionSegments: segments }
+        }
+      }
+    });
+    console.log('🗑️ Caption segment deleted:', { trackId: segment.trackId, segmentIndex: segment.segmentIndex });
   };
 
   const handleCancel = () => {
@@ -195,9 +256,19 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
                 </div>
                 
                 {editingSegmentIndex !== index && (
-                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0 flex-shrink-0 ml-1">
-                    <Play className="h-3 w-3" />
-                  </Button>
+                  <div className="flex flex-col gap-1 flex-shrink-0 ml-1">
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                      <Play className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteSegment(index); }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
