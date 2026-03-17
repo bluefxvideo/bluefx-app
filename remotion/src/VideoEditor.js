@@ -57,17 +57,6 @@ export const VideoEditor = () => {
         );
       }).filter(Boolean)}
 
-      {/* Video Layers */}
-      {videoLayers.map((video) => (
-        <Sequence
-          key={video.id}
-          from={video.startFrame}
-          durationInFrames={video.durationInFrames}
-        >
-          <VideoWithKenBurns video={video} />
-        </Sequence>
-      ))}
-
       {/* Image Layers — with crossfade between adjacent images */}
       {(() => {
         const CROSSFADE_FRAMES = 15; // ~0.5s at 30fps
@@ -102,6 +91,17 @@ export const VideoEditor = () => {
           );
         });
       })()}
+
+      {/* Video Layers — rendered after images so they appear on top */}
+      {videoLayers.map((video) => (
+        <Sequence
+          key={video.id}
+          from={video.startFrame}
+          durationInFrames={video.durationInFrames}
+        >
+          <VideoWithKenBurns video={video} />
+        </Sequence>
+      ))}
 
       {/* Text Layers */}
       {textLayers.map((text) => (
