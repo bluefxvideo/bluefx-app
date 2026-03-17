@@ -952,9 +952,10 @@ async function performBackgroundRender(
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
     let lastFrameRendered = 0;
+    let renderAborted = false;
 
-    // Render the video with progress tracking
-    await renderMedia({
+    // Render the video with timeout protection
+    const renderPromise = renderMedia({
       composition,
       serveUrl: bundleLocation,
       codec,
@@ -963,6 +964,8 @@ async function performBackgroundRender(
       jpegQuality: quality,
       logLevel: "verbose",
       concurrency: RENDER_CONCURRENCY,
+      timeoutInMilliseconds: RENDER_TIMEOUT,
+      delayRenderTimeoutInMilliseconds: 90000, // 90s per frame
       chromiumOptions: {
         gl: "angle",
       },
@@ -974,6 +977,8 @@ async function performBackgroundRender(
         stitchStage,
         progress,
       }) => {
+        if (renderAborted) return; // Don't update after timeout
+
         const now = Date.now();
         const timeSinceLastProgress = now - lastProgressTime;
         const framesRendered = renderedFrames - lastFrameRendered;
@@ -1011,6 +1016,16 @@ async function performBackgroundRender(
       },
     });
 
+    // Race render against our own timeout as a safety net
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        renderAborted = true;
+        reject(new Error(`Render timed out after ${RENDER_TIMEOUT / 1000}s`));
+      }, RENDER_TIMEOUT);
+    });
+
+    await Promise.race([renderPromise, timeoutPromise]);
+
     const totalRenderTime = Date.now() - renderStartTime2;
     console.log(`✅ Background render completed: ${filename} (${totalRenderTime}ms)`);
 
@@ -1043,8 +1058,9 @@ async function performBackgroundRender(
 
     console.log(`🎉 Background render success: ${filename}`);
   } catch (error) {
+    renderAborted = true; // Prevent onProgress from overwriting failed status
     console.error(`❌ Background render failed: ${filename}`, error);
-    
+
     // Mark render as failed
     setRenderProgress(
       filename,
