@@ -13,6 +13,7 @@ function getSupabaseClient() {
 const ALLOWED_ORIGINS = [
   'https://editor.bluefx.net',
   'http://localhost:3001',
+  'http://localhost:3002',
   'http://localhost:5173',
   'http://localhost:3000'
 ];
