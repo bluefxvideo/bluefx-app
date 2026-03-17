@@ -248,6 +248,9 @@ function videoStreamMiddleware(req, res, next) {
 // Apply the custom video streaming middleware
 app.use("/output", videoStreamMiddleware);
 
+// Serve pre-downloaded assets for rendering (local files instead of remote URLs)
+app.use("/temp_assets", express.static(path.join(process.cwd(), "temp_assets")));
+
 // Cache for the bundle to avoid re-bundling
 let bundleCache = null;
 
@@ -343,7 +346,7 @@ const authenticate = (req, res, next) => {
   const validApiKey = process.env.REMOTION_API_KEY;
 
   // Allow health check and output files without API key
-  if (req.path === "/health" || req.path === "/" || req.path.startsWith("/output/")) {
+  if (req.path === "/health" || req.path === "/" || req.path.startsWith("/output/") || req.path.startsWith("/temp_assets/")) {
     return next();
   }
 
@@ -511,6 +514,15 @@ app.post("/render", async (req, res) => {
       userId
     );
 
+    // Pre-download remote assets to local disk
+    const syncRenderId = filename.replace(/\.[^.]+$/, "");
+    const syncDownloadResult = await preDownloadAssets(inputProps, syncRenderId);
+    const syncLocalProps = syncDownloadResult.props;
+    const syncTempDir = syncDownloadResult.tempDir;
+
+    const videoLayerCount = (syncLocalProps.videoLayers || []).length;
+    const syncConcurrency = videoLayerCount > 3 ? 1 : RENDER_CONCURRENCY;
+
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
     let lastFrameRendered = 0;
@@ -522,10 +534,11 @@ app.post("/render", async (req, res) => {
         serveUrl: bundleLocation,
         codec,
         outputLocation,
-        inputProps,
+        inputProps: syncLocalProps,
         jpegQuality: quality,
         logLevel: "verbose",
-        concurrency: RENDER_CONCURRENCY,
+        concurrency: syncConcurrency,
+        offthreadVideoCacheSizeInBytes: 512 * 1024 * 1024,
         chromiumOptions: {
           gl: "angle",
         },
@@ -696,6 +709,10 @@ app.post("/render", async (req, res) => {
       stack: error.stack,
       failedAfter: totalTime,
     });
+  } finally {
+    if (typeof syncTempDir !== "undefined") {
+      cleanupTempDir(syncTempDir);
+    }
   }
 });
 
@@ -918,6 +935,96 @@ app.get("/", (req, res) => {
   });
 });
 
+// ===== ASSET PRE-DOWNLOAD SYSTEM =====
+// Downloads remote media to local disk before rendering so FFmpeg reads local files
+// instead of making HTTP range requests to remote URLs during stitching
+
+function cleanupTempDir(tempDir) {
+  if (!tempDir) return;
+  try {
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      console.log(`🧹 Cleaned up temp directory: ${tempDir}`);
+    }
+  } catch (err) {
+    console.error(`⚠️ Failed to clean up temp dir: ${err.message}`);
+  }
+}
+
+async function preDownloadAssets(inputProps, renderId) {
+  const propsJson = JSON.stringify(inputProps);
+
+  // Find all remote media URLs in the props (generic — works for any composition)
+  const urlRegex = /https?:\/\/[^"\\]+\.(mp4|mp3|wav|aac|webm|jpg|jpeg|png|webp|gif)/gi;
+  const remoteUrls = [...new Set(propsJson.match(urlRegex) || [])];
+
+  if (remoteUrls.length === 0) {
+    console.log("📦 No remote media URLs found in props, skipping pre-download");
+    return { props: inputProps, tempDir: null };
+  }
+
+  const tempDir = path.join(process.cwd(), "temp_assets", renderId);
+  fs.mkdirSync(tempDir, { recursive: true });
+
+  console.log(`⬇️ Pre-downloading ${remoteUrls.length} assets to ${tempDir}`);
+  logMemoryUsage("before pre-download");
+
+  const urlMap = new Map(); // remoteUrl -> localUrl
+
+  for (let i = 0; i < remoteUrls.length; i++) {
+    const url = remoteUrls[i];
+    const ext = url.match(/\.(mp4|mp3|wav|aac|webm|jpg|jpeg|png|webp|gif)/i)?.[0] || ".mp4";
+    const localFilename = `asset_${i}${ext}`;
+    const localPath = path.join(tempDir, localFilename);
+
+    try {
+      console.log(`⬇️  [${i + 1}/${remoteUrls.length}] ${url.substring(0, 80)}...`);
+
+      const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
+      if (!response.ok) {
+        console.error(`❌ [${i + 1}/${remoteUrls.length}] HTTP ${response.status} — keeping remote URL`);
+        continue;
+      }
+
+      // Stream to disk (no buffering in memory)
+      const fileStream = fs.createWriteStream(localPath);
+      const reader = response.body.getReader();
+      let totalBytes = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fileStream.write(value);
+        totalBytes += value.length;
+      }
+
+      await new Promise((resolve, reject) => {
+        fileStream.on("finish", resolve);
+        fileStream.on("error", reject);
+        fileStream.end();
+      });
+
+      const localUrl = `http://localhost:${PORT}/temp_assets/${renderId}/${localFilename}`;
+      urlMap.set(url, localUrl);
+      console.log(`✅ [${i + 1}/${remoteUrls.length}] ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${localFilename}`);
+    } catch (err) {
+      console.error(`❌ [${i + 1}/${remoteUrls.length}] Download failed: ${err.message} — keeping remote URL`);
+      try { if (fs.existsSync(localPath)) fs.unlinkSync(localPath); } catch (_) {}
+    }
+  }
+
+  logMemoryUsage("after pre-download");
+
+  // Replace remote URLs with local URLs via simple string replacement
+  let updatedJson = propsJson;
+  for (const [remoteUrl, localUrl] of urlMap) {
+    updatedJson = updatedJson.replaceAll(remoteUrl, localUrl);
+  }
+
+  console.log(`✅ Pre-download complete: ${urlMap.size}/${remoteUrls.length} assets localized`);
+  return { props: JSON.parse(updatedJson), tempDir };
+}
+
 // Background render function for async mode
 async function performBackgroundRender(
   composition,
@@ -930,9 +1037,12 @@ async function performBackgroundRender(
   userId,
   renderStartTime
 ) {
+  let tempDir = null;
+  let renderAborted = false;
+
   try {
     console.log(`🎬 Background render started for: ${filename}`);
-    
+
     // Initialize progress tracking
     setRenderProgress(
       filename,
@@ -949,23 +1059,44 @@ async function performBackgroundRender(
       userId
     );
 
+    // Pre-download remote assets to local disk
+    const renderId = filename.replace(/\.[^.]+$/, "");
+    setRenderProgress(filename, {
+      status: "downloading",
+      progress: 0,
+      renderedFrames: 0,
+      totalFrames: composition.durationInFrames,
+      stage: "downloading assets",
+      fps: 0,
+      startTime: Date.now(),
+    }, userId);
+
+    const downloadResult = await preDownloadAssets(inputProps, renderId);
+    const localInputProps = downloadResult.props;
+    tempDir = downloadResult.tempDir;
+
+    // Dynamic concurrency: reduce to 1 for video-heavy compositions
+    const videoLayerCount = (localInputProps.videoLayers || []).length;
+    const effectiveConcurrency = videoLayerCount > 3 ? 1 : RENDER_CONCURRENCY;
+    console.log(`🔧 Render concurrency: ${effectiveConcurrency} (${videoLayerCount} video layers)`);
+
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
     let lastFrameRendered = 0;
-    let renderAborted = false;
 
-    // Render the video with timeout protection
+    // Render the video with local assets + timeout protection
     const renderPromise = renderMedia({
       composition,
       serveUrl: bundleLocation,
       codec,
       outputLocation,
-      inputProps,
+      inputProps: localInputProps,
       jpegQuality: quality,
       logLevel: "verbose",
-      concurrency: RENDER_CONCURRENCY,
+      concurrency: effectiveConcurrency,
       timeoutInMilliseconds: RENDER_TIMEOUT,
-      delayRenderTimeoutInMilliseconds: 90000, // 90s per frame
+      delayRenderTimeoutInMilliseconds: 90000,
+      offthreadVideoCacheSizeInBytes: 512 * 1024 * 1024, // 512MB cache
       chromiumOptions: {
         gl: "angle",
       },
@@ -1072,6 +1203,8 @@ async function performBackgroundRender(
       },
       userId
     );
+  } finally {
+    cleanupTempDir(tempDir);
   }
 }
 
