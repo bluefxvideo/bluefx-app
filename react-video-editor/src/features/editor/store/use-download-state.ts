@@ -86,7 +86,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 
 				// Get URL params for store-export (passed to render API)
 				const urlParams = new URLSearchParams(window.location.search);
-				const scriptVideoId = urlParams.get('videoId');
+				const scriptVideoId = urlParams.get('videoId') || urlParams.get('listingId') || urlParams.get('storyboardId');
 				const userId = urlParams.get('userId');
 				const apiUrl = urlParams.get('apiUrl') || window.location.origin;
 
@@ -154,7 +154,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 
 				// Get URL params for store-export
 				const urlParams = new URLSearchParams(window.location.search);
-				const scriptVideoId = urlParams.get('videoId');
+				const scriptVideoId = urlParams.get('videoId') || urlParams.get('listingId') || urlParams.get('storyboardId');
 				const userId = urlParams.get('userId');
 				const apiUrl = urlParams.get('apiUrl') || window.location.origin;
 
