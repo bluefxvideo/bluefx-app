@@ -965,31 +965,50 @@ async function preDownloadVideoAssets(inputProps) {
         return src;
       }
 
-      const buffer = Buffer.from(await response.arrayBuffer());
-      fs.writeFileSync(localPath, buffer);
-      console.log(`✅ [${label}] Downloaded: ${(buffer.length / 1024 / 1024).toFixed(1)}MB`);
+      // Stream to disk to avoid loading entire file into memory
+      const fileStream = fs.createWriteStream(localPath);
+      const reader = response.body.getReader();
+      let totalBytes = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fileStream.write(value);
+        totalBytes += value.length;
+      }
+
+      await new Promise((resolve, reject) => {
+        fileStream.on('finish', resolve);
+        fileStream.on('error', reject);
+        fileStream.end();
+      });
+
+      console.log(`✅ [${label}] Downloaded: ${(totalBytes / 1024 / 1024).toFixed(1)}MB`);
 
       // Return URL served by our Express server so Remotion's browser can access it
       return `http://localhost:${PORT}/temp_assets/${assetFilename}`;
     } catch (err) {
       console.error(`❌ [${label}] Download error: ${err.message}`);
+      // Clean up partial file
+      try { if (fs.existsSync(localPath)) fs.unlinkSync(localPath); } catch (_) {}
       return src;
     }
   };
 
-  const updatedVideoLayers = await Promise.all(
-    videoLayers.map(async (layer, i) => {
-      const localSrc = await downloadAsset(layer.src, `video ${i + 1}/${videoLayers.length}`, i);
-      return localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer;
-    })
-  );
+  // Download sequentially to avoid memory spikes
+  const updatedVideoLayers = [];
+  for (let i = 0; i < videoLayers.length; i++) {
+    const layer = videoLayers[i];
+    const localSrc = await downloadAsset(layer.src, `video ${i + 1}/${videoLayers.length}`, i);
+    updatedVideoLayers.push(localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer);
+  }
 
-  const updatedAudioLayers = await Promise.all(
-    audioLayers.map(async (layer, i) => {
-      const localSrc = await downloadAsset(layer.src, `audio ${i + 1}/${audioLayers.length}`, 100 + i);
-      return localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer;
-    })
-  );
+  const updatedAudioLayers = [];
+  for (let i = 0; i < audioLayers.length; i++) {
+    const layer = audioLayers[i];
+    const localSrc = await downloadAsset(layer.src, `audio ${i + 1}/${audioLayers.length}`, 100 + i);
+    updatedAudioLayers.push(localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer);
+  }
 
   console.log(`✅ Pre-download complete`);
   return { ...inputProps, videoLayers: updatedVideoLayers, audioLayers: updatedAudioLayers };
