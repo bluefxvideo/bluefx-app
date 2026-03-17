@@ -74,7 +74,7 @@ export default function Navbar({
 		const urlParams = new URLSearchParams(window.location.search);
 		return {
 			userId: urlParams.get('userId') || '',
-			videoId: urlParams.get('videoId') || '',
+			videoId: urlParams.get('videoId') || urlParams.get('listingId') || urlParams.get('storyboardId') || '',
 			apiUrl: urlParams.get('apiUrl') || window.location.origin
 		};
 	};

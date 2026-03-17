@@ -202,43 +202,67 @@ export async function GET(request: NextRequest) {
     
     console.log('📥 Save Composition GET:', { video_id, user_id, composition_id, allParams: Object.fromEntries(searchParams) });
     
-    // If this looks like an editor data request (has user_id and video_id but no composition_id),
-    // forward to the editor-data endpoint
+    // Check saved compositions table first when user_id and video_id are provided
+    // This preserves user edits (animated videos, layout changes, etc.)
     if (user_id && video_id && !composition_id) {
-      console.log('🔄 Forwarding to editor-data endpoint with params:', { user_id, video_id });
-      
+      console.log('🔍 Checking for saved composition first:', { user_id, video_id });
+
       try {
-        // Create a new URL with the correct parameter names for editor-data
+        const { data: savedComp, error: savedError } = await supabase
+          .from('video_editor_compositions')
+          .select('*')
+          .eq('user_id', user_id)
+          .eq('video_id', video_id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (savedComp && !savedError) {
+          console.log('✅ Found saved composition:', savedComp.id);
+          const response = NextResponse.json({
+            success: true,
+            data: savedComp,
+          });
+          response.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
+          response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          response.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
+          return response;
+        }
+
+        console.log('📭 No saved composition found, forwarding to editor-data');
+      } catch (error) {
+        console.warn('⚠️ Error checking saved compositions:', error);
+      }
+
+      // No saved composition — fall back to editor-data endpoint
+      try {
         const editorDataUrl = new URL(request.url);
         editorDataUrl.pathname = '/api/script-video/editor-data';
         editorDataUrl.searchParams.set('userId', user_id);
         editorDataUrl.searchParams.set('videoId', video_id);
-        // Remove old parameter names
         editorDataUrl.searchParams.delete('user_id');
         editorDataUrl.searchParams.delete('video_id');
-        
-        // Create new request with corrected URL
+
         const newRequest = new NextRequest(editorDataUrl, {
           method: 'GET',
           headers: request.headers,
         });
-        
-        // Import the editor-data route handler
+
         const editorDataModule = await import('../editor-data/route');
         return await editorDataModule.GET(newRequest);
       } catch (error) {
         console.error('❌ Error forwarding to editor-data:', error);
-        
+
         const errorResponse = NextResponse.json({
           success: false,
           error: 'Failed to load video data',
           details: error instanceof Error ? error.message : String(error)
         }, { status: 500 });
-        
+
         errorResponse.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
         errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
         errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
-        
+
         return errorResponse;
       }
     }

@@ -34,6 +34,7 @@ import { ITrackItem } from "@designcombo/types";
 import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
 import { loadAIAssetsFromURL } from "./utils/ai-asset-loader";
+import { loadSavedComposition } from "./utils/save-composition";
 
 
 const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
@@ -227,15 +228,16 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 	}, []);
 
 	// Load AI-generated assets from URL parameters with highest priority
+	// First tries to load a saved composition (preserves user edits like animated videos)
 	useEffect(() => {
 		console.log('🚀 EDITOR: Starting AI asset loading useEffect');
-		
+
 		const loadAIAssets = async () => {
 			try {
 				// Give AI loading highest priority by loading it immediately
 				const result = await loadAIAssetsFromURL();
 				console.log('🚀 EDITOR: Result from loadAIAssetsFromURL:', result);
-				
+
 				if (result.success) {
 					console.log('✅ AI assets loaded from URL:', result.video_id);
 					setProjectName(`AI Video - ${result.video_id}`);
@@ -263,6 +265,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		// Run AI loading immediately on mount if URL params exist
 		const urlParams = new URLSearchParams(window.location.search);
 		const hasVideoId = urlParams.get('videoId');
+		const hasUserId = urlParams.get('userId');
+		const hasApiUrl = urlParams.get('apiUrl');
 		const hasLegacyId = urlParams.get('loadAI');
 		const hasMockMode = urlParams.get('mock') === 'true';
 		const hasStoryboardId = urlParams.get('storyboardId');
@@ -286,8 +290,38 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 			setIsLoadingAssets(true); // Show loading state
 			setLoadingSource(hasStoryboardId ? 'Storyboard-frames' : hasListingId ? 'ReelEstate-listing' : 'AI-assets');
 
-			// Load assets directly without pre-clearing (prevents double DESIGN_LOAD)
-			loadAIAssets();
+			// Try loading saved composition first (preserves animated videos and user edits)
+			const tryLoadSaved = async () => {
+				if (hasUserId && hasApiUrl) {
+					const videoIdForSave = hasVideoId || hasListingId || hasStoryboardId;
+					if (videoIdForSave) {
+						try {
+							console.log('📥 Checking for saved composition...');
+							const saved = await loadSavedComposition({
+								userId: hasUserId,
+								videoId: videoIdForSave,
+								apiUrl: hasApiUrl,
+							});
+							if (saved.success && saved.data) {
+								console.log('✅ Found saved composition - restoring user edits');
+								dispatch(DESIGN_LOAD, { payload: saved.data });
+								setHasLoadedDesign(true);
+								setIsLoadingAssets(false);
+								setLoadingSource(null);
+								setProjectName(`AI Video - ${videoIdForSave}`);
+								return; // Don't load AI assets — saved composition has everything
+							}
+							console.log('📭 No saved composition found, loading fresh assets');
+						} catch (err) {
+							console.warn('⚠️ Failed to check saved composition, loading fresh:', err);
+						}
+					}
+				}
+				// Fall back to loading fresh AI assets
+				loadAIAssets();
+			};
+
+			tryLoadSaved();
 		}
 	}, []); // Empty dependency array - run only once on mount
 
