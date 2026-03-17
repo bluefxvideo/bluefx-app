@@ -151,13 +151,19 @@ export async function POST(request: NextRequest) {
     return response;
     
   } catch (error) {
-    console.error('Error saving composition:', error);
-    
+    console.error('Error saving composition:', JSON.stringify(error, null, 2));
+
+    const errorDetails = error instanceof Error
+      ? error.message
+      : (typeof error === 'object' && error !== null)
+        ? JSON.stringify(error)
+        : String(error);
+
     const errorResponse = NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to save composition',
-        details: error instanceof Error ? error.message : String(error)
+        details: errorDetails
       },
       { status: 500 }
     );
