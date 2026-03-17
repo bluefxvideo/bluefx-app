@@ -520,8 +520,7 @@ app.post("/render", async (req, res) => {
     const syncLocalProps = syncDownloadResult.props;
     const syncTempDir = syncDownloadResult.tempDir;
 
-    const videoLayerCount = (syncLocalProps.videoLayers || []).length;
-    const syncConcurrency = videoLayerCount > 3 ? 1 : RENDER_CONCURRENCY;
+    const syncConcurrency = RENDER_CONCURRENCY;
 
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
@@ -971,22 +970,21 @@ async function preDownloadAssets(inputProps, renderId) {
 
   const urlMap = new Map(); // remoteUrl -> localUrl
 
-  for (let i = 0; i < remoteUrls.length; i++) {
-    const url = remoteUrls[i];
+  // Download a single file to disk (streaming, no memory buffering)
+  async function downloadOne(url, index) {
     const ext = url.match(/\.(mp4|mp3|wav|aac|webm|jpg|jpeg|png|webp|gif)/i)?.[0] || ".mp4";
-    const localFilename = `asset_${i}${ext}`;
+    const localFilename = `asset_${index}${ext}`;
     const localPath = path.join(tempDir, localFilename);
 
     try {
-      console.log(`⬇️  [${i + 1}/${remoteUrls.length}] ${url.substring(0, 80)}...`);
+      console.log(`⬇️  [${index + 1}/${remoteUrls.length}] ${url.substring(0, 80)}...`);
 
       const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
       if (!response.ok) {
-        console.error(`❌ [${i + 1}/${remoteUrls.length}] HTTP ${response.status} — keeping remote URL`);
-        continue;
+        console.error(`❌ [${index + 1}/${remoteUrls.length}] HTTP ${response.status} — keeping remote URL`);
+        return;
       }
 
-      // Stream to disk (no buffering in memory)
       const fileStream = fs.createWriteStream(localPath);
       const reader = response.body.getReader();
       let totalBytes = 0;
@@ -1006,11 +1004,18 @@ async function preDownloadAssets(inputProps, renderId) {
 
       const localUrl = `http://localhost:${PORT}/temp_assets/${renderId}/${localFilename}`;
       urlMap.set(url, localUrl);
-      console.log(`✅ [${i + 1}/${remoteUrls.length}] ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${localFilename}`);
+      console.log(`✅ [${index + 1}/${remoteUrls.length}] ${(totalBytes / 1024 / 1024).toFixed(1)}MB → ${localFilename}`);
     } catch (err) {
-      console.error(`❌ [${i + 1}/${remoteUrls.length}] Download failed: ${err.message} — keeping remote URL`);
+      console.error(`❌ [${index + 1}/${remoteUrls.length}] Download failed: ${err.message} — keeping remote URL`);
       try { if (fs.existsSync(localPath)) fs.unlinkSync(localPath); } catch (_) {}
     }
+  }
+
+  // Download in batches of 3 (streaming to disk uses ~0 memory per file)
+  const DOWNLOAD_CONCURRENCY = 3;
+  for (let i = 0; i < remoteUrls.length; i += DOWNLOAD_CONCURRENCY) {
+    const batch = remoteUrls.slice(i, i + DOWNLOAD_CONCURRENCY);
+    await Promise.allSettled(batch.map((url, j) => downloadOne(url, i + j)));
   }
 
   logMemoryUsage("after pre-download");
@@ -1076,9 +1081,9 @@ async function performBackgroundRender(
     tempDir = downloadResult.tempDir;
 
     // Dynamic concurrency: reduce to 1 for video-heavy compositions
-    const videoLayerCount = (localInputProps.videoLayers || []).length;
-    const effectiveConcurrency = videoLayerCount > 3 ? 1 : RENDER_CONCURRENCY;
-    console.log(`🔧 Render concurrency: ${effectiveConcurrency} (${videoLayerCount} video layers)`);
+    // With pre-downloaded local files, concurrency 2 is safe even with many video layers
+    const effectiveConcurrency = RENDER_CONCURRENCY;
+    console.log(`🔧 Render concurrency: ${effectiveConcurrency}`);
 
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
