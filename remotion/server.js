@@ -248,6 +248,9 @@ function videoStreamMiddleware(req, res, next) {
 // Apply the custom video streaming middleware
 app.use("/output", videoStreamMiddleware);
 
+// Serve pre-downloaded temp assets so Remotion's browser can access them
+app.use("/temp_assets", express.static(path.join(process.cwd(), "temp_assets")));
+
 // Cache for the bundle to avoid re-bundling
 let bundleCache = null;
 
@@ -950,7 +953,8 @@ async function preDownloadVideoAssets(inputProps) {
     if (!src || !src.startsWith('http')) return src;
 
     const ext = src.includes('.mp3') ? '.mp3' : '.mp4';
-    const localPath = path.join(tempDir, `asset_${Date.now()}_${index}${ext}`);
+    const assetFilename = `asset_${Date.now()}_${index}${ext}`;
+    const localPath = path.join(tempDir, assetFilename);
 
     try {
       console.log(`⬇️ [${label}] Downloading: ${src.substring(0, 80)}...`);
@@ -964,7 +968,9 @@ async function preDownloadVideoAssets(inputProps) {
       const buffer = Buffer.from(await response.arrayBuffer());
       fs.writeFileSync(localPath, buffer);
       console.log(`✅ [${label}] Downloaded: ${(buffer.length / 1024 / 1024).toFixed(1)}MB`);
-      return localPath;
+
+      // Return URL served by our Express server so Remotion's browser can access it
+      return `http://localhost:${PORT}/temp_assets/${assetFilename}`;
     } catch (err) {
       console.error(`❌ [${label}] Download error: ${err.message}`);
       return src;
@@ -993,15 +999,21 @@ async function preDownloadVideoAssets(inputProps) {
  * Clean up temp video files after render
  */
 function cleanupTempAssets(inputProps) {
+  const tempDir = path.join(process.cwd(), 'temp_assets');
   const allLayers = [
     ...(inputProps.videoLayers || []),
     ...(inputProps.audioLayers || []),
   ];
   allLayers.forEach((layer) => {
-    if (layer._originalSrc && layer.src && !layer.src.startsWith('http')) {
+    if (layer._originalSrc && layer.src) {
       try {
-        if (fs.existsSync(layer.src)) {
-          fs.unlinkSync(layer.src);
+        // Extract filename from the localhost URL and delete the temp file
+        const assetFilename = layer.src.split('/temp_assets/').pop();
+        if (assetFilename) {
+          const filePath = path.join(tempDir, assetFilename);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
         }
       } catch (e) {
         // Ignore cleanup errors
