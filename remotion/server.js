@@ -929,6 +929,87 @@ app.get("/", (req, res) => {
 });
 
 // Background render function for async mode
+/**
+ * Pre-download remote video assets to local temp files.
+ * This prevents FFmpeg from hanging on network streams during encoding.
+ */
+async function preDownloadVideoAssets(inputProps) {
+  const videoLayers = inputProps.videoLayers || [];
+  const audioLayers = inputProps.audioLayers || [];
+  if (videoLayers.length === 0 && audioLayers.length === 0) return inputProps;
+
+  const tempDir = path.join(process.cwd(), 'temp_assets');
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  const totalAssets = videoLayers.length + audioLayers.length;
+  console.log(`⬇️ Pre-downloading ${totalAssets} assets (${videoLayers.length} video, ${audioLayers.length} audio)...`);
+
+  const downloadAsset = async (src, label, index) => {
+    if (!src || !src.startsWith('http')) return src;
+
+    const ext = src.includes('.mp3') ? '.mp3' : '.mp4';
+    const localPath = path.join(tempDir, `asset_${Date.now()}_${index}${ext}`);
+
+    try {
+      console.log(`⬇️ [${label}] Downloading: ${src.substring(0, 80)}...`);
+      const response = await fetch(src, { signal: AbortSignal.timeout(60000) });
+
+      if (!response.ok) {
+        console.error(`❌ [${label}] Download failed (${response.status})`);
+        return src;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(localPath, buffer);
+      console.log(`✅ [${label}] Downloaded: ${(buffer.length / 1024 / 1024).toFixed(1)}MB`);
+      return localPath;
+    } catch (err) {
+      console.error(`❌ [${label}] Download error: ${err.message}`);
+      return src;
+    }
+  };
+
+  const updatedVideoLayers = await Promise.all(
+    videoLayers.map(async (layer, i) => {
+      const localSrc = await downloadAsset(layer.src, `video ${i + 1}/${videoLayers.length}`, i);
+      return localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer;
+    })
+  );
+
+  const updatedAudioLayers = await Promise.all(
+    audioLayers.map(async (layer, i) => {
+      const localSrc = await downloadAsset(layer.src, `audio ${i + 1}/${audioLayers.length}`, 100 + i);
+      return localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer;
+    })
+  );
+
+  console.log(`✅ Pre-download complete`);
+  return { ...inputProps, videoLayers: updatedVideoLayers, audioLayers: updatedAudioLayers };
+}
+
+/**
+ * Clean up temp video files after render
+ */
+function cleanupTempAssets(inputProps) {
+  const allLayers = [
+    ...(inputProps.videoLayers || []),
+    ...(inputProps.audioLayers || []),
+  ];
+  allLayers.forEach((layer) => {
+    if (layer._originalSrc && layer.src && !layer.src.startsWith('http')) {
+      try {
+        if (fs.existsSync(layer.src)) {
+          fs.unlinkSync(layer.src);
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+  });
+}
+
 async function performBackgroundRender(
   composition,
   bundleLocation,
@@ -940,9 +1021,11 @@ async function performBackgroundRender(
   userId,
   renderStartTime
 ) {
+  let renderAborted = false;
+
   try {
     console.log(`🎬 Background render started for: ${filename}`);
-    
+
     // Initialize progress tracking
     setRenderProgress(
       filename,
@@ -959,67 +1042,88 @@ async function performBackgroundRender(
       userId
     );
 
+    // Pre-download video assets to local temp files to prevent FFmpeg network hangs
+    const localInputProps = await preDownloadVideoAssets(inputProps);
+
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
     let lastFrameRendered = 0;
 
-    // Render the video with progress tracking
-    await renderMedia({
-      composition,
-      serveUrl: bundleLocation,
-      codec,
-      outputLocation,
-      inputProps,
-      jpegQuality: quality,
-      logLevel: "verbose",
-      concurrency: RENDER_CONCURRENCY,
-      chromiumOptions: {
-        gl: "angle",
-      },
-      onProgress: ({
-        renderedFrames,
-        encodedFrames,
-        renderedDoneIn,
-        encodedDoneIn,
-        stitchStage,
-        progress,
-      }) => {
-        const now = Date.now();
-        const timeSinceLastProgress = now - lastProgressTime;
-        const framesRendered = renderedFrames - lastFrameRendered;
-        const fps = framesRendered / (timeSinceLastProgress / 1000);
-
-        console.log(
-          `🎞️ Background Progress: ${(progress * 100).toFixed(
-            1
-          )}% | Rendered: ${renderedFrames}/${
-            composition.durationInFrames
-          } | Encoded: ${encodedFrames || 0} | Stage: ${
-            stitchStage || "rendering"
-          } | FPS: ${fps.toFixed(1)}`
-        );
-
-        // Store progress in memory
-        setRenderProgress(
-          filename,
-          {
-            status: "rendering",
-            progress: progress,
-            renderedFrames: renderedFrames,
-            totalFrames: composition.durationInFrames,
-            encodedFrames: encodedFrames || 0,
-            stage: stitchStage || "rendering",
-            fps: fps,
-            startTime: renderStartTime2,
-            elapsedTime: now - renderStartTime2,
-          },
-          userId
-        );
-
-        lastProgressTime = now;
-        lastFrameRendered = renderedFrames;
-      },
+    // Set up timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        renderAborted = true;
+        reject(new Error(`Background render timeout after ${RENDER_TIMEOUT / 1000} seconds`));
+      }, RENDER_TIMEOUT);
     });
+
+    // Render the video with progress tracking and timeout
+    await Promise.race([
+      renderMedia({
+        composition,
+        serveUrl: bundleLocation,
+        codec,
+        outputLocation,
+        inputProps: localInputProps,
+        jpegQuality: quality,
+        logLevel: "verbose",
+        concurrency: RENDER_CONCURRENCY,
+        chromiumOptions: {
+          gl: "angle",
+        },
+        timeoutInMilliseconds: RENDER_TIMEOUT,
+        delayRenderTimeoutInMilliseconds: 60000,
+        onProgress: ({
+          renderedFrames,
+          encodedFrames,
+          renderedDoneIn,
+          encodedDoneIn,
+          stitchStage,
+          progress,
+        }) => {
+          if (renderAborted) return;
+
+          const now = Date.now();
+          const timeSinceLastProgress = now - lastProgressTime;
+          const framesRendered = renderedFrames - lastFrameRendered;
+          const fps = framesRendered / (timeSinceLastProgress / 1000);
+
+          console.log(
+            `🎞️ Background Progress: ${(progress * 100).toFixed(
+              1
+            )}% | Rendered: ${renderedFrames}/${
+              composition.durationInFrames
+            } | Encoded: ${encodedFrames || 0} | Stage: ${
+              stitchStage || "rendering"
+            } | FPS: ${fps.toFixed(1)}`
+          );
+
+          // Store progress in memory
+          setRenderProgress(
+            filename,
+            {
+              status: "rendering",
+              progress: progress,
+              renderedFrames: renderedFrames,
+              totalFrames: composition.durationInFrames,
+              encodedFrames: encodedFrames || 0,
+              stage: stitchStage || "rendering",
+              fps: fps,
+              startTime: renderStartTime2,
+              elapsedTime: now - renderStartTime2,
+            },
+            userId
+          );
+
+          lastProgressTime = now;
+          lastFrameRendered = renderedFrames;
+        },
+      }),
+      timeoutPromise,
+    ]);
+
+    // Clean up temp files
+    cleanupTempAssets(localInputProps);
 
     const totalRenderTime = Date.now() - renderStartTime2;
     console.log(`✅ Background render completed: ${filename} (${totalRenderTime}ms)`);
@@ -1053,8 +1157,12 @@ async function performBackgroundRender(
 
     console.log(`🎉 Background render success: ${filename}`);
   } catch (error) {
+    renderAborted = true;
     console.error(`❌ Background render failed: ${filename}`, error);
-    
+
+    // Clean up temp files on failure too
+    cleanupTempAssets(inputProps);
+
     // Mark render as failed
     setRenderProgress(
       filename,
