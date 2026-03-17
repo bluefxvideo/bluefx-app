@@ -63,14 +63,8 @@ export function useCaptionGenerator(): UseCaptionGeneratorReturn {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Stage 2: Whisper Analysis (or reuse existing)
-      const sourceCount = request.audioSources?.length || 1;
       if (!request.existingWhisperData) {
-        updateState({
-          progress: 30,
-          currentStage: sourceCount > 1
-            ? `Analyzing ${sourceCount} audio sources with Whisper AI...`
-            : 'Analyzing audio with Whisper AI...'
-        });
+        updateState({ progress: 30, currentStage: 'Analyzing audio with Whisper AI...' });
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate Whisper delay
       } else {
         updateState({ progress: 50, currentStage: 'Using existing Whisper data...' });
@@ -164,14 +158,10 @@ export function useCaptionGenerator(): UseCaptionGeneratorReturn {
 
 /**
  * Utility: Extract audio info from editor timeline
- * Includes both audio tracks and video tracks (which may contain audio)
  */
 export function extractAudioFromTimeline(trackItems: any[]): { audioUrl?: string; duration?: number } {
-  // Prefer dedicated audio tracks, fall back to video tracks with audio
-  const audioTrack = trackItems.find(item =>
+  const audioTrack = trackItems.find(item => 
     item.type === 'audio' && item.details?.src
-  ) || trackItems.find(item =>
-    item.type === 'video' && item.details?.src
   );
 
   if (!audioTrack) {

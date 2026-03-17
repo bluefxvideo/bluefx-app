@@ -78,101 +78,17 @@ export async function generateCaptions(formData: FormData) {
 
 /**
  * Server Action: Generate captions from structured request
- * Supports multiple audio sources (audio + video tracks) with timeline offsets.
  */
 export async function generateCaptionsFromRequest(request: GenerateCaptionsRequest) {
   try {
     console.log('🎬 Caption Request:', {
       hasAudioUrl: !!request.audioUrl,
-      hasAudioSources: !!request.audioSources,
-      audioSourceCount: request.audioSources?.length || 0,
       hasEditorData: !!request.editorData,
       hasWhisperData: !!request.existingWhisperData,
       hasOriginalScript: !!request.originalScript
     });
 
-    // Multi-source path: process each audio source separately and merge
-    if (request.audioSources && request.audioSources.length > 0) {
-      console.log(`🎬 Multi-source caption generation: ${request.audioSources.length} source(s)`);
-
-      const allCaptions: ProfessionalCaptionChunk[] = [];
-      let totalDuration = 0;
-      let totalConfidence = 0;
-      let totalTimingPrecision = 0;
-      let totalReadability = 0;
-      let successCount = 0;
-
-      for (let i = 0; i < request.audioSources.length; i++) {
-        const source = request.audioSources[i];
-        console.log(`🎤 Processing source ${i + 1}/${request.audioSources.length}: ${source.type} @ offset ${source.offsetMs}ms`);
-
-        try {
-          const result = await generateCaptionsForAudio(
-            source.url,
-            undefined, // No existing whisper data for individual sources
-            {
-              ...request.options,
-              timelineOffsetMs: source.offsetMs,
-              audioDuration: source.durationMs / 1000, // Convert ms to seconds
-            },
-            // Only pass original script for the primary audio track (voiceover)
-            source.type === 'audio' ? request.originalScript : undefined
-          );
-
-          if (result.success && result.captions.length > 0) {
-            allCaptions.push(...result.captions);
-            totalDuration = Math.max(totalDuration, result.total_duration + (source.offsetMs / 1000));
-            totalConfidence += result.quality_metrics.avg_confidence;
-            totalTimingPrecision += result.quality_metrics.timing_precision;
-            totalReadability += result.quality_metrics.readability_score;
-            successCount++;
-            console.log(`✅ Source ${i + 1}: ${result.captions.length} captions generated`);
-          } else {
-            console.warn(`⚠️ Source ${i + 1} (${source.type}): ${result.error || 'No captions generated'}`);
-          }
-        } catch (sourceError) {
-          console.error(`❌ Source ${i + 1} failed:`, sourceError);
-          // Continue with other sources — don't fail the whole generation
-        }
-      }
-
-      if (allCaptions.length === 0) {
-        return {
-          success: false,
-          error: 'No captions could be generated from any audio source',
-          captions: [],
-          total_chunks: 0,
-          total_duration: 0,
-          avg_words_per_chunk: 0,
-          quality_metrics: { avg_confidence: 0, timing_precision: 0, readability_score: 0 }
-        };
-      }
-
-      // Sort all captions by start_time and re-index IDs
-      allCaptions.sort((a, b) => a.start_time - b.start_time);
-      allCaptions.forEach((caption, idx) => {
-        caption.id = `caption-${idx}`;
-      });
-
-      const avgWordsPerChunk = allCaptions.reduce((sum, c) => sum + c.word_count, 0) / allCaptions.length;
-
-      console.log(`🎉 Multi-source merge complete: ${allCaptions.length} total captions from ${successCount} source(s)`);
-
-      return {
-        success: true,
-        captions: allCaptions,
-        total_chunks: allCaptions.length,
-        total_duration: totalDuration,
-        avg_words_per_chunk: avgWordsPerChunk,
-        quality_metrics: {
-          avg_confidence: successCount > 0 ? totalConfidence / successCount : 0,
-          timing_precision: successCount > 0 ? totalTimingPrecision / successCount : 0,
-          readability_score: successCount > 0 ? totalReadability / successCount : 0,
-        }
-      };
-    }
-
-    // Single-source fallback: extract audio URL from various sources
+    // Extract audio URL from various sources
     let audioUrl = request.audioUrl;
 
     if (!audioUrl && request.editorData) {

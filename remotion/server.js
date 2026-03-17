@@ -248,9 +248,6 @@ function videoStreamMiddleware(req, res, next) {
 // Apply the custom video streaming middleware
 app.use("/output", videoStreamMiddleware);
 
-// Serve pre-downloaded temp assets so Remotion's browser can access them
-app.use("/temp_assets", express.static(path.join(process.cwd(), "temp_assets")));
-
 // Cache for the bundle to avoid re-bundling
 let bundleCache = null;
 
@@ -406,13 +403,9 @@ app.post("/render", async (req, res) => {
 
     logMemoryUsage("render start");
 
-    // Flag to prevent onProgress from overwriting "failed" status after timeout
-    let renderAborted = false;
-
     // Set up timeout
     const timeoutPromise = new Promise((_, reject) => {
       timeoutId = setTimeout(() => {
-        renderAborted = true;
         reject(
           new Error(`Render timeout after ${RENDER_TIMEOUT / 1000} seconds`)
         );
@@ -536,8 +529,6 @@ app.post("/render", async (req, res) => {
         chromiumOptions: {
           gl: "angle",
         },
-        timeoutInMilliseconds: RENDER_TIMEOUT, // Remotion's built-in render timeout
-        delayRenderTimeoutInMilliseconds: 60000, // 60s timeout for OffthreadVideo downloads
         onProgress: ({
           renderedFrames,
           encodedFrames,
@@ -546,9 +537,6 @@ app.post("/render", async (req, res) => {
           stitchStage,
           progress,
         }) => {
-          // Don't update progress after render has been aborted/timed out
-          if (renderAborted) return;
-
           const now = Date.now();
           const timeSinceLastProgress = now - lastProgressTime;
           const framesRendered = renderedFrames - lastFrameRendered;
@@ -679,7 +667,6 @@ app.post("/render", async (req, res) => {
     res.json(response);
   } catch (error) {
     clearTimeout(timeoutId);
-    renderAborted = true; // Prevent onProgress from overwriting "failed" status
 
     const totalTime = Date.now() - renderStartTime;
     console.error("\n❌ ===== RENDER FAILED =====");
@@ -932,115 +919,6 @@ app.get("/", (req, res) => {
 });
 
 // Background render function for async mode
-/**
- * Pre-download remote video assets to local temp files.
- * This prevents FFmpeg from hanging on network streams during encoding.
- */
-async function preDownloadVideoAssets(inputProps) {
-  const videoLayers = inputProps.videoLayers || [];
-  const audioLayers = inputProps.audioLayers || [];
-  if (videoLayers.length === 0 && audioLayers.length === 0) return inputProps;
-
-  const tempDir = path.join(process.cwd(), 'temp_assets');
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-  }
-
-  const totalAssets = videoLayers.length + audioLayers.length;
-  console.log(`⬇️ Pre-downloading ${totalAssets} assets (${videoLayers.length} video, ${audioLayers.length} audio)...`);
-
-  const downloadAsset = async (src, label, index) => {
-    if (!src || !src.startsWith('http')) return src;
-
-    const ext = src.includes('.mp3') ? '.mp3' : '.mp4';
-    const assetFilename = `asset_${Date.now()}_${index}${ext}`;
-    const localPath = path.join(tempDir, assetFilename);
-
-    try {
-      console.log(`⬇️ [${label}] Downloading: ${src.substring(0, 80)}...`);
-      const response = await fetch(src, { signal: AbortSignal.timeout(60000) });
-
-      if (!response.ok) {
-        console.error(`❌ [${label}] Download failed (${response.status})`);
-        return src;
-      }
-
-      // Stream to disk to avoid loading entire file into memory
-      const fileStream = fs.createWriteStream(localPath);
-      const reader = response.body.getReader();
-      let totalBytes = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        fileStream.write(value);
-        totalBytes += value.length;
-      }
-
-      await new Promise((resolve, reject) => {
-        fileStream.on('finish', resolve);
-        fileStream.on('error', reject);
-        fileStream.end();
-      });
-
-      console.log(`✅ [${label}] Downloaded: ${(totalBytes / 1024 / 1024).toFixed(1)}MB`);
-
-      // Return URL served by our Express server so Remotion's browser can access it
-      return `http://localhost:${PORT}/temp_assets/${assetFilename}`;
-    } catch (err) {
-      console.error(`❌ [${label}] Download error: ${err.message}`);
-      // Clean up partial file
-      try { if (fs.existsSync(localPath)) fs.unlinkSync(localPath); } catch (_) {}
-      return src;
-    }
-  };
-
-  // Download sequentially to avoid memory spikes
-  const updatedVideoLayers = [];
-  for (let i = 0; i < videoLayers.length; i++) {
-    const layer = videoLayers[i];
-    const localSrc = await downloadAsset(layer.src, `video ${i + 1}/${videoLayers.length}`, i);
-    updatedVideoLayers.push(localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer);
-  }
-
-  const updatedAudioLayers = [];
-  for (let i = 0; i < audioLayers.length; i++) {
-    const layer = audioLayers[i];
-    const localSrc = await downloadAsset(layer.src, `audio ${i + 1}/${audioLayers.length}`, 100 + i);
-    updatedAudioLayers.push(localSrc !== layer.src ? { ...layer, src: localSrc, _originalSrc: layer.src } : layer);
-  }
-
-  console.log(`✅ Pre-download complete`);
-  return { ...inputProps, videoLayers: updatedVideoLayers, audioLayers: updatedAudioLayers };
-}
-
-/**
- * Clean up temp video files after render
- */
-function cleanupTempAssets(inputProps) {
-  const tempDir = path.join(process.cwd(), 'temp_assets');
-  const allLayers = [
-    ...(inputProps.videoLayers || []),
-    ...(inputProps.audioLayers || []),
-  ];
-  allLayers.forEach((layer) => {
-    if (layer._originalSrc && layer.src) {
-      try {
-        // Extract filename from the localhost URL and delete the temp file
-        const assetFilename = layer.src.split('/temp_assets/').pop();
-        if (assetFilename) {
-          const filePath = path.join(tempDir, assetFilename);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        }
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
-  });
-}
-
 async function performBackgroundRender(
   composition,
   bundleLocation,
@@ -1052,11 +930,9 @@ async function performBackgroundRender(
   userId,
   renderStartTime
 ) {
-  let renderAborted = false;
-
   try {
     console.log(`🎬 Background render started for: ${filename}`);
-
+    
     // Initialize progress tracking
     setRenderProgress(
       filename,
@@ -1073,93 +949,67 @@ async function performBackgroundRender(
       userId
     );
 
-    // Pre-download video assets to local temp files to prevent FFmpeg network hangs
-    const localInputProps = await preDownloadVideoAssets(inputProps);
-
-    // Reduce concurrency when composition has video layers to prevent OOM
-    const videoCount = (localInputProps.videoLayers || []).length;
-    const safeConcurrency = videoCount > 3 ? 1 : videoCount > 0 ? 2 : RENDER_CONCURRENCY;
-    console.log(`🎛️ Render concurrency: ${safeConcurrency} (${videoCount} video layers, default: ${RENDER_CONCURRENCY})`);
-
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
     let lastFrameRendered = 0;
 
-    // Set up timeout
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        renderAborted = true;
-        reject(new Error(`Background render timeout after ${RENDER_TIMEOUT / 1000} seconds`));
-      }, RENDER_TIMEOUT);
+    // Render the video with progress tracking
+    await renderMedia({
+      composition,
+      serveUrl: bundleLocation,
+      codec,
+      outputLocation,
+      inputProps,
+      jpegQuality: quality,
+      logLevel: "verbose",
+      concurrency: RENDER_CONCURRENCY,
+      chromiumOptions: {
+        gl: "angle",
+      },
+      onProgress: ({
+        renderedFrames,
+        encodedFrames,
+        renderedDoneIn,
+        encodedDoneIn,
+        stitchStage,
+        progress,
+      }) => {
+        const now = Date.now();
+        const timeSinceLastProgress = now - lastProgressTime;
+        const framesRendered = renderedFrames - lastFrameRendered;
+        const fps = framesRendered / (timeSinceLastProgress / 1000);
+
+        console.log(
+          `🎞️ Background Progress: ${(progress * 100).toFixed(
+            1
+          )}% | Rendered: ${renderedFrames}/${
+            composition.durationInFrames
+          } | Encoded: ${encodedFrames || 0} | Stage: ${
+            stitchStage || "rendering"
+          } | FPS: ${fps.toFixed(1)}`
+        );
+
+        // Store progress in memory
+        setRenderProgress(
+          filename,
+          {
+            status: "rendering",
+            progress: progress,
+            renderedFrames: renderedFrames,
+            totalFrames: composition.durationInFrames,
+            encodedFrames: encodedFrames || 0,
+            stage: stitchStage || "rendering",
+            fps: fps,
+            startTime: renderStartTime2,
+            elapsedTime: now - renderStartTime2,
+          },
+          userId
+        );
+
+        lastProgressTime = now;
+        lastFrameRendered = renderedFrames;
+      },
     });
-
-    // Render the video with progress tracking and timeout
-    await Promise.race([
-      renderMedia({
-        composition,
-        serveUrl: bundleLocation,
-        codec,
-        outputLocation,
-        inputProps: localInputProps,
-        jpegQuality: quality,
-        logLevel: "verbose",
-        concurrency: safeConcurrency,
-        chromiumOptions: {
-          gl: "angle",
-        },
-        timeoutInMilliseconds: RENDER_TIMEOUT,
-        delayRenderTimeoutInMilliseconds: 60000,
-        onProgress: ({
-          renderedFrames,
-          encodedFrames,
-          renderedDoneIn,
-          encodedDoneIn,
-          stitchStage,
-          progress,
-        }) => {
-          if (renderAborted) return;
-
-          const now = Date.now();
-          const timeSinceLastProgress = now - lastProgressTime;
-          const framesRendered = renderedFrames - lastFrameRendered;
-          const fps = framesRendered / (timeSinceLastProgress / 1000);
-
-          console.log(
-            `🎞️ Background Progress: ${(progress * 100).toFixed(
-              1
-            )}% | Rendered: ${renderedFrames}/${
-              composition.durationInFrames
-            } | Encoded: ${encodedFrames || 0} | Stage: ${
-              stitchStage || "rendering"
-            } | FPS: ${fps.toFixed(1)}`
-          );
-
-          // Store progress in memory
-          setRenderProgress(
-            filename,
-            {
-              status: "rendering",
-              progress: progress,
-              renderedFrames: renderedFrames,
-              totalFrames: composition.durationInFrames,
-              encodedFrames: encodedFrames || 0,
-              stage: stitchStage || "rendering",
-              fps: fps,
-              startTime: renderStartTime2,
-              elapsedTime: now - renderStartTime2,
-            },
-            userId
-          );
-
-          lastProgressTime = now;
-          lastFrameRendered = renderedFrames;
-        },
-      }),
-      timeoutPromise,
-    ]);
-
-    // Clean up temp files
-    cleanupTempAssets(localInputProps);
 
     const totalRenderTime = Date.now() - renderStartTime2;
     console.log(`✅ Background render completed: ${filename} (${totalRenderTime}ms)`);
@@ -1193,12 +1043,8 @@ async function performBackgroundRender(
 
     console.log(`🎉 Background render success: ${filename}`);
   } catch (error) {
-    renderAborted = true;
     console.error(`❌ Background render failed: ${filename}`, error);
-
-    // Clean up temp files on failure too
-    cleanupTempAssets(inputProps);
-
+    
     // Mark render as failed
     setRenderProgress(
       filename,

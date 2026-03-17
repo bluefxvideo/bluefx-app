@@ -45,20 +45,15 @@ export const VideoEditor = () => {
         if (!audio.src || audio.src.includes('example.com') || audio.src.includes('placeholder')) {
           return null;
         }
-
+        
         return (
-          <Sequence
+          <Audio
             key={audio.id}
-            from={audio.startFrame}
-            durationInFrames={audio.durationInFrames}
-          >
-            <Audio
-              src={audio.src}
-              startFrom={audio.startFrom || 0}
-              endAt={audio.endAt}
-              volume={audio.volume}
-            />
-          </Sequence>
+            src={audio.src}
+            startFrom={audio.startFrom || 0}
+            endAt={audio.endAt}
+            volume={audio.volume}
+          />
         );
       }).filter(Boolean)}
 

@@ -46,19 +46,9 @@ export interface CaptionGenerationResponse {
   error?: string;
 }
 
-export interface AudioSource {
-  url: string;
-  type: 'audio' | 'video';
-  offsetMs: number;    // Timeline position (display.from) in ms
-  durationMs: number;  // Duration on timeline in ms
-}
-
 export interface GenerateCaptionsRequest {
   // Audio source (one of these required)
   audioUrl?: string;
-
-  // Multiple audio sources with timeline offsets
-  audioSources?: AudioSource[];
 
   // Editor data (extract audio from timeline)
   editorData?: {

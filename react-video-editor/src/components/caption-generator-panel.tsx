@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useCaptionGenerator, extractAudioFromTimeline, captionsToTrackItems } from "@/hooks/use-caption-generator";
-import type { CaptionGenerationOptions, AudioSource } from "@/types/caption-types";
+import type { CaptionGenerationOptions } from "@/types/caption-types";
 import useStore from "@/features/editor/store/use-store";
 import { addCaptionTrackToEditor } from "@/features/editor/utils/caption-loader";
 
@@ -48,42 +48,37 @@ export function CaptionGeneratorPanel({
   const { state, generateCaptions, clearError, reset } = useCaptionGenerator();
   const { trackItemsMap } = useStore();
 
-  // Extract all audio sources from timeline (audio tracks + video tracks with audio)
-  const { audioInfo, audioSources } = useMemo(() => {
+  // Extract audio info from timeline - use stable version to prevent re-renders
+  const audioInfo = useMemo(() => {
     console.log('🔍 CaptionGeneratorPanel - Received trackItems:', trackItems?.length || 0);
-
+    console.log('🔍 CaptionGeneratorPanel - TrackItems details:', trackItems?.map(item => ({ id: item.id, type: item.type, src: item.details?.src })));
+    
+    // Only process if we have trackItems
     if (!trackItems || trackItems.length === 0) {
-      return { audioInfo: {}, audioSources: [] as AudioSource[] };
+      console.log('🔍 CaptionGeneratorPanel - No trackItems available');
+      return {};
     }
-
-    // Collect all tracks that can have audio: audio tracks AND video tracks
-    const sourceTracks = trackItems.filter(
-      item => (item.type === 'audio' || item.type === 'video') && item.details?.src
-    );
-
-    const sources: AudioSource[] = sourceTracks.map(item => ({
-      url: item.details.src,
-      type: item.type as 'audio' | 'video',
-      offsetMs: item.display?.from || 0,
-      durationMs: (item.display?.to || 0) - (item.display?.from || 0),
-    }));
-
-    console.log('🔍 CaptionGeneratorPanel - Audio sources found:', sources.length, sources.map(s => ({ type: s.type, offsetMs: s.offsetMs })));
-
-    // Primary audio info (first audio track for backward compat / duration display)
-    const primaryAudio = sourceTracks.find(item => item.type === 'audio') || sourceTracks[0];
-    const info = primaryAudio ? {
-      audioUrl: primaryAudio.details.src,
-      duration: primaryAudio.duration || primaryAudio.metadata?.duration
-    } : {};
-
-    return { audioInfo: info, audioSources: sources };
+    
+    const audioTracks = trackItems.filter(item => item.type === 'audio' && item.details?.src);
+    console.log('🔍 CaptionGeneratorPanel - Audio tracks found:', audioTracks.length);
+    
+    if (audioTracks.length > 0) {
+      const firstAudio = audioTracks[0];
+      console.log('🔍 CaptionGeneratorPanel - Using audio:', firstAudio.details.src);
+      
+      return {
+        audioUrl: firstAudio.details.src,
+        duration: firstAudio.duration || firstAudio.metadata?.duration
+      };
+    }
+    
+    return {};
   }, [trackItems.length, trackItems.map(item => item.id).join(',')]);
 
   // Check if we have everything needed for generation
   const canGenerate = useMemo(() => {
-    return Boolean(audioSources.length > 0 && !state.isGenerating);
-  }, [audioSources.length, state.isGenerating]);
+    return Boolean(audioInfo.audioUrl && !state.isGenerating);
+  }, [audioInfo.audioUrl, state.isGenerating]);
 
   // Extract original script text from image track metadata
   const originalScript = useMemo(() => {
@@ -101,17 +96,16 @@ export function CaptionGeneratorPanel({
   }, [trackItemsMap]);
 
   const handleGenerateClick = async () => {
-    if (audioSources.length === 0) {
-      console.error('No audio sources found');
+    if (!audioInfo.audioUrl) {
+      console.error('No audio URL found');
       return;
     }
 
-    console.log('🎬 Starting AI caption generation for', audioSources.length, 'source(s)...');
+    console.log('🎬 Starting AI caption generation...');
 
     try {
       const result = await generateCaptions({
         audioUrl: audioInfo.audioUrl,
-        audioSources,
         existingWhisperData,
         originalScript,
         options: {
@@ -204,11 +198,8 @@ export function CaptionGeneratorPanel({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
-              {audioSources.length > 0 ? (
-                <span className="text-green-600">
-                  {audioSources.length} audio source{audioSources.length > 1 ? 's' : ''} detected
-                  {audioSources.length > 1 && ` (${audioSources.filter(s => s.type === 'audio').length} audio, ${audioSources.filter(s => s.type === 'video').length} video)`}
-                </span>
+              {audioInfo.audioUrl ? (
+                <span className="text-green-600">Audio detected ({audioInfo.duration?.toFixed(1)}s)</span>
               ) : (
                 <span className="text-yellow-600">No audio found in timeline</span>
               )}
