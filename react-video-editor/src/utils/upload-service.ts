@@ -9,41 +9,37 @@ export interface UploadCallbacks {
   onStatus: UploadStatusCallback;
 }
 
+function getUserIdFromUrl(): string {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get("userId") || "anonymous";
+}
+
 export async function processFileUpload(
   uploadId: string,
   file: File,
   callbacks: UploadCallbacks
 ): Promise<any> {
   try {
-    // Get presigned URL
-    const {
-      data: { uploads },
-    } = await axios.post(
-      "/api/uploads/presign",
-      {
-        userId: "PJ1nkaufw0hZPyhN7bWCP",
-        fileNames: [file.name],
-      },
-      {
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    const userId = getUserIdFromUrl();
 
-    const uploadInfo = uploads[0];
+    // Upload file directly to Supabase via our API route
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("userId", userId);
 
-    // Upload file with progress tracking
-    await axios.put(uploadInfo.presignedUrl, file, {
-      headers: { "Content-Type": uploadInfo.contentType },
+    const { data } = await axios.post("/api/uploads/direct", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress: (progressEvent) => {
         const percent = Math.round(
           (progressEvent.loaded * 100) / (progressEvent.total || 1)
         );
         callbacks.onProgress(uploadId, percent);
       },
-      validateStatus: () => true,
     });
 
-    // Construct upload data from uploadInfo
+    const uploadInfo = data.uploads[0];
+
+    // Construct upload data
     const uploadData = {
       fileName: uploadInfo.fileName,
       filePath: uploadInfo.filePath,
@@ -61,6 +57,7 @@ export async function processFileUpload(
     callbacks.onStatus(uploadId, 'uploaded');
     return uploadData;
   } catch (error) {
+    console.error("❌ File upload error:", error);
     callbacks.onStatus(uploadId, 'failed', (error as Error).message);
     throw error;
   }
@@ -72,22 +69,19 @@ export async function processUrlUpload(
   callbacks: UploadCallbacks
 ): Promise<any[]> {
   try {
+    const userId = getUserIdFromUrl();
+
     // Start with 10% progress
     callbacks.onProgress(uploadId, 10);
 
-    // Upload URL
-    const {
-      data: { uploads = [] } = {},
-    } = await axios.post(
+    // Upload URL via our API route
+    const { data } = await axios.post(
       "/api/uploads/url",
-      {
-        userId: "PJ1nkaufw0hZPyhN7bWCP",
-        urls: [url],
-      },
-      {
-        headers: { "Content-Type": "application/json" },
-      }
+      { userId, urls: [url] },
+      { headers: { "Content-Type": "application/json" } }
     );
+
+    const { uploads = [] } = data;
 
     // Update to 50% progress
     callbacks.onProgress(uploadId, 50);
@@ -98,7 +92,7 @@ export async function processUrlUpload(
       filePath: uploadInfo.filePath,
       fileSize: 0,
       contentType: uploadInfo.contentType,
-      metadata: { originalUrl: uploadInfo.originalUrl },
+      metadata: { uploadedUrl: uploadInfo.url },
       folder: uploadInfo.folder || null,
       type: uploadInfo.contentType.split("/")[0],
       method: "url",
@@ -112,6 +106,7 @@ export async function processUrlUpload(
     callbacks.onStatus(uploadId, 'uploaded');
     return uploadDataArray;
   } catch (error) {
+    console.error("❌ URL upload error:", error);
     callbacks.onStatus(uploadId, 'failed', (error as Error).message);
     throw error;
   }
@@ -130,4 +125,4 @@ export async function processUpload(
   }
   callbacks.onStatus(uploadId, 'failed', 'No file or URL provided');
   throw new Error('No file or URL provided');
-} 
+}
