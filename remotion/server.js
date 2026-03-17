@@ -1076,6 +1076,11 @@ async function performBackgroundRender(
     // Pre-download video assets to local temp files to prevent FFmpeg network hangs
     const localInputProps = await preDownloadVideoAssets(inputProps);
 
+    // Reduce concurrency when composition has video layers to prevent OOM
+    const videoCount = (localInputProps.videoLayers || []).length;
+    const safeConcurrency = videoCount > 3 ? 1 : videoCount > 0 ? 2 : RENDER_CONCURRENCY;
+    console.log(`🎛️ Render concurrency: ${safeConcurrency} (${videoCount} video layers, default: ${RENDER_CONCURRENCY})`);
+
     const renderStartTime2 = Date.now();
     let lastProgressTime = Date.now();
     let lastFrameRendered = 0;
@@ -1098,7 +1103,7 @@ async function performBackgroundRender(
         inputProps: localInputProps,
         jpegQuality: quality,
         logLevel: "verbose",
-        concurrency: RENDER_CONCURRENCY,
+        concurrency: safeConcurrency,
         chromiumOptions: {
           gl: "angle",
         },
