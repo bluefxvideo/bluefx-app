@@ -403,9 +403,13 @@ app.post("/render", async (req, res) => {
 
     logMemoryUsage("render start");
 
+    // Flag to prevent onProgress from overwriting "failed" status after timeout
+    let renderAborted = false;
+
     // Set up timeout
     const timeoutPromise = new Promise((_, reject) => {
       timeoutId = setTimeout(() => {
+        renderAborted = true;
         reject(
           new Error(`Render timeout after ${RENDER_TIMEOUT / 1000} seconds`)
         );
@@ -529,6 +533,8 @@ app.post("/render", async (req, res) => {
         chromiumOptions: {
           gl: "angle",
         },
+        timeoutInMilliseconds: RENDER_TIMEOUT, // Remotion's built-in render timeout
+        delayRenderTimeoutInMilliseconds: 60000, // 60s timeout for OffthreadVideo downloads
         onProgress: ({
           renderedFrames,
           encodedFrames,
@@ -537,6 +543,9 @@ app.post("/render", async (req, res) => {
           stitchStage,
           progress,
         }) => {
+          // Don't update progress after render has been aborted/timed out
+          if (renderAborted) return;
+
           const now = Date.now();
           const timeSinceLastProgress = now - lastProgressTime;
           const framesRendered = renderedFrames - lastFrameRendered;
@@ -667,6 +676,7 @@ app.post("/render", async (req, res) => {
     res.json(response);
   } catch (error) {
     clearTimeout(timeoutId);
+    renderAborted = true; // Prevent onProgress from overwriting "failed" status
 
     const totalTime = Date.now() - renderStartTime;
     console.error("\n❌ ===== RENDER FAILED =====");
