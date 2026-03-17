@@ -19,6 +19,7 @@ export interface CaptionGenerationOptions {
   audioDuration?: number;         // Known audio duration in seconds for boundary checking
   segmentBoundaries?: number[];   // Image segment transition times in seconds
   alignWithSegments?: boolean;    // Prefer caption breaks at segment boundaries
+  timelineOffsetMs?: number;      // Timeline offset in ms — applied to all caption timings after generation
 }
 
 export interface ProfessionalCaptionChunk {
@@ -193,6 +194,20 @@ export async function generateCaptionsForAudio(
 
     // Step 4: Calculate Quality Metrics
     const qualityMetrics = calculateQualityMetrics(captions, whisperData, audioDuration);
+
+    // Step 5: Apply timeline offset if provided (for multi-source merging)
+    const offsetSec = (opts.timelineOffsetMs || 0) / 1000;
+    if (offsetSec > 0) {
+      console.log(`⏱️ Applying timeline offset: +${offsetSec.toFixed(3)}s (${opts.timelineOffsetMs}ms)`);
+      captions.forEach(caption => {
+        caption.start_time += offsetSec;
+        caption.end_time += offsetSec;
+        caption.word_boundaries.forEach(wb => {
+          wb.start += offsetSec;
+          wb.end += offsetSec;
+        });
+      });
+    }
 
     const generationTime = Date.now() - startTime;
     console.log(`🎉 Caption generation completed in ${generationTime}ms`);
@@ -501,10 +516,12 @@ export async function extractAudioUrl(source: {
     return source.audioUrl;
   }
 
-  // Extract from track items (editor format)
+  // Extract from track items (editor format) — prefer audio tracks, fall back to video
   if (source.trackItems) {
-    const audioTrack = source.trackItems.find(item => 
+    const audioTrack = source.trackItems.find(item =>
       item.type === 'audio' && item.details?.src
+    ) || source.trackItems.find(item =>
+      item.type === 'video' && item.details?.src
     );
     if (audioTrack) {
       return audioTrack.details.src;
