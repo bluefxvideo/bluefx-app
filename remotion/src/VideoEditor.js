@@ -3,7 +3,7 @@ import {
   AbsoluteFill,
   Audio,
   Img,
-  Video,
+  OffthreadVideo,
   Sequence,
   useCurrentFrame,
   useVideoConfig,
@@ -352,7 +352,7 @@ const VideoWithKenBurns = ({ video }) => {
 
   return (
     <div style={wrapperStyle}>
-      <Video
+      <OffthreadVideo
         src={video.src}
         startFrom={video.startFrom || 0}
         endAt={video.endAt}
