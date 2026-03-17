@@ -1,13 +1,13 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useDownloadState } from "./store/use-download-state";
 import { Button } from "@/components/ui/button";
-import { CircleCheckIcon, XIcon } from "lucide-react";
+import { AlertCircle, CircleCheckIcon, XIcon } from "lucide-react";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { download } from "@/utils/download";
 import { useEffect } from "react";
 
 const DownloadProgressModal = () => {
-	const { progress, displayProgressModal, output, actions, projectId } =
+	const { progress, displayProgressModal, output, actions, projectId, exportError } =
 		useDownloadState();
 	const isCompleted = progress === 100;
 
@@ -53,7 +53,25 @@ const DownloadProgressModal = () => {
 				<div className="flex h-16 items-center border-b px-4 font-medium">
 					Download
 				</div>
-				{isCompleted ? (
+				{exportError ? (
+					<div className="flex flex-1 flex-col items-center justify-center gap-2 space-y-4">
+						<div className="flex flex-col items-center space-y-1 text-center">
+							<div className="text-red-500">
+								<AlertCircle className="h-8 w-8" />
+							</div>
+							<div className="font-bold">Export Failed</div>
+							<div className="text-muted-foreground max-w-md text-sm">
+								{exportError}
+							</div>
+						</div>
+						<Button onClick={() => {
+							actions.clearActiveExport();
+							actions.setDisplayProgressModal(false);
+						}}>
+							Close
+						</Button>
+					</div>
+				) : isCompleted ? (
 					<div className="flex flex-1 flex-col items-center justify-center gap-2 space-y-4">
 						<div className="flex flex-col items-center space-y-1 text-center">
 							<div className="font-semibold">
@@ -76,7 +94,7 @@ const DownloadProgressModal = () => {
 							<div>Closing the browser will not cancel the export.</div>
 							<div>The video will be saved in your space.</div>
 						</div>
-						<Button 
+						<Button
 							variant={"outline"}
 							onClick={() => {
 								actions.cancelExport();

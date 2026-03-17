@@ -14,6 +14,7 @@ interface DownloadState {
 	payload?: IDesign;
 	displayProgressModal: boolean;
 	activeRenderVideoId?: string; // Track the active render ID
+	exportError?: string; // Error message from failed export
 	actions: {
 		setProjectId: (projectId: string) => void;
 		setExporting: (exporting: boolean) => void;
@@ -39,6 +40,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 	progress: 0,
 	displayProgressModal: false,
 	activeRenderVideoId: undefined,
+	exportError: undefined,
 	actions: {
 		setProjectId: (projectId) => set({ projectId }),
 		setExporting: (exporting) => set({ exporting }),
@@ -51,7 +53,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 		startExport: async () => {
 			try {
 				// Set exporting to true at the start
-				set({ exporting: true, displayProgressModal: true });
+				set({ exporting: true, displayProgressModal: true, exportError: undefined });
 
 				// Assume payload to be stored in the state for POST request
 				const { payload } = get();
@@ -90,33 +92,50 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 
 				// Step 2 & 3: Polling for status updates
 				const checkStatus = async () => {
-					// Include params so render API can call store-export with internal URL
-					const statusUrl = `/api/render/${videoId}?videoId=${scriptVideoId}&userId=${userId}&apiUrl=${encodeURIComponent(apiUrl)}`;
-					const statusResponse = await fetch(statusUrl, {
-						headers: {
-							"Content-Type": "application/json",
-						},
-					});
+					try {
+						// Include params so render API can call store-export with internal URL
+						const statusUrl = `/api/render/${videoId}?videoId=${scriptVideoId}&userId=${userId}&apiUrl=${encodeURIComponent(apiUrl)}`;
+						const statusResponse = await fetch(statusUrl, {
+							headers: {
+								"Content-Type": "application/json",
+							},
+						});
 
-					if (!statusResponse.ok)
-						throw new Error("Failed to fetch export status.");
+						if (!statusResponse.ok)
+							throw new Error("Failed to fetch export status.");
 
-					const statusInfo = await statusResponse.json();
-					const { status, progress, url } = statusInfo.video;
+						const statusInfo = await statusResponse.json();
+						const { status, progress, url, error: renderError } = statusInfo.video;
 
-					set({ progress });
+						set({ progress });
 
-					if (status === "COMPLETED") {
-						// Storage is now handled by render API - url should already be Supabase URL
-						console.log('✅ Export completed, video URL:', url);
+						if (status === "COMPLETED") {
+							// Storage is now handled by render API - url should already be Supabase URL
+							console.log('✅ Export completed, video URL:', url);
 
+							set({
+								exporting: false,
+								output: { url, type: get().exportType },
+								activeRenderVideoId: undefined // Clear active render on completion
+							});
+						} else if (status === "FAILED") {
+							console.error('❌ Export failed:', renderError);
+							set({
+								exporting: false,
+								activeRenderVideoId: undefined,
+								progress: 0,
+								exportError: renderError || 'Export failed. Please try again.'
+							});
+						} else if (status === "PENDING") {
+							setTimeout(checkStatus, 2500);
+						}
+					} catch (error) {
+						console.error("Failed to check export status:", error);
 						set({
 							exporting: false,
-							output: { url, type: get().exportType },
-							activeRenderVideoId: undefined // Clear active render on completion
+							activeRenderVideoId: undefined,
+							progress: 0
 						});
-					} else if (status === "PENDING") {
-						setTimeout(checkStatus, 2500);
 					}
 				};
 

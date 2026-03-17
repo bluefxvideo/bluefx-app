@@ -102,7 +102,8 @@ export async function GET(
 				status: statusData.status === 'completed' ? 'COMPLETED' :
 				        statusData.status === 'failed' ? 'FAILED' : 'PENDING',
 				progress: Math.round((statusData.progress || 0) * 100),
-				url: videoUrl
+				url: videoUrl,
+				...(statusData.error && { error: statusData.error })
 			}
 		};
 
