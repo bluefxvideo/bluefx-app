@@ -72,7 +72,7 @@ const DownloadProgressModal = () => {
 						</div>
 						<div className="font-bold">Exporting...</div>
 						<div className="text-center text-zinc-500">
-							<div>Closing the browser will not cancel the export.</div>
+							<div>Please keep this window open until the export is complete.</div>
 							<div>The video will be saved in your history.</div>
 						</div>
 						<Button
