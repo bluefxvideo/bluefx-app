@@ -88,56 +88,49 @@ export async function POST(request: NextRequest) {
 
     const storedVideoUrl = urlData.publicUrl;
 
-    // Step 4: Update script_to_video_history record
-    // Note: valid status values are 'pending', 'processing', 'completed', 'failed'
-    // Use a fresh admin client for the database update to avoid stale connections
+    // Step 4: Update database records
     console.log(`📝 Updating database: video_id=${video_id}, user_id=${userId}, video_url=${storedVideoUrl}`);
 
     const dbClient = createAdminClient();
-    let updateData = null;
-    let updateError = null;
 
-    // Retry logic for transient network issues
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      const result = await dbClient
-        .from('script_to_video_history')
-        .update({
-          video_url: storedVideoUrl,
-          status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', video_id)
-        .eq('user_id', userId)
-        .select();
+    // Try script_to_video_history first
+    const { data: historyData, error: historyError } = await dbClient
+      .from('script_to_video_history')
+      .update({
+        video_url: storedVideoUrl,
+        status: 'completed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', video_id)
+      .eq('user_id', userId)
+      .select();
 
-      updateData = result.data;
-      updateError = result.error;
-
-      if (!updateError) {
-        break;
-      }
-
-      console.warn(`⚠️ Database update attempt ${attempt} failed:`, updateError.message);
-      if (attempt < 3) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
-      }
+    if (historyError) {
+      console.warn(`⚠️ script_to_video_history update failed:`, historyError.message);
+    } else if (historyData && historyData.length > 0) {
+      console.log(`✅ script_to_video_history updated:`, historyData[0]);
     }
 
-    if (updateError) {
-      console.error('Database update error after retries:', updateError);
-      throw new Error(`Failed to update video record: ${updateError.message}`);
+    // Also update reelestate_listings (video_id might be a listing ID)
+    const { data: listingData, error: listingError } = await dbClient
+      .from('reelestate_listings')
+      .update({
+        final_video_url: storedVideoUrl,
+        status: 'completed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', video_id)
+      .eq('user_id', userId)
+      .select();
+
+    if (listingError) {
+      console.warn(`⚠️ reelestate_listings update failed:`, listingError.message);
+    } else if (listingData && listingData.length > 0) {
+      console.log(`✅ reelestate_listings updated with video URL:`, listingData[0].id);
     }
 
-    if (!updateData || updateData.length === 0) {
-      console.error(`⚠️ No rows updated! video_id=${video_id}, user_id=${userId}`);
-      // Try without user_id filter to see if the record exists
-      const { data: checkData } = await dbClient
-        .from('script_to_video_history')
-        .select('id, user_id, video_url')
-        .eq('id', video_id);
-      console.log('Record check:', checkData);
-    } else {
-      console.log(`✅ Database updated successfully:`, updateData[0]);
+    if ((!historyData || historyData.length === 0) && (!listingData || listingData.length === 0)) {
+      console.error(`⚠️ No rows updated in any table! video_id=${video_id}, user_id=${userId}`);
     }
 
     // Step 5: Deduct credits for video export (if not already deducted)
