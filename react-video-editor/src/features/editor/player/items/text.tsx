@@ -76,7 +76,7 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 		>
 			<div
 				style={{
-					backgroundColor: details.backgroundColor || "rgba(0, 0, 0, 0.75)",
+					backgroundColor: details.backgroundColor || "transparent",
 					padding: `${fontSize * 0.25}px ${fontSize * 0.55}px`,
 					borderRadius: `${fontSize * 0.25}px`,
 					lineHeight: "1.3",
@@ -88,6 +88,8 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 					wordSpacing: "0.08em",
 					color: details.color || "#FFFFFF",
 					maxWidth: "95%",
+					WebkitTextStroke: `${Math.max(1, Math.round(fontSize * 0.04))}px #000`,
+					paintOrder: "stroke fill" as const,
 				}}
 			>
 				{wordElements ? <span>{wordElements}</span> : activeSegment.text}

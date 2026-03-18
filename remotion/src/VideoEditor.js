@@ -197,6 +197,8 @@ const CaptionRenderer = ({ caption, frame, fps }) => {
 const WordHighlightText = ({ segment, style, currentTimeMs }) => {
   const fontSize = style.fontSize || 80;
 
+  const strokeWidth = Math.max(1, Math.round(fontSize * 0.04));
+
   // Container: use style position from editor, fallback to bottom center
   const containerStyle = {
     position: 'absolute',
@@ -206,7 +208,7 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
     width: style.width || '80%',
     maxWidth: '95%',
     textAlign: style.textAlign || 'center',
-    backgroundColor: style.backgroundColor || 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: style.backgroundColor || 'transparent',
     padding: `${fontSize * 0.25}px ${fontSize * 0.55}px`,
     borderRadius: `${fontSize * 0.25}px`,
     display: 'inline-block',
@@ -220,7 +222,8 @@ const WordHighlightText = ({ segment, style, currentTimeMs }) => {
     letterSpacing: '0.02em',
     wordSpacing: '0.08em',
     lineHeight: 1.3,
-    textShadow: 'none',
+    WebkitTextStroke: `${strokeWidth}px #000`,
+    paintOrder: 'stroke fill',
     WebkitFontSmoothing: 'antialiased',
   };
 
