@@ -3,38 +3,20 @@ import { useDownloadState } from "./store/use-download-state";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CircleCheckIcon, XIcon } from "lucide-react";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
-import { download } from "@/utils/download";
-import { useEffect } from "react";
 
 const DownloadProgressModal = () => {
 	const { progress, displayProgressModal, output, actions, projectId, exportError } =
 		useDownloadState();
 	const isCompleted = progress === 100;
 
-	// Log the Remotion URL when export completes
-	useEffect(() => {
-		if (isCompleted && output?.url) {
-			console.log("✅ Video available at Remotion URL:", output.url);
-			// The video is directly accessible via the Remotion server URL
-			// No need to store it elsewhere as it's already publicly accessible
-		}
-	}, [isCompleted, output?.url]);
-
-	const handleDownload = async () => {
-		// Always use the Remotion server URL for immediate download
-		// The stored URL is for persistence, but Remotion URL works better for direct downloads
+	const handleDownload = () => {
+		// URL is a Supabase public URL — opens instantly, no proxy needed
 		const downloadUrl = output?.url;
 		if (downloadUrl) {
-			// Generate a meaningful filename with timestamp
-			const now = new Date();
-			const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-			const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-			const filename = `video-${dateStr}-${timeStr}`;
-			
-			await download(downloadUrl, filename);
-			console.log("downloading from Remotion server:", filename, downloadUrl);
+			window.open(downloadUrl, '_blank');
 		}
 	};
+
 	return (
 		<Dialog
 			open={displayProgressModal}
@@ -46,12 +28,11 @@ const DownloadProgressModal = () => {
 				<XIcon
 					onClick={() => {
 						actions.setDisplayProgressModal(false);
-						// Note: We keep the activeRenderVideoId so user can reopen the modal
 					}}
 					className="absolute right-4 top-5 h-5 w-5 text-zinc-400 hover:cursor-pointer hover:text-zinc-500"
 				/>
 				<div className="flex h-16 items-center border-b px-4 font-medium">
-					Download
+					Export
 				</div>
 				{exportError ? (
 					<div className="flex flex-1 flex-col items-center justify-center gap-2 space-y-4">
@@ -79,7 +60,7 @@ const DownloadProgressModal = () => {
 							</div>
 							<div className="font-bold">Exported</div>
 							<div className="text-muted-foreground">
-								You can download the video to your device.
+								Your video is ready. You can also find it in your history.
 							</div>
 						</div>
 						<Button onClick={handleDownload}>Download</Button>
@@ -92,7 +73,7 @@ const DownloadProgressModal = () => {
 						<div className="font-bold">Exporting...</div>
 						<div className="text-center text-zinc-500">
 							<div>Closing the browser will not cancel the export.</div>
-							<div>The video will be saved in your space.</div>
+							<div>The video will be saved in your history.</div>
 						</div>
 						<Button
 							variant={"outline"}

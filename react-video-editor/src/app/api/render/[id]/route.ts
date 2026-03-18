@@ -47,47 +47,48 @@ export async function GET(
 			return `/api/download?url=${encodeURIComponent(internalUrl)}&filename=${encodeURIComponent(id)}`;
 		};
 
-		// When render is completed, give user the download URL immediately
-		// and upload to Supabase in the background (don't block the response)
+		// When render is completed, upload to Supabase and return the Supabase URL
+		// The progress stays at 99% during upload, but the Download button works instantly
 		if (statusData.status === 'completed' && videoUrl) {
 			const { searchParams } = new URL(request.url);
 			const scriptVideoId = searchParams.get('videoId');
 			const userId = searchParams.get('userId');
 			const apiUrl = searchParams.get('apiUrl') || process.env.NEXT_PUBLIC_MAIN_APP_URL;
 
-			// Return proxy URL immediately so download works right away
-			const downloadUrl = buildProxyUrl(videoUrl);
-
-			// Fire-and-forget: upload to Supabase in background
 			if (scriptVideoId && userId && apiUrl) {
 				const internalVideoUrl = buildInternalUrl(videoUrl);
-				console.log(`📤 Background: Storing video to Supabase via ${internalVideoUrl}`);
+				console.log(`📤 Uploading video to Supabase: ${internalVideoUrl}`);
 
-				fetch(`${apiUrl}/api/script-video/store-export`, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'x-api-key': process.env.INTERNAL_API_KEY || '',
-					},
-					body: JSON.stringify({
-						video_url: internalVideoUrl,
-						video_id: scriptVideoId,
-						user_id: userId,
-						batch_id: id,
-					}),
-				}).then(async (res) => {
-					if (res.ok) {
-						const result = await res.json();
-						console.log(`✅ Background: Video stored to Supabase: ${result.video_url}`);
+				try {
+					const storeResponse = await fetch(`${apiUrl}/api/script-video/store-export`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'x-api-key': process.env.INTERNAL_API_KEY || '',
+						},
+						body: JSON.stringify({
+							video_url: internalVideoUrl,
+							video_id: scriptVideoId,
+							user_id: userId,
+							batch_id: id,
+						}),
+					});
+
+					if (storeResponse.ok) {
+						const storeResult = await storeResponse.json();
+						videoUrl = storeResult.video_url; // Supabase public URL — instant download
+						console.log(`✅ Video stored to Supabase: ${videoUrl}`);
 					} else {
-						console.error(`❌ Background: Store-export failed: ${res.status}`);
+						console.error(`❌ Store-export failed: ${storeResponse.status}`);
+						videoUrl = buildProxyUrl(videoUrl);
 					}
-				}).catch((e) => {
-					console.error('❌ Background: Failed to store to Supabase:', e);
-				});
+				} catch (e) {
+					console.error('❌ Failed to store to Supabase:', e);
+					videoUrl = buildProxyUrl(videoUrl);
+				}
+			} else {
+				videoUrl = buildProxyUrl(videoUrl);
 			}
-
-			videoUrl = downloadUrl;
 		} else if (videoUrl && videoUrl.startsWith('/')) {
 			videoUrl = buildProxyUrl(videoUrl);
 		}
