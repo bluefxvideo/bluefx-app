@@ -197,17 +197,18 @@ const CaptionRenderer = ({ caption, frame, fps }) => {
 const WordHighlightText = ({ segment, style, currentTimeMs }) => {
   const fontSize = style.fontSize || 80;
 
-  // Container: positioned at bottom center with dark pill background
+  // Container: use style position from editor, fallback to bottom center
   const containerStyle = {
     position: 'absolute',
-    bottom: '10%',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    maxWidth: '90%',
-    textAlign: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    padding: `${fontSize * 0.2}px ${fontSize * 0.5}px`,
-    borderRadius: `${fontSize * 0.2}px`,
+    top: style.top || '75%',
+    left: style.left || '50%',
+    transform: 'translate(-50%, -50%)',
+    width: style.width || '80%',
+    maxWidth: '95%',
+    textAlign: style.textAlign || 'center',
+    backgroundColor: style.backgroundColor || 'rgba(0, 0, 0, 0.75)',
+    padding: `${fontSize * 0.25}px ${fontSize * 0.55}px`,
+    borderRadius: `${fontSize * 0.25}px`,
     display: 'inline-block',
   };
 
