@@ -113,6 +113,7 @@ export function addCaptionTrackToEditor(captionTrack: ICaptionTrackItem) {
       color: captionTrack.details?.color || "#FFFFFF", // White for unspoken
       activeColor: captionTrack.details?.activeColor || "#FFEB3B", // Bright yellow highlight
       appearedColor: captionTrack.details?.appearedColor || "#FFFFFF", // White for spoken
+      backgroundColor: captionTrack.details?.backgroundColor || "rgba(0, 0, 0, 0.75)",
       textAlign: captionTrack.details?.textAlign || "center",
       
       // Position captions towards bottom center

@@ -76,7 +76,7 @@ function CaptionText({ item, options }: { item: IText; options: SequenceItemOpti
 		>
 			<div
 				style={{
-					backgroundColor: "rgba(0, 0, 0, 0.75)",
+					backgroundColor: details.backgroundColor || "rgba(0, 0, 0, 0.75)",
 					padding: `${fontSize * 0.25}px ${fontSize * 0.55}px`,
 					borderRadius: `${fontSize * 0.25}px`,
 					lineHeight: "1.3",

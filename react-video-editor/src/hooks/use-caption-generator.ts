@@ -248,6 +248,7 @@ export function captionsToTrackItems(
       color: '#FFFFFF', // Default/upcoming words (white)
       activeColor: '#FACC15', // Warm yellow highlight for speaking
       appearedColor: '#FFFFFF', // Already spoken (white)
+      backgroundColor: 'rgba(0, 0, 0, 0.75)', // Dark pill behind caption text
       textAlign: 'center',
       isCaptionTrack: true,
       

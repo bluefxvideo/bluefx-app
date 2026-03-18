@@ -358,7 +358,7 @@ export class EditorToRemotionConverter {
             color: item.details.color || '#FFFFFF',
             activeColor: (item.details as any).activeColor || '#FACC15',
             appearedColor: (item.details as any).appearedColor || '#FFFFFF',
-            backgroundColor: 'rgba(0, 0, 0, 0.75)', // Always dark pill for captions (editor hardcodes this)
+            backgroundColor: item.details.backgroundColor || 'rgba(0, 0, 0, 0.75)',
             width: item.details.width || '80%',
           }
         };
