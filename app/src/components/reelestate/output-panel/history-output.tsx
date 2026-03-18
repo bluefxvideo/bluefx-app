@@ -3,8 +3,46 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Loader2, Video, Calendar, ImageIcon, Download, Trash2 } from 'lucide-react';
+import { RefreshCw, Loader2, Video, Calendar, ImageIcon, Download, Trash2, Play } from 'lucide-react';
 import type { ReelEstateListingRow, AgentCloneGenerationRow } from '@/types/reelestate';
+
+// Lazy video player — shows thumbnail + play button, loads <video> only on click
+function VideoPreview({ videoUrl, thumbnailUrl }: { videoUrl: string; thumbnailUrl?: string }) {
+  const [playing, setPlaying] = useState(false);
+
+  if (playing) {
+    return (
+      <div className="rounded overflow-hidden bg-black">
+        <video
+          src={videoUrl}
+          controls
+          autoPlay
+          className="w-full max-h-48 object-contain"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative rounded overflow-hidden bg-black cursor-pointer group"
+      onClick={() => setPlaying(true)}
+    >
+      {thumbnailUrl ? (
+        <img src={thumbnailUrl} alt="" className="w-full h-32 object-cover opacity-80" />
+      ) : (
+        <div className="w-full h-32 flex items-center justify-center">
+          <Video className="w-8 h-8 text-muted-foreground" />
+        </div>
+      )}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center group-hover:bg-black/80 transition-colors">
+          <Play className="w-5 h-5 text-white ml-0.5" fill="white" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type HistoryFilter = 'all' | 'video-maker' | 'agent-clone';
 
@@ -110,16 +148,12 @@ export function HistoryOutput({
                 key={item.data.id}
                 className="w-full text-left p-4 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all space-y-3"
               >
-                {/* Video preview if available */}
+                {/* Video preview — show photo thumbnail with play button, load video on click */}
                 {item.data.final_video_url && (
-                  <div className="rounded overflow-hidden bg-black">
-                    <video
-                      src={item.data.final_video_url}
-                      controls
-                      className="w-full max-h-48 object-contain"
-                      preload="metadata"
-                    />
-                  </div>
+                  <VideoPreview
+                    videoUrl={item.data.final_video_url}
+                    thumbnailUrl={item.data.photo_urls?.[0]}
+                  />
                 )}
 
                 <button
