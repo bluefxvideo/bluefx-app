@@ -3,41 +3,40 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Loader2, Video, Calendar, ImageIcon, Download, Trash2, Play } from 'lucide-react';
+import { RefreshCw, Loader2, Video, Calendar, ImageIcon, Download, Trash2, Play, ExternalLink } from 'lucide-react';
 import type { ReelEstateListingRow, AgentCloneGenerationRow } from '@/types/reelestate';
 
-// Lazy video player — shows thumbnail + play button, loads <video> only on click
-function VideoPreview({ videoUrl, thumbnailUrl }: { videoUrl: string; thumbnailUrl?: string }) {
+// Lazy video — only loads <video> when user clicks play
+function VideoPreview({ videoUrl, thumbnailUrl, className = '' }: {
+  videoUrl: string;
+  thumbnailUrl?: string;
+  className?: string;
+}) {
   const [playing, setPlaying] = useState(false);
 
   if (playing) {
     return (
-      <div className="rounded overflow-hidden bg-black">
-        <video
-          src={videoUrl}
-          controls
-          autoPlay
-          className="w-full max-h-48 object-contain"
-        />
+      <div className={`rounded-lg overflow-hidden bg-black ${className}`}>
+        <video src={videoUrl} controls autoPlay className="w-full h-full object-contain" />
       </div>
     );
   }
 
   return (
     <div
-      className="relative rounded overflow-hidden bg-black cursor-pointer group"
-      onClick={() => setPlaying(true)}
+      className={`relative rounded-lg overflow-hidden bg-black/80 cursor-pointer group ${className}`}
+      onClick={(e) => { e.stopPropagation(); setPlaying(true); }}
     >
       {thumbnailUrl ? (
-        <img src={thumbnailUrl} alt="" className="w-full h-32 object-cover opacity-80" />
+        <img src={thumbnailUrl} alt="" className="w-full h-full object-cover opacity-70" />
       ) : (
-        <div className="w-full h-32 flex items-center justify-center">
-          <Video className="w-8 h-8 text-muted-foreground" />
+        <div className="w-full h-full flex items-center justify-center">
+          <Video className="w-6 h-6 text-muted-foreground" />
         </div>
       )}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center group-hover:bg-black/80 transition-colors">
-          <Play className="w-5 h-5 text-white ml-0.5" fill="white" />
+        <div className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+          <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
         </div>
       </div>
     </div>
@@ -88,14 +87,12 @@ export function HistoryOutput({
 
   const items = useMemo(() => {
     const result: HistoryItem[] = [];
-
     if (filter !== 'agent-clone') {
       listings.forEach(l => result.push({ type: 'listing', data: l, date: l.created_at }));
     }
     if (filter !== 'video-maker') {
       agentCloneGenerations.forEach(g => result.push({ type: 'agent-clone', data: g, date: g.created_at }));
     }
-
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [listings, agentCloneGenerations, filter]);
 
@@ -116,7 +113,6 @@ export function HistoryOutput({
         </Button>
       </div>
 
-      {/* Type filter */}
       <div className="flex gap-1.5">
         {([
           { value: 'all' as const, label: 'All' },
@@ -141,184 +137,149 @@ export function HistoryOutput({
           <p className="text-sm text-muted-foreground">No projects yet</p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {items.map((item) =>
-            item.type === 'listing' ? (
-              <div
-                key={item.data.id}
-                className="w-full text-left p-4 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all space-y-3"
-              >
-                {/* Video preview — show photo thumbnail with play button, load video on click */}
-                {item.data.final_video_url && (
-                  <VideoPreview
-                    videoUrl={item.data.final_video_url}
-                    thumbnailUrl={item.data.photo_urls?.[0]}
-                  />
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => onLoadProject(item.data)}
-                  className="w-full text-left"
-                >
-                  <div className="flex items-start gap-3">
-                    {!item.data.final_video_url && item.data.photo_urls?.[0] ? (
-                      <div className="shrink-0 w-16 h-12 rounded overflow-hidden">
-                        <img
-                          src={item.data.photo_urls[0]}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : !item.data.final_video_url ? (
-                      <div className="shrink-0 w-16 h-12 rounded bg-muted flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                    ) : null}
-
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {item.data.listing_data?.address || item.data.zillow_url || 'Manual Upload'}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[item.data.status] || ''}`}
-                        >
-                          {item.data.status.replace(/_/g, ' ')}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(item.data.created_at).toLocaleDateString()}
-                        </span>
-                        {item.data.photo_urls?.length > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            {item.data.photo_urls.length} photos
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Download button */}
-                {item.data.final_video_url && (
-                  <div className="flex justify-end">
-                    <a
-                      href={item.data.final_video_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Download className="w-3 h-3" />
-                      Download
-                    </a>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div
-                key={item.data.id}
-                className="w-full text-left p-4 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all space-y-3"
-              >
-                {/* Media preview — video player or composite image */}
-                {item.data.video_url ? (
-                  <div className="rounded-lg overflow-hidden border border-border/30">
-                    <video
-                      src={item.data.video_url}
-                      controls
-                      className="w-full aspect-video object-cover"
-                      preload="metadata"
-                    />
-                  </div>
-                ) : item.data.composite_url ? (
-                  <div className="rounded-lg overflow-hidden border border-border/30">
-                    <img
-                      src={item.data.composite_url}
-                      alt=""
-                      className="w-full aspect-video object-cover"
-                    />
-                  </div>
-                ) : null}
-
-                {/* Info row */}
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      {item.data.prompt.slice(0, 60)}{item.data.prompt.length > 60 ? '...' : ''}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 h-4 bg-purple-500/20 text-purple-400"
-                      >
-                        Agent Clone
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[item.data.status] || ''}`}
-                      >
-                        {item.data.status.replace(/_/g, ' ')}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(item.data.created_at).toLocaleDateString()}
-                      </span>
-                      {item.data.credits_used > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {item.data.credits_used} credits
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {item.data.composite_url && (
-                      <a
-                        href={item.data.composite_url}
-                        download="agent-clone-composite.jpg"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Download image"
-                      >
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                          <ImageIcon className="w-3.5 h-3.5" />
-                        </Button>
-                      </a>
-                    )}
-                    {item.data.video_url && (
-                      <a
-                        href={item.data.video_url}
-                        download="agent-clone-video.mp4"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Download video"
-                      >
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                          <Download className="w-3.5 h-3.5" />
-                        </Button>
-                      </a>
-                    )}
-                    {onDeleteGeneration && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                        onClick={() => onDeleteGeneration(item.data.id)}
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ),
-          )}
+        <div className="grid gap-2">
+          {items.map((item) => (
+            <HistoryRow
+              key={item.data.id}
+              item={item}
+              onLoadProject={onLoadProject}
+              onDeleteGeneration={onDeleteGeneration}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Compact row for each history item
+function HistoryRow({ item, onLoadProject, onDeleteGeneration }: {
+  item: HistoryItem;
+  onLoadProject: (listing: ReelEstateListingRow) => void;
+  onDeleteGeneration?: (id: string) => void;
+}) {
+  if (item.type === 'listing') {
+    const d = item.data;
+    const hasVideo = !!d.final_video_url;
+    const thumbnail = d.photo_urls?.[0];
+
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all">
+        {/* Thumbnail or video preview */}
+        <div className="shrink-0 w-20 h-14 rounded overflow-hidden">
+          {hasVideo ? (
+            <VideoPreview videoUrl={d.final_video_url!} thumbnailUrl={thumbnail} className="w-20 h-14" />
+          ) : thumbnail ? (
+            <img src={thumbnail} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <ImageIcon className="w-5 h-5 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <button
+          type="button"
+          onClick={() => onLoadProject(d)}
+          className="flex-1 min-w-0 text-left"
+        >
+          <p className="font-medium text-sm truncate">
+            {d.listing_data?.address || d.zillow_url || 'Manual Upload'}
+          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[d.status] || ''}`}>
+              {d.status.replace(/_/g, ' ')}
+            </Badge>
+            <span className="text-[11px] text-muted-foreground">
+              {new Date(d.created_at).toLocaleDateString()}
+            </span>
+          </div>
+        </button>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          {hasVideo && (
+            <a href={d.final_video_url!} target="_blank" rel="noopener noreferrer" title="Download video">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <Download className="w-3.5 h-3.5" />
+              </Button>
+            </a>
+          )}
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onLoadProject(d)} title="Open in editor">
+            <ExternalLink className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Agent Clone item
+  const d = item.data;
+  const hasVideo = !!d.video_url;
+  const thumbnail = d.composite_url;
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all">
+      {/* Thumbnail or video preview */}
+      <div className="shrink-0 w-20 h-14 rounded overflow-hidden">
+        {hasVideo ? (
+          <VideoPreview videoUrl={d.video_url!} thumbnailUrl={thumbnail || undefined} className="w-20 h-14" />
+        ) : thumbnail ? (
+          <img src={thumbnail} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-muted flex items-center justify-center">
+            <Video className="w-5 h-5 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm truncate">
+          {d.prompt.slice(0, 50)}{d.prompt.length > 50 ? '...' : ''}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-purple-500/20 text-purple-400">
+            Agent Clone
+          </Badge>
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[d.status] || ''}`}>
+            {d.status.replace(/_/g, ' ')}
+          </Badge>
+          <span className="text-[11px] text-muted-foreground">
+            {new Date(d.created_at).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 shrink-0">
+        {d.composite_url && (
+          <a href={d.composite_url} target="_blank" rel="noopener noreferrer" title="Download image">
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <ImageIcon className="w-3.5 h-3.5" />
+            </Button>
+          </a>
+        )}
+        {hasVideo && (
+          <a href={d.video_url!} target="_blank" rel="noopener noreferrer" title="Download video">
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <Download className="w-3.5 h-3.5" />
+            </Button>
+          </a>
+        )}
+        {onDeleteGeneration && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            onClick={() => onDeleteGeneration(d.id)}
+            title="Delete"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
