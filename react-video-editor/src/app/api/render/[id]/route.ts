@@ -53,14 +53,15 @@ export async function GET(
 			const { searchParams } = new URL(request.url);
 			const scriptVideoId = searchParams.get('videoId');
 			const userId = searchParams.get('userId');
-			const apiUrl = searchParams.get('apiUrl') || process.env.NEXT_PUBLIC_MAIN_APP_URL;
+			// Prefer Docker internal URL for server-to-server calls (avoids DNS/SSL issues)
+			const mainAppUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || searchParams.get('apiUrl');
 
-			if (scriptVideoId && userId && apiUrl) {
+			if (scriptVideoId && userId && mainAppUrl) {
 				const internalVideoUrl = buildInternalUrl(videoUrl);
-				console.log(`📤 Uploading video to Supabase: ${internalVideoUrl}`);
+				console.log(`📤 Uploading video to Supabase via ${mainAppUrl}: ${internalVideoUrl}`);
 
 				try {
-					const storeResponse = await fetch(`${apiUrl}/api/script-video/store-export`, {
+					const storeResponse = await fetch(`${mainAppUrl}/api/script-video/store-export`, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
@@ -79,7 +80,8 @@ export async function GET(
 						videoUrl = storeResult.video_url; // Supabase public URL — instant download
 						console.log(`✅ Video stored to Supabase: ${videoUrl}`);
 					} else {
-						console.error(`❌ Store-export failed: ${storeResponse.status}`);
+						const errorBody = await storeResponse.text().catch(() => 'no body');
+						console.error(`❌ Store-export failed: ${storeResponse.status} - ${errorBody}`);
 						videoUrl = buildProxyUrl(videoUrl);
 					}
 				} catch (e) {
@@ -87,6 +89,7 @@ export async function GET(
 					videoUrl = buildProxyUrl(videoUrl);
 				}
 			} else {
+				console.warn(`⚠️ Missing params for store-export: videoId=${scriptVideoId}, userId=${userId}, mainAppUrl=${mainAppUrl}`);
 				videoUrl = buildProxyUrl(videoUrl);
 			}
 		} else if (videoUrl && videoUrl.startsWith('/')) {
