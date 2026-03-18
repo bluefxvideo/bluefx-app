@@ -392,8 +392,9 @@ app.post("/render", async (req, res) => {
       inputProps = {},
       codec = "h264",
       quality = 80,
-      userId = null, // Add userId from request
-      async = false, // Add async mode support
+      userId = null,
+      listingId = null,
+      async = false,
     } = req.body;
 
     console.log("\n🎬 ===== RENDER REQUEST STARTED =====");
@@ -492,6 +493,7 @@ app.post("/render", async (req, res) => {
         quality,
         filename,
         userId,
+        listingId,
         renderStartTime
       );
       
@@ -1040,6 +1042,7 @@ async function performBackgroundRender(
   quality,
   filename,
   userId,
+  listingId,
   renderStartTime
 ) {
   let tempDir = null;
@@ -1171,7 +1174,82 @@ async function performBackgroundRender(
     }
 
     const fileStats = fs.statSync(outputLocation);
-    const downloadUrl = `/output/${filename}`;
+    let downloadUrl = `/output/${filename}`;
+
+    // Upload to Supabase directly (no middleman)
+    if (userId && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        console.log(`📤 Uploading ${(fileStats.size / 1024 / 1024).toFixed(1)}MB to Supabase...`);
+
+        setRenderProgress(filename, {
+          status: "uploading",
+          progress: 0.95,
+          renderedFrames: composition.durationInFrames,
+          totalFrames: composition.durationInFrames,
+          stage: "uploading to cloud",
+          fps: 0,
+          startTime: renderStartTime2,
+          elapsedTime: Date.now() - renderStartTime2,
+        }, userId);
+
+        const videoBuffer = fs.readFileSync(outputLocation);
+        const storagePath = `${userId}/exports/${listingId || filename}_${Date.now()}.mp4`;
+
+        // Upload to Supabase storage
+        const uploadRes = await fetch(
+          `${process.env.SUPABASE_URL}/storage/v1/object/script-videos/${storagePath}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "video/mp4",
+              "x-upsert": "true",
+            },
+            body: videoBuffer,
+          }
+        );
+
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text();
+          console.error(`❌ Supabase upload failed: ${uploadRes.status} - ${errText}`);
+        } else {
+          const supabaseUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/script-videos/${storagePath}`;
+          downloadUrl = supabaseUrl;
+          console.log(`✅ Uploaded to Supabase: ${supabaseUrl}`);
+
+          // Update reelestate_listings with the video URL
+          if (listingId) {
+            const dbRes = await fetch(
+              `${process.env.SUPABASE_URL}/rest/v1/reelestate_listings?id=eq.${listingId}&user_id=eq.${userId}`,
+              {
+                method: "PATCH",
+                headers: {
+                  apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+                  Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                  "Content-Type": "application/json",
+                  Prefer: "return=minimal",
+                },
+                body: JSON.stringify({
+                  final_video_url: supabaseUrl,
+                  status: "completed",
+                  updated_at: new Date().toISOString(),
+                }),
+              }
+            );
+
+            if (dbRes.ok) {
+              console.log(`✅ Updated reelestate_listings.final_video_url for ${listingId}`);
+            } else {
+              const dbErr = await dbRes.text();
+              console.error(`❌ DB update failed: ${dbRes.status} - ${dbErr}`);
+            }
+          }
+        }
+      } catch (uploadErr) {
+        console.error(`❌ Supabase upload error:`, uploadErr);
+        // Non-fatal — downloadUrl stays as /output/filename (proxy fallback)
+      }
+    }
 
     // Mark render as completed
     setRenderProgress(
@@ -1185,7 +1263,7 @@ async function performBackgroundRender(
         stage: "completed",
         fps: 0,
         startTime: renderStartTime2,
-        elapsedTime: totalRenderTime,
+        elapsedTime: Date.now() - renderStartTime2,
         fileSize: fileStats.size,
         downloadUrl: downloadUrl,
       },

@@ -60,6 +60,9 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 
 				if (!payload) throw new Error("Payload is not defined");
 
+				// Get URL params to pass through to Remotion for Supabase upload
+				const urlParams = new URLSearchParams(window.location.search);
+
 				// Step 1: POST request to start rendering
 				const response = await fetch(`/api/render`, {
 					method: "POST",
@@ -73,6 +76,9 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 							size: payload.size,
 							format: "mp4",
 						},
+						// Pass through for Supabase upload after render
+						userId: urlParams.get('userId'),
+						listingId: urlParams.get('listingId'),
 					}),
 				});
 

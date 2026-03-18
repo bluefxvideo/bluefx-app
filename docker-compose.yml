@@ -126,6 +126,8 @@ services:
       - REMOTION_CONCURRENCY=${REMOTION_CONCURRENCY:-2}
       - REMOTION_API_KEY=${REMOTION_API_KEY}
       - CORS_ORIGIN=${REMOTION_CORS_ORIGIN:-*}
+      - SUPABASE_URL=${APP_NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${APP_SUPABASE_SERVICE_ROLE_KEY}
     volumes:
       - remotion_output:/app/output
       - remotion_output_local:/app/output_local

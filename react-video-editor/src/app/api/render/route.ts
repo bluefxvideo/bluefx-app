@@ -7,7 +7,7 @@ export async function POST(request: Request) {
 		console.log('📦 Received render request:', body);
 		
 		// Extract design data from request
-		const { design, options } = body;
+		const { design, options, userId, listingId } = body;
 		if (!design) {
 			return NextResponse.json(
 				{ message: "Design data is required" },
@@ -37,7 +37,10 @@ export async function POST(request: Request) {
 			height: remotionData.composition.height,
 			fps: remotionData.composition.fps,
 			durationInFrames: remotionData.composition.durationInFrames,
-			async: true // Enable async rendering for progress tracking
+			async: true,
+			// Pass through for Supabase upload after render completes
+			userId: userId || null,
+			listingId: listingId || null,
 		};
 
 		// Call your Remotion server instead of combo.sh
