@@ -106,51 +106,83 @@ export function HistoryOutput({
         <div className="grid gap-3">
           {items.map((item) =>
             item.type === 'listing' ? (
-              <button
+              <div
                 key={item.data.id}
-                type="button"
-                onClick={() => onLoadProject(item.data)}
-                className="w-full text-left p-4 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all"
+                className="w-full text-left p-4 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all space-y-3"
               >
-                <div className="flex items-start gap-3">
-                  {item.data.photo_urls?.[0] ? (
-                    <div className="shrink-0 w-16 h-12 rounded overflow-hidden">
-                      <img
-                        src={item.data.photo_urls[0]}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="shrink-0 w-16 h-12 rounded bg-muted flex items-center justify-center">
-                      <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  )}
+                {/* Video preview if available */}
+                {item.data.final_video_url && (
+                  <div className="rounded overflow-hidden bg-black">
+                    <video
+                      src={item.data.final_video_url}
+                      controls
+                      className="w-full max-h-48 object-contain"
+                      preload="metadata"
+                    />
+                  </div>
+                )}
 
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      {item.data.listing_data?.address || item.data.zillow_url || 'Manual Upload'}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[item.data.status] || ''}`}
-                      >
-                        {item.data.status.replace(/_/g, ' ')}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(item.data.created_at).toLocaleDateString()}
-                      </span>
-                      {item.data.photo_urls?.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {item.data.photo_urls.length} photos
+                <button
+                  type="button"
+                  onClick={() => onLoadProject(item.data)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-start gap-3">
+                    {!item.data.final_video_url && item.data.photo_urls?.[0] ? (
+                      <div className="shrink-0 w-16 h-12 rounded overflow-hidden">
+                        <img
+                          src={item.data.photo_urls[0]}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : !item.data.final_video_url ? (
+                      <div className="shrink-0 w-16 h-12 rounded bg-muted flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    ) : null}
+
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {item.data.listing_data?.address || item.data.zillow_url || 'Manual Upload'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[item.data.status] || ''}`}
+                        >
+                          {item.data.status.replace(/_/g, ' ')}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(item.data.created_at).toLocaleDateString()}
                         </span>
-                      )}
+                        {item.data.photo_urls?.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {item.data.photo_urls.length} photos
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
+                </button>
+
+                {/* Download button */}
+                {item.data.final_video_url && (
+                  <div className="flex justify-end">
+                    <a
+                      href={item.data.final_video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Download className="w-3 h-3" />
+                      Download
+                    </a>
+                  </div>
+                )}
+              </div>
             ) : (
               <div
                 key={item.data.id}
