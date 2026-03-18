@@ -90,17 +90,16 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 				// Store the active render video ID
 				set({ activeRenderVideoId: videoId });
 
-				// Get URL params for store-export (passed to render API)
-				const urlParams = new URLSearchParams(window.location.search);
+				// URL params already parsed above (line 64)
 				const scriptVideoId = urlParams.get('videoId') || urlParams.get('listingId') || urlParams.get('storyboardId');
-				const userId = urlParams.get('userId');
+				const userIdParam = urlParams.get('userId');
 				const apiUrl = urlParams.get('apiUrl') || window.location.origin;
 
 				// Step 2 & 3: Polling for status updates
 				const checkStatus = async () => {
 					try {
 						// Include params so render API can call store-export with internal URL
-						const statusUrl = `/api/render/${videoId}?videoId=${scriptVideoId}&userId=${userId}&apiUrl=${encodeURIComponent(apiUrl)}`;
+						const statusUrl = `/api/render/${videoId}?videoId=${scriptVideoId}&userId=${userIdParam}&apiUrl=${encodeURIComponent(apiUrl)}`;
 						const statusResponse = await fetch(statusUrl, {
 							headers: {
 								"Content-Type": "application/json",
