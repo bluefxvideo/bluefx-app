@@ -61,6 +61,19 @@ interface Tool {
 // Tool categories with their navigation data
 const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
   {
+    id: "realestate",
+    name: "Real Estate",
+    tools: [
+      {
+        name: "ReelEstate",
+        route: "/dashboard/reelestate",
+        icon: Home,
+        gradient: "bg-primary",
+        description: "Listing videos and photo cleanup",
+      },
+    ],
+  },
+  {
     id: "video",
     name: "Video Tools",
     tools: [
@@ -98,19 +111,6 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         icon: ScanSearch,
         gradient: "bg-primary",
         description: "Analyze and break down videos",
-      },
-    ],
-  },
-  {
-    id: "realestate",
-    name: "Real Estate",
-    tools: [
-      {
-        name: "ReelEstate",
-        route: "/dashboard/reelestate",
-        icon: Home,
-        gradient: "bg-primary",
-        description: "Listing videos and photo cleanup",
       },
     ],
   },
