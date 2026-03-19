@@ -99,6 +99,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         gradient: "bg-primary",
         description: "Analyze and break down videos",
       },
+      {
+        name: "Reel Estate",
+        route: "/dashboard/reelestate",
+        icon: Home,
+        gradient: "bg-primary",
+        description: "AI real estate video tours",
+      },
     ],
   },
   {
