@@ -198,7 +198,7 @@ export const CLEANUP_PRESET_CONFIG: Record<CleanupPreset, {
   custom: {
     label: 'Custom Instructions',
     description: 'Describe what to change in your own words',
-    prompt: 'Edit this real estate photo according to the following instructions.',
+    prompt: '',
   },
 };
 

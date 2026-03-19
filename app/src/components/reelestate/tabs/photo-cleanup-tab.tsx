@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
 import { CLEANUP_PRESET_CONFIG, type CleanupPreset } from '@/types/reelestate';
+import { createClient } from '@/app/supabase/client';
+import { toast } from 'sonner';
 
 interface CleanupQueueItem {
   url: string;
@@ -38,23 +40,87 @@ export function PhotoCleanupTab({
   const [selectedPreset, setSelectedPreset] = useState<CleanupPreset>('remove_people');
   const [customPrompt, setCustomPrompt] = useState('');
   const [uploadedPhotos, setUploadedPhotos] = useState<{ url: string; filename: string }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalCost = queue.length * 2;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  // Upload a file to Supabase and return the public URL
+  const uploadToSupabase = async (file: File): Promise<string | null> => {
+    try {
+      const supabase = createClient();
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `photo-cleanup/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-    for (const file of Array.from(files)) {
-      if (file.type.startsWith('image/')) {
-        const url = URL.createObjectURL(file);
-        setUploadedPhotos(prev => [...prev, { url, filename: file.name }]);
+      const { error } = await supabase.storage
+        .from('images')
+        .upload(path, file, { contentType: file.type, upsert: false });
+
+      if (error) {
+        console.error('❌ Supabase upload failed:', error);
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path);
+      return publicUrl;
+    } catch (err) {
+      console.error('❌ Upload error:', err);
+      return null;
+    }
+  };
+
+  // Process files (from input or drag & drop)
+  const processFiles = useCallback(async (files: FileList | File[]) => {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    setIsUploading(true);
+    const uploaded: { url: string; filename: string }[] = [];
+
+    for (const file of imageFiles) {
+      const url = await uploadToSupabase(file);
+      if (url) {
+        uploaded.push({ url, filename: file.name });
+      } else {
+        toast.error(`Failed to upload ${file.name}`);
       }
     }
 
+    setUploadedPhotos(prev => [...prev, ...uploaded]);
+    setIsUploading(false);
+
+    if (uploaded.length > 0) {
+      toast.success(`${uploaded.length} photo${uploaded.length > 1 ? 's' : ''} uploaded`);
+    }
+  }, []);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) processFiles(e.target.files);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  // Drag & drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
+    }
+  }, [processFiles]);
 
   const addPhotosToQueue = () => {
     for (const photo of uploadedPhotos) {
@@ -69,7 +135,11 @@ export function PhotoCleanupTab({
   };
 
   const handleCleanup = () => {
-    onCleanup(queue.map(item => ({ url: item.url, preset: item.preset, customPrompt: item.customPrompt })));
+    onCleanup(queue.map(item => ({
+      url: item.url,
+      preset: item.preset,
+      customPrompt: item.customPrompt,
+    })));
   };
 
   return (
@@ -81,15 +151,31 @@ export function PhotoCleanupTab({
           title="Upload Photos"
           description="Upload property photos that need cleaning up"
         >
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isCleaning}
-            className="w-full h-20 border-dashed flex flex-col gap-1"
+          <div
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              isDragOver
+                ? 'border-primary bg-primary/10 scale-[1.02]'
+                : 'border-border/50 hover:border-muted-foreground/40 hover:bg-muted/30'
+            } ${isUploading || isCleaning ? 'opacity-50 pointer-events-none' : ''}`}
           >
-            <Upload className="w-5 h-5" />
-            <span className="text-sm">Click to upload photos</span>
-          </Button>
+            {isUploading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Uploading...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {isDragOver ? 'Drop photos here' : 'Click or drag & drop photos'}
+                </span>
+              </>
+            )}
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -109,10 +195,7 @@ export function PhotoCleanupTab({
                     variant="ghost"
                     size="icon"
                     className="absolute top-1 right-1 h-5 w-5 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => {
-                      URL.revokeObjectURL(photo.url);
-                      setUploadedPhotos(prev => prev.filter((_, idx) => idx !== i));
-                    }}
+                    onClick={() => setUploadedPhotos(prev => prev.filter((_, idx) => idx !== i))}
                   >
                     <X className="w-3 h-3" />
                   </Button>
