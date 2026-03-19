@@ -143,6 +143,22 @@ export async function deleteListing(
   }
 }
 
+// Delete saved editor composition for a listing (forces fresh load on next editor open)
+export async function deleteSavedComposition(listingId: string) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('video_editor_compositions')
+      .delete()
+      .eq('video_id', listingId);
+
+    if (error) console.error('❌ Failed to delete saved composition:', error);
+    else console.log('✅ Deleted saved composition for listing:', listingId);
+  } catch (error) {
+    console.error('❌ Error deleting saved composition:', error);
+  }
+}
+
 // ═══════════════════════════════════════════
 // Cleanups CRUD
 // ═══════════════════════════════════════════

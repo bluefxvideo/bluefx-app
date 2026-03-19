@@ -13,7 +13,7 @@ import {
 } from '@/actions/tools/reelestate/orchestrator';
 import { generateListingClip, pollClipStatus } from '@/actions/tools/reelestate/clip-generator';
 import { cleanupPhoto } from '@/actions/tools/reelestate/photo-cleanup';
-import { getUserListings, updateListing } from '@/actions/database/reelestate-database';
+import { getUserListings, updateListing, deleteSavedComposition } from '@/actions/database/reelestate-database';
 import { createClient } from '@/app/supabase/client';
 import type {
   ReelEstateProject,
@@ -435,6 +435,7 @@ export function useReelEstate() {
     updateProject({ aspectRatio: ratio });
     if (project.id) {
       updateListing(project.id, { aspect_ratio: ratio });
+      deleteSavedComposition(project.id); // Force fresh editor load with new aspect ratio
     }
   }, [updateProject, project.id]);
 

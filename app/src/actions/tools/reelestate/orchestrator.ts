@@ -3,7 +3,7 @@
 import { createClient } from '@/app/supabase/server';
 import { getUserCredits } from '@/actions/credit-management';
 import { deductCredits } from '@/actions/database/cinematographer-database';
-import { createListing, updateListing } from '@/actions/database/reelestate-database';
+import { createListing, updateListing, deleteSavedComposition } from '@/actions/database/reelestate-database';
 import { scrapeZillowListing } from './zillow-scraper';
 import { analyzeListingImages } from './image-interpreter';
 import { generateListingScript } from './script-generator';
@@ -326,6 +326,9 @@ export async function generateListingVoiceover(
       voiceover_duration_seconds: result.duration || null,
       status: 'script_ready',
     } as Record<string, unknown>);
+
+    // Invalidate saved editor composition — new voiceover means entire timeline is stale
+    await deleteSavedComposition(listingId);
 
     // Deduct credits
     await deductCredits(user.id, CREDITS.VOICEOVER, 'reelestate-voiceover', {
