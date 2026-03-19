@@ -99,12 +99,18 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         gradient: "bg-primary",
         description: "Analyze and break down videos",
       },
+    ],
+  },
+  {
+    id: "realestate",
+    name: "Real Estate",
+    tools: [
       {
-        name: "Reel Estate",
+        name: "ReelEstate",
         route: "/dashboard/reelestate",
         icon: Home,
         gradient: "bg-primary",
-        description: "AI real estate video tours",
+        description: "Listing videos and photo cleanup",
       },
     ],
   },
@@ -247,19 +253,6 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         icon: Briefcase,
         gradient: "bg-primary",
         description: "Upload your products for AI training",
-      },
-    ],
-  },
-  {
-    id: "realestate",
-    name: "Real Estate",
-    tools: [
-      {
-        name: "ReelEstate",
-        route: "/dashboard/reelestate",
-        icon: Home,
-        gradient: "bg-primary",
-        description: "Listing videos and photo cleanup",
       },
     ],
   },
