@@ -353,7 +353,41 @@ export async function GET(request: NextRequest) {
     errorResponse.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
     errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, ngrok-skip-browser-warning');
-    
+
     return errorResponse;
+  }
+}
+
+/**
+ * DELETE handler - remove a saved composition (used when voiceover/aspect ratio changes)
+ */
+export async function DELETE(request: NextRequest) {
+  const supabase = getSupabaseClient();
+  try {
+    const { user_id, video_id } = await request.json();
+
+    if (!video_id) {
+      return NextResponse.json({ success: false, error: 'video_id is required' }, { status: 400 });
+    }
+
+    let query = supabase.from('video_editor_compositions').delete().eq('video_id', video_id);
+    if (user_id) query = query.eq('user_id', user_id);
+
+    const { error } = await query;
+
+    if (error) {
+      console.error('❌ Failed to delete composition:', error);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    console.log('✅ Deleted saved composition for video_id:', video_id);
+    const response = NextResponse.json({ success: true });
+    response.headers.set('Access-Control-Allow-Origin', getAllowedOrigin(request));
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    return response;
+  } catch (error) {
+    console.error('❌ Delete composition error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
