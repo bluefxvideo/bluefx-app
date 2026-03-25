@@ -28,7 +28,7 @@ export function MotionPresetSelector({
     const presetId = parseInt(val, 10);
     const preset = getMotionPresetById(presetId);
     if (preset) {
-      // For "Custom" preset (id 15), don't overwrite the existing prompt
+      // Pass the preset's prompt to the parent
       onChange(presetId, preset.prompt);
     }
   };

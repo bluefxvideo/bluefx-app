@@ -396,6 +396,8 @@ export function useAICinematographer() {
       } else {
         setError(response.error);
       }
+
+      return response;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Storyboard generation failed';
       setError(errorMessage);
@@ -787,6 +789,7 @@ export function useAICinematographer() {
     dialogue?: string;
     duration: number;
     cameraStyle: 'none' | 'amateur' | 'stable' | 'cinematic';
+    camera_motion?: 'none' | 'dolly_in' | 'dolly_out' | 'dolly_left' | 'dolly_right' | 'jib_up' | 'jib_down' | 'static' | 'focus_shift';
     aspectRatio: string;
     model: 'fast' | 'pro';
     batchNumber?: number;

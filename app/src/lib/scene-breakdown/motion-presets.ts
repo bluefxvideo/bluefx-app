@@ -8,20 +8,14 @@ import type { FastCameraMotion } from '@/types/cinematographer';
 
 export const MOTION_PRESETS: MotionPreset[] = [
   { id: 1, name: 'Static', prompt: 'Camera remains completely static, no movement' },
-  { id: 2, name: 'Pan Left', prompt: 'Camera pans slowly from right to left' },
-  { id: 3, name: 'Pan Right', prompt: 'Camera pans slowly from left to right' },
-  { id: 4, name: 'Tilt Up', prompt: 'Camera tilts upward revealing more of the scene' },
-  { id: 5, name: 'Tilt Down', prompt: 'Camera tilts downward' },
-  { id: 6, name: 'Zoom In', prompt: 'Slow zoom in on the subject' },
-  { id: 7, name: 'Zoom Out', prompt: 'Slow zoom out revealing more context' },
-  { id: 8, name: 'Dolly In', prompt: 'Camera moves forward toward the subject' },
-  { id: 9, name: 'Dolly Out', prompt: 'Camera pulls back from the subject' },
-  { id: 10, name: 'Track Left', prompt: 'Camera tracks sideways to the left' },
-  { id: 11, name: 'Track Right', prompt: 'Camera tracks sideways to the right' },
-  { id: 12, name: 'Push In', prompt: 'Dynamic push in toward subject' },
-  { id: 13, name: 'Crane Up', prompt: 'Camera rises upward dramatically' },
-  { id: 14, name: 'Arc Shot', prompt: 'Camera arcs around the subject' },
-  { id: 15, name: 'Custom', prompt: '' },  // User enters custom motion
+  { id: 2, name: 'Dolly Left', prompt: 'Camera moves sideways to the left' },
+  { id: 3, name: 'Dolly Right', prompt: 'Camera moves sideways to the right' },
+  { id: 4, name: 'Jib Up', prompt: 'Camera tilts/cranes upward revealing more of the scene' },
+  { id: 5, name: 'Jib Down', prompt: 'Camera tilts/cranes downward' },
+  { id: 6, name: 'Dolly In', prompt: 'Camera moves forward toward the subject' },
+  { id: 7, name: 'Dolly Out', prompt: 'Camera pulls back from the subject' },
+  { id: 8, name: 'Focus Shift', prompt: 'Focus shifts between foreground and background' },
+  { id: 9, name: 'None', prompt: 'No specific camera motion, determined by prompt' },
 ];
 
 /**
@@ -41,13 +35,13 @@ export function getMotionPresetLabel(preset: MotionPreset): string {
 
 /**
  * Find the best matching preset for a given prompt text
- * Returns the preset ID or 15 (Custom) if no match found
+ * Returns the preset ID or 9 (None) if no match found
  */
 export function findMatchingPreset(promptText: string): number {
   const lowerPrompt = promptText.toLowerCase();
 
   for (const preset of MOTION_PRESETS) {
-    if (preset.id === 15) continue; // Skip custom
+    if (preset.id === 9) continue; // Skip "None"
 
     const keywords = preset.name.toLowerCase().split(' ');
     if (keywords.some(keyword => lowerPrompt.includes(keyword))) {
@@ -55,30 +49,23 @@ export function findMatchingPreset(promptText: string): number {
     }
   }
 
-  return 15; // Default to Custom
+  return 9; // Default to None
 }
 
 /**
  * Map a motion preset ID to LTX 2.3's native camera_motion parameter.
- * Presets without a native equivalent (Arc Shot, Custom) return 'none'
- * so the text prompt is used instead.
+ * Each preset maps 1:1 to a supported LTX camera_motion value.
  */
 const PRESET_TO_NATIVE: Record<number, FastCameraMotion> = {
   1: 'static',
-  2: 'dolly_left',   // Pan Left
-  3: 'dolly_right',  // Pan Right
-  4: 'jib_up',       // Tilt Up
-  5: 'jib_down',     // Tilt Down
-  6: 'dolly_in',     // Zoom In
-  7: 'dolly_out',    // Zoom Out
-  8: 'dolly_in',     // Dolly In
-  9: 'dolly_out',    // Dolly Out
-  10: 'dolly_left',  // Track Left
-  11: 'dolly_right', // Track Right
-  12: 'dolly_in',    // Push In
-  13: 'jib_up',      // Crane Up
-  14: 'none',        // Arc Shot — no native equivalent
-  15: 'none',        // Custom — keep text in prompt
+  2: 'dolly_left',
+  3: 'dolly_right',
+  4: 'jib_up',
+  5: 'jib_down',
+  6: 'dolly_in',
+  7: 'dolly_out',
+  8: 'focus_shift',
+  9: 'none',
 };
 
 export function motionPresetToNativeCameraMotion(

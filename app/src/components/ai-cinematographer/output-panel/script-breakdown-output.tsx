@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Loader2, Send, Palette, ChevronDown, ChevronUp, FileText, Layers, Save, FolderOpen, Trash2 } from 'lucide-react';
+import { Loader2, Send, Palette, ChevronDown, ChevronUp, FileText, Layers, Save, FolderOpen, Trash2, Zap, Rocket } from 'lucide-react';
 import { SceneCard } from '../components/scene-card';
 import type { BreakdownScene, SceneBreakdownResult } from '@/lib/scene-breakdown/types';
 import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-breakdown/types';
@@ -41,6 +41,12 @@ interface ScriptBreakdownOutputProps {
   onUpdateGlobalAesthetic: (prompt: string) => void;
   onLoadBreakdown: (breakdown: SavedBreakdown) => void;
   referenceImages?: { file: File; preview: string }[];
+  onGenerateAllStoryboards?: () => void;
+  isGeneratingAll?: boolean;
+  generateAllProgress?: { current: number; total: number };
+  onGenerateEverything?: () => void;
+  isGeneratingEverything?: boolean;
+  generateEverythingPhase?: 'storyboards' | 'videos';
 }
 
 export function ScriptBreakdownOutput({
@@ -51,6 +57,12 @@ export function ScriptBreakdownOutput({
   onUpdateGlobalAesthetic,
   onLoadBreakdown,
   referenceImages,
+  onGenerateAllStoryboards,
+  isGeneratingAll,
+  generateAllProgress,
+  onGenerateEverything,
+  isGeneratingEverything,
+  generateEverythingPhase,
 }: ScriptBreakdownOutputProps) {
   const [expandedBatches, setExpandedBatches] = useState<Set<number>>(new Set([0])); // First batch expanded by default
 
@@ -370,61 +382,122 @@ Maintain visual consistency across all frames.`;
         />
       </Card>
 
-      {/* Batches */}
+      {/* Generation Buttons */}
+      {(onGenerateAllStoryboards || onGenerateEverything) && (
+        <Card className="p-4 space-y-3">
+          {/* Generate Everything (Storyboards + Videos) */}
+          {onGenerateEverything && (
+            <Button
+              onClick={onGenerateEverything}
+              disabled={isGeneratingAll || isGeneratingEverything}
+              className="w-full h-12 bg-gradient-to-r from-primary to-primary/80"
+              size="lg"
+            >
+              {isGeneratingEverything ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {generateEverythingPhase === 'storyboards'
+                    ? `Step 1/2: Generating storyboard ${generateAllProgress?.current || 0} of ${generateAllProgress?.total || batches.length}...`
+                    : 'Step 2/2: Generating videos...'}
+                </>
+              ) : (
+                <>
+                  <Rocket className="w-4 h-4 mr-2" />
+                  Generate Everything ({batches.length} batches → images → videos)
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Generate Storyboards Only */}
+          {onGenerateAllStoryboards && (
+            <Button
+              onClick={onGenerateAllStoryboards}
+              disabled={isGeneratingAll || isGeneratingEverything}
+              variant="outline"
+              className="w-full h-10"
+              size="lg"
+            >
+              {isGeneratingAll && !isGeneratingEverything ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating storyboard {generateAllProgress?.current || 0} of {generateAllProgress?.total || batches.length}...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Storyboards Only ({batches.length} batches)
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Progress bar */}
+          {(isGeneratingAll || isGeneratingEverything) && generateAllProgress && generateAllProgress.total > 0 && (
+            <div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${(generateAllProgress.current / generateAllProgress.total) * 100}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5 text-center">
+                {generateAllProgress.current}/{generateAllProgress.total} batches completed
+                {' · '}~{(generateAllProgress.total - generateAllProgress.current) * 15}s remaining
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* All Scenes (flat list with batch dividers) */}
       {batches.map((batch, batchIndex) => {
         const isExpanded = expandedBatches.has(batchIndex);
         const startScene = batchIndex * 4 + 1;
         const endScene = startScene + batch.length - 1;
 
         return (
-          <Card key={batchIndex} className="overflow-hidden">
-            {/* Batch Header */}
-            <button
-              onClick={() => toggleBatch(batchIndex)}
-              className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Badge variant="default" className="font-mono">
-                  Batch {batchIndex + 1}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Scenes {startScene}-{endScene} ({batch.length} scenes)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSendToStoryboard(batch, batchIndex);
-                  }}
-                >
-                  <Send className="w-3 h-3 mr-1" />
-                  Send to Storyboard
-                </Button>
-                {isExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
-            </button>
+          <div key={batchIndex} className="space-y-3">
+            {/* Batch Divider Header */}
+            <div className="flex items-center gap-3 pt-2">
+              <Badge variant="default" className="font-mono shrink-0">
+                Batch {batchIndex + 1}
+              </Badge>
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground shrink-0">
+                Scenes {startScene}-{endScene}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs shrink-0"
+                onClick={() => toggleBatch(batchIndex)}
+              >
+                {isExpanded ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
+                {isExpanded ? 'Collapse' : 'Expand'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs shrink-0"
+                onClick={() => handleSendToStoryboard(batch, batchIndex)}
+                disabled={isGeneratingAll}
+              >
+                <Send className="w-3 h-3 mr-1" />
+                Send to Storyboard
+              </Button>
+            </div>
 
-            {/* Batch Content */}
-            {isExpanded && (
-              <div className="p-4 pt-0 space-y-3 border-t">
-                {batch.map((scene) => (
-                  <SceneCard
-                    key={scene.sceneNumber}
-                    scene={scene}
-                    onUpdate={(updates) => onUpdateScene(scene.sceneNumber, updates)}
-                    compact
-                  />
-                ))}
-              </div>
-            )}
-          </Card>
+            {/* Scene Cards */}
+            {isExpanded && batch.map((scene) => (
+              <SceneCard
+                key={scene.sceneNumber}
+                scene={scene}
+                onUpdate={(updates) => onUpdateScene(scene.sceneNumber, updates)}
+                compact
+              />
+            ))}
+          </div>
         );
       })}
 

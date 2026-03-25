@@ -37,6 +37,7 @@ import {
   ScanSearch,
   Share2,
   Flame,
+  Wand2,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -83,6 +84,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         icon: Video,
         gradient: "bg-primary",
         description: "Professional video creation",
+      },
+      {
+        name: "AI Recreate",
+        route: "/dashboard/ai-recreate",
+        icon: Wand2,
+        gradient: "bg-primary",
+        description: "Recreate videos with your product",
       },
       {
         name: "Script to Video",

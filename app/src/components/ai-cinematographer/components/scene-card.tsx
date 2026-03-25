@@ -22,13 +22,7 @@ export function SceneCard({
   compact = false,
 }: SceneCardProps) {
   const handleMotionPresetChange = (presetId: number, prompt: string) => {
-    // Only update the prompt if a non-custom preset is selected
-    if (presetId !== 15) {
-      onUpdate({ motionPresetId: presetId, motionPrompt: prompt });
-    } else {
-      // For custom, just update the preset ID, keep existing prompt
-      onUpdate({ motionPresetId: presetId });
-    }
+    onUpdate({ motionPresetId: presetId, motionPrompt: prompt });
   };
 
   return (
@@ -88,7 +82,7 @@ export function SceneCard({
         </div>
         <Textarea
           value={scene.motionPrompt}
-          onChange={(e) => onUpdate({ motionPrompt: e.target.value, motionPresetId: 15 })}
+          onChange={(e) => onUpdate({ motionPrompt: e.target.value, motionPresetId: 9 })}
           placeholder="Camera movement or action..."
           className="min-h-[60px] resize-y text-sm"
           disabled={disabled}

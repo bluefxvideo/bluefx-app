@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, FileVideo, Film, Link } from 'lucide-react';
+import { ScanSearch, Upload, Play, Loader2, Copy, Check, Clock, Trash2, History, FileVideo, Film, Link, ExternalLink } from 'lucide-react';
+// SendToAIPanel dialog removed — we now go directly to AI Recreate
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,7 @@ export function VideoAnalyzerPage() {
   const [copied, setCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
+  // showSendPanel removed — direct navigation
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const queryClient = useQueryClient();
@@ -268,17 +270,29 @@ export function VideoAnalyzerPage() {
   const loadAnalysis = (analysis: VideoAnalysis) => {
     setAnalysisResult(analysis.analysis_result);
     setShowHistory(false);
+    if (analysis.video_url) {
+      setVideoUrl(analysis.video_url);
+      setInputMode('url');
+    }
+    setShowHistory(false);
     toast.success('Analysis loaded');
   };
 
-  // Send analysis to AI Cinematographer
+  // Send analysis to AI Cinematographer (opens config dialog)
   const handleSendToCinematographer = () => {
     if (!analysisResult) return;
-
-    // Store analysis in localStorage for cross-tab sharing
+    const payload = {
+      analysisText: analysisResult,
+      customizationInstructions: '',
+      referenceImages: [],
+      aspectRatio: '9:16' as const,
+      productFidelityEnabled: false,
+      sourceVideoUrl: inputMode === 'url' ? videoUrl : undefined,
+    };
     const analysisId = `video-analysis-${Date.now()}`;
-    localStorage.setItem(analysisId, analysisResult);
-    window.open(`/dashboard/ai-cinematographer/script-breakdown?analysisId=${analysisId}`, '_blank');
+    localStorage.setItem(analysisId, JSON.stringify(payload));
+    window.open(`/dashboard/ai-recreate?analysisId=${analysisId}`, '_blank');
+    toast.success('Sent to AI Recreate');
   };
 
   const formatDuration = (seconds: number) => {
@@ -527,6 +541,19 @@ export function VideoAnalyzerPage() {
                             <p className="text-zinc-400 text-sm">
                               {new Date(analysis.created_at).toLocaleDateString()} • {analysis.credits_used} credits
                             </p>
+                            {analysis.video_url && (
+                              <a
+                                href={analysis.video_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary/70 hover:text-primary text-xs flex items-center gap-1 mt-0.5 truncate"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                                {analysis.video_url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 50)}
+                                {analysis.video_url.replace(/^https?:\/\/(www\.)?/, '').length > 50 ? '...' : ''}
+                              </a>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Button
@@ -573,7 +600,7 @@ export function VideoAnalyzerPage() {
                       </Button>
                       <Button size="sm" onClick={handleSendToCinematographer}>
                         <Film className="w-4 h-4 mr-1" />
-                        Send to AI Cinematographer
+                        Send to AI Recreate
                       </Button>
                     </div>
                   )}
@@ -610,6 +637,8 @@ export function VideoAnalyzerPage() {
       </div>
 
       <BuyCreditsDialog open={showBuyCredits} onOpenChange={setShowBuyCredits} />
+
+      {/* SendToAIPanel dialog removed — direct navigation to AI Recreate */}
     </StandardToolPage>
   );
 }

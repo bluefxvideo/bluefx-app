@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { containerStyles } from '@/lib/container-styles';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -23,6 +23,11 @@ import { StoryboardOutputV2 } from './output-panel/storyboard-output-v2';
 import { BatchAnimationQueue } from './batch-animation-queue';
 import { breakdownScript, type SavedBreakdown } from '@/actions/tools/scene-breakdown';
 import type { SceneBreakdownResult, BreakdownScene } from '@/lib/scene-breakdown/types';
+import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-breakdown/types';
+import { executeStoryboardGeneration } from '@/actions/tools/ai-cinematographer';
+import { cropGridToFrames } from '@/lib/utils/grid-cropper';
+import { processSingleFrame } from '@/actions/tools/grid-frame-extractor';
+import { toast } from 'sonner';
 
 /**
  * AI Cinematographer - Complete AI-Orchestrated Tool with Tabs
@@ -148,9 +153,57 @@ export function AICinematographerPage() {
   useEffect(() => {
     const analysisId = searchParams.get('analysisId');
     if (analysisId) {
-      const storedAnalysis = localStorage.getItem(analysisId);
-      if (storedAnalysis) {
-        setAnalysisTextForBreakdown(storedAnalysis);
+      const storedData = localStorage.getItem(analysisId);
+      if (storedData) {
+        // Try to parse as enriched JSON payload (new format)
+        // Falls back to plain string (old format) for backward compat
+        let analysisText = storedData;
+        try {
+          const payload = JSON.parse(storedData);
+          if (payload && typeof payload.analysisText === 'string') {
+            // New enriched format from SendToAIPanel
+            analysisText = payload.analysisText;
+
+            // Prepend customization instructions if provided
+            if (payload.customizationInstructions) {
+              analysisText = `--- CUSTOMIZATION INSTRUCTIONS ---\n${payload.customizationInstructions}\n--- END CUSTOMIZATION ---\n\n${analysisText}`;
+            }
+
+            // Append product fidelity instruction if enabled
+            if (payload.productFidelityEnabled && payload.referenceImages?.length > 0) {
+              analysisText += '\n\n--- PRODUCT IMAGE INSTRUCTIONS ---\nIMPORTANT: Use the uploaded reference image as the exact product appearance. Do NOT describe or change product colors, shape, or branding in the visual prompts — the reference image is the source of truth for how the product looks.\n--- END PRODUCT IMAGE INSTRUCTIONS ---';
+            }
+
+            // Pre-fill aspect ratio
+            if (payload.aspectRatio) {
+              setLastUsedAspectRatio(payload.aspectRatio);
+            }
+
+            // Deserialize and pre-fill reference images
+            if (payload.referenceImages?.length > 0) {
+              (async () => {
+                const images: { file: File; preview: string }[] = [];
+                for (const img of payload.referenceImages) {
+                  try {
+                    const res = await fetch(img.dataUrl);
+                    const blob = await res.blob();
+                    const file = new File([blob], img.name, { type: img.type });
+                    images.push({ file, preview: URL.createObjectURL(file) });
+                  } catch (e) {
+                    console.warn('Failed to deserialize reference image:', e);
+                  }
+                }
+                if (images.length > 0) {
+                  setBreakdownReferenceImages(images);
+                }
+              })();
+            }
+          }
+        } catch {
+          // Not JSON — use as plain text (backward compat)
+        }
+
+        setAnalysisTextForBreakdown(analysisText);
         localStorage.removeItem(analysisId); // Clean up after reading
         // Clear previous breakdown so the user sees a fresh Script Breakdown tab
         setBreakdownResult(null);
@@ -161,7 +214,7 @@ export function AICinematographerPage() {
       // Clean up URL params
       router.replace('/dashboard/ai-cinematographer/script-breakdown');
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, setLastUsedAspectRatio]);
 
   // Check for storyboard prompt in search params (from Video Analyzer "Send to Storyboard" button)
   // Supports both direct prompt param (short prompts) and promptId param (long prompts via sessionStorage)
@@ -359,6 +412,182 @@ export function AICinematographerPage() {
     }
   };
 
+  // ============ Generate All Storyboards ============
+  const [isGeneratingAllStoryboards, setIsGeneratingAllStoryboards] = useState(false);
+  const [generateAllProgress, setGenerateAllProgress] = useState({ current: 0, total: 0 });
+
+  const handleGenerateAllStoryboards = async () => {
+    if (!breakdownResult || !user?.id) return;
+
+    const batches = groupScenesIntoBatches(breakdownResult.scenes);
+    if (batches.length === 0) return;
+
+    setIsGeneratingAllStoryboards(true);
+    setGenerateAllProgress({ current: 0, total: batches.length });
+
+    // Upload reference images once (reuse URLs across all batches)
+    let referenceImageUrls: string[] = [];
+    if (breakdownReferenceImages.length > 0) {
+      const batchId = crypto.randomUUID();
+      for (const img of breakdownReferenceImages) {
+        try {
+          const formData = new FormData();
+          formData.append('file', img.file);
+          formData.append('type', 'reference');
+          formData.append('batchId', batchId);
+          const res = await fetch('/api/upload/cinematographer', { method: 'POST', body: formData });
+          const result = await res.json();
+          if (result.success && result.url) {
+            referenceImageUrls.push(result.url);
+          }
+        } catch (e) {
+          console.warn('Failed to upload reference image:', e);
+        }
+      }
+    }
+
+    const aspectRatio = (lastUsedAspectRatio === '9:16' || lastUsedAspectRatio === '16:9')
+      ? lastUsedAspectRatio as '16:9' | '9:16'
+      : '9:16';
+
+    let totalFramesAdded = 0;
+    let failedBatches = 0;
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+
+      // Build storyboard prompt (same logic as handleSendToStoryboard)
+      const combinedPrompt = `${breakdownResult.globalAestheticPrompt}
+
+Create a 2x2 cinematic storyboard grid (2 columns, 2 rows = 4 frames).
+CRITICAL: NO gaps, NO borders, NO black bars between frames. All frames must touch edge-to-edge.
+
+${batch.map((s, i) => `Frame ${i + 1}: ${s.visualPrompt}`).join('\n\n')}
+
+Maintain visual consistency across all frames.`;
+
+      try {
+        // Generate storyboard grid
+        const storyboardResponse = await executeStoryboardGeneration({
+          story_description: combinedPrompt,
+          visual_style: 'cinematic_realism',
+          aspect_ratio: aspectRatio,
+          reference_image_urls: referenceImageUrls.length > 0 ? referenceImageUrls : undefined,
+          user_id: user.id,
+        });
+
+        if (storyboardResponse.success && storyboardResponse.storyboard) {
+          // Extract frames using client-side canvas cropping (same as StoryboardOutputV2)
+          const gridImageUrl = storyboardResponse.storyboard.grid_image_url;
+          const projectId = storyboardResponse.storyboard.id;
+
+          // Client-side crop: 2x2 grid → 4 individual frames
+          const croppedFrames = await cropGridToFrames(gridImageUrl, { columns: 2, rows: 2 });
+
+          // Only process frames that match the batch size (last batch may have < 4 scenes)
+          const framesToProcess = croppedFrames.slice(0, batch.length);
+
+          // Upload each cropped frame to storage
+          const uploadedFrames: { frameNumber: number; imageUrl: string }[] = [];
+          for (const frame of framesToProcess) {
+            const result = await processSingleFrame(
+              projectId,
+              user.id,
+              frame,
+              false, // No upscaling needed (2x2 at 4K = Full HD per frame)
+              {
+                prompt: `[STORYBOARD FRAME ${frame.frameNumber}] Batch ${batchIndex + 1}`,
+                aspectRatio,
+                batchNumber: batchIndex + 1,
+              }
+            );
+
+            if (result.success && result.frame) {
+              uploadedFrames.push({
+                frameNumber: frame.frameNumber,
+                imageUrl: result.frame.originalUrl,
+              });
+            }
+          }
+
+          if (uploadedFrames.length > 0) {
+            // Convert scenes to analyzer shots for motion/dialogue data
+            const shots = scenesToAnalyzerShots(batch);
+
+            // Add frames to animation queue
+            const queueItems = uploadedFrames.map(frame => {
+              const shotData = shots[frame.frameNumber - 1];
+              const dialogueLength = shotData?.dialogue?.length || 0;
+              const estimatedDuration = dialogueLength > 0
+                ? Math.max(6, Math.ceil(dialogueLength / 15))
+                : 6;
+              // Clamp to valid durations
+              const validDurations = [6, 8, 10, 12, 14, 16, 18, 20];
+              const duration = validDurations.find(d => d >= estimatedDuration) || 6;
+
+              return {
+                frameNumber: frame.frameNumber,
+                imageUrl: frame.imageUrl,
+                prompt: shotData?.action || shotData?.description || '',
+                dialogue: shotData?.dialogue,
+                duration,
+                cameraStyle: 'stable' as const,
+                aspectRatio,
+                model: 'fast' as const,
+                batchNumber: batchIndex + 1,
+                sceneNumber: shotData?.shotNumber,
+              };
+            });
+
+            addToAnimationQueue(queueItems);
+            totalFramesAdded += queueItems.length;
+          }
+        } else {
+          failedBatches++;
+          console.error(`Batch ${batchIndex + 1} failed:`, storyboardResponse.error);
+        }
+      } catch (err) {
+        failedBatches++;
+        console.error(`Batch ${batchIndex + 1} error:`, err);
+      }
+
+      setGenerateAllProgress({ current: batchIndex + 1, total: batches.length });
+    }
+
+    setIsGeneratingAllStoryboards(false);
+    setGenerateAllProgress({ current: 0, total: 0 });
+
+    if (failedBatches === 0) {
+      toast.success(`All ${batches.length} storyboards generated! ${totalFramesAdded} frames ready in queue.`);
+    } else {
+      toast.warning(`${batches.length - failedBatches}/${batches.length} storyboards generated. ${totalFramesAdded} frames added. ${failedBatches} failed.`);
+    }
+
+    // Auto-scroll to queue
+    setTimeout(() => {
+      scriptBreakdownQueueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+  };
+
+  // ============ Generate Everything (Storyboards + Videos) ============
+  const scriptBreakdownQueueRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingEverything, setIsGeneratingEverything] = useState(false);
+  const [generateEverythingPhase, setGenerateEverythingPhase] = useState<'storyboards' | 'videos'>('storyboards');
+
+  const handleGenerateEverything = async () => {
+    setIsGeneratingEverything(true);
+    setGenerateEverythingPhase('storyboards');
+
+    // Phase 1: Generate all storyboards
+    await handleGenerateAllStoryboards();
+
+    // Phase 2: Auto-start video generation
+    setGenerateEverythingPhase('videos');
+    await processAnimationQueue();
+
+    setIsGeneratingEverything(false);
+  };
+
   return (
     <StandardToolPage
       icon={Video}
@@ -413,16 +642,42 @@ export function AICinematographerPage() {
             />
           </div>
 
-          {/* Right Panel - Breakdown Output */}
-          <ScriptBreakdownOutput
-            isProcessing={isProcessingBreakdown}
-            result={breakdownResult}
-            scriptText={breakdownScriptText}
-            onUpdateScene={handleUpdateScene}
-            onUpdateGlobalAesthetic={handleUpdateGlobalAesthetic}
-            onLoadBreakdown={handleLoadBreakdown}
-            referenceImages={breakdownReferenceImages}
-          />
+          {/* Right Panel - Breakdown Output + Animation Queue */}
+          <div className="h-full overflow-y-auto">
+            <ScriptBreakdownOutput
+              isProcessing={isProcessingBreakdown}
+              result={breakdownResult}
+              scriptText={breakdownScriptText}
+              onUpdateScene={handleUpdateScene}
+              onUpdateGlobalAesthetic={handleUpdateGlobalAesthetic}
+              onLoadBreakdown={handleLoadBreakdown}
+              referenceImages={breakdownReferenceImages}
+              onGenerateAllStoryboards={handleGenerateAllStoryboards}
+              isGeneratingAll={isGeneratingAllStoryboards || isGeneratingEverything}
+              generateAllProgress={generateAllProgress}
+              onGenerateEverything={handleGenerateEverything}
+              isGeneratingEverything={isGeneratingEverything}
+              generateEverythingPhase={generateEverythingPhase}
+            />
+
+            {/* Animation Queue - appears after storyboard generation */}
+            {animationQueue.length > 0 && (
+              <div ref={scriptBreakdownQueueRef} className="p-4">
+                <BatchAnimationQueue
+                  queue={animationQueue}
+                  isProcessing={isProcessingQueue}
+                  progress={queueProgress}
+                  onUpdateItem={updateQueueItem}
+                  onRemoveItem={removeFromQueue}
+                  onClearQueue={clearAnimationQueue}
+                  onProcessQueue={processAnimationQueue}
+                  onRetryItem={retryQueueItem}
+                  credits={credits}
+                  analyzerShots={analyzerShots}
+                />
+              </div>
+            )}
+          </div>
         </StandardToolLayout>
       ) : activeTab === 'storyboard' ? (
         // Storyboard tab - Two-panel layout

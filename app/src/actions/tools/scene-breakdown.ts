@@ -33,6 +33,8 @@ Given a script or narration text, break it down into individual scenes/shots.
 - NEVER use: "cuts to", "then cuts to", "transitions to", "montage", "sequence", "First... Second... Third...", "The shot then shows", "this quickly cuts", or any language implying multiple shots or a video sequence
 - Each visual beat gets its OWN scene — do NOT combine multiple actions into one visualPrompt
 - Think: "What would ONE frame of this scene look like as a still photograph?"
+- NEVER include on-screen text, captions, titles, subtitles, or text overlays in the visualPrompt. The image should be purely visual — no words rendered on it.
+- If the original video has on-screen text (e.g., "IS STRONGEST"), do NOT include that text in the visualPrompt. Describe only what is visually happening without any text elements.
 
 ## MOTION PRESETS (choose the best match):
 ${MOTION_PRESETS_REFERENCE}
@@ -393,6 +395,153 @@ export async function deleteBreakdown(id: string): Promise<{ success: boolean; e
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete breakdown',
+    };
+  }
+}
+
+// ============================================================================
+// AI-Powered Scene Refinement (bulk edit via chat)
+// ============================================================================
+
+interface RefineRequest {
+  currentScenes: BreakdownScene[];
+  globalAesthetic: string;
+  narrationScript: string;
+  userInstruction: string;
+}
+
+interface RefineResponse {
+  success: boolean;
+  result?: {
+    globalAestheticPrompt: string;
+    scenes: BreakdownScene[];
+  };
+  summary?: string;
+  error?: string;
+}
+
+const REFINE_SYSTEM_PROMPT = `You are a video production assistant. The user has an existing scene breakdown and wants to modify it based on their instructions.
+
+You will receive:
+1. The current scene breakdown (scenes with narration, visual prompts, motion prompts)
+2. The global aesthetic description
+3. The user's instruction for what to change
+
+Apply the user's instruction to ALL relevant scenes. Return the COMPLETE updated breakdown in the same JSON format.
+
+## MOTION PRESETS (choose the best match):
+${MOTION_PRESETS_REFERENCE}
+
+## OUTPUT FORMAT:
+Return valid JSON:
+{
+  "globalAestheticPrompt": "Updated or original global aesthetic",
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "duration": "5s",
+      "narration": "Updated narration text",
+      "visualPrompt": "Updated visual description",
+      "motionPrompt": "Updated motion/camera description",
+      "motionPresetId": 6
+    }
+  ],
+  "summary": "Brief description of what was changed (1-2 sentences)"
+}
+
+## RULES:
+- Apply the user's instruction broadly across all scenes where relevant
+- Keep scenes that don't need changes as-is
+- If the user asks to change the product, update ALL scenes that reference the product
+- If the user asks to change the language, update ALL narration text
+- Maintain the same number of scenes unless the user explicitly asks to add/remove
+- Keep visual prompts detailed and specific for AI image generation
+- The summary should clearly describe what was changed`;
+
+export async function refineBreakdownWithAI(request: RefineRequest): Promise<RefineResponse> {
+  console.log('🔄 Server Action: refineBreakdownWithAI called');
+
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const currentBreakdown = {
+      globalAestheticPrompt: request.globalAesthetic,
+      scenes: request.currentScenes,
+    };
+
+    const userPrompt = `## CURRENT BREAKDOWN:
+${JSON.stringify(currentBreakdown, null, 2)}
+
+## NARRATION SCRIPT:
+${request.narrationScript}
+
+## USER INSTRUCTION:
+${request.userInstruction}
+
+Apply the user's instruction to the breakdown. Return the complete updated breakdown as JSON.`;
+
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+      }
+    });
+
+    const result = await model.generateContent([
+      { text: REFINE_SYSTEM_PROMPT },
+      { text: userPrompt }
+    ]);
+
+    const response = await result.response;
+    const responseText = response.text();
+
+    if (!responseText) {
+      return { success: false, error: 'No response generated' };
+    }
+
+    let parsedResponse;
+    try {
+      let cleanJson = responseText.trim();
+      if (cleanJson.startsWith('```json')) cleanJson = cleanJson.slice(7);
+      if (cleanJson.startsWith('```')) cleanJson = cleanJson.slice(3);
+      if (cleanJson.endsWith('```')) cleanJson = cleanJson.slice(0, -3);
+      parsedResponse = JSON.parse(cleanJson.trim());
+    } catch {
+      return { success: false, error: 'Failed to parse AI response' };
+    }
+
+    if (!parsedResponse.globalAestheticPrompt || !Array.isArray(parsedResponse.scenes)) {
+      return { success: false, error: 'Invalid response structure' };
+    }
+
+    const validatedScenes: BreakdownScene[] = parsedResponse.scenes.map((scene: Partial<BreakdownScene>, index: number) => ({
+      sceneNumber: scene.sceneNumber ?? index + 1,
+      duration: scene.duration ?? '5s',
+      narration: scene.narration ?? '',
+      visualPrompt: scene.visualPrompt ?? '',
+      motionPrompt: scene.motionPrompt ?? '',
+      motionPresetId: scene.motionPresetId ?? 1,
+    }));
+
+    console.log(`✅ Refinement complete: ${validatedScenes.length} scenes updated`);
+
+    return {
+      success: true,
+      result: {
+        globalAestheticPrompt: parsedResponse.globalAestheticPrompt,
+        scenes: validatedScenes,
+      },
+      summary: parsedResponse.summary || `Updated ${validatedScenes.length} scenes.`,
+    };
+  } catch (error) {
+    console.error('💥 Refinement error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to refine breakdown',
     };
   }
 }

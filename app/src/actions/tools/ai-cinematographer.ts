@@ -1274,3 +1274,69 @@ export async function uploadGridImageToStorage(
     };
   }
 }
+
+// ============ Single Scene Image Generation ============
+
+/**
+ * Generate a single scene image using nano-banana-2.
+ * When reference images are provided, uses the /edit endpoint.
+ * Cost: 2 credits per image.
+ */
+export async function generateSingleSceneImage(params: {
+  prompt: string;
+  aspectRatio: '16:9' | '9:16';
+  referenceImageUrls?: string[];
+  userId: string;
+}): Promise<{
+  success: boolean;
+  imageUrl?: string;
+  error?: string;
+  creditsUsed: number;
+}> {
+  const CREDIT_COST = 2;
+
+  try {
+    const creditCheck = await getUserCredits(params.userId);
+    if (!creditCheck.success || (creditCheck.credits || 0) < CREDIT_COST) {
+      return { success: false, error: 'Insufficient credits', creditsUsed: 0 };
+    }
+
+    const imageResult = await generateImageWithPro(
+      params.prompt,
+      params.aspectRatio,
+      params.referenceImageUrls,
+      '2K',
+      'jpg'
+    );
+
+    if (!imageResult.success || !imageResult.imageUrl) {
+      return { success: false, error: imageResult.error || 'Image generation failed', creditsUsed: 0 };
+    }
+
+    // Re-upload to Supabase for permanent storage
+    let permanentUrl = imageResult.imageUrl;
+    try {
+      const uploadResult = await downloadAndUploadImage(
+        imageResult.imageUrl,
+        'scene-frame',
+        crypto.randomUUID(),
+        { bucket: 'images', folder: 'scene-frames', contentType: 'image/jpeg' }
+      );
+      if (uploadResult.success && uploadResult.url) {
+        permanentUrl = uploadResult.url;
+      }
+    } catch {
+      console.warn('Failed to re-upload scene image, using fal.ai URL');
+    }
+
+    // Deduct credits
+    await deductCredits(params.userId, CREDIT_COST, 'scene-image-generation', {
+      prompt: params.prompt.slice(0, 200),
+    } as Json);
+
+    return { success: true, imageUrl: permanentUrl, creditsUsed: CREDIT_COST };
+  } catch (error) {
+    console.error('Single scene image generation error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', creditsUsed: 0 };
+  }
+}

@@ -2,26 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Loader2, X, Plus, Upload } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { PromptRefiner } from '@/components/tools/prompt-refiner';
-
-// Visual style options (reused from storyboard-tab)
-const VISUAL_STYLES = [
-  { id: 'cinematic_realism', label: 'Cinematic Realism' },
-  { id: 'film_noir', label: 'Film Noir' },
-  { id: 'documentary', label: 'Documentary Style' },
-  { id: 'historical', label: 'Historical / Period' },
-  { id: 'sci_fi', label: 'Sci-Fi' },
-  { id: 'fantasy_epic', label: 'Fantasy Epic' },
-  { id: 'modern_commercial', label: 'Modern Commercial' },
-  { id: 'custom', label: 'Custom' },
-] as const;
-
-type VisualStyle = typeof VISUAL_STYLES[number]['id'];
 
 export interface ScriptBreakdownRequest {
   scriptText: string;
@@ -47,8 +32,6 @@ export function ScriptBreakdownTab({
   onReferenceImagesChange,
 }: ScriptBreakdownTabProps) {
   const [scriptText, setScriptText] = useState(initialScript || '');
-  const [visualStyle, setVisualStyle] = useState<VisualStyle>('documentary');
-  const [customStyle, setCustomStyle] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -64,13 +47,9 @@ export function ScriptBreakdownTab({
     const trimmedScript = scriptText.trim();
     if (!trimmedScript) return;
 
-    const styleText = visualStyle === 'custom'
-      ? customStyle
-      : VISUAL_STYLES.find(s => s.id === visualStyle)?.label || '';
-
     onBreakdown({
       scriptText: trimmedScript,
-      visualStyle: styleText,
+      visualStyle: 'Cinematic Realism',
     });
   };
 
@@ -116,10 +95,7 @@ export function ScriptBreakdownTab({
   };
 
   const hasScript = scriptText.trim().length > 0;
-
-  // Estimate scene count (rough: ~15 words per sentence, ~5-6 seconds per scene)
   const wordCount = scriptText.trim().split(/\s+/).filter(Boolean).length;
-  const estimatedScenes = Math.ceil(wordCount / 15);
 
   return (
     <TabContentWrapper>
@@ -146,10 +122,7 @@ The year was 218 BC. Hannibal Barca had just done the unthinkable. He had marche
             disabled={isProcessing}
           />
           <div className="flex justify-between text-sm text-muted-foreground mt-1">
-            <span>
-              {wordCount} words
-              {wordCount > 0 && ` · ~${estimatedScenes} scenes`}
-            </span>
+            <span>{wordCount} words</span>
             <span>{scriptText.length.toLocaleString()}/{MAX_SCRIPT_LENGTH.toLocaleString()}</span>
           </div>
         </StandardStep>
@@ -213,39 +186,6 @@ The year was 218 BC. Hannibal Barca had just done the unthinkable. He had marche
           </div>
         </StandardStep>
 
-        {/* Step 3: Visual Style */}
-        <StandardStep
-          stepNumber={3}
-          title="Visual Style"
-          description="Choose the visual aesthetic for all scenes"
-        >
-          <Select
-            value={visualStyle}
-            onValueChange={(value: VisualStyle) => setVisualStyle(value)}
-            disabled={isProcessing}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {VISUAL_STYLES.map((style) => (
-                <SelectItem key={style.id} value={style.id}>
-                  {style.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {visualStyle === 'custom' && (
-            <Textarea
-              placeholder="e.g., Dark moody atmosphere, nordic aesthetic, natural lighting, cinematic grain..."
-              value={customStyle}
-              onChange={(e) => setCustomStyle(e.target.value.slice(0, 200))}
-              className="min-h-[80px] resize-y mt-3"
-              disabled={isProcessing}
-            />
-          )}
-        </StandardStep>
       </TabBody>
 
       <TabFooter>
@@ -268,11 +208,6 @@ The year was 218 BC. Hannibal Barca had just done the unthinkable. He had marche
           )}
         </Button>
 
-        {estimatedScenes > 0 && (
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Estimated: {estimatedScenes} scenes · {Math.ceil(estimatedScenes / 4)} batches of 4
-          </p>
-        )}
       </TabFooter>
     </TabContentWrapper>
   );
