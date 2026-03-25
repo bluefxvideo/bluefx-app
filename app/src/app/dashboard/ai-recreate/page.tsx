@@ -1,5 +1,5 @@
-import { AIRecreatePage } from '@/components/ai-recreate/ai-recreate-page';
+import { redirect } from 'next/navigation';
 
-export default function AIRecreateRoute() {
-  return <AIRecreatePage />;
+export default function AIRecreateRedirect() {
+  redirect('/dashboard/ad-creator');
 }

@@ -52,7 +52,7 @@ export const WIZARD_STEPS = [
   { number: 5, label: 'Voice Over', description: 'Add narration' },
 ] as const;
 
-export type WizardStep = typeof WIZARD_STEPS[number]['number'];
+export type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 export function getDefaultWizardData(): WizardData {
   return {

@@ -86,11 +86,11 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         description: "Professional video creation",
       },
       {
-        name: "AI Recreate",
-        route: "/dashboard/ai-recreate",
+        name: "Ad Creator",
+        route: "/dashboard/ad-creator",
         icon: Wand2,
         gradient: "bg-primary",
-        description: "Recreate videos with your product",
+        description: "Clone ads or create from script",
       },
       {
         name: "Script to Video",
@@ -113,13 +113,7 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         gradient: "bg-primary",
         description: "Swap characters in videos",
       },
-      {
-        name: "Video Analyzer",
-        route: "/dashboard/video-analyzer",
-        icon: ScanSearch,
-        gradient: "bg-primary",
-        description: "Analyze and break down videos",
-      },
+      // Video Analyzer absorbed into Ad Creator
     ],
   },
   {

@@ -4,17 +4,25 @@ import { Check } from 'lucide-react';
 import { WIZARD_STEPS, type WizardStep } from './wizard-types';
 import { cn } from '@/lib/utils';
 
+interface StepDef {
+  number: WizardStep;
+  label: string;
+  description?: string;
+}
+
 interface WizardStepperProps {
   currentStep: WizardStep;
   completedSteps: Set<WizardStep>;
   highestStepReached?: WizardStep;
   onStepClick: (step: WizardStep) => void;
+  steps?: StepDef[];
 }
 
-export function WizardStepper({ currentStep, completedSteps, highestStepReached, onStepClick }: WizardStepperProps) {
+export function WizardStepper({ currentStep, completedSteps, highestStepReached, onStepClick, steps }: WizardStepperProps) {
+  const displaySteps = steps || WIZARD_STEPS;
   return (
     <div className="flex items-center justify-center gap-1 px-4 py-2">
-      {WIZARD_STEPS.map((step, index) => {
+      {displaySteps.map((step, index) => {
         const isActive = currentStep === step.number;
         const isCompleted = completedSteps.has(step.number);
         const isClickable = isCompleted || step.number <= (highestStepReached || currentStep);
@@ -48,7 +56,7 @@ export function WizardStepper({ currentStep, completedSteps, highestStepReached,
             </button>
 
             {/* Connector line */}
-            {index < WIZARD_STEPS.length - 1 && (
+            {index < displaySteps.length - 1 && (
               <div
                 className={cn(
                   'w-8 h-px mx-1',
