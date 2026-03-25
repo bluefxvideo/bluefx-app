@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Scissors, FileText, Video, ArrowRight, Link2, Loader2 } from 'lucide-react';
+import { Scissors, FileText, Video, ArrowRight, Link2, Loader2, History, ExternalLink, Trash2 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { analyzeVideo } from '@/actions/tools/video-analyzer';
+import { analyzeVideo, fetchVideoAnalyses } from '@/actions/tools/video-analyzer';
+import { useQuery } from '@tanstack/react-query';
 import { breakdownScript } from '@/actions/tools/scene-breakdown';
 import { useAICinematographer } from '@/components/ai-cinematographer/hooks/use-ai-cinematographer';
 import { WizardStepper } from '@/components/ai-recreate/wizard-stepper';
@@ -112,6 +113,17 @@ function ModeSelector({ onSelect }: { onSelect: (mode: AdCreatorMode) => void })
 }
 
 // ============ Clone Step (Video Analyzer embedded) ============
+interface SavedAnalysis {
+  id: string;
+  title: string;
+  video_url: string | null;
+  video_duration_seconds: number | null;
+  analysis_result: string;
+  custom_prompt: string | null;
+  credits_used: number;
+  created_at: string;
+}
+
 function CloneAnalyzeStep({
   onAnalysisComplete,
 }: {
@@ -123,6 +135,15 @@ function CloneAnalyzeStep({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
 
+  // Fetch history
+  const { data: savedAnalyses, isLoading: historyLoading } = useQuery({
+    queryKey: ['video-analyses'],
+    queryFn: async () => {
+      const result = await fetchVideoAnalyses();
+      return result.success ? (result.analyses || []) : [];
+    },
+  });
+
   const handleAnalyze = async () => {
     if (!videoUrl.trim()) return;
     setIsAnalyzing(true);
@@ -133,7 +154,7 @@ function CloneAnalyzeStep({
         videoUrl: videoUrl.trim(),
         analysisType: analysisType as 'storyboard_recreation',
         additionalInstructions: additionalInstructions.trim() || undefined,
-        videoDurationSeconds: 60, // estimate
+        videoDurationSeconds: 60,
       });
 
       if (response.success && response.analysisText) {
@@ -148,42 +169,76 @@ function CloneAnalyzeStep({
     setIsAnalyzing(false);
   };
 
+  const handleLoadFromHistory = (analysis: SavedAnalysis) => {
+    onAnalysisComplete(analysis.analysis_result, analysis.video_url || '');
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 p-4">
       <div>
         <h2 className="text-xl font-semibold mb-2">Clone an Ad</h2>
         <p className="text-sm text-muted-foreground">
-          Paste the URL of the ad you want to clone. We&apos;ll analyze its structure, shots, and narration.
+          Paste the URL of the ad you want to clone, or pick from a previous analysis.
         </p>
       </div>
+
+      {/* Previous Analyses */}
+      {!analysisResult && savedAnalyses && savedAnalyses.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <History className="w-4 h-4" />
+            Previous Analyses
+          </div>
+          <div className="grid gap-2 max-h-[200px] overflow-y-auto">
+            {(savedAnalyses as SavedAnalysis[]).map((analysis) => (
+              <Card
+                key={analysis.id}
+                className="p-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                onClick={() => handleLoadFromHistory(analysis)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{analysis.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{new Date(analysis.created_at).toLocaleDateString()}</span>
+                      {analysis.video_url && (
+                        <span className="truncate flex items-center gap-1">
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                          {analysis.video_url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline">
+                    Use This <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <div className="border-b border-border/30 pt-2" />
+        </div>
+      )}
+
+      {historyLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading previous analyses...
+        </div>
+      )}
 
       {/* URL Input */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Video URL</label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={videoUrl}
-              onChange={e => setVideoUrl(e.target.value)}
-              placeholder="https://www.tiktok.com/... or Facebook/Instagram/YouTube URL"
-              className="pl-10"
-            />
-          </div>
+        <div className="relative">
+          <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={videoUrl}
+            onChange={e => setVideoUrl(e.target.value)}
+            placeholder="https://www.tiktok.com/... or Facebook/Instagram/YouTube URL"
+            className="pl-10"
+          />
         </div>
-      </div>
-
-      {/* Analysis Type */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Analysis Type</label>
-        <Select value={analysisType} onValueChange={setAnalysisType}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="storyboard_recreation">Storyboard Recreation</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Additional Instructions */}
@@ -193,7 +248,7 @@ function CloneAnalyzeStep({
           value={additionalInstructions}
           onChange={e => setAdditionalInstructions(e.target.value)}
           placeholder="e.g., 'Focus on the product placement moments'"
-          rows={3}
+          rows={2}
         />
       </div>
 
