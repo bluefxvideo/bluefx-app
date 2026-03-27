@@ -3,15 +3,15 @@
 import { BatchAnimationQueue } from '@/components/ai-cinematographer/batch-animation-queue';
 import { Button } from '@/components/ui/button';
 import { Loader2, Play, VideoIcon } from 'lucide-react';
-import type { AnimationQueueItem } from '@/components/ai-cinematographer/batch-animation-queue';
+import type { QueueItem } from '@/components/ai-cinematographer/batch-animation-queue';
 import type { AnalyzerShot } from '@/lib/scene-breakdown/types';
 
 interface VideoGenerationStepProps {
-  queue: AnimationQueueItem[];
+  queue: QueueItem[];
   isProcessing: boolean;
   progress: { current: number; total: number };
   onProcessQueue: () => void;
-  onUpdateItem: (id: string, updates: Partial<AnimationQueueItem>) => void;
+  onUpdateItem: (id: string, updates: Partial<QueueItem>) => void;
   onRemoveItem: (id: string) => void;
   onClearQueue: () => void;
   onRetryItem: (id: string) => void;

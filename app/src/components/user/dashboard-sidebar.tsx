@@ -86,7 +86,7 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         description: "Professional video creation",
       },
       {
-        name: "Ad Creator",
+        name: "Ad (Re)Creator",
         route: "/dashboard/ad-creator",
         icon: Wand2,
         gradient: "bg-primary",

@@ -45,10 +45,10 @@ export function AdCreatorPage() {
   return (
     <StandardToolPage
       icon={Video}
-      title="Ad Creator"
+      title="Ad (Re)Creator"
       description="Create AI video ads — clone a competitor's ad or start from your own script"
       iconGradient="bg-primary"
-      toolName="Ad Creator"
+      toolName="Ad (Re)Creator"
     >
       {mode === 'select' ? (
         <ModeSelector onSelect={setMode} />
@@ -66,7 +66,7 @@ function ModeSelector({ onSelect }: { onSelect: (mode: AdCreatorMode) => void })
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl w-full px-4">
         {/* Clone an Ad */}
         <Card
-          className="p-8 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group"
+          className="p-8 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors group"
           onClick={() => onSelect('clone')}
         >
           <div className="flex flex-col items-center text-center gap-4">
@@ -80,15 +80,15 @@ function ModeSelector({ onSelect }: { onSelect: (mode: AdCreatorMode) => void })
                 We&apos;ll analyze it and help you recreate it with your own product.
               </p>
             </div>
-            <Button variant="outline" className="mt-2 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+            <div className="mt-2 inline-flex items-center px-4 py-2 rounded-md border border-border text-sm font-medium group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-colors">
               Start Cloning <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+            </div>
           </div>
         </Card>
 
         {/* Create from Script */}
         <Card
-          className="p-8 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group"
+          className="p-8 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors group"
           onClick={() => onSelect('script')}
         >
           <div className="flex flex-col items-center text-center gap-4">
@@ -102,9 +102,9 @@ function ModeSelector({ onSelect }: { onSelect: (mode: AdCreatorMode) => void })
                 video with AI images, animation and voiceover.
               </p>
             </div>
-            <Button variant="outline" className="mt-2 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+            <div className="mt-2 inline-flex items-center px-4 py-2 rounded-md border border-border text-sm font-medium group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-colors">
               Start Creating <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+            </div>
           </div>
         </Card>
       </div>
@@ -302,6 +302,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [imageGenProgress, setImageGenProgress] = useState({ current: 0, total: 0 });
   const autoGenTriggeredRef = useRef(false);
+  const [shouldAutoGenerate, setShouldAutoGenerate] = useState(false);
 
   // ===== Reuse existing hooks =====
   const cinematographer = useAICinematographer();
@@ -438,6 +439,17 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     const idx = steps.indexOf(currentStep);
     if (idx < steps.length - 1) {
       const next = steps[idx + 1] as WizardStep;
+
+      // When moving from Customize → Images, auto-start image generation
+      if (currentStep === 2 && next === 3 && wizardData.extractedFrames.length === 0) {
+        setShouldAutoGenerate(true);
+      }
+
+      // When moving to Videos step, populate the animation queue from frames
+      if (next === 4 && wizardData.extractedFrames.length > 0) {
+        populateAnimationQueue();
+      }
+
       setCompletedSteps(prev => new Set(prev).add(currentStep));
       setCurrentStep(next);
       if (next > highestStepReached) setHighestStepReached(next);
@@ -545,6 +557,29 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     }));
   };
 
+  // ===== Populate animation queue from frames =====
+  const populateAnimationQueue = () => {
+    const existingUrls = new Set(cinematographer.animationQueue.map(q => q.imageUrl));
+    const newFrames = wizardData.extractedFrames.filter(f => !existingUrls.has(f.imageUrl));
+    if (newFrames.length === 0) return;
+
+    cinematographer.addToAnimationQueue(
+      newFrames.map(frame => ({
+        frameNumber: frame.sceneNumber,
+        imageUrl: frame.imageUrl,
+        prompt: frame.prompt || '',
+        dialogue: frame.narration,
+        duration: frame.duration || 6,
+        cameraStyle: 'cinematic' as const,
+        camera_motion: motionPresetToNativeCameraMotion(frame.motionPresetId),
+        aspectRatio: wizardData.aspectRatio === '9:16' ? '9:16' : '16:9',
+        model: 'fast' as const,
+        batchNumber: frame.batchNumber,
+        sceneNumber: frame.sceneNumber,
+      }))
+    );
+  };
+
   // ===== Dynamic steps =====
   const wizardSteps = mode === 'clone'
     ? [
@@ -560,6 +595,14 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
         { number: 4 as WizardStep, label: 'Videos', description: 'Animate clips' },
         { number: 5 as WizardStep, label: 'Voice Over', description: 'Add narration' },
       ];
+
+  // Auto-generate images after breakdown completes
+  useEffect(() => {
+    if (shouldAutoGenerate && currentStep === 3 && !isGeneratingImages && wizardData.scenes.length > 0) {
+      setShouldAutoGenerate(false);
+      handleGenerateAllImages();
+    }
+  }, [shouldAutoGenerate, currentStep, isGeneratingImages, wizardData.scenes.length]);
 
   // Check if can proceed
   const canGoNext = () => {
@@ -597,6 +640,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             onUpdateNarration={handleUpdateNarration}
             onUpdateReferenceImages={handleUpdateReferenceImages}
             onUpdateAspectRatio={handleUpdateAspectRatio}
+            onToggleScene={handleToggleScene}
           />
         )}
 
@@ -613,8 +657,16 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
 
         {currentStep === 4 && (
           <VideoGenerationStep
-            wizardData={wizardData}
-            cinematographer={cinematographer}
+            queue={cinematographer.animationQueue}
+            isProcessing={cinematographer.isProcessingQueue}
+            progress={cinematographer.queueProgress}
+            onProcessQueue={cinematographer.processAnimationQueue}
+            onUpdateItem={cinematographer.updateQueueItem}
+            onRemoveItem={cinematographer.removeFromQueue}
+            onClearQueue={cinematographer.clearAnimationQueue}
+            onRetryItem={cinematographer.retryQueueItem}
+            credits={cinematographer.credits}
+            analyzerShots={cinematographer.analyzerShots}
           />
         )}
 

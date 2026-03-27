@@ -370,6 +370,25 @@ export function ImageGenerationStep({
                     )}
                     <Button
                       size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(getDisplayUrl(frame));
+                          const blob = await res.blob();
+                          const a = document.createElement('a');
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `scene-${frame.sceneNumber}.png`;
+                          a.click();
+                          URL.revokeObjectURL(a.href);
+                        } catch { toast.error('Failed to download image'); }
+                      }}
+                      title="Download image"
+                    >
+                      <Download className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="ghost"
                       className="h-7 text-xs text-destructive hover:text-destructive"
                       onClick={() => onRemoveFrame(frame.id)}

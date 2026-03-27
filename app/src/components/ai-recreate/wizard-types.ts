@@ -1,5 +1,4 @@
 import type { BreakdownScene, SceneBreakdownResult } from '@/lib/scene-breakdown/types';
-import type { AnimationQueueItem } from '@/components/ai-cinematographer/batch-animation-queue';
 
 export interface WizardData {
   // From Video Analyzer (Step 1)
