@@ -487,6 +487,20 @@ async function handleVideoGeneration(
       generation_time_ms: Date.now() - startTime,
       credits_used: creditCost,
       remaining_credits: creditDeduction.remainingCredits || 0,
+      generation_settings: {
+        model: model as 'fast' | 'pro',
+        duration: effectiveDuration,
+        resolution: effectiveResolution,
+        aspect_ratio: request.aspect_ratio || '16:9',
+        generate_audio: request.generate_audio !== false,
+        ...(model === 'fast' && request.camera_motion && { camera_motion: request.camera_motion }),
+        ...(model === 'pro' && {
+          ...(request.camera_fixed && { camera_fixed: request.camera_fixed }),
+          ...(request.seed && { seed: request.seed }),
+        }),
+        ...(referenceImageUrl && { reference_image_url: referenceImageUrl }),
+        ...(lastFrameImageUrl && { last_frame_image_url: lastFrameImageUrl }),
+      },
     };
 
   } catch (error) {

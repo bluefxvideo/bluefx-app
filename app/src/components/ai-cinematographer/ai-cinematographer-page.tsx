@@ -22,6 +22,7 @@ import { ScriptBreakdownOutput } from './output-panel/script-breakdown-output';
 import { StoryboardOutputV2 } from './output-panel/storyboard-output-v2';
 import { BatchAnimationQueue } from './batch-animation-queue';
 import { breakdownScript, type SavedBreakdown } from '@/actions/tools/scene-breakdown';
+import type { GenerationSettings } from '@/types/cinematographer';
 import type { SceneBreakdownResult, BreakdownScene } from '@/lib/scene-breakdown/types';
 import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-breakdown/types';
 import { executeStoryboardGeneration } from '@/actions/tools/ai-cinematographer';
@@ -345,6 +346,8 @@ export function AICinematographerPage() {
       defaultAspectRatio={lastUsedAspectRatio}
       onAspectRatioChange={setLastUsedAspectRatio}
       analyzerShots={analyzerShots}
+      tweakSettings={tweakSettings}
+      onClearTweakSettings={() => setTweakSettings(null)}
     />
   );
 
@@ -569,6 +572,37 @@ Maintain visual consistency across all frames.`;
     }, 300);
   };
 
+  // ============ Regenerate / Tweak Video ============
+  const [tweakSettings, setTweakSettings] = useState<{ prompt: string; settings: GenerationSettings } | null>(null);
+
+  const handleRegenerate = () => {
+    if (!result?.generation_settings || !result?.video?.prompt) return;
+    const settings = result.generation_settings;
+    generateVideo({
+      prompt: result.video.prompt,
+      model: settings.model,
+      duration: settings.duration,
+      resolution: settings.resolution as any,
+      aspect_ratio: settings.aspect_ratio as any,
+      generate_audio: settings.generate_audio,
+      camera_motion: settings.camera_motion,
+      camera_fixed: settings.camera_fixed,
+      seed: settings.seed,
+      reference_image_url: settings.reference_image_url,
+      last_frame_image_url: settings.last_frame_image_url,
+      workflow_intent: 'generate',
+      user_id: '',
+    });
+  };
+
+  const handleTweak = () => {
+    if (!result?.generation_settings || !result?.video?.prompt) return;
+    setTweakSettings({
+      prompt: result.video.prompt,
+      settings: result.generation_settings,
+    });
+  };
+
   // ============ Generate Everything (Storyboards + Videos) ============
   const scriptBreakdownQueueRef = useRef<HTMLDivElement>(null);
   const [isGeneratingEverything, setIsGeneratingEverything] = useState(false);
@@ -769,6 +803,8 @@ Maintain visual consistency across all frames.`;
             error={error}
             onClearResults={clearResults}
             onCancelGeneration={cancelGeneration}
+            onRegenerate={result?.generation_settings ? handleRegenerate : undefined}
+            onTweak={result?.generation_settings ? handleTweak : undefined}
             videos={videos}
             isLoadingHistory={isLoadingHistory}
             onRefresh={loadHistory}

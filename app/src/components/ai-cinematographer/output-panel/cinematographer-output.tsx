@@ -13,6 +13,8 @@ interface CinematographerOutputProps {
   error?: string;
   onClearResults: () => void;
   onCancelGeneration?: () => void;
+  onRegenerate?: () => void;
+  onTweak?: () => void;
   activeTab?: string;
   isStateRestored?: boolean;
 }
@@ -28,6 +30,8 @@ export function CinematographerOutput({
   error,
   onClearResults,
   onCancelGeneration,
+  onRegenerate,
+  onTweak,
   activeTab = 'generate',
   isStateRestored = false
 }: CinematographerOutputProps) {
@@ -112,6 +116,8 @@ export function CinematographerOutput({
             <VideoPreview
               video={result.video}
               batchId={result.batch_id}
+              onRegenerate={onRegenerate}
+              onTweak={onTweak}
             />
           )}
           

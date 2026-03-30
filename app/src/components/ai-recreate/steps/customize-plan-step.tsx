@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, Image as ImageIcon, Monitor, Smartphone, Palette, X, Plus, MessageSquare } from 'lucide-react';
+import { Loader2, Send, Image as ImageIcon, Monitor, Smartphone, Palette, X, Plus, MessageSquare, ChevronRight } from 'lucide-react';
 import { breakdownScript } from '@/actions/tools/scene-breakdown';
 // Product substitution removed — breakdown is a faithful copy, client customizes via AI chat
 import { refineBreakdownWithAI } from '@/actions/tools/scene-breakdown';
@@ -320,6 +320,19 @@ export function CustomizePlanStep({
                       : 'Paste your narration script, upload your product image, and the AI will create a shot-by-shot plan.'}
                   </p>
                 </div>
+
+                {/* Show analysis text (clone mode) */}
+                {wizardData.analysisText && (
+                  <details className="group">
+                    <summary className="text-sm font-medium cursor-pointer flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
+                      <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
+                      View Analysis
+                    </summary>
+                    <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-[300px] overflow-y-auto p-3 bg-secondary/20 rounded-md border border-border/30">
+                      {wizardData.analysisText}
+                    </pre>
+                  </details>
+                )}
 
                 {/* Narration script (only if no analysis loaded — manual mode) */}
                 {!wizardData.analysisText && (

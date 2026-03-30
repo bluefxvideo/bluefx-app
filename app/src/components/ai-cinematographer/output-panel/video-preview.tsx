@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Clock, Loader2, Video, X } from 'lucide-react';
+import { Download, Clock, Loader2, Video, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
 
 interface VideoPreviewProps {
   video: {
@@ -18,6 +18,8 @@ interface VideoPreviewProps {
   };
   batchId: string;
   onCancel?: () => void;
+  onRegenerate?: () => void;
+  onTweak?: () => void;
 }
 
 /**
@@ -47,7 +49,7 @@ function getEstimatedTime(duration: number, resolution?: string): number {
 /**
  * Video preview component with playback controls
  */
-export function VideoPreview({ video, batchId, onCancel }: VideoPreviewProps) {
+export function VideoPreview({ video, batchId, onCancel, onRegenerate, onTweak }: VideoPreviewProps) {
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const isProcessing = !video.video_url;
@@ -180,6 +182,34 @@ export function VideoPreview({ video, batchId, onCancel }: VideoPreviewProps) {
                 </Button>
               )}
             </Card>
+          </div>
+        )}
+
+        {/* Action buttons - visible when video is ready */}
+        {video.video_url && (onRegenerate || onTweak) && (
+          <div className="px-4 pt-3 pb-1 bg-card border-t flex gap-2">
+            {onRegenerate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRegenerate}
+                className="flex-1 gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Regenerate
+              </Button>
+            )}
+            {onTweak && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onTweak}
+                className="flex-1 gap-1.5"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Tweak & Retry
+              </Button>
+            )}
           </div>
         )}
 

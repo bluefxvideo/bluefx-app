@@ -9,7 +9,8 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { analyzeVideo, fetchVideoAnalyses } from '@/actions/tools/video-analyzer';
+import { analyzeYouTubeVideo, analyzeSocialMediaVideo, fetchVideoAnalyses } from '@/actions/tools/video-analyzer';
+import { detectPlatform } from '@/lib/social-video-utils';
 import { useQuery } from '@tanstack/react-query';
 import { breakdownScript } from '@/actions/tools/scene-breakdown';
 import { useAICinematographer } from '@/components/ai-cinematographer/hooks/use-ai-cinematographer';
@@ -24,6 +25,8 @@ import type { BreakdownScene, SceneBreakdownResult } from '@/lib/scene-breakdown
 import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-breakdown/types';
 import { motionPresetToNativeCameraMotion } from '@/lib/scene-breakdown/motion-presets';
 import { toast } from 'sonner';
+import { useCredits } from '@/hooks/useCredits';
+import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 
 type AdCreatorMode = 'select' | 'clone' | 'script';
 
@@ -134,6 +137,9 @@ function CloneAnalyzeStep({
   const [additionalInstructions, setAdditionalInstructions] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const { credits, deductCredits, hasEnoughCredits } = useCredits();
+  const analysisCost = 6; // Flat 6 credits for URL analysis
 
   // Fetch history
   const { data: savedAnalyses, isLoading: historyLoading } = useQuery({
@@ -146,19 +152,41 @@ function CloneAnalyzeStep({
 
   const handleAnalyze = async () => {
     if (!videoUrl.trim()) return;
+
+    const platform = detectPlatform(videoUrl.trim());
+    if (platform === 'unknown') {
+      toast.error('Please enter a valid YouTube, TikTok, Instagram, or Facebook URL');
+      return;
+    }
+
+    if (!hasEnoughCredits(analysisCost)) {
+      setShowBuyCredits(true);
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
     try {
-      const response = await analyzeVideo({
-        videoUrl: videoUrl.trim(),
-        analysisType: analysisType as 'storyboard_recreation',
-        additionalInstructions: additionalInstructions.trim() || undefined,
-        videoDurationSeconds: 60,
-      });
+      let response;
 
-      if (response.success && response.analysisText) {
-        setAnalysisResult(response.analysisText);
+      if (platform === 'youtube') {
+        response = await analyzeYouTubeVideo({
+          youtubeUrl: videoUrl.trim(),
+          analysisType: analysisType as 'storyboard_recreation',
+          customPrompt: additionalInstructions.trim() || undefined,
+        });
+      } else {
+        response = await analyzeSocialMediaVideo({
+          socialUrl: videoUrl.trim(),
+          analysisType: analysisType as 'storyboard_recreation',
+          customPrompt: additionalInstructions.trim() || undefined,
+        });
+      }
+
+      if (response.success && response.analysis) {
+        deductCredits({ credits: analysisCost, service: 'video_analyzer' });
+        setAnalysisResult(response.analysis);
         toast.success('Video analyzed successfully!');
       } else {
         toast.error(response.error || 'Failed to analyze video');
@@ -262,16 +290,43 @@ function CloneAnalyzeStep({
         {isAnalyzing ? (
           <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing Video...</>
         ) : (
-          'Analyze Video'
+          <>Analyze Video ({analysisCost} credits)</>
         )}
       </Button>
+      {!hasEnoughCredits(analysisCost) && videoUrl.trim() && (
+        <p className="text-xs text-destructive text-center">
+          Not enough credits. You have {credits}, need {analysisCost}.
+        </p>
+      )}
+
+      <BuyCreditsDialog open={showBuyCredits} onOpenChange={setShowBuyCredits} />
 
       {/* Analysis Result */}
       {analysisResult && (
         <div className="space-y-3">
           <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <p className="text-sm text-green-400 font-medium">Analysis complete! Click continue to customize with your product.</p>
+            <p className="text-sm text-green-400 font-medium">Analysis complete! Review the breakdown below, then continue to customize.</p>
           </div>
+
+          {/* Show actual analysis text */}
+          <Card className="p-4 max-h-[400px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium">Analysis Result</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  navigator.clipboard.writeText(analysisResult);
+                  toast.success('Analysis copied to clipboard');
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed">{analysisResult}</pre>
+          </Card>
+
           <Button
             onClick={() => onAnalysisComplete(analysisResult, videoUrl)}
             className="w-full h-12"
@@ -368,13 +423,31 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
 
   // ===== Handlers (same as AI Recreate) =====
   const handleAnalysisComplete = (analysisText: string, sourceUrl: string) => {
-    setWizardData(prev => ({
-      ...prev,
+    const hasExistingWork = wizardData.scenes.length > 0 || wizardData.extractedFrames.length > 0;
+    const isSameAnalysis = wizardData.analysisText === analysisText;
+
+    // Same analysis — just navigate back to Customize, keep everything
+    if (isSameAnalysis) {
+      setCurrentStep(2);
+      return;
+    }
+
+    // Different analysis with existing work — confirm before wiping
+    if (hasExistingWork) {
+      const confirmed = window.confirm(
+        'Loading a new analysis will reset your current shot plan, images, and videos. Continue?'
+      );
+      if (!confirmed) return;
+    }
+
+    // New analysis — full reset
+    setWizardData({
+      ...getDefaultWizardData(),
       analysisText,
       sourceVideoUrl: sourceUrl,
-    }));
+    });
     setAnalysisComplete(true);
-    setCompletedSteps(prev => new Set(prev).add(1 as WizardStep));
+    setCompletedSteps(new Set([1 as WizardStep]));
     setCurrentStep(2);
     setHighestStepReached(2);
   };

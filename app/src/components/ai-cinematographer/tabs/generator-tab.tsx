@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
-import type { CinematographerRequest } from '@/types/cinematographer';
+import type { CinematographerRequest, GenerationSettings } from '@/types/cinematographer';
 import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
 
 // Camera style presets that append to the prompt
@@ -39,6 +39,8 @@ interface GeneratorTabProps {
     action?: string;    // What movement/action happens
     dialogue?: string;  // What is being said (narration, voiceover, dialogue)
   }>;
+  tweakSettings?: { prompt: string; settings: GenerationSettings } | null; // Pre-fill form for tweak & retry
+  onClearTweakSettings?: () => void;
 }
 
 /**
@@ -57,6 +59,8 @@ export function GeneratorTab({
   defaultAspectRatio = '16:9',
   onAspectRatioChange,
   analyzerShots,
+  tweakSettings,
+  onClearTweakSettings,
 }: GeneratorTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -75,6 +79,27 @@ export function GeneratorTab({
   // Camera style presets only used for Pro mode (Fast uses native camera_motion)
   const [cameraStyle, setCameraStyle] = useState<string>('none');
   const [customCameraText, setCustomCameraText] = useState<string>('');
+
+  // Apply tweak settings when provided (pre-fill form for retry)
+  useEffect(() => {
+    if (tweakSettings) {
+      const { prompt, settings } = tweakSettings;
+      setFormData({
+        prompt,
+        reference_image: null,
+        last_frame_image: null,
+        model: settings.model,
+        duration: settings.duration,
+        resolution: settings.resolution,
+        aspect_ratio: (settings.aspect_ratio || '16:9') as ProAspectRatio,
+        generate_audio: settings.generate_audio,
+        seed: settings.seed?.toString() || '',
+        camera_fixed: settings.camera_fixed || false,
+        camera_motion: (settings.camera_motion || 'none') as FastCameraMotion,
+      });
+      onClearTweakSettings?.();
+    }
+  }, [tweakSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const config = VIDEO_MODEL_CONFIG[formData.model];
 

@@ -110,6 +110,20 @@ export interface CinematographerRequest {
   camera_fixed?: boolean; // Lock camera movement (Pro only)
 }
 
+// Generation settings stored with the response for regenerate/tweak
+export interface GenerationSettings {
+  model: VideoModel;
+  duration: number;
+  resolution: string;
+  aspect_ratio: string;
+  generate_audio: boolean;
+  camera_motion?: FastCameraMotion;
+  camera_fixed?: boolean;
+  seed?: number;
+  reference_image_url?: string;
+  last_frame_image_url?: string;
+}
+
 // Response type for AI Cinematographer
 export interface CinematographerResponse {
   success: boolean;
@@ -128,4 +142,5 @@ export interface CinematographerResponse {
   remaining_credits: number;
   warnings?: string[];
   error?: string;
+  generation_settings?: GenerationSettings;
 }
