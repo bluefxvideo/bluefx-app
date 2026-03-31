@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Scissors, FileText, Video, ArrowRight, Link2, Loader2, History, ExternalLink, Trash2 } from 'lucide-react';
+import { Scissors, FileText, Video, ArrowRight, Link2, Loader2, History, ExternalLink, Trash2, Upload, FileVideo } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { analyzeYouTubeVideo, analyzeSocialMediaVideo, fetchVideoAnalyses } from '@/actions/tools/video-analyzer';
+import { analyzeVideo, analyzeYouTubeVideo, analyzeSocialMediaVideo, fetchVideoAnalyses } from '@/actions/tools/video-analyzer';
 import { detectPlatform } from '@/lib/social-video-utils';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { breakdownScript } from '@/actions/tools/scene-breakdown';
 import { useAICinematographer } from '@/components/ai-cinematographer/hooks/use-ai-cinematographer';
 import { WizardStepper } from '@/components/ai-recreate/wizard-stepper';
@@ -132,14 +132,21 @@ function CloneAnalyzeStep({
 }: {
   onAnalysisComplete: (analysisText: string, sourceUrl: string) => void;
 }) {
+  const [inputMode, setInputMode] = useState<'url' | 'file'>('url');
   const [videoUrl, setVideoUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [analysisType, setAnalysisType] = useState('storyboard_recreation');
   const [additionalInstructions, setAdditionalInstructions] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
   const { credits, deductCredits, hasEnoughCredits } = useCredits();
-  const analysisCost = 6; // Flat 6 credits for URL analysis
+
+  // Credits: 6 flat for URL, 3/min (min 3) for file upload
+  const analysisCost = inputMode === 'url' ? 6 : Math.max(3, Math.ceil((videoDuration || 0) / 60) * 3);
 
   // Fetch history
   const { data: savedAnalyses, isLoading: historyLoading } = useQuery({
@@ -150,13 +157,47 @@ function CloneAnalyzeStep({
     },
   });
 
-  const handleAnalyze = async () => {
-    if (!videoUrl.trim()) return;
-
-    const platform = detectPlatform(videoUrl.trim());
-    if (platform === 'unknown') {
-      toast.error('Please enter a valid YouTube, TikTok, Instagram, or Facebook URL');
+  const handleFileSelect = (file: File) => {
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid video file (MP4, WebM, MOV, AVI)');
       return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('Video file is too large. Maximum size is 100MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    setAnalysisResult(null);
+
+    // Get video duration
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      if (video.duration > 180) {
+        toast.error('Video is too long. Maximum duration is 3 minutes');
+        setSelectedFile(null);
+        URL.revokeObjectURL(url);
+        return;
+      }
+      setVideoDuration(video.duration);
+      URL.revokeObjectURL(url);
+    };
+    video.src = url;
+  };
+
+  const handleAnalyze = async () => {
+    if (inputMode === 'url' && !videoUrl.trim()) return;
+    if (inputMode === 'file' && !selectedFile) return;
+
+    if (inputMode === 'url') {
+      const platform = detectPlatform(videoUrl.trim());
+      if (platform === 'unknown') {
+        toast.error('Please enter a valid YouTube, TikTok, Instagram, or Facebook URL');
+        return;
+      }
     }
 
     if (!hasEnoughCredits(analysisCost)) {
@@ -170,23 +211,43 @@ function CloneAnalyzeStep({
     try {
       let response;
 
-      if (platform === 'youtube') {
-        response = await analyzeYouTubeVideo({
-          youtubeUrl: videoUrl.trim(),
-          analysisType: analysisType as 'storyboard_recreation',
-          customPrompt: additionalInstructions.trim() || undefined,
-        });
+      if (inputMode === 'url') {
+        const platform = detectPlatform(videoUrl.trim());
+        if (platform === 'youtube') {
+          response = await analyzeYouTubeVideo({
+            youtubeUrl: videoUrl.trim(),
+            analysisType: analysisType as 'storyboard_recreation',
+            customPrompt: additionalInstructions.trim() || undefined,
+          });
+        } else {
+          response = await analyzeSocialMediaVideo({
+            socialUrl: videoUrl.trim(),
+            analysisType: analysisType as 'storyboard_recreation',
+            customPrompt: additionalInstructions.trim() || undefined,
+          });
+        }
       } else {
-        response = await analyzeSocialMediaVideo({
-          socialUrl: videoUrl.trim(),
+        // File upload — convert to base64
+        const arrayBuffer = await selectedFile!.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binary = '';
+        uint8Array.forEach((byte) => { binary += String.fromCharCode(byte); });
+        const base64 = btoa(binary);
+
+        response = await analyzeVideo({
+          videoBase64: base64,
+          videoMimeType: selectedFile!.type,
+          videoDurationSeconds: videoDuration || 0,
           analysisType: analysisType as 'storyboard_recreation',
           customPrompt: additionalInstructions.trim() || undefined,
+          title: selectedFile!.name,
         });
       }
 
       if (response.success && response.analysis) {
         deductCredits({ credits: analysisCost, service: 'video_analyzer' });
         setAnalysisResult(response.analysis);
+        queryClient.invalidateQueries({ queryKey: ['video-analyses'] });
         toast.success('Video analyzed successfully!');
       } else {
         toast.error(response.error || 'Failed to analyze video');
@@ -201,12 +262,14 @@ function CloneAnalyzeStep({
     onAnalysisComplete(analysis.analysis_result, analysis.video_url || '');
   };
 
+  const canAnalyze = inputMode === 'url' ? !!videoUrl.trim() : !!selectedFile;
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 p-4">
       <div>
         <h2 className="text-xl font-semibold mb-2">Clone an Ad</h2>
         <p className="text-sm text-muted-foreground">
-          Paste the URL of the ad you want to clone, or pick from a previous analysis.
+          Paste a video URL, upload a file, or pick from a previous analysis.
         </p>
       </div>
 
@@ -221,7 +284,7 @@ function CloneAnalyzeStep({
             {(savedAnalyses as SavedAnalysis[]).map((analysis) => (
               <Card
                 key={analysis.id}
-                className="p-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                className="p-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                 onClick={() => handleLoadFromHistory(analysis)}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -255,19 +318,89 @@ function CloneAnalyzeStep({
         </div>
       )}
 
+      {/* Input Mode Toggle */}
+      <div className="flex gap-2 p-1 bg-muted/50 rounded-lg">
+        <Button
+          variant={inputMode === 'url' ? 'default' : 'ghost'}
+          className="flex-1 gap-2"
+          onClick={() => setInputMode('url')}
+          disabled={isAnalyzing}
+        >
+          <Link2 className="w-4 h-4" />
+          Paste URL
+        </Button>
+        <Button
+          variant={inputMode === 'file' ? 'default' : 'ghost'}
+          className="flex-1 gap-2"
+          onClick={() => setInputMode('file')}
+          disabled={isAnalyzing}
+        >
+          <Upload className="w-4 h-4" />
+          Upload Video
+        </Button>
+      </div>
+
       {/* URL Input */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Video URL</label>
-        <div className="relative">
-          <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={videoUrl}
-            onChange={e => setVideoUrl(e.target.value)}
-            placeholder="https://www.tiktok.com/... or Facebook/Instagram/YouTube URL"
-            className="pl-10"
+      {inputMode === 'url' && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Video URL</label>
+          <div className="relative">
+            <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={videoUrl}
+              onChange={e => setVideoUrl(e.target.value)}
+              placeholder="https://www.tiktok.com/... or Facebook/Instagram/YouTube URL"
+              className="pl-10"
+              disabled={isAnalyzing}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* File Upload */}
+      {inputMode === 'file' && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Video File</label>
+          {selectedFile ? (
+            <Card className="p-4 flex items-center gap-3">
+              <FileVideo className="w-8 h-8 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                  {videoDuration ? ` · ${Math.round(videoDuration)}s` : ''}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setSelectedFile(null); setVideoDuration(null); }}
+                disabled={isAnalyzing}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </Card>
+          ) : (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]); }}
+              onDragOver={e => e.preventDefault()}
+              className="border-2 border-dashed border-border/50 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+            >
+              <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Drop video here or click to upload</p>
+              <p className="text-xs text-muted-foreground mt-1">MP4, WebM, MOV, AVI · Max 100MB · Max 3 minutes</p>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
+            className="hidden"
+            onChange={e => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); e.target.value = ''; }}
           />
         </div>
-      </div>
+      )}
 
       {/* Additional Instructions */}
       <div className="space-y-2">
@@ -277,13 +410,14 @@ function CloneAnalyzeStep({
           onChange={e => setAdditionalInstructions(e.target.value)}
           placeholder="e.g., 'Focus on the product placement moments'"
           rows={2}
+          disabled={isAnalyzing}
         />
       </div>
 
       {/* Analyze Button */}
       <Button
         onClick={handleAnalyze}
-        disabled={!videoUrl.trim() || isAnalyzing}
+        disabled={!canAnalyze || isAnalyzing}
         className="w-full h-12"
         size="lg"
       >
@@ -293,7 +427,7 @@ function CloneAnalyzeStep({
           <>Analyze Video ({analysisCost} credits)</>
         )}
       </Button>
-      {!hasEnoughCredits(analysisCost) && videoUrl.trim() && (
+      {!hasEnoughCredits(analysisCost) && canAnalyze && (
         <p className="text-xs text-destructive text-center">
           Not enough credits. You have {credits}, need {analysisCost}.
         </p>
@@ -328,7 +462,7 @@ function CloneAnalyzeStep({
           </Card>
 
           <Button
-            onClick={() => onAnalysisComplete(analysisResult, videoUrl)}
+            onClick={() => onAnalysisComplete(analysisResult, inputMode === 'url' ? videoUrl : selectedFile?.name || '')}
             className="w-full h-12"
             size="lg"
           >
