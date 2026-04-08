@@ -17,6 +17,13 @@ export interface AIGeneratedAssets {
     segment_index: number;
     prompt: string;
   }>;
+  // Pre-generated video clips (e.g. from Ad Creator)
+  video_clips?: Array<{
+    url: string;
+    segment_index: number;
+    prompt?: string;
+    duration?: number; // seconds
+  }>;
   final_script?: string;
   segments?: Array<{
     id: string;
@@ -236,6 +243,53 @@ export function convertAIAssetsToEditorFormat(
     });
   }
 
+  // 2b. Create Video Tracks (pre-generated clips, e.g. from Ad Creator)
+  if (aiAssets.video_clips && aiAssets.segments) {
+    aiAssets.video_clips.forEach((clip, index) => {
+      const segment = aiAssets.segments![index];
+      if (!segment || !clip.url) return;
+
+      const videoTrack: ITrackItem = {
+        id: generateId(),
+        type: "video",
+        name: `Video Clip ${index + 1}`,
+        display: {
+          from: segment.start_time * 1000,
+          to: segment.end_time * 1000
+        },
+        trim: {
+          from: 0,
+          to: segment.duration * 1000
+        },
+        playbackRate: 1,
+        details: {
+          src: clip.url,
+          width: canvasSize.width,
+          height: canvasSize.height,
+          volume: 100,
+          blur: 0,
+          brightness: 0,
+          flipX: false,
+          flipY: false,
+          rotate: "0deg",
+          visibility: "visible" as const,
+        },
+        metadata: {
+          aiGenerated: true,
+          generationType: 'video',
+          prompt: clip.prompt || segment.image_prompt,
+          segmentId: segment.id,
+          segmentText: segment.text,
+        },
+        duration: segment.duration * 1000,
+        isMain: false,
+      };
+
+      trackItems.push(videoTrack);
+      console.log(`✅ Added video track ${index + 1}:`, clip.url);
+    });
+  }
+
   // 3. Caption tracks are now generated on-demand via AI Caption Generator
   // No automatic caption track creation
 
@@ -250,11 +304,12 @@ export function convertAIAssetsToEditorFormat(
 
   // Create proper tracks structure with items assigned
   const audioItems = trackItems.filter(item => item.type === 'audio').map(item => item.id);
+  const videoItems = trackItems.filter(item => item.type === 'video').map(item => item.id);
   const imageItems = trackItems.filter(item => item.type === 'image').map(item => item.id);
   const textItems = trackItems.filter(item => item.type === 'text').map(item => item.id);
 
   const tracks = [];
-  
+
   // Only create tracks that have items
   if (audioItems.length > 0) {
     tracks.push({
@@ -267,11 +322,23 @@ export function convertAIAssetsToEditorFormat(
       locked: false
     });
   }
-  
+
+  if (videoItems.length > 0) {
+    tracks.push({
+      id: generateId(),
+      name: 'Video Clips',
+      type: 'video',
+      items: videoItems,
+      accepts: ['video'],
+      visible: true,
+      locked: false
+    });
+  }
+
   if (imageItems.length > 0) {
     tracks.push({
       id: generateId(),
-      name: 'Images', 
+      name: 'Images',
       type: 'image',
       items: imageItems,
       accepts: ['image'],
@@ -279,12 +346,12 @@ export function convertAIAssetsToEditorFormat(
       locked: false
     });
   }
-  
+
   if (textItems.length > 0) {
     tracks.push({
       id: generateId(),
       name: 'Captions',
-      type: 'text', 
+      type: 'text',
       items: textItems,
       accepts: ['text', 'caption'],
       visible: true,
@@ -332,6 +399,7 @@ export function convertAIAssetsToEditorFormat(
   console.log('🎉 AI to Editor conversion complete:', {
     totalTracks: trackItems.length,
     audioTracks: trackItems.filter(t => t.type === 'audio').length,
+    videoTracks: trackItems.filter(t => t.type === 'video').length,
     imageTracks: trackItems.filter(t => t.type === 'image').length,
     captionTracks: trackItems.filter(t => t.type === 'text').length,
     totalDuration: totalDurationMs,

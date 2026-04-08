@@ -884,12 +884,21 @@ function convertBlueFXDataToAIAssets(videoData: any) {
     totalDuration = whisperDuration;
   }
   
+  // Convert video clips if present (from Ad Creator)
+  const video_clips = (videoData.video_clips || []).map((clip: any, index: number) => ({
+    url: typeof clip === 'string' ? clip : clip.url,
+    segment_index: index,
+    prompt: clip.prompt || segments[index]?.image_prompt || `Video ${index + 1}`,
+    duration: clip.duration || segments[index]?.duration || 6,
+  }));
+
   return {
     success: true, // Important: this is required by validateAIAssets
     video_id: videoData.videoId,
     final_script: videoData.script,
     audio_url: videoData.voice?.url,
     generated_images,
+    video_clips: video_clips.length > 0 ? video_clips : undefined,
     segments,
     timeline_data: {
       total_duration: totalDuration,
