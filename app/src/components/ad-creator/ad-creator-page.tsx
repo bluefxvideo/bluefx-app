@@ -474,18 +474,102 @@ function CloneAnalyzeStep({
   );
 }
 
+// ============ Wizard State Persistence ============
+const WIZARD_STORAGE_KEY = 'ad-creator-wizard-state';
+
+function saveWizardToStorage(data: {
+  wizardData: WizardData;
+  currentStep: WizardStep;
+  completedSteps: Set<WizardStep>;
+  highestStepReached: WizardStep;
+  analysisComplete: boolean;
+  mode: 'clone' | 'script';
+}) {
+  try {
+    const serializable = {
+      wizardData: {
+        ...data.wizardData,
+        enabledScenes: Array.from(data.wizardData.enabledScenes),
+        // Skip File objects from referenceImages, keep only previews
+        referenceImages: data.wizardData.referenceImages.map(img => ({
+          preview: img.preview,
+          label: img.label,
+        })),
+      },
+      currentStep: data.currentStep,
+      completedSteps: Array.from(data.completedSteps),
+      highestStepReached: data.highestStepReached,
+      analysisComplete: data.analysisComplete,
+      mode: data.mode,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {
+    console.warn('Failed to save wizard state:', e);
+  }
+}
+
+function loadWizardFromStorage(mode: 'clone' | 'script'): {
+  wizardData: WizardData;
+  currentStep: WizardStep;
+  completedSteps: Set<WizardStep>;
+  highestStepReached: WizardStep;
+  analysisComplete: boolean;
+} | null {
+  try {
+    const stored = localStorage.getItem(WIZARD_STORAGE_KEY);
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+
+    // Only restore if same mode and saved within last 2 hours
+    if (parsed.mode !== mode) return null;
+    if (Date.now() - parsed.savedAt > 2 * 60 * 60 * 1000) {
+      localStorage.removeItem(WIZARD_STORAGE_KEY);
+      return null;
+    }
+
+    return {
+      wizardData: {
+        ...getDefaultWizardData(),
+        ...parsed.wizardData,
+        enabledScenes: new Set(parsed.wizardData.enabledScenes || []),
+        // Restore reference images without File objects (preview-only)
+        referenceImages: (parsed.wizardData.referenceImages || []).map((img: { preview: string; label?: string }) => ({
+          file: null as unknown as File, // File can't be restored — user may need to re-upload
+          preview: img.preview,
+          label: img.label,
+        })),
+      },
+      currentStep: parsed.currentStep as WizardStep,
+      completedSteps: new Set(parsed.completedSteps as WizardStep[]),
+      highestStepReached: parsed.highestStepReached as WizardStep,
+      analysisComplete: parsed.analysisComplete,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearWizardStorage() {
+  localStorage.removeItem(WIZARD_STORAGE_KEY);
+}
+
 // ============ Main Wizard (reuses all existing steps) ============
 function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: () => void }) {
   const searchParams = useSearchParams();
 
+  // ===== Restore saved state =====
+  const restored = useRef(loadWizardFromStorage(mode));
+
   // For clone mode: track whether analysis is done
-  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(restored.current?.analysisComplete ?? false);
 
   // ===== Wizard State =====
-  const [currentStep, setCurrentStep] = useState<WizardStep>(mode === 'clone' ? 1 as WizardStep : 2);
-  const [completedSteps, setCompletedSteps] = useState<Set<WizardStep>>(new Set());
-  const [highestStepReached, setHighestStepReached] = useState<WizardStep>(mode === 'clone' ? 1 as WizardStep : 2);
-  const [wizardData, setWizardData] = useState<WizardData>(getDefaultWizardData);
+  const [currentStep, setCurrentStep] = useState<WizardStep>(restored.current?.currentStep ?? (mode === 'clone' ? 1 as WizardStep : 2));
+  const [completedSteps, setCompletedSteps] = useState<Set<WizardStep>>(restored.current?.completedSteps ?? new Set());
+  const [highestStepReached, setHighestStepReached] = useState<WizardStep>(restored.current?.highestStepReached ?? (mode === 'clone' ? 1 as WizardStep : 2));
+  const [wizardData, setWizardData] = useState<WizardData>(restored.current?.wizardData ?? getDefaultWizardData);
 
   // ===== Image Generation State =====
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
@@ -495,6 +579,25 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
 
   // ===== Reuse existing hooks =====
   const cinematographer = useAICinematographer();
+
+  // ===== Auto-save wizard state on changes =====
+  useEffect(() => {
+    // Don't save during image generation (partial state)
+    if (isGeneratingImages) return;
+    saveWizardToStorage({ wizardData, currentStep, completedSteps, highestStepReached, analysisComplete, mode });
+  }, [wizardData, currentStep, completedSteps, highestStepReached, analysisComplete, mode, isGeneratingImages]);
+
+  // Show toast on restore
+  useEffect(() => {
+    if (restored.current) {
+      const frameCount = restored.current.wizardData.extractedFrames.length;
+      const sceneCount = restored.current.wizardData.scenes.length;
+      if (frameCount > 0 || sceneCount > 0) {
+        toast.info(`Restored previous session${frameCount > 0 ? ` (${frameCount} images)` : sceneCount > 0 ? ` (${sceneCount} scenes)` : ''}`);
+      }
+      restored.current = null; // Only show once
+    }
+  }, []);
 
   // ===== Load analysis from old AI Recreate URL params =====
   useEffect(() => {
