@@ -17,7 +17,7 @@ import {
   uploadGridImageToStorage,
 } from '@/actions/tools/ai-cinematographer';
 import type { CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
-import { getCinematographerVideos, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
+import { getCinematographerVideos, getCinematographerVideo, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 
 export function useAICinematographer() {
@@ -695,6 +695,47 @@ export function useAICinematographer() {
       subscription.unsubscribe();
     };
   }, [user?.id, supabase]);
+
+  // Polling fallback: check generating items every 10s in case Realtime misses an event
+  useEffect(() => {
+    const generatingItems = animationQueueRef.current.filter(
+      item => item.status === 'generating' && item.batchId
+    );
+    if (generatingItems.length === 0 || !user?.id) return;
+
+    const pollInterval = setInterval(async () => {
+      const currentGenerating = animationQueueRef.current.filter(
+        item => item.status === 'generating' && item.batchId
+      );
+      if (currentGenerating.length === 0) {
+        clearInterval(pollInterval);
+        return;
+      }
+
+      for (const item of currentGenerating) {
+        try {
+          const video = await getCinematographerVideo(item.batchId!, user.id);
+          if (video && (video.status === 'completed' || video.status === 'failed')) {
+            console.log(`🔄 Poll fallback: updating queue item ${item.id} to ${video.status}`);
+            setAnimationQueue(prev => prev.map(q =>
+              q.id === item.id
+                ? {
+                    ...q,
+                    status: video.status === 'completed' ? 'completed' as const : 'failed' as const,
+                    videoUrl: video.final_video_url || undefined,
+                    error: video.status === 'failed' ? 'Video generation failed' : undefined,
+                  }
+                : q
+            ));
+          }
+        } catch {
+          // Ignore polling errors
+        }
+      }
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
+  }, [user?.id, animationQueue]); // Re-setup when queue changes
 
   // Load initial history and restore any ongoing generations
   useEffect(() => {
