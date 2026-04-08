@@ -897,6 +897,19 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     const totalDuration = cumulativeTime || 30;
     const sessionId = `adcreator-${Date.now()}`;
 
+    // Collect completed video clips from the animation queue, matched by scene number
+    const completedClips = cinematographer.animationQueue
+      .filter(q => q.status === 'completed' && q.videoUrl)
+      .sort((a, b) => (a.sceneNumber || 0) - (b.sceneNumber || 0));
+
+    // Build video_clips array aligned with segments (by scene number)
+    const videoClipsForEditor = wizardData.extractedFrames.map(frame => {
+      const matchingClip = completedClips.find(c => c.sceneNumber === frame.sceneNumber);
+      return matchingClip?.videoUrl
+        ? { url: matchingClip.videoUrl, prompt: frame.prompt, duration: frame.duration || 6 }
+        : null;
+    }).filter(Boolean);
+
     const payload = {
       videoId: sessionId,
       userId: user.id,
@@ -906,6 +919,8 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
         urls: wizardData.extractedFrames.map(f => f.imageUrl),
         segments,
       },
+      // Include pre-generated video clips if available
+      video_clips: videoClipsForEditor.length > 0 ? videoClipsForEditor : undefined,
       metadata: {
         totalDuration,
         frameRate: 30,

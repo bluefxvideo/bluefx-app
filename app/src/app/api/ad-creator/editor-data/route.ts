@@ -63,6 +63,12 @@ interface EditorPayload {
       camera_motion?: string;
     }>;
   };
+  // Pre-generated video clips (mp4 URLs) from the cinematographer
+  video_clips?: Array<{
+    url: string;
+    prompt?: string;
+    duration?: number;
+  }>;
   metadata: {
     totalDuration: number;
     frameRate: number;
