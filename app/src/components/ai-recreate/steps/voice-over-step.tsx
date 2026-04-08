@@ -129,7 +129,7 @@ export function VoiceOverStep({
           {narrationScript || 'No narration script available'}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {narrationScript.split(/\s+/).filter(Boolean).length} words
+          {(narrationScript || '').split(/\s+/).filter(Boolean).length} words
         </p>
       </Card>
 
