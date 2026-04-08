@@ -38,6 +38,7 @@ export function ImageGenerationStep({
 
   const frames = wizardData.extractedFrames;
   const hasFrames = frames.length > 0;
+  const enabledCount = wizardData.scenes.filter(s => wizardData.enabledScenes.has(s.sceneNumber)).length;
 
   // Version navigation helpers
   const getVersionCount = (frame: ExtractedFrame) => frame.imageVersions?.length || 1;
@@ -195,9 +196,9 @@ export function ImageGenerationStep({
                 Scene {progress.current}/{progress.total}...
               </>
             ) : hasFrames ? (
-              <><RefreshCw className="w-4 h-4 mr-2" /> Regenerate All</>
+              <><RefreshCw className="w-4 h-4 mr-2" /> Regenerate All ({enabledCount * 2} credits)</>
             ) : (
-              <><Zap className="w-4 h-4 mr-2" /> Generate All Images</>
+              <><Zap className="w-4 h-4 mr-2" /> Generate All Images ({enabledCount * 2} credits)</>
             )}
           </Button>
         </div>
