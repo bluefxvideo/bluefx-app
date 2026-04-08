@@ -34,7 +34,7 @@ export function VoiceOverStep({
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const handleGenerate = async () => {
-    if (!narrationScript.trim()) {
+    if (!narrationScript?.trim()) {
       toast.error('No narration script to generate');
       return;
     }
@@ -184,7 +184,7 @@ export function VoiceOverStep({
         {/* Generate button */}
         <Button
           onClick={handleGenerate}
-          disabled={isGenerating || !narrationScript.trim()}
+          disabled={isGenerating || !narrationScript?.trim()}
           className="w-full"
         >
           {isGenerating ? (
