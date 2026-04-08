@@ -236,13 +236,16 @@ export function loadAIAssetsFromURL(): Promise<any> {
 
       } else if (videoId && userId && apiUrl) {
         // BlueFX format - fetch from BlueFX API
-        console.log('🔗 Loading AI assets from BlueFX:', { videoId, userId, apiUrl });
+        // Check for source override (ad-creator uses a different endpoint)
+        const source = urlParams.get('source');
+        console.log('🔗 Loading AI assets from BlueFX:', { videoId, userId, apiUrl, source });
         isLoading = true;
-        
+
         loadAIAssetsFromBlueFX({
           videoId,
           userId,
           apiUrl,
+          source: source || undefined,
           onProgress: (stage, progress) => {
             console.log(`📊 BlueFX Loading progress: ${stage} (${progress}%)`);
           },
@@ -305,6 +308,7 @@ async function loadAIAssetsFromBlueFX({
   videoId,
   userId,
   apiUrl,
+  source,
   onProgress,
   onSuccess,
   onError
@@ -312,6 +316,7 @@ async function loadAIAssetsFromBlueFX({
   videoId: string;
   userId: string;
   apiUrl: string;
+  source?: string;
   onProgress?: (stage: string, progress: number) => void;
   onSuccess?: (video_id: string) => void;
   onError?: (error: string) => void;
@@ -377,14 +382,19 @@ async function loadAIAssetsFromBlueFX({
     
     console.log('📭 No saved composition found, loading AI assets...');
     onProgress?.('Connecting to BlueFX...', 10);
-    
-    console.log('🔗 Fetching video data from BlueFX API:', `${cleanApiUrl}/api/script-video/editor-data`);
+
+    // Determine API endpoint based on source
+    const editorDataEndpoint = source === 'ad-creator'
+      ? `${cleanApiUrl}/api/ad-creator/editor-data`
+      : `${cleanApiUrl}/api/script-video/editor-data`;
+
+    console.log('🔗 Fetching video data from BlueFX API:', editorDataEndpoint);
     console.log('🔗 Request payload:', { user_id: userId, videoId: videoId });
-    
+
     // Fetch video data from BlueFX API
-    const response = await fetch(`${cleanApiUrl}/api/script-video/editor-data`, {
+    const response = await fetch(editorDataEndpoint, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true'
       },
