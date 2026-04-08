@@ -11,6 +11,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { analyzeVideo, analyzeYouTubeVideo, analyzeSocialMediaVideo, fetchVideoAnalyses } from '@/actions/tools/video-analyzer';
 import { detectPlatform } from '@/lib/social-video-utils';
+import { createClient } from '@/app/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { breakdownScript } from '@/actions/tools/scene-breakdown';
 import { useAICinematographer } from '@/components/ai-cinematographer/hooks/use-ai-cinematographer';
@@ -867,6 +868,74 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     }));
   };
 
+  // ===== Open in Video Editor =====
+  const handleOpenInEditor = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error('Please sign in to open the editor');
+      return;
+    }
+
+    // Build segments from extracted frames (images with timing)
+    let cumulativeTime = 0;
+    const segments = wizardData.extractedFrames.map((frame, i) => {
+      const duration = frame.duration || 6;
+      const segment = {
+        id: `segment-${i}`,
+        text: frame.narration || frame.prompt || `Scene ${frame.sceneNumber}`,
+        start_time: cumulativeTime,
+        end_time: cumulativeTime + duration,
+        duration,
+        image_prompt: frame.prompt,
+        camera_motion: frame.motionPresetId ? motionPresetToNativeCameraMotion(frame.motionPresetId) : undefined,
+      };
+      cumulativeTime += duration;
+      return segment;
+    });
+
+    const totalDuration = cumulativeTime || 30;
+    const sessionId = `adcreator-${Date.now()}`;
+
+    const payload = {
+      videoId: sessionId,
+      userId: user.id,
+      script: wizardData.narrationScript || wizardData.scenes.map(s => s.narration).join(' '),
+      voice: { url: wizardData.voiceAudioUrl || undefined },
+      images: {
+        urls: wizardData.extractedFrames.map(f => f.imageUrl),
+        segments,
+      },
+      metadata: {
+        totalDuration,
+        frameRate: 30,
+        wordCount: (wizardData.narrationScript || '').split(/\s+/).filter(Boolean).length,
+        speakingRate: 0,
+      },
+    };
+
+    try {
+      toast.info('Preparing editor...');
+      const apiUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const res = await fetch(`${apiUrl}/api/ad-creator/editor-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save', videoId: sessionId, payload }),
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error);
+
+      const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
+      window.open(
+        `${editorBaseUrl}/?videoId=${sessionId}&userId=${user.id}&apiUrl=${apiUrl}&source=ad-creator`,
+        '_blank'
+      );
+    } catch (err) {
+      console.error('Failed to open editor:', err);
+      toast.error('Failed to open editor');
+    }
+  };
+
   // ===== Populate animation queue from frames =====
   const populateAnimationQueue = () => {
     const existingUrls = new Set(cinematographer.animationQueue.map(q => q.imageUrl));
@@ -992,6 +1061,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             videoClips={cinematographer.animationQueue
               .filter(q => q.status === 'completed' && q.videoUrl)
               .map(q => ({ id: q.id, videoUrl: q.videoUrl, sceneNumber: q.sceneNumber, prompt: q.prompt }))}
+            onOpenInEditor={handleOpenInEditor}
           />
         )}
       </div>
