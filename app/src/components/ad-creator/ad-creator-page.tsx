@@ -580,6 +580,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
 
   // ===== Reuse existing hooks =====
   const cinematographer = useAICinematographer();
+  const { credits: wizardCredits, hasEnoughCredits: wizardHasEnoughCredits } = useCredits();
 
   // ===== Auto-save wizard state on changes =====
   useEffect(() => {
@@ -781,6 +782,17 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     const enabledScenes = wizardData.scenes.filter(s => wizardData.enabledScenes.has(s.sceneNumber));
     if (enabledScenes.length === 0) return;
 
+    // Get user for credit deduction
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error('Please sign in'); return; }
+
+    const totalCost = enabledScenes.length * 2; // 2 credits per image
+    if (!wizardHasEnoughCredits(totalCost)) {
+      toast.error(`Not enough credits. Need ${totalCost} for ${enabledScenes.length} images.`);
+      return;
+    }
+
     setIsGeneratingImages(true);
     setImageGenProgress({ current: 0, total: enabledScenes.length });
 
@@ -806,22 +818,16 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       try {
         const imagePrompt = `${wizardData.globalAestheticPrompt}\n\n${scene.visualPrompt}\n\nIMPORTANT: Do NOT add any text, words, letters, watermarks, or overlays on the image. The image must be completely clean with no text whatsoever.`;
 
-        const { generateImageWithPro } = await import('@/actions/models/fal-nano-banana-2');
-        const result = await generateImageWithPro(
-          imagePrompt,
-          wizardData.aspectRatio,
-          uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined,
-          '2K',
-          'jpg'
-        );
+        const { generateSingleSceneImage } = await import('@/actions/tools/ai-cinematographer');
+        const result = await generateSingleSceneImage({
+          prompt: imagePrompt,
+          aspectRatio: wizardData.aspectRatio,
+          referenceImageUrls: uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined,
+          userId: user.id,
+        });
 
         if (result.success && result.imageUrl) {
-          let finalUrl = result.imageUrl;
-          try {
-            const { uploadCinematographerImage } = await import('@/actions/tools/ai-cinematographer');
-            const uploaded = await uploadCinematographerImage(result.imageUrl);
-            if (uploaded) finalUrl = uploaded;
-          } catch { /* use fal URL */ }
+          const finalUrl = result.imageUrl;
 
           const duration = scene.narration
             ? Math.max(6, Math.min(20, Math.ceil(scene.narration.split(/\s+/).length / 2.5)))

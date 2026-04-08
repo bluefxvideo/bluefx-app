@@ -6,8 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Play, Pause, Download, Volume2, Mic, Square, Check, ExternalLink, Video, Music } from 'lucide-react';
 import { MINIMAX_VOICE_OPTIONS, type VoiceOption } from '@/components/shared/voice-constants';
-import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
-import { createClient } from '@/app/supabase/client';
+import { executeVoiceOver } from '@/actions/tools/voice-over';
 import { toast } from 'sonner';
 
 interface VoiceOverStepProps {
@@ -51,31 +50,22 @@ export function VoiceOverStep({
     setIsGenerating(true);
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('Please sign in to generate voice over');
-        setIsGenerating(false);
-        return;
-      }
-
-      const result = await generateMinimaxVoice({
-        text: narrationScript,
+      const result = await executeVoiceOver({
+        script_text: narrationScript,
+        voice_id: voice,
         voice_settings: {
-          voice_id: voice,
           speed,
           pitch: 0,
           volume: 1,
           emotion: 'auto',
         },
-        user_id: user.id,
-        batch_id: `recreate-vo-${Date.now()}`,
+        user_id: '', // Will be overridden by server-side auth
       });
 
-      if (result.success && result.audio_url) {
-        onVoiceGenerated(result.audio_url, result.metadata?.duration_estimate);
+      if (result.success && result.generated_audio?.audio_url) {
+        onVoiceGenerated(result.generated_audio.audio_url, result.generated_audio.duration_seconds);
         onSettingsChange(voice, speed);
-        toast.success('Voice over generated');
+        toast.success(`Voice over generated (${result.credits_used} credits)`);
       } else {
         toast.error(result.error || 'Failed to generate voice over');
       }
@@ -278,9 +268,9 @@ export function VoiceOverStep({
           {isGenerating ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating Voice Over...</>
           ) : voiceAudioUrl ? (
-            <><Volume2 className="w-4 h-4 mr-2" /> Regenerate Voice Over</>
+            <><Volume2 className="w-4 h-4 mr-2" /> Regenerate Voice Over (2 credits)</>
           ) : (
-            <><Volume2 className="w-4 h-4 mr-2" /> Generate Voice Over</>
+            <><Volume2 className="w-4 h-4 mr-2" /> Generate Voice Over (2 credits)</>
           )}
         </Button>
       </Card>
