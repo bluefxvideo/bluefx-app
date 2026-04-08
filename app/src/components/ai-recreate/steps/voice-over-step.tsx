@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 interface VoiceOverStepProps {
   narrationScript: string;
+  onNarrationChange?: (script: string) => void;
   onVoiceGenerated: (audioUrl: string, duration?: number) => void;
   onSettingsChange: (voice?: string, speed?: number) => void;
   selectedVoice?: string;
@@ -21,6 +22,7 @@ interface VoiceOverStepProps {
 
 export function VoiceOverStep({
   narrationScript,
+  onNarrationChange,
   onVoiceGenerated,
   onSettingsChange,
   selectedVoice,
@@ -122,12 +124,16 @@ export function VoiceOverStep({
         </p>
       </div>
 
-      {/* Script preview */}
+      {/* Script editor */}
       <Card className="p-4">
         <h3 className="text-sm font-medium mb-2">Narration Script</h3>
-        <div className="text-sm text-muted-foreground bg-secondary/20 rounded-md p-3 max-h-40 overflow-y-auto font-mono">
-          {narrationScript || 'No narration script available'}
-        </div>
+        <Textarea
+          value={narrationScript || ''}
+          onChange={e => onNarrationChange?.(e.target.value)}
+          placeholder="Type or paste your narration script here..."
+          rows={6}
+          className="text-sm bg-secondary/20 border-border/30 font-mono resize-y"
+        />
         <p className="text-xs text-muted-foreground mt-2">
           {(narrationScript || '').split(/\s+/).filter(Boolean).length} words
         </p>

@@ -983,6 +983,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
         {currentStep === 5 && (
           <VoiceOverStep
             narrationScript={wizardData.narrationScript}
+            onNarrationChange={(script) => setWizardData(prev => ({ ...prev, narrationScript: script }))}
             onVoiceGenerated={(audioUrl, duration) => setWizardData(prev => ({ ...prev, voiceAudioUrl: audioUrl, voiceDuration: duration }))}
             onSettingsChange={(voice, speed) => setWizardData(prev => ({ ...prev, selectedVoice: voice ?? prev.selectedVoice, voiceSpeed: speed ?? prev.voiceSpeed }))}
             selectedVoice={wizardData.selectedVoice}
