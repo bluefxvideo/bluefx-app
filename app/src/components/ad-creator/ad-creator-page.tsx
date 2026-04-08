@@ -989,6 +989,9 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             selectedVoice={wizardData.selectedVoice}
             voiceSpeed={wizardData.voiceSpeed}
             voiceAudioUrl={wizardData.voiceAudioUrl}
+            videoClips={cinematographer.animationQueue
+              .filter(q => q.status === 'completed' && q.videoUrl)
+              .map(q => ({ id: q.id, videoUrl: q.videoUrl, sceneNumber: q.sceneNumber, prompt: q.prompt }))}
           />
         )}
       </div>
