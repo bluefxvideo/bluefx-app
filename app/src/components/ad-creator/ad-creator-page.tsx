@@ -897,18 +897,28 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     const totalDuration = cumulativeTime || 30;
     const sessionId = `adcreator-${Date.now()}`;
 
-    // Collect completed video clips from the animation queue, matched by scene number
+    // Collect completed video clips from the animation queue
     const completedClips = cinematographer.animationQueue
-      .filter(q => q.status === 'completed' && q.videoUrl)
-      .sort((a, b) => (a.sceneNumber || 0) - (b.sceneNumber || 0));
+      .filter(q => q.status === 'completed' && q.videoUrl);
 
-    // Build video_clips array aligned with segments (by scene number)
-    const videoClipsForEditor = wizardData.extractedFrames.map(frame => {
-      const matchingClip = completedClips.find(c => c.sceneNumber === frame.sceneNumber);
+    console.log('🎬 Editor: animation queue total:', cinematographer.animationQueue.length);
+    console.log('🎬 Editor: completed clips:', completedClips.length, completedClips.map(c => ({
+      id: c.id, sceneNumber: c.sceneNumber, videoUrl: c.videoUrl?.substring(0, 60),
+    })));
+    console.log('🎬 Editor: extracted frames:', wizardData.extractedFrames.length, wizardData.extractedFrames.map(f => ({
+      sceneNumber: f.sceneNumber, imageUrl: f.imageUrl?.substring(0, 60),
+    })));
+
+    // Build video_clips array — match by scene number, fallback to index order
+    const videoClipsForEditor = wizardData.extractedFrames.map((frame, idx) => {
+      const matchingClip = completedClips.find(c => c.sceneNumber === frame.sceneNumber)
+        || completedClips[idx]; // Fallback: use index order
       return matchingClip?.videoUrl
         ? { url: matchingClip.videoUrl, prompt: frame.prompt, duration: frame.duration || 6 }
         : null;
-    }).filter(Boolean);
+    }).filter((c): c is NonNullable<typeof c> => c !== null);
+
+    console.log('🎬 Editor: video clips for editor:', videoClipsForEditor.length);
 
     const payload = {
       videoId: sessionId,
@@ -919,7 +929,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
         urls: wizardData.extractedFrames.map(f => f.imageUrl),
         segments,
       },
-      // Include pre-generated video clips if available
+      // Include pre-generated video clips
       video_clips: videoClipsForEditor.length > 0 ? videoClipsForEditor : undefined,
       metadata: {
         totalDuration,
@@ -935,7 +945,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       const res = await fetch(`${apiUrl}/api/ad-creator/editor-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save', videoId: sessionId, payload }),
+        body: JSON.stringify({ action: 'save', videoId: sessionId, userId: user.id, payload }),
       });
       const result = await res.json();
       if (!result.success) throw new Error(result.error);
