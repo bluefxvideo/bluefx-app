@@ -10,6 +10,8 @@ import {
   generateClips as serverGenerateClips,
   generateListingVoiceover,
   cleanupListingPhoto,
+  renderListingVideo,
+  checkListingRenderProgress,
 } from '@/actions/tools/reelestate/orchestrator';
 import { generateListingClip, pollClipStatus } from '@/actions/tools/reelestate/clip-generator';
 import { cleanupPhoto } from '@/actions/tools/reelestate/photo-cleanup';
@@ -47,6 +49,12 @@ const INITIAL_PROJECT: ReelEstateProject = {
   voiceId: 'Friendly_Person',
   voiceSpeed: 1.0,
   creditsUsed: 0,
+  // Music & style (simplified flow)
+  musicTrackId: null,
+  musicUrl: null,
+  musicVolume: 0.3,
+  introText: null,
+  speedRamps: true,
 };
 
 interface CleanupQueueItem {
@@ -130,6 +138,7 @@ export function useReelEstate() {
       renderProgress: null,
       finalVideoUrl: null,
       status: 'idle',
+      introText: result.listing?.address || null,
       error: null,
       creditsUsed: 0,
     });
@@ -451,6 +460,74 @@ export function useReelEstate() {
     updateProject({ voiceSpeed });
   }, [updateProject]);
 
+  // ─── Music & Style (simplified flow) ──────────
+  const setMusicTrack = useCallback((trackId: string | null, url: string | null) => {
+    updateProject({ musicTrackId: trackId, musicUrl: url });
+    if (project.id) {
+      updateListing(project.id, { music_url: url });
+    }
+  }, [updateProject, project.id]);
+
+  const setMusicVolume = useCallback((volume: number) => {
+    updateProject({ musicVolume: volume });
+    if (project.id) {
+      updateListing(project.id, { music_volume: volume });
+    }
+  }, [updateProject, project.id]);
+
+  const setIntroText = useCallback((text: string | null) => {
+    updateProject({ introText: text });
+    if (project.id) {
+      updateListing(project.id, { intro_text: text });
+    }
+  }, [updateProject, project.id]);
+
+  const setSpeedRamps = useCallback((enabled: boolean) => {
+    updateProject({ speedRamps: enabled });
+  }, [updateProject]);
+
+  // ─── Direct Render (simplified flow) ──────────
+  const renderVideo = useCallback(async () => {
+    if (!project.id) return;
+    updateProject({ status: 'rendering', renderProgress: 0, error: null, finalVideoUrl: null });
+
+    try {
+      const result = await renderListingVideo(project.id);
+      if (!result.success) {
+        updateProject({ status: 'script_ready', error: result.error || 'Render failed' });
+        toast.error(result.error || 'Render failed');
+        return;
+      }
+
+      updateProject({ renderId: result.renderId || null });
+
+      // Poll for progress
+      const pollInterval = setInterval(async () => {
+        const progress = await checkListingRenderProgress(project.id!);
+        if (!progress.success) return;
+
+        updateProject({ renderProgress: Math.round(progress.progress * 100) });
+
+        if (progress.status === 'completed' && progress.videoUrl) {
+          clearInterval(pollInterval);
+          updateProject({
+            status: 'completed',
+            finalVideoUrl: progress.videoUrl,
+            renderProgress: 100,
+          });
+          toast.success('Video created!');
+        } else if (progress.status === 'failed') {
+          clearInterval(pollInterval);
+          updateProject({ status: 'script_ready', error: progress.error || 'Render failed' });
+          toast.error(progress.error || 'Render failed');
+        }
+      }, 3000);
+    } catch (error) {
+      updateProject({ status: 'script_ready', error: 'Failed to start render' });
+      toast.error('Failed to start render');
+    }
+  }, [project.id, updateProject]);
+
   // ─── Photo Cleanup ─────────────────────────────
   const addToCleanupQueue = useCallback((item: CleanupQueueItem) => {
     setCleanupQueue(prev => [...prev, item]);
@@ -609,6 +686,12 @@ export function useReelEstate() {
     addToCleanupQueue,
     removeFromCleanupQueue,
     clearCleanupQueue,
+    // Music & style (simplified flow)
+    setMusicTrack,
+    setMusicVolume,
+    setIntroText,
+    setSpeedRamps,
+    renderVideo,
     listings,
     isLoadingHistory,
     loadHistory,
