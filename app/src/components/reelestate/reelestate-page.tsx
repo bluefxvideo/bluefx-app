@@ -77,6 +77,12 @@ export function ReelEstatePage() {
     setTargetDuration,
     setVoiceId,
     setVoiceSpeed,
+    // Music & style (simplified flow)
+    setMusicTrack,
+    setMusicVolume,
+    setIntroText,
+    setSpeedRamps,
+    renderVideo,
     // User
     userId,
     // Photo Cleanup
