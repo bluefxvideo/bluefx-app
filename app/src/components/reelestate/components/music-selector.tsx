@@ -36,25 +36,31 @@ export function MusicSelector({
 
   const tracks = getTracksByGenre(activeGenre);
 
-  const togglePlay = useCallback((track: MusicTrack) => {
+  const togglePlay = (track: MusicTrack) => {
     if (playingId === track.id) {
-      // Pause current
       audioRef.current?.pause();
       setPlayingId(null);
     } else {
-      // Play new track
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current = null;
       }
       const audio = new Audio(track.url);
       audio.volume = volume;
       audio.onended = () => setPlayingId(null);
-      audio.onerror = () => setPlayingId(null);
-      audio.play().catch(() => setPlayingId(null));
+      audio.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        setPlayingId(null);
+      };
       audioRef.current = audio;
       setPlayingId(track.id);
+      // Play must be called synchronously from click handler
+      audio.play().catch((err) => {
+        console.error('Audio play failed:', err);
+        setPlayingId(null);
+      });
     }
-  }, [playingId, volume]);
+  };
 
   const selectTrack = useCallback((track: MusicTrack) => {
     onSelectTrack(track.id, track.url);
@@ -100,7 +106,10 @@ export function MusicSelector({
                   : 'border-transparent hover:bg-muted/50',
                 disabled && 'opacity-50 pointer-events-none'
               )}
-              onClick={() => selectTrack(track)}
+              onClick={() => {
+                selectTrack(track);
+                if (playingId !== track.id) togglePlay(track);
+              }}
             >
               {/* Play/pause button */}
               <Button
