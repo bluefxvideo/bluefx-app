@@ -393,41 +393,64 @@ export async function renderListingVideo(
     const listingData = listing.listing_data as unknown as ZillowListingData | null;
     const aspectRatio = (listing.aspect_ratio as '16:9' | '9:16') || '16:9';
 
-    if (!segments?.length || !voiceoverUrl) {
-      return { success: false, error: 'Script and voiceover are required before rendering' };
+    // Allow rendering without voiceover (music-only mode)
+    if (!selectedIndices?.length) {
+      return { success: false, error: 'Please select photos before rendering' };
     }
 
-    // Build segment timing — cumulative start/end times
-    const selectedSegments = segments.filter(s => selectedIndices.includes(s.image_index));
-    let currentTime = 0;
-    const remotionSegments = selectedSegments.map((seg) => {
-      const analysis = analyses.find(a => a.index === seg.image_index);
-      const kenBurns = analysis ? cameraMotionToKenBurns(analysis.camera_motion) : 'zoom_in';
-      const duration = seg.duration_seconds;
-      const startTime = currentTime;
-      currentTime += duration;
-      return {
-        startTime,
-        endTime: currentTime,
-        duration,
-        kenBurns,
-        voiceover: seg.voiceover,
-      };
-    });
+    // Build segment timing — from voiceover script OR equal-duration auto-segments
+    let remotionSegments: { startTime: number; endTime: number; duration: number; kenBurns: string }[];
+    let totalDuration: number;
 
-    const totalDuration = currentTime;
+    if (segments?.length && voiceoverUrl) {
+      // Voiceover mode: use script segment timing
+      const selectedSegments = segments.filter(s => selectedIndices.includes(s.image_index));
+      let currentTime = 0;
+      remotionSegments = selectedSegments.map((seg) => {
+        const analysis = analyses.find(a => a.index === seg.image_index);
+        const kenBurns = analysis ? cameraMotionToKenBurns(analysis.camera_motion) : 'zoom_in';
+        const duration = seg.duration_seconds;
+        const startTime = currentTime;
+        currentTime += duration;
+        return { startTime, endTime: currentTime, duration, kenBurns };
+      });
+      totalDuration = currentTime;
+    } else {
+      // Music-only mode: auto-segments with equal duration per photo
+      const targetDur = (listing.target_duration as number) || 30;
+      const durationPerPhoto = targetDur / selectedIndices.length;
+      let currentTime = 0;
+      remotionSegments = selectedIndices.map((photoIdx) => {
+        const analysis = analyses.find(a => a.index === photoIdx);
+        const kenBurns = analysis ? cameraMotionToKenBurns(analysis.camera_motion) : 'zoom_in';
+        const startTime = currentTime;
+        currentTime += durationPerPhoto;
+        return { startTime, endTime: currentTime, duration: durationPerPhoto, kenBurns };
+      });
+      totalDuration = currentTime;
+    }
 
     // Build photo map keyed by segment index (Remotion expects {0: url, 1: url, ...})
     const photoMap: Record<number, string> = {};
-    selectedSegments.forEach((seg, i) => {
-      photoMap[i] = photos[seg.image_index];
-    });
+    if (segments?.length && voiceoverUrl) {
+      const selectedSegments = segments.filter(s => selectedIndices.includes(s.image_index));
+      selectedSegments.forEach((seg, i) => { photoMap[i] = photos[seg.image_index]; });
+    } else {
+      selectedIndices.forEach((photoIdx, i) => { photoMap[i] = photos[photoIdx]; });
+    }
+
+    // Read music settings from listing
+    const musicUrl = listing.music_url as string | null;
+    const musicVolume = (listing.music_volume as number) || 0.3;
+    const introText = listing.intro_text as string | null;
 
     // Build Remotion input props
     const inputProps = {
       photos: photoMap,
       segments: remotionSegments,
-      audioUrl: voiceoverUrl,
+      audioUrl: voiceoverUrl || '',
+      backgroundMusic: musicUrl ? { url: musicUrl, volume: voiceoverUrl ? 0.15 : musicVolume } : null,
+      introText,
       listing: listingData ? {
         address: listingData.address,
         price: listingData.price_formatted || `$${listingData.price?.toLocaleString() || ''}`,

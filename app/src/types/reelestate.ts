@@ -265,6 +265,12 @@ export interface ReelEstateProject {
   voiceId: string;
   voiceSpeed: number;
   creditsUsed: number;
+  // Music & style (simplified flow)
+  musicTrackId: string | null;
+  musicUrl: string | null;
+  musicVolume: number;
+  introText: string | null;
+  speedRamps: boolean;
 }
 
 /** Map camera_motion from Gemini analysis → Ken Burns direction for Remotion */

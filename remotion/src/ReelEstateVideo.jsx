@@ -63,6 +63,8 @@ export const ReelEstateVideo = () => {
     photos = {},
     segments = [],
     audioUrl = '',
+    backgroundMusic = null,
+    introText = null,
     listing = null,
     totalDuration = 10,
     aspectRatio = '16:9',
@@ -149,8 +151,18 @@ export const ReelEstateVideo = () => {
       {/* Voiceover Audio */}
       {audioUrl && <Audio src={audioUrl} />}
 
-      {/* Listing Info Overlay — first segment */}
-      {listing && listingOverlayOpacity > 0.01 && (
+      {/* Background Music */}
+      {backgroundMusic?.url && (
+        <Audio
+          src={backgroundMusic.url}
+          volume={backgroundMusic.volume || 0.3}
+          startFrom={0}
+          loop
+        />
+      )}
+
+      {/* Listing Info Overlay — first segment (uses introText if provided, falls back to listing data) */}
+      {(listing || introText) && listingOverlayOpacity > 0.01 && (
         <AbsoluteFill
           style={{
             display: 'flex',
@@ -190,8 +202,8 @@ export const ReelEstateVideo = () => {
               </div>
             )}
 
-            {/* Address */}
-            {listing.address && (
+            {/* Address or custom intro text */}
+            {(introText || listing?.address) && (
               <div
                 style={{
                   color: 'white',
@@ -202,7 +214,7 @@ export const ReelEstateVideo = () => {
                   lineHeight: 1.2,
                 }}
               >
-                {listing.address}
+                {introText || listing.address}
               </div>
             )}
 
