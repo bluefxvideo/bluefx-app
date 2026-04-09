@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   Audio,
   Img,
+  OffthreadVideo,
   useCurrentFrame,
   useVideoConfig,
   interpolate,
@@ -136,19 +137,30 @@ export const ReelEstateVideo = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
-      {/* Background Photo with Ken Burns */}
+      {/* Background Media: video clip (animated) or photo (Ken Burns) */}
       {currentPhotoUrl && (
-        <AbsoluteFill key={`photo-${currentSegmentIndex}`}>
-          <Img
-            src={currentPhotoUrl}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transform: kenBurnsTransform,
-              transformOrigin: 'center center',
-            }}
-          />
+        <AbsoluteFill key={`media-${currentSegmentIndex}`}>
+          {currentPhotoUrl.includes('.mp4') || currentPhotoUrl.includes('.webm') ? (
+            <OffthreadVideo
+              src={currentPhotoUrl}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <Img
+              src={currentPhotoUrl}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transform: kenBurnsTransform,
+                transformOrigin: 'center center',
+              }}
+            />
+          )}
         </AbsoluteFill>
       )}
 

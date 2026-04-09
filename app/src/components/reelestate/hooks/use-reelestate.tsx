@@ -487,26 +487,104 @@ export function useReelEstate() {
   }, [updateProject]);
 
   // ─── Direct Render (simplified flow) ──────────
-  const renderVideo = useCallback(async () => {
+  const renderVideo = useCallback(async (animate: boolean = true) => {
     if (!project.id) return;
     updateProject({ status: 'rendering', renderProgress: 0, error: null, finalVideoUrl: null });
 
     try {
-      const result = await renderListingVideo(project.id);
+      let mediaUrls: Record<number, string> | undefined;
+
+      // Step A: If animate is ON, generate AI video clips first
+      if (animate && project.selectedIndices.length > 0) {
+        updateProject({ status: 'generating_clips' });
+
+        // Build clip requests from selected photos + AI camera motions
+        const clipRequests = project.selectedIndices.map((photoIdx, i) => {
+          const analysis = project.analyses.find(a => a.index === photoIdx);
+          return {
+            index: i,
+            photo_url: project.photos[photoIdx],
+            camera_motion: (analysis?.camera_motion || 'dolly_in') as any,
+            prompt: analysis?.description || 'Cinematic real estate property walkthrough',
+            aspect_ratio: project.aspectRatio,
+          };
+        });
+
+        // Generate all clips
+        const clipResult = await serverGenerateClips(project.id, clipRequests);
+        if (!clipResult.success || clipResult.clips.length === 0) {
+          updateProject({ status: 'idle', error: clipResult.error || 'Failed to generate clips' });
+          toast.error(clipResult.error || 'Failed to animate photos');
+          return;
+        }
+
+        // Poll until all clips complete
+        let clips = clipResult.clips;
+        const maxAttempts = 120; // 6 min max (120 × 3s)
+        let attempts = 0;
+
+        while (attempts < maxAttempts) {
+          const pending = clips.filter(c => c.status !== 'succeeded' && c.status !== 'failed');
+          if (pending.length === 0) break;
+
+          await new Promise(r => setTimeout(r, 3000));
+          attempts++;
+
+          // Poll each pending clip
+          const updated = await Promise.all(
+            clips.map(async (clip) => {
+              if (clip.status === 'succeeded' || clip.status === 'failed') return clip;
+              return pollClipStatus(clip.prediction_id, clip.index);
+            })
+          );
+          clips = updated;
+
+          const done = clips.filter(c => c.status === 'succeeded').length;
+          const total = clips.length;
+          updateProject({ renderProgress: Math.round((done / total) * 50) }); // 0-50% for clips
+        }
+
+        // Collect video URLs from succeeded clips
+        const succeededClips = clips.filter(c => c.status === 'succeeded' && c.video_url);
+        if (succeededClips.length === 0) {
+          updateProject({ status: 'idle', error: 'All clip animations failed' });
+          toast.error('Failed to animate photos');
+          return;
+        }
+
+        mediaUrls = {};
+        succeededClips.forEach(clip => {
+          mediaUrls![clip.index] = clip.video_url!;
+        });
+
+        toast.success(`${succeededClips.length}/${clips.length} photos animated`);
+      }
+
+      // Step B: Render final video
+      updateProject({ status: 'rendering', renderProgress: 50 });
+
+      const result = await renderListingVideo(project.id, {
+        mediaUrls,
+        musicUrl: project.musicUrl,
+        musicVolume: project.musicVolume,
+        introText: project.introText,
+      });
+
       if (!result.success) {
-        updateProject({ status: 'script_ready', error: result.error || 'Render failed' });
+        updateProject({ status: 'idle', error: result.error || 'Render failed' });
         toast.error(result.error || 'Render failed');
         return;
       }
 
       updateProject({ renderId: result.renderId || null });
 
-      // Poll for progress
+      // Poll for render progress (50-100%)
       const pollInterval = setInterval(async () => {
         const progress = await checkListingRenderProgress(project.id!);
         if (!progress.success) return;
 
-        updateProject({ renderProgress: Math.round(progress.progress * 100) });
+        const renderPct = Math.round(progress.progress * 100);
+        updateProject({ renderProgress: 50 + Math.round(renderPct / 2) }); // 50-100%
 
         if (progress.status === 'completed' && progress.videoUrl) {
           clearInterval(pollInterval);
@@ -518,15 +596,16 @@ export function useReelEstate() {
           toast.success('Video created!');
         } else if (progress.status === 'failed') {
           clearInterval(pollInterval);
-          updateProject({ status: 'script_ready', error: progress.error || 'Render failed' });
+          updateProject({ status: 'idle', error: progress.error || 'Render failed' });
           toast.error(progress.error || 'Render failed');
         }
       }, 3000);
     } catch (error) {
-      updateProject({ status: 'script_ready', error: 'Failed to start render' });
-      toast.error('Failed to start render');
+      console.error('renderVideo error:', error);
+      updateProject({ status: 'idle', error: 'Failed to create video' });
+      toast.error('Failed to create video');
     }
-  }, [project.id, updateProject]);
+  }, [project.id, project.selectedIndices, project.analyses, project.photos, project.aspectRatio, project.musicUrl, project.musicVolume, project.introText, updateProject]);
 
   // ─── Photo Cleanup ─────────────────────────────
   const addToCleanupQueue = useCallback((item: CleanupQueueItem) => {

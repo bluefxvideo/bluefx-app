@@ -44,7 +44,7 @@ interface VideoMakerTabProps {
   onSetMusicTrack: (trackId: string | null, url: string | null) => void;
   onSetMusicVolume: (volume: number) => void;
   // Step 4: Create
-  onRenderVideo: () => void;
+  onRenderVideo: (animate: boolean) => void;
   onOpenInEditor: () => void;
   // Optional voiceover (collapsible in Step 4)
   onGenerateScript: () => void;
@@ -85,6 +85,7 @@ export function VideoMakerTab({
   userId,
 }: VideoMakerTabProps) {
   const [showVoiceover, setShowVoiceover] = useState(false);
+  const [animate, setAnimate] = useState(true);
 
   const hasPhotos = project.photos.length > 0;
   const hasAnalyses = project.analyses.length > 0;
@@ -92,7 +93,7 @@ export function VideoMakerTab({
   const hasMusic = project.musicTrackId !== null;
   const hasScript = project.script !== null;
   const hasVoiceover = project.voiceover !== null;
-  const isRendering = project.status === 'rendering';
+  const isRendering = project.status === 'rendering' || project.status === 'generating_clips';
 
   // Credit estimate
   const analysisCost = Math.ceil(project.photos.length / 5);
@@ -230,15 +231,22 @@ export function VideoMakerTab({
                 <p className="text-xs text-muted-foreground mt-1">Displayed on the first photo</p>
               </div>
 
-              {/* Speed ramps */}
+              {/* AI Animation toggle */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-                  <label className="text-sm">Speed Ramps</label>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
+                    <label className="text-sm">AI Animation</label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {animate
+                      ? `Cinematic motion from photos (${project.selectedIndices.length * 6} credits)`
+                      : 'Ken Burns slideshow (free)'}
+                  </p>
                 </div>
                 <Switch
-                  checked={project.speedRamps}
-                  onCheckedChange={onSetSpeedRamps}
+                  checked={animate}
+                  onCheckedChange={setAnimate}
                   disabled={isWorking}
                 />
               </div>
@@ -296,7 +304,11 @@ export function VideoMakerTab({
             {isRendering && project.renderProgress !== null && (
               <div className="space-y-2 mt-3">
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Creating video...</span>
+                  <span>
+                    {project.status === 'generating_clips'
+                      ? 'Animating photos...'
+                      : 'Rendering video...'}
+                  </span>
                   <span>{project.renderProgress}%</span>
                 </div>
                 <Progress value={project.renderProgress} className="h-2" />
@@ -398,15 +410,19 @@ export function VideoMakerTab({
         <TabFooter>
           <div className="flex gap-2">
             <Button
-              onClick={onRenderVideo}
+              onClick={() => onRenderVideo(animate)}
               disabled={isWorking || isRendering}
               className="flex-1 h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
               size="lg"
             >
               {isRendering ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Video...</>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {project.status === 'generating_clips' ? 'Animating...' : 'Rendering...'}
+                </>
               ) : (
-                <><Sparkles className="w-4 h-4 mr-2" />Create Video (2 credits)</>
+                <><Sparkles className="w-4 h-4 mr-2" />
+                  Create Video ({animate ? project.selectedIndices.length * 6 + 2 : 2} credits)
+                </>
               )}
             </Button>
             <Button

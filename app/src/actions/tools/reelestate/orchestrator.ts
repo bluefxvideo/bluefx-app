@@ -361,6 +361,12 @@ export async function generateListingVoiceover(
  */
 export async function renderListingVideo(
   listingId: string,
+  overrides?: {
+    mediaUrls?: Record<number, string>; // video clip or photo URLs (overrides DB photos)
+    musicUrl?: string | null;
+    musicVolume?: number;
+    introText?: string | null;
+  },
 ): Promise<{ success: boolean; renderId?: string; error?: string }> {
   try {
     const supabase = await createClient();
@@ -430,19 +436,22 @@ export async function renderListingVideo(
       totalDuration = currentTime;
     }
 
-    // Build photo map keyed by segment index (Remotion expects {0: url, 1: url, ...})
+    // Build media map: use override URLs (video clips) or fall back to photos
     const photoMap: Record<number, string> = {};
-    if (segments?.length && voiceoverUrl) {
+    if (overrides?.mediaUrls && Object.keys(overrides.mediaUrls).length > 0) {
+      // Use provided media URLs (video clips from AI animation)
+      Object.entries(overrides.mediaUrls).forEach(([key, url]) => { photoMap[Number(key)] = url; });
+    } else if (segments?.length && voiceoverUrl) {
       const selectedSegments = segments.filter(s => selectedIndices.includes(s.image_index));
       selectedSegments.forEach((seg, i) => { photoMap[i] = photos[seg.image_index]; });
     } else {
       selectedIndices.forEach((photoIdx, i) => { photoMap[i] = photos[photoIdx]; });
     }
 
-    // Read music settings from listing
-    const musicUrl = listing.music_url as string | null;
-    const musicVolume = (listing.music_volume as number) || 0.3;
-    const introText = listing.intro_text as string | null;
+    // Music & intro: use overrides (from UI) or fall back to DB values
+    const musicUrl = overrides?.musicUrl !== undefined ? overrides.musicUrl : (listing.music_url as string | null);
+    const musicVolume = overrides?.musicVolume !== undefined ? overrides.musicVolume : ((listing.music_volume as number) || 0.3);
+    const introText = overrides?.introText !== undefined ? overrides.introText : (listing.intro_text as string | null);
 
     // Build Remotion input props
     const inputProps = {
