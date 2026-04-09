@@ -37,8 +37,13 @@ export function MusicSelector({
   const tracks = getTracksByGenre(activeGenre);
 
   const togglePlay = (track: MusicTrack) => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    let audio = audioRef.current;
+    // Fallback: create audio element if ref didn't connect
+    if (!audio) {
+      console.warn('audioRef is null, creating element');
+      audio = document.createElement('audio');
+      (audioRef as any).current = audio;
+    }
 
     if (playingId === track.id) {
       audio.pause();
@@ -46,9 +51,10 @@ export function MusicSelector({
     } else {
       audio.src = track.url;
       audio.volume = volume;
+      audio.load();
       setPlayingId(track.id);
       audio.play().catch((err) => {
-        console.error('Audio play failed:', err);
+        console.error('Audio play failed:', err.message);
         setPlayingId(null);
       });
     }
@@ -66,12 +72,17 @@ export function MusicSelector({
 
   return (
     <div className="space-y-3">
-      {/* Hidden audio element — must be in DOM for Chrome autoplay policy */}
+      {/* Audio element for track preview — must be in DOM for Chrome autoplay policy */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio
         ref={audioRef}
+        preload="none"
         onEnded={() => setPlayingId(null)}
-        onError={() => setPlayingId(null)}
-        style={{ display: 'none' }}
+        onError={(e) => {
+          console.error('Audio element error:', e);
+          setPlayingId(null);
+        }}
+        className="sr-only"
       />
 
       {/* Genre tabs */}
