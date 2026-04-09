@@ -32,29 +32,21 @@ export function MusicSelector({
 }: MusicSelectorProps) {
   const [activeGenre, setActiveGenre] = useState<MusicGenre>('upbeat');
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const tracks = getTracksByGenre(activeGenre);
 
   const togglePlay = (track: MusicTrack) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
     if (playingId === track.id) {
-      audioRef.current?.pause();
+      audio.pause();
       setPlayingId(null);
     } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      const audio = new Audio(track.url);
+      audio.src = track.url;
       audio.volume = volume;
-      audio.onended = () => setPlayingId(null);
-      audio.onerror = (e) => {
-        console.error('Audio playback error:', e);
-        setPlayingId(null);
-      };
-      audioRef.current = audio;
       setPlayingId(track.id);
-      // Play must be called synchronously from click handler
       audio.play().catch((err) => {
         console.error('Audio play failed:', err);
         setPlayingId(null);
@@ -74,6 +66,14 @@ export function MusicSelector({
 
   return (
     <div className="space-y-3">
+      {/* Hidden audio element — must be in DOM for Chrome autoplay policy */}
+      <audio
+        ref={audioRef}
+        onEnded={() => setPlayingId(null)}
+        onError={() => setPlayingId(null)}
+        style={{ display: 'none' }}
+      />
+
       {/* Genre tabs */}
       <div className="flex flex-wrap gap-1.5">
         {MUSIC_GENRES.map(genre => (
