@@ -95,10 +95,14 @@ export const ReelEstateVideo = () => {
 
   // Listing info overlay — visible during first segment, fades out
   const firstSegmentEnd = segments.length > 0 ? segments[0].endTime : 3;
-  const listingOverlayOpacity = listing
+  // Ensure overlay timing values are strictly monotonically increasing
+  const fadeIn = Math.min(0.5, firstSegmentEnd * 0.3);
+  const fadeOutStart = Math.max(fadeIn + 0.01, firstSegmentEnd - 0.8);
+  const fadeOutEnd = Math.max(fadeOutStart + 0.01, firstSegmentEnd);
+  const listingOverlayOpacity = (listing || introText)
     ? interpolate(
         currentTime,
-        [0, 0.5, firstSegmentEnd - 0.8, firstSegmentEnd],
+        [0, fadeIn, fadeOutStart, fadeOutEnd],
         [0, 1, 1, 0],
         { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
       )
