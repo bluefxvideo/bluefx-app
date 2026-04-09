@@ -198,20 +198,25 @@ export function ReelEstatePage() {
               isWorking={isWorking}
               onStartProject={startProject}
               onAnalyzePhotos={analyzePhotos}
+              onSetSelectedIndices={setSelectedIndices}
+              onCleanupPhoto={cleanupInlinePhoto}
+              cleaningIndices={cleaningIndices}
+              onSetAspectRatio={setAspectRatio}
+              onSetTargetDuration={setTargetDuration}
+              onSetIntroText={setIntroText}
+              onSetSpeedRamps={setSpeedRamps}
+              onSetMusicTrack={setMusicTrack}
+              onSetMusicVolume={setMusicVolume}
+              onRenderVideo={renderVideo}
+              onOpenInEditor={openInEditor}
               onGenerateScript={generateScript}
               onGenerateVoiceover={generateVoiceover}
-              onOpenInEditor={openInEditor}
-              onSetSelectedIndices={setSelectedIndices}
               onUpdateScriptSegment={updateScriptSegment}
               onDeleteScriptSegment={deleteScriptSegment}
               onMoveScriptSegment={moveScriptSegment}
-              onSetAspectRatio={setAspectRatio}
-              onSetTargetDuration={setTargetDuration}
               onSetVoiceId={setVoiceId}
               onSetVoiceSpeed={setVoiceSpeed}
               userId={userId || undefined}
-              onCleanupPhoto={cleanupInlinePhoto}
-              cleaningIndices={cleaningIndices}
             />
           </div>
           <VideoMakerOutput
