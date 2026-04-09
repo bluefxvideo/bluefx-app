@@ -699,6 +699,12 @@ export function useReelEstate() {
   }, []);
 
   const loadProject = useCallback((listing: ReelEstateListingRow) => {
+    // Reset active statuses to idle (don't resume stuck renders)
+    const rawStatus = listing.status as ListingStatus;
+    const safeStatus: ListingStatus = ['rendering', 'generating_clips', 'assembling'].includes(rawStatus)
+      ? (listing.final_video_url ? 'completed' : 'idle')
+      : rawStatus;
+
     setProject({
       id: listing.id,
       listing: listing.listing_data,
@@ -718,15 +724,21 @@ export function useReelEstate() {
         ? { url: listing.voiceover_url, duration: listing.voiceover_duration_seconds || 0 }
         : null,
       renderId: listing.render_id || null,
-      renderProgress: listing.final_video_url ? 1 : null,
+      renderProgress: listing.final_video_url ? 100 : null,
       finalVideoUrl: listing.final_video_url,
-      status: listing.status as ListingStatus,
-      error: listing.error_message,
+      status: safeStatus,
+      error: null,
       aspectRatio: (listing.aspect_ratio as '16:9' | '9:16') || '16:9',
       targetDuration: (listing.target_duration as TargetDuration) || 30,
       voiceId: listing.voice_id || 'Friendly_Person',
       voiceSpeed: 1.0,
       creditsUsed: listing.total_credits_used || 0,
+      // Music & style
+      musicTrackId: null,
+      musicUrl: (listing as any).music_url || null,
+      musicVolume: (listing as any).music_volume || 0.3,
+      introText: (listing as any).intro_text || listing.listing_data?.address || null,
+      speedRamps: (listing as any).speed_ramps ?? true,
     });
 
     toast.success('Project loaded');
