@@ -501,10 +501,15 @@ export function useReelEstate() {
         // Build clip requests from selected photos + AI camera motions
         const clipRequests = project.selectedIndices.map((photoIdx, i) => {
           const analysis = project.analyses.find(a => a.index === photoIdx);
+          // Keep camera motion simple — dolly_in is safest, only allow a few variations
+          const safeMotions = ['dolly_in', 'dolly_out', 'static'];
+          const rawMotion = analysis?.camera_motion || 'dolly_in';
+          const camera_motion = safeMotions.includes(rawMotion) ? rawMotion : 'dolly_in';
+
           return {
             index: i,
             photo_url: project.photos[photoIdx],
-            camera_motion: (analysis?.camera_motion || 'dolly_in') as any,
+            camera_motion: camera_motion as any,
             prompt: analysis?.description || 'Cinematic real estate property walkthrough',
             aspect_ratio: project.aspectRatio,
           };

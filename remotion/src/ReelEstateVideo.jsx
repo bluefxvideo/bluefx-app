@@ -57,6 +57,22 @@ function getKenBurnsTransform(direction, progress, scale = 1.08) {
   }
 }
 
+// Detect if a URL points to a video file (not an image)
+// Replicate URLs may not have .mp4 extension, so check multiple patterns
+function isVideoUrl(url) {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  // Check file extensions
+  if (lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.mov')) return true;
+  // Check Replicate delivery URLs (these are always videos when from LTX)
+  if (lower.includes('replicate.delivery') || lower.includes('replicate.com')) return true;
+  // Check fal.ai delivery URLs
+  if (lower.includes('fal.media') || lower.includes('fal.run')) return true;
+  // Check known video hosting patterns
+  if (lower.includes('/video/') || lower.includes('video_')) return true;
+  return false;
+}
+
 export const ReelEstateVideo = () => {
   const inputProps = getInputProps();
 
@@ -140,7 +156,7 @@ export const ReelEstateVideo = () => {
       {/* Background Media: video clip (animated) or photo (Ken Burns) */}
       {currentPhotoUrl && (
         <AbsoluteFill key={`media-${currentSegmentIndex}`}>
-          {currentPhotoUrl.includes('.mp4') || currentPhotoUrl.includes('.webm') ? (
+          {isVideoUrl(currentPhotoUrl) ? (
             <OffthreadVideo
               src={currentPhotoUrl}
               style={{
