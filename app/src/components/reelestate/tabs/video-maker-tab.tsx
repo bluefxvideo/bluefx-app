@@ -140,7 +140,7 @@ export function VideoMakerTab({
               ) : (
                 <>
                   <Scan className="w-4 h-4 mr-2" />
-                  Analyze Photos ({analysisCost} credits)
+                  Analyze Photos ({Math.ceil(project.photos.length / 5)} credits)
                 </>
               )}
             </Button>
