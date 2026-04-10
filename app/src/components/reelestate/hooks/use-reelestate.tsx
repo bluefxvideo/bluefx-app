@@ -561,6 +561,9 @@ export function useReelEstate() {
       }
 
       // Step B: Render final video
+      console.log('🎬 Rendering with mediaUrls:', mediaUrls);
+      console.log('🎵 Music:', project.musicUrl);
+      console.log('📝 Intro:', project.introText);
       updateProject({ status: 'rendering', renderProgress: 50 });
 
       const result = await renderListingVideo(project.id, {
@@ -581,7 +584,11 @@ export function useReelEstate() {
       // Poll for render progress (50-100%)
       const pollInterval = setInterval(async () => {
         const progress = await checkListingRenderProgress(project.id!);
-        if (!progress.success) return;
+        console.log('📊 Render poll:', progress.status, progress.progress, progress.error);
+        if (!progress.success) {
+          console.error('❌ Render poll failed:', progress.error);
+          return;
+        }
 
         const renderPct = Math.round(progress.progress * 100);
         updateProject({ renderProgress: 50 + Math.round(renderPct / 2) }); // 50-100%

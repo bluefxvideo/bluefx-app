@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { ZillowInput } from '../components/zillow-input';
@@ -13,8 +12,8 @@ import { MusicSelector } from '../components/music-selector';
 import { VoiceSelector } from '../components/voice-selector';
 import { ScriptEditor } from '../components/script-editor';
 import {
-  Loader2, Scan, Music, Sparkles, Film, Download, ChevronDown, ChevronUp,
-  Monitor, Smartphone, Type, Zap, Mic, FileText, RefreshCw,
+  Loader2, Scan, Sparkles, Film, Download, ChevronDown, ChevronUp,
+  Monitor, Smartphone, Type, Mic, FileText, RefreshCw,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import type { ReelEstateProject, TargetDuration, ZillowListingData } from '@/types/reelestate';
@@ -44,7 +43,7 @@ interface VideoMakerTabProps {
   onSetMusicTrack: (trackId: string | null, url: string | null) => void;
   onSetMusicVolume: (volume: number) => void;
   // Step 4: Create
-  onRenderVideo: (animate: boolean) => void;
+  onRenderVideo: (animate?: boolean) => void;
   onOpenInEditor: () => void;
   // Optional voiceover (collapsible in Step 4)
   onGenerateScript: () => void;
@@ -85,7 +84,6 @@ export function VideoMakerTab({
   userId,
 }: VideoMakerTabProps) {
   const [showVoiceover, setShowVoiceover] = useState(false);
-  const [animate, setAnimate] = useState(true);
 
   const hasPhotos = project.photos.length > 0;
   const hasAnalyses = project.analyses.length > 0;
@@ -95,9 +93,9 @@ export function VideoMakerTab({
   const hasVoiceover = project.voiceover !== null;
   const isRendering = project.status === 'rendering' || project.status === 'generating_clips';
 
-  // Credit estimate
-  const analysisCost = Math.ceil(project.photos.length / 5);
-  const totalCost = analysisCost + 2; // analysis + render
+  // Credit estimate: animation (6 per photo) + render (2)
+  const animationCost = project.selectedIndices.length * 6;
+  const totalVideoCost = animationCost + 2;
 
   return (
     <TabContentWrapper>
@@ -231,24 +229,15 @@ export function VideoMakerTab({
                 <p className="text-xs text-muted-foreground mt-1">Displayed on the first photo</p>
               </div>
 
-              {/* AI Animation toggle */}
-              <div className="flex items-center justify-between">
+              {/* AI Animation info */}
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                <Sparkles className="w-4 h-4 text-primary shrink-0" />
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
-                    <label className="text-sm">AI Animation</label>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {animate
-                      ? `Cinematic motion from photos (${project.selectedIndices.length * 6} credits)`
-                      : 'Ken Burns slideshow (free)'}
+                  <p className="text-sm font-medium">AI Cinematic Animation</p>
+                  <p className="text-xs text-muted-foreground">
+                    Each photo gets cinematic camera motion via AI
                   </p>
                 </div>
-                <Switch
-                  checked={animate}
-                  onCheckedChange={setAnimate}
-                  disabled={isWorking}
-                />
               </div>
             </div>
           </StandardStep>
@@ -410,18 +399,18 @@ export function VideoMakerTab({
         <TabFooter>
           <div className="flex gap-2">
             <Button
-              onClick={() => onRenderVideo(animate)}
+              onClick={() => onRenderVideo(true)}
               disabled={isWorking || isRendering}
               className="flex-1 h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
               size="lg"
             >
               {isRendering ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {project.status === 'generating_clips' ? 'Animating...' : 'Rendering...'}
+                  {project.status === 'generating_clips' ? 'Animating photos...' : 'Rendering video...'}
                 </>
               ) : (
                 <><Sparkles className="w-4 h-4 mr-2" />
-                  Create Video ({animate ? project.selectedIndices.length * 6 + 2 : 2} credits)
+                  Create Video ({totalVideoCost} credits)
                 </>
               )}
             </Button>

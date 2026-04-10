@@ -440,6 +440,7 @@ export async function renderListingVideo(
     const photoMap: Record<number, string> = {};
     if (overrides?.mediaUrls && Object.keys(overrides.mediaUrls).length > 0) {
       // Use provided media URLs (video clips from AI animation)
+      console.log('🎬 Using animated clip URLs:', overrides.mediaUrls);
       Object.entries(overrides.mediaUrls).forEach(([key, url]) => { photoMap[Number(key)] = url; });
     } else if (segments?.length && voiceoverUrl) {
       const selectedSegments = segments.filter(s => selectedIndices.includes(s.image_index));
