@@ -1,5 +1,6 @@
 import { generateId } from "@designcombo/timeline";
 import { ITrackItem } from "@designcombo/types";
+import { loadFonts } from "./fonts";
 
 /**
  * AI Asset Converter
@@ -52,6 +53,20 @@ export interface AIGeneratedAssets {
       confidence: number;
     }>;
   }>;
+  // Background music (separate from voiceover)
+  music?: {
+    url: string;
+    volume: number;
+  } | null;
+  // Listing metadata for intro/outro overlays
+  listing?: {
+    address?: string;
+    price?: string;
+    beds?: number;
+    baths?: number;
+    sqft?: number;
+  } | null;
+  introText?: string | null;
   // NEW: Separate caption chunks from new table structure
   caption_chunks?: {
     total_chunks: number;
@@ -128,10 +143,10 @@ export interface EditorCompositionPayload {
 /**
  * Main conversion function - converts AI assets to proper DESIGN_LOAD format
  */
-export function convertAIAssetsToEditorFormat(
+export async function convertAIAssetsToEditorFormat(
   aiAssets: AIGeneratedAssets,
   aspectRatio?: string
-): EditorCompositionPayload {
+): Promise<EditorCompositionPayload> {
   console.log('🔄 Converting AI assets to editor format:', aiAssets);
   console.log('🔄 Using aspect ratio:', aspectRatio);
   
@@ -175,12 +190,60 @@ export function convertAIAssetsToEditorFormat(
     };
     
     trackItems.push(audioTrack);
-    console.log('✅ Added audio track:', audioTrack.details.src);
+    console.log('✅ Added voiceover audio track:', audioTrack.details.src);
   }
 
-  // 2. Create Image Tracks (per segment)
+  // 1b. Create Background Music Track (if available)
+  if (aiAssets.music?.url) {
+    // Use a generous trim.to so the user can extend the track on the timeline.
+    // The actual playable length is capped by the source file duration (handled by the player).
+    // 10 minutes is a safe upper bound — most music tracks are 2-5 minutes.
+    const maxMusicTrimMs = 10 * 60 * 1000; // 10 minutes
+    const musicTrack: ITrackItem = {
+      id: generateId(),
+      type: "audio",
+      name: "Background Music",
+      display: {
+        from: 0,
+        to: totalDurationMs
+      },
+      trim: {
+        from: 0,
+        to: totalDurationMs
+      },
+      playbackRate: 1,
+      details: {
+        src: aiAssets.music.url,
+        volume: Math.round((aiAssets.music.volume || 0.3) * 100)
+      },
+      metadata: {
+        backgroundMusic: true,
+      },
+      duration: maxMusicTrimMs,
+      isMain: false
+    };
+
+    trackItems.push(musicTrack);
+    console.log('✅ Added background music track:', musicTrack.details.src, `volume: ${musicTrack.details.volume}%`);
+  }
+
+  // Build a set of segment indices that have video clips (to skip creating images for them)
+  const videoClipSegmentIndices = new Set<number>();
+  if (aiAssets.video_clips) {
+    aiAssets.video_clips.forEach((clip) => {
+      if (clip.url) videoClipSegmentIndices.add(clip.segment_index);
+    });
+  }
+
+  // 2. Create Image Tracks (only for segments WITHOUT a video clip)
   if (aiAssets.generated_images && aiAssets.segments) {
     aiAssets.generated_images.forEach((img, index) => {
+      // Skip if this segment has an animated video clip
+      if (videoClipSegmentIndices.has(index)) {
+        console.log(`⏭️ Skipping image ${index + 1} — has video clip`);
+        return;
+      }
+
       const segment = aiAssets.segments![index];
       if (!segment) {
         console.warn(`No segment found for image ${index}`);
@@ -203,22 +266,26 @@ export function convertAIAssetsToEditorFormat(
       const selectedPreset = motionToPreset[cameraMotion] || 'zoom-in';
       const intensity = 40;
 
+      // Use canvas height for width to ensure tall photos fit fully visible.
+      // For 16:9 canvas with 4:3 photos, stretching width avoids harsh top/bottom crop.
+      // objectFit: cover in the renderer will handle the rest.
+      const imgW = canvasSize.width;
+      const imgH = canvasSize.height;
+
       const imageTrack: ITrackItem = {
         id: generateId(),
         type: "image",
         name: `AI Image ${index + 1}`,
         display: {
-          from: segment.start_time * 1000,  // Convert to milliseconds
+          from: segment.start_time * 1000,
           to: segment.end_time * 1000
         },
         details: {
           src: img.url,
-          // Set to fill entire canvas
-          width: canvasSize.width,
-          height: canvasSize.height,
+          width: imgW,
+          height: imgH,
           left: 0,
           top: 0,
-          scaleMode: 'cover' // Ensure image covers entire canvas
         },
         metadata: {
           aiGenerated: true,
@@ -243,10 +310,11 @@ export function convertAIAssetsToEditorFormat(
     });
   }
 
-  // 2b. Create Video Tracks (pre-generated clips, e.g. from Ad Creator)
+  // 2b. Create Video Tracks (animated clips from LTX or Ad Creator)
   if (aiAssets.video_clips && aiAssets.segments) {
     aiAssets.video_clips.forEach((clip, index) => {
-      const segment = aiAssets.segments![index];
+      const segIndex = clip.segment_index ?? index;
+      const segment = aiAssets.segments![segIndex];
       if (!segment || !clip.url) return;
 
       const videoTrack: ITrackItem = {
@@ -266,7 +334,7 @@ export function convertAIAssetsToEditorFormat(
           src: clip.url,
           width: canvasSize.width,
           height: canvasSize.height,
-          volume: 100,
+          volume: 0, // Muted — audio comes from background music track
           blur: 0,
           brightness: 0,
           flipX: false,
@@ -290,8 +358,119 @@ export function convertAIAssetsToEditorFormat(
     });
   }
 
-  // 3. Caption tracks are now generated on-demand via AI Caption Generator
-  // No automatic caption track creation
+  // 3. Create Intro/Outro text overlays for ReelEstate listings
+  if (aiAssets.listing || aiAssets.introText) {
+    const listing = aiAssets.listing;
+    const firstSegment = aiAssets.segments![0];
+    const lastSegment = aiAssets.segments![aiAssets.segments!.length - 1];
+
+    // Pre-load fonts for intro/outro overlays
+    await loadFonts([
+      { name: "Montserrat-BlackItalic", url: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf" },
+      { name: "Roboto-Bold", url: "https://fonts.gstatic.com/s/roboto/v29/KFOlCnqEu92Fr1MmWUlvAx05IsDqlA.ttf" },
+    ]);
+
+    // ─── INTRO: "Big and Bold" style — large centered text on first photo ───
+    const introAddress = aiAssets.introText || listing?.address || '';
+    if (introAddress && firstSegment) {
+      const introFromMs = firstSegment.start_time * 1000;
+      const introToMs = firstSegment.end_time * 1000;
+
+      // Large address text — "Big and Bold" style: white, heavy italic, strong shadow
+      const addressTrack: ITrackItem = {
+        id: generateId(),
+        type: "text",
+        name: "Intro - Address",
+        display: { from: introFromMs, to: introToMs },
+        details: {
+          text: introAddress,
+          fontSize: 96,
+          width: canvasSize.width * 0.9,
+          fontFamily: "Montserrat-BlackItalic",
+          fontUrl: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf",
+          color: "#ffffff",
+          textAlign: "center",
+          wordWrap: "break-word",
+          top: `${Math.round(canvasSize.height * 0.35)}px`,
+          left: `${Math.round(canvasSize.width * 0.05)}px`,
+          borderWidth: 2,
+          borderColor: "rgba(0,0,0,0.4)",
+          boxShadow: { color: "rgba(0,0,0,0.85)", x: 3, y: 3, blur: 20 },
+        },
+        metadata: { introOverlay: true, editable: true },
+        duration: introToMs - introFromMs,
+      };
+      trackItems.push(addressTrack);
+
+      // Price + details line (smaller, below address)
+      const detailParts: string[] = [];
+      if (listing?.price) detailParts.push(listing.price);
+      if (listing?.beds) detailParts.push(`${listing.beds} Beds`);
+      if (listing?.baths) detailParts.push(`${listing.baths} Baths`);
+      if (listing?.sqft) detailParts.push(`${listing.sqft.toLocaleString()} sqft`);
+
+      if (detailParts.length > 0) {
+        const detailsTrack: ITrackItem = {
+          id: generateId(),
+          type: "text",
+          name: "Intro - Details",
+          display: { from: introFromMs, to: introToMs },
+          details: {
+            text: detailParts.join('  •  '),
+            fontSize: 36,
+            width: canvasSize.width * 0.85,
+            fontFamily: "Montserrat-BlackItalic",
+            fontUrl: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf",
+            color: "#ffffff",
+            textAlign: "center",
+            wordWrap: "break-word",
+            top: `${Math.round(canvasSize.height * 0.62)}px`,
+            left: `${Math.round(canvasSize.width * 0.075)}px`,
+            borderWidth: 1,
+            borderColor: "rgba(0,0,0,0.3)",
+            boxShadow: { color: "rgba(0,0,0,0.85)", x: 2, y: 2, blur: 14 },
+          },
+          metadata: { introOverlay: true, editable: true },
+          duration: introToMs - introFromMs,
+        };
+        trackItems.push(detailsTrack);
+      }
+
+      console.log('✅ Added intro text overlays (Big and Bold):', { address: introAddress, details: detailParts.join(' • ') });
+    }
+
+    // ─── OUTRO: CTA on last photo — large centered text ───
+    if (lastSegment) {
+      const outroFromMs = lastSegment.start_time * 1000;
+      const outroToMs = lastSegment.end_time * 1000;
+
+      const outroTrack: ITrackItem = {
+        id: generateId(),
+        type: "text",
+        name: "Outro - CTA",
+        display: { from: outroFromMs, to: outroToMs },
+        details: {
+          text: "Schedule a Showing Today",
+          fontSize: 80,
+          width: canvasSize.width * 0.85,
+          fontFamily: "Montserrat-BlackItalic",
+          fontUrl: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf",
+          color: "#ffffff",
+          textAlign: "center",
+          wordWrap: "break-word",
+          top: `${Math.round(canvasSize.height * 0.35)}px`,
+          left: `${Math.round(canvasSize.width * 0.075)}px`,
+          borderWidth: 2,
+          borderColor: "rgba(0,0,0,0.4)",
+          boxShadow: { color: "rgba(0,0,0,0.85)", x: 3, y: 3, blur: 20 },
+        },
+        metadata: { outroOverlay: true, editable: true },
+        duration: outroToMs - outroFromMs,
+      };
+      trackItems.push(outroTrack);
+      console.log('✅ Added outro text overlay (Big and Bold)');
+    }
+  }
 
   // 4. Build the complete DESIGN_LOAD payload with proper structure
   const trackItemsMap: Record<string, ITrackItem> = {};

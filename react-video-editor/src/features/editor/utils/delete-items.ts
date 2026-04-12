@@ -10,7 +10,8 @@ import { ITrack } from "@designcombo/types";
 function removeItemsFromTrack(tracks: ITrack[], itemsToRemove: string[]): ITrack[] {
   return tracks.map(track => ({
     ...track,
-    trackItemIds: track.trackItemIds.filter(id => !itemsToRemove.includes(id))
+    // ITrack uses `items` (not `trackItemIds`)
+    items: (track.items || []).filter(id => !itemsToRemove.includes(id))
   }));
 }
 

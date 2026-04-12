@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 		};
 
 		// Call your Remotion server instead of combo.sh
-		const remotionServerUrl = process.env.REMOTION_SERVER_URL || "http://localhost:3003";
+		const remotionServerUrl = process.env.REMOTION_SERVER_URL || "http://localhost:3001";
 		const response = await fetch(`${remotionServerUrl}/render`, {
 			method: "POST",
 			headers: {
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
 		}
 
 		// Call your Remotion server progress endpoint
-		const remotionServerUrl = process.env.REMOTION_SERVER_URL || "http://localhost:3003";
+		const remotionServerUrl = process.env.REMOTION_SERVER_URL || "http://localhost:3001";
 		const response = await fetch(`${remotionServerUrl}/progress/${id}`, {
 			headers: {
 				"X-API-Key": process.env.REMOTION_API_KEY || "default-key",

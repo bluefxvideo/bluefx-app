@@ -12,6 +12,24 @@ import useStore from "../store/use-store";
 // Prevent duplicate loading
 let isLoading = false;
 
+/**
+ * Wait for the timeline to be initialized in the Zustand store.
+ * DESIGN_LOAD events are silently dropped if dispatched before the timeline exists.
+ */
+async function waitForTimeline(timeoutMs = 15000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { timeline } = useStore.getState();
+    if (timeline) {
+      console.log('✅ Timeline is ready');
+      return true;
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  console.warn('⚠️ Timeline not ready after', timeoutMs, 'ms');
+  return false;
+}
+
 export interface AIAssetLoadOptions {
   video_id?: string;
   loadMockData?: boolean;
@@ -57,7 +75,7 @@ export async function loadAIGeneratedAssets(options: AIAssetLoadOptions = {}) {
     
     // Convert AI assets to editor format  
     // Use default 16:9 for general loader (legacy path)
-    const editorPayload = convertAIAssetsToEditorFormat(aiAssets, '16:9');
+    const editorPayload = await convertAIAssetsToEditorFormat(aiAssets, '16:9');
     
     onProgress?.('Loading into editor...', 80);
     
@@ -70,9 +88,12 @@ export async function loadAIGeneratedAssets(options: AIAssetLoadOptions = {}) {
       itemCount: track.items.length
     })));
     
+    // Wait for timeline before dispatching
+    await waitForTimeline();
+
     // Dispatch the complete payload with all items and proper single track for images
     dispatch(DESIGN_LOAD, { payload: editorPayload });
-    
+
     onProgress?.('Complete!', 100);
     onSuccess?.(aiAssets.video_id || 'mock-video');
     
@@ -362,9 +383,12 @@ async function loadAIAssetsFromBlueFX({
         
         // Validate composition data structure before loading
         if (savedData.data.composition_data.trackItemsMap) {
+          // Wait for timeline before dispatching
+          await waitForTimeline();
+
           // Load the saved composition directly
-          dispatch(DESIGN_LOAD, { 
-            payload: savedData.data.composition_data 
+          dispatch(DESIGN_LOAD, {
+            payload: savedData.data.composition_data
           });
           
           onProgress?.('Complete!', 100);
@@ -466,7 +490,7 @@ async function loadAIAssetsFromBlueFX({
     
     // Convert to editor format and dispatch directly (avoid duplicate loading)
     console.log('🔄 Converting to editor format...');
-    const editorPayload = convertAIAssetsToEditorFormat(aiAssets, aspectRatio);
+    const editorPayload = await convertAIAssetsToEditorFormat(aiAssets, aspectRatio);
     console.log('✅ Editor payload created:', {
       trackItems: editorPayload?.trackItems?.length || 0,
       duration: editorPayload?.duration || 0,
@@ -501,6 +525,9 @@ async function loadAIAssetsFromBlueFX({
       itemCount: track.items.length
     })));
     
+    // Wait for timeline before dispatching
+    await waitForTimeline();
+
     // Dispatch the complete payload with all items and proper single track for images
     dispatch(DESIGN_LOAD, { payload: editorPayload });
 
@@ -596,7 +623,18 @@ async function loadReelEstateListing({
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
       },
-      body: JSON.stringify({ user_id: userId, listingId }),
+      body: JSON.stringify({
+        user_id: userId,
+        listingId,
+        // Pass selected photo indices from URL so API filters to only those photos
+        selected: (() => {
+          try {
+            const sel = new URLSearchParams(window.location.search).get('selected');
+            if (sel) return sel.split(',').map(Number).filter(n => !isNaN(n));
+          } catch {}
+          return undefined;
+        })(),
+      }),
     });
 
     if (!response.ok) {
@@ -639,7 +677,10 @@ async function loadReelEstateListing({
 
     onProgress?.('Loading into editor...', 70);
 
-    const editorPayload = convertAIAssetsToEditorFormat(aiAssets, aspectRatio);
+    const editorPayload = await convertAIAssetsToEditorFormat(aiAssets, aspectRatio);
+
+    // Wait for the timeline to be initialized before dispatching
+    await waitForTimeline();
 
     console.log('📤 Dispatching DESIGN_LOAD for ReelEstate listing...');
     dispatch(DESIGN_LOAD, { payload: editorPayload });
@@ -743,6 +784,9 @@ async function loadStoryboardFrames({
       trackItems: editorPayload?.trackItems?.length || 0,
       duration: editorPayload?.duration
     });
+
+    // Wait for timeline before dispatching
+    await waitForTimeline();
 
     // Dispatch the storyboard composition to the editor
     console.log('📤 Dispatching DESIGN_LOAD for storyboard frames...');
@@ -896,19 +940,22 @@ function convertBlueFXDataToAIAssets(videoData: any) {
     success: true, // Important: this is required by validateAIAssets
     video_id: videoData.videoId,
     final_script: videoData.script,
-    audio_url: videoData.voice?.url,
+    audio_url: videoData.voice?.url || undefined,
     generated_images,
     video_clips: video_clips.length > 0 ? video_clips : undefined,
+    music: videoData.music || undefined,
+    listing: videoData.listing || undefined,
+    introText: videoData.introText || undefined,
     segments,
     timeline_data: {
       total_duration: totalDuration,
       segment_count: segments.length,
       frame_count: Math.floor(totalDuration * (videoData.metadata?.frameRate || 30))
     },
-    word_timings: [], // Word timings now come from on-demand Whisper analysis
+    word_timings: [],
     caption_chunks: {
       total_chunks: 0,
-      chunks: [], // Captions generated on-demand via AI Caption Generator
+      chunks: [],
       quality_score: 0,
       avg_words_per_chunk: 0
     },

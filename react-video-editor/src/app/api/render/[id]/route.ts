@@ -15,7 +15,7 @@ export async function GET(
 		}
 
 		// Call your Remotion server progress endpoint
-		const remotionServerUrl = process.env.REMOTION_SERVER_URL || "http://localhost:3003";
+		const remotionServerUrl = process.env.REMOTION_SERVER_URL || "http://localhost:3001";
 		const response = await fetch(`${remotionServerUrl}/progress/${id}`, {
 			headers: {
 				"X-API-Key": process.env.REMOTION_API_KEY || "default-key",
@@ -37,7 +37,7 @@ export async function GET(
 		let videoUrl = statusData.downloadUrl || statusData.outputUrl || statusData.url;
 
 		// Helper: build internal Remotion URL (server-to-server, no SSL issues)
-		const internalRemotionUrl = process.env.REMOTION_SERVER_URL || 'http://remotion:3001';
+		const internalRemotionUrl = process.env.REMOTION_SERVER_URL || 'http://localhost:3001';
 		const buildInternalUrl = (relativeUrl: string) =>
 			relativeUrl.startsWith('/') ? `${internalRemotionUrl}${relativeUrl}` : relativeUrl;
 

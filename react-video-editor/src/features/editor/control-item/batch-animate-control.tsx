@@ -34,14 +34,13 @@ interface BatchAnimateControlProps {
 }
 
 const CAMERA_MOTIONS = [
-	{ value: "none", label: "None" },
-	{ value: "dolly_in", label: "Dolly In (Zoom In)" },
-	{ value: "dolly_out", label: "Dolly Out (Zoom Out)" },
-	{ value: "dolly_left", label: "Dolly Left" },
-	{ value: "dolly_right", label: "Dolly Right" },
-	{ value: "jib_up", label: "Jib Up (Tilt Up)" },
-	{ value: "jib_down", label: "Jib Down (Tilt Down)" },
-	{ value: "static", label: "Static" },
+	{ value: "Slow smooth dolly in on rails. Stabilized camera, no handheld shake, no jitter.", label: "Push In" },
+	{ value: "Slow smooth dolly out on rails. Stabilized camera, no handheld shake, no jitter.", label: "Pull Out" },
+	{ value: "Slow smooth pan left on rails. Stabilized camera, no handheld shake, no jitter.", label: "Pan Left" },
+	{ value: "Slow smooth pan right on rails. Stabilized camera, no handheld shake, no jitter.", label: "Pan Right" },
+	{ value: "Slow smooth tilt up on rails. Stabilized camera, no handheld shake, no jitter.", label: "Tilt Up" },
+	{ value: "Slow smooth tilt down on rails. Stabilized camera, no handheld shake, no jitter.", label: "Tilt Down" },
+	{ value: "Nearly static shot with very subtle movement. Locked camera on tripod, no vibration.", label: "Nearly Static" },
 ];
 
 const CREDITS_PER_SECOND = 1;
@@ -277,9 +276,7 @@ async function processOneImage(
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					image_url: item.imageSrc,
-					prompt:
-						settings.prompt || "Smooth cinematic camera movement",
-					camera_motion: settings.cameraMotion,
+					prompt: `${settings.cameraMotion} ${settings.prompt || "Smooth cinematic footage with subtle camera movement."}`,
 					duration: parseInt(settings.duration),
 					aspect_ratio: getCanvasAspectRatio(),
 					user_id: getUserId(),
@@ -352,7 +349,7 @@ async function processOneImage(
 export function BatchAnimateControl({
 	selectedItems,
 }: BatchAnimateControlProps) {
-	const [cameraMotion, setCameraMotion] = useState("dolly_in");
+	const [cameraMotion, setCameraMotion] = useState("Slow smooth dolly in on rails. Stabilized camera, no handheld shake, no jitter.");
 	const [duration, setDuration] = useState("6");
 	const [prompt, setPrompt] = useState("");
 

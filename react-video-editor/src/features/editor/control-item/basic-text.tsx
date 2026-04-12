@@ -104,7 +104,7 @@ const BasicText = ({
 			fontFamily: selectedFont?.family || "Open Sans",
 			fontFamilyDisplay: selectedFont?.family || "Open Sans",
 			opacity: trackItem.details.opacity || 1,
-			opacityDisplay: `${trackItem.details.opacity.toString() || "100"}%`,
+			opacityDisplay: `${(trackItem.details.opacity ?? 1).toString()}%`,
 			textAlign: trackItem.details.textAlign || "left",
 			textDecoration: trackItem.details.textDecoration || "none",
 			borderWidth: trackItem.details.borderWidth || 0,

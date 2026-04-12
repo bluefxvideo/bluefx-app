@@ -35,6 +35,7 @@ import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
 import { loadAIAssetsFromURL } from "./utils/ai-asset-loader";
 import { loadSavedComposition } from "./utils/save-composition";
+import { AnimateBanner } from "./components/animate-banner";
 
 
 const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
@@ -291,8 +292,10 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 			setLoadingSource(hasStoryboardId ? 'Storyboard-frames' : hasListingId ? 'ReelEstate-listing' : 'AI-assets');
 
 			// Try loading saved composition first (preserves animated videos and user edits)
+			// Skip if fresh=true param is set (e.g. when "Open in Studio" is clicked)
+			const freshLoad = urlParams.get('fresh') === 'true';
 			const tryLoadSaved = async () => {
-				if (hasUserId && hasApiUrl) {
+				if (!freshLoad && hasUserId && hasApiUrl) {
 					const videoIdForSave = hasVideoId || hasListingId || hasStoryboardId;
 					if (videoIdForSave) {
 						try {
@@ -316,6 +319,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 							console.warn('⚠️ Failed to check saved composition, loading fresh:', err);
 						}
 					}
+				} else if (freshLoad) {
+					console.log('🔄 Fresh load requested — skipping saved composition');
 				}
 				// Fall back to loading fresh AI assets
 				loadAIAssets();
@@ -353,6 +358,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						defaultSize={70}
 					>
 						<FloatingControl />
+						<AnimateBanner />
 						<div
 							style={{
 								width: "100%",
@@ -371,13 +377,14 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 
 					{/* Timeline Panel */}
 					<ResizablePanel
-						className="min-h-[300px]"
+						className="min-h-[300px] relative"
 						ref={timelinePanelRef}
 						defaultSize={30}
 						onResize={handleTimelineResize}
 					>
-						{isLoadingAssets ? (
-							<div className="flex items-center justify-center h-full bg-muted/50">
+						{/* Always mount Timeline so it initializes; overlay spinner when loading */}
+						{isLoadingAssets && (
+							<div className="absolute inset-0 z-10 flex items-center justify-center bg-muted/80">
 								<div className="text-center">
 									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
 									<p className="text-sm text-muted-foreground">
@@ -388,9 +395,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 									)}
 								</div>
 							</div>
-						) : (
-							playerRef && <Timeline stateManager={stateManager} />
 						)}
+						{playerRef && <Timeline stateManager={stateManager} />}
 					</ResizablePanel>
 				</ResizablePanelGroup>
 

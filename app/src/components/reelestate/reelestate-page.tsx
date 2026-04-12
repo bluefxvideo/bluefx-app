@@ -210,19 +210,9 @@ export function ReelEstatePage() {
               onSetAspectRatio={setAspectRatio}
               onSetTargetDuration={setTargetDuration}
               onSetIntroText={setIntroText}
-              onSetSpeedRamps={setSpeedRamps}
               onSetMusicTrack={setMusicTrack}
               onSetMusicVolume={setMusicVolume}
-              onRenderVideo={renderVideo}
               onOpenInEditor={openInEditor}
-              onGenerateScript={generateScript}
-              onGenerateVoiceover={generateVoiceover}
-              onUpdateScriptSegment={updateScriptSegment}
-              onDeleteScriptSegment={deleteScriptSegment}
-              onMoveScriptSegment={moveScriptSegment}
-              onSetVoiceId={setVoiceId}
-              onSetVoiceSpeed={setVoiceSpeed}
-              userId={userId || undefined}
             />
           </div>
           <VideoMakerOutput

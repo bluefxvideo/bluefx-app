@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  createVideoGenerationPrediction,
-  getVideoGenerationPrediction,
-} from '@/actions/models/video-generation-v1';
+  createFalLTX23Prediction,
+  getFalLTX23Status,
+  getFalLTX23Result,
+} from '@/actions/models/fal-ltx-image-to-video';
 import { createAdminClient } from '@/app/supabase/server';
 import { downloadAndUploadVideo } from '@/actions/supabase-storage';
 
 /**
  * Editor Animate Image API
  *
- * Turns a still image into a video clip using LTX-2.3-Fast (image-to-video).
- * POST: create a prediction (deducts credits first)
- * GET:  poll prediction status (persists video to Supabase on completion)
+ * Turns a still image into a video clip using LTX-2.3-Fast on fal.ai (image-to-video).
+ * POST: submit a queue job (deducts credits first)
+ * GET:  poll job status (persists video to Supabase on completion)
  */
 
-// Credit cost: 1 credit per second (matches cinematographer Fast/LTX pricing)
+// Credit cost: 1 credit per second (matches cinematographer pricing)
 const CREDITS_PER_SECOND = 1;
 
 // Cache persisted video URLs to avoid re-uploading on repeated polls
@@ -42,11 +43,11 @@ function corsHeaders(request: NextRequest) {
   };
 }
 
-// ─── POST: Create animation prediction ──────────────────────────────────
+// ─── POST: Create animation job ──────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const { image_url, prompt, camera_motion, duration, aspect_ratio, user_id } =
+    const { image_url, prompt, duration, aspect_ratio, user_id } =
       await request.json();
 
     if (!image_url) {
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
           p_user_id: user_id,
           p_amount: creditCost,
           p_operation: 'editor-animate-image',
-          p_metadata: { camera_motion, duration: videoDuration },
+          p_metadata: { duration: videoDuration, provider: 'fal' },
         });
 
       if (deductError || !deduction?.success) {
@@ -100,23 +101,25 @@ export async function POST(request: NextRequest) {
       console.log(`💳 Animate-image: deducted ${creditCost} credits for ${videoDuration}s video (remaining: ${deduction.remaining_credits})`);
     }
 
-    const prediction = await createVideoGenerationPrediction({
-      prompt: prompt || 'Smooth cinematic camera movement',
-      image: image_url,
-      camera_motion: camera_motion || 'none',
+    // Build prompt — include camera motion instruction directly in text
+    const finalPrompt = prompt || 'Slow smooth dolly in on rails. Stabilized camera, no handheld shake, no jitter. Professional real estate cinematography.';
+
+    const queueResponse = await createFalLTX23Prediction({
+      image_url,
+      prompt: finalPrompt,
       duration: videoDuration,
       aspect_ratio: aspect_ratio || '16:9',
-      generate_audio: false,
       resolution: '1080p',
+      generate_audio: false,
     });
 
-    console.log('✅ Animate-image prediction created:', prediction.id);
+    console.log('✅ Animate-image FAL job queued:', queueResponse.request_id);
 
     return NextResponse.json(
       {
         success: true,
-        prediction_id: prediction.id,
-        status: prediction.status,
+        prediction_id: queueResponse.request_id,
+        status: 'starting',
         credits_used: user_id ? creditCost : 0,
       },
       { headers: corsHeaders(request) },
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ─── GET: Poll prediction status ────────────────────────────────────────
+// ─── GET: Poll job status ────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   try {
@@ -158,44 +161,80 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const prediction = await getVideoGenerationPrediction(predictionId);
+    // Check FAL queue status
+    const statusResponse = await getFalLTX23Status(predictionId);
 
-    const replicateVideoUrl =
-      typeof prediction.output === 'string'
-        ? prediction.output
-        : Array.isArray(prediction.output)
-          ? prediction.output[0]
-          : null;
+    // Map FAL status to our status format
+    const statusMap: Record<string, string> = {
+      'IN_QUEUE': 'starting',
+      'IN_PROGRESS': 'processing',
+      'COMPLETED': 'succeeded',
+      'FAILED': 'failed',
+    };
+    const mappedStatus = statusMap[statusResponse.status] || statusResponse.status;
 
-    // If video is ready, persist to Supabase Storage for permanent URL
-    let finalVideoUrl = replicateVideoUrl;
-    if (prediction.status === 'succeeded' && replicateVideoUrl) {
+    // If completed, fetch the result and persist to Supabase
+    if (statusResponse.status === 'COMPLETED') {
       try {
-        const uploadResult = await downloadAndUploadVideo(
-          replicateVideoUrl,
-          'editor-animate',
-          predictionId,
-          { bucket: 'videos', folder: 'editor-animate' },
-        );
+        const result = await getFalLTX23Result(predictionId);
+        const falVideoUrl = result.video?.url;
 
-        if (uploadResult.success && uploadResult.url) {
-          finalVideoUrl = uploadResult.url;
-          videoUrlCache.set(predictionId, finalVideoUrl);
-          console.log(`✅ Animate-image video persisted to Supabase: ${finalVideoUrl}`);
-        } else {
-          console.warn('⚠️ Failed to persist video, using Replicate URL as fallback');
+        if (falVideoUrl) {
+          // Persist to Supabase Storage for a permanent URL
+          let finalVideoUrl = falVideoUrl;
+          try {
+            const uploadResult = await downloadAndUploadVideo(
+              falVideoUrl,
+              'editor-animate',
+              predictionId,
+              { bucket: 'videos', folder: 'editor-animate' },
+            );
+
+            if (uploadResult.success && uploadResult.url) {
+              finalVideoUrl = uploadResult.url;
+              videoUrlCache.set(predictionId, finalVideoUrl);
+              console.log(`✅ Animate-image video persisted to Supabase: ${finalVideoUrl}`);
+            } else {
+              console.warn('⚠️ Failed to persist video, using FAL URL as fallback');
+            }
+          } catch (uploadErr) {
+            console.warn('⚠️ Video persistence failed, using FAL URL:', uploadErr);
+          }
+
+          return NextResponse.json(
+            {
+              success: true,
+              status: 'succeeded',
+              video_url: finalVideoUrl,
+              error: null,
+            },
+            { headers: corsHeaders(request) },
+          );
         }
-      } catch (uploadErr) {
-        console.warn('⚠️ Video persistence failed, using Replicate URL:', uploadErr);
+      } catch (resultErr) {
+        console.error('❌ Failed to fetch FAL result:', resultErr);
       }
     }
 
+    if (statusResponse.status === 'FAILED') {
+      return NextResponse.json(
+        {
+          success: true,
+          status: 'failed',
+          video_url: null,
+          error: 'Animation generation failed',
+        },
+        { headers: corsHeaders(request) },
+      );
+    }
+
+    // Still in progress
     return NextResponse.json(
       {
         success: true,
-        status: prediction.status,
-        video_url: finalVideoUrl || null,
-        error: prediction.error || null,
+        status: mappedStatus,
+        video_url: null,
+        error: null,
       },
       { headers: corsHeaders(request) },
     );

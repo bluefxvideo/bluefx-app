@@ -346,6 +346,10 @@ export interface ReelEstateListingRow {
   voice_id: string | null;
   status: string;
   error_message: string | null;
+  music_url: string | null;
+  music_volume: number;
+  intro_text: string | null;
+  speed_ramps: boolean;
   total_credits_used: number;
   created_at: string;
   updated_at: string;

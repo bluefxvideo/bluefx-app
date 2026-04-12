@@ -44,29 +44,42 @@ function corsHeaders(request: NextRequest) {
 
 // ─── Shared formatting logic ───────────────────────────────────────────
 
-async function formatListingForEditor(listing: any, userId: string) {
+async function formatListingForEditor(listing: any, userId: string, selectedOverride?: number[]) {
   const segments = listing.script_segments || [];
   const analyses = listing.image_analysis || [];
   const photos = listing.photo_urls || [];
-  const selectedIndices: number[] = listing.selected_indices || [];
+  // Use selected override from request body (from URL params) if provided,
+  // otherwise fall back to DB value
+  const selectedIndices: number[] = (selectedOverride && selectedOverride.length > 0)
+    ? selectedOverride
+    : (listing.selected_indices || []);
   const voiceoverUrl = listing.voiceover_url;
   const voiceoverDuration = listing.voiceover_duration_seconds || 0;
   const aspectRatio = listing.aspect_ratio || '16:9';
   const listingData = listing.listing_data;
+  const targetDuration = listing.target_duration || 30;
 
-  // Build selected segments in order
+  // Music data from DB
+  const musicUrl = listing.music_url || null;
+  const musicVolume = listing.music_volume ?? 0.3;
+  const introText = listing.intro_text || null;
+
+  // Animated video clips from LTX generation
+  const clipPredictions: any[] = listing.clip_predictions || [];
+  const completedClips = clipPredictions.filter(
+    (c: any) => c.status === 'succeeded' && c.video_url,
+  );
+
+  // Build selected segments in order (if script exists)
   const selectedSegments = segments.filter(
     (s: any) => selectedIndices.includes(s.image_index),
   );
 
-  // ─── Whisper-based timing (precise) ──────────────────────────────────
-  // Use Whisper raw word timings + word-count splitting for reliable segment boundaries.
-  // This avoids the fragile text-matching approach: we simply count how many words
-  // each segment has and assign Whisper words sequentially.
   let whisperWordTimings: any[] = [];
   let editorSegments: any[];
   let usedWhisper = false;
 
+  // ─── Case 1: Has voiceover + script → Whisper timing ──────────────
   if (voiceoverUrl && selectedSegments.length > 0) {
     try {
       console.log('🎤 Running Whisper analysis on voiceover for segment timing...');
@@ -80,27 +93,20 @@ async function formatListingForEditor(listing: any, userId: string) {
         segments: whisperSegments,
       });
 
-      // Use raw_word_timings for reliable word-count-based splitting
       const rawWords = whisperResult.raw_word_timings || [];
 
       if (whisperResult.success && rawWords.length > 0) {
         console.log(`✅ Whisper returned ${rawWords.length} raw word timings`);
 
-        // Count words per segment
         const segmentWordCounts = selectedSegments.map(
           (seg: any) => (seg.voiceover || '').split(/\s+/).filter(Boolean).length,
         );
         const totalExpectedWords = segmentWordCounts.reduce((a: number, b: number) => a + b, 0);
-        console.log(`📊 Expected words: ${totalExpectedWords}, Whisper words: ${rawWords.length}`);
 
-        // Assign Whisper words to segments by word count
         let wordIdx = 0;
         editorSegments = selectedSegments.map((seg: any, i: number) => {
           const analysis = analyses.find((a: any) => a.index === seg.image_index);
           const expectedWords = segmentWordCounts[i];
-
-          // How many Whisper words to assign to this segment
-          // Scale proportionally if counts don't match exactly
           const ratio = rawWords.length / Math.max(totalExpectedWords, 1);
           const assignCount = Math.max(1, Math.round(expectedWords * ratio));
 
@@ -109,7 +115,6 @@ async function formatListingForEditor(listing: any, userId: string) {
           const assignedWords = rawWords.slice(segStart, segEnd);
           wordIdx = segEnd;
 
-          // For the last segment, grab any remaining words
           if (i === selectedSegments.length - 1 && wordIdx < rawWords.length) {
             assignedWords.push(...rawWords.slice(wordIdx));
             wordIdx = rawWords.length;
@@ -131,27 +136,21 @@ async function formatListingForEditor(listing: any, userId: string) {
           };
         });
 
-        // Collect all raw word timings for captions
         whisperWordTimings = rawWords;
         usedWhisper = true;
-
-        console.log('🎯 Using Whisper word-count-based segment timings:');
-        editorSegments.forEach((seg, i) => {
-          console.log(`  Segment ${i}: ${seg.start_time.toFixed(2)}s → ${seg.end_time.toFixed(2)}s (${seg.duration.toFixed(2)}s) — "${seg.text.substring(0, 40)}..."`);
-        });
       } else {
-        console.warn('⚠️ Whisper analysis returned no word timings, falling back to proportional');
+        console.warn('⚠️ Whisper returned no word timings, falling back');
       }
     } catch (err) {
-      console.warn('⚠️ Whisper analysis failed, falling back to proportional:', err);
+      console.warn('⚠️ Whisper analysis failed, falling back:', err);
     }
   }
 
-  // ─── Fallback: proportional scaling ────────────────────────────────
-  if (!usedWhisper) {
+  // ─── Case 2: Has script but no voiceover → proportional timing ────
+  if (!usedWhisper && selectedSegments.length > 0) {
     const rawDurations = selectedSegments.map((seg: any) => seg.duration_seconds || 3);
     const rawTotal = rawDurations.reduce((sum: number, d: number) => sum + d, 0);
-    const totalDur = voiceoverDuration || rawTotal || 30;
+    const totalDur = voiceoverDuration || rawTotal || targetDuration;
     const scale = rawTotal > 0 ? totalDur / rawTotal : 1;
 
     let currentTime = 0;
@@ -170,16 +169,63 @@ async function formatListingForEditor(listing: any, userId: string) {
         camera_motion: analysis?.camera_motion || 'none',
       };
     });
-    console.log('📐 Using proportional segment timings (Whisper unavailable)');
+    console.log('📐 Using proportional segment timings');
   }
 
-  // Build image URLs list matching segment order
-  const imageUrls = selectedSegments.map((seg: any) => photos[seg.image_index]);
+  // ─── Case 3: No script at all → auto-segments from selected photos ─
+  if (!usedWhisper && selectedSegments.length === 0) {
+    const photoCount = selectedIndices.length || photos.length;
+    const perPhoto = targetDuration / Math.max(photoCount, 1);
+
+    editorSegments = (selectedIndices.length > 0 ? selectedIndices : photos.map((_: any, i: number) => i))
+      .map((photoIdx: number, i: number) => {
+        const analysis = analyses.find((a: any) => a.index === photoIdx);
+        const startTime = i * perPhoto;
+        return {
+          id: `segment-${i}`,
+          text: '',
+          start_time: startTime,
+          end_time: startTime + perPhoto,
+          duration: perPhoto,
+          image_prompt: analysis?.description || `Photo ${photoIdx + 1}`,
+          camera_motion: analysis?.camera_motion || 'none',
+        };
+      });
+    console.log(`📐 Auto-segments: ${editorSegments!.length} photos × ${perPhoto.toFixed(1)}s = ${targetDuration}s`);
+  }
+
+  // Build image URLs and video clips matching segment order
+  const photoIndices = selectedSegments.length > 0
+    ? selectedSegments.map((seg: any) => seg.image_index)
+    : (selectedIndices.length > 0 ? selectedIndices : photos.map((_: any, i: number) => i));
+  const imageUrls = photoIndices.map((idx: number) => photos[idx]);
+
+  // Map completed video clips to segment order (clip.index = photo index)
+  const videoClips = completedClips.length > 0
+    ? photoIndices.map((photoIdx: number, segIdx: number) => {
+        const clip = completedClips.find((c: any) => c.index === photoIdx);
+        if (clip) {
+          return {
+            url: clip.video_url,
+            segment_index: segIdx,
+            prompt: editorSegments![segIdx]?.image_prompt || '',
+            duration: editorSegments![segIdx]?.duration || 6,
+          };
+        }
+        return null;
+      }).filter(Boolean)
+    : [];
+
+  console.log(`🎬 Video clips: ${videoClips.length}/${photoIndices.length} photos have animated videos`);
+
+  const totalDur = editorSegments!.length > 0
+    ? editorSegments![editorSegments!.length - 1].end_time
+    : (voiceoverDuration || targetDuration);
 
   return {
     videoId: listing.id,
     userId,
-    script: selectedSegments.map((s: any) => s.voiceover).join(' '),
+    script: selectedSegments.map((s: any) => s.voiceover).join(' ') || '',
     createdAt: listing.created_at,
     updatedAt: listing.updated_at,
 
@@ -191,15 +237,13 @@ async function formatListingForEditor(listing: any, userId: string) {
       generation_params: { aspect_ratio: aspectRatio },
     },
 
-    // Audio — include Whisper word timings so editor can auto-generate captions
-    voice: {
-      url: voiceoverUrl || '',
+    // Voiceover audio + Whisper word timings
+    voice: voiceoverUrl ? {
+      url: voiceoverUrl,
       whisperData: whisperWordTimings.length > 0
         ? {
             success: true,
-            total_duration: editorSegments.length > 0
-              ? editorSegments[editorSegments.length - 1].end_time
-              : (voiceoverDuration || 0),
+            total_duration: totalDur,
             segment_timings: [],
             raw_word_timings: whisperWordTimings,
             word_count: whisperWordTimings.length,
@@ -210,13 +254,22 @@ async function formatListingForEditor(listing: any, userId: string) {
             timing_precision: 'frame' as const,
           }
         : null,
-    },
+    } : { url: '', whisperData: null },
+
+    // Background music
+    music: musicUrl ? {
+      url: musicUrl,
+      volume: musicVolume,
+    } : null,
 
     // Images + segments
     images: {
       urls: imageUrls,
-      segments: editorSegments,
+      segments: editorSegments!,
     },
+
+    // Animated video clips (from LTX generation)
+    video_clips: videoClips,
 
     // Listing metadata overlay
     listing: listingData
@@ -229,11 +282,12 @@ async function formatListingForEditor(listing: any, userId: string) {
         }
       : null,
 
+    // Intro text for overlay
+    introText,
+
     // Metadata
     metadata: {
-      totalDuration: editorSegments.length > 0
-        ? editorSegments[editorSegments.length - 1].end_time
-        : (voiceoverDuration || 30),
+      totalDuration: totalDur,
       frameRate: 30,
       wordCount: selectedSegments.reduce(
         (acc: number, s: any) => acc + (s.voiceover || '').split(/\s+/).length,
@@ -260,7 +314,7 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabaseClient();
 
   try {
-    const { user_id, listingId } = await request.json();
+    const { user_id, listingId, selected } = await request.json();
 
     if (!user_id || !listingId) {
       return NextResponse.json(
@@ -268,6 +322,8 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: corsHeaders(request) },
       );
     }
+
+    console.log('🏠 Editor-data request:', { listingId, selectedOverride: selected });
 
     const { data: listing, error } = await supabase
       .from('reelestate_listings')
@@ -283,7 +339,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const editorData = await formatListingForEditor(listing, user_id);
+    // Pass selected indices override from editor URL params
+    const selectedOverride = Array.isArray(selected) ? selected as number[] : undefined;
+    const editorData = await formatListingForEditor(listing, user_id, selectedOverride);
 
     return NextResponse.json(
       { success: true, data: editorData },

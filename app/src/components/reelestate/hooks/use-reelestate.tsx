@@ -241,35 +241,43 @@ export function useReelEstate() {
     toast.success('Voiceover generated');
   }, [project.id, project.script, project.selectedIndices, project.voiceId, project.voiceSpeed, updateProject, refreshCredits]);
 
-  // ─── Step 5: Open in Video Editor ───────────────
-  const openInEditor = useCallback(async () => {
-    if (!project.id || !project.voiceover || !project.script) return;
-
-    try {
-      // Get current user ID for the editor URL
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('Authentication required');
-        return;
-      }
-
-      const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
-      const apiBaseUrl = window.location.origin;
-      const editorUrl = `${editorBaseUrl}/?listingId=${project.id}&userId=${user.id}&apiUrl=${encodeURIComponent(apiBaseUrl)}&aspectRatio=${project.aspectRatio}`;
-
-      // Open editor immediately (before any await) to avoid popup blocker
-      console.log('🎬 Opening ReelEstate in editor:', editorUrl);
-      window.open(editorUrl, '_blank');
-      toast.success('Opening video editor...');
-
-      // Persist aspect ratio to database (fire-and-forget; editor takes a moment to load)
-      updateListing(project.id, { aspect_ratio: project.aspectRatio });
-    } catch (error) {
-      console.error('❌ Failed to open editor:', error);
-      toast.error('Failed to open video editor');
+  // ─── Open in Video Editor ───────────────────────
+  const openInEditor = useCallback(() => {
+    if (!project.id || !userId || project.selectedIndices.length === 0) {
+      console.warn('⚠️ openInEditor guard failed:', { id: project.id, userId, selected: project.selectedIndices.length });
+      if (!userId) toast.error('Not signed in — please refresh the page');
+      return;
     }
-  }, [project.id, project.voiceover, project.script, project.aspectRatio]);
+
+    const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
+    const apiBaseUrl = window.location.origin;
+    const selectedParam = project.selectedIndices.join(',');
+    const editorUrl = `${editorBaseUrl}/?listingId=${project.id}&userId=${userId}&apiUrl=${encodeURIComponent(apiBaseUrl)}&aspectRatio=${project.aspectRatio}&selected=${selectedParam}&fresh=true`;
+
+    console.log('🎬 Opening ReelEstate in editor:', editorUrl);
+
+    // Use anchor click — immune to popup blockers unlike window.open
+    const link = document.createElement('a');
+    link.href = editorUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('Opening video editor...');
+
+    // Persist settings + delete stale composition (fire-and-forget)
+    deleteSavedComposition(project.id);
+    updateListing(project.id, {
+      selected_indices: project.selectedIndices,
+      aspect_ratio: project.aspectRatio,
+      target_duration: project.targetDuration,
+      music_url: project.musicUrl || null,
+      music_volume: project.musicVolume,
+      intro_text: project.introText || null,
+    } as any);
+  }, [project.id, userId, project.selectedIndices, project.aspectRatio, project.targetDuration, project.musicUrl, project.musicVolume, project.introText]);
 
   // ─── Generate Clips (optional, for editor) ──────
   const generateClips = useCallback(async () => {
