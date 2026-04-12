@@ -68,6 +68,7 @@ interface VideoLayer extends RemotionLayer {
 interface TextLayer extends RemotionLayer {
   type: 'text';
   text: string;
+  fontUrl?: string;
   style: {
     position: 'absolute';
     top: string | number;
@@ -84,6 +85,9 @@ interface TextLayer extends RemotionLayer {
     height?: number;
     lineHeight?: number;
     letterSpacing?: number;
+    WebkitTextStroke?: string;
+    paintOrder?: string;
+    textShadow?: string;
   };
 }
 
@@ -304,12 +308,24 @@ export class EditorToRemotionConverter {
         const startFrame = this.msToFrames(item.display.from, fps);
         const endFrame = this.msToFrames(item.display.to, fps);
         
+        // Build text stroke style
+        const borderWidth = item.details.borderWidth || 0;
+        const borderColor = item.details.borderColor || '#000';
+        const textStroke = borderWidth > 0 ? `${borderWidth}px ${borderColor}` : undefined;
+
+        // Build text shadow from boxShadow
+        const shadow = item.details.boxShadow;
+        const textShadow = shadow
+          ? `${shadow.x || 0}px ${shadow.y || 0}px ${shadow.blur || 0}px ${shadow.color || 'rgba(0,0,0,0.5)'}`
+          : undefined;
+
         return {
           id: item.id,
           type: 'text' as const,
           startFrame,
           durationInFrames: endFrame - startFrame,
           text: item.details.text || '',
+          fontUrl: item.details.fontUrl,
           style: {
             position: 'absolute' as const,
             top: this.parsePixelValue(item.details.top) || 100,
@@ -323,7 +339,9 @@ export class EditorToRemotionConverter {
             width: item.details.width,
             height: item.details.height,
             lineHeight: item.details.lineHeight || 1.2,
-            letterSpacing: item.details.letterSpacing || 0
+            letterSpacing: item.details.letterSpacing || 0,
+            ...(textStroke && { WebkitTextStroke: textStroke, paintOrder: 'stroke fill' }),
+            ...(textShadow && { textShadow }),
           }
         };
       });
@@ -348,6 +366,7 @@ export class EditorToRemotionConverter {
           startFrame,
           durationInFrames: endFrame - startFrame,
           segments,
+          fontUrl: item.details.fontUrl,
           style: {
             position: 'absolute' as const,
             top: item.details.top || '75%',

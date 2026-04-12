@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AbsoluteFill,
   Audio,
@@ -9,8 +9,43 @@ import {
   useVideoConfig,
   getInputProps,
   interpolate,
-  Easing
+  Easing,
+  continueRender,
+  delayRender
 } from 'remotion';
+
+/**
+ * Load custom fonts from URLs via @font-face injection.
+ * Deduplicates by fontFamily name.
+ */
+const loadedFonts = new Set();
+function loadCustomFonts(textLayers) {
+  const fontsToLoad = [];
+  for (const layer of textLayers || []) {
+    const family = layer.style?.fontFamily;
+    const url = layer.fontUrl;
+    if (family && url && !loadedFonts.has(family)) {
+      loadedFonts.add(family);
+      fontsToLoad.push({ family, url });
+    }
+  }
+  if (fontsToLoad.length === 0) return Promise.resolve();
+
+  // Inject @font-face rules
+  const styleEl = document.createElement('style');
+  const rules = fontsToLoad.map(f =>
+    `@font-face { font-family: '${f.family}'; src: url('${f.url}') format('truetype'); font-display: block; }`
+  ).join('\n');
+  styleEl.textContent = rules;
+  document.head.appendChild(styleEl);
+
+  // Wait for all fonts to load
+  return Promise.all(
+    fontsToLoad.map(f =>
+      document.fonts.load(`1em "${f.family}"`).catch(() => {})
+    )
+  );
+}
 
 /**
  * VideoEditor Composition
@@ -20,7 +55,7 @@ export const VideoEditor = () => {
   const inputProps = getInputProps();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  
+
   // Destructure props with defaults
   const {
     audioLayers = [],
@@ -36,6 +71,23 @@ export const VideoEditor = () => {
     }
   } = inputProps;
 
+  // Load custom fonts before rendering (from both text and caption layers)
+  const [fontsReady, setFontsReady] = useState(false);
+  const [handle] = useState(() => delayRender('Loading custom fonts'));
+
+  useEffect(() => {
+    loadCustomFonts([...textLayers, ...captionLayers])
+      .then(() => {
+        setFontsReady(true);
+        continueRender(handle);
+      })
+      .catch(() => {
+        setFontsReady(true);
+        continueRender(handle);
+      });
+  }, []);
+
+  if (!fontsReady) return null;
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'transparent' }}>

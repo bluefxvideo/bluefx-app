@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Check, Volume2 } from 'lucide-react';
+import { Check, Volume2, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MUSIC_GENRES,
@@ -88,6 +88,17 @@ export function MusicSelector({
               <span className="text-xs text-muted-foreground shrink-0">
                 {formatDuration(track.duration)}
               </span>
+
+              {/* Download button */}
+              <a
+                href={track.url}
+                download={`${track.title}.mp3`}
+                onClick={(e) => e.stopPropagation()}
+                title="Download track"
+                className="shrink-0 p-1 rounded hover:bg-muted/80 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+              </a>
 
               {/* Selected indicator */}
               {isSelected && (

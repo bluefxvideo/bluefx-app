@@ -6,7 +6,7 @@ import Opacity from "./common/opacity";
 import Rounded from "./common/radius";
 import AspectRatio from "./common/aspect-ratio";
 import { Button } from "@/components/ui/button";
-import { Crop, Sparkles } from "lucide-react";
+import { Crop, Download, Sparkles } from "lucide-react";
 import Volume from "./common/volume";
 import React, { useEffect, useState } from "react";
 import { dispatch } from "@designcombo/events";
@@ -181,7 +181,43 @@ const BasicVideo = ({
 		.map(id => trackItemsMap[id])
 		.filter(item => item && (item.type === "image" || item.type === "video")) as IVideo[];
 
+	const handleDownloadClip = async () => {
+		const src = trackItem.details?.src;
+		if (!src) return;
+		try {
+			const res = await fetch(src);
+			const blob = await res.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			const name = trackItem.name || "clip";
+			a.download = `${name.replace(/[^a-zA-Z0-9_-]/g, "_")}.mp4`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (err) {
+			console.error("❌ Download failed:", err);
+		}
+	};
+
 	const components = [
+		{
+			key: "download",
+			component: (
+				<div className="mb-2">
+					<Button
+						variant="outline"
+						size="sm"
+						className="w-full gap-2"
+						onClick={handleDownloadClip}
+					>
+						<Download size={16} />
+						Download Clip
+					</Button>
+				</div>
+			),
+		},
 		{
 			key: "crop",
 			component: (
