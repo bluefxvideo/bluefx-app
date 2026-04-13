@@ -62,8 +62,16 @@ export const MUSIC_LIBRARY: MusicTrack[] = [
   { id: 'dramatic-5', title: 'Showtime', genre: 'dramatic', duration: 45, url: `${SB}/dramatic/dramatic-5.mp3` },
 ];
 
-export function getTracksByGenre(genre: MusicGenre): MusicTrack[] {
-  return MUSIC_LIBRARY.filter(t => t.genre === genre);
+export type MusicFilter = 'all' | MusicGenre;
+
+export const FILTER_LABELS: Record<MusicFilter, string> = {
+  all: 'All',
+  ...GENRE_LABELS,
+};
+
+export function getTracksByGenre(filter: MusicFilter): MusicTrack[] {
+  if (filter === 'all') return MUSIC_LIBRARY;
+  return MUSIC_LIBRARY.filter(t => t.genre === filter);
 }
 
 export function getTrackById(id: string): MusicTrack | undefined {

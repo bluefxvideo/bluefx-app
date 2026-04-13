@@ -7,10 +7,10 @@ import { Check, Volume2, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MUSIC_GENRES,
-  GENRE_LABELS,
+  FILTER_LABELS,
   getTracksByGenre,
   type MusicTrack,
-  type MusicGenre,
+  type MusicFilter,
 } from '@/lib/reelestate-music-library';
 
 interface MusicSelectorProps {
@@ -28,9 +28,9 @@ export function MusicSelector({
   onVolumeChange,
   disabled = false,
 }: MusicSelectorProps) {
-  const [activeGenre, setActiveGenre] = useState<MusicGenre>('upbeat');
+  const [activeFilter, setActiveFilter] = useState<MusicFilter>('all');
 
-  const tracks = getTracksByGenre(activeGenre);
+  const tracks = getTracksByGenre(activeFilter);
 
   const selectTrack = useCallback((track: MusicTrack) => {
     onSelectTrack(track.id, track.url);
@@ -48,16 +48,16 @@ export function MusicSelector({
     <div className="space-y-3">
       {/* Genre tabs */}
       <div className="flex flex-wrap gap-1.5">
-        {MUSIC_GENRES.map(genre => (
+        {(['all', ...MUSIC_GENRES] as MusicFilter[]).map(filter => (
           <Button
-            key={genre}
-            variant={activeGenre === genre ? 'default' : 'outline'}
+            key={filter}
+            variant={activeFilter === filter ? 'default' : 'outline'}
             size="sm"
             className="h-7 text-xs"
-            onClick={() => setActiveGenre(genre)}
+            onClick={() => setActiveFilter(filter)}
             disabled={disabled}
           >
-            {GENRE_LABELS[genre]}
+            {FILTER_LABELS[filter]}
           </Button>
         ))}
       </div>

@@ -56,6 +56,13 @@ export const calculateTextStyles = (
 	borderRadius: `${Math.min(details.width, details.height) * ((details.borderRadius || 0) / 100)}px`,
 });
 
+const parsePosition = (value: string | number | undefined): number => {
+	if (value === undefined || value === null) return 0;
+	if (typeof value === "number") return value;
+	const parsed = parseFloat(value);
+	return isNaN(parsed) ? 0 : parsed;
+};
+
 export const calculateContainerStyles = (
 	details: ITrackItem["details"],
 	crop: ITrackItem["details"]["crop"] = {},
@@ -63,8 +70,8 @@ export const calculateContainerStyles = (
 ): React.CSSProperties => {
 	return {
 		pointerEvents: "auto",
-		top: details.top || 0,
-		left: details.left || 0,
+		top: parsePosition(details.top),
+		left: parsePosition(details.left),
 		width: crop.width || details.width || "100%",
 		height: crop.height || details.height || "auto",
 		transform: details.transform || "none",

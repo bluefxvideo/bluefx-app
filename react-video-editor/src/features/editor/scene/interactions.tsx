@@ -14,6 +14,7 @@ import StateManager from "@designcombo/state";
 import { getCurrentTime } from "../utils/time";
 
 let holdGroupPosition: Record<string, any> | null = null;
+let lastDragPosition: Record<string, { left: number; top: number }> = {};
 let dragStartEnd = false;
 
 interface SceneInteractionsProps {
@@ -191,21 +192,26 @@ export function SceneInteractions({
 			onDrag={({ target, top, left }) => {
 				target.style.top = `${top}px`;
 				target.style.left = `${left}px`;
+				const id = getIdFromClassName(target.className);
+				if (id) lastDragPosition[id] = { left, top };
 			}}
 			onDragEnd={({ target, isDrag }) => {
 				if (!isDrag) return;
 				const targetId = getIdFromClassName(target.className) as string;
+				const pos = lastDragPosition[targetId];
+				if (!pos) return;
 
 				dispatch(EDIT_OBJECT, {
 					payload: {
 						[targetId]: {
 							details: {
-								left: target.style.left,
-								top: target.style.top,
+								left: pos.left,
+								top: pos.top,
 							},
 						},
 					},
 				});
+				delete lastDragPosition[targetId];
 			}}
 			onScale={({ target, transform, direction }) => {
 				const [xControl, yControl] = direction;
@@ -290,13 +296,8 @@ export function SceneInteractions({
 				for (let i = 0; i < events.length; i++) {
 					const event = events[i];
 					const id = getIdFromClassName(event.target.className);
-					const trackItem = trackItemsMap[id];
-					const left =
-						Number.parseFloat(trackItem?.details.left as string) +
-						event.beforeTranslate[0];
-					const top =
-						Number.parseFloat(trackItem?.details.top as string) +
-						event.beforeTranslate[1];
+					const left = (event as any).left as number;
+					const top = (event as any).top as number;
 					event.target.style.left = `${left}px`;
 					event.target.style.top = `${top}px`;
 					holdGroupPosition[id] = {
@@ -493,12 +494,10 @@ export function SceneInteractions({
 				if (holdGroupPosition) {
 					const payload: Record<string, Partial<any>> = {};
 					for (const id of Object.keys(holdGroupPosition)) {
-						const left = holdGroupPosition[id].left;
-						const top = holdGroupPosition[id].top;
 						payload[id] = {
 							details: {
-								top: `${top}px`,
-								left: `${left}px`,
+								top: holdGroupPosition[id].top,
+								left: holdGroupPosition[id].left,
 							},
 						};
 					}
