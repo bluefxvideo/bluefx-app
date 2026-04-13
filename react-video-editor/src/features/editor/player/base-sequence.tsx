@@ -45,7 +45,8 @@ export const BaseSequence = ({
 	};
 
 	// Extend duration for crossfade overlap (outgoing image stays visible longer)
-	const totalDuration = (durationInFrames || 1 / fps) + (extraDurationFrames || 0);
+	// Ensure minimum 1 frame to prevent Remotion crash
+	const totalDuration = Math.max(1, Math.round((durationInFrames || 1) + (extraDurationFrames || 0)));
 
 	return (
 		<Sequence
