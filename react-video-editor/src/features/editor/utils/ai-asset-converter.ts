@@ -411,9 +411,11 @@ export async function convertAIAssetsToEditorFormat(
       if (listing?.sqft) detailParts.push(`${listing.sqft.toLocaleString()} sqft`);
 
       if (detailParts.length > 0) {
-        // Details appear around 15 second mark, bottom of screen, font size 100
-        const detailsFromMs = 15000; // ~15 second mark
-        const detailsToMs = introToMs; // Stay visible until intro ends
+        // Details appear around 15 second mark (or at 60% of intro if intro < 15s)
+        // Stay visible until the end of the last segment (not intro — intro is only first segment)
+        const totalDurationMs = aiAssets.timeline_data.total_duration * 1000;
+        const detailsFromMs = Math.min(15000, introToMs * 0.6); // Clamp to 60% of intro if intro < 15s
+        const detailsToMs = totalDurationMs; // Visible until the end of the video
         const detailsTrack: ITrackItem = {
           id: generateId(),
           type: "text",
