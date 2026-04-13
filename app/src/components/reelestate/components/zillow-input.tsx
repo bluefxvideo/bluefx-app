@@ -17,12 +17,17 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
   const [uploadMode, setUploadMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isValidZillowUrl = (u: string) =>
-    /^https?:\/\/(www\.)?zillow\.com\/homedetails\//i.test(u.trim());
+  const isValidListingUrl = (u: string) => {
+    const trimmed = u.trim();
+    return (
+      /^https?:\/\/(www\.)?zillow\.com\/homedetails\//i.test(trimmed) ||
+      /^https?:\/\/(www\.)?realtor\.com\/realestateandhomes-detail\//i.test(trimmed)
+    );
+  };
 
   const handleSubmit = () => {
     const trimmed = url.trim();
-    if (!isValidZillowUrl(trimmed)) return;
+    if (!isValidListingUrl(trimmed)) return;
     onSubmitUrl(trimmed);
   };
 
@@ -50,7 +55,7 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
         <>
           <div className="flex gap-2">
             <Input
-              placeholder="Paste a Zillow listing URL..."
+              placeholder="Paste a Zillow or Realtor.com listing URL..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               disabled={disabled || isLoading}
@@ -58,7 +63,7 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
             />
             <Button
               onClick={handleSubmit}
-              disabled={disabled || isLoading || !isValidZillowUrl(url)}
+              disabled={disabled || isLoading || !isValidListingUrl(url)}
               className="shrink-0"
             >
               {isLoading ? (
@@ -103,7 +108,7 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             disabled={disabled}
           >
-            Or paste a Zillow URL
+            Or paste a listing URL
           </button>
         </>
       )}

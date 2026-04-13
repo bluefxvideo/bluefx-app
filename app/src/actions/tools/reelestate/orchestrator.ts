@@ -5,6 +5,7 @@ import { getUserCredits } from '@/actions/credit-management';
 import { deductCredits } from '@/actions/database/cinematographer-database';
 import { createListing, updateListing, deleteSavedComposition } from '@/actions/database/reelestate-database';
 import { scrapeZillowListing } from './zillow-scraper';
+import { scrapeRealtorListing } from './realtor-scraper';
 import { analyzeListingImages } from './image-interpreter';
 import { generateListingScript } from './script-generator';
 import { generateAllListingClips } from './clip-generator';
@@ -70,8 +71,9 @@ export async function startListingProject(input: {
     let sourceType: 'zillow' | 'manual' = 'manual';
 
     if (input.zillow_url) {
-      // Scrape Zillow
-      sourceType = 'zillow';
+      // Determine source: Zillow or Realtor.com
+      const isRealtor = input.zillow_url.includes('realtor.com');
+      sourceType = 'zillow'; // Reuse the same source type for DB compatibility
 
       // Check credits for scraping
       const creditCheck = await getUserCredits(user.id);
@@ -79,7 +81,9 @@ export async function startListingProject(input: {
         return { success: false, error: 'Insufficient credits for scraping' };
       }
 
-      const scrapeResult = await scrapeZillowListing(input.zillow_url);
+      const scrapeResult = isRealtor
+        ? await scrapeRealtorListing(input.zillow_url)
+        : await scrapeZillowListing(input.zillow_url);
       if (!scrapeResult.success || !scrapeResult.listing) {
         return { success: false, error: scrapeResult.error || 'Scrape failed' };
       }
@@ -113,7 +117,7 @@ export async function startListingProject(input: {
         };
       }
     } else {
-      return { success: false, error: 'Provide a Zillow URL or upload photos' };
+      return { success: false, error: 'Provide a Zillow or Realtor.com URL, or upload photos' };
     }
 
     // Create listing record
