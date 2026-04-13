@@ -112,10 +112,7 @@ function queueDeleteAndReplace(job: AnimationJob, videoUrl: string) {
 					},
 				});
 
-				// Step 2: Reorder tracks so captions stay on top
-				reorderCaptionsToTop();
-
-				// Step 3: Select the new video (keep the original image for re-generation)
+				// Step 2: Select the new video (keep the original image for re-generation)
 				setTimeout(() => {
 					useStore.setState({ activeIds: [newVideoId] });
 					console.log(
@@ -160,6 +157,10 @@ function getUserId(): string | null {
 	return new URLSearchParams(window.location.search).get("userId");
 }
 
+function getListingId(): string | null {
+	return new URLSearchParams(window.location.search).get("listingId");
+}
+
 function getCanvasAspectRatio(): string {
 	const { size } = useStore.getState();
 	if (size.height > size.width) return "9:16";
@@ -194,11 +195,15 @@ function startPolling(
 		error: null,
 	};
 
+	// Build poll URL with listing context for DB persistence
+	const listingId = getListingId();
+	let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}`;
+	if (listingId) pollUrl += `&listingId=${listingId}`;
+	if (imageSrc) pollUrl += `&imageUrl=${encodeURIComponent(imageSrc)}`;
+
 	const intervalId = setInterval(async () => {
 		try {
-			const pollRes = await fetch(
-				`${apiUrl}/api/editor/animate-image?predictionId=${predictionId}`,
-			);
+			const pollRes = await fetch(pollUrl);
 			const pollData = await pollRes.json();
 
 			if (pollData.status === "succeeded" && pollData.video_url) {
@@ -309,6 +314,7 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 					duration: parseInt(duration),
 					aspect_ratio: getCanvasAspectRatio(),
 					user_id: getUserId(),
+					listing_id: getListingId(),
 				}),
 			});
 

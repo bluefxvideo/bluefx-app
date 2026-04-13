@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
@@ -11,10 +11,21 @@ import { PhotoGrid } from '../components/photo-grid';
 import { MusicSelector } from '../components/music-selector';
 import {
   Loader2, Scan, Film,
-  Monitor, Smartphone, Type,
+  Monitor, Smartphone, Type, Mic,
 } from 'lucide-react';
 import type { ReelEstateProject, TargetDuration } from '@/types/reelestate';
 import { TARGET_DURATIONS } from '@/types/reelestate';
+
+const VOICE_OPTIONS = [
+  { id: 'Friendly_Person', label: 'Friendly' },
+  { id: 'Deep_Voice_Man', label: 'Deep Voice' },
+  { id: 'Calm_Woman', label: 'Calm Woman' },
+  { id: 'Inspirational_girl', label: 'Inspirational' },
+  { id: 'Warm_Man', label: 'Warm Man' },
+  { id: 'Wise_Lady', label: 'Wise Lady' },
+  { id: 'Confident_Man', label: 'Confident Man' },
+  { id: 'Gentle_Woman', label: 'Gentle Woman' },
+];
 
 interface VideoMakerTabProps {
   project: ReelEstateProject;
@@ -35,6 +46,9 @@ interface VideoMakerTabProps {
   onSetAspectRatio: (ratio: '16:9' | '9:16') => void;
   onSetTargetDuration: (duration: TargetDuration) => void;
   onSetIntroText: (text: string | null) => void;
+  // Voiceover
+  onSetVoiceoverEnabled: (enabled: boolean) => void;
+  onSetVoiceId: (voiceId: string) => void;
   // Step 3: Music
   onSetMusicTrack: (trackId: string | null, url: string | null) => void;
   onSetMusicVolume: (volume: number) => void;
@@ -55,6 +69,8 @@ export function VideoMakerTab({
   onSetAspectRatio,
   onSetTargetDuration,
   onSetIntroText,
+  onSetVoiceoverEnabled,
+  onSetVoiceId,
   onSetMusicTrack,
   onSetMusicVolume,
   onOpenInEditor,
@@ -62,16 +78,17 @@ export function VideoMakerTab({
   const hasPhotos = project.photos.length > 0;
   const hasAnalyses = project.analyses.length > 0;
   const hasSelection = project.selectedIndices.length > 0;
-  const hasMusic = project.musicTrackId !== null;
+
+  const isPreparing = ['scripting', 'generating_voiceover'].includes(project.status);
 
   return (
     <TabContentWrapper>
       <TabBody>
-        {/* ─── Step 1: Photos ─── */}
+        {/* Step 1: Photos */}
         <StandardStep
           stepNumber={1}
           title="Property Photos"
-          description="Import from Zillow or upload photos"
+          description="Import from Zillow / Realtor.com or upload photos"
         >
           <ZillowInput
             onSubmitUrl={(url) => onStartProject({ zillow_url: url })}
@@ -85,7 +102,6 @@ export function VideoMakerTab({
               <p className="font-medium text-sm">{project.listing.address}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 {project.listing.beds} bed · {project.listing.baths} bath · {project.listing.sqft?.toLocaleString()} sqft
-                {project.listing.price_formatted && ` · ${project.listing.price_formatted}`}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {project.photos.length} photos loaded
@@ -126,7 +142,7 @@ export function VideoMakerTab({
           )}
         </StandardStep>
 
-        {/* ─── Step 2: Style & Settings ─── */}
+        {/* Step 2: Style & Settings */}
         {hasAnalyses && hasSelection && (
           <StandardStep
             stepNumber={2}
@@ -195,16 +211,63 @@ export function VideoMakerTab({
                 />
                 <p className="text-xs text-muted-foreground mt-1">Displayed on the first photo</p>
               </div>
+
+              {/* Voiceover toggle */}
+              <div className="p-3 rounded-lg border border-border/50 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Mic className="w-4 h-4" />
+                    AI Voiceover
+                  </label>
+                  <Switch
+                    checked={project.voiceoverEnabled}
+                    onCheckedChange={onSetVoiceoverEnabled}
+                    disabled={isWorking}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {project.voiceoverEnabled
+                    ? 'AI writes a script and narrates your video (3 credits)'
+                    : 'Music-only mode — no narration'}
+                </p>
+
+                {project.voiceoverEnabled && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Voice</label>
+                    <Select
+                      value={project.voiceId}
+                      onValueChange={onSetVoiceId}
+                      disabled={isWorking}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VOICE_OPTIONS.map(v => (
+                          <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {project.voiceover && (
+                  <div className="flex items-center gap-2 text-xs text-emerald-400">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Voiceover ready
+                  </div>
+                )}
+              </div>
             </div>
           </StandardStep>
         )}
 
-        {/* ─── Step 3: Music ─── */}
+        {/* Step 3: Background Music */}
         {hasAnalyses && hasSelection && (
           <StandardStep
             stepNumber={3}
             title="Background Music"
-            description="Choose a track for your video"
+            description={project.voiceoverEnabled ? 'Plays underneath the voiceover' : 'Choose a track for your video'}
           >
             <MusicSelector
               selectedTrackId={project.musicTrackId}
@@ -222,12 +285,24 @@ export function VideoMakerTab({
         <TabFooter>
           <Button
             onClick={onOpenInEditor}
-            disabled={isWorking}
+            disabled={isWorking || isPreparing}
             className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
             size="lg"
           >
-            <Film className="w-4 h-4 mr-2" />
-            Open in Studio
+            {isPreparing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {project.status === 'scripting' ? 'Writing script...' : 'Generating voiceover...'}
+              </>
+            ) : (
+              <>
+                <Film className="w-4 h-4 mr-2" />
+                Open in Studio
+                {project.voiceoverEnabled && !project.voiceover && (
+                  <span className="ml-1 text-xs opacity-70">(+3 credits)</span>
+                )}
+              </>
+            )}
           </Button>
 
           {project.error && (

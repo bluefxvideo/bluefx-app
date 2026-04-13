@@ -275,7 +275,6 @@ async function formatListingForEditor(listing: any, userId: string, selectedOver
     listing: listingData
       ? {
           address: listingData.address,
-          price: listingData.price_formatted || `$${listingData.price?.toLocaleString() || ''}`,
           beds: listingData.beds,
           baths: listingData.baths,
           sqft: listingData.sqft,

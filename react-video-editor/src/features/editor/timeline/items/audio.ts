@@ -22,6 +22,8 @@ interface AudioProps extends TrimmableProps {
 	src: string;
 	metadata: Partial<IMetadata> & {
 		previewUrl: string;
+		generationType?: string;
+		backgroundMusic?: boolean;
 	};
 }
 
@@ -37,6 +39,7 @@ class Audio extends Trimmable {
 	declare playbackRate: number;
 	public bars: any[] = [];
 
+	public label: string = "Audio";
 
 
 	constructor(props: AudioProps) {
@@ -46,9 +49,21 @@ class Audio extends Trimmable {
 		this.display = props.display;
 		this.trim = props.trim;
 		this.duration = props.duration;
-		this.fill = "#4834d4";
 		this.src = props.src;
 		this.objectCaching = false;
+
+		// Determine label and color from metadata
+		if (props.metadata?.generationType === 'voice') {
+			this.label = "Voiceover";
+			this.fill = "#6c5ce7"; // purple for voiceover
+		} else if (props.metadata?.backgroundMusic) {
+			this.label = "Music";
+			this.fill = "#00b894"; // green for music
+		} else {
+			this.label = "Audio";
+			this.fill = "#4834d4"; // default purple
+		}
+
 		this.initOffscreenCanvas();
 		this.initialize();
 	}
@@ -154,7 +169,7 @@ class Audio extends Trimmable {
 		ctx.fillStyle = "#ffffff";
 		ctx.textAlign = "left";
 		ctx.clip();
-		ctx.fillText("Audio", 36, 14);
+		ctx.fillText(this.label, 36, 14);
 		ctx.translate(8, 1);
 		ctx.fillStyle = "#ffffff";
 		ctx.fill(audioIconPath);

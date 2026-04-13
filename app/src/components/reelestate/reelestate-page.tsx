@@ -77,6 +77,7 @@ export function ReelEstatePage() {
     setTargetDuration,
     setVoiceId,
     setVoiceSpeed,
+    setVoiceoverEnabled,
     // Music & style (simplified flow)
     setMusicTrack,
     setMusicVolume,
@@ -210,6 +211,8 @@ export function ReelEstatePage() {
               onSetAspectRatio={setAspectRatio}
               onSetTargetDuration={setTargetDuration}
               onSetIntroText={setIntroText}
+              onSetVoiceoverEnabled={setVoiceoverEnabled}
+              onSetVoiceId={setVoiceId}
               onSetMusicTrack={setMusicTrack}
               onSetMusicVolume={setMusicVolume}
               onOpenInEditor={openInEditor}

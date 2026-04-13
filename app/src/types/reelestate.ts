@@ -265,6 +265,8 @@ export interface ReelEstateProject {
   voiceId: string;
   voiceSpeed: number;
   creditsUsed: number;
+  // Voiceover toggle
+  voiceoverEnabled: boolean;
   // Music & style (simplified flow)
   musicTrackId: string | null;
   musicUrl: string | null;

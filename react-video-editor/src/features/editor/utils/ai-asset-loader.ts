@@ -175,7 +175,7 @@ async function fetchAIAssetsFromDatabase(video_id: string) {
  * Handles BlueFX redirect format: /?videoId=ID&userId=ID&apiUrl=URL
  * Also supports legacy format: ?loadAI=VIDEO_ID
  */
-export function loadAIAssetsFromURL(): Promise<any> {
+export function loadAIAssetsFromURL(options?: { freshLoad?: boolean }): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
       // Prevent duplicate loading
@@ -231,6 +231,7 @@ export function loadAIAssetsFromURL(): Promise<any> {
           userId,
           aspectRatioOverride: aspectRatioParam || undefined,
           apiUrl: apiUrl || window.location.origin,
+          freshLoad: options?.freshLoad,
           onProgress: (stage, progress) => {
             console.log(`📊 ReelEstate Loading progress: ${stage} (${progress}%)`);
           },
@@ -285,6 +286,7 @@ export function loadAIAssetsFromURL(): Promise<any> {
           userId,
           apiUrl,
           source: source || undefined,
+          freshLoad: options?.freshLoad,
           onProgress: (stage, progress) => {
             console.log(`📊 BlueFX Loading progress: ${stage} (${progress}%)`);
           },
@@ -348,6 +350,7 @@ async function loadAIAssetsFromBlueFX({
   userId,
   apiUrl,
   source,
+  freshLoad,
   onProgress,
   onSuccess,
   onError
@@ -356,72 +359,77 @@ async function loadAIAssetsFromBlueFX({
   userId: string;
   apiUrl: string;
   source?: string;
+  freshLoad?: boolean;
   onProgress?: (stage: string, progress: number) => void;
   onSuccess?: (video_id: string) => void;
   onError?: (error: string) => void;
 }) {
-  console.log('🚀 Starting BlueFX asset loading:', { videoId, userId, apiUrl });
-  
+  console.log('🚀 Starting BlueFX asset loading:', { videoId, userId, apiUrl, freshLoad });
+
   try {
-    onProgress?.('Checking for saved composition...', 5);
-    
-    // FIRST: Check if there's a saved composition
-    console.log('🔍 Checking for saved composition first...');
     // Ensure no double slashes in URL construction
     const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-    const savedUrl = `${cleanApiUrl}/api/script-video/save-composition?user_id=${userId}&video_id=${videoId}`;
-    console.log('🔗 Saved composition URL:', savedUrl);
-    let savedResponse;
-    try {
-      savedResponse = await fetch(savedUrl, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
-    } catch (fetchError) {
-      console.warn('⚠️ Failed to fetch saved composition, continuing with AI assets:', fetchError);
-      savedResponse = null;
-    }
-    
-    if (savedResponse && savedResponse.ok) {
-      const savedData = await savedResponse.json();
-      console.log('🔍 Saved composition response:', savedData);
-      
-      if (savedData.success && savedData.data && savedData.data.composition_data) {
-        console.log('✅ Found saved composition! Loading that instead of AI assets.');
-        console.log('🔍 Composition data structure:', {
-          hasCompositionData: !!savedData.data.composition_data,
-          hasTrackItemsMap: !!savedData.data.composition_data?.trackItemsMap,
-          keys: savedData.data.composition_data ? Object.keys(savedData.data.composition_data) : []
-        });
-        
-        onProgress?.('Loading saved composition...', 50);
-        
-        // Validate composition data structure before loading
-        if (savedData.data.composition_data.trackItemsMap) {
-          // Wait for timeline before dispatching
-          await waitForTimeline();
 
-          // Load the saved composition directly
-          dispatch(DESIGN_LOAD, {
-            payload: savedData.data.composition_data
-          });
-          
-          onProgress?.('Complete!', 100);
-          onSuccess?.(videoId);
-          
-          console.log('🎉 Saved composition loaded successfully!');
-          return; // Exit early - we loaded the saved version
-        } else {
-          console.log('⚠️ Saved composition missing trackItemsMap, falling back to AI asset loading');
-        }
-      } else {
-        console.log('ℹ️ No saved composition found, proceeding with AI asset loading');
+    // FIRST: Check if there's a saved composition (skip if freshLoad)
+    if (!freshLoad) {
+      onProgress?.('Checking for saved composition...', 5);
+      console.log('🔍 Checking for saved composition first...');
+      const savedUrl = `${cleanApiUrl}/api/script-video/save-composition?user_id=${userId}&video_id=${videoId}`;
+      console.log('🔗 Saved composition URL:', savedUrl);
+      let savedResponse;
+      try {
+        savedResponse = await fetch(savedUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+      } catch (fetchError) {
+        console.warn('⚠️ Failed to fetch saved composition, continuing with AI assets:', fetchError);
+        savedResponse = null;
       }
+
+      if (savedResponse && savedResponse.ok) {
+        const savedData = await savedResponse.json();
+        console.log('🔍 Saved composition response:', savedData);
+
+        if (savedData.success && savedData.data && savedData.data.composition_data) {
+          console.log('✅ Found saved composition! Loading that instead of AI assets.');
+          console.log('🔍 Composition data structure:', {
+            hasCompositionData: !!savedData.data.composition_data,
+            hasTrackItemsMap: !!savedData.data.composition_data?.trackItemsMap,
+            keys: savedData.data.composition_data ? Object.keys(savedData.data.composition_data) : []
+          });
+
+          onProgress?.('Loading saved composition...', 50);
+
+          // Validate composition data structure before loading
+          if (savedData.data.composition_data.trackItemsMap) {
+            // Wait for timeline before dispatching
+            await waitForTimeline();
+
+            // Load the saved composition directly
+            dispatch(DESIGN_LOAD, {
+              payload: savedData.data.composition_data
+            });
+
+            onProgress?.('Complete!', 100);
+            onSuccess?.(videoId);
+
+            console.log('🎉 Saved composition loaded successfully!');
+            return; // Exit early - we loaded the saved version
+          } else {
+            console.log('⚠️ Saved composition missing trackItemsMap, falling back to AI asset loading');
+          }
+        } else {
+          console.log('ℹ️ No saved composition found, proceeding with AI asset loading');
+        }
+      }
+    } else {
+      console.log('🔄 Fresh load requested — skipping saved composition check');
     }
-    
+
     console.log('📭 No saved composition found, loading AI assets...');
     onProgress?.('Connecting to BlueFX...', 10);
 
@@ -613,6 +621,7 @@ async function loadReelEstateListing({
   userId,
   apiUrl,
   aspectRatioOverride,
+  freshLoad,
   onProgress,
   onSuccess,
   onError,
@@ -621,17 +630,18 @@ async function loadReelEstateListing({
   userId: string;
   apiUrl: string;
   aspectRatioOverride?: string;
+  freshLoad?: boolean;
   onProgress?: (stage: string, progress: number) => void;
   onSuccess?: (listing_id: string) => void;
   onError?: (error: string) => void;
 }) {
-  console.log('🏠 Starting ReelEstate listing loading:', { listingId, userId, apiUrl });
+  console.log('🏠 Starting ReelEstate listing loading:', { listingId, userId, apiUrl, freshLoad });
 
   try {
     const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
 
-    // Check for fresh=true URL parameter — skip saved composition if fresh load requested
-    const isFreshLoad = new URLSearchParams(window.location.search).get('fresh') === 'true';
+    // Use freshLoad param passed from caller (URL param is stripped early by editor.tsx)
+    const isFreshLoad = freshLoad || false;
 
     // FIRST: Check if there's a saved composition (unless fresh load)
     if (!isFreshLoad) {

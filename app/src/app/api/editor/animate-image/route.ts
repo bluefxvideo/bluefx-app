@@ -21,6 +21,72 @@ const CREDITS_PER_SECOND = 1;
 // Cache persisted video URLs to avoid re-uploading on repeated polls
 const videoUrlCache = new Map<string, string>();
 
+/**
+ * Persist a completed clip to the listing's clip_predictions JSONB array.
+ * This ensures clips survive server restarts and editor reloads.
+ */
+async function saveClipToListing(
+  listingId: string,
+  imageUrl: string,
+  predictionId: string,
+  videoUrl: string,
+) {
+  try {
+    const supabase = createAdminClient();
+
+    // Fetch current clip_predictions
+    const { data: listing } = await supabase
+      .from('reelestate_listings')
+      .select('clip_predictions, photo_urls')
+      .eq('id', listingId)
+      .single();
+
+    if (!listing) {
+      console.warn(`⚠️ Listing ${listingId} not found, skipping clip persistence`);
+      return;
+    }
+
+    const clipPredictions: any[] = listing.clip_predictions || [];
+    const photoUrls: string[] = listing.photo_urls || [];
+
+    // Find the photo index matching this image URL
+    const photoIndex = photoUrls.findIndex((url: string) => url === imageUrl);
+
+    // Check if this prediction already exists
+    const existingIdx = clipPredictions.findIndex(
+      (c: any) => c.prediction_id === predictionId,
+    );
+
+    const clipEntry = {
+      index: photoIndex >= 0 ? photoIndex : clipPredictions.length,
+      prediction_id: predictionId,
+      status: 'succeeded' as const,
+      video_url: videoUrl,
+      image_url: imageUrl,
+      created_at: new Date().toISOString(),
+    };
+
+    if (existingIdx >= 0) {
+      clipPredictions[existingIdx] = clipEntry;
+    } else {
+      clipPredictions.push(clipEntry);
+    }
+
+    const { error } = await supabase
+      .from('reelestate_listings')
+      .update({ clip_predictions: clipPredictions })
+      .eq('id', listingId);
+
+    if (error) {
+      console.error(`❌ Failed to save clip to listing ${listingId}:`, error);
+    } else {
+      console.log(`✅ Clip saved to listing ${listingId} (prediction: ${predictionId})`);
+    }
+  } catch (err) {
+    console.error(`❌ Error saving clip to listing:`, err);
+  }
+}
+
 const ALLOWED_ORIGINS = [
   'https://editor.bluefx.net',
   'http://localhost:3002',
@@ -47,7 +113,7 @@ function corsHeaders(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { image_url, prompt, duration, aspect_ratio, user_id } =
+    const { image_url, prompt, duration, aspect_ratio, user_id, listing_id } =
       await request.json();
 
     if (!image_url) {
@@ -139,6 +205,8 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const predictionId = url.searchParams.get('predictionId');
+    const listingId = url.searchParams.get('listingId');
+    const imageUrl = url.searchParams.get('imageUrl');
 
     if (!predictionId) {
       return NextResponse.json(
@@ -194,6 +262,11 @@ export async function GET(request: NextRequest) {
               finalVideoUrl = uploadResult.url;
               videoUrlCache.set(predictionId, finalVideoUrl);
               console.log(`✅ Animate-image video persisted to Supabase: ${finalVideoUrl}`);
+
+              // Save clip to listing database for persistence across reloads
+              if (listingId && imageUrl) {
+                await saveClipToListing(listingId, imageUrl, predictionId, finalVideoUrl);
+              }
             } else {
               console.warn('⚠️ Failed to persist video, using FAL URL as fallback');
             }

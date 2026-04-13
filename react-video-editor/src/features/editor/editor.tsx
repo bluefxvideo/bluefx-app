@@ -233,10 +233,10 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 	useEffect(() => {
 		console.log('🚀 EDITOR: Starting AI asset loading useEffect');
 
-		const loadAIAssets = async () => {
+		const loadAIAssets = async (isFresh?: boolean) => {
 			try {
 				// Give AI loading highest priority by loading it immediately
-				const result = await loadAIAssetsFromURL();
+				const result = await loadAIAssetsFromURL({ freshLoad: isFresh });
 				console.log('🚀 EDITOR: Result from loadAIAssetsFromURL:', result);
 
 				if (result.success) {
@@ -334,7 +334,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 					console.log('🔄 Fresh load requested — skipping saved composition');
 				}
 				// Fall back to loading fresh AI assets
-				loadAIAssets();
+				loadAIAssets(freshLoad);
 			};
 
 			tryLoadSaved();

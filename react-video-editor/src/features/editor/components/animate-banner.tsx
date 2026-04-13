@@ -26,6 +26,10 @@ function getUserId(): string | null {
   return new URLSearchParams(window.location.search).get("userId");
 }
 
+function getListingId(): string | null {
+  return new URLSearchParams(window.location.search).get("listingId");
+}
+
 function getCanvasAspectRatio(): string {
   const { size } = useStore.getState();
   if (size.height > size.width) return "9:16";
@@ -113,6 +117,7 @@ export function AnimateBanner() {
         console.log(`🎬 Animating photo ${completed + 1}/${imageItems.length}: ${imageSrc.substring(0, 60)}...`);
 
         // 1. Create prediction
+        const listingId = getListingId();
         const createRes = await fetch(`${apiUrl}/api/editor/animate-image`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -122,6 +127,7 @@ export function AnimateBanner() {
             prompt,
             aspect_ratio: aspectRatio,
             user_id: userId,
+            listing_id: listingId,
           }),
         });
 
@@ -135,11 +141,12 @@ export function AnimateBanner() {
 
         // 2. Poll for completion
         let videoUrl: string | null = null;
+        let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}&userId=${userId}`;
+        if (listingId) pollUrl += `&listingId=${listingId}`;
+        if (imageSrc) pollUrl += `&imageUrl=${encodeURIComponent(imageSrc)}`;
         for (let attempt = 0; attempt < 120; attempt++) {
           await sleep(5000);
-          const pollRes = await fetch(
-            `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}&userId=${userId}`,
-          );
+          const pollRes = await fetch(pollUrl);
           const pollData = await pollRes.json();
 
           if (pollData.status === "succeeded" && pollData.video_url) {
@@ -181,9 +188,6 @@ export function AnimateBanner() {
             scaleMode: "fit",
           },
         });
-
-        // Reorder text overlays to top so they stay visible above video
-        reorderTextTracksToTop();
 
         // Keep the original image for re-generation
         await sleep(300);

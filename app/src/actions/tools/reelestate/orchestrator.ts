@@ -467,7 +467,6 @@ export async function renderListingVideo(
       introText,
       listing: listingData ? {
         address: listingData.address,
-        price: listingData.price_formatted || `$${listingData.price?.toLocaleString() || ''}`,
         beds: listingData.beds,
         baths: listingData.baths,
         sqft: listingData.sqft,

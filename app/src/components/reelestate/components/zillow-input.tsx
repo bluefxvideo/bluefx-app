@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Globe, Upload, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ZillowInputProps {
   onSubmitUrl: (url: string) => void;
@@ -15,6 +16,7 @@ interface ZillowInputProps {
 export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }: ZillowInputProps) {
   const [url, setUrl] = useState('');
   const [uploadMode, setUploadMode] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isValidListingUrl = (u: string) => {
@@ -35,18 +37,36 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const urls: string[] = [];
-    for (const file of Array.from(files)) {
-      if (file.type.startsWith('image/')) {
-        urls.push(URL.createObjectURL(file));
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      for (const file of imageFiles) {
+        formData.append('files', file);
       }
-    }
 
-    if (urls.length > 0) {
-      onUploadPhotos(urls);
-    }
+      const res = await fetch('/api/upload/reelestate', {
+        method: 'POST',
+        body: formData,
+      });
 
-    if (fileInputRef.current) fileInputRef.current.value = '';
+      const data = await res.json();
+
+      if (!data.success || !data.urls?.length) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      toast.success(`Uploaded ${data.urls.length} photos`);
+      onUploadPhotos(data.urls);
+    } catch (err) {
+      console.error('❌ Photo upload error:', err);
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -88,11 +108,20 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
           <Button
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || isLoading}
+            disabled={disabled || isLoading || isUploading}
             className="w-full h-24 border-dashed flex flex-col gap-2"
           >
-            <Upload className="w-6 h-6" />
-            <span>Click to upload listing photos</span>
+            {isUploading ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span>Uploading photos...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-6 h-6" />
+                <span>Click to upload listing photos</span>
+              </>
+            )}
           </Button>
           <input
             ref={fileInputRef}

@@ -49,6 +49,8 @@ const INITIAL_PROJECT: ReelEstateProject = {
   voiceId: 'Friendly_Person',
   voiceSpeed: 1.0,
   creditsUsed: 0,
+  // Voiceover toggle
+  voiceoverEnabled: true,
   // Music & style (simplified flow)
   musicTrackId: null,
   musicUrl: null,
@@ -242,12 +244,90 @@ export function useReelEstate() {
   }, [project.id, project.script, project.selectedIndices, project.voiceId, project.voiceSpeed, updateProject, refreshCredits]);
 
   // ─── Open in Video Editor ───────────────────────
-  const openInEditor = useCallback(() => {
+  const openInEditor = useCallback(async () => {
     if (!project.id || !userId || project.selectedIndices.length === 0) {
       console.warn('⚠️ openInEditor guard failed:', { id: project.id, userId, selected: project.selectedIndices.length });
       if (!userId) toast.error('Not signed in — please refresh the page');
       return;
     }
+
+    // Auto-generate script + voiceover if enabled and not yet done
+    if (project.voiceoverEnabled) {
+      // Step A: Generate script if needed
+      if (!project.script) {
+        updateProject({ status: 'scripting', error: null });
+        toast.info('Generating script...');
+
+        const selectedAnalyses = project.analyses.filter(a =>
+          project.selectedIndices.includes(a.index)
+        );
+
+        const scriptResult = await serverGenerateScript(
+          project.id,
+          selectedAnalyses,
+          project.listing!,
+          project.targetDuration,
+        );
+
+        if (!scriptResult.success || !scriptResult.script) {
+          updateProject({ status: 'analyzed', error: scriptResult.error || 'Script generation failed' });
+          toast.error(scriptResult.error || 'Script generation failed');
+          return;
+        }
+
+        updateProject({ script: scriptResult.script, status: 'script_ready' });
+        await refreshCredits();
+
+        // Step B: Generate voiceover
+        updateProject({ status: 'generating_voiceover' });
+        toast.info('Generating voiceover...');
+
+        const selectedSegments = scriptResult.script.segments.filter(segment =>
+          project.selectedIndices.includes(segment.image_index)
+        );
+        const fullScript = selectedSegments.map(s => s.voiceover.trim()).join('... ');
+
+        const voiceResult = await generateListingVoiceover(project.id, fullScript, project.voiceId, project.voiceSpeed);
+
+        if (!voiceResult.success || !voiceResult.audio_url) {
+          updateProject({ status: 'script_ready', error: voiceResult.error || 'Voiceover generation failed' });
+          toast.error(voiceResult.error || 'Voiceover generation failed');
+          return;
+        }
+
+        updateProject({
+          voiceover: { url: voiceResult.audio_url, duration: voiceResult.duration || 0 },
+          status: 'script_ready',
+        });
+        await refreshCredits();
+      } else if (!project.voiceover) {
+        // Has script but no voiceover yet
+        updateProject({ status: 'generating_voiceover', error: null });
+        toast.info('Generating voiceover...');
+
+        const selectedSegments = project.script.segments.filter(segment =>
+          project.selectedIndices.includes(segment.image_index)
+        );
+        const fullScript = selectedSegments.map(s => s.voiceover.trim()).join('... ');
+
+        const voiceResult = await generateListingVoiceover(project.id, fullScript, project.voiceId, project.voiceSpeed);
+
+        if (!voiceResult.success || !voiceResult.audio_url) {
+          updateProject({ status: 'script_ready', error: voiceResult.error || 'Voiceover generation failed' });
+          toast.error(voiceResult.error || 'Voiceover generation failed');
+          return;
+        }
+
+        updateProject({
+          voiceover: { url: voiceResult.audio_url, duration: voiceResult.duration || 0 },
+          status: 'script_ready',
+        });
+        await refreshCredits();
+      }
+    }
+
+    // Now open editor
+    updateProject({ status: 'idle' });
 
     const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
     const apiBaseUrl = window.location.origin;
@@ -277,7 +357,7 @@ export function useReelEstate() {
       music_volume: project.musicVolume,
       intro_text: project.introText || null,
     } as any);
-  }, [project.id, userId, project.selectedIndices, project.aspectRatio, project.targetDuration, project.musicUrl, project.musicVolume, project.introText]);
+  }, [project.id, userId, project.selectedIndices, project.aspectRatio, project.targetDuration, project.musicUrl, project.musicVolume, project.introText, project.voiceoverEnabled, project.script, project.voiceover, project.analyses, project.listing, project.voiceId, project.voiceSpeed, updateProject, refreshCredits]);
 
   // ─── Generate Clips (optional, for editor) ──────
   const generateClips = useCallback(async () => {
@@ -489,6 +569,10 @@ export function useReelEstate() {
       updateListing(project.id, { intro_text: text });
     }
   }, [updateProject, project.id]);
+
+  const setVoiceoverEnabled = useCallback((enabled: boolean) => {
+    updateProject({ voiceoverEnabled: enabled });
+  }, [updateProject]);
 
   const setSpeedRamps = useCallback((enabled: boolean) => {
     updateProject({ speedRamps: enabled });
@@ -753,6 +837,8 @@ export function useReelEstate() {
       voiceId: listing.voice_id || 'Friendly_Person',
       voiceSpeed: 1.0,
       creditsUsed: listing.total_credits_used || 0,
+      // Voiceover
+      voiceoverEnabled: true,
       // Music & style
       musicTrackId: null,
       musicUrl: (listing as any).music_url || null,
@@ -797,6 +883,7 @@ export function useReelEstate() {
     addToCleanupQueue,
     removeFromCleanupQueue,
     clearCleanupQueue,
+    setVoiceoverEnabled,
     // Music & style (simplified flow)
     setMusicTrack,
     setMusicVolume,

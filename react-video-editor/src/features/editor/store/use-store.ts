@@ -45,6 +45,11 @@ interface ITimelineStore {
 	};
 	viewTimeline: boolean;
 	setViewTimeline: (viewTimeline: boolean) => void;
+
+	// Track visibility: set of hidden track item IDs
+	hiddenTrackIds: Set<string>;
+	toggleTrackVisibility: (trackItemId: string) => void;
+	setHiddenTrackIds: (ids: Set<string>) => void;
 }
 
 const useStore = create<ITimelineStore>((set) => ({
@@ -106,6 +111,19 @@ const useStore = create<ITimelineStore>((set) => ({
 	setPlayerRef: (playerRef: React.RefObject<PlayerRef> | null) =>
 		set({ playerRef }),
 	setSceneMoveableRef: (ref) => set({ sceneMoveableRef: ref }),
+
+	hiddenTrackIds: new Set<string>(),
+	toggleTrackVisibility: (trackItemId: string) =>
+		set((state) => {
+			const next = new Set(state.hiddenTrackIds);
+			if (next.has(trackItemId)) {
+				next.delete(trackItemId);
+			} else {
+				next.add(trackItemId);
+			}
+			return { hiddenTrackIds: next };
+		}),
+	setHiddenTrackIds: (ids: Set<string>) => set({ hiddenTrackIds: ids }),
 }));
 
 export default useStore;

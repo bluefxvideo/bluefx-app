@@ -10,6 +10,7 @@ import { PLAYER_PAUSE, PLAYER_PLAY } from "../constants/events";
 import { frameToTimeString, getCurrentTime, timeToString } from "../utils/time";
 import useStore from "../store/use-store";
 import { SquareSplitHorizontal, Trash, ZoomIn, ZoomOut } from "lucide-react";
+import TrackControls from "./track-controls";
 import {
 	getFitZoomLevel,
 	getNextZoomLevel,
@@ -186,7 +187,7 @@ const Header = () => {
 						alignItems: "center",
 					}}
 				>
-					<div className="flex px-2">
+					<div className="flex px-2 items-center">
 						<Button
 							disabled={!activeIds.length}
 							onClick={doActiveDelete}
@@ -220,6 +221,7 @@ const Header = () => {
 							<SquareSplitHorizontal size={15} />{" "}
 							<span className="hidden lg:block">Clone</span>
 						</Button>
+						<TrackControls />
 					</div>
 					<div className="flex items-center justify-center">
 						<div>

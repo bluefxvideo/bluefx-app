@@ -66,6 +66,10 @@ function getUserId(): string | null {
 	return new URLSearchParams(window.location.search).get("userId");
 }
 
+function getListingId(): string | null {
+	return new URLSearchParams(window.location.search).get("listingId");
+}
+
 function getCanvasAspectRatio(): string {
 	const { size } = useStore.getState();
 	if (size.height > size.width) return "9:16";
@@ -208,7 +212,6 @@ async function dispatchOneVideo(
 		console.warn(`⚠️ Batch animate: video ${newVideoId} NOT found in state after ${maxWaitAttempts * 500}ms, proceeding anyway`);
 	}
 
-	reorderCaptionsToTop();
 	actions.updateItem(item.itemId, { status: "done" });
 	console.log(`✅ Batch animate: done for ${item.itemId}`);
 	(window as any).refreshEditorCredits?.();
@@ -280,6 +283,7 @@ async function processOneImage(
 					duration: parseInt(settings.duration),
 					aspect_ratio: getCanvasAspectRatio(),
 					user_id: getUserId(),
+					listing_id: getListingId(),
 				}),
 			},
 		);
@@ -299,15 +303,18 @@ async function processOneImage(
 			predictionId,
 		});
 
-		// 2. Poll for completion
+		// 2. Poll for completion (include listing context for DB persistence)
+		const listingId = getListingId();
+		let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}`;
+		if (listingId) pollUrl += `&listingId=${listingId}`;
+		if (item.imageSrc) pollUrl += `&imageUrl=${encodeURIComponent(item.imageSrc)}`;
+
 		while (true) {
 			if (useBatchAnimateState.getState().cancelled) return;
 
 			await sleep(5000);
 
-			const pollRes = await fetch(
-				`${apiUrl}/api/editor/animate-image?predictionId=${predictionId}`,
-			);
+			const pollRes = await fetch(pollUrl);
 			const pollData = await pollRes.json();
 
 			if (pollData.status === "succeeded" && pollData.video_url) {

@@ -45,7 +45,6 @@ export async function generateListingScript(
 
 LISTING:
 Address: ${listingData.address}
-Price: ${listingData.price_formatted}
 Beds/Baths: ${listingData.beds} bed / ${listingData.baths} bath
 Sqft: ${listingData.sqft.toLocaleString()}
 ${listingData.year_built ? `Year Built: ${listingData.year_built}` : ''}
@@ -61,7 +60,7 @@ RULES:
 1. Write one voiceover segment per image. Each segment = 2–5 seconds of speech.
 2. ONLY mention features that are VISIBLE in the photo AND confirmed in the listing data. Never invent features.
 3. Start with a hook: the address or a bold claim about the property.
-4. End with: price + brief call to action ("Schedule your showing today").
+4. End with a brief call to action ("Schedule your showing today"). Do NOT mention the price anywhere in the script.
 5. Tone: professional, warm, aspirational. Not salesy or over-the-top.
 6. Total speech duration must be close to ${targetDuration} seconds.
 7. Each segment's "index" is its position (0-based), "image_index" is the photo index from the listing.

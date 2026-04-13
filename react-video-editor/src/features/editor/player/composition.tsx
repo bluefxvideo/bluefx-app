@@ -22,6 +22,7 @@ const Composition = () => {
 		transitionsMap,
 		structure,
 		activeIds,
+		hiddenTrackIds,
 	} = useStore();
 	const frame = useCurrentFrame();
 
@@ -161,7 +162,7 @@ const Composition = () => {
 		groupedItems.forEach((group) => {
 			if (group.length === 1) {
 				const item = trackItemsMap[group[0].id];
-				if (item && SequenceItem[item.type]) {
+				if (item && SequenceItem[item.type] && !hiddenTrackIds.has(item.id)) {
 					const entry = {
 						id: item.id,
 						item,
@@ -178,7 +179,7 @@ const Composition = () => {
 		});
 
 		return [...regularItems, ...captionItems];
-	}, [groupedItems, trackItemsMap]);
+	}, [groupedItems, trackItemsMap, hiddenTrackIds]);
 
 	// Detect adjacent images for crossfade
 	const crossfadeMap = React.useMemo(() => {
