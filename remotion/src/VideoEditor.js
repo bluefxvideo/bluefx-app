@@ -91,21 +91,26 @@ export const VideoEditor = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'transparent' }}>
-      {/* Audio Layers */}
+      {/* Audio Layers — wrapped in Sequence for correct timeline positioning */}
       {audioLayers.map((audio) => {
         // Skip invalid or test URLs
         if (!audio.src || audio.src.includes('example.com') || audio.src.includes('placeholder')) {
           return null;
         }
-        
+
         return (
-          <Audio
+          <Sequence
             key={audio.id}
-            src={audio.src}
-            startFrom={audio.startFrom || 0}
-            endAt={audio.endAt}
-            volume={audio.volume}
-          />
+            from={audio.startFrame || 0}
+            durationInFrames={audio.durationInFrames || composition.durationInFrames}
+          >
+            <Audio
+              src={audio.src}
+              startFrom={audio.startFrom || 0}
+              endAt={audio.endAt}
+              volume={audio.volume}
+            />
+          </Sequence>
         );
       }).filter(Boolean)}
 

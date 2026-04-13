@@ -211,6 +211,7 @@ export function SceneInteractions({
 						},
 					},
 				});
+
 				delete lastDragPosition[targetId];
 			}}
 			onScale={({ target, transform, direction }) => {

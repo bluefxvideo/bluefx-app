@@ -338,8 +338,7 @@ const ControlItem = ({
 };
 
 export default function ControlItemHorizontal() {
-	const { activeIds, trackItemsMap, transitionsMap } = useStore();
-	const [trackItem, setTrackItem] = useState<ITrackItem | null>(null);
+	const { activeIds, trackItemsMap } = useStore();
 	const { setTrackItem: setLayoutTrackItem } = useLayoutStore();
 	const isLargeScreen = useIsLargeScreen();
 	const {
@@ -353,19 +352,15 @@ export default function ControlItemHorizontal() {
 	// Framer Motion controls
 	const controls = useAnimation();
 
+	// Derive trackItem directly during render — no useState/useEffect delay
+	let trackItem: ITrackItem | null = null;
+	if (activeIds.length === 1) {
+		trackItem = trackItemsMap[activeIds[0]] || null;
+	}
+
 	useEffect(() => {
-		if (activeIds.length === 1) {
-			const [id] = activeIds;
-			const trackItem = trackItemsMap[id];
-			if (trackItem) {
-				setTrackItem(trackItem);
-				setLayoutTrackItem(trackItem);
-			} else console.log(transitionsMap[id]);
-		} else {
-			setTrackItem(null);
-			setLayoutTrackItem(null);
-		}
-	}, [activeIds, trackItemsMap]);
+		setLayoutTrackItem(trackItem);
+	}, [trackItem?.id, trackItem?.details]);
 	const handleMenuItemClick = (menuItem: string, label: string) => {
 		if (!isLargeScreen) {
 			setControItemDrawerOpen(true);

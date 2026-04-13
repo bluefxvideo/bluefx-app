@@ -116,7 +116,7 @@ const BasicText = ({
 				blur: 0,
 			},
 		});
-	}, [trackItem.id]);
+	}, [trackItem.id, trackItem.details.fontSize, trackItem.details.color, trackItem.details.fontFamily, trackItem.details.textAlign, trackItem.details.opacity, trackItem.details.backgroundColor]);
 
 	const handleChangeFontStyle = async (font: IFont) => {
 		const fontName = font.postScriptName;

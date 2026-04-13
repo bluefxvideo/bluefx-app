@@ -214,7 +214,7 @@ export async function convertAIAssetsToEditorFormat(
       playbackRate: 1,
       details: {
         src: aiAssets.music.url,
-        volume: Math.round((aiAssets.music.volume || 0.3) * 100)
+        volume: aiAssets.audio_url ? 15 : Math.round((aiAssets.music.volume || 0.3) * 100)
       },
       metadata: {
         backgroundMusic: true,
@@ -336,7 +336,7 @@ export async function convertAIAssetsToEditorFormat(
           height: canvasSize.height,
           volume: 0, // Muted — audio comes from background music track
           blur: 0,
-          brightness: 0,
+          brightness: 100,
           flipX: false,
           flipY: false,
           rotate: "0deg",
@@ -377,6 +377,7 @@ export async function convertAIAssetsToEditorFormat(
       const introToMs = firstSegment.end_time * 1000;
 
       // Large address text — "Big and Bold" style: white, heavy italic, strong shadow
+      // Bottom of screen, 140 font size, visible from the very start
       const addressTrack: ITrackItem = {
         id: generateId(),
         type: "text",
@@ -384,14 +385,15 @@ export async function convertAIAssetsToEditorFormat(
         display: { from: introFromMs, to: introToMs },
         details: {
           text: introAddress,
-          fontSize: 96,
+          fontSize: 140,
           width: canvasSize.width * 0.9,
+          height: 300,
           fontFamily: "Montserrat-BlackItalic",
           fontUrl: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf",
           color: "#ffffff",
           textAlign: "center",
           wordWrap: "break-word",
-          top: `${Math.round(canvasSize.height * 0.35)}px`,
+          top: `${Math.round(canvasSize.height * 0.70)}px`,
           left: `${Math.round(canvasSize.width * 0.05)}px`,
           borderWidth: 2,
           borderColor: "rgba(0,0,0,0.4)",
@@ -404,34 +406,37 @@ export async function convertAIAssetsToEditorFormat(
 
       // Price + details line (smaller, below address)
       const detailParts: string[] = [];
-      if (listing?.price) detailParts.push(listing.price);
       if (listing?.beds) detailParts.push(`${listing.beds} Beds`);
       if (listing?.baths) detailParts.push(`${listing.baths} Baths`);
       if (listing?.sqft) detailParts.push(`${listing.sqft.toLocaleString()} sqft`);
 
       if (detailParts.length > 0) {
+        // Details appear around 15 second mark, bottom of screen, font size 100
+        const detailsFromMs = 15000; // ~15 second mark
+        const detailsToMs = introToMs; // Stay visible until intro ends
         const detailsTrack: ITrackItem = {
           id: generateId(),
           type: "text",
           name: "Intro - Details",
-          display: { from: introFromMs, to: introToMs },
+          display: { from: detailsFromMs, to: detailsToMs },
           details: {
             text: detailParts.join('  •  '),
-            fontSize: 36,
-            width: canvasSize.width * 0.85,
+            fontSize: 100,
+            width: canvasSize.width * 0.90,
+            height: 160,
             fontFamily: "Montserrat-BlackItalic",
             fontUrl: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf",
             color: "#ffffff",
             textAlign: "center",
             wordWrap: "break-word",
-            top: `${Math.round(canvasSize.height * 0.62)}px`,
-            left: `${Math.round(canvasSize.width * 0.075)}px`,
+            top: `${Math.round(canvasSize.height * 0.75)}px`,
+            left: `${Math.round(canvasSize.width * 0.05)}px`,
             borderWidth: 1,
             borderColor: "rgba(0,0,0,0.3)",
             boxShadow: { color: "rgba(0,0,0,0.85)", x: 2, y: 2, blur: 14 },
           },
           metadata: { introOverlay: true, editable: true },
-          duration: introToMs - introFromMs,
+          duration: detailsToMs - detailsFromMs,
         };
         trackItems.push(detailsTrack);
       }
@@ -451,15 +456,16 @@ export async function convertAIAssetsToEditorFormat(
         display: { from: outroFromMs, to: outroToMs },
         details: {
           text: "Schedule a Showing Today",
-          fontSize: 80,
-          width: canvasSize.width * 0.85,
+          fontSize: 100,
+          width: canvasSize.width * 0.90,
+          height: 220,
           fontFamily: "Montserrat-BlackItalic",
           fontUrl: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf",
           color: "#ffffff",
           textAlign: "center",
           wordWrap: "break-word",
-          top: `${Math.round(canvasSize.height * 0.35)}px`,
-          left: `${Math.round(canvasSize.width * 0.075)}px`,
+          top: `${Math.round(canvasSize.height * 0.70)}px`,
+          left: `${Math.round(canvasSize.width * 0.05)}px`,
           borderWidth: 2,
           borderColor: "rgba(0,0,0,0.4)",
           boxShadow: { color: "rgba(0,0,0,0.85)", x: 3, y: 3, blur: 20 },
@@ -489,16 +495,50 @@ export async function convertAIAssetsToEditorFormat(
 
   const tracks = [];
 
-  // Only create tracks that have items
-  if (audioItems.length > 0) {
+  // Separate voiceover and music into distinct tracks
+  const voiceoverItems = trackItems
+    .filter(item => item.type === 'audio' && item.metadata?.generationType === 'voice')
+    .map(item => item.id);
+  const musicItems = trackItems
+    .filter(item => item.type === 'audio' && item.metadata?.backgroundMusic)
+    .map(item => item.id);
+  const otherAudioItems = trackItems
+    .filter(item => item.type === 'audio' && !item.metadata?.generationType && !item.metadata?.backgroundMusic)
+    .map(item => item.id);
+
+  if (voiceoverItems.length > 0) {
+    tracks.push({
+      id: generateId(),
+      name: 'Voiceover',
+      type: 'audio',
+      items: voiceoverItems,
+      accepts: ['audio'],
+      magnetic: false,
+      static: false
+    });
+  }
+
+  if (musicItems.length > 0) {
+    tracks.push({
+      id: generateId(),
+      name: 'Music',
+      type: 'audio',
+      items: musicItems,
+      accepts: ['audio'],
+      magnetic: false,
+      static: false
+    });
+  }
+
+  if (otherAudioItems.length > 0) {
     tracks.push({
       id: generateId(),
       name: 'Audio',
       type: 'audio',
-      items: audioItems,
+      items: otherAudioItems,
       accepts: ['audio'],
-      visible: true,
-      locked: false
+      magnetic: false,
+      static: false
     });
   }
 
@@ -509,8 +549,8 @@ export async function convertAIAssetsToEditorFormat(
       type: 'video',
       items: videoItems,
       accepts: ['video'],
-      visible: true,
-      locked: false
+      magnetic: false,
+      static: false
     });
   }
 
@@ -521,8 +561,8 @@ export async function convertAIAssetsToEditorFormat(
       type: 'image',
       items: imageItems,
       accepts: ['image'],
-      visible: true,
-      locked: false
+      magnetic: false,
+      static: false
     });
   }
 
@@ -533,8 +573,8 @@ export async function convertAIAssetsToEditorFormat(
       type: 'text',
       items: textItems,
       accepts: ['text', 'caption'],
-      visible: true,
-      locked: false
+      magnetic: false,
+      static: false
     });
   }
 

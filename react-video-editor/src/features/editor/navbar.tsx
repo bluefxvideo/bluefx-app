@@ -49,6 +49,7 @@ import { LogoIcons } from "@/components/shared/logos";
 import Link from "next/link";
 import { saveComposition, AutoSaveManager } from "./utils/save-composition";
 import { Coins } from "lucide-react";
+import useStore from "./store/use-store";
 
 export default function Navbar({
 	user,
@@ -422,9 +423,32 @@ const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
 		}
 
 		// Only start a new export if not already exporting
+		const fullState = stateManager.getState();
+
+		// Filter out hidden tracks so they don't appear in the rendered video
+		const { hiddenTrackIds } = useStore.getState();
+		let filteredTrackItemsMap = fullState.trackItemsMap;
+		let filteredTrackItemIds = fullState.trackItemIds;
+		let filteredTracks = fullState.tracks;
+
+		if (hiddenTrackIds.size > 0) {
+			console.log('🙈 Filtering out hidden tracks for export:', [...hiddenTrackIds]);
+			filteredTrackItemsMap = Object.fromEntries(
+				Object.entries(fullState.trackItemsMap).filter(([id]) => !hiddenTrackIds.has(id))
+			);
+			filteredTrackItemIds = fullState.trackItemIds.filter((id: string) => !hiddenTrackIds.has(id));
+			filteredTracks = fullState.tracks.map((track: any) => ({
+				...track,
+				items: track.items.filter((id: string) => !hiddenTrackIds.has(id)),
+			})).filter((track: any) => track.items.length > 0);
+		}
+
 		const data: IDesign = {
 			id: generateId(),
-			...stateManager.getState(),
+			...fullState,
+			trackItemsMap: filteredTrackItemsMap,
+			trackItemIds: filteredTrackItemIds,
+			tracks: filteredTracks,
 		};
 
 		actions.setState({ payload: data });

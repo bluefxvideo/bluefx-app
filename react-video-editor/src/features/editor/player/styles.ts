@@ -33,7 +33,8 @@ export const calculateMediaStyles = (
 
 export const calculateTextStyles = (
 	details: IText["details"],
-): React.CSSProperties => ({
+): React.CSSProperties => {
+	return ({
 	position: "relative",
 	textDecoration: details.textDecoration || "none",
 	WebkitTextStroke: `${details.borderWidth}px ${details.borderColor}`, // Outline/stroke color and thickness
@@ -54,11 +55,14 @@ export const calculateTextStyles = (
 	color: details.color || "#000000",
 	backgroundColor: details.backgroundColor || "transparent",
 	borderRadius: `${Math.min(details.width, details.height) * ((details.borderRadius || 0) / 100)}px`,
-});
+});};
 
-const parsePosition = (value: string | number | undefined): number => {
+const parsePosition = (value: string | number | undefined): number | string => {
 	if (value === undefined || value === null) return 0;
 	if (typeof value === "number") return value;
+	// Preserve percentage values (e.g. '75%' for caption positioning)
+	if (value.includes('%')) return value;
+	// Preserve px values as numbers
 	const parsed = parseFloat(value);
 	return isNaN(parsed) ? 0 : parsed;
 };
@@ -68,10 +72,14 @@ export const calculateContainerStyles = (
 	crop: ITrackItem["details"]["crop"] = {},
 	overrides: React.CSSProperties = {},
 ): React.CSSProperties => {
+	const hasExplicitPosition = details.top !== undefined || details.left !== undefined;
 	return {
 		pointerEvents: "auto",
 		top: parsePosition(details.top),
 		left: parsePosition(details.left),
+		// Unset right/bottom when we have explicit positioning to prevent
+		// AbsoluteFill defaults (right:0, bottom:0) from fighting with our top/left/width/height
+		...(hasExplicitPosition ? { right: "unset", bottom: "unset" } : {}),
 		width: crop.width || details.width || "100%",
 		height: crop.height || details.height || "auto",
 		transform: details.transform || "none",

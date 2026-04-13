@@ -7,7 +7,7 @@ import {
 	ITrackItemAndDetails,
 	IVideo,
 } from "@designcombo/types";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import BasicText from "./basic-text";
 import BasicCaption from "./basic-caption";
 import BasicImage from "./basic-image";
@@ -18,32 +18,25 @@ import useLayoutStore from "../store/use-layout-store";
 import { LassoSelect } from "lucide-react";
 
 const Container = ({ children }: { children: React.ReactNode }) => {
-	const { activeIds, trackItemsMap, transitionsMap } = useStore();
-	const [trackItem, setTrackItem] = useState<ITrackItem | null>(null);
-	const [multipleSelection, setMultipleSelection] = useState(false);
+	const { activeIds, trackItemsMap } = useStore();
 	const { setTrackItem: setLayoutTrackItem } = useLayoutStore();
 
+	// Derive trackItem directly during render — no useState/useEffect delay.
+	// This ensures BasicText always receives the CURRENT trackItem from the store,
+	// not a stale one from a previous render cycle.
+	let trackItem: ITrackItem | null = null;
+	let multipleSelection = false;
+
+	if (activeIds.length === 1) {
+		trackItem = trackItemsMap[activeIds[0]] || null;
+	} else if (activeIds.length > 1) {
+		trackItem = trackItemsMap[activeIds[0]] || null;
+		multipleSelection = true;
+	}
+
 	useEffect(() => {
-		if (activeIds.length === 1) {
-			const [id] = activeIds;
-			const trackItem = trackItemsMap[id];
-			if (trackItem) {
-				setTrackItem(trackItem);
-				setLayoutTrackItem(trackItem);
-				setMultipleSelection(false);
-			} else console.log(transitionsMap[id]);
-		} else if (activeIds.length > 1) {
-			// Multiple selection - get first item for type reference
-			const firstItem = trackItemsMap[activeIds[0]];
-			setTrackItem(firstItem);
-			setLayoutTrackItem(firstItem);
-			setMultipleSelection(true);
-		} else {
-			setTrackItem(null);
-			setLayoutTrackItem(null);
-			setMultipleSelection(false);
-		}
-	}, [activeIds, trackItemsMap]);
+		setLayoutTrackItem(trackItem);
+	}, [trackItem?.id, trackItem?.details]);
 
 	return (
 		<div className="flex w-[272px] flex-none border-l border-border/80 bg-muted hidden lg:flex lg:flex-col overflow-hidden h-[calc(100vh-48px)]">

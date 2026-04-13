@@ -294,6 +294,17 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 			// Try loading saved composition first (preserves animated videos and user edits)
 			// Skip if fresh=true param is set (e.g. when "Open in Studio" is clicked)
 			const freshLoad = urlParams.get('fresh') === 'true';
+
+			// Strip fresh param from URL IMMEDIATELY so it doesn't persist across reloads/HMR.
+			// This must happen before any async work — otherwise saved compositions get skipped on every reload.
+			if (freshLoad) {
+				try {
+					const url = new URL(window.location.href);
+					url.searchParams.delete('fresh');
+					window.history.replaceState({}, '', url.toString());
+					console.log('🔄 Stripped fresh param from URL — subsequent reloads will use saved composition');
+				} catch (e) { /* ignore */ }
+			}
 			const tryLoadSaved = async () => {
 				if (!freshLoad && hasUserId && hasApiUrl) {
 					const videoIdForSave = hasVideoId || hasListingId || hasStoryboardId;

@@ -13,6 +13,24 @@ import useStore from "../store/use-store";
 let isLoading = false;
 
 /**
+ * Strip the `fresh` query parameter from the URL after initial load.
+ * This ensures subsequent reloads (HMR, manual) load the saved composition
+ * instead of rebuilding from scratch every time.
+ */
+function stripFreshParam() {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('fresh')) {
+      url.searchParams.delete('fresh');
+      window.history.replaceState({}, '', url.toString());
+      console.log('🔄 Stripped fresh param from URL — subsequent reloads will use saved composition');
+    }
+  } catch (e) {
+    // Ignore errors in non-browser environments
+  }
+}
+
+/**
  * Wait for the timeline to be initialized in the Zustand store.
  * DESIGN_LOAD events are silently dropped if dispatched before the timeline exists.
  */
@@ -610,9 +628,55 @@ async function loadReelEstateListing({
   console.log('🏠 Starting ReelEstate listing loading:', { listingId, userId, apiUrl });
 
   try {
+    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+
+    // Check for fresh=true URL parameter — skip saved composition if fresh load requested
+    const isFreshLoad = new URLSearchParams(window.location.search).get('fresh') === 'true';
+
+    // FIRST: Check if there's a saved composition (unless fresh load)
+    if (!isFreshLoad) {
+      onProgress?.('Checking for saved composition...', 5);
+      console.log('🔍 Checking for saved ReelEstate composition...');
+
+      const savedUrl = `${cleanApiUrl}/api/script-video/save-composition?user_id=${userId}&video_id=${listingId}`;
+      try {
+        const savedResponse = await fetch(savedUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+
+        if (savedResponse && savedResponse.ok) {
+          const savedData = await savedResponse.json();
+
+          if (savedData.success && savedData.data?.composition_data?.trackItemsMap) {
+            console.log('✅ Found saved ReelEstate composition! Loading saved version.');
+            onProgress?.('Loading saved composition...', 50);
+
+            await waitForTimeline();
+            dispatch(DESIGN_LOAD, { payload: savedData.data.composition_data });
+
+            if (savedData.data.composition_data.size) {
+              useStore.setState({ size: savedData.data.composition_data.size });
+            }
+
+            onProgress?.('Complete!', 100);
+            onSuccess?.(listingId);
+            console.log('🎉 Saved ReelEstate composition loaded successfully!');
+            stripFreshParam();
+            return; // Exit early
+          }
+        }
+      } catch (fetchError) {
+        console.warn('⚠️ Failed to check saved composition, loading fresh:', fetchError);
+      }
+    }
+
+    console.log('📭 No saved composition found, loading fresh ReelEstate data...');
     onProgress?.('Fetching listing data...', 10);
 
-    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
     const editorDataUrl = `${cleanApiUrl}/api/reelestate/editor-data`;
 
     console.log('🔗 Fetching ReelEstate editor data from:', editorDataUrl);
@@ -716,6 +780,7 @@ async function loadReelEstateListing({
 
     onProgress?.('Complete!', 100);
     onSuccess?.(listingId);
+    stripFreshParam();
 
     console.log('🎉 ReelEstate listing loaded successfully into editor!');
   } catch (error) {
