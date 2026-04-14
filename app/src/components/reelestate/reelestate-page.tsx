@@ -62,6 +62,8 @@ export function ReelEstatePage() {
     analyzePhotos,
     generateScript,
     generateVoiceover,
+    regenerateScript,
+    regenerateVoiceover,
     openInEditor,
     generateClips,
     regenerateClip,
@@ -223,6 +225,8 @@ export function ReelEstatePage() {
             isWorking={isWorking}
             onPollClips={pollClips}
             onRegenerateClip={regenerateClip}
+            onRegenerateScript={regenerateScript}
+            onRegenerateVoiceover={regenerateVoiceover}
           />
         </StandardToolLayout>
       )}

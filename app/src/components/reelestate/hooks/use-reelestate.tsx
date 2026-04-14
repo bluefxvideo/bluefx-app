@@ -243,6 +243,16 @@ export function useReelEstate() {
     toast.success('Voiceover generated');
   }, [project.id, project.script, project.selectedIndices, project.voiceId, project.voiceSpeed, updateProject, refreshCredits]);
 
+  // ─── Regenerate Script / Voiceover ────────────────
+  const regenerateScript = useCallback(async () => {
+    updateProject({ script: null, voiceover: null });
+    await generateScript();
+  }, [generateScript, updateProject]);
+
+  const regenerateVoiceover = useCallback(async () => {
+    await generateVoiceover();
+  }, [generateVoiceover]);
+
   // ─── Open in Video Editor ───────────────────────
   const openInEditor = useCallback(async () => {
     if (!project.id || !userId || project.selectedIndices.length === 0) {
@@ -251,9 +261,9 @@ export function useReelEstate() {
       return;
     }
 
-    // Auto-generate script + voiceover if enabled and not yet done
+    // Two-phase flow: Phase 1 = generate preview, Phase 2 = open editor
     if (project.voiceoverEnabled) {
-      // Step A: Generate script if needed
+      // Phase 1: No script yet — generate script + voiceover for preview, then RETURN
       if (!project.script) {
         updateProject({ status: 'scripting', error: null });
         toast.info('Generating script...');
@@ -278,7 +288,7 @@ export function useReelEstate() {
         updateProject({ script: scriptResult.script, status: 'script_ready' });
         await refreshCredits();
 
-        // Step B: Generate voiceover
+        // Generate voiceover for the preview
         updateProject({ status: 'generating_voiceover' });
         toast.info('Generating voiceover...');
 
@@ -300,8 +310,13 @@ export function useReelEstate() {
           status: 'script_ready',
         });
         await refreshCredits();
-      } else if (!project.voiceover) {
-        // Has script but no voiceover yet
+        toast.success('Script & voiceover ready — review below, then open the studio');
+        return; // Phase 1: show preview in output panel, don't open editor yet
+      }
+
+      // Phase 2: Script exists but voiceover missing (e.g. after script regeneration)
+      // Auto-generate voiceover and then open editor
+      if (!project.voiceover) {
         updateProject({ status: 'generating_voiceover', error: null });
         toast.info('Generating voiceover...');
 
@@ -324,9 +339,10 @@ export function useReelEstate() {
         });
         await refreshCredits();
       }
+      // Fall through to open editor (Phase 2)
     }
 
-    // Now open editor
+    // Open editor
     updateProject({ status: 'idle' });
 
     const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
@@ -491,7 +507,7 @@ export function useReelEstate() {
 
   // ─── Selection & Settings ──────────────────────
   const setSelectedIndices = useCallback((indices: number[]) => {
-    updateProject({ selectedIndices: indices });
+    updateProject({ selectedIndices: indices, script: null, voiceover: null });
   }, [updateProject]);
 
   const updateScriptSegment = useCallback((index: number, voiceover: string) => {
@@ -537,11 +553,11 @@ export function useReelEstate() {
   }, [updateProject, project.id]);
 
   const setTargetDuration = useCallback((duration: TargetDuration) => {
-    updateProject({ targetDuration: duration });
+    updateProject({ targetDuration: duration, script: null, voiceover: null });
   }, [updateProject]);
 
   const setVoiceId = useCallback((voiceId: string) => {
-    updateProject({ voiceId });
+    updateProject({ voiceId, voiceover: null });
   }, [updateProject]);
 
   const setVoiceSpeed = useCallback((voiceSpeed: number) => {
@@ -862,6 +878,8 @@ export function useReelEstate() {
     analyzePhotos,
     generateScript,
     generateVoiceover,
+    regenerateScript,
+    regenerateVoiceover,
     openInEditor,
     generateClips,
     regenerateClip,

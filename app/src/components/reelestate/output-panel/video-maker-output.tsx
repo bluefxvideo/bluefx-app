@@ -5,7 +5,7 @@ import { ClipProgress } from '../components/clip-progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Video, ImageIcon, FileText, Loader2, Download, Film } from 'lucide-react';
+import { Video, ImageIcon, FileText, Loader2, Download, Film, RefreshCw, Mic } from 'lucide-react';
 import type { ReelEstateProject } from '@/types/reelestate';
 
 interface VideoMakerOutputProps {
@@ -13,9 +13,11 @@ interface VideoMakerOutputProps {
   isWorking: boolean;
   onPollClips: () => void;
   onRegenerateClip?: (clipIndex: number) => void;
+  onRegenerateScript?: () => void;
+  onRegenerateVoiceover?: () => void;
 }
 
-export function VideoMakerOutput({ project, isWorking, onRegenerateClip }: VideoMakerOutputProps) {
+export function VideoMakerOutput({ project, isWorking, onRegenerateClip, onRegenerateScript, onRegenerateVoiceover }: VideoMakerOutputProps) {
   const hasClips = project.clips.length > 0;
   const hasPhotos = project.photos.length > 0;
   const hasAnalyses = project.analyses.length > 0;
@@ -62,6 +64,89 @@ export function VideoMakerOutput({ project, isWorking, onRegenerateClip }: Video
           </Badge>
         )}
       </div>
+
+      {/* Script & Voiceover preview */}
+      {project.voiceoverEnabled && project.script && !project.finalVideoUrl && !isRendering && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" />
+              Script Preview
+            </h4>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1"
+              onClick={onRegenerateScript}
+              disabled={isWorking}
+            >
+              <RefreshCw className="w-3 h-3" />
+              Regenerate (1 credit)
+            </Button>
+          </div>
+
+          <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
+            {project.script.segments.map((segment) => (
+              <div key={segment.index} className="flex gap-2 p-2 rounded-lg bg-muted/30 border border-border/30">
+                {project.photos[segment.image_index] && (
+                  <img
+                    src={project.photos[segment.image_index]}
+                    alt={`Photo ${segment.image_index + 1}`}
+                    className="w-14 h-10 rounded object-cover flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[10px] font-medium text-muted-foreground">#{segment.index + 1}</span>
+                    <span className="text-[10px] text-muted-foreground">{segment.duration_seconds}s</span>
+                  </div>
+                  <p className="text-xs leading-relaxed">{segment.voiceover}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Total: {project.script.total_duration_seconds}s · {project.script.segments.length} segments
+          </p>
+
+          {/* Voiceover audio */}
+          {project.voiceover && (
+            <div className="p-3 rounded-lg border border-border/50 bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium flex items-center gap-1.5">
+                  <Mic className="w-3 h-3" />
+                  Voiceover
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[10px] gap-1 px-2"
+                  onClick={onRegenerateVoiceover}
+                  disabled={isWorking}
+                >
+                  <RefreshCw className="w-2.5 h-2.5" />
+                  Regenerate (2 credits)
+                </Button>
+              </div>
+              <audio
+                key={project.voiceover.url}
+                controls
+                src={project.voiceover.url}
+                className="w-full h-8"
+              />
+            </div>
+          )}
+
+          {/* Voiceover generating */}
+          {project.status === 'generating_voiceover' && !project.voiceover && (
+            <div className="flex items-center justify-center gap-2 p-3 text-xs text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Generating voiceover...
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Final video — show prominently at top when available */}
       {project.finalVideoUrl && (

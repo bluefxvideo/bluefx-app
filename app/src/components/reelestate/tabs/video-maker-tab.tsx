@@ -10,7 +10,7 @@ import { ZillowInput } from '../components/zillow-input';
 import { PhotoGrid } from '../components/photo-grid';
 import { MusicSelector } from '../components/music-selector';
 import {
-  Loader2, Scan, Film,
+  Loader2, Scan, Film, FileText,
   Monitor, Smartphone, Type, Mic,
 } from 'lucide-react';
 import type { ReelEstateProject, TargetDuration } from '@/types/reelestate';
@@ -294,12 +294,18 @@ export function VideoMakerTab({
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 {project.status === 'scripting' ? 'Writing script...' : 'Generating voiceover...'}
               </>
+            ) : project.voiceoverEnabled && !project.script ? (
+              <>
+                <FileText className="w-4 h-4 mr-2" />
+                Preview Script
+                <span className="ml-1 text-xs opacity-70">(3 credits)</span>
+              </>
             ) : (
               <>
                 <Film className="w-4 h-4 mr-2" />
                 Open in Studio
                 {project.voiceoverEnabled && !project.voiceover && (
-                  <span className="ml-1 text-xs opacity-70">(+3 credits)</span>
+                  <span className="ml-1 text-xs opacity-70">(+2 credits)</span>
                 )}
               </>
             )}
