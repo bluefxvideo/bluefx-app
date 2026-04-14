@@ -87,8 +87,8 @@ function VideoWithKenBurns({
 	return (
 		<div style={mediaStyles}>
 			<RemotionVideo
-				startFrom={(item.trim?.from! / 1000) * fps}
-				endAt={(item.trim?.to! / 1000) * fps || 1 / fps}
+				startFrom={Math.max(0, Math.round((item.trim?.from ?? 0) / 1000 * fps))}
+				endAt={Math.max(Math.round((item.trim?.from ?? 0) / 1000 * fps) + 1, Math.round((item.trim?.to ?? 0) / 1000 * fps))}
 				playbackRate={playbackRate}
 				src={details.src}
 				volume={(details.volume ?? 100) / 100}

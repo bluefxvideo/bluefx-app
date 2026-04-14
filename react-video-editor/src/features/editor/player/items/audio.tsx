@@ -16,10 +16,14 @@ export default function Audio({
 	// Removed useEffect to prevent React Hooks order issues
 	// Audio preloading is now handled globally in the AI asset loader
 	
+	// Validate trim values to prevent Remotion crash when trim.to < trim.from
+	const trimFromFrame = Math.max(0, Math.round((item.trim?.from ?? 0) / 1000 * fps));
+	const trimToFrame = Math.max(trimFromFrame + 1, Math.round((item.trim?.to ?? 0) / 1000 * fps));
+
 	const children = (
 		<RemotionAudio
-			startFrom={(item.trim?.from! / 1000) * fps}
-			endAt={(item.trim?.to! / 1000) * fps || 1 / fps}
+			startFrom={trimFromFrame}
+			endAt={trimToFrame}
 			playbackRate={playbackRate}
 			src={details.src}
 			volume={(details.volume ?? 100) / 100}
