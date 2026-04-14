@@ -517,6 +517,7 @@ export function useReelEstate() {
     );
     updateProject({
       script: { ...project.script, segments },
+      voiceover: null, // Clear stale voiceover — text changed
     });
   }, [project.script, updateProject]);
 

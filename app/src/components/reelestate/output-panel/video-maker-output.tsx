@@ -15,9 +15,10 @@ interface VideoMakerOutputProps {
   onRegenerateClip?: (clipIndex: number) => void;
   onRegenerateScript?: () => void;
   onRegenerateVoiceover?: () => void;
+  onUpdateScriptSegment?: (index: number, voiceover: string) => void;
 }
 
-export function VideoMakerOutput({ project, isWorking, onRegenerateClip, onRegenerateScript, onRegenerateVoiceover }: VideoMakerOutputProps) {
+export function VideoMakerOutput({ project, isWorking, onRegenerateClip, onRegenerateScript, onRegenerateVoiceover, onUpdateScriptSegment }: VideoMakerOutputProps) {
   const hasClips = project.clips.length > 0;
   const hasPhotos = project.photos.length > 0;
   const hasAnalyses = project.analyses.length > 0;
@@ -100,7 +101,13 @@ export function VideoMakerOutput({ project, isWorking, onRegenerateClip, onRegen
                     <span className="text-[10px] font-medium text-muted-foreground">#{segment.index + 1}</span>
                     <span className="text-[10px] text-muted-foreground">{segment.duration_seconds}s</span>
                   </div>
-                  <p className="text-xs leading-relaxed">{segment.voiceover}</p>
+                  <textarea
+                    className="text-xs leading-relaxed w-full bg-transparent resize-none border-0 p-0 focus:outline-none focus:ring-0 min-h-[2rem]"
+                    value={segment.voiceover}
+                    onChange={(e) => onUpdateScriptSegment?.(segment.index, e.target.value)}
+                    rows={2}
+                    disabled={isWorking}
+                  />
                 </div>
               </div>
             ))}

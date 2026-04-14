@@ -227,6 +227,7 @@ export function ReelEstatePage() {
             onRegenerateClip={regenerateClip}
             onRegenerateScript={regenerateScript}
             onRegenerateVoiceover={regenerateVoiceover}
+            onUpdateScriptSegment={updateScriptSegment}
           />
         </StandardToolLayout>
       )}
