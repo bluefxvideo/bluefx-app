@@ -66,7 +66,7 @@ export function VideoMakerOutput({ project, isWorking, onRegenerateClip, onRegen
       </div>
 
       {/* Script & Voiceover preview */}
-      {project.voiceoverEnabled && project.script && !project.finalVideoUrl && !isRendering && (
+      {project.voiceoverEnabled && project.script && !isRendering && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium flex items-center gap-1.5">
