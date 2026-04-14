@@ -10,8 +10,8 @@ import { ZillowInput } from '../components/zillow-input';
 import { PhotoGrid } from '../components/photo-grid';
 import { MusicSelector } from '../components/music-selector';
 import {
-  Loader2, Scan, Film, FileText,
-  Monitor, Smartphone, Type, Mic,
+  Loader2, Scan, Film, FileText, RefreshCw,
+  Monitor, Smartphone, Type, Mic, Volume2,
 } from 'lucide-react';
 import type { ReelEstateProject, TargetDuration } from '@/types/reelestate';
 import { TARGET_DURATIONS } from '@/types/reelestate';
@@ -49,6 +49,12 @@ interface VideoMakerTabProps {
   // Voiceover
   onSetVoiceoverEnabled: (enabled: boolean) => void;
   onSetVoiceId: (voiceId: string) => void;
+  // Script & Voiceover
+  onGenerateScript: () => void;
+  onGenerateVoiceover: () => void;
+  onRegenerateScript: () => void;
+  onRegenerateVoiceover: () => void;
+  onUpdateScriptSegment: (index: number, voiceover: string) => void;
   // Step 3: Music
   onSetMusicTrack: (trackId: string | null, url: string | null) => void;
   onSetMusicVolume: (volume: number) => void;
@@ -71,6 +77,11 @@ export function VideoMakerTab({
   onSetIntroText,
   onSetVoiceoverEnabled,
   onSetVoiceId,
+  onGenerateScript,
+  onGenerateVoiceover,
+  onRegenerateScript,
+  onRegenerateVoiceover,
+  onUpdateScriptSegment,
   onSetMusicTrack,
   onSetMusicVolume,
   onOpenInEditor,
@@ -232,30 +243,139 @@ export function VideoMakerTab({
                 </p>
 
                 {project.voiceoverEnabled && (
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Voice</label>
-                    <Select
-                      value={project.voiceId}
-                      onValueChange={onSetVoiceId}
-                      disabled={isWorking}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {VOICE_OPTIONS.map(v => (
-                          <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                  <>
+                    {/* Voice selector */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Voice</label>
+                      <Select
+                        value={project.voiceId}
+                        onValueChange={onSetVoiceId}
+                        disabled={isWorking}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VOICE_OPTIONS.map(v => (
+                            <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {project.voiceover && (
-                  <div className="flex items-center gap-2 text-xs text-emerald-400">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                    Voiceover ready
-                  </div>
+                    {/* Generate Script button */}
+                    {!project.script && (
+                      <Button
+                        onClick={onGenerateScript}
+                        disabled={isWorking}
+                        variant="outline"
+                        className="w-full"
+                        size="sm"
+                      >
+                        {project.status === 'scripting' ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                            Generating script...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="w-3.5 h-3.5 mr-2" />
+                            Generate Script (1 credit)
+                          </>
+                        )}
+                      </Button>
+                    )}
+
+                    {/* Script segments — editable */}
+                    {project.script && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">Script ({project.script.segments.length} segments · {project.script.total_duration_seconds}s)</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[10px] gap-1 px-2"
+                            onClick={onRegenerateScript}
+                            disabled={isWorking}
+                          >
+                            <RefreshCw className="w-2.5 h-2.5" />
+                            Regenerate
+                          </Button>
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto space-y-1.5 pr-1">
+                          {project.script.segments.map((segment) => (
+                            <div key={segment.index} className="flex gap-2 p-1.5 rounded bg-background/50 border border-border/30">
+                              {project.photos[segment.image_index] && (
+                                <img
+                                  src={project.photos[segment.image_index]}
+                                  alt={`Photo ${segment.image_index + 1}`}
+                                  className="w-12 h-8 rounded object-cover flex-shrink-0"
+                                />
+                              )}
+                              <textarea
+                                className="text-[11px] leading-relaxed w-full bg-transparent resize-none border-0 p-0 focus:outline-none focus:ring-0 min-h-[2rem]"
+                                value={segment.voiceover}
+                                onChange={(e) => onUpdateScriptSegment(segment.index, e.target.value)}
+                                rows={2}
+                                disabled={isWorking}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Generate Voiceover button */}
+                    {project.script && !project.voiceover && (
+                      <Button
+                        onClick={onGenerateVoiceover}
+                        disabled={isWorking}
+                        variant="outline"
+                        className="w-full"
+                        size="sm"
+                      >
+                        {project.status === 'generating_voiceover' ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                            Generating voiceover...
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 mr-2" />
+                            Generate Voiceover (2 credits)
+                          </>
+                        )}
+                      </Button>
+                    )}
+
+                    {/* Voiceover audio player */}
+                    {project.voiceover && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                            Voiceover ready
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[10px] gap-1 px-2"
+                            onClick={onRegenerateVoiceover}
+                            disabled={isWorking}
+                          >
+                            <RefreshCw className="w-2.5 h-2.5" />
+                            Regenerate
+                          </Button>
+                        </div>
+                        <audio
+                          key={project.voiceover.url}
+                          controls
+                          src={project.voiceover.url}
+                          className="w-full h-8"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -294,18 +414,12 @@ export function VideoMakerTab({
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 {project.status === 'scripting' ? 'Writing script...' : 'Generating voiceover...'}
               </>
-            ) : project.voiceoverEnabled && !project.script ? (
-              <>
-                <FileText className="w-4 h-4 mr-2" />
-                Preview Script
-                <span className="ml-1 text-xs opacity-70">(3 credits)</span>
-              </>
             ) : (
               <>
                 <Film className="w-4 h-4 mr-2" />
                 Open in Studio
                 {project.voiceoverEnabled && !project.voiceover && (
-                  <span className="ml-1 text-xs opacity-70">(+2 credits)</span>
+                  <span className="ml-1 text-xs opacity-70">(+3 credits)</span>
                 )}
               </>
             )}

@@ -261,9 +261,8 @@ export function useReelEstate() {
       return;
     }
 
-    // Two-phase flow: Phase 1 = generate preview, Phase 2 = open editor
+    // Auto-generate script + voiceover if enabled and not yet done
     if (project.voiceoverEnabled) {
-      // Phase 1: No script yet — generate script + voiceover for preview, then RETURN
       if (!project.script) {
         updateProject({ status: 'scripting', error: null });
         toast.info('Generating script...');
@@ -288,7 +287,7 @@ export function useReelEstate() {
         updateProject({ script: scriptResult.script, status: 'script_ready' });
         await refreshCredits();
 
-        // Generate voiceover for the preview
+        // Generate voiceover
         updateProject({ status: 'generating_voiceover' });
         toast.info('Generating voiceover...');
 
@@ -310,13 +309,8 @@ export function useReelEstate() {
           status: 'script_ready',
         });
         await refreshCredits();
-        toast.success('Script & voiceover ready — review below, then open the studio');
-        return; // Phase 1: show preview in output panel, don't open editor yet
-      }
-
-      // Phase 2: Script exists but voiceover missing (e.g. after script regeneration)
-      // Auto-generate voiceover and then open editor
-      if (!project.voiceover) {
+      } else if (!project.voiceover) {
+        // Has script but no voiceover yet
         updateProject({ status: 'generating_voiceover', error: null });
         toast.info('Generating voiceover...');
 
@@ -339,10 +333,9 @@ export function useReelEstate() {
         });
         await refreshCredits();
       }
-      // Fall through to open editor (Phase 2)
     }
 
-    // Open editor
+    // Now open editor
     updateProject({ status: 'idle' });
 
     const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';

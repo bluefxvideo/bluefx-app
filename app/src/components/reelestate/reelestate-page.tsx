@@ -215,6 +215,11 @@ export function ReelEstatePage() {
               onSetIntroText={setIntroText}
               onSetVoiceoverEnabled={setVoiceoverEnabled}
               onSetVoiceId={setVoiceId}
+              onGenerateScript={generateScript}
+              onGenerateVoiceover={generateVoiceover}
+              onRegenerateScript={regenerateScript}
+              onRegenerateVoiceover={regenerateVoiceover}
+              onUpdateScriptSegment={updateScriptSegment}
               onSetMusicTrack={setMusicTrack}
               onSetMusicVolume={setMusicVolume}
               onOpenInEditor={openInEditor}
@@ -225,9 +230,6 @@ export function ReelEstatePage() {
             isWorking={isWorking}
             onPollClips={pollClips}
             onRegenerateClip={regenerateClip}
-            onRegenerateScript={regenerateScript}
-            onRegenerateVoiceover={regenerateVoiceover}
-            onUpdateScriptSegment={updateScriptSegment}
           />
         </StandardToolLayout>
       )}
