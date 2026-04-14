@@ -37,6 +37,7 @@ RUN npm install --legacy-peer-deps
 COPY . .
 
 # Build the application
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 RUN npm run build
 
 # Production image, copy all the files and run next
