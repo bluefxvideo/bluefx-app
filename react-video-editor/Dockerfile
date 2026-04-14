@@ -38,7 +38,7 @@ COPY . .
 
 # Build the application
 ENV NODE_OPTIONS="--max-old-space-size=2048"
-RUN npm run build > /tmp/build.log 2>&1 || (cat /tmp/build.log && exit 1)
+RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
