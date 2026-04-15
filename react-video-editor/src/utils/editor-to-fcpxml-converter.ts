@@ -282,24 +282,31 @@ function escapeXml(str: string): string {
 }
 
 /**
- * Download the XML file and trigger downloads for all media files
+ * Download just the XML file (no media files)
+ */
+export function downloadFCPXMLOnly(design: IDesign, projectName?: string) {
+  const { xml } = convertToFCPXML(design, projectName);
+  const blob = new Blob([xml], { type: "application/xml" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${projectName || "BlueFX_Project"}.xml`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Download the XML file + all media files
  */
 export function downloadFCPXMLProject(design: IDesign, projectName?: string) {
   const { xml, mediaFiles } = convertToFCPXML(design, projectName);
 
   // 1. Download the XML file
-  const xmlBlob = new Blob([xml], { type: "application/xml" });
-  const xmlUrl = URL.createObjectURL(xmlBlob);
-  const xmlLink = document.createElement("a");
-  xmlLink.href = xmlUrl;
-  xmlLink.download = `${projectName || "BlueFX_Project"}.xml`;
-  document.body.appendChild(xmlLink);
-  xmlLink.click();
-  document.body.removeChild(xmlLink);
-  URL.revokeObjectURL(xmlUrl);
+  downloadFCPXMLOnly(design, projectName);
 
   // 2. Download all media files with a small delay between each
-  // to avoid overwhelming the browser
   mediaFiles.forEach((file, index) => {
     setTimeout(async () => {
       try {
@@ -314,11 +321,10 @@ export function downloadFCPXMLProject(design: IDesign, projectName?: string) {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } catch (err) {
-        // Fallback: open in new tab
         console.warn(`Failed to download ${file.name}, opening in new tab:`, err);
         window.open(file.url, "_blank");
       }
-    }, index * 500); // 500ms between each download
+    }, (index + 1) * 500); // start after XML, 500ms apart
   });
 
   return { mediaFiles: mediaFiles.length };
