@@ -108,6 +108,51 @@ export function convertToFCPXML(design: IDesign, projectName?: string): {
   // Helper: ms to frames
   const msToFrames = (ms: number) => Math.round((ms / 1000) * fps);
 
+  // Track which file IDs have been fully defined (first use = full, subsequent = ref-only)
+  const definedFileIds = new Set<string>();
+  let clipCounter = 0;
+
+  function buildFileElement(fileId: string, isVideoContext: boolean): string {
+    // If already defined, just reference it
+    if (definedFileIds.has(fileId)) {
+      return `              <file id="${fileId}"/>\n`;
+    }
+
+    definedFileIds.add(fileId);
+    const file = mediaFiles.find((f) => f.id === fileId)!;
+
+    let el = `              <file id="${fileId}">\n`;
+    el += `                <name>${escapeXml(file.name)}</name>\n`;
+    el += `                <pathurl>file://localhost/${escapeXml(file.name)}</pathurl>\n`;
+    el += `                <rate>\n`;
+    el += `                  <timebase>${fps}</timebase>\n`;
+    el += `                  <ntsc>FALSE</ntsc>\n`;
+    el += `                </rate>\n`;
+
+    if (file.type === "image" || file.type === "video") {
+      el += `                <media>\n`;
+      el += `                  <video>\n`;
+      el += `                    <samplecharacteristics>\n`;
+      el += `                      <width>${file.width || width}</width>\n`;
+      el += `                      <height>${file.height || height}</height>\n`;
+      el += `                    </samplecharacteristics>\n`;
+      el += `                  </video>\n`;
+      el += `                </media>\n`;
+    } else if (file.type === "audio") {
+      el += `                <media>\n`;
+      el += `                  <audio>\n`;
+      el += `                    <samplecharacteristics>\n`;
+      el += `                      <samplerate>48000</samplerate>\n`;
+      el += `                      <depth>16</depth>\n`;
+      el += `                    </samplecharacteristics>\n`;
+      el += `                  </audio>\n`;
+      el += `                </media>\n`;
+    }
+
+    el += `              </file>\n`;
+    return el;
+  }
+
   // Build XML
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<!DOCTYPE xmeml>\n`;
@@ -119,15 +164,30 @@ export function convertToFCPXML(design: IDesign, projectName?: string): {
   xml += `      <timebase>${fps}</timebase>\n`;
   xml += `      <ntsc>FALSE</ntsc>\n`;
   xml += `    </rate>\n`;
+  xml += `    <timecode>\n`;
+  xml += `      <rate>\n`;
+  xml += `        <timebase>${fps}</timebase>\n`;
+  xml += `        <ntsc>FALSE</ntsc>\n`;
+  xml += `      </rate>\n`;
+  xml += `      <string>00:00:00:00</string>\n`;
+  xml += `      <frame>0</frame>\n`;
+  xml += `      <displayformat>NDF</displayformat>\n`;
+  xml += `    </timecode>\n`;
   xml += `    <media>\n`;
 
   // ─── Video tracks ────────────────────────────────
   xml += `      <video>\n`;
   xml += `        <format>\n`;
   xml += `          <samplecharacteristics>\n`;
+  xml += `            <rate>\n`;
+  xml += `              <timebase>${fps}</timebase>\n`;
+  xml += `              <ntsc>FALSE</ntsc>\n`;
+  xml += `            </rate>\n`;
   xml += `            <width>${width}</width>\n`;
   xml += `            <height>${height}</height>\n`;
+  xml += `            <anamorphic>FALSE</anamorphic>\n`;
   xml += `            <pixelaspectratio>square</pixelaspectratio>\n`;
+  xml += `            <fielddominance>none</fielddominance>\n`;
   xml += `          </samplecharacteristics>\n`;
   xml += `        </format>\n`;
 
@@ -136,62 +196,35 @@ export function convertToFCPXML(design: IDesign, projectName?: string): {
     (a, b) => a.display.from - b.display.from
   );
 
-  // Simple approach: put all visual items on one track
-  // (Premiere will handle overlaps)
   if (visualItems.length > 0) {
     xml += `        <track>\n`;
     for (const item of visualItems) {
       const src = item.details.src;
       if (!src) continue;
 
-      const fileType = item.type === "video" ? "video" : "image";
       const fileId = fileIdMap.get(src)!;
       const file = mediaFiles.find((f) => f.id === fileId)!;
+      clipCounter++;
 
       const startFrame = msToFrames(item.display.from);
       const endFrame = msToFrames(item.display.to);
       const clipDuration = endFrame - startFrame;
 
-      // Trim points (for video)
       const inPoint = item.trim ? msToFrames(item.trim.from) : 0;
       const outPoint = item.trim ? msToFrames(item.trim.to) : clipDuration;
 
-      xml += `          <clipitem>\n`;
+      xml += `          <clipitem id="clipitem-${clipCounter}">\n`;
       xml += `            <name>${escapeXml(item.name || file.name)}</name>\n`;
       xml += `            <duration>${clipDuration}</duration>\n`;
-      xml += `            <rate><timebase>${fps}</timebase><ntsc>FALSE</ntsc></rate>\n`;
+      xml += `            <rate>\n`;
+      xml += `              <timebase>${fps}</timebase>\n`;
+      xml += `              <ntsc>FALSE</ntsc>\n`;
+      xml += `            </rate>\n`;
       xml += `            <start>${startFrame}</start>\n`;
       xml += `            <end>${endFrame}</end>\n`;
       xml += `            <in>${inPoint}</in>\n`;
       xml += `            <out>${outPoint}</out>\n`;
-      xml += `            <file id="${fileId}">\n`;
-      xml += `              <name>${escapeXml(file.name)}</name>\n`;
-      xml += `              <pathurl>${escapeXml(file.name)}</pathurl>\n`;
-      xml += `              <media>\n`;
-      xml += `                <video>\n`;
-      xml += `                  <samplecharacteristics>\n`;
-      xml += `                    <width>${file.width || width}</width>\n`;
-      xml += `                    <height>${file.height || height}</height>\n`;
-      xml += `                  </samplecharacteristics>\n`;
-      xml += `                </video>\n`;
-      xml += `              </media>\n`;
-      xml += `            </file>\n`;
-
-      // Add opacity if not 100%
-      const opacity = item.details.opacity ?? 100;
-      if (opacity < 100) {
-        xml += `            <filter>\n`;
-        xml += `              <effect>\n`;
-        xml += `                <name>Basic Motion</name>\n`;
-        xml += `                <effectid>opacity</effectid>\n`;
-        xml += `                <parameter>\n`;
-        xml += `                  <name>opacity</name>\n`;
-        xml += `                  <value>${opacity}</value>\n`;
-        xml += `                </parameter>\n`;
-        xml += `              </effect>\n`;
-        xml += `            </filter>\n`;
-      }
-
+      xml += buildFileElement(fileId, true);
       xml += `          </clipitem>\n`;
     }
     xml += `        </track>\n`;
@@ -208,7 +241,7 @@ export function convertToFCPXML(design: IDesign, projectName?: string): {
   xml += `          </samplecharacteristics>\n`;
   xml += `        </format>\n`;
 
-  // Also include audio from video items
+  // Include dedicated audio items and audio from video items
   const allAudioSources = [
     ...audioItems,
     ...videoItems.filter((i) => (i.details.volume ?? 100) > 0),
@@ -220,9 +253,9 @@ export function convertToFCPXML(design: IDesign, projectName?: string): {
       const src = item.details.src;
       if (!src) continue;
 
-      const fileType = item.type === "audio" ? "audio" : "video";
       const fileId = fileIdMap.get(src)!;
       const file = mediaFiles.find((f) => f.id === fileId)!;
+      clipCounter++;
 
       const startFrame = msToFrames(item.display.from);
       const endFrame = msToFrames(item.display.to);
@@ -231,32 +264,18 @@ export function convertToFCPXML(design: IDesign, projectName?: string): {
       const inPoint = item.trim ? msToFrames(item.trim.from) : 0;
       const outPoint = item.trim ? msToFrames(item.trim.to) : clipDuration;
 
-      const volume = (item.details.volume ?? 100) / 100;
-
-      xml += `          <clipitem>\n`;
+      xml += `          <clipitem id="clipitem-${clipCounter}">\n`;
       xml += `            <name>${escapeXml(item.name || file.name)}</name>\n`;
       xml += `            <duration>${clipDuration}</duration>\n`;
-      xml += `            <rate><timebase>${fps}</timebase><ntsc>FALSE</ntsc></rate>\n`;
+      xml += `            <rate>\n`;
+      xml += `              <timebase>${fps}</timebase>\n`;
+      xml += `              <ntsc>FALSE</ntsc>\n`;
+      xml += `            </rate>\n`;
       xml += `            <start>${startFrame}</start>\n`;
       xml += `            <end>${endFrame}</end>\n`;
       xml += `            <in>${inPoint}</in>\n`;
       xml += `            <out>${outPoint}</out>\n`;
-      xml += `            <file id="${fileId}"/>\n`;
-
-      // Audio levels
-      if (volume !== 1) {
-        xml += `            <filter>\n`;
-        xml += `              <effect>\n`;
-        xml += `                <name>Audio Levels</name>\n`;
-        xml += `                <effectid>audiolevels</effectid>\n`;
-        xml += `                <parameter>\n`;
-        xml += `                  <name>Level</name>\n`;
-        xml += `                  <value>${volume}</value>\n`;
-        xml += `                </parameter>\n`;
-        xml += `              </effect>\n`;
-        xml += `            </filter>\n`;
-      }
-
+      xml += buildFileElement(fileId, false);
       xml += `          </clipitem>\n`;
     }
     xml += `        </track>\n`;
