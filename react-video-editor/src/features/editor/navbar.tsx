@@ -50,6 +50,7 @@ import Link from "next/link";
 import { saveComposition, AutoSaveManager } from "./utils/save-composition";
 import { Coins } from "lucide-react";
 import useStore from "./store/use-store";
+import { downloadFCPXMLProject } from "@/utils/editor-to-fcpxml-converter";
 
 export default function Navbar({
 	user,
@@ -413,6 +414,37 @@ const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
 	const [isExportTypeOpen, setIsExportTypeOpen] = useState(false);
 	const [open, setOpen] = useState(false);
 
+	const handleXMLExport = () => {
+		const fullState = stateManager.getState();
+		const { hiddenTrackIds } = useStore.getState();
+		let filteredTrackItemsMap = fullState.trackItemsMap;
+		let filteredTrackItemIds = fullState.trackItemIds;
+		let filteredTracks = fullState.tracks;
+
+		if (hiddenTrackIds.size > 0) {
+			filteredTrackItemsMap = Object.fromEntries(
+				Object.entries(fullState.trackItemsMap).filter(([id]) => !hiddenTrackIds.has(id))
+			);
+			filteredTrackItemIds = fullState.trackItemIds.filter((id: string) => !hiddenTrackIds.has(id));
+			filteredTracks = fullState.tracks.map((track: any) => ({
+				...track,
+				items: track.items.filter((id: string) => !hiddenTrackIds.has(id)),
+			})).filter((track: any) => track.items.length > 0);
+		}
+
+		const data: IDesign = {
+			id: generateId(),
+			...fullState,
+			trackItemsMap: filteredTrackItemsMap,
+			trackItemIds: filteredTrackItemIds,
+			tracks: filteredTracks,
+		};
+
+		const result = downloadFCPXMLProject(data, "BlueFX_Project");
+		console.log(`📦 XML project exported — ${result.mediaFiles} media files downloading`);
+		setOpen(false);
+	};
+
 	const handleExport = () => {
 		// Check if there's already an active export
 		if (exporting || activeRenderVideoId) {
@@ -503,9 +535,12 @@ const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
 					</PopoverContent>
 				</Popover>
 
-				<div>
+				<div className="flex flex-col gap-2">
 					<Button onClick={handleExport} className="w-full">
 						{(exporting || activeRenderVideoId) ? "View Export Progress" : "Export"}
+					</Button>
+					<Button onClick={handleXMLExport} variant="outline" className="w-full text-xs">
+						Download XML Project (Premiere Pro)
 					</Button>
 				</div>
 			</PopoverContent>
