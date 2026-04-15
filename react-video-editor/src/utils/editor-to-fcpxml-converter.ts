@@ -105,186 +105,166 @@ export function convertToFCPXML(design: IDesign, projectName?: string): {
     if (item.details.src) getOrCreateFileId(item.details.src, "audio", item);
   }
 
-  // Helper: ms to frames
-  const msToFrames = (ms: number) => Math.round((ms / 1000) * fps);
+  // Premiere Pro uses 29.97fps (NTSC drop-frame) — timebase 30, ntsc TRUE
+  const TIMEBASE = 30;
+  const NTSC = true;
 
-  // Track which file IDs have been fully defined (first use = full, subsequent = ref-only)
-  const definedFileIds = new Set<string>();
-  let clipCounter = 0;
+  // Helper: ms to frames at 29.97fps
+  const msToFrames = (ms: number) => Math.round((ms / 1000) * 29.97);
 
-  function buildFileElement(fileId: string, isVideoContext: boolean): string {
-    // If already defined, just reference it
-    if (definedFileIds.has(fileId)) {
-      return `              <file id="${fileId}"/>\n`;
-    }
-
-    definedFileIds.add(fileId);
-    const file = mediaFiles.find((f) => f.id === fileId)!;
-
-    let el = `              <file id="${fileId}">\n`;
-    el += `                <name>${escapeXml(file.name)}</name>\n`;
-    el += `                <pathurl>file://localhost/${escapeXml(file.name)}</pathurl>\n`;
-    el += `                <rate>\n`;
-    el += `                  <timebase>${fps}</timebase>\n`;
-    el += `                  <ntsc>FALSE</ntsc>\n`;
-    el += `                </rate>\n`;
-
-    if (file.type === "image" || file.type === "video") {
-      el += `                <media>\n`;
-      el += `                  <video>\n`;
-      el += `                    <samplecharacteristics>\n`;
-      el += `                      <width>${file.width || width}</width>\n`;
-      el += `                      <height>${file.height || height}</height>\n`;
-      el += `                    </samplecharacteristics>\n`;
-      el += `                  </video>\n`;
-      el += `                </media>\n`;
-    } else if (file.type === "audio") {
-      el += `                <media>\n`;
-      el += `                  <audio>\n`;
-      el += `                    <samplecharacteristics>\n`;
-      el += `                      <samplerate>48000</samplerate>\n`;
-      el += `                      <depth>16</depth>\n`;
-      el += `                    </samplecharacteristics>\n`;
-      el += `                  </audio>\n`;
-      el += `                </media>\n`;
-    }
-
-    el += `              </file>\n`;
-    return el;
-  }
-
-  // Build XML
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-  xml += `<!DOCTYPE xmeml>\n`;
-  xml += `<xmeml version="4">\n`;
-  xml += `  <sequence>\n`;
-  xml += `    <name>${escapeXml(name)}</name>\n`;
-  xml += `    <duration>${totalFrames}</duration>\n`;
-  xml += `    <rate>\n`;
-  xml += `      <timebase>${fps}</timebase>\n`;
-  xml += `      <ntsc>FALSE</ntsc>\n`;
-  xml += `    </rate>\n`;
-  xml += `    <timecode>\n`;
-  xml += `      <rate>\n`;
-  xml += `        <timebase>${fps}</timebase>\n`;
-  xml += `        <ntsc>FALSE</ntsc>\n`;
-  xml += `      </rate>\n`;
-  xml += `      <string>00:00:00:00</string>\n`;
-  xml += `      <frame>0</frame>\n`;
-  xml += `      <displayformat>NDF</displayformat>\n`;
-  xml += `    </timecode>\n`;
-  xml += `    <media>\n`;
-
-  // ─── Video tracks ────────────────────────────────
-  xml += `      <video>\n`;
-  xml += `        <format>\n`;
-  xml += `          <samplecharacteristics>\n`;
-  xml += `            <rate>\n`;
-  xml += `              <timebase>${fps}</timebase>\n`;
-  xml += `              <ntsc>FALSE</ntsc>\n`;
-  xml += `            </rate>\n`;
-  xml += `            <width>${width}</width>\n`;
-  xml += `            <height>${height}</height>\n`;
-  xml += `            <anamorphic>FALSE</anamorphic>\n`;
-  xml += `            <pixelaspectratio>square</pixelaspectratio>\n`;
-  xml += `            <fielddominance>none</fielddominance>\n`;
-  xml += `          </samplecharacteristics>\n`;
-  xml += `        </format>\n`;
-
-  // Group visual items (images + videos) by track
+  // Build video clipitems
   const visualItems = [...imageItems, ...videoItems].sort(
     (a, b) => a.display.from - b.display.from
   );
 
-  if (visualItems.length > 0) {
-    xml += `        <track>\n`;
-    for (const item of visualItems) {
-      const src = item.details.src;
-      if (!src) continue;
+  const videoClipItems = visualItems.map((item, i) => {
+    const src = item.details.src;
+    if (!src) return "";
+    const fileId = fileIdMap.get(src)!;
+    const file = mediaFiles.find((f) => f.id === fileId)!;
+    const startFrame = msToFrames(item.display.from);
+    const endFrame = msToFrames(item.display.to);
+    const clipDuration = endFrame - startFrame;
+    const inPoint = item.trim ? msToFrames(item.trim.from) : 0;
+    const outPoint = item.trim ? msToFrames(item.trim.to) : clipDuration;
 
-      const fileId = fileIdMap.get(src)!;
-      const file = mediaFiles.find((f) => f.id === fileId)!;
-      clipCounter++;
+    return `          <clipitem id="clipitem-v1-${i}">
+            <name>${escapeXml(item.name || file.name)}</name>
+            <duration>${clipDuration}</duration>
+            <rate>
+              <timebase>${TIMEBASE}</timebase>
+              <ntsc>${NTSC ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+            <start>${startFrame}</start>
+            <end>${endFrame}</end>
+            <in>${inPoint}</in>
+            <out>${outPoint}</out>
+            <file id="${fileId}">
+              <name>${escapeXml(file.name)}</name>
+              <pathurl>file://localhost/${escapeXml(file.name.replace(/ /g, '%20'))}</pathurl>
+              <duration>${clipDuration}</duration>
+              <rate>
+                <timebase>${TIMEBASE}</timebase>
+                <ntsc>${NTSC ? 'TRUE' : 'FALSE'}</ntsc>
+              </rate>
+              <media>
+                <video>
+                  <samplecharacteristics>
+                    <width>${file.width || width}</width>
+                    <height>${file.height || height}</height>
+                  </samplecharacteristics>
+                </video>
+              </media>
+            </file>
+          </clipitem>`;
+  }).filter(Boolean).join('\n');
 
-      const startFrame = msToFrames(item.display.from);
-      const endFrame = msToFrames(item.display.to);
-      const clipDuration = endFrame - startFrame;
-
-      const inPoint = item.trim ? msToFrames(item.trim.from) : 0;
-      const outPoint = item.trim ? msToFrames(item.trim.to) : clipDuration;
-
-      xml += `          <clipitem id="clipitem-${clipCounter}">\n`;
-      xml += `            <name>${escapeXml(item.name || file.name)}</name>\n`;
-      xml += `            <duration>${clipDuration}</duration>\n`;
-      xml += `            <rate>\n`;
-      xml += `              <timebase>${fps}</timebase>\n`;
-      xml += `              <ntsc>FALSE</ntsc>\n`;
-      xml += `            </rate>\n`;
-      xml += `            <start>${startFrame}</start>\n`;
-      xml += `            <end>${endFrame}</end>\n`;
-      xml += `            <in>${inPoint}</in>\n`;
-      xml += `            <out>${outPoint}</out>\n`;
-      xml += buildFileElement(fileId, true);
-      xml += `          </clipitem>\n`;
-    }
-    xml += `        </track>\n`;
-  }
-
-  xml += `      </video>\n`;
-
-  // ─── Audio tracks ────────────────────────────────
-  xml += `      <audio>\n`;
-  xml += `        <format>\n`;
-  xml += `          <samplecharacteristics>\n`;
-  xml += `            <samplerate>48000</samplerate>\n`;
-  xml += `            <depth>16</depth>\n`;
-  xml += `          </samplecharacteristics>\n`;
-  xml += `        </format>\n`;
-
-  // Include dedicated audio items and audio from video items
+  // Build audio clipitems
   const allAudioSources = [
     ...audioItems,
     ...videoItems.filter((i) => (i.details.volume ?? 100) > 0),
   ];
 
-  if (allAudioSources.length > 0) {
-    xml += `        <track>\n`;
-    for (const item of allAudioSources) {
-      const src = item.details.src;
-      if (!src) continue;
+  const audioClipItems = allAudioSources.map((item, i) => {
+    const src = item.details.src;
+    if (!src) return "";
+    const fileId = fileIdMap.get(src)!;
+    const file = mediaFiles.find((f) => f.id === fileId)!;
+    const startFrame = msToFrames(item.display.from);
+    const endFrame = msToFrames(item.display.to);
+    const clipDuration = endFrame - startFrame;
+    const inPoint = item.trim ? msToFrames(item.trim.from) : 0;
+    const outPoint = item.trim ? msToFrames(item.trim.to) : clipDuration;
 
-      const fileId = fileIdMap.get(src)!;
-      const file = mediaFiles.find((f) => f.id === fileId)!;
-      clipCounter++;
+    return `          <clipitem id="clipitem-a1-${i}">
+            <name>${escapeXml(item.name || file.name)}</name>
+            <duration>${clipDuration}</duration>
+            <rate>
+              <timebase>${TIMEBASE}</timebase>
+              <ntsc>${NTSC ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+            <start>${startFrame}</start>
+            <end>${endFrame}</end>
+            <in>${inPoint}</in>
+            <out>${outPoint}</out>
+            <file id="${fileId}-audio">
+              <name>${escapeXml(file.name)}</name>
+              <pathurl>file://localhost/${escapeXml(file.name.replace(/ /g, '%20'))}</pathurl>
+              <duration>${clipDuration}</duration>
+              <rate>
+                <timebase>${TIMEBASE}</timebase>
+                <ntsc>${NTSC ? 'TRUE' : 'FALSE'}</ntsc>
+              </rate>
+              <media>
+                <audio>
+                  <samplecharacteristics>
+                    <depth>16</depth>
+                    <samplerate>48000</samplerate>
+                  </samplecharacteristics>
+                </audio>
+              </media>
+            </file>
+          </clipitem>`;
+  }).filter(Boolean).join('\n');
 
-      const startFrame = msToFrames(item.display.from);
-      const endFrame = msToFrames(item.display.to);
-      const clipDuration = endFrame - startFrame;
-
-      const inPoint = item.trim ? msToFrames(item.trim.from) : 0;
-      const outPoint = item.trim ? msToFrames(item.trim.to) : clipDuration;
-
-      xml += `          <clipitem id="clipitem-${clipCounter}">\n`;
-      xml += `            <name>${escapeXml(item.name || file.name)}</name>\n`;
-      xml += `            <duration>${clipDuration}</duration>\n`;
-      xml += `            <rate>\n`;
-      xml += `              <timebase>${fps}</timebase>\n`;
-      xml += `              <ntsc>FALSE</ntsc>\n`;
-      xml += `            </rate>\n`;
-      xml += `            <start>${startFrame}</start>\n`;
-      xml += `            <end>${endFrame}</end>\n`;
-      xml += `            <in>${inPoint}</in>\n`;
-      xml += `            <out>${outPoint}</out>\n`;
-      xml += buildFileElement(fileId, false);
-      xml += `          </clipitem>\n`;
-    }
-    xml += `        </track>\n`;
-  }
-
-  xml += `      </audio>\n`;
-  xml += `    </media>\n`;
-  xml += `  </sequence>\n`;
-  xml += `</xmeml>\n`;
+  // Assemble full XML — matching proven working pattern from real-estate-video
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+  <sequence>
+    <name>${escapeXml(name)}</name>
+    <duration>${totalFrames}</duration>
+    <rate>
+      <timebase>${TIMEBASE}</timebase>
+      <ntsc>${NTSC ? 'TRUE' : 'FALSE'}</ntsc>
+    </rate>
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <width>${width}</width>
+            <height>${height}</height>
+            <anamorphic>FALSE</anamorphic>
+            <pixelaspectratio>square</pixelaspectratio>
+            <fielddominance>none</fielddominance>
+            <rate>
+              <timebase>${TIMEBASE}</timebase>
+              <ntsc>${NTSC ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+          </samplecharacteristics>
+        </format>
+        <track>
+${videoClipItems}
+          <enabled>TRUE</enabled>
+          <locked>FALSE</locked>
+        </track>
+      </video>
+      <audio>
+        <numOutputChannels>2</numOutputChannels>
+        <format>
+          <samplecharacteristics>
+            <depth>16</depth>
+            <samplerate>48000</samplerate>
+          </samplecharacteristics>
+        </format>
+        <track>
+${audioClipItems}
+          <enabled>TRUE</enabled>
+          <locked>FALSE</locked>
+        </track>
+      </audio>
+    </media>
+    <timecode>
+      <rate>
+        <timebase>${TIMEBASE}</timebase>
+        <ntsc>${NTSC ? 'TRUE' : 'FALSE'}</ntsc>
+      </rate>
+      <string>00:00:00;00</string>
+      <frame>0</frame>
+      <displayformat>DF</displayformat>
+    </timecode>
+  </sequence>
+</xmeml>`;
 
   return { xml, mediaFiles };
 }
