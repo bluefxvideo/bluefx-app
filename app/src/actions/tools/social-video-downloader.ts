@@ -35,7 +35,9 @@ async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoD
   const adId = url.match(/[?&]id=(\d+)/)?.[1];
   console.log(`🎯 Detected Facebook Ads Library URL, ad ID: ${adId}`);
 
-  // Step 1: try HTML extraction (fast, no cost — usually blocked by bot challenge)
+  // Step 1: try HTML extraction (fast, no cost). Bail early if FB redirects to a
+  // login wall or a bot challenge — those responses will never contain the video
+  // fields and only waste ~1s before we fall through to Apify.
   try {
     const response = await fetch(url, {
       headers: {
@@ -43,27 +45,41 @@ async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoD
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
+      redirect: 'follow',
     });
 
-    const html = await response.text();
+    const finalUrl = response.url || url;
+    const isLoginWall = /\/(login|checkpoint)\//i.test(finalUrl);
 
-    const hdMatch = html.match(/"video_hd_url":"([^"]+)"/);
-    const sdMatch = html.match(/"video_sd_url":"([^"]+)"/);
-    const ogVideoMatch = html.match(/<meta[^>]+property="og:video(?::url)?"[^>]+content="([^"]+)"/);
-    const playableMatch = html.match(/"playable_url":"([^"]+)"/);
-    const playableHdMatch = html.match(/"playable_url_quality_hd":"([^"]+)"/);
+    if (!response.ok || isLoginWall) {
+      console.log(`⚠️ HTML path blocked (status=${response.status}, finalUrl=${finalUrl.slice(0, 80)}), going straight to Apify`);
+    } else {
+      const html = await response.text();
+      const hasChallenge = /name="jazoest"|BotProtectionInterstitial|login_homepage/i.test(html) && !/"video_hd_url"|"playable_url/.test(html);
 
-    const rawUrl =
-      playableHdMatch?.[1] ||
-      hdMatch?.[1] ||
-      playableMatch?.[1] ||
-      sdMatch?.[1] ||
-      ogVideoMatch?.[1];
+      if (hasChallenge) {
+        console.log('⚠️ HTML path returned a bot-challenge page, going straight to Apify');
+      } else {
+        const hdMatch = html.match(/"video_hd_url":"([^"]+)"/);
+        const sdMatch = html.match(/"video_sd_url":"([^"]+)"/);
+        const ogVideoMatch = html.match(/<meta[^>]+property="og:video(?::url)?"[^>]+content="([^"]+)"/);
+        const playableMatch = html.match(/"playable_url":"([^"]+)"/);
+        const playableHdMatch = html.match(/"playable_url_quality_hd":"([^"]+)"/);
 
-    if (rawUrl) {
-      const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\/g, '');
-      console.log(`✅ Extracted Ads Library video URL via HTML: ${cleanUrl.slice(0, 100)}...`);
-      return { success: true, videoUrl: cleanUrl, title: `Facebook Ad ${adId || ''}`.trim(), platform: 'facebook' };
+        const rawUrl =
+          playableHdMatch?.[1] ||
+          hdMatch?.[1] ||
+          playableMatch?.[1] ||
+          sdMatch?.[1] ||
+          ogVideoMatch?.[1];
+
+        if (rawUrl) {
+          const cleanUrl = rawUrl.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\/g, '');
+          console.log(`✅ Extracted Ads Library video URL via HTML: ${cleanUrl.slice(0, 100)}...`);
+          return { success: true, videoUrl: cleanUrl, title: `Facebook Ad ${adId || ''}`.trim(), platform: 'facebook' };
+        }
+        console.log('⚠️ HTML returned 200 but no video fields matched, falling back to Apify');
+      }
     }
   } catch (err) {
     console.error('Ads Library HTML fetch error:', err);
@@ -71,15 +87,25 @@ async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoD
 
   // Step 2: use apify/facebook-ads-scraper — accepts Ads Library URLs and
   // returns video_hd_url / video_sd_url inside snapshot.videos[]
-  console.log('⚠️ HTML extraction failed, trying apify/facebook-ads-scraper...');
+  console.log('🔁 Trying apify/facebook-ads-scraper...');
+  let apifyErrorReason: string | null = null;
   try {
     const run = await client.actor('apify/facebook-ads-scraper').call(
       { startUrls: [{ url }], maxItems: 1 },
       { timeout: 120 },
     );
+
+    if (run.status && run.status !== 'SUCCEEDED') {
+      apifyErrorReason = `Apify run ended with status ${run.status}`;
+      console.error(apifyErrorReason);
+    }
+
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
-    if (items && items.length > 0) {
+    if (!items || items.length === 0) {
+      apifyErrorReason = apifyErrorReason ?? 'Apify returned no items for this Ads Library URL (ad may be inactive, region-locked, or image-only)';
+      console.error(apifyErrorReason);
+    } else {
       const ad = items[0] as Record<string, unknown>;
       const snapshot = ad.snapshot as Record<string, unknown> | undefined;
       const videos = snapshot?.videos as Array<Record<string, unknown>> | undefined;
@@ -105,16 +131,18 @@ async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoD
         };
       }
 
+      apifyErrorReason = 'Apify returned an ad item but no video URL fields were present (the ad may be image-only or carousel)';
       console.error('apify/facebook-ads-scraper returned item but no video URL:', JSON.stringify(ad, null, 2));
     }
   } catch (err) {
+    apifyErrorReason = err instanceof Error ? err.message : String(err);
     console.error('apify/facebook-ads-scraper error:', err);
   }
 
   return {
     success: false,
     error:
-      'Could not extract the video from this Facebook Ads Library link. ' +
+      `Could not extract the video from this Facebook Ads Library link${apifyErrorReason ? ` (${apifyErrorReason})` : ''}. ` +
       'Please download the video file and upload it directly.',
   };
 }

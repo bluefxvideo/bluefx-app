@@ -95,13 +95,17 @@ export function VideoAnalyzerPage() {
     },
   });
 
-  // Calculate credits needed (3 per minute, minimum 3)
+  // File-upload: 3 credits per minute, minimum 3 (matches server at video-analyzer.ts:282).
+  // URL mode (YouTube/TikTok/Facebook/Instagram): flat 6 credits (matches server at
+  // video-analyzer.ts:369 for YouTube and :473 for social — duration is never measured
+  // client-side for URLs, so we mirror the server's flat rate instead of defaulting to 3).
   const calculateCreditsNeeded = (durationSeconds: number): number => {
     const minutes = Math.ceil(durationSeconds / 60);
     return Math.max(3, minutes * 3);
   };
 
-  const creditsNeeded = videoDuration ? calculateCreditsNeeded(videoDuration) : 3;
+  const creditsNeeded =
+    inputMode === 'url' ? 6 : videoDuration ? calculateCreditsNeeded(videoDuration) : 3;
 
   const handleFileSelect = (file: File) => {
     // Validate file type
@@ -281,6 +285,21 @@ export function VideoAnalyzerPage() {
   // Send analysis to AI Cinematographer (opens config dialog)
   const handleSendToCinematographer = () => {
     if (!analysisResult) return;
+
+    // Purge stale entries: AI Recreate deletes its own key on mount, but if the
+    // popup is blocked or closed early the key lingers forever. Drop any
+    // video-analysis-<ts> keys older than 1 hour before writing the new one.
+    const now = Date.now();
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('video-analysis-')) continue;
+      const ts = Number(key.slice('video-analysis-'.length));
+      if (Number.isFinite(ts) && now - ts > ONE_HOUR_MS) {
+        localStorage.removeItem(key);
+      }
+    }
+
     const payload = {
       analysisText: analysisResult,
       customizationInstructions: '',
@@ -289,7 +308,7 @@ export function VideoAnalyzerPage() {
       productFidelityEnabled: false,
       sourceVideoUrl: inputMode === 'url' ? videoUrl : undefined,
     };
-    const analysisId = `video-analysis-${Date.now()}`;
+    const analysisId = `video-analysis-${now}`;
     localStorage.setItem(analysisId, JSON.stringify(payload));
     window.open(`/dashboard/ai-recreate?analysisId=${analysisId}`, '_blank');
     toast.success('Sent to AI Recreate');

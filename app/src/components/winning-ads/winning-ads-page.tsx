@@ -208,6 +208,10 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
   }, [fetchAds]);
 
   const handleCloneAd = (ad: WinningAd) => {
+    if (!ad.tiktok_material_id) {
+      toast.error('This ad is missing its source ID and cannot be cloned.');
+      return;
+    }
     if (ad.platform === 'facebook') {
       const adUrl = `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`;
       router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
