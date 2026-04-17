@@ -316,7 +316,12 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 								videoId: videoIdForSave,
 								apiUrl: hasApiUrl,
 							});
-							if (saved.success && saved.data) {
+							// Only treat this as a restorable editor state if it actually has
+							// trackItemsMap — the same table also holds raw AI-asset payloads
+							// pre-saved by ad-creator (shape: { voice, images, video_clips, … }),
+							// which would render as an empty timeline. Fall through so those
+							// go through convertBlueFXDataToAIAssets instead.
+							if (saved.success && saved.data && saved.data.trackItemsMap) {
 								console.log('✅ Found saved composition - restoring user edits');
 								dispatch(DESIGN_LOAD, { payload: saved.data });
 								setHasLoadedDesign(true);
@@ -325,7 +330,11 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 								setProjectName(`AI Video - ${videoIdForSave}`);
 								return; // Don't load AI assets — saved composition has everything
 							}
-							console.log('📭 No saved composition found, loading fresh assets');
+							if (saved.success && saved.data) {
+								console.log('ℹ️ Saved row is a raw AI-asset payload (no trackItemsMap); loading fresh assets so the converter runs');
+							} else {
+								console.log('📭 No saved composition found, loading fresh assets');
+							}
 						} catch (err) {
 							console.warn('⚠️ Failed to check saved composition, loading fresh:', err);
 						}
