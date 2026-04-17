@@ -184,9 +184,16 @@ export default function Navbar({
 	const handleBackToApp = () => {
 		const { apiUrl } = getUrlParams();
 		const mainAppUrl = apiUrl || window.location.origin;
-		// Navigate to the script-to-video page in the main app
-		const targetUrl = `${mainAppUrl}/dashboard/script-to-video`;
-		window.location.href = targetUrl;
+		// Detect which flow this came from by checking URL params
+		const urlParams = new URLSearchParams(window.location.search);
+		const isReelEstate = urlParams.has('listingId');
+		const isStoryboard = urlParams.has('storyboardId');
+		const targetPath = isReelEstate
+			? '/dashboard/reelestate'
+			: isStoryboard
+				? '/dashboard/ai-cinematographer'
+				: '/dashboard/script-to-video';
+		window.location.href = `${mainAppUrl}${targetPath}`;
 	};
 
 	return (
@@ -200,7 +207,12 @@ export default function Navbar({
 					size="sm"
 					onClick={handleBackToApp}
 					className="text-muted-foreground hover:text-foreground"
-					title="Back to BlueFX"
+					title={(() => {
+						const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+						if (params.has('listingId')) return 'Back to ReelEstate';
+						if (params.has('storyboardId')) return 'Back to Storyboard';
+						return 'Back to BlueFX';
+					})()}
 				>
 					<ArrowLeft className="h-4 w-4" />
 				</Button>

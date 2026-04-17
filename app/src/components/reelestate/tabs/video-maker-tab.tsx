@@ -11,21 +11,34 @@ import { PhotoGrid } from '../components/photo-grid';
 import { MusicSelector } from '../components/music-selector';
 import {
   Loader2, Scan, Film, FileText, RefreshCw,
-  Monitor, Smartphone, Type, Mic, Volume2,
+  Monitor, Smartphone, Type, Mic, Volume2, Play, Square, AlertTriangle,
 } from 'lucide-react';
 import type { ReelEstateProject, TargetDuration } from '@/types/reelestate';
 import { TARGET_DURATIONS } from '@/types/reelestate';
+import { useRef, useState } from 'react';
 
+// Valid Minimax voices with preview URLs matching shared/voice-constants.ts
 const VOICE_OPTIONS = [
-  { id: 'Friendly_Person', label: 'Friendly' },
-  { id: 'Deep_Voice_Man', label: 'Deep Voice' },
-  { id: 'Calm_Woman', label: 'Calm Woman' },
-  { id: 'Inspirational_girl', label: 'Inspirational' },
-  { id: 'Warm_Man', label: 'Warm Man' },
-  { id: 'Wise_Lady', label: 'Wise Lady' },
-  { id: 'Confident_Man', label: 'Confident Man' },
-  { id: 'Gentle_Woman', label: 'Gentle Woman' },
+  { id: 'Friendly_Person', label: 'Alex (Friendly)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/friendly_person.mp3' },
+  { id: 'Deep_Voice_Man', label: 'Marcus (Deep)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/deep_voice_man.mp3' },
+  { id: 'Calm_Woman', label: 'Serena (Calm)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/calm_woman.mp3' },
+  { id: 'Inspirational_girl', label: 'Maya (Inspiring)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/inspirational_girl.mp3' },
+  { id: 'Wise_Woman', label: 'Victoria (Wise)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/wise_woman.mp3' },
+  { id: 'Patient_Man', label: 'Thomas (Patient)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/patient_man.mp3' },
+  { id: 'Casual_Guy', label: 'Jake (Casual)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/casual_guy.mp3' },
+  { id: 'Lovely_Girl', label: 'Sophie (Lovely)', preview: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/voices/minimax/lovely_girl.mp3' },
 ];
+
+function formatTimeAgo(timestamp: number | null): string {
+  if (!timestamp) return '';
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 interface VideoMakerTabProps {
   project: ReelEstateProject;
@@ -244,24 +257,12 @@ export function VideoMakerTab({
 
                 {project.voiceoverEnabled && (
                   <>
-                    {/* Voice selector */}
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Voice</label>
-                      <Select
-                        value={project.voiceId}
-                        onValueChange={onSetVoiceId}
-                        disabled={isWorking}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {VOICE_OPTIONS.map(v => (
-                            <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {/* Voice selector with preview */}
+                    <VoicePickerWithPreview
+                      voiceId={project.voiceId}
+                      onVoiceChange={onSetVoiceId}
+                      disabled={isWorking}
+                    />
 
                     {/* Generate Script button */}
                     {!project.script && (
@@ -290,7 +291,12 @@ export function VideoMakerTab({
                     {project.script && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium">Script ({project.script.segments.length} segments · {project.script.total_duration_seconds}s)</span>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium">Script ({project.script.segments.length} segments · {project.script.total_duration_seconds}s)</span>
+                            {project.scriptGeneratedAt && (
+                              <span className="text-[10px] text-muted-foreground">Generated {formatTimeAgo(project.scriptGeneratedAt)}</span>
+                            )}
+                          </div>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -299,9 +305,18 @@ export function VideoMakerTab({
                             disabled={isWorking}
                           >
                             <RefreshCw className="w-2.5 h-2.5" />
-                            Regenerate
+                            Regenerate (1 cr)
                           </Button>
                         </div>
+
+                        {/* Script stale warning */}
+                        {project.scriptStale && (
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
+                            <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                            <span>Photos or duration changed — regenerate to refresh the script.</span>
+                          </div>
+                        )}
+
                         <div className="max-h-[200px] overflow-y-auto space-y-1.5 pr-1">
                           {project.script.segments.map((segment) => (
                             <div key={segment.index} className="flex gap-2 p-1.5 rounded bg-background/50 border border-border/30">
@@ -352,9 +367,9 @@ export function VideoMakerTab({
                     {project.voiceover && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-                            <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                            Voiceover ready
+                          <div className={`flex items-center gap-1.5 text-xs ${project.voiceoverStale ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            <div className={`w-2 h-2 rounded-full ${project.voiceoverStale ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                            {project.voiceoverStale ? 'Voiceover out of date' : 'Voiceover ready'}
                           </div>
                           <Button
                             size="sm"
@@ -364,9 +379,18 @@ export function VideoMakerTab({
                             disabled={isWorking}
                           >
                             <RefreshCw className="w-2.5 h-2.5" />
-                            Regenerate
+                            Regenerate (2 cr)
                           </Button>
                         </div>
+
+                        {/* Voiceover stale warning */}
+                        {project.voiceoverStale && (
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
+                            <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                            <span>Script text or voice changed — regenerate voiceover to update the audio.</span>
+                          </div>
+                        )}
+
                         <audio
                           key={project.voiceover.url}
                           controls
@@ -418,9 +442,14 @@ export function VideoMakerTab({
               <>
                 <Film className="w-4 h-4 mr-2" />
                 Open in Studio
-                {project.voiceoverEnabled && !project.voiceover && (
-                  <span className="ml-1 text-xs opacity-70">(+3 credits)</span>
-                )}
+                {(() => {
+                  if (!project.voiceoverEnabled) return null;
+                  let extra = 0;
+                  if (!project.script) extra += 1;
+                  if (!project.voiceover) extra += 2;
+                  if (extra === 0) return null;
+                  return <span className="ml-1 text-xs opacity-70">(+{extra} credit{extra === 1 ? '' : 's'})</span>;
+                })()}
               </>
             )}
           </Button>
@@ -431,5 +460,89 @@ export function VideoMakerTab({
         </TabFooter>
       )}
     </TabContentWrapper>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Voice picker with preview play button
+// ─────────────────────────────────────────────
+function VoicePickerWithPreview({
+  voiceId,
+  onVoiceChange,
+  disabled,
+}: {
+  voiceId: string;
+  onVoiceChange: (id: string) => void;
+  disabled?: boolean;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
+  const handlePreview = (e: React.MouseEvent, voice: typeof VOICE_OPTIONS[0]) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If this voice is currently playing — stop it
+    if (playingId === voice.id && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setPlayingId(null);
+      return;
+    }
+
+    // Stop any other playing voice
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    // Play new preview
+    const audio = new Audio(voice.preview);
+    audioRef.current = audio;
+    setPlayingId(voice.id);
+    audio.onended = () => {
+      setPlayingId(null);
+      audioRef.current = null;
+    };
+    audio.play().catch(() => {
+      setPlayingId(null);
+      audioRef.current = null;
+    });
+  };
+
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground mb-1.5 block">Voice</label>
+      <div className="grid grid-cols-2 gap-1.5">
+        {VOICE_OPTIONS.map((v) => {
+          const isSelected = voiceId === v.id;
+          const isPlaying = playingId === v.id;
+          return (
+            <div
+              key={v.id}
+              className={`flex items-center gap-1 p-1.5 rounded border text-[11px] cursor-pointer transition-colors ${
+                isSelected
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border/50 bg-background/30 hover:border-border'
+              } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+              onClick={() => onVoiceChange(v.id)}
+            >
+              <button
+                type="button"
+                className={`flex items-center justify-center w-5 h-5 rounded flex-shrink-0 ${
+                  isPlaying ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/70'
+                }`}
+                onClick={(e) => handlePreview(e, v)}
+                disabled={disabled}
+                aria-label={isPlaying ? 'Stop preview' : 'Play preview'}
+              >
+                {isPlaying ? <Square className="w-2.5 h-2.5" /> : <Play className="w-2.5 h-2.5 ml-0.5" />}
+              </button>
+              <span className="truncate flex-1">{v.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

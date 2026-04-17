@@ -253,8 +253,11 @@ export interface ReelEstateProject {
   analyses: ImageAnalysis[];
   selectedIndices: number[];
   script: ListingScript | null;
+  scriptGeneratedAt: number | null; // timestamp of last script generation
+  scriptStale: boolean; // true when photos/duration changed after script generated
   clips: ClipStatus[];
   voiceover: { url: string; duration: number } | null;
+  voiceoverStale: boolean; // true when script text changed after voiceover generated
   renderId: string | null;
   renderProgress: number | null;
   finalVideoUrl: string | null;

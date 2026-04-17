@@ -37,8 +37,11 @@ const INITIAL_PROJECT: ReelEstateProject = {
   analyses: [],
   selectedIndices: [],
   script: null,
+  scriptGeneratedAt: null,
+  scriptStale: false,
   clips: [],
   voiceover: null,
+  voiceoverStale: false,
   renderId: null,
   renderProgress: null,
   finalVideoUrl: null,
@@ -134,8 +137,11 @@ export function useReelEstate() {
       analyses: [],
       selectedIndices: [],
       script: null,
+      scriptGeneratedAt: null,
+      scriptStale: false,
       clips: [],
       voiceover: null,
+      voiceoverStale: false,
       renderId: null,
       renderProgress: null,
       finalVideoUrl: null,
@@ -206,6 +212,9 @@ export function useReelEstate() {
 
     updateProject({
       script: result.script,
+      scriptGeneratedAt: Date.now(),
+      scriptStale: false,
+      voiceoverStale: false,
       status: 'script_ready',
     });
 
@@ -236,6 +245,7 @@ export function useReelEstate() {
 
     updateProject({
       voiceover: { url: result.audio_url, duration: result.duration || 0 },
+      voiceoverStale: false,
       status: 'script_ready',
       error: null,
     });
@@ -245,7 +255,8 @@ export function useReelEstate() {
 
   // ─── Regenerate Script / Voiceover ────────────────
   const regenerateScript = useCallback(async () => {
-    updateProject({ script: null, voiceover: null });
+    // Clear before regenerating (closure issue requires this)
+    updateProject({ script: null, voiceover: null, scriptStale: false, voiceoverStale: false });
     await generateScript();
   }, [generateScript, updateProject]);
 
@@ -284,7 +295,12 @@ export function useReelEstate() {
           return;
         }
 
-        updateProject({ script: scriptResult.script, status: 'script_ready' });
+        updateProject({
+          script: scriptResult.script,
+          scriptGeneratedAt: Date.now(),
+          scriptStale: false,
+          status: 'script_ready',
+        });
         await refreshCredits();
 
         // Generate voiceover
@@ -306,6 +322,7 @@ export function useReelEstate() {
 
         updateProject({
           voiceover: { url: voiceResult.audio_url, duration: voiceResult.duration || 0 },
+          voiceoverStale: false,
           status: 'script_ready',
         });
         await refreshCredits();
@@ -329,6 +346,7 @@ export function useReelEstate() {
 
         updateProject({
           voiceover: { url: voiceResult.audio_url, duration: voiceResult.duration || 0 },
+          voiceoverStale: false,
           status: 'script_ready',
         });
         await refreshCredits();
@@ -500,8 +518,13 @@ export function useReelEstate() {
 
   // ─── Selection & Settings ──────────────────────
   const setSelectedIndices = useCallback((indices: number[]) => {
-    updateProject({ selectedIndices: indices, script: null, voiceover: null });
-  }, [updateProject]);
+    // Don't destroy script/voiceover — mark stale so user can see indicator
+    updateProject({
+      selectedIndices: indices,
+      scriptStale: project.script ? true : false,
+      voiceoverStale: project.voiceover ? true : false,
+    });
+  }, [updateProject, project.script, project.voiceover]);
 
   const updateScriptSegment = useCallback((index: number, voiceover: string) => {
     if (!project.script) return;
@@ -510,9 +533,9 @@ export function useReelEstate() {
     );
     updateProject({
       script: { ...project.script, segments },
-      voiceover: null, // Clear stale voiceover — text changed
+      voiceoverStale: project.voiceover ? true : false, // mark audio stale, don't clear
     });
-  }, [project.script, updateProject]);
+  }, [project.script, project.voiceover, updateProject]);
 
   const deleteScriptSegment = useCallback((index: number) => {
     if (!project.script) return;
@@ -547,12 +570,19 @@ export function useReelEstate() {
   }, [updateProject, project.id]);
 
   const setTargetDuration = useCallback((duration: TargetDuration) => {
-    updateProject({ targetDuration: duration, script: null, voiceover: null });
-  }, [updateProject]);
+    updateProject({
+      targetDuration: duration,
+      scriptStale: project.script ? true : false,
+      voiceoverStale: project.voiceover ? true : false,
+    });
+  }, [updateProject, project.script, project.voiceover]);
 
   const setVoiceId = useCallback((voiceId: string) => {
-    updateProject({ voiceId, voiceover: null });
-  }, [updateProject]);
+    updateProject({
+      voiceId,
+      voiceoverStale: project.voiceover ? true : false, // audio is stale, script is fine
+    });
+  }, [updateProject, project.voiceover]);
 
   const setVoiceSpeed = useCallback((voiceSpeed: number) => {
     updateProject({ voiceSpeed });
@@ -833,10 +863,13 @@ export function useReelEstate() {
             ),
           }
         : null,
+      scriptGeneratedAt: listing.script_segments ? Date.parse(listing.updated_at || listing.created_at || new Date().toISOString()) : null,
+      scriptStale: false,
       clips: (listing.clip_predictions as ClipStatus[]) || [],
       voiceover: listing.voiceover_url
         ? { url: listing.voiceover_url, duration: listing.voiceover_duration_seconds || 0 }
         : null,
+      voiceoverStale: false,
       renderId: listing.render_id || null,
       renderProgress: listing.final_video_url ? 100 : null,
       finalVideoUrl: listing.final_video_url,
