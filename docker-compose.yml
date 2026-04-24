@@ -62,16 +62,6 @@ services:
 
       # Internal API Key (for server-to-server calls)
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
-
-      # Gemini + Apify + TikTok + FAL (declared explicitly so compose mirrors
-      # what the server code actually reads. Coolify-injected values still
-      # take effect via ${VAR} substitution from its env panel.)
-      - GOOGLE_GENERATIVE_AI_API_KEY=${APP_GOOGLE_GENERATIVE_AI_API_KEY}
-      - APIFY_API_TOKEN=${APP_APIFY_API_TOKEN}
-      - TIKTOK_CC_COOKIES=${APP_TIKTOK_CC_COOKIES}
-      - FAL_KEY=${APP_FAL_KEY}
-      - ANTHROPIC_API_KEY=${APP_ANTHROPIC_API_KEY}
-      - CRON_SECRET_TOKEN=${APP_CRON_SECRET_TOKEN}
     depends_on:
       - remotion
       - react-video-editor
