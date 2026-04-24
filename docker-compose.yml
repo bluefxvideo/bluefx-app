@@ -31,6 +31,7 @@ services:
       - PORT=3000
       - REMOTION_SERVICE_URL=http://remotion:3001
       - REACT_VIDEO_EDITOR_URL=http://react-video-editor:3002
+      - VIDEO_ROUGHCUT_WORKER_URL=http://video-roughcut-worker:3003
       - NEXT_PUBLIC_VIDEO_EDITOR_URL=${APP_NEXT_PUBLIC_VIDEO_EDITOR_URL:-http://localhost:3001}
       
       # Supabase Configuration
@@ -61,9 +62,20 @@ services:
 
       # Internal API Key (for server-to-server calls)
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+
+      # Gemini + Apify + TikTok + FAL (declared explicitly so compose mirrors
+      # what the server code actually reads. Coolify-injected values still
+      # take effect via ${VAR} substitution from its env panel.)
+      - GOOGLE_GENERATIVE_AI_API_KEY=${APP_GOOGLE_GENERATIVE_AI_API_KEY}
+      - APIFY_API_TOKEN=${APP_APIFY_API_TOKEN}
+      - TIKTOK_CC_COOKIES=${APP_TIKTOK_CC_COOKIES}
+      - FAL_KEY=${APP_FAL_KEY}
+      - ANTHROPIC_API_KEY=${APP_ANTHROPIC_API_KEY}
+      - CRON_SECRET_TOKEN=${APP_CRON_SECRET_TOKEN}
     depends_on:
       - remotion
       - react-video-editor
+      - video-roughcut-worker
     restart: unless-stopped
     mem_limit: 6g
     cpus: '3.0'
@@ -112,6 +124,27 @@ services:
     #   timeout: 10s
     #   retries: 3
     #   start_period: 60s
+
+  # Video Rough-Cut Worker — runs Deepgram + Claude pipeline on uploaded audio,
+  # writes FCP XML to Supabase Storage. See /video-roughcut/README for details.
+  video-roughcut-worker:
+    build:
+      context: ./video-roughcut
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=${APP_NODE_ENV:-production}
+      - PORT=3003
+      - DEEPGRAM_API_KEY=${ROUGHCUT_DEEPGRAM_API_KEY}
+      - FAL_KEY=${ROUGHCUT_FAL_KEY}
+      - CLAUDE_MODEL=${ROUGHCUT_CLAUDE_MODEL:-anthropic/claude-opus-4-6}
+      - SUPABASE_URL=${APP_NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${APP_SUPABASE_SERVICE_ROLE_KEY}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: '1.5'
 
   # Remotion Server
   remotion:

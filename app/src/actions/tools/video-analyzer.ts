@@ -507,29 +507,60 @@ export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest
     const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
 
     // Step 4: Use Gemini to analyze the video as inline base64 data
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      console.error('❌ GOOGLE_GENERATIVE_AI_API_KEY is not set on the server');
+      return { success: false, error: 'Gemini API key is not configured on the server. Contact support.' };
+    }
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: 'video/mp4',
-          data: videoBase64
-        }
-      },
-      { text: finalPrompt }
-    ]);
+    const geminiStart = Date.now();
+    let result;
+    try {
+      result = await model.generateContent([
+        {
+          inlineData: {
+            mimeType: 'video/mp4',
+            data: videoBase64,
+          },
+        },
+        { text: finalPrompt },
+      ]);
+    } catch (geminiErr) {
+      const msg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      console.error(`❌ Gemini generateContent threw after ${Date.now() - geminiStart}ms:`, msg);
+      return { success: false, error: `Gemini request failed: ${msg}` };
+    }
+    console.log(`🧠 Gemini returned in ${Date.now() - geminiStart}ms`);
 
     const response = await result.response;
-    const analysisText = response.text();
+    const candidate = response.candidates?.[0];
+    const finishReason = candidate?.finishReason;
 
-    if (!analysisText) {
+    // response.text() throws if the candidate has no text parts (e.g. blocked
+    // by safety filters, MAX_TOKENS with no output, or RECITATION). Log the
+    // structured reason so failures are diagnosable from container logs.
+    let analysisText = '';
+    try {
+      analysisText = response.text();
+    } catch (textErr) {
+      const msg = textErr instanceof Error ? textErr.message : String(textErr);
+      console.error(`❌ response.text() threw — finishReason=${finishReason}, safetyRatings=`, candidate?.safetyRatings);
+      console.error('   raw candidate (first 600 chars):', JSON.stringify(candidate || {}).slice(0, 600));
       return {
         success: false,
-        error: 'No analysis generated'
+        error: `Gemini returned no text (finishReason=${finishReason || 'UNKNOWN'}): ${msg}`,
       };
     }
 
-    console.log(`✅ ${platform} video analysis generated successfully`);
+    if (!analysisText) {
+      console.error(`❌ Empty analysis text — finishReason=${finishReason}, promptFeedback=`, response.promptFeedback);
+      return {
+        success: false,
+        error: `No analysis generated (finishReason=${finishReason || 'UNKNOWN'}). The video may have been blocked by safety filters or exceeded token limits.`,
+      };
+    }
+
+    console.log(`✅ ${platform} video analysis generated successfully (${analysisText.length} chars, finishReason=${finishReason})`);
 
     // Generate a title for the analysis
     const title = downloadResult.title
