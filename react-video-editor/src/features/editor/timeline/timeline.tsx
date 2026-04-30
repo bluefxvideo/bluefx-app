@@ -14,7 +14,7 @@ import Playhead from "./playhead";
 import { useCurrentPlayerFrame } from "../hooks/use-current-frame";
 import { Audio, Image, Text, Video } from "./items";
 import Caption from "./items/caption";
-import StateManager, { REPLACE_MEDIA } from "@designcombo/state";
+import StateManager, { REPLACE_MEDIA, LAYER_DELETE } from "@designcombo/state";
 import {
 	TIMELINE_OFFSET_CANVAS_LEFT,
 	TIMELINE_OFFSET_CANVAS_RIGHT,
@@ -22,6 +22,7 @@ import {
 import { ITrackItem } from "@designcombo/types";
 import { useTimelineOffsetX } from "../hooks/use-timeline-offset";
 import { useStateManagerEvents } from "../hooks/use-state-manager-events";
+import { ClipContextMenu } from "./clip-context-menu";
 
 CanvasTimeline.registerItems({
 	Text,
@@ -42,7 +43,8 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
 	const canvasRef = useRef<CanvasTimeline | null>(null);
 	const verticalScrollbarVpRef = useRef<HTMLDivElement>(null);
 	const horizontalScrollbarVpRef = useRef<HTMLDivElement>(null);
-	const { scale, playerRef, fps, duration, setState, timeline } = useStore();
+	const { scale, playerRef, fps, duration, setState, timeline, activeIds, trackItemsMap } = useStore();
+	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 	const currentFrame = useCurrentPlayerFrame(playerRef);
 	const [canvasSize, setCanvasSize] = useState(EMPTY_SIZE);
 	const [size, setSize] = useState<{ width: number; height: number }>(
@@ -303,6 +305,12 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
 						style={{ height: canvasSize.height }}
 						ref={containerRef}
 						className="absolute top-0 w-full"
+						onContextMenu={(e) => {
+							// Only show menu if at least one clip is selected
+							if (activeIds.length === 0) return;
+							e.preventDefault();
+							setContextMenu({ x: e.clientX, y: e.clientY });
+						}}
 					>
 						<canvas id="designcombo-timeline-canvas" ref={canvasElRef} />
 					</div>
@@ -395,6 +403,15 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
 					</ScrollArea.Root>
 				</div>
 			</div>
+			{contextMenu && (
+				<ClipContextMenu
+					x={contextMenu.x}
+					y={contextMenu.y}
+					items={activeIds.map((id) => trackItemsMap[id]).filter(Boolean)}
+					onClose={() => setContextMenu(null)}
+					onDelete={() => dispatch(LAYER_DELETE)}
+				/>
+			)}
 		</div>
 	);
 };
