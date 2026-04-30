@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Globe, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ZillowInputProps {
   onSubmitUrl: (url: string) => void;
@@ -17,6 +18,7 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
   const [url, setUrl] = useState('');
   const [uploadMode, setUploadMode] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isValidListingUrl = (u: string) => {
@@ -33,12 +35,12 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
     onSubmitUrl(trimmed);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
-    if (imageFiles.length === 0) return;
+  const uploadFiles = async (fileList: FileList | File[]) => {
+    const imageFiles = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      toast.error('No image files selected');
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -51,6 +53,13 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
         method: 'POST',
         body: formData,
       });
+
+      // Handle non-JSON responses (e.g. 404 HTML)
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(`Upload endpoint returned ${res.status}: ${text.slice(0, 100)}`);
+      }
 
       const data = await res.json();
 
@@ -67,6 +76,34 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    uploadFiles(files);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    if (disabled || isLoading || isUploading) return;
+    if (e.dataTransfer.files?.length) {
+      uploadFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingOver) setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
   };
 
   return (
@@ -105,24 +142,38 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
         </>
       ) : (
         <>
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || isLoading || isUploading}
-            className="w-full h-24 border-dashed flex flex-col gap-2"
+          <div
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={cn(
+              "w-full min-h-[120px] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 p-4 cursor-pointer transition-colors",
+              isDraggingOver
+                ? "border-primary bg-primary/10"
+                : "border-border/50 hover:border-border bg-muted/20",
+              (disabled || isLoading || isUploading) && "opacity-50 pointer-events-none"
+            )}
           >
             {isUploading ? (
               <>
                 <Loader2 className="w-6 h-6 animate-spin" />
-                <span>Uploading photos...</span>
+                <span className="text-sm">Uploading photos...</span>
               </>
             ) : (
               <>
-                <Upload className="w-6 h-6" />
-                <span>Click to upload listing photos</span>
+                <Upload className="w-6 h-6 text-muted-foreground" />
+                <div className="text-center">
+                  <p className="text-sm font-medium">
+                    {isDraggingOver ? 'Drop photos here' : 'Click or drag photos to upload'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    JPG, PNG, WebP — multiple files supported
+                  </p>
+                </div>
               </>
             )}
-          </Button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
