@@ -250,20 +250,11 @@ export async function convertAIAssetsToEditorFormat(
         return;
       }
 
-      // Map camera_motion from analysis → Ken Burns preset
-      const cameraMotion = (segment as any).camera_motion;
-      const motionToPreset: Record<string, string> = {
-        dolly_in: 'zoom-in',
-        dolly_out: 'zoom-out',
-        dolly_left: 'pan-left',
-        dolly_right: 'pan-right',
-        jib_up: 'pan-up',
-        jib_down: 'pan-down',
-        static: 'zoom-in',
-        focus_shift: 'zoom-in',
-        none: 'zoom-in',
-      };
-      const selectedPreset = motionToPreset[cameraMotion] || 'zoom-in';
+      // Force stable zoom-in for every photo — pan/jib variants warp images and
+      // create artifacts (jib_up, dolly_left, etc.). Real-estate listings render
+      // cleanly with a slow stable zoom-in only. User can change per-clip in editor.
+      void (segment as any).camera_motion;
+      const selectedPreset = 'zoom-in';
       const intensity = 40;
 
       // Use canvas height for width to ensure tall photos fit fully visible.

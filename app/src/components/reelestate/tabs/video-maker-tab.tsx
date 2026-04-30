@@ -498,13 +498,12 @@ export function VideoMakerTab({
         )}
       </TabBody>
 
-      {/* Footer — Make Video / Open in Studio */}
+      {/* Footer — Open in Editor */}
       {hasAnalyses && hasSelection && (
         <TabFooter>
-          {/* Primary action: Render directly */}
           <Button
-            onClick={() => onRenderVideo(false)}
-            disabled={isWorking || isPreparing || project.status === 'rendering' || project.status === 'generating_clips'}
+            onClick={onOpenInEditor}
+            disabled={isWorking || isPreparing}
             className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
             size="lg"
           >
@@ -513,42 +512,20 @@ export function VideoMakerTab({
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 {project.status === 'scripting' ? 'Writing script...' : 'Generating voiceover...'}
               </>
-            ) : project.status === 'rendering' ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Rendering... {project.renderProgress != null ? `${Math.round(project.renderProgress)}%` : ''}
-              </>
-            ) : project.status === 'generating_clips' ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Animating photos...
-              </>
             ) : (
               <>
                 <Film className="w-4 h-4 mr-2" />
-                Make Video
+                Open in Studio
                 {(() => {
-                  let extra = 2; // Assembly cost
-                  if (project.voiceoverEnabled) {
-                    if (!project.script) extra += 1;
-                    if (!project.voiceover) extra += 2;
-                  }
-                  return <span className="ml-1 text-xs opacity-70">({extra} credit{extra === 1 ? '' : 's'})</span>;
+                  if (!project.voiceoverEnabled) return null;
+                  let extra = 0;
+                  if (!project.script) extra += 1;
+                  if (!project.voiceover) extra += 2;
+                  if (extra === 0) return null;
+                  return <span className="ml-1 text-xs opacity-70">(+{extra} credit{extra === 1 ? '' : 's'})</span>;
                 })()}
               </>
             )}
-          </Button>
-
-          {/* Secondary: Open in Studio for fine-tuning */}
-          <Button
-            onClick={onOpenInEditor}
-            disabled={isWorking || isPreparing || project.status === 'rendering'}
-            variant="outline"
-            className="w-full mt-2"
-            size="sm"
-          >
-            <Film className="w-3.5 h-3.5 mr-2" />
-            Open in Studio (fine-tune first)
           </Button>
 
           {project.error && (
