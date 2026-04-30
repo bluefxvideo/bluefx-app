@@ -21,7 +21,7 @@ const scriptSchema = z.object({
  */
 export async function generateListingScript(
   selectedAnalyses: ImageAnalysis[],
-  listingData: ZillowListingData,
+  listingData: ZillowListingData | null,
   targetDuration: TargetDuration = 30,
 ): Promise<ScriptGenerationResult> {
   if (!selectedAnalyses.length) {
@@ -35,6 +35,18 @@ export async function generateListingScript(
       `Image ${i} (index ${a.index}): ${a.room_type} - ${a.description}. Features: ${a.key_features.join(', ')}`
     )).join('\n');
 
+    // Listing data is optional — for manually-uploaded photos with no listing context,
+    // the script is generated purely from image analyses.
+    const listingBlock = listingData
+      ? `LISTING:
+Address: ${listingData.address || 'Property'}
+Beds/Baths: ${listingData.beds || '?'} bed / ${listingData.baths || '?'} bath
+Sqft: ${listingData.sqft?.toLocaleString() || '?'}
+${listingData.year_built ? `Year Built: ${listingData.year_built}` : ''}
+${listingData.lot_size ? `Lot: ${listingData.lot_size}` : ''}
+Description: ${listingData.description?.slice(0, 500) || ''}`
+      : `LISTING: A residential property (no detailed metadata provided — write the script using only the visible details in the images).`;
+
     const { object } = await generateObject({
       model: google('gemini-3-flash-preview'),
       schema: scriptSchema,
@@ -43,13 +55,7 @@ export async function generateListingScript(
           role: 'user',
           content: `You are a professional real estate video narrator. Write a voiceover script for a listing video.
 
-LISTING:
-Address: ${listingData.address}
-Beds/Baths: ${listingData.beds} bed / ${listingData.baths} bath
-Sqft: ${listingData.sqft.toLocaleString()}
-${listingData.year_built ? `Year Built: ${listingData.year_built}` : ''}
-${listingData.lot_size ? `Lot: ${listingData.lot_size}` : ''}
-Description: ${listingData.description.slice(0, 500)}
+${listingBlock}
 
 SELECTED IMAGES (in order):
 ${imageDescriptions}

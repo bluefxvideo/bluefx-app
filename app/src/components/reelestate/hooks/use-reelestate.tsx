@@ -254,7 +254,7 @@ export function useReelEstate() {
 
   // ─── Step 3: Generate Script ───────────────────
   const generateScript = useCallback(async () => {
-    if (!project.id || project.selectedIndices.length === 0 || !project.listing) return;
+    if (!project.id || project.selectedIndices.length === 0) return;
 
     updateProject({ status: 'scripting', error: null });
 
@@ -350,7 +350,7 @@ export function useReelEstate() {
         const scriptResult = await serverGenerateScript(
           project.id,
           selectedAnalyses,
-          project.listing!,
+          project.listing,
           project.targetDuration,
         );
 

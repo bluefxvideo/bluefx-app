@@ -254,7 +254,7 @@ export async function analyzeListingPhotos(
 export async function generateScript(
   listingId: string,
   selectedAnalyses: ImageAnalysis[],
-  listingData: ZillowListingData,
+  listingData: ZillowListingData | null,
   targetDuration: TargetDuration = 30,
 ): Promise<ScriptGenerationResult> {
   try {
