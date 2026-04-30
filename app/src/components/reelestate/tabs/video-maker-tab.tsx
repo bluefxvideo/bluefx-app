@@ -12,10 +12,12 @@ import { MusicSelector } from '../components/music-selector';
 import {
   Loader2, Scan, Film, FileText, RefreshCw,
   Monitor, Smartphone, Type, Mic, Volume2, Play, Square, AlertTriangle,
+  FolderPlus, Pencil, History as HistoryIcon, Check, X,
 } from 'lucide-react';
 import type { ReelEstateProject, TargetDuration } from '@/types/reelestate';
 import { TARGET_DURATIONS } from '@/types/reelestate';
 import { useRef, useState } from 'react';
+import { NewProjectModal } from '../components/new-project-modal';
 
 // Valid Minimax voices with preview URLs matching shared/voice-constants.ts
 const VOICE_OPTIONS = [
@@ -74,6 +76,10 @@ interface VideoMakerTabProps {
   onSetMusicVolume: (volume: number) => void;
   // Open editor
   onOpenInEditor: () => void;
+  // Project lifecycle
+  onCreateProject: (name: string) => Promise<string | null | undefined>;
+  onRenameProject: (name: string) => void;
+  onGoToHistory: () => void;
 }
 
 export function VideoMakerTab({
@@ -100,16 +106,75 @@ export function VideoMakerTab({
   onSetMusicTrack,
   onSetMusicVolume,
   onOpenInEditor,
+  onCreateProject,
+  onRenameProject,
+  onGoToHistory,
 }: VideoMakerTabProps) {
   const hasPhotos = project.photos.length > 0;
   const hasAnalyses = project.analyses.length > 0;
   const hasSelection = project.selectedIndices.length > 0;
+  const hasProject = !!project.id;
 
   const isPreparing = ['scripting', 'generating_voiceover'].includes(project.status);
+
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+
+  // ─── Empty state — no project loaded yet ──────
+  if (!hasProject) {
+    return (
+      <TabContentWrapper>
+        <TabBody>
+          <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 px-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <FolderPlus className="w-8 h-8 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Start a new project</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Create a project first, then add photos from Zillow or upload your own.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 w-full max-w-xs">
+              <Button onClick={() => setNewProjectOpen(true)} size="lg" className="w-full gap-2">
+                <FolderPlus className="w-4 h-4" />
+                New Project
+              </Button>
+              <Button onClick={onGoToHistory} variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground">
+                <HistoryIcon className="w-3.5 h-3.5" />
+                Continue from History
+              </Button>
+            </div>
+          </div>
+        </TabBody>
+        <NewProjectModal open={newProjectOpen} onOpenChange={setNewProjectOpen} onCreate={onCreateProject} />
+      </TabContentWrapper>
+    );
+  }
 
   return (
     <TabContentWrapper>
       <TabBody>
+        {/* Project header — always visible when project exists */}
+        <div className="flex items-center justify-between gap-2 pb-3 mb-2 border-b border-border/40">
+          <ProjectNameEditor
+            name={project.name || 'Untitled Project'}
+            onRename={onRenameProject}
+            disabled={isWorking}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs flex-shrink-0"
+            onClick={() => setNewProjectOpen(true)}
+            disabled={isWorking}
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+            New
+          </Button>
+        </div>
+
+        <NewProjectModal open={newProjectOpen} onOpenChange={setNewProjectOpen} onCreate={onCreateProject} />
+
         {/* Step 1: Photos */}
         <StandardStep
           stepNumber={1}
@@ -467,6 +532,76 @@ export function VideoMakerTab({
         </TabFooter>
       )}
     </TabContentWrapper>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Inline project name editor
+// ─────────────────────────────────────────────
+function ProjectNameEditor({
+  name,
+  onRename,
+  disabled,
+}: {
+  name: string;
+  onRename: (name: string) => void;
+  disabled?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEdit = () => {
+    setDraft(name);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== name) onRename(trimmed);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(name);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 min-w-0 flex-1">
+        <Input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') cancel();
+          }}
+          className="h-8 text-sm font-medium"
+          disabled={disabled}
+        />
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={commit}>
+          <Check className="w-3.5 h-3.5" />
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={cancel}>
+          <X className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEdit}
+      disabled={disabled}
+      className="group flex items-center gap-1.5 min-w-0 flex-1 text-left hover:text-foreground"
+    >
+      <h3 className="text-sm font-semibold truncate">{name}</h3>
+      <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 text-muted-foreground flex-shrink-0" />
+    </button>
   );
 }
 

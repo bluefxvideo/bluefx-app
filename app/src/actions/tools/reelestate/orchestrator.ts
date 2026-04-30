@@ -47,6 +47,52 @@ export async function estimateTotalCredits(photoCount: number): Promise<number> 
 }
 
 // ═══════════════════════════════════════════
+// Step 0: Create Empty Project (no photos yet)
+// ═══════════════════════════════════════════
+
+export async function createEmptyProject(name: string): Promise<{
+  success: boolean;
+  listing_id?: string;
+  name?: string;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'Authentication required' };
+
+    const trimmedName = name.trim() || `Untitled Project — ${new Date().toLocaleDateString()}`;
+
+    const result = await createListing({
+      user_id: user.id,
+      name: trimmedName,
+      source_type: 'manual',
+      photo_urls: [],
+    });
+
+    if (!result.success || !result.id) {
+      return { success: false, error: result.error || 'Failed to create project' };
+    }
+
+    return { success: true, listing_id: result.id, name: trimmedName };
+  } catch (error) {
+    console.error('❌ Create empty project error:', error);
+    return { success: false, error: 'Failed to create project' };
+  }
+}
+
+export async function renameProject(
+  listingId: string,
+  name: string,
+): Promise<{ success: boolean; error?: string }> {
+  const trimmed = name.trim();
+  if (!trimmed) return { success: false, error: 'Name cannot be empty' };
+
+  const { updateListing } = await import('@/actions/database/reelestate-database');
+  return updateListing(listingId, { name: trimmed });
+}
+
+// ═══════════════════════════════════════════
 // Step 1: Start Project (Scrape or Manual)
 // ═══════════════════════════════════════════
 
@@ -123,6 +169,7 @@ export async function startListingProject(input: {
     // Create listing record
     const createResult = await createListing({
       user_id: user.id,
+      name: listing?.address || (input.zillow_url ? 'Zillow Listing' : 'Manual Upload'),
       zillow_url: input.zillow_url,
       source_type: sourceType,
       listing_data: listing,

@@ -185,7 +185,7 @@ function HistoryRow({ item, onLoadProject, onDeleteGeneration }: {
           className="flex-1 min-w-0 text-left"
         >
           <p className="font-medium text-sm truncate">
-            {d.listing_data?.address || d.zillow_url || 'Manual Upload'}
+            {d.name || d.listing_data?.address || d.zillow_url || 'Manual Upload'}
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[d.status] || ''}`}>

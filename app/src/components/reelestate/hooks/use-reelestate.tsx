@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { getUserCredits } from '@/actions/credit-management';
 import {
   startListingProject,
+  createEmptyProject as serverCreateEmptyProject,
+  renameProject as serverRenameProject,
   analyzeListingPhotos,
   generateScript as serverGenerateScript,
   generateClips as serverGenerateClips,
@@ -32,6 +34,7 @@ import type {
 import { issueToPreset } from '@/types/reelestate';
 
 const INITIAL_PROJECT: ReelEstateProject = {
+  name: null,
   listing: null,
   photos: [],
   analyses: [],
@@ -114,6 +117,37 @@ export function useReelEstate() {
     setProject(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // ─── Create Empty Project (Step 0) ─────────────
+  const createProject = useCallback(async (name: string) => {
+    updateProject({ status: 'scraping', error: null });
+    const result = await serverCreateEmptyProject(name);
+    if (!result.success || !result.listing_id) {
+      updateProject({ status: 'failed', error: result.error || 'Failed to create project' });
+      toast.error(result.error || 'Failed to create project');
+      return null;
+    }
+    setProject({
+      ...INITIAL_PROJECT,
+      id: result.listing_id,
+      name: result.name || name,
+      status: 'idle',
+    });
+    toast.success(`Project "${result.name || name}" created`);
+    return result.listing_id;
+  }, [updateProject]);
+
+  const renameProject = useCallback(async (newName: string) => {
+    if (!project.id) return;
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    // Optimistic update
+    updateProject({ name: trimmed });
+    const result = await serverRenameProject(project.id, trimmed);
+    if (!result.success) {
+      toast.error(result.error || 'Failed to rename');
+    }
+  }, [project.id, updateProject]);
+
   // ─── Step 1: Start Project ─────────────────────
   const startProject = useCallback(async (input: {
     zillow_url?: string;
@@ -132,6 +166,8 @@ export function useReelEstate() {
 
     updateProject({
       id: result.listing_id,
+      // Keep existing user-given name if any; else fall back to address
+      name: project.name || result.listing?.address || 'Manual Upload',
       listing: result.listing || null,
       photos: result.photos || [],
       analyses: [],
@@ -880,6 +916,7 @@ export function useReelEstate() {
 
     setProject({
       id: listing.id,
+      name: listing.name || listing.listing_data?.address || 'Untitled Project',
       listing: listing.listing_data,
       photos: listing.photo_urls || [],
       analyses: (listing.image_analysis as ImageAnalysis[]) || [],
@@ -930,6 +967,8 @@ export function useReelEstate() {
     userId,
     credits,
     isLoadingCredits,
+    createProject,
+    renameProject,
     startProject,
     addPhotos,
     analyzePhotos,

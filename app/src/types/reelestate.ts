@@ -248,6 +248,7 @@ export type ListingStatus =
 
 export interface ReelEstateProject {
   id?: string;
+  name: string | null;
   listing: ZillowListingData | null;
   photos: string[];
   analyses: ImageAnalysis[];
@@ -334,6 +335,7 @@ export interface AgentCloneShot {
 export interface ReelEstateListingRow {
   id: string;
   user_id: string;
+  name: string | null;
   zillow_url: string | null;
   source_type: 'zillow' | 'manual';
   listing_data: ZillowListingData | null;

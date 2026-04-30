@@ -58,6 +58,8 @@ export function ReelEstatePage() {
     credits,
     isLoadingCredits,
     // Video Maker actions
+    createProject,
+    renameProject,
     startProject,
     addPhotos,
     analyzePhotos,
@@ -225,6 +227,9 @@ export function ReelEstatePage() {
               onSetMusicTrack={setMusicTrack}
               onSetMusicVolume={setMusicVolume}
               onOpenInEditor={openInEditor}
+              onCreateProject={createProject}
+              onRenameProject={renameProject}
+              onGoToHistory={() => setTabOverride('history')}
             />
           </div>
           <VideoMakerOutput

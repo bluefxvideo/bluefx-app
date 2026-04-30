@@ -16,6 +16,7 @@ import type {
 
 export async function createListing(data: {
   user_id: string;
+  name?: string;
   zillow_url?: string;
   source_type: 'zillow' | 'manual';
   listing_data?: ZillowListingData;
@@ -29,6 +30,7 @@ export async function createListing(data: {
       .from('reelestate_listings')
       .insert({
         user_id: data.user_id,
+        name: data.name || null,
         zillow_url: data.zillow_url || null,
         source_type: data.source_type,
         listing_data: data.listing_data || null,
