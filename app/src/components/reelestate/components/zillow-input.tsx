@@ -12,9 +12,10 @@ interface ZillowInputProps {
   onUploadPhotos: (urls: string[]) => void;
   isLoading: boolean;
   disabled: boolean;
+  hasExistingPhotos?: boolean;
 }
 
-export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }: ZillowInputProps) {
+export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled, hasExistingPhotos }: ZillowInputProps) {
   const [url, setUrl] = useState('');
   const [uploadMode, setUploadMode] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -165,7 +166,11 @@ export function ZillowInput({ onSubmitUrl, onUploadPhotos, isLoading, disabled }
                 <Upload className="w-6 h-6 text-muted-foreground" />
                 <div className="text-center">
                   <p className="text-sm font-medium">
-                    {isDraggingOver ? 'Drop photos here' : 'Click or drag photos to upload'}
+                    {isDraggingOver
+                      ? 'Drop photos here'
+                      : hasExistingPhotos
+                        ? 'Click or drag to add more photos'
+                        : 'Click or drag photos to upload'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     JPG, PNG, WebP — multiple files supported

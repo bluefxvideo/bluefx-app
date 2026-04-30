@@ -155,6 +155,35 @@ export function useReelEstate() {
     toast.success(`Loaded ${result.photos?.length || 0} photos`);
   }, [updateProject, refreshCredits]);
 
+  // ─── Append more photos to existing project ───
+  const addPhotos = useCallback(async (newPhotoUrls: string[]) => {
+    if (!project.id) {
+      // No project yet — fall back to startProject
+      await startProject({ manual_photos: newPhotoUrls });
+      return;
+    }
+
+    const combined = [...project.photos, ...newPhotoUrls];
+
+    // Update local state immediately so UI reflects new photos
+    setProject(prev => ({
+      ...prev,
+      photos: combined,
+      // Clear analyses so user re-analyzes (analyses are tied to indices)
+      analyses: [],
+      selectedIndices: [],
+      // Mark script/voiceover stale
+      scriptStale: prev.script ? true : false,
+      voiceoverStale: prev.voiceover ? true : false,
+    }));
+
+    // Persist to DB
+    const { updateListing: dbUpdate } = await import('@/actions/database/reelestate-database');
+    await dbUpdate(project.id, { photo_urls: combined });
+
+    toast.success(`Added ${newPhotoUrls.length} photo${newPhotoUrls.length === 1 ? '' : 's'} (${combined.length} total)`);
+  }, [project.id, project.photos, startProject]);
+
   // ─── Step 2: Analyze Photos ────────────────────
   const analyzePhotos = useCallback(async () => {
     if (!project.id || project.photos.length === 0) return;
@@ -902,6 +931,7 @@ export function useReelEstate() {
     credits,
     isLoadingCredits,
     startProject,
+    addPhotos,
     analyzePhotos,
     generateScript,
     generateVoiceover,

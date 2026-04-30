@@ -59,6 +59,7 @@ export function ReelEstatePage() {
     isLoadingCredits,
     // Video Maker actions
     startProject,
+    addPhotos,
     analyzePhotos,
     generateScript,
     generateVoiceover,
@@ -206,6 +207,7 @@ export function ReelEstatePage() {
               isLoadingCredits={isLoadingCredits}
               isWorking={isWorking}
               onStartProject={startProject}
+              onAddPhotos={addPhotos}
               onAnalyzePhotos={analyzePhotos}
               onSetSelectedIndices={setSelectedIndices}
               onCleanupPhoto={cleanupInlinePhoto}

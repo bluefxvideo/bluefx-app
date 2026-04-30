@@ -51,6 +51,7 @@ interface VideoMakerTabProps {
     manual_photos?: string[];
     manual_listing_data?: Partial<import('@/types/reelestate').ZillowListingData>;
   }) => void;
+  onAddPhotos: (urls: string[]) => void;
   onAnalyzePhotos: () => void;
   onSetSelectedIndices: (indices: number[]) => void;
   onCleanupPhoto?: (index: number) => void;
@@ -81,6 +82,7 @@ export function VideoMakerTab({
   isLoadingCredits,
   isWorking,
   onStartProject,
+  onAddPhotos,
   onAnalyzePhotos,
   onSetSelectedIndices,
   onCleanupPhoto,
@@ -116,9 +118,14 @@ export function VideoMakerTab({
         >
           <ZillowInput
             onSubmitUrl={(url) => onStartProject({ zillow_url: url })}
-            onUploadPhotos={(urls) => onStartProject({ manual_photos: urls })}
+            onUploadPhotos={(urls) => {
+              // If a project already exists, append photos; else create a new one
+              if (project.id) onAddPhotos(urls);
+              else onStartProject({ manual_photos: urls });
+            }}
             isLoading={project.status === 'scraping'}
             disabled={isWorking}
+            hasExistingPhotos={project.photos.length > 0}
           />
 
           {project.listing && (
