@@ -465,7 +465,9 @@ export async function renderListingVideo(
       let currentTime = 0;
       remotionSegments = selectedSegments.map((seg) => {
         const analysis = analyses.find(a => a.index === seg.image_index);
-        const kenBurns = analysis ? cameraMotionToKenBurns(analysis.camera_motion) : 'zoom_in';
+        // Force zoom_in for all photos — pan/jib variants warp images and create artifacts
+        const kenBurns = 'zoom_in';
+        void analysis; // analysis kept for future per-photo tuning, but motion is fixed
         const duration = seg.duration_seconds;
         const startTime = currentTime;
         currentTime += duration;
@@ -479,7 +481,9 @@ export async function renderListingVideo(
       let currentTime = 0;
       remotionSegments = selectedIndices.map((photoIdx) => {
         const analysis = analyses.find(a => a.index === photoIdx);
-        const kenBurns = analysis ? cameraMotionToKenBurns(analysis.camera_motion) : 'zoom_in';
+        // Force zoom_in for all photos — pan/jib variants warp images and create artifacts
+        const kenBurns = 'zoom_in';
+        void analysis; // analysis kept for future per-photo tuning, but motion is fixed
         const startTime = currentTime;
         currentTime += durationPerPhoto;
         return { startTime, endTime: currentTime, duration: durationPerPhoto, kenBurns };

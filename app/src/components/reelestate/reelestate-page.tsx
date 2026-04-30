@@ -227,6 +227,7 @@ export function ReelEstatePage() {
               onSetMusicTrack={setMusicTrack}
               onSetMusicVolume={setMusicVolume}
               onOpenInEditor={openInEditor}
+              onRenderVideo={renderVideo}
               onCreateProject={createProject}
               onRenameProject={renameProject}
               onGoToHistory={() => setTabOverride('history')}
