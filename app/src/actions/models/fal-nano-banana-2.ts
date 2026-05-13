@@ -71,7 +71,9 @@ export async function generateWithFalNanaBanana2(params: FalNanoBanana2Input): P
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout for 4K
+    // 90s timeout — 4K can be slow but anything over 90s usually means stuck.
+    // Keep this below typical proxy/server timeouts so we surface a clean error.
+    const timeout = setTimeout(() => controller.abort(), 90_000);
 
     const response = await fetch(endpoint, {
       method: 'POST',

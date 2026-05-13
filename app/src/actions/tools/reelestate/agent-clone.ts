@@ -28,12 +28,25 @@ async function fetchImageAsBase64(url: string): Promise<string> {
   // If already base64, return as-is
   if (url.startsWith('data:')) return url;
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
-  const buffer = await response.arrayBuffer();
-  const contentType = response.headers.get('content-type') || 'image/jpeg';
-  const base64 = Buffer.from(buffer).toString('base64');
-  return `data:${contentType};base64,${base64}`;
+  // 30-second timeout — without this, a slow/blocked source URL can hang
+  // the whole composite request past the proxy/server timeout.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status} (${url.slice(0, 80)})`);
+    const buffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const base64 = Buffer.from(buffer).toString('base64');
+    return `data:${contentType};base64,${base64}`;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Image fetch timed out after 30s (${url.slice(0, 80)})`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // ─── Generate Composite (NB2) ───────────────

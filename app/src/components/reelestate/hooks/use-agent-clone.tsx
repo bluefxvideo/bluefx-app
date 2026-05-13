@@ -125,26 +125,35 @@ export function useAgentClone() {
 
     setShots(prev => [...prev, newShot]);
 
-    const result = await generateAgentComposite(
-      agentPhotoUrl,
-      backgroundUrl,
-      prompt,
-      aspectRatio,
-    );
+    try {
+      const result = await generateAgentComposite(
+        agentPhotoUrl,
+        backgroundUrl,
+        prompt,
+        aspectRatio,
+      );
 
-    if (!result.success || !result.compositeUrl) {
-      updateShot(id, { status: 'failed', error: result.error || 'Composite failed' });
-      toast.error(result.error || 'Composite generation failed');
-      return;
+      if (!result.success || !result.compositeUrl) {
+        updateShot(id, { status: 'failed', error: result.error || 'Composite failed' });
+        toast.error(result.error || 'Composite generation failed');
+        return;
+      }
+
+      updateShot(id, {
+        status: 'composite_ready',
+        compositeUrl: result.compositeUrl,
+        generationId: result.generationId || null,
+      });
+      await refreshCredits();
+      toast.success('Composite generated');
+    } catch (err) {
+      // Server action threw / network error / proxy timeout — don't leave the
+      // shot stuck on 'compositing' forever.
+      console.error('❌ Composite request failed:', err);
+      const msg = err instanceof Error ? err.message : 'Composite request failed';
+      updateShot(id, { status: 'failed', error: msg });
+      toast.error(msg);
     }
-
-    updateShot(id, {
-      status: 'composite_ready',
-      compositeUrl: result.compositeUrl,
-      generationId: result.generationId || null,
-    });
-    await refreshCredits();
-    toast.success('Composite generated');
   }, [agentPhotoUrl, aspectRatio, updateShot, refreshCredits]);
 
   // Regenerate an existing shot's composite (shot already exists in state)
@@ -154,12 +163,21 @@ export function useAgentClone() {
 
     updateShot(shotId, { status: 'compositing', prompt, compositeUrl: null, videoUrl: null, error: null });
 
-    const result = await generateAgentComposite(
-      shot.agentPhotoUrl,
-      shot.backgroundUrl,
-      prompt,
-      aspectRatio,
-    );
+    let result;
+    try {
+      result = await generateAgentComposite(
+        shot.agentPhotoUrl,
+        shot.backgroundUrl,
+        prompt,
+        aspectRatio,
+      );
+    } catch (err) {
+      console.error('❌ Composite request failed:', err);
+      const msg = err instanceof Error ? err.message : 'Composite request failed';
+      updateShot(shotId, { status: 'failed', error: msg });
+      toast.error(msg);
+      return;
+    }
 
     if (!result.success || !result.compositeUrl) {
       updateShot(shotId, { status: 'failed', error: result.error || 'Composite failed' });
