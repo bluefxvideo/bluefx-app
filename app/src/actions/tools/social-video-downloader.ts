@@ -450,17 +450,53 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
       if (url.includes('ads.tiktok.com') || url.includes('creativecenter')) {
         console.log(`🎯 Detected TikTok Creative Center URL, extracting video directly...`);
         try {
-          const response = await fetch(url);
-          const html = await response.text();
+          // Build cookie header from TIKTOK_CC_COOKIES — without it the Creative
+          // Center page returns a stripped/anti-bot HTML with no video URLs.
+          let cookieHeader = '';
+          try {
+            const cookies = JSON.parse(process.env.TIKTOK_CC_COOKIES || '[]') as Array<{ name: string; value: string }>;
+            cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+          } catch {
+            // Malformed env — fall through without cookies and let the error path log it
+          }
 
-          // Look for video URLs in the page (720p preferred, then 540p, then 480p)
-          const videoUrlMatch = html.match(/https:\/\/v16m[^"'\s]+tiktokcdn\.com[^"'\s]+/g);
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              Referer: 'https://ads.tiktok.com/',
+              Origin: 'https://ads.tiktok.com',
+              Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9',
+              ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+            },
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (!response.ok) {
+            console.error(`❌ Creative Center fetch ${response.status} ${response.statusText} (cookies=${cookieHeader ? 'yes' : 'no'})`);
+            return {
+              success: false,
+              error: `Creative Center returned ${response.status}. The TikTok session cookies may need to be refreshed.`,
+            };
+          }
+
+          const rawHtml = await response.text();
+
+          // Normalize JSON/HTML-escaped slashes inline state uses (/, \/, &#x2F;)
+          // so the URL regex can match in one pass regardless of encoding.
+          const html = rawHtml
+            .replace(/\\u002F/gi, '/')
+            .replace(/\\\//g, '/')
+            .replace(/&#x2F;/gi, '/')
+            .replace(/&amp;/g, '&');
+
+          // Match any tiktokcdn(-us).com video URL — TikTok rotates the subdomain
+          // (v16m-default, v16-webapp, v19, etc.) so we accept any v<digits>... prefix.
+          const videoUrlMatch = html.match(/https?:\/\/v\d+[a-z0-9-]*\.tiktokcdn(?:-us)?\.com[^"'\s]+/gi);
 
           if (videoUrlMatch && videoUrlMatch.length > 0) {
             // Get the longest URL (usually highest quality)
-            const bestUrl = videoUrlMatch.sort((a, b) => b.length - a.length)[0];
-            // Clean up any HTML entities
-            const cleanUrl = bestUrl.replace(/\\u002F/g, '/').replace(/&amp;/g, '&');
+            const cleanUrl = videoUrlMatch.sort((a, b) => b.length - a.length)[0];
             console.log(`✅ Extracted Creative Center video URL: ${cleanUrl.slice(0, 80)}...`);
             return {
               success: true,
@@ -470,9 +506,15 @@ export async function downloadSocialVideo(url: string): Promise<SocialVideoDownl
             };
           }
 
+          // No matches — log enough to diagnose whether TikTok changed page
+          // structure, returned an anti-bot wall, or the cookies are stale.
+          console.error(
+            `❌ Creative Center HTML had no video URLs (len=${html.length}, cookies=${cookieHeader ? 'yes' : 'no'})`
+          );
+          console.error('   first 400 chars:', html.slice(0, 400));
           return {
             success: false,
-            error: 'Could not extract video URL from Creative Center page. Try downloading the video manually.',
+            error: 'Could not extract video URL from Creative Center page. TikTok may have changed its page structure or the session cookies are stale.',
           };
         } catch (fetchError) {
           console.error('Creative Center fetch error:', fetchError);

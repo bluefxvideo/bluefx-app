@@ -113,7 +113,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         gradient: "bg-primary",
         description: "Swap characters in videos",
       },
-      // Video Analyzer absorbed into Ad Creator
+      {
+        name: "Video Analyzer",
+        route: "/dashboard/video-analyzer",
+        icon: ScanSearch,
+        gradient: "bg-primary",
+        description: "Analyze any video — TikTok, Instagram, YouTube, files",
+      },
     ],
   },
   {
@@ -213,7 +219,7 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         route: "/dashboard/winning-ads",
         icon: Flame,
         gradient: "bg-primary",
-        description: "Find top-performing TikTok ads to clone",
+        description: "Find top-performing Facebook ads to clone",
       },
       {
         name: "Trending Keywords",

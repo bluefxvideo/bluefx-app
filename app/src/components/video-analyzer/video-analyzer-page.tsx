@@ -46,6 +46,9 @@ export function VideoAnalyzerPage() {
   const searchParams = useSearchParams();
   const projectIdFromUrl = searchParams.get('projectId');
   const videoUrlFromParams = searchParams.get('videoUrl');
+  // Direct CDN URL forwarded by the Winning Ads page so we can skip the
+  // Creative Center HTML extraction (which TikTok now client-renders).
+  const directUrlFromParams = searchParams.get('directUrl');
 
   // Project context
   const { projectId, loadProject, updateProject } = useProject();
@@ -199,8 +202,13 @@ export function VideoAnalyzerPage() {
           });
         } else {
           // Analyze social media video via Apify download
+          // Pass directUrl when present (winning-ads flow) so the action
+          // skips the broken Creative Center HTML extraction.
           result = await analyzeSocialMediaVideo({
             socialUrl: videoUrl,
+            directVideoUrl: videoUrl === videoUrlFromParams && directUrlFromParams
+              ? directUrlFromParams
+              : undefined,
             analysisType,
             customPrompt: customPrompt || undefined,
           });

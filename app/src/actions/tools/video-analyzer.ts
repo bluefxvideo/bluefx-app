@@ -443,6 +443,11 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
 // Social Media Video Analysis (TikTok, Instagram, Facebook, Twitter)
 export interface AnalyzeSocialVideoRequest {
   socialUrl: string;
+  // Direct CDN URL (e.g. winning_ads.video_url from a recent scrape).
+  // When provided, the analyzer skips the Apify/HTML-extraction download step
+  // and fetches this URL directly — needed for TikTok Creative Center URLs
+  // because TikTok now client-renders the video URLs, so HTML scraping fails.
+  directVideoUrl?: string;
   analysisType: string;
   customPrompt?: string;
 }
@@ -472,29 +477,55 @@ export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest
     // For social videos, we charge 6 credits (same as YouTube)
     const creditsUsed = 6;
 
-    console.log(`📥 Downloading ${platform} video...`);
+    // Step 1: Resolve the actual video URL.
+    // Prefer the caller-supplied direct URL when available (winning-ads flow);
+    // otherwise fall back to Apify / HTML extraction.
+    let resolvedVideoUrl: string;
+    let resolvedTitle: string | undefined;
 
-    // Step 1: Download the video using Apify
-    const downloadResult = await downloadSocialVideo(request.socialUrl);
+    if (request.directVideoUrl) {
+      console.log(`🎯 Using direct video URL provided by caller, skipping Apify`);
+      resolvedVideoUrl = request.directVideoUrl;
+    } else {
+      console.log(`📥 Downloading ${platform} video via Apify...`);
+      const downloadResult = await downloadSocialVideo(request.socialUrl);
 
-    if (!downloadResult.success || !downloadResult.videoUrl) {
-      return {
-        success: false,
-        error: downloadResult.error || 'Failed to download video'
-      };
+      if (!downloadResult.success || !downloadResult.videoUrl) {
+        return {
+          success: false,
+          error: downloadResult.error || 'Failed to download video'
+        };
+      }
+      resolvedVideoUrl = downloadResult.videoUrl;
+      resolvedTitle = downloadResult.title;
     }
 
-    console.log(`✅ Video URL obtained: ${downloadResult.videoUrl.slice(0, 100)}...`);
+    console.log(`✅ Video URL obtained: ${resolvedVideoUrl.slice(0, 100)}...`);
 
-    // Step 2: Download the video content and convert to base64
-    // Gemini doesn't support arbitrary URLs, so we need to fetch and send as inline data
-    console.log(`📥 Fetching video content...`);
-    const videoResponse = await fetch(downloadResult.videoUrl);
+    // Step 2: Download the video content and convert to base64.
+    // Gemini doesn't support arbitrary URLs, so we fetch and send as inline data.
+    // TikTok signed CDN URLs validate Referer/User-Agent — send them so the
+    // fetch isn't 403'd when the URL is a tiktokcdn host.
+    const isTikTokCdn = /tiktokcdn(?:-us)?\.com/i.test(resolvedVideoUrl);
+    console.log(`📥 Fetching video content${isTikTokCdn ? ' (TikTok CDN)' : ''}...`);
+
+    const videoResponse = await fetch(resolvedVideoUrl, {
+      headers: isTikTokCdn
+        ? {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Referer: 'https://ads.tiktok.com/',
+            Origin: 'https://ads.tiktok.com',
+          }
+        : undefined,
+    });
 
     if (!videoResponse.ok) {
+      const hint = isTikTokCdn && (videoResponse.status === 403 || videoResponse.status === 410)
+        ? ' The TikTok CDN signed URL may have expired — the winning ads library refreshes every 3 days, so this ad may need a re-scrape.'
+        : '';
       return {
         success: false,
-        error: `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`
+        error: `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}.${hint}`
       };
     }
 
@@ -563,8 +594,8 @@ export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest
     console.log(`✅ ${platform} video analysis generated successfully (${analysisText.length} chars, finishReason=${finishReason})`);
 
     // Generate a title for the analysis
-    const title = downloadResult.title
-      ? `${platform.charAt(0).toUpperCase() + platform.slice(1)}: ${downloadResult.title.slice(0, 50)}`
+    const title = resolvedTitle
+      ? `${platform.charAt(0).toUpperCase() + platform.slice(1)}: ${resolvedTitle.slice(0, 50)}`
       : `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`;
 
     // Save to database

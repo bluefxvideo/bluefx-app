@@ -23,7 +23,6 @@ import {
   Globe,
 } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
-import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,11 +72,6 @@ interface PaginationInfo {
   has_more: boolean;
 }
 
-const WINNING_ADS_TABS = [
-  { id: 'tiktok',   label: 'TikTok Ads',   icon: Flame,    path: '/dashboard/winning-ads' },
-  { id: 'facebook', label: 'Facebook Ads', icon: Facebook, path: '/dashboard/winning-ads/facebook' },
-];
-
 function formatNumber(num: number): string {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -109,7 +103,7 @@ function getDaysRunning(dateScraped: string): number {
   return Math.floor((Date.now() - new Date(dateScraped).getTime()) / 86_400_000);
 }
 
-export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform }) {
+export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform }) {
   const router = useRouter();
   const [ads, setAds] = useState<WinningAd[]>([]);
   const [niches, setNiches] = useState<NicheInfo[]>([]);
@@ -217,7 +211,11 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
       router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
     } else {
       const adUrl = `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
-      router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
+      // Forward the stored CDN video_url so the analyzer can skip the
+      // Creative Center HTML extraction (which TikTok now client-renders).
+      const params = new URLSearchParams({ videoUrl: adUrl });
+      if (ad.video_url) params.set('directUrl', ad.video_url);
+      router.push(`/dashboard/video-analyzer?${params.toString()}`);
     }
   };
 
@@ -281,13 +279,6 @@ export function WinningAdsPage({ platform = 'tiktok' }: { platform?: Platform })
           : 'Long-running active ads on Facebook & Instagram.'
       }
       toolName="Winning Ads Finder"
-      tabs={
-        <StandardToolTabs
-          tabs={WINNING_ADS_TABS}
-          activeTab={platform}
-          basePath="/dashboard/winning-ads"
-        />
-      }
     >
       <div className="flex-1 p-4 lg:p-6 overflow-auto">
         {/* Filters Bar */}
