@@ -347,7 +347,8 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
 
   // Detect trial state - trial users get limited credits to reduce loss on cancellations
   // Yearly purchasers (even if starting with trial) get full credits since they're committed
-  const isTrial = data.state === 'trial'
+  // A charge.completed event means money changed hands — never treat it as a trial.
+  const isTrial = data.state === 'trial' && eventType !== 'subscription.charge.completed'
   const creditsAllocation = (isTrial && !isYearlyPlan) ? TRIAL_CREDITS : FULL_CREDITS
 
   console.log(`Creating ${isTrial ? 'TRIAL' : planType.toUpperCase()} subscription with ${creditsAllocation} credits (product: ${productId}, trial: ${isTrial}, yearly: ${isYearlyPlan})`)
@@ -448,6 +449,44 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
       console.log(`✅ Credits boosted to ${FULL_CREDITS} for yearly upgrade`)
       console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
       return // Exit early - upgrade complete
+    }
+
+    if (existingSubscription && !isTrial) {
+      // Monthly trial->paid conversion (or monthly rebill of a non-active sub).
+      // Flip to active and ensure the full monthly allotment, preserving purchased
+      // bonus credits. This is the real-time counterpart to the reconcile cron and
+      // fixes the long-standing "stuck on trial / 100 credits after conversion" bug.
+      const periodStart = new Date()
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
+      const { error: convertError } = await supabase
+        .from('user_subscriptions')
+        .update({
+          status: 'active',
+          fastspring_subscription_id: subscriptionId,
+          current_period_start: periodStart.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          cancel_at_period_end: false,
+          updated_at: periodStart.toISOString(),
+        })
+        .eq('id', existingSubscription.id)
+
+      if (convertError) {
+        console.error('FastSpring conversion update error:', convertError)
+        throw new Error(`Failed to activate subscription: ${convertError.message}`)
+      }
+
+      // topup_user_credits sets total to target, resets the 30-day period, preserves bonus
+      const { error: convertCreditsError } = await supabase
+        .rpc('topup_user_credits', { p_user_id: userId, p_target_credits: FULL_CREDITS })
+
+      if (convertCreditsError) {
+        console.error('FastSpring conversion credits error:', convertCreditsError)
+        throw new Error(`Failed to grant credits: ${convertCreditsError.message}`)
+      }
+
+      console.log(`✅ Activated subscription for ${customerEmail} — ${FULL_CREDITS} credits granted (was ${existingSubscription.status})`)
+      return // Exit early - conversion complete
     }
   } else {
     // Create new user account (matches legacy logic)
@@ -567,13 +606,8 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
 async function handleFastSpringRenewal(data: FastSpringEventData) {
   const supabase = createAdminClient()
 
-  const customerEmail = typeof data.account === 'object' ? (data.account?.contact?.email || '') : ''
   const subscriptionId = data.id || data.reference || 'unknown'
-
-  if (!customerEmail) {
-    console.error('Customer email not found in FastSpring renewal:', data)
-    return
-  }
+  const customerEmail = typeof data.account === 'object' ? (data.account?.contact?.email || '') : ''
 
   // Check for duplicate processing
   const { data: existingEvent } = await supabase
@@ -588,6 +622,39 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
     return
   }
 
+  // Resolve the user. Renewal events frequently send `account` as a bare ID string
+  // (no email), so resolve via the subscription id we stored at signup first, then
+  // fall back to email when present. (Reading email-only here used to drop every renewal.)
+  let userId: string | null = null
+  let subscription: { user_id: string; credits_per_month: number | null; plan_type: string } | null = null
+
+  const { data: subByFsId } = await supabase
+    .from('user_subscriptions')
+    .select('user_id, credits_per_month, plan_type')
+    .eq('fastspring_subscription_id', subscriptionId)
+    .maybeSingle()
+
+  if (subByFsId) {
+    userId = subByFsId.user_id
+    subscription = subByFsId
+  } else if (customerEmail) {
+    const { data: authUsers } = await supabase.auth.admin.listUsers()
+    userId = authUsers.users.find(u => u.email === customerEmail)?.id || null
+    if (userId) {
+      const { data: subByUser } = await supabase
+        .from('user_subscriptions')
+        .select('user_id, credits_per_month, plan_type')
+        .eq('user_id', userId)
+        .single()
+      subscription = subByUser
+    }
+  }
+
+  if (!userId) {
+    console.error('User not found for FastSpring renewal:', subscriptionId, customerEmail)
+    return
+  }
+
   // Log webhook event
   await supabase
     .from('webhook_events')
@@ -597,22 +664,6 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
       processor: 'fastspring',
       payload: { data, customerEmail, subscriptionId } as unknown as Json
     })
-
-  // Find user by email
-  const { data: authUsers } = await supabase.auth.admin.listUsers()
-  const user = authUsers.users.find(u => u.email === customerEmail)
-
-  if (!user) {
-    console.error('User not found for FastSpring renewal:', customerEmail)
-    return
-  }
-
-  // Get user's current subscription to determine credit amount
-  const { data: subscription } = await supabase
-    .from('user_subscriptions')
-    .select('credits_per_month, plan_type')
-    .eq('user_id', user.id)
-    .single()
 
   // Use stored credits_per_month or default to 600 for legacy users
   const creditsToRenew = subscription?.credits_per_month || 600
@@ -630,7 +681,7 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
       cancel_at_period_end: false,
       updated_at: new Date().toISOString()
     })
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
 
   // Reset credits for new period based on plan
   await supabase
@@ -642,9 +693,9 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
       period_end: currentPeriodEnd.toISOString(),
       updated_at: new Date().toISOString()
     })
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
 
-  console.log(`FastSpring renewal processed: ${customerEmail} (${subscription?.plan_type || 'legacy'}) - ${creditsToRenew} credits renewed`)
+  console.log(`FastSpring renewal processed: ${customerEmail || userId} (${subscription?.plan_type || 'legacy'}) - ${creditsToRenew} credits renewed`)
 }
 
 async function handleFastSpringOrderCompleted(data: FastSpringEventData) {

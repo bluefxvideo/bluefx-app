@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient, createAdminClient } from '@/app/supabase/server';
+import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
 import { Json } from '@/types/database';
 
 /**
@@ -378,45 +379,12 @@ export async function deductCredits(
   try {
     const supabase = await createClient();
 
-    // First check if user has enough credits
-    const { data: credits, error: creditsError } = await supabase
-      .from('user_credits')
-      .select('available_credits, period_end')
-      .eq('user_id', user_id)
-      .single();
-
-    if (creditsError && creditsError.code !== 'PGRST116') {
-      console.error('Credits check error:', creditsError);
-      return {
-        success: false,
-        error: `Failed to check credits: ${creditsError.message}`,
-      };
-    }
-
-    // If no credits record or available credits < required amount or period expired, top up first
-    const needsTopup = !credits ||
-                      (credits.available_credits < amount) ||
-                      (new Date(credits.period_end) < new Date());
-
-    if (needsTopup) {
-      console.log(`Auto top-up needed for user ${user_id}. Current credits: ${credits?.available_credits || 0}`);
-
-      // Top up to 600 credits using RPC function
-      const { data: topupData, error: topupError } = await supabase
-        .rpc('topup_user_credits', {
-          p_user_id: user_id,
-          p_target_credits: 600
-        });
-
-      if (topupError || !topupData?.success) {
-        console.error('Auto top-up failed:', topupError);
-        return {
-          success: false,
-          error: `Auto top-up failed: ${topupError?.message || 'Unknown error'}`,
-        };
-      }
-
-      console.log(`Auto top-up successful. New available credits: ${topupData.available_credits}`);
+    // Gate the monthly credit grant on paying status: active subscribers get their
+    // monthly allotment (renewed each period); trial keeps its initial 100; cancelled/
+    // none get no new grant. Self-heals a missed trial->paid conversion at point of use.
+    const entitlement = await ensureCreditsForUsage(user_id, amount);
+    if (!entitlement.ok) {
+      return { success: false, error: entitlement.error };
     }
 
     // Now proceed with credit deduction using RPC function
