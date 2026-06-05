@@ -31,12 +31,14 @@ import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 
 type AdCreatorMode = 'select' | 'clone' | 'script';
 
-export function AdCreatorPage() {
+export function AdCreatorPage({ initialMode }: { initialMode?: 'clone' | 'script' } = {}) {
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState<AdCreatorMode>('select');
+  const [mode, setMode] = useState<AdCreatorMode>(initialMode ?? 'select');
 
-  // Check URL params for mode
+  // Check URL params for mode (skipped on the dedicated Clone / From-Script pages,
+  // which force the mode via the initialMode prop).
   useEffect(() => {
+    if (initialMode) return;
     const modeParam = searchParams.get('mode');
     if (modeParam === 'clone') setMode('clone');
     else if (modeParam === 'script') setMode('script');
@@ -44,20 +46,31 @@ export function AdCreatorPage() {
     // Check if coming from old ai-recreate with analysisId
     const analysisId = searchParams.get('analysisId');
     if (analysisId) setMode('clone');
-  }, [searchParams]);
+  }, [searchParams, initialMode]);
+
+  const title =
+    mode === 'clone' ? 'Clone Video Ad'
+    : mode === 'script' ? 'Video Ad From Script'
+    : 'Ad (Re)Creator';
+  const description =
+    mode === 'clone' ? "Clone a competitor's video ad with your own product"
+    : mode === 'script' ? 'Turn your script into a shot-by-shot video ad'
+    : "Create AI video ads — clone a competitor's ad or start from your own script";
 
   return (
     <StandardToolPage
       icon={Video}
-      title="Ad (Re)Creator"
-      description="Create AI video ads — clone a competitor's ad or start from your own script"
+      title={title}
+      description={description}
       iconGradient="bg-primary"
       toolName="Ad (Re)Creator"
     >
       {mode === 'select' ? (
         <ModeSelector onSelect={setMode} />
       ) : (
-        <AdCreatorWizard mode={mode} onBack={() => setMode('select')} />
+        // On a dedicated page (forced mode), "back" returns to that same mode's start;
+        // otherwise it returns to the mode selector.
+        <AdCreatorWizard mode={mode} onBack={() => setMode(initialMode ?? 'select')} />
       )}
     </StandardToolPage>
   );

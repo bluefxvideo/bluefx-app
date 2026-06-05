@@ -37,7 +37,8 @@ import {
   ScanSearch,
   Share2,
   Flame,
-  Wand2,
+  Copy,
+  FileText,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -79,18 +80,25 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
     name: "Video Tools",
     tools: [
       {
+        name: "Clone Video Ad",
+        route: "/dashboard/clone-video-ad",
+        icon: Copy,
+        gradient: "bg-primary",
+        description: "Clone a competitor's video ad with your product",
+      },
+      {
+        name: "Video Ad From Script",
+        route: "/dashboard/video-ad-from-script",
+        icon: FileText,
+        gradient: "bg-primary",
+        description: "Turn your script into a video ad",
+      },
+      {
         name: "AI Cinematographer",
         route: "/dashboard/ai-cinematographer",
         icon: Video,
         gradient: "bg-primary",
         description: "Professional video creation",
-      },
-      {
-        name: "Ad (Re)Creator",
-        route: "/dashboard/ad-creator",
-        icon: Wand2,
-        gradient: "bg-primary",
-        description: "Clone ads or create from script",
       },
       {
         name: "Script to Video",
