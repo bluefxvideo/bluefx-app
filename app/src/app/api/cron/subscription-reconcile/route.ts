@@ -22,8 +22,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now()
   const dryRun = request.nextUrl.searchParams.get('dryRun') === '1'
 
-  // Auth (same pattern as the other cron routes)
-  const expectedToken = process.env.CRON_SECRET_TOKEN
+  // Auth — accept either the plain or Coolify-prefixed (APP_) env var name.
+  const expectedToken = process.env.CRON_SECRET_TOKEN || process.env.APP_CRON_SECRET_TOKEN
   const authHeader = request.headers.get('authorization')
   if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
