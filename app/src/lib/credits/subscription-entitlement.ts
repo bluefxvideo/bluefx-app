@@ -54,6 +54,57 @@ export async function fetchFastSpringSubscription(
   }
 }
 
+type EntitlementAdmin = ReturnType<typeof createAdminClient>
+
+/**
+ * Check whether a user has an ACTIVE ClickBank subscription, by resolving their
+ * SALE receipt(s) from webhook_events and querying the ClickBank order API.
+ * Returns true (active), false (confirmed not active), or null (can't determine).
+ */
+export async function fetchClickBankActive(admin: EntitlementAdmin, userId: string): Promise<boolean | null> {
+  const clerkKey = process.env.CLICKBANK_CLERK_KEY || process.env.APP_CLICKBANK_CLERK_KEY
+  if (!clerkKey) return null
+
+  const { data: prof } = await admin.from('profiles').select('email').eq('id', userId).maybeSingle()
+  const email = (prof?.email || '').toLowerCase()
+  if (!email) return null
+
+  const { data: events } = await admin
+    .from('webhook_events')
+    .select('event_id, payload')
+    .eq('processor', 'clickbank')
+    .eq('event_type', 'SALE')
+
+  const receipts: string[] = []
+  for (const e of events || []) {
+    const p = (e.payload || {}) as Record<string, unknown>
+    const customer = p.customer as Record<string, unknown> | undefined
+    const em = ((customer?.email || p.customer_email || p.email || '') as string).toLowerCase()
+    if (em === email) receipts.push(e.event_id)
+  }
+  if (!receipts.length) return null
+
+  let resolvedAny = false
+  for (const rc of receipts) {
+    try {
+      const r = await fetch(`https://api.clickbank.com/rest/1.3/orders2/${rc}`, {
+        headers: { Authorization: clerkKey, Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!r.ok) continue
+      resolvedAny = true
+      const j = await r.json() as Record<string, unknown>
+      const orderData = (j.orderData || {}) as Record<string, unknown>
+      const li = orderData.lineItemData
+      const item = Array.isArray(li)
+        ? ((li as Record<string, unknown>[]).find(x => x.recurring === 'true') || (li as Record<string, unknown>[])[0])
+        : li as Record<string, unknown>
+      if (item?.status === 'ACTIVE') return true
+    } catch { /* timeout/network — skip this receipt */ }
+  }
+  return resolvedAny ? false : null
+}
+
 /**
  * Cancel a FastSpring subscription (DELETE = cancel at end of current billing period,
  * so a trial finishes without the $37 rebill). Used when a yearly upsell supersedes the
@@ -235,13 +286,22 @@ export async function ensureCreditsForUsage(
     return { ok: false, error: 'Your trial credits are used up. Upgrade to a paid plan to keep creating.' }
   }
 
-  // 4) Trial without a FastSpring id (ClickBank/manual) — we can't verify billing yet.
-  //    TEMPORARY transition behavior: grant rather than risk blocking a real payer.
-  //    TODO: remove once ClickBank reconciliation lands (see subscription-renewal-bugs).
+  // 4) Trial without a FastSpring id (ClickBank/manual): verify against ClickBank.
+  //    A missed rebill webhook can leave a converted payer stuck on trial — self-heal
+  //    them at point of use; only deny when ClickBank confirms they aren't active.
   if (status === 'trial') {
-    console.warn(`[entitlement] trial user ${userId} insufficient & no FS id — granting (transition; needs ClickBank reconcile)`)
-    await topup(admin, userId, monthly)
-    return { ok: true }
+    const cbActive = await fetchClickBankActive(admin, userId)
+    if (cbActive === true) {
+      await admin
+        .from('user_subscriptions')
+        .update({ status: 'active', updated_at: now.toISOString() })
+        .eq('id', sub!.id)
+      await topup(admin, userId, monthly)
+      console.log(`[entitlement] self-healed converted ClickBank user ${userId} at point of use`)
+      return { ok: true }
+    }
+    // cbActive === false (confirmed not paying) or null (no receipt / key) — trial is spent.
+    return { ok: false, error: 'Your trial credits are used up. Upgrade to a paid plan to keep creating.' }
   }
 
   // 5) Cancelled / no subscription and out of credits — block new grants.
