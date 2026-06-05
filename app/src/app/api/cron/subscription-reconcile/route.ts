@@ -97,13 +97,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     async function cbLookup(receipt: string): Promise<Record<string, unknown> | null | undefined> {
-      for (let t = 0; t < 5; t++) {
+      for (let t = 0; t < 3; t++) { // max 3 tries, short backoff
         const r = await fetch(`https://api.clickbank.com/rest/1.3/orders2/${receipt}`, {
           headers: { Authorization: clerkKey!, Accept: 'application/json' },
+          signal: AbortSignal.timeout(8000), // 8s per request
         })
         if (r.ok) return await r.json() as Record<string, unknown>
         if (r.status === 404) return null
-        await new Promise(res => setTimeout(res, 600 * Math.pow(1.7, t)))
+        if (t < 2) await new Promise(res => setTimeout(res, 500 * (t + 1))) // 0.5s, 1s
       }
       return undefined // unresolved
     }
