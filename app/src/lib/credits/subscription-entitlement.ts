@@ -40,6 +40,7 @@ export async function fetchFastSpringSubscription(
     const auth = Buffer.from(`${username}:${apiKey}`).toString('base64')
     const res = await fetch(`https://api.fastspring.com/subscriptions/${subscriptionId}`, {
       headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000), // 8s per request — prevents stalling the cron
     })
     if (!res.ok) {
       if (res.status !== 404) console.error(`[entitlement] FastSpring API ${res.status} for ${subscriptionId}`)

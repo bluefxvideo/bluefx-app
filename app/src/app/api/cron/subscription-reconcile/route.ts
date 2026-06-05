@@ -27,6 +27,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Hard deadline — always return before the 5-min maxDuration.
+  // Anything not processed gets picked up on the next daily run.
+  const DEADLINE = startTime + 4 * 60 * 1000 // 4 minutes
+  const overDeadline = () => Date.now() > DEADLINE
+
   const supabase = createAdminClient()
   const fsStats: Record<string, number> = {}
   const cbStats: Record<string, number> = {}
@@ -46,7 +51,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const CONCURRENCY = 5
   let fsCursor = 0
   async function fsWorker() {
-    while (fsCursor < fsSubs!.length) {
+    while (fsCursor < fsSubs!.length && !overDeadline()) {
       const sub = fsSubs![fsCursor++]
       try {
         const r = await reconcileSubscription(supabase, sub, { dryRun })
@@ -110,6 +115,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     for (const sub of cbSubs || []) {
+      if (overDeadline()) { cbStats['deadline_skip'] = (cbStats['deadline_skip'] || 0) + 1; continue }
       const receipts = receiptsByUser.get(sub.user_id) || []
       if (!receipts.length) { cbStats['no_receipt'] = (cbStats['no_receipt'] || 0) + 1; continue }
 
