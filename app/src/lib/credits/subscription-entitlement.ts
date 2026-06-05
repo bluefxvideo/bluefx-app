@@ -53,6 +53,33 @@ export async function fetchFastSpringSubscription(
   }
 }
 
+/**
+ * Cancel a FastSpring subscription (DELETE = cancel at end of current billing period,
+ * so a trial finishes without the $37 rebill). Used when a yearly upsell supersedes the
+ * monthly. Returns true on success (or if already gone).
+ */
+export async function cancelFastSpringSubscription(subscriptionId: string): Promise<boolean> {
+  const username = process.env.FASTSPRING_USERNAME
+  const apiKey = process.env.FASTSPRING_API_KEY
+  if (!username || !apiKey) {
+    console.warn('[entitlement] FastSpring API creds not configured — cannot cancel', subscriptionId)
+    return false
+  }
+  try {
+    const auth = Buffer.from(`${username}:${apiKey}`).toString('base64')
+    const res = await fetch(`https://api.fastspring.com/subscriptions/${subscriptionId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+    })
+    if (res.ok || res.status === 404) return true
+    console.error(`[entitlement] FastSpring cancel ${res.status} for ${subscriptionId}:`, (await res.text()).slice(0, 200))
+    return false
+  } catch (err) {
+    console.error('[entitlement] FastSpring cancel error:', err)
+    return false
+  }
+}
+
 /** Map a FastSpring (state, active) pair to our canonical status. */
 export function classifyFastSpring(fs: { state: string; active: boolean }): ReconciledStatus {
   if (fs.state === 'trial') return 'trial'

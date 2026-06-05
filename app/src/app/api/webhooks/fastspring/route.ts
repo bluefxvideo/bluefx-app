@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
+import { cancelFastSpringSubscription } from '@/lib/credits/subscription-entitlement'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 
@@ -444,6 +445,24 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
         console.error('FastSpring credits update error:', creditsUpdateError)
         throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
       }
+
+      // Cancel the superseded monthly/trial subscription in FastSpring so the customer
+      // is NOT charged $37 on day 30 (this was previously done by hand). Guard against
+      // cancelling the same id we just upgraded to.
+      const oldMonthlyId = existingSubscription.fastspring_subscription_id
+      if (oldMonthlyId && oldMonthlyId !== subscriptionId) {
+        const cancelled = await cancelFastSpringSubscription(oldMonthlyId)
+        console.log(cancelled
+          ? `✅ Cancelled superseded monthly subscription ${oldMonthlyId} for ${customerEmail}`
+          : `⚠️ Could NOT cancel monthly subscription ${oldMonthlyId} for ${customerEmail} — cancel it manually in FastSpring`)
+      }
+
+      // Never leave an upsell customer suspended (e.g. if the monthly's cancellation
+      // webhook raced ahead of this upgrade and suspended them).
+      await supabase
+        .from('profiles')
+        .update({ is_suspended: false, suspension_reason: null, updated_at: new Date().toISOString() })
+        .eq('id', userId)
 
       console.log(`✅ Upgraded subscription to yearly for user ${customerEmail} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
       console.log(`✅ Credits boosted to ${FULL_CREDITS} for yearly upgrade`)
@@ -1021,25 +1040,57 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
 async function handleFastSpringCancellation(data: FastSpringEventData) {
   const supabase = createAdminClient()
 
+  const subscriptionId = data.id || data.reference || 'unknown'
   const customerEmail = typeof data.account === 'object' ? (data.account?.contact?.email || '') : ''
 
-  if (!customerEmail) {
-    console.error('Customer email not found in FastSpring cancellation:', data)
+  // Resolve the user via the cancelled subscription id first (cancellation events often
+  // have no email), then fall back to email.
+  let userId: string | null = null
+  const { data: subByFsId } = await supabase
+    .from('user_subscriptions')
+    .select('user_id')
+    .eq('fastspring_subscription_id', subscriptionId)
+    .maybeSingle()
+
+  if (subByFsId) {
+    userId = subByFsId.user_id
+  } else if (customerEmail) {
+    const { data: authUsers } = await supabase.auth.admin.listUsers()
+    userId = authUsers.users.find(u => u.email === customerEmail)?.id || null
+  }
+
+  if (!userId) {
+    console.error('User not found for FastSpring cancellation:', subscriptionId, customerEmail)
     return
   }
 
-  // Find user by email
-  const { data: authUsers } = await supabase.auth.admin.listUsers()
-  const user = authUsers.users.find(u => u.email === customerEmail)
+  // CRITICAL: only act if the cancelled subscription is the user's CURRENT one. When a
+  // customer takes the yearly upsell we cancel their old monthly — that cancellation must
+  // NOT suspend them, because their current (yearly) subscription is a different id.
+  const { data: currentSub } = await supabase
+    .from('user_subscriptions')
+    .select('fastspring_subscription_id, status')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (!user) {
-    console.error('User not found for FastSpring cancellation:', customerEmail)
+  if (currentSub?.fastspring_subscription_id && currentSub.fastspring_subscription_id !== subscriptionId) {
+    console.log(`Ignoring cancellation of superseded subscription ${subscriptionId} for user ${userId} (current active sub: ${currentSub.fastspring_subscription_id})`)
     return
   }
 
-  // Import and call the account deletion action (same as ClickBank)
-  const { handleAccountCancellation } = await import('@/app/actions/account-deletion')
-  await handleAccountCancellation(customerEmail)
-  
-  console.log(`FastSpring account deletion initiated for cancelled user: ${customerEmail}`)
+  // Genuine cancellation of the user's active subscription. Stop access immediately by
+  // suspending the account (kept, NOT deleted) and mark the subscription cancelled.
+  await supabase
+    .from('user_subscriptions')
+    .update({ status: 'cancelled', cancel_at_period_end: true, updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+
+  await supabase
+    .from('profiles')
+    .update({ is_suspended: true, suspension_reason: 'Cancelled subscription', updated_at: new Date().toISOString() })
+    .eq('id', userId)
+
+  console.log(`FastSpring cancellation: suspended user ${userId} (${customerEmail || subscriptionId})`)
 }
