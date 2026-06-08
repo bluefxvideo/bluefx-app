@@ -39,6 +39,8 @@ import {
   Flame,
   Copy,
   FileText,
+  ImagePlus,
+  ChevronDown,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -61,24 +63,18 @@ interface Tool {
 }
 
 // Tool categories with their navigation data
-const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
-  {
-    id: "realestate",
-    name: "Real Estate",
-    tools: [
-      {
-        name: "ReelEstate",
-        route: "/dashboard/reelestate",
-        icon: Home,
-        gradient: "bg-primary",
-        description: "Listing videos and photo cleanup",
-      },
-    ],
-  },
+const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsible?: boolean; defaultCollapsed?: boolean }> = [
   {
     id: "video",
     name: "Video Tools",
     tools: [
+      {
+        name: "Video Maker",
+        route: "/dashboard/ai-cinematographer",
+        icon: Video,
+        gradient: "bg-primary",
+        description: "Professional AI video creation",
+      },
       {
         name: "Clone Video Ad",
         route: "/dashboard/clone-video-ad",
@@ -94,35 +90,27 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         description: "Turn your script into a video ad",
       },
       {
-        name: "AI Cinematographer",
-        route: "/dashboard/ai-cinematographer",
-        icon: Video,
-        gradient: "bg-primary",
-        description: "Professional video creation",
-      },
-      {
-        name: "Script to Video",
-        route: "/dashboard/script-to-video",
-        icon: Film,
-        gradient: "bg-primary",
-        description: "Convert scripts to videos",
-      },
-      {
-        name: "Talking Avatar",
+        name: "AI Avatar",
         route: "/dashboard/talking-avatar",
         icon: UserRound,
         gradient: "bg-primary",
-        description: "Create talking avatars",
+        description: "Create talking avatar videos",
       },
+    ],
+  },
+  {
+    id: "research",
+    name: "Research",
+    tools: [
       {
-        name: "Video Swap",
-        route: "/dashboard/video-swap",
-        icon: Repeat,
+        name: "Find Video Ads",
+        route: "/dashboard/winning-ads",
+        icon: Flame,
         gradient: "bg-primary",
-        description: "Swap characters in videos",
+        description: "Find top-performing ads to clone",
       },
       {
-        name: "Video Analyzer",
+        name: "Analyze Video",
         route: "/dashboard/video-analyzer",
         icon: ScanSearch,
         gradient: "bg-primary",
@@ -135,18 +123,18 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
     name: "Image Tools",
     tools: [
       {
-        name: "Thumbnail Machine",
+        name: "Image Maker",
+        route: "/dashboard/image-maker",
+        icon: ImagePlus,
+        gradient: "bg-primary",
+        description: "Generate AI images with Nano Banana 2",
+      },
+      {
+        name: "Thumbnail Maker",
         route: "/dashboard/thumbnail-machine",
         icon: Image,
         gradient: "bg-primary",
         description: "Create engaging thumbnails",
-      },
-      {
-        name: "Logo Generator",
-        route: "/dashboard/logo-generator",
-        icon: Palette,
-        gradient: "bg-primary",
-        description: "Design professional logos",
       },
     ],
   },
@@ -155,18 +143,18 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
     name: "Audio Tools",
     tools: [
       {
-        name: "Voice Over",
+        name: "Music",
+        route: "/dashboard/music-maker",
+        icon: Music,
+        gradient: "bg-primary",
+        description: "Generate AI music",
+      },
+      {
+        name: "Voice",
         route: "/dashboard/voice-over",
         icon: Mic,
         gradient: "bg-primary",
         description: "Professional AI voice generation",
-      },
-      {
-        name: "Music Maker",
-        route: "/dashboard/music-maker",
-        icon: Music,
-        gradient: "bg-primary",
-        description: "Generate AI music with MusicGen",
       },
     ],
   },
@@ -196,20 +184,6 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         description: "Write complete ebooks with AI",
       },
       {
-        name: "Content Multiplier",
-        route: "/dashboard/content-multiplier",
-        icon: Layers,
-        gradient: "bg-primary",
-        description: "Multi-platform social content",
-      },
-      {
-        name: "YouTube Repurpose",
-        route: "/dashboard/youtube-repurpose",
-        icon: Share2,
-        gradient: "from-red-500 to-orange-500",
-        description: "Distribute YouTube to all platforms",
-      },
-      {
         name: "Prompt Library",
         route: "/dashboard/prompt-library",
         icon: BookMarked,
@@ -219,15 +193,58 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
     ],
   },
   {
-    id: "research",
-    name: "Research",
+    id: "realestate",
+    name: "Reel Estate",
     tools: [
       {
-        name: "Winning Ads",
-        route: "/dashboard/winning-ads",
-        icon: Flame,
+        name: "ReelEstate",
+        route: "/dashboard/reelestate",
+        icon: Home,
         gradient: "bg-primary",
-        description: "Find top-performing Facebook ads to clone",
+        description: "Listing videos and photo cleanup",
+      },
+    ],
+  },
+  {
+    id: "experimental",
+    name: "Experimental Tools",
+    collapsible: true,
+    defaultCollapsed: true,
+    tools: [
+      {
+        name: "Script to Video",
+        route: "/dashboard/script-to-video",
+        icon: Film,
+        gradient: "bg-primary",
+        description: "Convert scripts to videos",
+      },
+      {
+        name: "Video Swap",
+        route: "/dashboard/video-swap",
+        icon: Repeat,
+        gradient: "bg-primary",
+        description: "Swap characters in videos",
+      },
+      {
+        name: "YouTube Repurpose",
+        route: "/dashboard/youtube-repurpose",
+        icon: Share2,
+        gradient: "from-red-500 to-orange-500",
+        description: "Distribute YouTube to all platforms",
+      },
+      {
+        name: "Content Multiplier",
+        route: "/dashboard/content-multiplier",
+        icon: Layers,
+        gradient: "bg-primary",
+        description: "Multi-platform social content",
+      },
+      {
+        name: "Logo Maker",
+        route: "/dashboard/logo-generator",
+        icon: Palette,
+        gradient: "bg-primary",
+        description: "Design professional logos",
       },
       {
         name: "Trending Keywords",
@@ -257,12 +274,6 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[] }> = [
         gradient: "bg-primary",
         description: "Pre-trained affiliate products",
       },
-    ],
-  },
-  {
-    id: "business",
-    name: "My Business",
-    tools: [
       {
         name: "Train My Business",
         route: "/dashboard/business-tools/train-my-business",
@@ -288,6 +299,27 @@ export function DashboardSidebar({
   const [isAdmin, setIsAdmin] = useState(false)
   const [credits, setCredits] = useState<number | null>(null)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Collapsible category state (e.g. Experimental Tools). Seed from each category's
+  // defaultCollapsed for deterministic SSR, then hydrate the user's saved preference.
+  const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {}
+    for (const c of toolCategories) if (c.collapsible) initial[c.id] = c.defaultCollapsed ?? false
+    return initial
+  })
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sidebarCollapsedCats')
+      if (raw) setCollapsedCats(prev => ({ ...prev, ...JSON.parse(raw) }))
+    } catch { /* ignore */ }
+  }, [])
+  const toggleCategory = (id: string) => {
+    setCollapsedCats(prev => {
+      const next = { ...prev, [id]: !prev[id] }
+      try { localStorage.setItem('sidebarCollapsedCats', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
 
   // Fetch user credits
   useEffect(() => {
@@ -462,14 +494,28 @@ export function DashboardSidebar({
 
         {/* Tool categories */}
         <div className="flex-1 overflow-y-auto overflow-x-visible p-2 space-y-4 scrollbar-hover">
-          {toolCategories.map((category) => (
+          {toolCategories.map((category) => {
+            const isCatCollapsed = !isCollapsed && category.collapsible ? !!collapsedCats[category.id] : false;
+            return (
             <div key={category.id}>
               {!isCollapsed && (
-                <h3 className="px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                  {category.name}
-                </h3>
+                category.collapsible ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(category.id)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-500 hover:text-zinc-300 uppercase tracking-wider transition-colors"
+                  >
+                    <span>{category.name}</span>
+                    <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isCatCollapsed && "-rotate-90")} />
+                  </button>
+                ) : (
+                  <h3 className="px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    {category.name}
+                  </h3>
+                )
               )}
 
+              {!isCatCollapsed && (
               <div className="space-y-1">
                 {category.tools.map((tool) => (
                   <Tooltip key={tool.route} delayDuration={500}>
@@ -540,8 +586,10 @@ export function DashboardSidebar({
                   </Tooltip>
                 ))}
               </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Footer with account management */}
