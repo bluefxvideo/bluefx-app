@@ -9,7 +9,7 @@
  * When image_input is provided, uses the /edit endpoint with image_urls parameter.
  */
 
-export type NanoBananaAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '2:3' | '3:2' | '21:9';
+export type NanoBananaAspectRatio = 'auto' | '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '2:3' | '3:2' | '21:9';
 
 interface FalNanoBanana2Input {
   prompt: string;
