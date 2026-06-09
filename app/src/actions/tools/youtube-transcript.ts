@@ -431,25 +431,35 @@ async function transcribeWithWhisper(videoId: string): Promise<string | null> {
     const audioBuffer = await readFile(tempFile);
     console.log('Audio downloaded, size:', audioBuffer.length);
 
-    // Create a File-like object for OpenAI
+    // fal Whisper needs a public URL, so upload the downloaded audio to storage first.
     const audioData = new Uint8Array(audioBuffer);
-    const audioBlob = new Blob([audioData], { type: 'audio/mp3' });
-    const audioFile = new File([audioBlob], 'audio.mp3', { type: 'audio/mp3' });
+    const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
 
-    // Use OpenAI Whisper for transcription
-    const OpenAI = (await import('openai')).default;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    console.log('Transcribing with Whisper...');
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1',
+    const { uploadImageToStorage } = await import('../supabase-storage');
+    const upload = await uploadImageToStorage(audioBlob, {
+      bucket: 'images',
+      folder: 'yt-whisper',
+      filename: `yt_${Date.now()}.mp3`,
+      contentType: 'audio/mpeg',
     });
 
-    // Clean up
+    // Clean up the temp file regardless of upload outcome.
     await unlink(tempFile).catch(() => {});
 
-    return transcription.text;
+    if (!upload.success || !upload.url) {
+      console.error('Failed to upload audio for transcription:', upload.error);
+      return null;
+    }
+
+    console.log('Transcribing with Whisper (fal)...');
+    const { transcribeWithFalWhisper } = await import('../models/fal-whisper');
+    const result = await transcribeWithFalWhisper(upload.url);
+    if (!result.success) {
+      console.error('fal Whisper failed:', result.error);
+      return null;
+    }
+
+    return result.text;
   } catch (error) {
     console.error('Whisper transcription failed:', error);
     return null;

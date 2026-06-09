@@ -1,11 +1,6 @@
 'use server';
 
-import OpenAI from 'openai';
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+import { transcribeWithFalWhisper } from '../models/fal-whisper';
 
 export interface WhisperAnalysisRequest {
   audio_url: string;
@@ -65,37 +60,19 @@ export async function analyzeAudioWithWhisper(
   const startTime = Date.now();
   
   try {
-    console.log(`🎤 Analyzing audio with Whisper: ${request.audio_url}`);
+    console.log(`🎤 Analyzing audio with Whisper (fal): ${request.audio_url}`);
 
-    // Download audio from URL
-    const audioResponse = await fetch(request.audio_url);
-    if (!audioResponse.ok) {
-      throw new Error(`Failed to download audio: ${audioResponse.statusText}`);
+    // fal Whisper takes the audio URL directly and returns word-level timings.
+    const transcription = await transcribeWithFalWhisper(request.audio_url, request.language || 'en');
+    if (!transcription.success) {
+      throw new Error(transcription.error || 'Whisper transcription failed');
     }
-
-    // Convert to file format for Whisper (create File-like Blob for server compatibility)
-    const audioBuffer = await audioResponse.arrayBuffer();
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
-    // Add name property for OpenAI API compatibility
-    (audioBlob as any).name = 'audio.mp3';
-    const audioFile = audioBlob as File;
-
-    // Call OpenAI Whisper with word-level timestamps
-    console.log('🔍 Calling OpenAI Whisper API with word timestamps...');
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1',
-      language: request.language || 'en',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['word'], // Word-level timing
-      temperature: 0.0 // Deterministic output for consistency
-    });
 
     console.log('✅ Whisper transcription completed');
 
-    // Extract word timings from Whisper response
-    const whisperWords = (transcription as any).words || [];
-    const totalDuration = Math.max(...whisperWords.map((w: any) => w.end)) || 0;
+    // Word timings: [{ word, start, end }] (confidence defaults applied downstream)
+    const whisperWords = transcription.words;
+    const totalDuration = whisperWords.length > 0 ? Math.max(...whisperWords.map(w => w.end)) : 0;
 
     // Apply forced alignment for improved accuracy
     const alignedWords = applyForcedAlignment(whisperWords, frameRate);
@@ -199,7 +176,7 @@ export async function analyzeAudioWithWhisper(
         end: w.end,
         confidence: w.confidence || 0.9,
       })),
-      full_transcript: (transcription as any).text || '',
+      full_transcript: transcription.text || '',
       word_count: totalWords,
       speaking_rate: speakingRate,
       confidence_score: avgConfidence || 0.95,
