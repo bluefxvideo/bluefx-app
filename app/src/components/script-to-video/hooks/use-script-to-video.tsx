@@ -9,10 +9,12 @@ import type {
   ScriptToVideoRequest, 
   ScriptToVideoResponse 
 } from '@/actions/tools/script-to-video-orchestrator';
-import { 
+import {
   generateScriptToVideo,
-  generateBasicScriptVideo 
+  generateBasicScriptVideo
 } from '@/actions/tools/script-to-video-orchestrator';
+import { toast } from 'sonner';
+import { useVideoEditorStore } from '../store/video-editor-store';
 
 /**
  * Script-to-Video Hook
@@ -38,7 +40,6 @@ export function useScriptToVideo() {
           console.log('📊 localStorage timeline_data:', savedResult?.timeline_data);
           
           // CRITICAL: Also load into editor store when restoring from localStorage
-          const { useVideoEditorStore } = require('../store/video-editor-store');
           useVideoEditorStore.getState().loadGenerationResults(savedResult);
         }
       }
@@ -80,10 +81,11 @@ export function useScriptToVideo() {
         throw new Error('User not authenticated');
       }
 
-      // Pre-validation
+      // Pre-validation (credits is an object — compare the available balance)
       const estimatedCredits = Math.ceil(request.script_text.length / 50) * 5 + 10;
-      if (credits < estimatedCredits) {
-        throw new Error(`Insufficient credits. Need ${estimatedCredits}, have ${credits}`);
+      const available = credits?.available_credits ?? 0;
+      if (available < estimatedCredits) {
+        throw new Error(`Insufficient credits. Need ${estimatedCredits}, have ${available}`);
       }
       
       // Call AI orchestrator with real user ID
@@ -92,46 +94,51 @@ export function useScriptToVideo() {
         user_id: user.id
       });
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response, variables) => {
       if (response.success) {
         // Refresh credits from server to get accurate count
         await refreshCredits();
         setResult(response);
-        
+
         // Save to localStorage immediately to prevent data loss
+        // (used to reference an undefined `scriptText`, which made this save
+        // throw and get silently swallowed every time)
         try {
           localStorage.setItem('script-to-video-result', JSON.stringify({
             result: response,
             timestamp: Date.now(),
-            script: scriptText
+            script: variables.script_text
           }));
           console.log('💾 Saved generation result to localStorage');
         } catch (e) {
           console.error('Failed to save to localStorage:', e);
         }
-        
+
         // Load results into editor store
-        const { useVideoEditorStore } = require('../store/video-editor-store');
         useVideoEditorStore.getState().loadGenerationResults(response);
-        
-        // Auto-redirect to editor after successful generation
-        setTimeout(() => {
-          if (response.video_id && currentUserId) {
+
+        // Auto-redirect to editor ONLY when we have a concrete video to open.
+        // (Previously this fell back to redirecting to a bare editor with no
+        // video_id — the user landed on an empty editor with no explanation.)
+        const userId = user?.id;
+        if (response.video_id && userId) {
+          setTimeout(() => {
             const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
             const apiBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-            const editorUrl = `${editorBaseUrl}/?videoId=${response.video_id}&userId=${currentUserId}&apiUrl=${apiBaseUrl}`;
-            console.log('🚀 Redirecting to editor with environment-based URL:', editorUrl);
+            const editorUrl = `${editorBaseUrl}/?videoId=${response.video_id}&userId=${userId}&apiUrl=${apiBaseUrl}`;
+            console.log('🚀 Redirecting to editor:', editorUrl);
             window.location.href = editorUrl;
-          } else {
-            const editorBaseUrl = process.env.NEXT_PUBLIC_VIDEO_EDITOR_URL || 'https://editor.bluefx.net';
-            console.log('🚀 Redirecting to editor without video_id');
-            window.location.href = editorBaseUrl;
-          }
-        }, 1500); // Give 1.5 seconds to see the checkmark
-        
-        // TODO: Invalidate queries for real-time updates
-        // queryClient.invalidateQueries({ queryKey: ['script-video-results'] });
+          }, 1500); // Give 1.5 seconds to see the checkmark
+        } else {
+          toast.success('Video generated — find it under History / the Editor tab.');
+        }
+      } else {
+        // success === false used to be silently ignored here
+        toast.error(response.error || 'Video generation failed. Please try again.');
       }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Video generation failed. Please try again.');
     }
   });
 
@@ -237,9 +244,8 @@ export function useScriptToVideo() {
         }
         
         // Load results into editor store
-        const { useVideoEditorStore } = require('../store/video-editor-store');
         useVideoEditorStore.getState().loadGenerationResults(response);
-        
+
         // Auto-redirect to editor after successful generation
         setTimeout(() => {
           if (typeof window !== 'undefined' && response.video_id && currentUserId) {

@@ -106,6 +106,21 @@ export function useAICinematographer() {
     isGeneratingRef.current = isGenerating;
   }, [isGenerating]);
 
+  // Watchdog: video completion arrives via a realtime broadcast from the webhook.
+  // If that signal is missed (delivery failure, tab slept, deploy restart) the
+  // spinner would hang forever — cap it at 15 minutes and point the user to History.
+  useEffect(() => {
+    if (!isGenerating) return;
+    const watchdog = setTimeout(() => {
+      if (!isGeneratingRef.current) return;
+      setIsGenerating(false);
+      setError(
+        'This is taking longer than expected. Your video may still finish — check History in a few minutes. If it failed, your credits are refunded automatically.'
+      );
+    }, 15 * 60 * 1000);
+    return () => clearTimeout(watchdog);
+  }, [isGenerating]);
+
   const supabase = createClient();
 
   // Get current user

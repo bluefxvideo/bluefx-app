@@ -151,8 +151,14 @@ async function processVoiceOverFailure(payload: VoiceOverWebhookPayload): Promis
       completed_at: payload.completed_at,
     });
 
-    // TODO: Handle credit refunds if needed
-    console.log(`💳 Voice Over failure - checking credit refunds for user: ${payload.user_id}`);
+    // Refund the credits charged for this failed generation (idempotent, exact-match)
+    const { refundFailedGeneration } = await import('@/lib/credits/refund');
+    const refund = await refundFailedGeneration({
+      userId: payload.user_id,
+      referenceIds: [payload.prediction_id],
+      operation: 'voice over generation',
+    });
+    console.log(`💳 Voice Over failure refund:`, refund);
 
     // TODO: Broadcast failure notification to user
     console.log(`📡 Broadcasting Voice Over failure to user: ${payload.user_id}`);

@@ -651,7 +651,38 @@ async function handleFailedGeneration(payload: ReplicateWebhookPayload, analysis
   } catch (error) {
     console.error('❌ Failed to update database for failed generation:', error);
   }
-  
+
+  // Refund credits for the failed job (idempotent; only when the original debit is traceable)
+  try {
+    let refundUserId = analysis.user_id;
+    let predictionRef: string | undefined;
+    if (!refundUserId) {
+      const { createAdminClient } = await import('@/app/supabase/server');
+      const supabase = createAdminClient();
+      const { data: pred } = await supabase
+        .from('ai_predictions')
+        .select('user_id, prediction_id')
+        .or(`prediction_id.eq.${payload.id},external_id.eq.${payload.id}`)
+        .limit(1)
+        .maybeSingle();
+      refundUserId = pred?.user_id;
+      predictionRef = pred?.prediction_id;
+    }
+    if (refundUserId) {
+      const { refundFailedGeneration } = await import('@/lib/credits/refund');
+      const refund = await refundFailedGeneration({
+        userId: refundUserId,
+        referenceIds: [payload.id, analysis.batch_id, predictionRef],
+        operation: `${analysis.tool_type || 'generation'} (replicate)`,
+      });
+      console.log(`💸 Failed-job refund:`, refund);
+    } else {
+      console.warn(`💸 Cannot refund ${payload.id}: user unknown`);
+    }
+  } catch (refundError) {
+    console.error('💸 Refund attempt failed:', refundError);
+  }
+
   console.log(`🔍 Failure Analysis: Type=${failureType}, Tool=${analysis.tool_type}`);
   
   return {

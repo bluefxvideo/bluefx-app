@@ -204,14 +204,24 @@ async function handleGenerationFailure(
   // Try to find music record first
   const { data: musicRecords } = await supabase
     .from('music_history')
-    .select('id, user_id')
+    .select('id, user_id, generation_settings')
     .contains('generation_settings', { prediction_id: request_id });
 
   if (musicRecords && musicRecords.length > 0) {
     const musicId = musicRecords[0].id;
     const userId = musicRecords[0].user_id;
+    const settings = (musicRecords[0].generation_settings || {}) as Record<string, string>;
 
     await updateMusicRecordAdmin(musicId, { status: 'failed' });
+
+    // Refund the failed generation (idempotent, exact-match on the original debit)
+    const { refundFailedGeneration } = await import('@/lib/credits/refund');
+    const musicRefund = await refundFailedGeneration({
+      userId,
+      referenceIds: [request_id, musicId, settings.batch_id, settings.prediction_id],
+      operation: 'music generation',
+    });
+    console.log('💸 Music failure refund:', musicRefund);
 
     await supabase.channel(`user_${userId}_updates`).send({
       type: 'broadcast',
@@ -238,6 +248,15 @@ async function handleGenerationFailure(
     const userId = videoRecords[0].user_id;
 
     await updateTalkingAvatarVideoAdmin(videoId, { status: 'failed' });
+
+    // Refund the failed generation (idempotent, exact-match on the original debit)
+    const { refundFailedGeneration } = await import('@/lib/credits/refund');
+    const avatarRefund = await refundFailedGeneration({
+      userId,
+      referenceIds: [request_id, videoId],
+      operation: 'talking avatar generation',
+    });
+    console.log('💸 Avatar failure refund:', avatarRefund);
 
     await supabase.channel(`user_${userId}_updates`).send({
       type: 'broadcast',

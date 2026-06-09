@@ -307,18 +307,15 @@ export function useMusicMachine() {
     return () => { supabase.removeChannel(subscription); };
   }, [user?.id, supabase, state.currentGeneration?.request_id]);
 
-  // Polling fallback for local development (webhooks can't reach localhost)
-  // In production, webhooks handle completion - no polling needed
+  // Polling backstop. Webhooks are the primary completion signal, but if one is
+  // missed (delivery failure, deploy restart, localhost) the spinner would hang
+  // forever — so we always poll as a fallback: fast locally, slower in prod,
+  // with a hard 15-minute cap that surfaces a timeout instead of spinning.
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalDev = typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   useEffect(() => {
-    // Only poll in local development - production uses webhooks
-    if (!isLocalDev) {
-      return;
-    }
-
     // Only poll if we're generating and have a request_id
     if (!state.isGenerating || !state.currentGeneration?.request_id) {
       if (pollingRef.current) {
@@ -329,10 +326,24 @@ export function useMusicMachine() {
     }
 
     const requestId = state.currentGeneration.request_id;
-    console.log(`🔄 [DEV] Starting polling for music generation: ${requestId}`);
+    const intervalMs = isLocalDev ? 5000 : 10000;
+    const maxPolls = Math.ceil((15 * 60 * 1000) / intervalMs); // hard cap ≈ 15 minutes
+    let pollCount = 0;
+    console.log(`🔄 Starting polling backstop for music generation: ${requestId}`);
 
-    // Poll every 5 seconds
     const pollInterval = setInterval(async () => {
+      if (++pollCount > maxPolls) {
+        clearInterval(pollInterval);
+        pollingRef.current = null;
+        setState(prev => ({
+          ...prev,
+          isGenerating: false,
+          error: 'Music generation is taking longer than expected. Check your History in a few minutes — if it failed, your credits are refunded automatically.',
+          currentGeneration: null,
+        }));
+        toast.error('Music generation timed out — check History in a few minutes.');
+        return;
+      }
       try {
         const result = await pollMusicGeneration(requestId);
         console.log(`🔄 Poll result for ${requestId}:`, result.status);
@@ -383,7 +394,7 @@ export function useMusicMachine() {
       } catch (error) {
         console.error('Polling error:', error);
       }
-    }, 5000); // Poll every 5 seconds
+    }, intervalMs);
 
     pollingRef.current = pollInterval;
 

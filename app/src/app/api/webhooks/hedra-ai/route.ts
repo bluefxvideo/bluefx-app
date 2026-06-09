@@ -283,6 +283,17 @@ async function processHedraVideoComplete(payload: HedraWebhookPayload, videoUrl:
       });
     }
 
+    // Refund the failed generation (idempotent, exact-match on the original debit)
+    if (payload.user_id) {
+      const { refundFailedGeneration } = await import('@/lib/credits/refund');
+      const refund = await refundFailedGeneration({
+        userId: payload.user_id,
+        referenceIds: [payload.generation_id],
+        operation: 'talking avatar generation (hedra)',
+      });
+      console.log('💸 Hedra failure refund:', refund);
+    }
+
     return {
       success: false,
       generation_id: payload.generation_id,
