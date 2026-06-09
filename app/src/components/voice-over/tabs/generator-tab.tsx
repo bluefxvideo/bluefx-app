@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 
 import { Play, Square, Mic } from 'lucide-react';
 import {
@@ -414,6 +415,9 @@ export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: Gen
 
         {/* Generate Button */}
         <div className="mt-6">
+          {credits < estimatedCredits && (
+            <InsufficientCreditsNotice needed={estimatedCredits} available={credits} className="mb-3" />
+          )}
           <Button
             onClick={generateVoice}
             disabled={!canGenerate || state.isGenerating}
@@ -428,15 +432,10 @@ export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: Gen
             ) : (
               <>
                 <Mic className="w-4 h-4 mr-2" />
-                Generate Voice (2 credits)
+                Generate Voice · {estimatedCredits} credits
               </>
             )}
           </Button>
-          {credits < estimatedCredits && localScriptText.trim().length > 0 && state.selectedVoice && (
-            <p className="text-xs text-destructive text-center mt-2">
-              Insufficient credits. You need {estimatedCredits} credits.
-            </p>
-          )}
         </div>
       </Card>
     </div>

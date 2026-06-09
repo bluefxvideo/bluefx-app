@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, Clock, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
 import { AvatarTemplate } from '@/actions/tools/talking-avatar';
@@ -506,7 +507,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
     if (state.currentStep === 2) {
       return state.audioInputMode === 'upload' ? 'Continue to Preview' : 'Generate Voice';
     }
-    if (state.currentStep === 3) return `Generate Video (${estimatedCredits} credits)`;
+    if (state.currentStep === 3) return `Generate Video · ${estimatedCredits} credits`;
     return 'Next';
   };
 
@@ -1387,9 +1388,9 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
           </Button>
         </div>
         {state.currentStep === 3 && credits < estimatedCredits && (
-          <p className="text-xs text-destructive text-center mt-2">
-            Insufficient credits. You need {estimatedCredits} credits.
-          </p>
+          <div className="mt-2">
+            <InsufficientCreditsNotice needed={estimatedCredits} available={credits} />
+          </div>
         )}
       </div>
 

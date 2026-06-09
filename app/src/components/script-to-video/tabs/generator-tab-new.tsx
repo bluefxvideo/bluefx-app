@@ -24,6 +24,7 @@ import {
 import { useVideoEditorStore } from '../store/video-editor-store';
 import { useScriptToVideo } from '../hooks/use-script-to-video';
 import { MINIMAX_VOICE_OPTIONS, DEFAULT_VOICE_SETTINGS, type VoiceSettings } from '@/components/shared/voice-constants';
+import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { cn } from '@/lib/utils';
 
 interface GeneratorTabProps {
@@ -255,6 +256,10 @@ export function GeneratorTabNew({
       onGeneratingVoiceChange?.(false);
     }
   };
+
+  // Estimated credit cost for video generation (same formula used elsewhere in the codebase)
+  const estimatedVideoCredits = Math.ceil(stepState.finalScript.length / 50) * 5 + 10;
+  const hasInsufficientCredits = credits < estimatedVideoCredits;
 
   // Generate video and forward to editor
   const generateVideo = async () => {
@@ -820,6 +825,13 @@ export function GeneratorTabNew({
       
       {/* Fixed Footer */}
       <div className="border-t px-6 py-4 bg-card">
+        {stepState.currentStep === 5 && hasInsufficientCredits && (
+          <InsufficientCreditsNotice
+            needed={estimatedVideoCredits}
+            available={credits}
+            className="mb-3"
+          />
+        )}
         <div className="flex justify-between items-center">
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5].map((step) => (
@@ -875,7 +887,7 @@ export function GeneratorTabNew({
                 ) : (
                   <>
                     <Play className="mr-2 h-4 w-4" />
-                    Generate Video
+                    Generate Video · ~{estimatedVideoCredits} credits
                   </>
                 )}
               </Button>

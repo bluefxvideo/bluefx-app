@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
+import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import type { CinematographerRequest, GenerationSettings } from '@/types/cinematographer';
 import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
 
@@ -686,6 +687,9 @@ export function GeneratorTab({
       </TabBody>
 
       <TabFooter>
+        {!isLoadingCredits && credits < estimatedCredits && (
+          <InsufficientCreditsNotice needed={estimatedCredits} available={credits} className="mb-2" />
+        )}
         <Button
           onClick={handleSubmit}
           disabled={isGenerating || (!isLoadingCredits && credits < estimatedCredits) || !formData.prompt?.trim()}
@@ -700,16 +704,10 @@ export function GeneratorTab({
           ) : (
             <>
               <Video className="w-4 h-4 mr-2" />
-              Generate {formData.model === 'pro' ? 'Pro' : 'Fast'} Video ({estimatedCredits} credits)
+              Generate {formData.model === 'pro' ? 'Pro' : 'Fast'} Video · {estimatedCredits} credits
             </>
           )}
         </Button>
-
-        {!isLoadingCredits && credits < estimatedCredits && (
-          <p className="text-xs text-destructive text-center mt-2">
-            Insufficient credits. You need {estimatedCredits} credits (you have {credits}).
-          </p>
-        )}
       </TabFooter>
     </TabContentWrapper>
   );

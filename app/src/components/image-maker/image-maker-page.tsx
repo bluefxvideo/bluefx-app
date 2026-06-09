@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useCredits } from '@/hooks/useCredits';
 import { generateImage, getImageHistory, type ImageHistoryItem } from '@/actions/tools/image-maker';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
+import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 
 type AspectRatio = 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9';
 type Resolution = '1K' | '2K' | '4K';
@@ -100,7 +101,7 @@ export function ImageMakerPage() {
   const pathname = usePathname();
   const activeTab = pathname.includes('/history') ? 'history' : 'generate';
 
-  const { refetch } = useCredits();
+  const { credits: userCredits, refetch } = useCredits();
   const [prompt, setPrompt] = useState('');
   const [aspect, setAspect] = useState<AspectRatio>('1:1');
   const [resolution, setResolution] = useState<Resolution>('2K');
@@ -281,7 +282,10 @@ export function ImageMakerPage() {
         </div>
       )}
 
-      <div className="mt-auto pt-2">
+      <div className="mt-auto pt-2 space-y-3">
+        {typeof userCredits?.available_credits === 'number' && userCredits.available_credits < cost && (
+          <InsufficientCreditsNotice needed={cost} available={userCredits.available_credits} />
+        )}
         <Button onClick={handleGenerate} disabled={!prompt.trim() || isGenerating || isUploadingRef} className="w-full h-11">
           {isGenerating ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</>

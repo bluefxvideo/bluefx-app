@@ -10,6 +10,7 @@ import { StandardStep } from '@/components/tools/standard-step';
 import { UseMusicMachineReturn } from '../hooks/use-music-machine';
 import { MUSIC_CREDITS, INSTRUMENTAL_SUFFIX, LYRICS_TEMPLATES } from '@/types/music-machine';
 import { LyricsAssistant } from '../lyrics-assistant';
+import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { cn } from '@/lib/utils';
 
 interface GeneratorTabProps {
@@ -290,6 +291,10 @@ Together me and you`}
       </TabBody>
 
       <TabFooter>
+        {!hasEnoughCredits && (
+          <InsufficientCreditsNotice needed={MUSIC_CREDITS} available={credits} className="mb-2" />
+        )}
+
         <Button
           onClick={generateMusic}
           disabled={!canGenerate}
@@ -301,16 +306,10 @@ Together me and you`}
           ) : (
             <>
               <Music className="w-4 h-4 mr-2" />
-              Generate {state.mode === 'instrumental' ? 'Instrumental' : 'Song'} ({MUSIC_CREDITS} credits)
+              Generate {state.mode === 'instrumental' ? 'Instrumental' : 'Song'} · {MUSIC_CREDITS} credits
             </>
           )}
         </Button>
-
-        {!hasEnoughCredits && localPrompt.trim().length >= 10 && (
-          <p className="text-xs text-destructive text-center mt-2">
-            Insufficient credits. You need {MUSIC_CREDITS} credits.
-          </p>
-        )}
 
         {localPrompt.trim().length > 0 && localPrompt.trim().length < 10 && (
           <p className="text-xs text-amber-600 text-center mt-2">
