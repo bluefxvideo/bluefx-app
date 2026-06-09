@@ -41,6 +41,27 @@ export default function DashboardPage() {
   const [isBuyCreditsDialogOpen, setIsBuyCreditsDialogOpen] = useState(false);
   const { credits, isLoading: isLoadingCredits, isPurchasing } = useCredits();
 
+  // Trial users get 100 one-time credits — surface that (and the upgrade path)
+  // on the main dashboard instead of only on the subscription page.
+  const { data: subscriptionStatus } = useQuery({
+    queryKey: ['subscription-status'],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from('user_subscriptions')
+        .select('status')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const isTrial = subscriptionStatus?.status === 'trial';
+
   // Tutorial dialog state
   const [tutorialDialogOpen, setTutorialDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -273,6 +294,23 @@ export default function DashboardPage() {
           </button>
         )}
       </div>
+
+      {/* Trial banner — only for trial-status subscriptions */}
+      {isTrial && (
+        <div className="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-yellow-200">
+              You&apos;re on the trial — 100 credits to explore BlueFX.
+            </p>
+            <p className="text-sm text-yellow-200/70">
+              When your trial converts to a full subscription you&apos;ll get 600 fresh credits every month, automatically.
+            </p>
+          </div>
+          <Button className="shrink-0" onClick={() => router.push('/dashboard/subscription')}>
+            View subscription
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Credit Balance and Community Cards */}

@@ -499,10 +499,10 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
               
               <details className="border border-border rounded-lg">
                 <summary className="p-4 cursor-pointer hover:bg-accent transition-colors font-medium">
-                  What happens if I pause my subscription?
+                  What happens if I cancel my subscription?
                 </summary>
                 <div className="p-4 pt-0 text-sm text-muted-foreground border-t">
-                  When you pause your subscription, you&apos;ll retain access to your current features until the end of your billing period. You can resume anytime.
+                  If you cancel, you keep access and your remaining credits until the end of the billing period you already paid for. You can resubscribe anytime to pick up where you left off.
                 </div>
               </details>
               

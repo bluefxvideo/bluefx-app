@@ -105,7 +105,7 @@ export function ThumbnailMachinePage() {
   return (
     <StandardToolPage
       icon={ImageIcon}
-      title="Thumbnail Machine"
+      title="Thumbnail Maker"
       description=""
       iconGradient="bg-primary"
       toolName="Thumbnail Machine"

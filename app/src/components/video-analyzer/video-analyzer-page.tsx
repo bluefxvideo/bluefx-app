@@ -318,7 +318,7 @@ export function VideoAnalyzerPage() {
     };
     const analysisId = `video-analysis-${now}`;
     localStorage.setItem(analysisId, JSON.stringify(payload));
-    window.open(`/dashboard/ai-recreate?analysisId=${analysisId}`, '_blank');
+    window.open(`/dashboard/ad-creator?analysisId=${analysisId}`, '_blank');
     toast.success('Sent to AI Recreate');
   };
 
@@ -331,7 +331,7 @@ export function VideoAnalyzerPage() {
   return (
     <StandardToolPage
       icon={ScanSearch}
-      title="Video Analyzer"
+      title="Analyze Video"
       description="Break down videos with AI-powered scene analysis"
       toolName="Video Analyzer"
     >

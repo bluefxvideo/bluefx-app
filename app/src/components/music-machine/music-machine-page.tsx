@@ -61,7 +61,7 @@ export function MusicMachinePage() {
   return (
     <StandardToolPage
       icon={Music}
-      title="Music Maker"
+      title="Music"
       iconGradient="bg-primary"
       toolName="Music Maker"
       tabs={tabsComponent}

@@ -76,7 +76,7 @@ export function VoiceOverPage() {
   return (
     <StandardToolPage
       icon={Mic}
-      title="Voice Over Studio"
+      title="Voice"
       description="Create professional voice overs powered by AI"
       iconGradient="bg-primary"
       toolName="Voice Over Studio"

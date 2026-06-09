@@ -54,7 +54,7 @@ export function TalkingAvatarPage() {
   return (
     <StandardToolPage
       icon={Video}
-      title="Talking Avatar"
+      title="AI Avatar"
       description="Create AI-powered talking avatar videos"
       iconGradient="bg-primary"
       toolName="Talking Avatar"

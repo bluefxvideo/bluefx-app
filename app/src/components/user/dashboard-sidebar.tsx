@@ -321,10 +321,13 @@ export function DashboardSidebar({
     })
   }
 
-  // Fetch user credits
+  // Fetch user credits — live via realtime subscription (instant after spending),
+  // with a slow interval as a backstop in case the websocket drops.
   useEffect(() => {
+    const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
     async function fetchCredits() {
-      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data } = await supabase
@@ -334,12 +337,32 @@ export function DashboardSidebar({
           .single()
         setCredits(data?.available_credits ?? 0)
       }
+      return supabase
     }
-    fetchCredits()
 
-    // Refresh credits every 30 seconds
-    const interval = setInterval(fetchCredits, 30000)
-    return () => clearInterval(interval)
+    async function setup() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      await fetchCredits()
+      channel = supabase
+        .channel('sidebar-credits')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_credits', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const next = (payload.new as { available_credits?: number })?.available_credits
+            if (typeof next === 'number') setCredits(next)
+          }
+        )
+        .subscribe()
+    }
+    setup()
+
+    const interval = setInterval(fetchCredits, 60000)
+    return () => {
+      clearInterval(interval)
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [])
 
   // Check if user is admin
