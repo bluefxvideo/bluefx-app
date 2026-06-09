@@ -1,7 +1,7 @@
 'use server';
 
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import type { ScriptGenerationRequest, ScriptGenerationResponse } from '@/types/script-generation';
 
@@ -34,7 +34,7 @@ export async function generateScriptFromIdea(
 
     // Generate clean narration script using AI (no visual directions)
     const { object: scriptData } = await generateObject({
-      model: openai('gpt-4o'),
+      model: google('gemini-2.5-flash'),
       schema: z.object({
         narration: z.string().describe('The complete narration text only, no stage directions or visual cues'),
         estimated_word_count: z.number(),

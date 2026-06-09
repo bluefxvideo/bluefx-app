@@ -1,7 +1,7 @@
 'use server';
 
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import {
   storeScriptVideoResults,
@@ -773,7 +773,7 @@ async function createStoryBasedSegments(script: string, _segmentAnalysis: { segm
     console.log(`🎬 Creating ${segmentCount} storyboard segments with visual consistency...`);
     
     const { object: storyboard } = await generateObject({
-      model: openai('gpt-4o'),
+      model: google('gemini-2.5-flash'),
       schema: z.object({
         main_characters: z.array(z.object({
           name: z.string().describe('Character identifier'),
