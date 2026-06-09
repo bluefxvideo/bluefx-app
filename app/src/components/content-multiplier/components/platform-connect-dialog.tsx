@@ -72,7 +72,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
     facebook: {
       icon: FacebookIcon,
       name: 'Facebook',
-      color: '
+      color: 'bg-blue-600',
       supported: true,
       permissions: ['Post to timeline', 'Access basic info', 'Page management'],
       features: ['Timeline posting', 'Page posting', 'Community engagement'],

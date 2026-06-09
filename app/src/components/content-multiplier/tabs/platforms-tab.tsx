@@ -66,10 +66,10 @@ export function PlatformsTab() {
       description: 'Professional tone, industry insights, thought leadership'
     },
     { 
-      id: 'facebook', 
-      name: 'Facebook', 
-      icon: FacebookIcon, 
-      color: '
+      id: 'facebook',
+      name: 'Facebook',
+      icon: FacebookIcon,
+      color: 'bg-blue-600',
       description: 'Community engagement, longer posts, diverse demographics'
     },
   ];
@@ -114,8 +114,8 @@ export function PlatformsTab() {
                 <div
                   key={platform.id}
                   className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 ${
-                    isSelected 
-                      ? 'border-emerald-500 
+                    isSelected
+                      ? 'border-emerald-500 bg-emerald-500/10'
                       : 'border-border'
                   }`}
                   onClick={() => togglePlatform(platform.id)}

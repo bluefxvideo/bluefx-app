@@ -67,10 +67,10 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
       description: 'Professional tone, industry insights, thought leadership'
     },
     { 
-      id: 'facebook', 
-      name: 'Facebook', 
-      icon: FacebookIcon, 
-      color: '
+      id: 'facebook',
+      name: 'Facebook',
+      icon: FacebookIcon,
+      color: 'bg-blue-600',
       description: 'Community engagement, longer posts, diverse demographics'
     },
   ];
@@ -138,8 +138,8 @@ export function PlatformSelectionPanel({ open, onOpenChange }: PlatformSelection
                   key={platform.id}
                   className={cn(
                     "p-4 border rounded-lg transition-all cursor-pointer hover:bg-muted/50",
-                    isSelected 
-                      ? 'border-emerald-500 
+                    isSelected
+                      ? 'border-emerald-500 bg-emerald-500/10'
                       : 'border-border'
                   )}
                   onClick={() => togglePlatform(platform.id)}

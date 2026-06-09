@@ -128,17 +128,29 @@ export function ImageMakerPage() {
     const toUpload = files.filter((f) => f.type.startsWith('image/')).slice(0, remaining);
     if (toUpload.length === 0) return;
     setIsUploadingRef(true);
+    let failed = 0;
     try {
       for (const file of toUpload) {
         const result = await uploadImageToStorage(file, {
           folder: 'image-maker-refs',
           contentType: file.type as 'image/png' | 'image/jpeg' | 'image/webp',
         });
-        if (result.success && result.url) setReferenceImages((prev) => [...prev, result.url!]);
+        if (result.success && result.url) {
+          setReferenceImages((prev) => [...prev, result.url!]);
+        } else {
+          failed++;
+          console.error('Reference upload failed:', result.error);
+        }
       }
+    } catch (e) {
+      failed++;
+      console.error('Reference upload error:', e);
     } finally {
       setIsUploadingRef(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (failed > 0) {
+        setError(`${failed} image${failed > 1 ? 's' : ''} failed to upload. Please try again.`);
+      }
     }
   };
 

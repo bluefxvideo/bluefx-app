@@ -96,7 +96,7 @@ export function EbookWriterPage() {
           <TitleTab
             topic={current_ebook?.topic || ''}
             titleOptions={title_options}
-            isGenerating={false}
+            isGenerating={generation_progress.is_generating}
             isLoadingSession={is_loading_session}
             credits={userCredits?.available_credits || 0}
           />
@@ -105,8 +105,8 @@ export function EbookWriterPage() {
         return (
           <OutlineTab
             ebook={current_ebook}
-            isGenerating={false}
-            error={undefined}
+            isGenerating={generation_progress.is_generating}
+            error={generation_progress.error_message}
             credits={userCredits?.available_credits || 0}
           />
         );
@@ -114,8 +114,8 @@ export function EbookWriterPage() {
         return (
           <ContentTab
             ebook={current_ebook}
-            isGenerating={false}
-            error={undefined}
+            isGenerating={generation_progress.is_generating}
+            error={generation_progress.error_message}
             credits={userCredits?.available_credits || 0}
           />
         );
@@ -123,16 +123,16 @@ export function EbookWriterPage() {
         return (
           <CoverTab
             ebook={current_ebook}
-            isGenerating={false}
-            error={undefined}
+            isGenerating={generation_progress.is_generating}
+            error={generation_progress.error_message}
           />
         );
       case 'export':
         return (
           <ExportTab
             ebook={current_ebook}
-            isGenerating={false}
-            error={undefined}
+            isGenerating={generation_progress.is_generating}
+            error={generation_progress.error_message}
           />
         );
       case 'history':
@@ -141,7 +141,7 @@ export function EbookWriterPage() {
         return (
           <TopicTab
             currentTopic={current_ebook?.topic || ''}
-            isGenerating={false}
+            isGenerating={generation_progress.is_generating}
           />
         );
     }

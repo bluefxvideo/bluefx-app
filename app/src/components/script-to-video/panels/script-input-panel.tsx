@@ -210,7 +210,7 @@ export function ScriptInputPanel({ onGenerate, isGenerating, credits, error }: S
                 <Button
                   key={q}
                   variant={quality === q ? 'default' : 'outline'}
-                  className={`capitalize ${quality === q ? '
+                  className="capitalize"
                   onClick={() => setQuality(q)}
                 >
                   {q}

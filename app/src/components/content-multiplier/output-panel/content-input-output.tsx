@@ -84,13 +84,13 @@ export function ContentInputOutput() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className={`flex items-center gap-3 p-2 rounded-lg ${
-            original_input.trim() || uploaded_files.length > 0 
-              ? '
+            original_input.trim() || uploaded_files.length > 0
+              ? 'bg-emerald-500/10'
               : 'bg-muted/50'
           }`}>
             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              original_input.trim() || uploaded_files.length > 0 
-                ? '
+              original_input.trim() || uploaded_files.length > 0
+                ? 'bg-emerald-500 text-white'
                 : 'bg-gray-200 dark:bg-gray-700 text-muted-foreground'
             }`}>
               {original_input.trim() || uploaded_files.length > 0 ? (
@@ -112,13 +112,13 @@ export function ContentInputOutput() {
           </div>
 
           <div className={`flex items-center gap-3 p-2 rounded-lg ${
-            selected_platforms.length > 0 
-              ? '
+            selected_platforms.length > 0
+              ? 'bg-emerald-500/10'
               : 'bg-muted/50'
           }`}>
             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              selected_platforms.length > 0 
-                ? '
+              selected_platforms.length > 0
+                ? 'bg-emerald-500 text-white'
                 : 'bg-gray-200 dark:bg-gray-700 text-muted-foreground'
             }`}>
               {selected_platforms.length > 0 ? (
