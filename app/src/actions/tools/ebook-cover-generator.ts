@@ -1,7 +1,9 @@
 'use server';
 
 import { createImageGenerationPrediction, waitForImageGenerationCompletion } from '../models/image-generation-nano-banana';
-import { createChatCompletion } from '../models/openai-chat';
+import { google } from '@ai-sdk/google';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 import { downloadAndUploadImage } from '../supabase-storage';
 import { getUserCredits, deductCredits } from '../database/thumbnail-database';
 
@@ -80,14 +82,18 @@ async function enhanceCoverPrompt(
   fontStyle: string
 ): Promise<string> {
   try {
-    console.log('🔍 Enhancing cover prompt with OpenAI...');
-    
+    console.log('🔍 Enhancing cover prompt with Gemini...');
+
     const stylePrompt = COVER_STYLES[style as keyof typeof COVER_STYLES]?.systemPrompt || COVER_STYLES.minimal.systemPrompt;
     const colorDesc = COLOR_SCHEMES[colorScheme] || "professional color scheme";
     const fontDesc = FONT_STYLES[fontStyle] || "clean typography";
-    
-    const completion = await createChatCompletion({
-      model: 'gpt-4o',
+
+    const { object: parsed } = await generateObject({
+      model: google('gemini-2.5-flash'),
+      schema: z.object({
+        coverPrompt: z.string().describe('Your detailed book cover prompt that includes visual descriptions, composition, and style elements'),
+      }),
+      temperature: 0.8,
       messages: [
         {
           role: 'system',
@@ -118,17 +124,12 @@ Font style: ${fontDesc}
 Style: ${style}`
         }
       ],
-      temperature: 0.8,
-      max_tokens: 300,
-      n: 1
     });
 
-    const response = completion.choices[0]?.message?.content;
-    if (!response) {
-      throw new Error('No response from OpenAI');
+    if (!parsed.coverPrompt) {
+      throw new Error('No response from Gemini');
     }
 
-    const parsed = JSON.parse(response);
     return parsed.coverPrompt;
   } catch (error) {
     console.error('Error enhancing prompt:', error);

@@ -1,6 +1,7 @@
 'use server';
 
-import { OpenAI } from 'openai';
+import { google } from '@ai-sdk/google';
+import { generateText, streamText } from 'ai';
 
 export interface KeywordAnalysisRequest {
   keyword: {
@@ -23,10 +24,6 @@ export interface KeywordAnalysisResponse {
   content?: string;
   error?: string;
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function analyzeKeyword(
   request: KeywordAnalysisRequest
@@ -71,25 +68,23 @@ Provide a comprehensive analysis covering:
 Make your response detailed, actionable, and formatted with clear sections.`
     };
 
-    // Prepare messages for OpenAI
-    const openaiMessages = [systemPrompt, ...messages];
+    // Prepare messages for the model
+    const modelMessages = [systemPrompt, ...messages];
 
     // If this is the initial request (no user messages), add a prompt
     if (messages.length === 0) {
-      openaiMessages.push({
+      modelMessages.push({
         role: 'user' as const,
         content: 'Please provide a comprehensive analysis of this keyword.'
       });
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: openaiMessages,
+    const { text: content } = await generateText({
+      model: google('gemini-2.5-flash'),
+      messages: modelMessages,
       temperature: 0.7,
-      max_tokens: 1000,
+      maxOutputTokens: 1000,
     });
-
-    const content = completion.choices[0]?.message?.content;
 
     if (!content) {
       return {
@@ -153,23 +148,22 @@ Provide a comprehensive analysis covering:
 Make your response detailed, actionable, and formatted with clear sections.`
   };
 
-  // Prepare messages for OpenAI
-  const openaiMessages = [systemPrompt, ...messages];
+  // Prepare messages for the model
+  const modelMessages = [systemPrompt, ...messages];
 
   // If this is the initial request (no user messages), add a prompt
   if (messages.length === 0) {
-    openaiMessages.push({
+    modelMessages.push({
       role: 'user' as const,
       content: 'Please provide a comprehensive analysis of this keyword.'
     });
   }
 
-  const stream = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: openaiMessages,
+  const { textStream } = streamText({
+    model: google('gemini-2.5-flash'),
+    messages: modelMessages,
     temperature: 0.7,
-    max_tokens: 1000,
-    stream: true,
+    maxOutputTokens: 1000,
   });
 
   const encoder = new TextEncoder();
@@ -177,8 +171,7 @@ Make your response detailed, actionable, and formatted with clear sections.`
   return new ReadableStream({
     async start(controller) {
       try {
-        for await (const chunk of stream) {
-          const text = chunk.choices[0]?.delta?.content || '';
+        for await (const text of textStream) {
           if (text) {
             controller.enqueue(encoder.encode(text));
           }

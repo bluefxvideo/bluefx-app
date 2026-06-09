@@ -2,7 +2,6 @@
 
 import { createImageGenerationPrediction, waitForImageGenerationCompletion } from '../models/image-generation-nano-banana';
 import { performFaceSwap } from '../models/face-swap-cdingram';
-import { generateYouTubeTitles, analyzeImageForRecreation } from '../models/openai-chat';
 import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { recreateLogo as recreateWithOpenAI } from '../models/openai-image';
@@ -96,6 +95,42 @@ Example response:
     console.error('Prompt enhancement failed:', error);
     // Return original prompt if enhancement fails
     return combinedPrompt;
+  }
+}
+
+/**
+ * Generate YouTube title variations using Google Gemini (Vercel AI SDK).
+ * Migrated from OpenAI gpt-4o-mini chat completions.
+ */
+async function generateYouTubeTitles(
+  originalTitle: string,
+  numberOfVariations: number = 5
+): Promise<string[]> {
+  try {
+    const { text: generatedText } = await generateText({
+      model: google('gemini-2.5-flash'),
+      system: `You are a YouTube title optimization expert. Generate ${numberOfVariations} catchy, click-worthy variations of the given title. Each variation should:
+1. Be engaging and attention-grabbing
+2. Maintain the core message of the original
+3. Use power words and emotional hooks
+4. Be between 40-60 characters for optimal display
+5. Include relevant keywords for SEO
+
+Return only the titles, one per line, without numbering or bullets.`,
+      prompt: `Original title: "${originalTitle}"`,
+      temperature: 0.8,
+    });
+
+    const titles = (generatedText || '')
+      .split('\n')
+      .map(title => title.trim())
+      .filter(title => title.length > 0)
+      .slice(0, numberOfVariations);
+
+    return titles;
+  } catch (error) {
+    console.error('generateYouTubeTitles error:', error);
+    throw new Error(`Failed to generate YouTube titles: ${error}`);
   }
 }
 
@@ -517,8 +552,7 @@ export async function generateThumbnails(
       try {
         titles = await generateYouTubeTitles(
           request.prompt,
-          request.title_count || 10,
-          'gpt-4o-mini' // Cost-effective model for titles
+          request.title_count || 10
         );
         
         console.log(`✅ Generated ${titles?.length || 0} title variations`);
@@ -1365,7 +1399,7 @@ async function executeTitlesOnlyWorkflow(
       user_id: request.user_id,
       tool_id: 'thumbnail-machine',
       service_id: 'titles-only',
-      model_version: 'gpt-4o-mini',
+      model_version: 'gemini-2.5-flash',
       status: 'starting',
       input_data: request as unknown as Json,
     });
@@ -1379,11 +1413,10 @@ async function executeTitlesOnlyWorkflow(
     // ✅ FIX: Update prediction status to processing (like regular generation)
     await updatePredictionRecord(batch_id, { status: 'processing' });
 
-    console.log('📝 Generating YouTube titles with OpenAI');
+    console.log('📝 Generating YouTube titles with Gemini');
     const titles = await generateYouTubeTitles(
       titlePrompt,
-      request.title_count || 10,
-      'gpt-4o-mini' // Cost-effective model for titles
+      request.title_count || 10
     );
     
     if (!titles || titles.length === 0) {

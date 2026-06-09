@@ -1,10 +1,17 @@
 'use server';
 
 /**
- * Generated from: OpenAI API
- * Base URL: https://api.openai.com/v1
- * Purpose: Generate YouTube title variations using OpenAI's chat completions
+ * Shared REST chat helper.
+ * Originally generated from the OpenAI chat-completions API, now migrated to
+ * Google Gemini via the Vercel AI SDK (@ai-sdk/google). The exported function
+ * names, signatures, and return shapes are preserved so existing callers
+ * continue to work unchanged.
+ *
+ * Env var: GOOGLE_GENERATIVE_AI_API_KEY
  */
+
+import { google } from '@ai-sdk/google';
+import { generateText, type CoreMessage } from 'ai';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -51,25 +58,99 @@ interface ChatCompletionOutput {
 }
 
 /**
- * Create a chat completion for generating YouTube title variations
+ * Convert OpenAI-style chat messages into Vercel AI SDK CoreMessages.
+ * Handles plain-string content as well as the multimodal array form
+ * (text + image_url) so Gemini's multimodal models can consume them.
+ */
+function toCoreMessages(messages: ChatMessage[]): CoreMessage[] {
+  return messages.map((msg): CoreMessage => {
+    // Plain string content
+    if (typeof msg.content === 'string') {
+      if (msg.role === 'system') {
+        return { role: 'system', content: msg.content };
+      }
+      if (msg.role === 'assistant') {
+        return { role: 'assistant', content: msg.content };
+      }
+      return { role: 'user', content: msg.content };
+    }
+
+    // Multimodal array content — map image_url -> image, text -> text.
+    // System messages cannot carry parts; collapse to text.
+    const textOnly = msg.content
+      .map((part) => (part.type === 'text' ? part.text ?? '' : ''))
+      .join('');
+
+    if (msg.role === 'system') {
+      return { role: 'system', content: textOnly };
+    }
+
+    if (msg.role === 'assistant') {
+      // Assistant parts only support text in this helper's usage.
+      return { role: 'assistant', content: textOnly };
+    }
+
+    const parts = msg.content.map((part) => {
+      if (part.type === 'image_url' && part.image_url?.url) {
+        return { type: 'image' as const, image: part.image_url.url };
+      }
+      return { type: 'text' as const, text: part.text ?? '' };
+    });
+
+    return { role: 'user', content: parts };
+  });
+}
+
+/**
+ * Create a chat completion (migrated to Google Gemini via the Vercel AI SDK).
+ * Returns the same OpenAI-shaped ChatCompletionOutput so callers that read
+ * `choices[0].message.content` / `usage` keep working unchanged.
  */
 export async function createChatCompletion(params: ChatCompletionInput): Promise<ChatCompletionOutput> {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify(params)
+    const result = await generateText({
+      model: google('gemini-2.5-flash'),
+      messages: toCoreMessages(params.messages),
+      temperature: params.temperature,
+      maxOutputTokens: params.max_tokens,
+      topP: params.top_p,
+      stopSequences:
+        params.stop === undefined
+          ? undefined
+          : Array.isArray(params.stop)
+            ? params.stop
+            : [params.stop],
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`OpenAI API Error ${response.status}: ${response.statusText} - ${JSON.stringify(errorData)}`);
-    }
+    const finishReason: ChatCompletionChoice['finish_reason'] =
+      result.finishReason === 'length'
+        ? 'length'
+        : result.finishReason === 'content-filter'
+          ? 'content_filter'
+          : 'stop';
 
-    return await response.json();
+    // Reconstruct the OpenAI-compatible response shape callers expect.
+    return {
+      id: result.response?.id ?? `chatcmpl-${Date.now()}`,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: result.response?.modelId ?? 'gemini-2.5-flash',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: result.text,
+          },
+          finish_reason: finishReason,
+        },
+      ],
+      usage: {
+        prompt_tokens: result.usage?.inputTokens ?? 0,
+        completion_tokens: result.usage?.outputTokens ?? 0,
+        total_tokens: result.usage?.totalTokens ?? 0,
+      },
+    };
   } catch (error) {
     console.error('createChatCompletion error:', error);
     throw error;

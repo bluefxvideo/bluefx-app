@@ -1,7 +1,6 @@
 'use server';
 
 import { generateObject, generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { processDocumentsForContext } from '@/utils/document-processing';
@@ -796,7 +795,7 @@ Format the content with proper paragraphs and sections. IMPORTANT: Do not includ
 
     // Generate the chapter content
     const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: google('gemini-2.5-flash'),
       prompt,
       maxTokens: 4000,
       temperature: 0.7,

@@ -1,7 +1,9 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import OpenAI from 'openai';
+import { google } from '@ai-sdk/google';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 import type {
   SocialPlatform,
   PlatformGeneratedContent,
@@ -9,14 +11,6 @@ import type {
   SocialAccount,
   PLATFORM_CONFIGS,
 } from '@/components/content-multiplier/store/content-multiplier-v2-store';
-
-// ============================================================================
-// OPENAI CLIENT
-// ============================================================================
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // ============================================================================
 // PLATFORM CONTENT GENERATION
@@ -93,18 +87,21 @@ Important:
 - Hashtags should NOT include the # symbol
 - ${platform === 'youtube' ? 'Title should be under 100 chars, description should be detailed' : ''}`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const { object: parsed } = await generateObject({
+      model: google('gemini-2.5-flash'),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      response_format: { type: 'json_object' },
+      schema: z.object({
+        caption: z.string().describe('the main caption/post text'),
+        hashtags: z.array(z.string()).describe('hashtags without the # symbol'),
+        title: z.string().optional().describe('video title (YouTube only)'),
+        description: z.string().optional().describe('full video description (YouTube only)'),
+        tags: z.array(z.string()).optional().describe('tags (YouTube only)'),
+      }),
       temperature: 0.7,
     });
-
-    const responseText = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(responseText);
 
     const content: PlatformGeneratedContent = {
       platform,

@@ -1,7 +1,8 @@
 'use server';
 
 import { WhisperAnalysisResponse, SegmentTiming } from './whisper-analysis-service';
-import OpenAI from 'openai';
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
 
 /**
  * Professional Caption Chunking Service
@@ -214,8 +215,6 @@ async function chunkSegmentIntelligently(
  * Use AI to break text into meaningful, readable caption chunks
  */
 async function breakTextIntoMeaningfulCaptions(text: string): Promise<string[]> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-  
   const prompt = `Break this text into caption chunks for video subtitles. Each chunk should:
 - Be a complete thought or meaningful phrase (4-8 words ideal)
 - Break at natural linguistic boundaries
@@ -227,21 +226,21 @@ Text: "${text}"
 Return ONLY the chunks, one per line, no numbering or formatting.`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+    const { text: completionText } = await generateText({
+      model: google('gemini-2.5-flash'),
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
-      max_tokens: 500
+      maxOutputTokens: 500
     });
-    
-    const chunks = completion.choices[0].message.content
+
+    const chunks = completionText
       ?.split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0) || [];
-    
+
     return chunks.length > 0 ? chunks : [text];
   } catch (error) {
-    console.error('OpenAI caption chunking failed:', error);
+    console.error('Gemini caption chunking failed:', error);
     return [text]; // Return whole text as fallback
   }
 }

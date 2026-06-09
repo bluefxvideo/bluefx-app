@@ -1,12 +1,9 @@
 'use server';
 
 import { createClient } from '@/app/supabase/server';
-import OpenAI from 'openai';
+import { generateText } from 'ai';
+import { google } from '@ai-sdk/google';
 import type { SocialPlatform, PlatformContent } from '@/components/content-multiplier/store/content-multiplier-store';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
 
 interface GenerationRequest {
   platform: SocialPlatform;
@@ -98,8 +95,8 @@ export async function generatePlatformContent(
       - Make it native to the platform's style and conventions`;
 
     // Generate the content using AI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const { text } = await generateText({
+      model: google('gemini-2.5-flash'),
       messages: [
         {
           role: 'system',
@@ -111,10 +108,10 @@ export async function generatePlatformContent(
         },
       ],
       temperature: 0.7,
-      max_tokens: 1000,
+      maxOutputTokens: 1000,
     });
 
-    const generatedContent = completion.choices[0]?.message?.content || '';
+    const generatedContent = text || '';
 
     // Extract hashtags if they exist
     const hashtagRegex = /#\w+/g;

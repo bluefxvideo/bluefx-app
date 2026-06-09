@@ -1,5 +1,5 @@
 import { streamText, UIMessage, convertToModelMessages } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -42,7 +42,7 @@ IMPORTANT RULES:
     }
 
     const result = streamText({
-      model: openai('gpt-4o'),
+      model: google('gemini-2.5-flash'),
       messages: convertToModelMessages(messages),
       system: systemMessage,
       temperature: 0.8,

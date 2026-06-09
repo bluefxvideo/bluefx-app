@@ -1,7 +1,7 @@
 'use server';
 
 import { streamText, generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { createStreamableValue } from '@ai-sdk/rsc';
 import { z } from 'zod';
 
@@ -172,7 +172,7 @@ export async function contentMultiplierOrchestrator(
     console.log('Generating content adaptations for platforms:', request.targetPlatforms);
     
     const result = await generateObject({
-      model: openai('o1-preview'), // Using O1 for complex content adaptation
+      model: google('gemini-2.5-pro'), // Using Gemini 2.5 Pro for complex content adaptation
       system: systemPrompt,
       prompt: buildUserPrompt(contentToAnalyze, request.targetPlatforms, request.contentSettings),
       schema: ContentMultiplierSchema,
@@ -231,7 +231,7 @@ export async function streamContentAdaptation(
       const userPrompt = buildUserPrompt(request.originalContent, request.targetPlatforms, request.contentSettings);
 
       const { textStream } = await streamText({
-        model: openai('gpt-4o'), // Using GPT-4o for streaming
+        model: google('gemini-2.5-flash'), // Using Gemini 2.5 Flash for streaming
         system: systemPrompt,
         prompt: userPrompt,
         temperature: 0.7,
@@ -286,7 +286,7 @@ ${previousVersion ? `PREVIOUS VERSION (to improve upon): ${previousVersion}` : '
 Create engaging, platform-optimized content that maximizes engagement for the specific platform.`;
 
     const result = await generateObject({
-      model: openai('gpt-4o'),
+      model: google('gemini-2.5-flash'),
       system: systemPrompt,
       prompt: `Adapt this content for ${platform}: "${originalContent}"`,
       schema: PlatformContentSchema,
@@ -416,7 +416,7 @@ export async function analyzeContentForOptimization(
 }> {
   try {
     const result = await generateObject({
-      model: openai('gpt-4o'),
+      model: google('gemini-2.5-flash'),
       system: `You are a social media analytics expert. Analyze content for ${platform} optimization.`,
       prompt: `Analyze this content for ${platform}: "${content}"
       
