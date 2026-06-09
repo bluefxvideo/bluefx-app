@@ -19,6 +19,7 @@ import { GeneratorTabNew as GeneratorTab, type MultiStepState } from './tabs/gen
 import { VideoEditorPanel } from './panels/video-editor-panel';
 import { HistoryTab } from './tabs/history-tab';
 import { UserChoiceDialog } from './components/user-choice-dialog';
+import { ToastContainer } from './components/toast-container';
 
 /**
  * Script to Video - Complete AI-Orchestrated Tool with Tabs
@@ -267,6 +268,9 @@ export function ScriptToVideoPage() {
       
       {/* User Choice Dialog - Global Modal */}
       <UserChoiceDialog />
+
+      {/* Toast notifications — was never mounted, so all generate feedback/errors were silent */}
+      <ToastContainer />
     </StandardToolPage>
   );
 }
