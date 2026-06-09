@@ -1,10 +1,28 @@
 'use server';
 
 /**
- * OpenAI Image Generation API Integration
- * Base URL: https://api.openai.com/v1
- * Purpose: Generate high-quality logos and images using OpenAI's DALL-E models
+ * Image generation helper.
+ * NOTE: migrated off OpenAI (DALL-E / gpt-image-1) to FAL Nano Banana 2 after the
+ * OpenAI key was revoked. The OpenAIImage* interfaces and the `{ data: [{ url }] }`
+ * return shape are preserved so existing callers (logo-machine, thumbnail recreation)
+ * keep working unchanged.
  */
+import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from './fal-nano-banana-2';
+
+// Map OpenAI sizes / aspect-ratio strings to the nearest Nano Banana 2 aspect ratio.
+function toNanoAspect(value?: string): NanoBananaAspectRatio {
+  switch (value) {
+    case '16:9': return '16:9';
+    case '4:3': return '4:3';
+    case '3:2': return '3:2';
+    case '9:16': return '9:16';
+    case '3:4': return '3:4';
+    case '2:3': return '2:3';
+    case '1792x1024': case '1536x1024': return '16:9'; // landscape
+    case '1024x1792': case '1024x1536': return '9:16'; // portrait
+    default: return '1:1'; // squares + unknown
+  }
+}
 
 interface OpenAIImageInput {
   prompt: string;
@@ -52,37 +70,27 @@ interface OpenAIImageOutput {
  */
 export async function generateImage(params: OpenAIImageInput): Promise<OpenAIImageOutput> {
   try {
-    console.log(`🎨 OpenAI Image Generation: ${params.model || 'dall-e-2'} - "${params.prompt.substring(0, 50)}..."`);
-    
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        prompt: params.prompt,
-        model: params.model || 'dall-e-2',
-        ...(params.n && { n: params.n }),
-        ...(params.size && { size: params.size }),
-        ...(params.quality && { quality: params.quality }),
-        ...(params.style && { style: params.style }),
-        ...(params.response_format && { response_format: params.response_format }),
-        ...(params.background && { background: params.background }),
-        ...(params.output_format && { output_format: params.output_format }),
-        ...(params.user && { user: params.user }),
-      })
-    });
+    console.log(`🎨 Image Generation (Nano Banana 2): "${params.prompt.substring(0, 50)}..."`);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`OpenAI Image API Error ${response.status}: ${response.statusText} - ${JSON.stringify(errorData)}`);
+    const count = params.n && params.n > 1 ? Math.min(params.n, 4) : 1;
+    const aspect_ratio = toNanoAspect(params.size);
+    const output_format = (params.output_format === 'jpeg' || params.output_format === 'webp')
+      ? params.output_format
+      : 'png';
+
+    const results = await Promise.all(
+      Array.from({ length: count }, () =>
+        generateWithFalNanaBanana2({ prompt: params.prompt, aspect_ratio, resolution: '2K', output_format })
+      )
+    );
+
+    const data = results.filter(r => r.success && r.imageUrl).map(r => ({ url: r.imageUrl! }));
+    if (data.length === 0) {
+      throw new Error(results[0]?.error || 'Image generation failed');
     }
 
-    const result = await response.json();
-    console.log(`✅ Generated ${result.data.length} image(s) with OpenAI`);
-    
-    return result;
+    console.log(`✅ Generated ${data.length} image(s) with Nano Banana 2`);
+    return { created: Math.floor(Date.now() / 1000), data };
   } catch (error) {
     console.error('generateImage error:', error);
     throw error;
@@ -227,83 +235,29 @@ export async function recreateLogo(
   aspectRatio?: string
 ): Promise<OpenAIImageOutput> {
   try {
-    console.log(`🎨 OpenAI Logo Recreation: Using Image Edits API for "${companyName}"`);
-    
-    // Build the prompt for recreation
-    const enhancedPrompt = modifications 
-      ? `Recreate this logo with improvements: ${modifications}. Make it professional, clean, and visually appealing.` 
-      : "Recreate this logo with professional quality, clean lines, and improved visual appeal.";
-    
-    console.log(`📝 Recreation prompt: ${enhancedPrompt}`);
-    
-    // First, download the reference image from Supabase
-    const imageResponse = await fetch(referenceImageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch reference image: ${imageResponse.statusText}`);
-    }
-    
-    const imageBlob = await imageResponse.blob();
-    console.log(`📥 Downloaded reference image: ${imageBlob.size} bytes, type: ${imageBlob.type}`);
+    console.log(`🎨 Logo Recreation (Nano Banana 2 edit) for "${companyName}"`);
 
-    // Map aspect ratio to supported OpenAI size (gpt-image-1 supports: 1536x1024, 1024x1536, 1024x1024)
-    const getOpenAISize = (aspectRatio?: string): string => {
-      if (!aspectRatio) return '1024x1024'; // Default square
-      
-      switch (aspectRatio) {
-        case '16:9':
-        case '4:3':
-        case '3:2':
-        case '16:10':
-        case '3:1':
-          return '1536x1024'; // Landscape
-        case '9:16':
-        case '3:4':
-        case '2:3':
-        case '10:16':
-        case '1:3':
-          return '1024x1536'; // Portrait
-        case '1:1':
-        default:
-          return '1024x1024'; // Square
-      }
-    };
+    const enhancedPrompt = modifications
+      ? `Recreate this logo with improvements: ${modifications}. Make it professional, clean, and visually appealing.`
+      : 'Recreate this logo with professional quality, clean lines, and improved visual appeal.';
 
-    const openaiSize = getOpenAISize(aspectRatio);
-    console.log(`📐 Using OpenAI size ${openaiSize} for aspect ratio ${aspectRatio || 'default'}`);
-
-    // Prepare multipart form data for OpenAI Image Edits API (following legacy approach)
-    const formData = new FormData();
-    formData.append('image', imageBlob, 'image.png');
-    formData.append('model', 'gpt-image-1'); // Using gpt-image-1 like the legacy function
-    formData.append('prompt', enhancedPrompt);
-    formData.append('n', '1');
-    formData.append('size', openaiSize);
-    
-    if (user) {
-      formData.append('user', user);
-    }
-    
-    console.log('🔄 Sending to OpenAI Image Edits API...');
-    
-    // Call OpenAI Image Edits API
-    const response = await fetch('https://api.openai.com/v1/images/edits', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: formData
+    // Nano Banana 2 takes the reference image URL directly (image_input → /edit endpoint),
+    // so there's no need to download/re-upload the reference first.
+    const result = await generateWithFalNanaBanana2({
+      prompt: enhancedPrompt,
+      aspect_ratio: toNanoAspect(aspectRatio),
+      resolution: '2K',
+      output_format: 'png',
+      image_input: [referenceImageUrl],
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`OpenAI Image Edits API Error ${response.status}: ${response.statusText} - ${JSON.stringify(errorData)}`);
+    if (!result.success || !result.imageUrl) {
+      throw new Error(result.error || 'Logo recreation failed');
     }
 
-    const result = await response.json();
-    console.log(`✅ Recreation completed - Generated ${result.data.length} image(s)`);
-    console.log('🔍 OpenAI response data structure:', JSON.stringify(result.data[0], null, 2));
-    
-    return result;
+    void companyName; void user; // retained for signature compatibility
+    console.log('✅ Recreation completed via Nano Banana 2');
+    return { created: Math.floor(Date.now() / 1000), data: [{ url: result.imageUrl }] };
   } catch (error) {
     console.error('recreateLogo error:', error);
     throw error;
