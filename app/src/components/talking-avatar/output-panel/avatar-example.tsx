@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, type VideoHTMLAttributes } from "react";
 
 export function AvatarExample() {
   const [showControls, setShowControls] = useState(false);

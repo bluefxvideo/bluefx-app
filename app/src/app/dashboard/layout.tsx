@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/user/dashboard-layout';
 import { createClient } from '@/app/supabase/server';
 import { redirect } from 'next/navigation';
 import { ProjectProvider } from '@/lib/project-context';
+import { GlobalGenerationNotifier } from '@/components/user/global-generation-notifier';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,8 @@ export default async function DashboardRootLayout({
 
   return (
     <DashboardLayout>
+      {/* App-wide "your generation finished" toasts — works on any page */}
+      <GlobalGenerationNotifier />
       <ProjectProvider>
         <Suspense
           fallback={

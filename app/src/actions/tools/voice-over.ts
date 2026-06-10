@@ -4,8 +4,9 @@ import { createClient } from '@/app/supabase/server';
 import { createPredictionRecord, updatePredictionRecord } from '@/actions/database/thumbnail-database';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { MINIMAX_VOICE_OPTIONS, type MinimaxEmotion } from '@/components/shared/voice-constants';
-import { convertVoiceWithChatterbox, type ChatterboxPresetVoice } from '@/actions/models/fal-chatterbox-s2s';
-import type { Json } from '@/types/supabase';
+import { convertVoiceWithChatterbox } from '@/actions/models/fal-chatterbox-s2s';
+import type { ChatterboxPresetVoice } from '@/actions/models/chatterbox-voices';
+import type { Json } from '@/types/database';
 
 // Request/Response types for Voice Over
 export interface VoiceOverRequest {

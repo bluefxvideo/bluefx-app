@@ -535,7 +535,7 @@ export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest
     console.log(`✅ Video fetched (${(videoBuffer.byteLength / 1024 / 1024).toFixed(2)} MB), analyzing with Gemini...`);
 
     // Step 3: Build the prompt based on analysis type
-    const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
+    const finalPrompt = buildPrompt(request.analysisType as AnalysisType, request.customPrompt);
 
     // Step 4: Use Gemini to analyze the video as inline base64 data
     if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {

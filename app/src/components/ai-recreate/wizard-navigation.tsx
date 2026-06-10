@@ -12,7 +12,7 @@ interface WizardNavigationProps {
   isProcessing?: boolean;
 }
 
-const STEP_CTA: Record<WizardStep, string> = {
+const STEP_CTA: Partial<Record<WizardStep, string>> = {
   2: 'Continue to Image Generation',
   3: 'Continue to Video Generation',
   4: 'Continue to Voice Over',

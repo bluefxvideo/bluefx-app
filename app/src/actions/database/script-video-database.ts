@@ -54,12 +54,7 @@ export interface ScriptVideoRecord {
     consistency_settings: any;
     seed_values: any[];
   };
-  caption_settings?: {
-    content_type: string;
-    quality_score: number;
-    avg_words_per_chunk: number;
-  };
-  
+
   // Phase-specific data (NEW ARCHITECTURE)
   remotion_composition?: any;  // PRIMARY: Remotion-native composition
   generation_metadata?: any;   // SECONDARY: Generation settings for regeneration
@@ -271,6 +266,28 @@ export async function recordGenerationMetrics(data: {
   }
 }
 
+async function getCaptionChunks(video_id: string) {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase
+      .from('video_captions')
+      .select('*')
+      .eq('video_id', video_id)
+      .order('chunk_index');
+
+    if (error) throw error;
+
+    return { success: true, captions: data || [] };
+  } catch (error) {
+    console.error('Error getting caption chunks:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      captions: []
+    };
+  }
+}
+
 export async function getLatestScriptVideoResults(user_id: string) {
   const supabase = getSupabaseClient();
   try {
@@ -330,10 +347,10 @@ export async function getLatestScriptVideoResults(user_id: string) {
       caption_chunks: {
         total_chunks: captionChunks.length,
         chunks: captionChunks,
-        quality_score: captionChunks.length > 0 ? 
-          captionChunks.reduce((avg, chunk) => avg + (chunk.quality_score || 100), 0) / captionChunks.length : 100,
+        quality_score: captionChunks.length > 0 ?
+          captionChunks.reduce((avg: number, chunk: any) => avg + (chunk.quality_score || 100), 0) / captionChunks.length : 100,
         avg_words_per_chunk: captionChunks.length > 0 ?
-          captionChunks.reduce((avg, chunk) => avg + (chunk.word_count || 0), 0) / captionChunks.length : 0
+          captionChunks.reduce((avg: number, chunk: any) => avg + (chunk.word_count || 0), 0) / captionChunks.length : 0
       },
       video_id: data.id // Include database ID for caption fetching
     };
