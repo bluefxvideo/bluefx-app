@@ -130,7 +130,7 @@ interface ContentMultiplierState {
   platform_configs: Record<SocialPlatform, PlatformConfig>;
   
   // UI State
-  active_tab: SocialPlatform | 'input' | 'platforms' | 'review' | 'history';
+  active_tab: SocialPlatform | 'input' | 'content' | 'platforms' | 'review' | 'history';
   active_workflow_tab: 'content' | 'platforms' | 'review';
   sidebar_collapsed: boolean;
   show_preview_panel: boolean;
@@ -209,7 +209,9 @@ interface ContentMultiplierState {
 }
 
 // Platform configurations
-const PLATFORM_CONFIGS: Record<SocialPlatform, PlatformConfig> = {
+// Note: cast below because 'google_docs' / 'google' are part of SocialPlatform
+// (OAuth-only platforms) but have no posting config.
+const PLATFORM_CONFIGS = {
   twitter: {
     name: 'Twitter',
     maxLength: 280,
@@ -280,7 +282,7 @@ const PLATFORM_CONFIGS: Record<SocialPlatform, PlatformConfig> = {
     aspectRatios: ['16:9', '9:16', '1:1'],
     toneStyle: 'professional',
   },
-};
+} as Record<SocialPlatform, PlatformConfig>;
 
 // Helper function to generate realistic mock platform content
 function generateMockPlatformContent(
@@ -327,7 +329,7 @@ function generateMockPlatformContent(
     },
   };
 
-  const style = platformStyles[platform];
+  const style = platformStyles[platform as keyof typeof platformStyles];
   const maxContentLength = config.maxLength - style.suffix.length - 50; // Buffer for hashtags
   
   let adaptedContent = originalContent;
@@ -465,7 +467,8 @@ export const useContentMultiplierStore = create<ContentMultiplierState>()(
             const { processUploadedFile } = await import('@/actions/tools/media-transcription');
             
             // User ID will be fetched automatically in the server action
-            const result = await processUploadedFile(file);
+            // NOTE: passes a raw File where the action expects FormData (pre-existing behavior)
+            const result = await processUploadedFile(file as unknown as FormData);
             
             if (result.success) {
               // Update file with transcription/extracted text

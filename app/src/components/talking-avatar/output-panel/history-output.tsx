@@ -211,7 +211,7 @@ export function HistoryOutput({
                 >
                   {video.video_url ? (
                     <video
-                      ref={(el) => videoRefs.current[video.id] = el}
+                      ref={(el) => { videoRefs.current[video.id] = el; }}
                       src={video.video_url}
                       className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                       poster={video.thumbnail_url || undefined}
@@ -261,7 +261,7 @@ export function HistoryOutput({
                           className="h-6 px-2 justify-start"
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(video.video_url, '_blank');
+                            window.open(video.video_url!, '_blank');
                           }}
                         >
                           <Eye className="w-3 h-3 mr-1" />

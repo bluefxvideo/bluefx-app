@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 interface StandardStepProps {
   stepNumber: number;
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
   className?: string;
 }

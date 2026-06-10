@@ -82,6 +82,7 @@ export async function getRemotionComposition(video_id: string): Promise<{
   error?: string;
 }> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('script_to_video_history')
       .select('remotion_composition, editor_overlays')
@@ -131,6 +132,7 @@ export async function loadEditorProject(video_id: string): Promise<{
   error?: string;
 }> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('script_to_video_history')
       .select('remotion_composition, generation_metadata, editor_overlays')
@@ -175,6 +177,7 @@ export async function saveEditorOverlays(
   overlays: EditorOverlays
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from('script_to_video_history')
       .update({
@@ -204,6 +207,7 @@ export async function regenerateAsset(
   segment_id?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('script_to_video_history')
       .select('generation_metadata, remotion_composition')
@@ -275,7 +279,7 @@ function mergeEditorOverlays(
 
   // Add new sequences
   if (overlays.additional_sequences) {
-    merged.sequences.push(...overlays.additional_sequences);
+    merged.sequences.push(...(overlays.additional_sequences as RemotionComposition['sequences']));
   }
 
   // Update composition duration if needed

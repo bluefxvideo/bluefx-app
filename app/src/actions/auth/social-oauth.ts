@@ -80,7 +80,7 @@ const OAUTH_CONFIGS = {
  */
 export async function initiateOAuthFlow(platform: SocialPlatform, userId: string) {
   try {
-    const config = OAUTH_CONFIGS[platform];
+    const config = OAUTH_CONFIGS[platform as keyof typeof OAUTH_CONFIGS];
     if (!config || !config.clientId) {
       throw new Error(`OAuth not configured for ${platform}`);
     }
@@ -188,7 +188,7 @@ export async function handleOAuthCallback(
  */
 export async function refreshAccessToken(platform: SocialPlatform, userId: string) {
   try {
-    const config = OAUTH_CONFIGS[platform];
+    const config = OAUTH_CONFIGS[platform as keyof typeof OAUTH_CONFIGS];
     if (!config) {
       throw new Error(`Platform ${platform} not supported`);
     }
@@ -323,7 +323,7 @@ export async function validatePlatformTokens(platform: SocialPlatform, userId: s
 
 // Helper functions
 async function exchangeCodeForTokens(platform: SocialPlatform, code: string) {
-  const config = OAUTH_CONFIGS[platform];
+  const config = OAUTH_CONFIGS[platform as keyof typeof OAUTH_CONFIGS];
   
   const response = await fetch(config.tokenUrl, {
     method: 'POST',
@@ -365,7 +365,7 @@ async function fetchUserProfile(platform: SocialPlatform, accessToken: string) {
     youtube: 'https://www.googleapis.com/oauth2/v1/userinfo',
   };
 
-  const response = await fetch(profileEndpoints[platform], {
+  const response = await fetch(profileEndpoints[platform as keyof typeof profileEndpoints], {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
     },
@@ -501,7 +501,7 @@ async function revokeTokens(platform: SocialPlatform, userId: string) {
       youtube: 'https://oauth2.googleapis.com/revoke',
     };
 
-    const endpoint = revokeEndpoints[platform];
+    const endpoint = revokeEndpoints[platform as keyof typeof revokeEndpoints];
     if (endpoint) {
       await fetch(endpoint, {
         method: 'POST',

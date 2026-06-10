@@ -19,7 +19,9 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
   try {
     // 1. Delete user-generated content (files, media, etc.)
     // Note: These tables all have foreign keys to auth.users
-    const contentTables: (keyof Database['public']['Tables'])[] = [
+    // Some tables below are not present in the generated Database types;
+    // deletes against missing tables fail gracefully and are logged below.
+    const contentTables: readonly (keyof Database['public']['Tables'] | (string & {}))[] = [
       // Media generation tables
       'avatar_videos',
       'generated_voices',

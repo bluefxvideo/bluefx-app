@@ -126,6 +126,8 @@ export function MusicSelector({
             <Slider
               value={[volume * 100]}
               onValueChange={([v]) => onVolumeChange(v / 100)}
+              // min was historically omitted; keep runtime identical (range input defaults to 0)
+              min={undefined as unknown as number}
               max={100}
               step={5}
               className="flex-1"

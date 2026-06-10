@@ -385,7 +385,7 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
           videoFile: file,
           hasUnsavedChanges: true,
           // Reset downstream state when video changes
-          platformContent: {},
+          platformContent: {} as Record<SocialPlatform, PlatformGeneratedContent | null>,
           wizardStep: 1,
         }),
 
@@ -1026,7 +1026,7 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
               videoUrl: post.videoUrl,
               originalDescription: post.originalDescription,
               selectedPlatforms: [],
-              platformContent: {},
+              platformContent: {} as Record<SocialPlatform, PlatformGeneratedContent | null>,
             });
           }
         },
@@ -1071,7 +1071,7 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
                 originalDescription: result.draft.originalDescription,
                 selectedPlatforms: result.draft.selectedPlatforms,
                 platformContent: result.draft.platformContent,
-                wizardStep: result.draft.currentStep,
+                wizardStep: result.draft.currentStep as WizardStep,
                 hasUnsavedChanges: false,
               });
             }
@@ -1096,10 +1096,10 @@ export const useContentMultiplierV2Store = create<ContentMultiplierV2State>()(
           originalDescription: '',
           originalTranscript: null,
           selectedPlatforms: [],
-          platformContent: {},
+          platformContent: {} as Record<SocialPlatform, PlatformGeneratedContent | null>,
           activePlatformTab: null,
           scheduleOption: 'now',
-          platformSchedules: {},
+          platformSchedules: {} as Record<SocialPlatform, PlatformSchedule | null>,
           currentDraftId: null,
           hasUnsavedChanges: false,
           error: null,

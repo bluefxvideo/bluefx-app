@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -421,7 +421,7 @@ export function ContentOutput({ ebook }: ContentOutputProps) {
                         {children}
                       </blockquote>
                     ),
-                    code: ({inline, children}) => 
+                    code: ({inline, children}: {inline?: boolean; children?: ReactNode}) =>
                       inline ? (
                         <code className="px-1 py-0.5 bg-muted rounded text-sm">{children}</code>
                       ) : (

@@ -99,7 +99,7 @@ export default function PasswordSetupForm() {
       const result = await updatePassword(formData)
       
       if (result.success) {
-        if (result.data?.migrated) {
+        if ((result.data as { migrated?: boolean } | undefined)?.migrated) {
           // Show success message for legacy user
           router.push('/dashboard?welcome=legacy')
         } else {

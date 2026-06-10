@@ -101,7 +101,11 @@ export type ScriptType =
   | 'short_video'
   | 'long_video'
   | 'email_sequence'
+  | 'landing_page'
+  | 'social_posts'
+  | 'ad_copy'
   | 'hooks'
+  | 'content_calendar'
   | 'cinematic_storyboard'
   | 'custom';
 

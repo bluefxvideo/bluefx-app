@@ -88,10 +88,11 @@ export function ContextualOutput({
       // For active (non-restored) generations, use the current tab as context
       if (isGenerating) {
         // Check which tab user is currently viewing as context
-        if (activeTab === 'face-swap') {
+        // (activeTab is narrowed to 'history' here; widen to keep the original checks)
+        if ((activeTab as string) === 'face-swap') {
           return 'face-swap';
         }
-        if (activeTab === 'recreate') {
+        if ((activeTab as string) === 'recreate') {
           return 'recreate';
         }
       }

@@ -66,7 +66,12 @@ export default function LoginForm() {
 
   const handleLegacyUserSetup = async (email: string) => {
     try {
-      const { setupLegacyUserPassword } = await import('@/actions/auth')
+      // setupLegacyUserPassword was removed from '@/actions/auth' (all users migrated);
+      // cast keeps this legacy fallback type-checking — at runtime the call throws and
+      // lands in the catch block below, same as before.
+      const { setupLegacyUserPassword } = (await import('@/actions/auth')) as unknown as {
+        setupLegacyUserPassword: (formData: FormData) => Promise<{ success: boolean; message?: string; error?: string }>
+      }
       const formData = new FormData()
       formData.append('email', email)
       

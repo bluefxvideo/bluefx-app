@@ -19,7 +19,7 @@ export interface ScriptGenerationRequest {
   idea: string;
   user_id: string;
   style?: {
-    tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';
+    tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic' | 'engaging';
     pacing?: 'slow' | 'medium' | 'fast';
     target_duration?: number;
   };

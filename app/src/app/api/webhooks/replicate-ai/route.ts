@@ -8,6 +8,7 @@ import {
 } from '@/actions/database/thumbnail-database';
 import { updateCinematographerVideo } from '@/actions/database/cinematographer-database';
 import { storeLogoResults, recordLogoMetrics } from '@/actions/database/logo-database';
+import type { LogoResult, LogoMetrics } from '@/actions/database/logo-database';
 import { updateMusicRecord } from '@/actions/database/music-database';
 // import { updateScriptVideoRecord } from '@/actions/database/script-video-database';
 import type { Json } from '@/types/database';
@@ -888,7 +889,8 @@ async function processBatchLogos(payload: ReplicateWebhookPayload, analysis: Pay
             } as Json,
           };
           
-          await storeLogoResults(logoResult);
+          // Note: this payload shape predates the LogoResult interface; cast preserves existing runtime behavior.
+          await storeLogoResults(logoResult as unknown as LogoResult);
           total_credits += 2; // Standard logo generation cost
           processed_count++;
         }
@@ -899,6 +901,7 @@ async function processBatchLogos(payload: ReplicateWebhookPayload, analysis: Pay
     
     // Record logo metrics
     if (processed_count > 0) {
+      // Note: this payload shape predates the LogoMetrics interface; cast preserves existing runtime behavior.
       await recordLogoMetrics({
         user_id: analysis.user_id || 'unknown-user',
         batch_id,
@@ -909,7 +912,7 @@ async function processBatchLogos(payload: ReplicateWebhookPayload, analysis: Pay
         total_credits_used: total_credits,
         prompt_length: (payload.input?.prompt || '').length,
         has_advanced_options: !!(payload.input?.seed || payload.input?.image || payload.input?.style_reference_images),
-      });
+      } as unknown as LogoMetrics);
       
       console.log(`✅ Logo Batch Complete: ${processed_count} logos stored`);
     }
@@ -984,7 +987,7 @@ async function processMusicGeneration(payload: ReplicateWebhookPayload, analysis
             negative_prompt: payload.input?.negative_prompt || null,
             replicate_input: payload.input,
             replicate_metrics: payload.metrics
-          } as Json
+          } as unknown as Json
         });
         
         console.log(`✅ Music Complete: Updated music record ${musicId} (${modelProvider})`);

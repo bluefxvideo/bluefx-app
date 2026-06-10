@@ -61,6 +61,7 @@ export async function logToolAction(
   metadata?: Record<string, unknown>
 ): Promise<void> {
   try {
+    const { logActivity } = await import('@/actions/activity-log');
     await logActivity(toolName, action, metadata);
   } catch (err) {
     console.error('Failed to log tool action:', err);

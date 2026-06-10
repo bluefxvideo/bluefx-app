@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, type VideoHTMLAttributes } from "react";
 
 export function CinematographerExample() {
   const [showControls, setShowControls] = useState(false);
@@ -31,7 +31,8 @@ export function CinematographerExample() {
             playsInline
             controls={showControls}
             preload="metadata"
-            loading="lazy"
+            // 'loading' is not in React's VideoHTMLAttributes; pass through unchanged
+            {...({ loading: "lazy" } as unknown as VideoHTMLAttributes<HTMLVideoElement>)}
             className="w-full h-full object-cover"
             onLoadStart={() => console.log('Loading cinematographer example video')}
           />

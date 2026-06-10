@@ -97,7 +97,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
 
   if (!platform) return null;
 
-  const info = platformInfo[platform];
+  const info = platformInfo[platform as keyof typeof platformInfo];
   const isConnected = connections[platform]?.connected || false;
 
   const handleConnect = async () => {
@@ -119,7 +119,7 @@ export function PlatformConnectDialog({ platform, open, onOpenChange }: Platform
         youtube: null, // Not supported by Supabase Auth
       } as const;
       
-      const supabaseProvider = providerMap[platform];
+      const supabaseProvider = providerMap[platform as keyof typeof providerMap];
       
       if (!supabaseProvider) {
         toast.error(`${info.name} integration coming soon!`, {

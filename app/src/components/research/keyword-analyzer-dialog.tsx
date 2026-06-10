@@ -202,12 +202,14 @@ export function KeywordAnalyzerDialog({
       });
 
       if (response.success && response.content) {
+        // Capture the narrowed value — narrowing is lost inside the updater callback
+        const content = response.content;
         // Add assistant message
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            content: response.content,
+            content,
           },
         ]);
       } else {

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Search case-insensitively
-    authUser = allAuthUsers.find(u => u.email?.toLowerCase() === email.toLowerCase())
+    authUser = allAuthUsers.find(u => u.email?.toLowerCase() === email!.toLowerCase())
 
     // Step 2: Check profiles table by email
     const { data: profileByEmail } = await adminClient

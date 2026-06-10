@@ -35,6 +35,8 @@ export interface MusicMachineState {
   error: string | null;
   credits: number;
   estimatedCredits: number;
+  // Optional display value (not set by this hook; read by the output panel)
+  duration?: number;
 }
 
 export interface UseMusicMachineReturn {
@@ -52,6 +54,8 @@ export interface UseMusicMachineReturn {
   clearGeneration: () => void;
   updateMusicDuration: (musicId: string, actualDurationSeconds: number) => Promise<void>;
   setState: React.Dispatch<React.SetStateAction<MusicMachineState>>;
+  // Optional: not implemented by this hook (cancel button is a no-op when absent)
+  cancelGeneration?: () => void;
 }
 
 export function useMusicMachine() {

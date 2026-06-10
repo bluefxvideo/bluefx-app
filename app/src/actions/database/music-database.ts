@@ -162,6 +162,7 @@ export async function updateMusicRecordAdmin(
     status?: string;
     audio_url?: string | null;
     final_audio_url?: string | null;
+    error_message?: string;
     progress_percentage?: number | null;
     quality_rating?: number | null;
     duration_seconds?: number;

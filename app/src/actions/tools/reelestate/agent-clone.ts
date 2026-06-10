@@ -7,7 +7,7 @@ import { deductCredits } from '@/actions/database/cinematographer-database';
 import { getUserCredits } from '@/actions/credit-management';
 import { downloadAndUploadImage, downloadAndUploadVideo } from '@/actions/supabase-storage';
 import { storeAgentCloneGeneration, updateAgentCloneGeneration } from '@/actions/database/agent-clone-database';
-import type { Json } from '@/types/supabase';
+import type { Json } from '@/types/database';
 import type { AgentCloneCameraMotion, AgentCloneDuration } from '@/types/reelestate';
 
 const CREDITS = {

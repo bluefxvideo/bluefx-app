@@ -31,7 +31,7 @@ export interface ExtractedFrame {
   batchNumber: number;
   narration?: string;
   duration: number;
-  motionPresetId?: number;
+  motionPresetId?: number | null; // null when the scene uses a custom motion prompt (see BreakdownScene)
   // Version history — all generated versions of this frame
   imageVersions?: string[]; // array of image URLs, newest last
   currentVersionIndex?: number; // which version is currently displayed

@@ -121,7 +121,7 @@ export async function generateQuickScript(
   idea: string,
   user_id: string,
   options?: {
-    tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';
+    tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic' | 'engaging';
   }
 ): Promise<ScriptGenerationResponse> {
   return generateScriptFromIdea({

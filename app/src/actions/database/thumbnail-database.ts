@@ -34,13 +34,13 @@ interface ThumbnailResult {
 }
 
 interface PredictionRecord {
-  prediction_id: string;
+  prediction_id?: string;
   user_id: string;
   tool_id: string;
   service_id: string;
   model_version: string;
   input_data?: Json;
-  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  status: 'starting' | 'processing' | 'succeeded' | 'completed' | 'failed' | 'canceled' | 'cancelled';
   webhook_url?: string;
   output_data?: Json;
   external_id?: string; // External service prediction ID (e.g., Replicate pred_abc123)

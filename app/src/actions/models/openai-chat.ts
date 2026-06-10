@@ -38,7 +38,11 @@ interface ChatCompletionInput {
 
 interface ChatCompletionChoice {
   index: number;
-  message: ChatMessage;
+  // Response messages always carry plain string content (built from result.text)
+  message: {
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  };
   finish_reason: 'stop' | 'length' | 'content_filter';
 }
 

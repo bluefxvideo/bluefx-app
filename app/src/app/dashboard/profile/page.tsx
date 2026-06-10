@@ -26,7 +26,7 @@ export default function ProfilePage() {
   const { data: userProfile, isLoading, refetch } = useQuery({
     queryKey: ['user-profile-details'],
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;

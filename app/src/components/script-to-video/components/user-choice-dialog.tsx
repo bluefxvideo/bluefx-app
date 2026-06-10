@@ -15,6 +15,26 @@ interface CostBreakdown {
   breakdown: Array<{ item: string; credits: number; description: string }>;
 }
 
+interface ChoiceStrategy {
+  id: string;
+  name: string;
+  description: string;
+  qualityImpact: string;
+  creditsRequired: number;
+  processingTime: number;
+  preservesCustomizations?: boolean;
+}
+
+// getCostPreview was removed along with video-editor-actions. Calling it rejects,
+// so the fallback estimate in the catch block below is used (same as before removal).
+const getCostPreview = async (
+  _operation: 'add' | 'remove' | 'regenerate' | 'export',
+  _strategyId: string,
+  _composition: unknown
+): Promise<CostBreakdown> => {
+  throw new Error('getCostPreview is no longer available');
+};
+
 export function UserChoiceDialog() {
   const { ui, hideUserChoiceDialog } = useVideoEditorStore();
   const [selectedStrategy, setSelectedStrategy] = useState<string>('');
@@ -30,7 +50,7 @@ export function UserChoiceDialog() {
       setLoadingCosts(true);
       
       Promise.all(
-        dialog.strategies.map(async (strategy) => {
+        dialog.strategies.map(async (strategy: ChoiceStrategy) => {
           try {
             const cost = await getCostPreview(
               dialog.operation as 'add' | 'remove' | 'regenerate' | 'export',
@@ -110,7 +130,7 @@ export function UserChoiceDialog() {
           </div>
 
           <div className="space-y-3">
-            {dialog.strategies.map((strategy) => {
+            {dialog.strategies.map((strategy: ChoiceStrategy) => {
               const isSelected = selectedStrategy === strategy.id;
               const cost = costBreakdowns[strategy.id];
               

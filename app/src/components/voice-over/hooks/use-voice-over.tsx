@@ -29,6 +29,8 @@ export interface VoiceOverState {
     pitch: number;
     volume: number;
     emotion: MinimaxEmotion;
+    /** Legacy setting kept for reset-to-defaults; not sent to the TTS provider. */
+    emphasis?: string;
   };
   
   // Export options

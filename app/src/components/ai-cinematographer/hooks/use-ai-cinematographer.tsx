@@ -83,6 +83,8 @@ export function useAICinematographer() {
     videoUrl?: string;
     error?: string;
     batchId?: string; // Track which database record this corresponds to
+    batchNumber?: number;
+    sceneNumber?: number; // Scene number from the ad-creator / ai-recreate wizards
   }>>([]);
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [queueProgress, setQueueProgress] = useState({ current: 0, total: 0 });

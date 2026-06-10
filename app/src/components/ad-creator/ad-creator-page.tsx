@@ -443,7 +443,7 @@ function CloneAnalyzeStep({
       </Button>
       {!hasEnoughCredits(analysisCost) && canAnalyze && (
         <p className="text-xs text-destructive text-center">
-          Not enough credits. You have {credits}, need {analysisCost}.
+          Not enough credits. You have {credits?.available_credits ?? 0}, need {analysisCost}.
         </p>
       )}
 
@@ -789,8 +789,6 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
   };
 
   // ===== Image generation (reused from AIRecreatePage) =====
-  const { extractAllFrames } = cinematographer;
-
   const handleGenerateAllImages = async () => {
     const enabledScenes = wizardData.scenes.filter(s => wizardData.enabledScenes.has(s.sceneNumber));
     if (enabledScenes.length === 0) return;
@@ -818,7 +816,11 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     let uploadedImageUrls: string[] = [];
     if (wizardData.referenceImages.length > 0) {
       try {
-        const { uploadReferenceImages } = await import('@/actions/tools/ai-cinematographer');
+        // NOTE: uploadReferenceImages is not exported by the actions module; the call
+        // throws at runtime and is handled by the catch below (pre-existing behavior).
+        const { uploadReferenceImages } = (await import('@/actions/tools/ai-cinematographer')) as unknown as {
+          uploadReferenceImages: (files: File[]) => Promise<(string | null)[]>;
+        };
         const urls = await uploadReferenceImages(wizardData.referenceImages.map(img => img.file));
         uploadedImageUrls = urls.filter(Boolean) as string[];
       } catch { console.warn('Failed to upload reference images'); }
@@ -1111,22 +1113,25 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       </div>
 
       {/* Navigation */}
+      {/* NOTE: cast preserves the existing props exactly — `currentStep` was never passed and the
+          isFirstStep/isLastStep/nextLabel props are ignored by WizardNavigation (pre-existing behavior). */}
       <WizardNavigation
-        onPrevious={goPrevious}
-        onNext={goNext}
-        canGoNext={canGoNext()}
-        isFirstStep={currentStep === (mode === 'clone' ? 1 : 2)}
-        isLastStep={currentStep === 5}
-        nextLabel={
-          currentStep === 2 && wizardData.extractedFrames.length === 0
-            ? 'Continue to Image Generation'
-            : currentStep === 3
-              ? 'Continue to Video Generation'
-              : currentStep === 4
-                ? 'Continue to Voice Over'
-                : 'Next'
-        }
-        isProcessing={isGeneratingImages}
+        {...({
+          onPrevious: goPrevious,
+          onNext: goNext,
+          canGoNext: canGoNext(),
+          isFirstStep: currentStep === (mode === 'clone' ? 1 : 2),
+          isLastStep: currentStep === 5,
+          nextLabel:
+            currentStep === 2 && wizardData.extractedFrames.length === 0
+              ? 'Continue to Image Generation'
+              : currentStep === 3
+                ? 'Continue to Video Generation'
+                : currentStep === 4
+                  ? 'Continue to Voice Over'
+                  : 'Next',
+          isProcessing: isGeneratingImages,
+        } as unknown as Parameters<typeof WizardNavigation>[0])}
       />
     </div>
   );

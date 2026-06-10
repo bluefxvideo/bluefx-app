@@ -193,7 +193,7 @@ export function ScriptToVideoPage() {
             onEdit={(editData) => edit({ type: 'edit', data: editData })}
             isEditing={isEditing}
             currentComposition={result}
-            credits={credits}
+            credits={credits as unknown as number}
           />
         );
       case 'history':
@@ -201,7 +201,7 @@ export function ScriptToVideoPage() {
       default:
         return (
           <GeneratorTab
-            credits={credits}
+            credits={credits as unknown as number}
             onGeneratingChange={setIsLocalGenerating}
             multiStepState={multiStepState}
             onMultiStepStateChange={setMultiStepState}
@@ -244,7 +244,7 @@ export function ScriptToVideoPage() {
         // Single-panel layout for generator tab (like ebook writer)
         <div className="h-full overflow-hidden">
           <GeneratorTab
-            credits={credits}
+            credits={credits as unknown as number}
             onGeneratingChange={setIsLocalGenerating}
             multiStepState={multiStepState}
             onMultiStepStateChange={setMultiStepState}

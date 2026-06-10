@@ -495,8 +495,8 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                               className="h-8 w-8 p-0"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                _setEditingSegmentId(segment.id);
-                                _setEditingText(segment.text);
+                                setEditingSegmentId(segment.id);
+                                setEditingText(segment.text);
                                 // Scroll to bottom
                                 setTimeout(() => {
                                   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });

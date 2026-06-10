@@ -1,9 +1,10 @@
 'use client';
 
-import { 
+import {
   Upload,
   CheckCircle,
   History,
+  type LucideIcon,
 } from 'lucide-react';
 import { XIcon, InstagramIcon, TikTokIcon, LinkedInIcon, FacebookIcon } from '../components/brand-icons';
 import { UnifiedEmptyState } from '@/components/tools/unified-empty-state';
@@ -64,7 +65,7 @@ export function TabEmptyStates({ activeTab }: TabEmptyStatesProps) {
 
   return (
     <UnifiedEmptyState
-      icon={state.icon}
+      icon={state.icon as LucideIcon}
       title={state.title}
       description={state.description}
     />

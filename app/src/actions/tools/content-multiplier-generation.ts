@@ -14,7 +14,7 @@ interface GenerationRequest {
   includeCta: boolean;
 }
 
-const PLATFORM_PROMPTS: Record<SocialPlatform, string> = {
+const PLATFORM_PROMPTS: Partial<Record<SocialPlatform, string>> = {
   twitter: `Transform this content into an engaging Twitter/X post or thread. 
     - Keep it concise and punchy
     - Use line breaks for readability

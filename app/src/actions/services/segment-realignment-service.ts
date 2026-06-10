@@ -2,7 +2,9 @@
 
 import { WhisperAnalysisResponse, SegmentTiming } from './whisper-analysis-service';
 
-export interface RealignedSegment {
+// Type alias (not interface) so it gets an implicit index signature and is
+// assignable to the Supabase Json type when persisted.
+export type RealignedSegment = {
   id: string;
   text: string;
   start_time: number;
@@ -10,7 +12,7 @@ export interface RealignedSegment {
   duration: number;
   image_prompt: string;
   word_timings?: any[];
-}
+};
 
 /**
  * Realign segments to match actual voice timing from Whisper analysis
@@ -52,7 +54,7 @@ export async function realignSegmentsWithVoiceTiming(
       // Find this word in the Whisper data (starting from where we left off)
       for (let i = searchStartIndex; i < allWordTimings.length; i++) {
         const whisperWord = allWordTimings[i];
-        const whisperText = (whisperWord.word || whisperWord.text || '').toLowerCase().replace(/[.,!?;:]/g, '');
+        const whisperText = (whisperWord.word || (whisperWord as { text?: string }).text || '').toLowerCase().replace(/[.,!?;:]/g, '');
         const targetWord = word.toLowerCase().replace(/[.,!?;:]/g, '');
         
         if (whisperText === targetWord || whisperText.includes(targetWord) || targetWord.includes(whisperText)) {

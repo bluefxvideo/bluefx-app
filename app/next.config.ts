@@ -50,8 +50,11 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // Enable builds even with TypeScript errors (for deployment)
-    ignoreBuildErrors: true,
+    // Builds FAIL on TypeScript errors. This was true (ignored) for a long time
+    // and let genuinely broken code ship to production (e.g. unterminated strings
+    // rendering broken UI). The codebase was brought to 0 errors on 2026-06 —
+    // keep it that way; do not flip this back to true.
+    ignoreBuildErrors: false,
   },
 };
 

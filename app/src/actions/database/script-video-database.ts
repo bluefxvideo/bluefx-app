@@ -19,7 +19,7 @@ function getSupabaseClient() {
 export interface ScriptVideoRecord {
   user_id: string;
   script_text: string;
-  video_url?: string;
+  video_url?: string | null;
   audio_url?: string;
   generated_images?: any[];
   segments: Json[];
@@ -38,12 +38,12 @@ export interface ScriptVideoRecord {
     characters: any[];
     scene_orchestration: any[];
     original_context: any;
-  };
+  } | null;
   whisper_data?: {
     full_analysis: any;
     quality_metrics: any;
     frame_alignment: any;
-  };
+  } | null;
   voice_data?: {
     synthesis_params: any;
     emotion_mapping: any;

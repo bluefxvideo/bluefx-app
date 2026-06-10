@@ -167,7 +167,7 @@ export async function generateEbookCover(params: GenerateCoverParams): Promise<G
     const userCredits = await getUserCredits(params.userId);
     const requiredCredits = 10; // Same as thumbnail generation
     
-    if (!userCredits || userCredits.available_credits < requiredCredits) {
+    if (!userCredits || (userCredits as unknown as { available_credits: number }).available_credits < requiredCredits) {
       return {
         success: false,
         error: `Insufficient credits. You need ${requiredCredits} credits.`

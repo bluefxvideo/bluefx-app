@@ -516,7 +516,7 @@ export default function TopOffersPage() {
                                 <div className="w-24 h-12">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={
-                                      offer.clickbank_history[0].daily_data?.slice(-7).map((point: any) => ({
+                                      (offer.clickbank_history[0].daily_data as unknown as Array<{ gravity_score?: number; date?: string }> | undefined)?.slice(-7).map((point: any) => ({
                                         value: point.gravity_score || 0,
                                         date: point.date
                                       })) || [

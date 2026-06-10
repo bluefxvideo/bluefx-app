@@ -25,7 +25,7 @@ export function ResetPasswordForm() {
     try {
       const result = await resetPassword({ email })
       
-      if (result.error) {
+      if (!result.success) {
         setError(result.error)
       } else {
         setEmailSent(true)

@@ -312,7 +312,7 @@ export async function createLibraryProduct(product: {
   youtube_transcripts?: OfferYouTubeTranscript[];
   aggregated_content?: string;
   display_order?: number;
-  clickbank_id?: string;
+  clickbank_id?: string | null;
 }): Promise<{
   success: boolean;
   product?: LibraryProduct;

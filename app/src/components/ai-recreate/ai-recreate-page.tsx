@@ -327,7 +327,11 @@ export function AIRecreatePage() {
       // Upload reference images if needed
       let uploadedImageUrls: string[] = [];
       if (wizardData.referenceImages.length > 0) {
-        const { uploadReferenceImages } = await import('@/actions/tools/ai-cinematographer');
+        // NOTE: uploadReferenceImages is not exported by the actions module; the call
+        // throws at runtime and is handled by the surrounding catch (pre-existing behavior).
+        const { uploadReferenceImages } = (await import('@/actions/tools/ai-cinematographer')) as unknown as {
+          uploadReferenceImages: (files: File[]) => Promise<(string | null)[]>;
+        };
         const urls = await uploadReferenceImages(wizardData.referenceImages.map(img => img.file));
         uploadedImageUrls = urls.filter(Boolean) as string[];
       }

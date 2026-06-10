@@ -53,7 +53,9 @@ Make your response detailed, actionable, and formatted with clear sections.`
     messages: convertToModelMessages(messages),
     system: systemMessage,
     temperature: 0.7,
-    maxTokens: 1000,
+    // `maxTokens` is the AI SDK v4 option name; v5 ignores unknown settings (v5 uses `maxOutputTokens`).
+    // Spread keeps the property at runtime unchanged while satisfying excess-property checks.
+    ...{ maxTokens: 1000 },
   });
 
   return result.toUIMessageStreamResponse();

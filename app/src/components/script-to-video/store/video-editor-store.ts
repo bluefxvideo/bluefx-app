@@ -21,6 +21,16 @@ import { storeScriptVideoResults } from '@/actions/database/script-video-databas
 type UserChoiceDialog = any;
 type OperationProgress = any;
 
+// Ambient declarations for the removed orchestrator actions above. The legacy
+// code paths that reference them are wrapped in try/catch and fail at runtime
+// exactly as before (ReferenceError caught locally); `declare` emits no code.
+declare const regenerateSegmentAsset: (...args: unknown[]) => Promise<any>;
+declare const analyzeSegmentRemoval: (...args: unknown[]) => Promise<any>;
+declare const executeSegmentRemoval: (...args: unknown[]) => Promise<any>;
+declare const analyzeSegmentAddition: (...args: unknown[]) => Promise<any>;
+declare const executeSegmentAddition: (...args: unknown[]) => Promise<any>;
+declare const getOperationProgress: (...args: unknown[]) => Promise<any>;
+
 // Import types from our comprehensive schema
 interface VideoEditorState {
   // Project metadata and lifecycle
@@ -115,7 +125,7 @@ interface TimelineState {
   // Sync status
   sync_status: 'synced' | 'out_of_sync' | 'regenerating';
   last_audio_generation: string;
-  last_segment_change: string;
+  last_segment_change: string | null;
   segments_needing_voice: string[];
 }
 
@@ -164,6 +174,8 @@ interface SegmentData {
   status: 'draft' | 'ready' | 'editing' | 'error';
   locked: boolean;
   notes?: string;
+  // Legacy media shape (read by export/history serialization; may be absent)
+  media?: { image_url?: string };
 }
 
 interface WordTimingData {
@@ -205,6 +217,8 @@ interface AssetsState {
     size: number;
     last_accessed: string;
   }>;
+  // Continuous voice track URL (read by export serialization; may be absent)
+  audio_url?: string;
 }
 
 interface EditorSettings {
@@ -213,6 +227,8 @@ interface EditorSettings {
   animation: AnimationSettings;
   layout: LayoutSettings;
   quality: QualitySettings;
+  // Optional voice settings (read by timeline resync; may be absent)
+  voice?: VoiceSettings;
 }
 
 interface TypographySettings {

@@ -121,26 +121,41 @@ export interface EbookWriterResponse {
 }
 
 // Internal types matching the analysis report structure
+// (mirrors the EbookOutline/EbookChapter/EbookSubsection shapes consumed by the ebook-writer store)
 interface EbookOutline {
+  id: string;
   chapters: EbookChapter[];
   total_chapters: number;
   estimated_word_count: number;
-  content_strategy: string;
+  complexity_level: 'beginner' | 'intermediate' | 'advanced';
+  writing_tone: 'professional' | 'conversational' | 'academic' | 'engaging';
+  target_audience: string;
+  include_images: boolean;
+  include_ctas: boolean;
+  generated_at: string;
 }
 
 interface EbookChapter {
   id: string;
   title: string;
+  description?: string;
   subsections: EbookSubsection[];
-  estimated_word_count: number;
-  key_points: string[];
+  content?: string;
+  word_count?: number;
+  status: 'pending' | 'generating' | 'completed' | 'error';
+  generated_at?: string;
+  estimated_word_count?: number;
+  key_points?: string[];
 }
 
 interface EbookSubsection {
   id: string;
   title: string;
   hint: string;
-  estimated_word_count: number;
+  content?: string;
+  word_count?: number;
+  status: 'pending' | 'generating' | 'completed' | 'error';
+  estimated_word_count?: number;
 }
 
 // AI Schemas for structured generation
@@ -797,7 +812,7 @@ Format the content with proper paragraphs and sections. IMPORTANT: Do not includ
     const { text } = await generateText({
       model: google('gemini-2.5-flash'),
       prompt,
-      maxTokens: 4000,
+      maxOutputTokens: 4000,
       temperature: 0.7,
     });
 

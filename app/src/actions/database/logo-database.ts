@@ -14,7 +14,7 @@ export interface LogoResult {
   company_name: string;
   logo_url: string;
   batch_id: string;
-  style: string;
+  style?: string;
   settings: Json;
   status: 'processing' | 'completed' | 'failed';
 }
@@ -26,7 +26,7 @@ export interface PredictionRecord {
   service_id: string;
   model_version: string;
   input_data?: Json;
-  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  status: 'starting' | 'processing' | 'succeeded' | 'completed' | 'failed' | 'canceled' | 'cancelled';
   webhook_url?: string;
   output_data?: Json;
   external_id?: string; // External service prediction ID (e.g., OpenAI request ID)
@@ -41,7 +41,7 @@ export interface LogoMetrics {
   batch_id: string;
   model_version: string;
   company_name: string;
-  style_type: string;
+  style_type?: string;
   generation_time_ms: number;
   credits_used: number;
   workflow_type: string;
@@ -66,7 +66,7 @@ export async function storeLogoResults(result: LogoResult): Promise<{ success: b
       'creative': 'artistic',
     };
 
-    const validImageStyle = styleMapping[result.style] || 'realistic';
+    const validImageStyle = styleMapping[result.style as string] || 'realistic';
 
     const { error } = await supabase
       .from('generated_images')

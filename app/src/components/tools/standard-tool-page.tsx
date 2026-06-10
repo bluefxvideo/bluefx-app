@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 interface StandardToolPageProps {
   icon: LucideIcon;
   title: string;
-  description: string;
+  description?: string;
   iconGradient?: string;
   tabs?: ReactNode;
   children: ReactNode;

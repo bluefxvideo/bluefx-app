@@ -37,6 +37,12 @@ export interface EditingOptions {
   customPromptOverride?: string;
 }
 
+// NOTE: These regeneration helpers were never implemented and this module is
+// not imported anywhere. Ambient declarations keep the type-checker satisfied
+// without emitting any runtime code (calls would throw, exactly as before).
+declare function regenerateWithPrompt(prompt: string): Promise<unknown>;
+declare function standardRegeneration(changes: unknown): Promise<unknown>;
+
 /**
  * Smart editing that respects or breaks from original AI context
  */

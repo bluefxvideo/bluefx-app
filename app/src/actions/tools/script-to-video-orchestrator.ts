@@ -23,6 +23,11 @@ export interface ScriptToVideoRequest {
   user_id: string;
   aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
   quality?: 'draft' | 'standard' | 'premium';
+  video_style?: {
+    tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';
+    pacing?: 'slow' | 'medium' | 'fast';
+    visual_style?: 'realistic' | 'artistic' | 'minimal' | 'dynamic';
+  };
   voice_settings?: {
     voice_id?: string;
     speed?: 'slower' | 'normal' | 'faster';
@@ -50,7 +55,12 @@ export interface ScriptToVideoResponse {
   // Script (generated or original)
   final_script?: string;
   was_script_generated?: boolean;
-  
+
+  // PRIMARY: Remotion-native composition (ready for rendering)
+  remotion_composition?: any;
+  // SECONDARY: Generation metadata (for regeneration)
+  generation_metadata?: any;
+
   // Production details
   segments?: VideoSegment[];
   timeline_data?: {
@@ -652,7 +662,7 @@ export async function generateScriptToVideo(
       generation_metadata: generationMetadata,
       
       // Legacy response format (for backward compatibility)
-      video_url: null, // Video rendered later in editor
+      video_url: null as unknown as undefined, // Video rendered later in editor
       audio_url: audioUrl,
       generated_images: generatedImages,
       final_script: finalScript,
@@ -933,9 +943,14 @@ export async function generateBasicScriptVideo(
   options?: {
     quality?: 'draft' | 'standard' | 'premium';
     aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:3';
+    video_style?: {
+      tone?: 'professional' | 'casual' | 'educational' | 'dramatic' | 'energetic';
+      pacing?: 'slow' | 'medium' | 'fast';
+      visual_style?: 'realistic' | 'artistic' | 'minimal' | 'dynamic';
+    };
     voice_settings?: {
       voice_id?: string;
-      speed?: 'slower' | 'normal' | 'faster';
+      speed?: number | 'slower' | 'normal' | 'faster';
       emotion?: 'neutral' | 'excited' | 'calm' | 'confident' | 'authoritative';
     };
     was_script_generated?: boolean;
@@ -947,7 +962,7 @@ export async function generateBasicScriptVideo(
     user_id,
     quality: options?.quality || 'standard',
     aspect_ratio: options?.aspect_ratio || '16:9',
-    voice_settings: options?.voice_settings,
+    voice_settings: options?.voice_settings as ScriptToVideoRequest['voice_settings'],
     was_script_generated: options?.was_script_generated,
     original_idea: options?.original_idea
   });

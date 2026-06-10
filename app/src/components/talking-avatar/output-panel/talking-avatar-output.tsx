@@ -54,10 +54,11 @@ function StepIndicator({ stepNumber, title, description, icon: Icon, isCompleted
 }
 
 interface TalkingAvatarOutputProps {
-  avatarState: { 
+  avatarState: {
     state: TalkingAvatarState;
     clearResults?: () => void;
     resetWizard?: () => void;
+    checkStatusManually?: () => void;
   };
 }
 

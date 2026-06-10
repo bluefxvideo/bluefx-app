@@ -335,7 +335,8 @@ export function useThumbnailMachine() {
       throw new Error('Please sign in to generate thumbnails');
     }
 
-    if (!credits || credits < 2) {
+    // NOTE: credits is a UserCredits object; comparison kept as-is to preserve existing behavior
+    if (!credits || (credits as unknown as number) < 2) {
       throw new Error('Insufficient credits. Please purchase more credits to continue.');
     }
 

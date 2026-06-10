@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { Message, MessageContent } from '@/components/ai-elements/message';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
@@ -41,7 +42,8 @@ export function KeywordAnalyzerAIElements({
 }: KeywordAnalyzerAIElementsProps) {
   const [input, setInput] = useState('');
   const { messages, sendMessage, status } = useChat({
-    api: '/api/chat',
+    // AI SDK v5: the endpoint is configured via a transport ('/api/chat' is also the default).
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
     onError: (error) => {
       console.error('Chat error:', error);
     },
@@ -96,7 +98,9 @@ export function KeywordAnalyzerAIElements({
     }
   };
 
-  const isLoading = status === 'loading';
+  // NOTE: AI SDK v5 statuses are 'submitted' | 'streaming' | 'ready' | 'error', so this
+  // comparison is always false — kept as-is to preserve existing behavior.
+  const isLoading = (status as string) === 'loading';
 
   if (!keyword) return null;
 

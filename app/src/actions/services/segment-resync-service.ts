@@ -1,6 +1,6 @@
 'use server';
 
-import { generateVoiceForSegments, generateVoiceForAllSegments } from './voice-generation-service';
+import { generateVoiceForSegments, generateVoiceForAllSegments, type VoiceGenerationRequest } from './voice-generation-service';
 import { analyzeAudioWithWhisper } from './whisper-analysis-service';
 import { realignSegmentsWithVoiceTiming } from './segment-realignment-service';
 import { storeScriptVideoResults } from '../database/script-video-database';
@@ -61,11 +61,11 @@ export async function resyncSegmentsAfterEdit(request: ResyncRequest): Promise<R
           end_time: segment.duration,
           duration: segment.duration
         })),
-        voice_settings: request.voice_settings || {
+        voice_settings: (request.voice_settings || {
           voice_id: 'alloy',
           speed: 'normal',
           emotion: 'neutral'
-        },
+        }) as VoiceGenerationRequest['voice_settings'],
         user_id: request.user_id,
         batch_id: `resync_${Date.now()}`
       });
@@ -74,8 +74,9 @@ export async function resyncSegmentsAfterEdit(request: ResyncRequest): Promise<R
         allAudioUrls.push(voiceResult.audio_url);
         
         // Update segments with actual voice duration if provided
-        if (voiceResult.segment_durations) {
-          voiceResult.segment_durations.forEach((duration: number, index: number) => {
+        const segmentDurations = (voiceResult as typeof voiceResult & { segment_durations?: number[] }).segment_durations;
+        if (segmentDurations) {
+          segmentDurations.forEach((duration: number, index: number) => {
             const segmentId = segmentsNeedingVoice[index].id;
             const segmentIndex = regeneratedSegments.findIndex(s => s.id === segmentId);
             if (segmentIndex !== -1) {
@@ -99,11 +100,11 @@ export async function resyncSegmentsAfterEdit(request: ResyncRequest): Promise<R
         end_time: s.duration,
         duration: s.duration
       })),
-      voice_settings: request.voice_settings || {
+      voice_settings: (request.voice_settings || {
         voice_id: 'alloy',
         speed: 'normal',
         emotion: 'neutral'
-      },
+      }) as VoiceGenerationRequest['voice_settings'],
       user_id: request.user_id,
       batch_id: `resync_full_${Date.now()}`
     });

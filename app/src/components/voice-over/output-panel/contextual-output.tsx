@@ -170,7 +170,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
       <OutputPanelShell
         title="Voice Results"
         status={state.isGenerating ? 'loading' : state.error ? 'error' : state.generatedAudios.length > 0 ? 'ready' : 'idle'}
-        errorMessage={state.error}
+        errorMessage={state.error ?? undefined}
         loading={
           <div className="h-full space-y-6 overflow-y-auto scrollbar-hover flex flex-col items-center">
             {/* Custom Voice Generation Loading */}
@@ -412,7 +412,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
       <OutputPanelShell
         title="Voice History"
         status={state.isLoading ? 'loading' : state.error ? 'error' : state.voiceHistory.length > 0 ? 'ready' : 'idle'}
-        errorMessage={state.error}
+        errorMessage={state.error ?? undefined}
         empty={
           <div className="flex items-center justify-center h-full">
             <UnifiedEmptyState

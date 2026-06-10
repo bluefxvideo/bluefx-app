@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { UploadedDocument } from '@/actions/tools/ebook-document-handler';
+import type { Json } from '@/types/database';
 import { saveEbookSession, loadEbookSession } from '@/actions/database/ebook-writer-database';
 import { generateEbookCover } from '@/actions/tools/ebook-cover-generator';
 
@@ -16,6 +17,8 @@ export interface EbookChapter {
   id: string;
   title: string;
   description?: string;
+  /** Legacy outline shape: plain key-topic strings (older saved sessions) */
+  subtopics?: string[];
   subsections: EbookSubsection[];
   content?: string;
   word_count?: number;
@@ -53,6 +56,8 @@ export interface EbookCover {
   font_style: string;
   author_name: string;
   subtitle?: string;
+  /** Optional free-form style description provided by the user */
+  style_description?: string;
   generated_at: string;
 }
 
@@ -63,6 +68,8 @@ export interface EbookMetadata {
   selected_title_option?: string;
   cover?: EbookCover;
   outline?: EbookOutline;
+  /** Raw generated content payload persisted with the session */
+  content?: Json;
   word_count_preference: 'short' | 'medium' | 'long';
   complexity: 'beginner' | 'intermediate' | 'advanced';
   writing_tone: 'professional' | 'conversational' | 'academic' | 'engaging';
@@ -727,14 +734,14 @@ export const useEbookWriterStore = create<EbookWriterState>()(
                   updated_at: new Date().toISOString(),
                   outline: session.outline as EbookOutline,
                   content: session.content,
-                  cover: session.cover_metadata ? 
-                    session.cover_metadata as EbookCover : 
+                  cover: (session.cover_metadata ?
+                    session.cover_metadata as EbookCover :
                     (session.cover_url ? {
                       id: `cover_${session.ebook_id}`,
                       image_url: session.cover_url,
                       generated_at: new Date().toISOString(),
-                    } : null)
-                },
+                    } : null)) as unknown as EbookCover | undefined
+                } as EbookMetadata,
                 title_options: session.title_options as TitleOptions,
                 uploaded_documents: (session.uploaded_documents as UploadedDocument[]) || [],
                 active_tab: (session.current_step as any) || 'topic',
@@ -785,7 +792,7 @@ export const useEbookWriterStore = create<EbookWriterState>()(
               has_title_options: !!sessionData.title_options
             });
 
-            const result = await saveEbookSession(userId, sessionData, state.current_session_id);
+            const result = await saveEbookSession(userId, sessionData as unknown as Parameters<typeof saveEbookSession>[1], state.current_session_id);
             
             if (result.success && result.ebook_id) {
               set({

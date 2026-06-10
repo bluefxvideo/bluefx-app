@@ -315,7 +315,7 @@ export function HistoryOutput({
                           className="h-6 px-2 justify-start"
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(video.final_video_url, '_blank');
+                            window.open(video.final_video_url!, '_blank');
                           }}
                         >
                           <Eye className="w-3 h-3 mr-1" />

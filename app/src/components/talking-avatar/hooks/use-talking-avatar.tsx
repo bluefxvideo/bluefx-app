@@ -80,6 +80,8 @@ export interface UseTalkingAvatarReturn {
   loadHistory: () => Promise<void>;
   deleteVideo: (videoId: string) => Promise<boolean>;
   checkHistoryItemStatus: (generationId: string) => Promise<void>;
+  /** Optional manual status check — not currently implemented by the hook (always undefined). */
+  checkStatusManually?: () => void;
   // New state setters for dual audio input mode
   setAudioInputMode: (mode: 'tts' | 'upload') => void;
   setUploadedAudio: (url: string | null, file: File | null, duration: number) => void;

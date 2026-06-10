@@ -76,6 +76,8 @@ export interface GeneratedVoice {
   batch_id: string;
   credits_used: number;
   created_at: string;
+  /** Legacy DB column carried through on history rows (e.g. voice-changer records). */
+  text_content?: string;
 }
 
 /**

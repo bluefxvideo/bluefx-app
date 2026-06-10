@@ -62,6 +62,7 @@ export async function getEditorData(video_id: string): Promise<EditorDataRespons
  */
 export async function getLatestEditorData(user_id: string): Promise<EditorDataResponse> {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('script_to_video_history')
       .select('id, editor_data, created_at, last_modified')
@@ -102,6 +103,7 @@ export async function updateEditorState(
   editor_state: any
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const supabase = getSupabaseClient();
     // Get current editor_data
     const { data: currentData, error: fetchError } = await supabase
       .from('script_to_video_history')
@@ -146,6 +148,7 @@ export async function updateEditorState(
  */
 export async function getUserVideoProjects(user_id: string) {
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('script_to_video_history')
       .select(`
@@ -167,7 +170,7 @@ export async function getUserVideoProjects(user_id: string) {
 
     return {
       success: true,
-      projects: data.map(project => ({
+      projects: data.map((project: any) => ({
         id: project.id,
         title: project.script_title,
         created_at: project.created_at,

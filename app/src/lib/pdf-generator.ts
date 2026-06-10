@@ -58,7 +58,9 @@ export async function generateAndDownloadPDF(ebook: EbookContent): Promise<void>
         await new Promise((resolve, reject) => {
           img.onload = resolve;
           img.onerror = reject;
-          img.src = ebook.cover.image_url;
+          // Non-null assertion: guarded by the `ebook.cover?.image_url` check above,
+          // but TS can't carry that narrowing into this callback.
+          img.src = ebook.cover!.image_url;
         });
         
         // Add cover image centered on first page

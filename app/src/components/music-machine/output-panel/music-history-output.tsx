@@ -23,6 +23,9 @@ interface MusicHistoryOutputProps {
   error?: string | null;
   onDeleteMusic: (musicId: string) => void;
   onLoadHistory?: () => void;
+  // Accepted for caller compatibility; playback is self-contained in this component
+  playingMusicId?: string | null;
+  onPlayMusic?: (musicId: string, audioUrl: string) => void;
 }
 
 export function MusicHistoryOutput({
@@ -202,7 +205,10 @@ export function MusicHistoryOutput({
           filtered.sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0));
           break;
         case 'credits':
-          filtered.sort((a, b) => (b.generation_settings?.credits_used || 0) - (a.generation_settings?.credits_used || 0));
+          filtered.sort((a, b) =>
+            ((b.generation_settings as { credits_used?: number } | null)?.credits_used || 0) -
+            ((a.generation_settings as { credits_used?: number } | null)?.credits_used || 0)
+          );
           break;
       }
     }

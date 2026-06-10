@@ -30,7 +30,11 @@ export interface LogoMachineRequest {
   
   // Industry context
   industry?: string; // e.g., "tech", "restaurant", "fitness", "creative"
-  
+
+  // Style preferences (used by generateBasicLogo)
+  style?: 'modern' | 'minimalist' | 'vintage' | 'playful' | 'professional' | 'creative';
+  color_scheme?: string;
+
   // Advanced options  
   aspect_ratio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3';
   output_format?: 'webp' | 'jpg' | 'png';
@@ -111,7 +115,7 @@ export async function generateLogo(
       const uploadResult = await uploadImageToStorage(request.reference_image, {
         folder: 'logos/references',
         filename: `ref_${batch_id}.png`,
-        contentType: request.reference_image.type || 'image/png'
+        contentType: (request.reference_image as File).type || 'image/png'
       });
 
       if (uploadResult.success && uploadResult.url) {

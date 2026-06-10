@@ -143,7 +143,7 @@ export async function uploadEbookDocument(
         id: docRecord.id,
         storage_path: storagePath,
         filename: file.name,
-        file_type: fileType,
+        file_type: fileType as UploadedDocument['file_type'],
         content: extractedContent.text,
         token_count: tokenCount,
         file_size_mb: file.size / (1024 * 1024),

@@ -31,6 +31,19 @@ interface KeywordAnalyzerDialogProps {
   onClose: () => void;
 }
 
+// Legacy AI SDK v4-style chat helpers. This component predates the v5 useChat API
+// (which no longer exposes input/handleInputChange/handleSubmit/isLoading/append or
+// message.content) — typed via cast to preserve the existing code unchanged.
+interface LegacyChatHelpers {
+  messages: Array<{ id: string; role: 'system' | 'user' | 'assistant' | 'data'; content: string }>;
+  input?: string;
+  handleInputChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
+  isLoading?: boolean;
+  setMessages: (messages: LegacyChatHelpers['messages']) => void;
+  append: (message: { role: 'user'; content: string }) => void;
+}
+
 export function KeywordAnalyzerDialogV2({
   keyword,
   isOpen,
@@ -59,7 +72,7 @@ export function KeywordAnalyzerDialogV2({
         search_intent: keyword.search_intent,
       } : null,
     },
-  });
+  } as unknown as Parameters<typeof useChat>[0]) as unknown as LegacyChatHelpers;
 
   // Reset and trigger initial analysis when dialog opens
   useEffect(() => {

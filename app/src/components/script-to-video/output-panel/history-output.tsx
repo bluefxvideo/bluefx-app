@@ -223,7 +223,7 @@ export function HistoryOutput() {
               >
                 {video.video_url ? (
                   <video
-                    ref={(el) => videoRefs.current[video.id] = el}
+                    ref={(el) => { videoRefs.current[video.id] = el; }}
                     src={video.video_url}
                     className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                     poster={video.video_url}

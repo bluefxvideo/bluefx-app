@@ -502,7 +502,7 @@ export function useReelEstate() {
     let changed = false;
 
     for (const clip of activeClips) {
-      const result = await pollClipStatus(clip.prediction_id);
+      const result = await pollClipStatus(clip.prediction_id, clip.index);
       const idx = updatedClips.findIndex(c => c.index === clip.index);
       if (idx !== -1 && result.status !== updatedClips[idx].status) {
         updatedClips[idx] = { ...updatedClips[idx], ...result };

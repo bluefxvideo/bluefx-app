@@ -31,7 +31,7 @@ export function AvatarExample() {
             playsInline
             controls={showControls}
             preload="metadata"
-            loading="lazy"
+            {...({ loading: 'lazy' } as unknown as VideoHTMLAttributes<HTMLVideoElement>)}
             className="w-full h-full object-cover"
             onLoadStart={() => console.log('Loading avatar example video')}
           />

@@ -215,6 +215,11 @@ export interface ThumbnailMachineRequest {
   // Prompt enhancement options
   skip_prompt_enhancement?: boolean; // Skip OpenAI prompt enhancement if true
 
+  // Legacy advanced options (kept for input-panel form compatibility)
+  guidance_scale?: number;
+  num_inference_steps?: number;
+  output_quality?: number;
+
   // Reference image for image-to-image generation
   image_input?: string[]; // Reference image URLs for nano-banana (up to 3)
 
@@ -251,13 +256,17 @@ export interface ThumbnailMachineResponse {
   
   // Generated titles (if requested)
   titles?: string[];
-  
+
+  // Original prompt (may be present on restored/webhook results)
+  prompt?: string;
+
   // Metadata
   batch_id: string;
+  prediction_id?: string;
   credits_used: number;
   remaining_credits?: number;
   generation_time_ms: number;
-  
+
   // Error handling
   error?: string;
   warnings?: string[];
@@ -551,7 +560,7 @@ export async function generateThumbnails(
       
       try {
         titles = await generateYouTubeTitles(
-          request.prompt,
+          request.prompt as string,
           request.title_count || 10
         );
         
@@ -581,7 +590,7 @@ export async function generateThumbnails(
     
     const thumbnailRecords = thumbnails.map((thumb) => ({
       user_id: request.user_id,
-      prompt: request.prompt, // Store original user prompt
+      prompt: request.prompt as string, // Store original user prompt (always present in generate mode)
       image_urls: [thumb.url], // Supabase Storage URL
       dimensions,
       height,

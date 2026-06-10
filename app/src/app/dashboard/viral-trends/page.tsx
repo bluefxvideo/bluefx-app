@@ -23,6 +23,12 @@ interface ViralTrend {
   category: string;
   source_url?: string;
   created_at: string;
+  // Extra fields returned by the YouTube fetchers in actions/research/viral-trends.ts
+  views?: string;
+  likes?: string;
+  comments?: string;
+  duration?: string;
+  creator?: string;
 }
 
 export default function ViralTrendsPage() {

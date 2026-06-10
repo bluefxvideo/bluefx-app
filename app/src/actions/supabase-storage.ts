@@ -12,6 +12,8 @@ interface UploadImageResult {
   url?: string;
   path?: string;
   error?: string;
+  /** Optional file metadata probed by some callers (e.g. audio duration); not currently populated. */
+  metadata?: { duration?: number };
 }
 
 interface UploadImageOptions {

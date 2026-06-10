@@ -22,6 +22,8 @@ export interface TalkingAvatarVideo {
   voice_settings: Json | null;
   created_at: string | null;
   updated_at: string | null;
+  // Legacy Hedra integration field (still present on older rows)
+  hedra_generation_id?: string | null;
   // New fields for fal.ai LTX integration
   fal_request_id: string | null;
   video_source: 'hedra' | 'fal-ltx' | null;

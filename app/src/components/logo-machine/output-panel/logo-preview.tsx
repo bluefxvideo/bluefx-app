@@ -11,7 +11,7 @@ interface LogoPreviewProps {
     id: string;
     url: string;
     company_name: string;
-    style: string;
+    style?: string;
     batch_id: string;
   };
   isGenerating?: boolean;

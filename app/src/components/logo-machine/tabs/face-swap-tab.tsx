@@ -36,7 +36,7 @@ export function FaceSwapTab({
     setFormData(prev => ({ ...prev, sourceImage: file }));
   };
 
-  const _handleTargetUpload = (file: File) => {
+  const handleTargetUpload = (file: File) => {
     setFormData(prev => ({ ...prev, targetImage: file }));
   };
 

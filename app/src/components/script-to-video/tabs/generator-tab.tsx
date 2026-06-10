@@ -32,7 +32,7 @@ export interface MultiStepState {
   generatedScript: string;
   finalScript: string;
   isGeneratingScript: boolean;
-  aspectRatio: '16:9' | '9:16'; // Only landscape and portrait
+  aspectRatio: '16:9' | '9:16' | '1:1'; // Landscape, portrait, and square (square option rendered below)
 }
 
 /**
@@ -226,7 +226,7 @@ export function GeneratorTab({
           speed: voiceSettings.speed,
           pitch: voiceSettings.pitch,
           volume: voiceSettings.volume,
-          emphasis: voiceSettings.emphasis
+          emphasis: (voiceSettings as VoiceSettings & { emphasis?: 'strong' | 'moderate' | 'none' }).emphasis
         },
         currentUserId
       );

@@ -91,6 +91,7 @@ export async function updateScriptVideoData(
     };
   }
 ) {
+  const supabase = getSupabaseClient();
   try {
     // Get current data first
     const { data: currentData, error: fetchError } = await supabase
@@ -161,6 +162,7 @@ export async function getUserScriptVideos(
   userId: string,
   limit: number = 10
 ) {
+  const supabase = getSupabaseClient();
   try {
     const { data, error } = await supabase
       .from('script_to_video_history')

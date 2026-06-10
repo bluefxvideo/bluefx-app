@@ -162,7 +162,7 @@ export async function generateImagesForAllSegments(
           segment_id: segment.id,
           image_url: imageUrl,
           prompt: enhancedPrompt,
-          prediction_id: prediction.id,
+          prediction_id: prediction!.id,
           generation_time_ms: generationTime
         };
 
@@ -198,7 +198,7 @@ export async function generateImagesForAllSegments(
         failedSegments.push({
           segment_id: segment.id,
           error: errorMessage,
-          prompt: segment.visual_description
+          prompt: (segment as { visual_description?: string }).visual_description as string
         });
         console.error(`❌ Failed to generate image for segment ${segment.id}:`, errorMessage);
       }
