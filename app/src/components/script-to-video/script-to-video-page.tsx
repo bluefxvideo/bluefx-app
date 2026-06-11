@@ -20,6 +20,7 @@ import { VideoEditorPanel } from './panels/video-editor-panel';
 import { HistoryTab } from './tabs/history-tab';
 import { UserChoiceDialog } from './components/user-choice-dialog';
 import { ToastContainer } from './components/toast-container';
+import { toast } from 'sonner';
 
 /**
  * Script to Video - Complete AI-Orchestrated Tool with Tabs
@@ -46,6 +47,35 @@ export function ScriptToVideoPage() {
     isGeneratingScript: false,
     aspectRatio: '9:16', // Default to portrait
   });
+
+  // Save/resume: losing 5 steps of wizard work on a refresh/accidental close was
+  // a top complaint in the UX review. Persist progress locally for 24h and
+  // restore it on return (transient flags reset).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('s2v-wizard-progress');
+      if (!saved) return;
+      const { state, ts } = JSON.parse(saved);
+      const isFresh = Date.now() - ts < 24 * 60 * 60 * 1000;
+      const hasWork = state && (state.ideaText?.trim() || state.finalScript?.trim() || state.currentStep > 1);
+      if (isFresh && hasWork) {
+        setMultiStepState({ ...state, isGeneratingScript: false });
+        toast.info('Restored your work in progress — pick up where you left off.');
+      } else {
+        localStorage.removeItem('s2v-wizard-progress');
+      }
+    } catch { /* ignore corrupt state */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try {
+      const hasWork = multiStepState.ideaText.trim() || multiStepState.finalScript.trim() || multiStepState.currentStep > 1;
+      if (hasWork) {
+        localStorage.setItem('s2v-wizard-progress', JSON.stringify({ state: multiStepState, ts: Date.now() }));
+      }
+    } catch { /* storage full — non-fatal */ }
+  }, [multiStepState]);
   
   // Additional state for workflow tracking
   const [voiceSelected, setVoiceSelected] = useState(false);
@@ -133,6 +163,8 @@ export function ScriptToVideoPage() {
       // If we're on step 4 and the loader just stopped, show checkmark
       if (multiStepState.currentStep >= 4) {
         setVideoGenerated(true);
+        // Finished run — don't restore this wizard state on the next visit
+        try { localStorage.removeItem('s2v-wizard-progress'); } catch { /* ignore */ }
       }
     }
     

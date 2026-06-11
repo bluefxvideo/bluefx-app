@@ -29,6 +29,48 @@ const IMAGE_TYPE_BY_MODEL: Record<string, { type: LibraryItemType; tool: string;
   'logo-generator': { type: 'logo', tool: 'Logo Maker', route: '/dashboard/logo-generator/history' },
 };
 
+/**
+ * Cheap creation milestones for the dashboard checklist — head-only counts,
+ * no row data transferred.
+ */
+export async function getCreationMilestones(): Promise<{
+  success: boolean;
+  hasImage?: boolean;
+  hasVideo?: boolean;
+  hasAudio?: boolean;
+}> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false };
+
+    const count = (table: string, urlCol: string) =>
+      supabase
+        .from(table)
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .not(urlCol, 'is', null)
+        .limit(1);
+
+    const [imgs, vids, s2v, music, voice] = await Promise.all([
+      count('generated_images', 'image_urls'),
+      count('cinematographer_videos', 'final_video_url'),
+      count('script_to_video_history', 'video_url'),
+      count('music_history', 'audio_url'),
+      count('generated_voices', 'audio_url'),
+    ]);
+
+    return {
+      success: true,
+      hasImage: (imgs.count || 0) > 0,
+      hasVideo: (vids.count || 0) > 0 || (s2v.count || 0) > 0,
+      hasAudio: (music.count || 0) > 0 || (voice.count || 0) > 0,
+    };
+  } catch {
+    return { success: false };
+  }
+}
+
 export async function getLibraryItems(): Promise<{ success: boolean; items?: LibraryItem[]; error?: string }> {
   try {
     const supabase = await createClient();

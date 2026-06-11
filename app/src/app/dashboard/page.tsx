@@ -23,6 +23,7 @@ import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { CreditBalanceSkeleton, TutorialsSkeleton } from '@/components/dashboard/dashboard-skeletons';
 import { VideoShowcase } from '@/components/dashboard/video-showcase';
 import { toast } from 'sonner';
+import { getCreationMilestones } from '@/actions/library';
 import type { Tables } from '@/types/database';
 import type { User } from '@supabase/supabase-js';
 
@@ -73,6 +74,21 @@ export default function DashboardPage() {
     setShowGettingStarted(false);
     try { localStorage.setItem('getting-started-dismissed', '1'); } catch { /* ignore */ }
   };
+
+  // Real milestones — auto-checked from what the user has actually created.
+  const { data: milestones } = useQuery({
+    queryKey: ['creation-milestones'],
+    queryFn: getCreationMilestones,
+    staleTime: 60 * 1000,
+    enabled: showGettingStarted,
+  });
+  const milestoneSteps = [
+    { done: !!milestones?.hasImage, label: 'Create your first image', route: '/dashboard/image-maker' },
+    { done: !!milestones?.hasVideo, label: 'Create your first video', route: '/dashboard/ai-cinematographer' },
+    { done: !!milestones?.hasAudio, label: 'Add music or a voice over', route: '/dashboard/music-maker' },
+  ];
+  const allMilestonesDone = milestoneSteps.every((s) => s.done);
+  const nextStep = milestoneSteps.find((s) => !s.done);
 
   // Tutorial dialog state
   const [tutorialDialogOpen, setTutorialDialogOpen] = useState(false);
@@ -330,8 +346,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Get started — a guided first win, dismissable */}
-      {showGettingStarted && (
+      {/* Get started — real milestones, auto-checked from actual creations; hides
+          itself once everything's done (or when dismissed) */}
+      {showGettingStarted && !allMilestonesDone && (
         <Card className="mb-6 relative border-primary/30 bg-primary/5">
           <button
             onClick={dismissGettingStarted}
@@ -341,27 +358,36 @@ export default function DashboardPage() {
             ✕
           </button>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Create your first video in ~3 minutes</CardTitle>
-            <CardDescription>Three steps — no experience needed.</CardDescription>
+            <CardTitle className="text-lg">Get started with BlueFX</CardTitle>
+            <CardDescription>
+              {milestoneSteps.filter((s) => s.done).length} of {milestoneSteps.length} done — each takes a couple of minutes.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-sm">
-              <li className="flex gap-2 items-start">
-                <span className="w-5 h-5 shrink-0 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">1</span>
-                <span className="text-zinc-300">Describe your video — or tap an example prompt</span>
-              </li>
-              <li className="flex gap-2 items-start">
-                <span className="w-5 h-5 shrink-0 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">2</span>
-                <span className="text-zinc-300">Click Generate and let the AI do the work</span>
-              </li>
-              <li className="flex gap-2 items-start">
-                <span className="w-5 h-5 shrink-0 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">3</span>
-                <span className="text-zinc-300">Download and post it — done</span>
-              </li>
+              {milestoneSteps.map((step) => (
+                <li key={step.label}>
+                  <button
+                    onClick={() => router.push(step.route)}
+                    className="w-full flex gap-2 items-start text-left group"
+                  >
+                    <span
+                      className={`w-5 h-5 shrink-0 rounded-full text-xs flex items-center justify-center font-semibold transition-colors ${
+                        step.done ? 'bg-emerald-500 text-white' : 'bg-primary text-white'
+                      }`}
+                    >
+                      {step.done ? '✓' : milestoneSteps.indexOf(step) + 1}
+                    </span>
+                    <span className={step.done ? 'text-zinc-500 line-through' : 'text-zinc-300 group-hover:text-foreground transition-colors'}>
+                      {step.label}
+                    </span>
+                  </button>
+                </li>
+              ))}
             </ol>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => router.push('/dashboard/ai-cinematographer')}>
-                Create your first video
+              <Button onClick={() => router.push(nextStep?.route || '/dashboard/ai-cinematographer')}>
+                {nextStep ? nextStep.label : 'Start creating'}
               </Button>
               <Button variant="outline" onClick={() => router.push('/dashboard/script-generator')}>
                 Or start with a script

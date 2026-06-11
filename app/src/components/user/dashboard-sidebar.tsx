@@ -41,6 +41,7 @@ import {
   FileText,
   ImagePlus,
   ChevronDown,
+  Star,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -323,6 +324,31 @@ export function DashboardSidebar({
     })
   }
 
+  // Favorites — user-pinned tools surface in a "Favorites" group at the top.
+  const [favorites, setFavorites] = useState<string[]>([])
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sidebar-favorites')
+      if (raw) setFavorites(JSON.parse(raw))
+    } catch { /* ignore */ }
+  }, [])
+  const toggleFavorite = (route: string) => {
+    setFavorites(prev => {
+      const next = prev.includes(route) ? prev.filter(r => r !== route) : [...prev, route]
+      try { localStorage.setItem('sidebar-favorites', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  // Prepend a synthetic Favorites category when the user has pinned tools.
+  const allTools = toolCategories.flatMap(c => c.tools)
+  const favoriteTools = favorites
+    .map(route => allTools.find(t => t.route === route))
+    .filter((t): t is Tool => !!t)
+  const displayCategories = favoriteTools.length > 0
+    ? [{ id: 'favorites', name: '★ Favorites', tools: favoriteTools }, ...toolCategories]
+    : toolCategories
+
   // Fetch user credits — live via realtime subscription (instant after spending),
   // with a slow interval as a backstop in case the websocket drops.
   useEffect(() => {
@@ -570,7 +596,7 @@ export function DashboardSidebar({
 
         {/* Tool categories */}
         <div className="flex-1 overflow-y-auto overflow-x-visible p-2 space-y-4 scrollbar-hover">
-          {toolCategories.map((category) => {
+          {displayCategories.map((category) => {
             const isCatCollapsed = !isCollapsed && category.collapsible ? !!collapsedCats[category.id] : false;
             return (
             <div key={category.id}>
@@ -649,6 +675,25 @@ export function DashboardSidebar({
                               {tool.name}
                             </p>
                           </div>
+
+                          {/* Pin/unpin — span (not button) to stay valid inside the Link */}
+                          {!isCollapsed && !tool.disabled && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={favorites.includes(tool.route) ? `Unpin ${tool.name} from favorites` : `Pin ${tool.name} to favorites`}
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(tool.route); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleFavorite(tool.route); } }}
+                              className={cn(
+                                'shrink-0 p-1 rounded transition-all',
+                                favorites.includes(tool.route)
+                                  ? 'opacity-100 text-yellow-400'
+                                  : 'opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-yellow-400'
+                              )}
+                            >
+                              <Star className={cn('w-3.5 h-3.5', favorites.includes(tool.route) && 'fill-yellow-400')} />
+                            </span>
+                          )}
                         </div>
                       </Link>
                     </TooltipTrigger>
