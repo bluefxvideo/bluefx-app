@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { ElapsedTimer } from '@/components/tools/elapsed-timer';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -896,7 +897,8 @@ export function GeneratorTabNew({
         </div>
         {isGeneratingVideo && (
           <p className="text-xs text-muted-foreground text-center mt-3">
-            You can keep working — we'll notify you when it's ready.
+            You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
+            <ElapsedTimer typical="2–4 minutes" className="tabular-nums" />
           </p>
         )}
       </div>

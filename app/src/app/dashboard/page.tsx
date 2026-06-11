@@ -62,6 +62,18 @@ export default function DashboardPage() {
   });
   const isTrial = subscriptionStatus?.status === 'trial';
 
+  // "Get started" card — shown until the user dismisses it (persisted locally)
+  const [showGettingStarted, setShowGettingStarted] = useState(false);
+  useEffect(() => {
+    try {
+      setShowGettingStarted(localStorage.getItem('getting-started-dismissed') !== '1');
+    } catch { /* ignore */ }
+  }, []);
+  const dismissGettingStarted = () => {
+    setShowGettingStarted(false);
+    try { localStorage.setItem('getting-started-dismissed', '1'); } catch { /* ignore */ }
+  };
+
   // Tutorial dialog state
   const [tutorialDialogOpen, setTutorialDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -316,6 +328,47 @@ export default function DashboardPage() {
             Start creating
           </Button>
         </div>
+      )}
+
+      {/* Get started — a guided first win, dismissable */}
+      {showGettingStarted && (
+        <Card className="mb-6 relative border-primary/30 bg-primary/5">
+          <button
+            onClick={dismissGettingStarted}
+            aria-label="Dismiss getting started"
+            className="absolute top-3 right-3 text-zinc-400 hover:text-foreground transition-colors"
+          >
+            ✕
+          </button>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Create your first video in ~3 minutes</CardTitle>
+            <CardDescription>Three steps — no experience needed.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-sm">
+              <li className="flex gap-2 items-start">
+                <span className="w-5 h-5 shrink-0 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">1</span>
+                <span className="text-zinc-300">Describe your video — or tap an example prompt</span>
+              </li>
+              <li className="flex gap-2 items-start">
+                <span className="w-5 h-5 shrink-0 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">2</span>
+                <span className="text-zinc-300">Click Generate and let the AI do the work</span>
+              </li>
+              <li className="flex gap-2 items-start">
+                <span className="w-5 h-5 shrink-0 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">3</span>
+                <span className="text-zinc-300">Download and post it — done</span>
+              </li>
+            </ol>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => router.push('/dashboard/ai-cinematographer')}>
+                Create your first video
+              </Button>
+              <Button variant="outline" onClick={() => router.push('/dashboard/script-generator')}>
+                Or start with a script
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="space-y-6">

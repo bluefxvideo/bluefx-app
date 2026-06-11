@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ElapsedTimer } from '@/components/tools/elapsed-timer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -170,7 +171,8 @@ export function VideoPreview({ video, batchId, onCancel, onRegenerate, onTweak }
               </div>
 
               <p className="text-xs text-muted-foreground">
-                You can keep working — we&apos;ll notify you when it&apos;s ready.
+                You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
+                <ElapsedTimer typical="1–3 minutes" className="tabular-nums" />
               </p>
 
               {/* Cancel Button */}

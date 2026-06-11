@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
+import { ElapsedTimer } from '@/components/tools/elapsed-timer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -217,7 +218,8 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  You can keep working — we'll notify you when it's ready.
+                  You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
+                  <ElapsedTimer typical="1–2 minutes" className="tabular-nums" />
                 </p>
               </div>
             </Card>

@@ -495,19 +495,19 @@ export function ScriptGeneratorPage() {
         )}
       </div>
 
-      {/* Video Tool Buttons - Only show for video script types */}
+      {/* Next step: turn the script into media — the main reason people write scripts here */}
       {conversationHistory.length > 0 && isVideoScriptType(selectedScriptType) && (
         <div className="mt-4 pt-4 border-t border-border">
-          <Label className="text-sm font-medium text-zinc-300 mb-3 block">Send to Video Tool</Label>
+          <Label className="text-sm font-medium text-zinc-300 mb-1 block">Your script is ready — what&apos;s next?</Label>
+          <p className="text-xs text-zinc-400 mb-3">Carry it straight into a tool, no copy-paste needed.</p>
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="outline"
               size="sm"
               onClick={goToScriptToVideo}
-              className="gap-2 border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+              className="gap-2"
             >
               <Film className="w-4 h-4" />
-              Script to Video
+              Turn into video
             </Button>
             <Button
               variant="outline"
@@ -516,7 +516,7 @@ export function ScriptGeneratorPage() {
               className="gap-2 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
             >
               <UserRound className="w-4 h-4" />
-              Talking Avatar
+              AI Avatar
             </Button>
             <Button
               variant="outline"
@@ -525,7 +525,7 @@ export function ScriptGeneratorPage() {
               className="gap-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
             >
               <Mic className="w-4 h-4" />
-              Voice Over
+              Voice over
             </Button>
           </div>
         </div>

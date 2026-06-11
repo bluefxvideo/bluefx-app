@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { ElapsedTimer } from '@/components/tools/elapsed-timer';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -1389,7 +1390,8 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
         </div>
         {state.currentStep === 3 && state.isGenerating && (
           <p className="text-xs text-muted-foreground text-center mt-2">
-            You can keep working — we&apos;ll notify you when it&apos;s ready.
+            You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
+            <ElapsedTimer typical="2–5 minutes" className="tabular-nums" />
           </p>
         )}
         {state.currentStep === 3 && credits < estimatedCredits && (

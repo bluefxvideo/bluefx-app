@@ -627,7 +627,7 @@ export function VideoAnalyzerPage() {
                       </Button>
                       <Button size="sm" onClick={handleSendToCinematographer}>
                         <Film className="w-4 h-4 mr-1" />
-                        Send to AI Recreate
+                        Clone this ad
                       </Button>
                     </div>
                   )}
@@ -645,6 +645,26 @@ export function VideoAnalyzerPage() {
                       <pre className="whitespace-pre-wrap text-zinc-300 text-sm font-sans leading-relaxed">
                         {analysisResult}
                       </pre>
+                      {/* Next steps — the breakdown is a means, not the end */}
+                      <div className="not-prose mt-4 pt-4 border-t border-border">
+                        <p className="text-sm font-medium text-zinc-200 mb-1">Next steps</p>
+                        <p className="text-xs text-zinc-400 mb-3">
+                          Use this breakdown to recreate the ad with your own product.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" onClick={handleSendToCinematographer}>
+                            <Film className="w-4 h-4 mr-1" />
+                            Clone this ad
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open('/dashboard/winning-ads', '_self')}
+                          >
+                            Find more winning ads
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center">
