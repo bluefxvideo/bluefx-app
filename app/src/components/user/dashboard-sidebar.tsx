@@ -515,6 +515,57 @@ export function DashboardSidebar({
               </TooltipContent>
             )}
           </Tooltip>
+
+          {/* My Library — everything the user has created, across all tools */}
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <Link
+                href="/dashboard/library"
+                className={cn(
+                  "group w-full h-12 justify-start rounded-lg transition-all duration-300 hover:bg-accent flex items-center mt-1",
+                  isCollapsed ? "p-2" : "p-3"
+                )}
+              >
+                <div className="flex items-center w-full relative">
+                  <div
+                    className={cn(
+                      "flex items-center justify-center rounded-lg transition-all duration-300 ease-in-out",
+                      "aspect-square shrink-0",
+                      isCollapsed ? "w-8 h-8" : "w-10 h-10",
+                      isToolActive('/dashboard/library') ? "bg-primary" : "bg-card"
+                    )}
+                  >
+                    <Library
+                      className={cn(
+                        "w-5 h-5 transition-all duration-300",
+                        isToolActive('/dashboard/library') ? "text-white" : "text-zinc-400"
+                      )}
+                    />
+                  </div>
+                  <div
+                    className={cn(
+                      "flex-1 text-left ml-3 overflow-hidden transition-all duration-300 ease-in-out",
+                      isCollapsed ? "opacity-0 max-w-0" : "opacity-100 max-w-full"
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-base font-medium leading-none whitespace-nowrap transition-all duration-300",
+                        isToolActive('/dashboard/library') ? "text-white" : "text-zinc-400"
+                      )}
+                    >
+                      My Library
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">
+                <p className="font-medium">My Library</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
         </div>
 
         {/* Tool categories */}
