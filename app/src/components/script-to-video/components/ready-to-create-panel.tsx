@@ -126,7 +126,7 @@ export function ReadyToCreatePanel({
         <div className="text-center space-y-8">
           <UnifiedEmptyState
             icon={Video}
-            title="Ready to Create Magic ✨"
+            title="Ready to create your video"
             description="Transform scripts into engaging videos with AI orchestration in 3 simple steps."
           />
           

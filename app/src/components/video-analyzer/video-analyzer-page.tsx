@@ -392,7 +392,7 @@ export function VideoAnalyzerPage() {
                         <p className="text-zinc-400 text-sm flex items-center gap-2">
                           <Clock className="w-3 h-3" />
                           {videoDuration ? formatDuration(videoDuration) : 'Loading...'}
-                          <span className="text-zinc-500">•</span>
+                          <span className="text-zinc-400">•</span>
                           {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
                         </p>
                       </div>
@@ -499,7 +499,7 @@ export function VideoAnalyzerPage() {
                 className="min-h-[100px] bg-background border-border"
               />
               {analysisType !== 'custom_only' && (
-                <p className="text-xs text-zinc-500 mt-2">
+                <p className="text-xs text-zinc-400 mt-2">
                   These instructions will be added to the {ANALYSIS_TYPES.find(t => t.value === analysisType)?.label} analysis
                 </p>
               )}
@@ -638,7 +638,7 @@ export function VideoAnalyzerPage() {
                     <div className="flex flex-col items-center justify-center h-full gap-4">
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
                       <p className="text-zinc-400">Analyzing video...</p>
-                      <p className="text-zinc-500 text-sm">This may take a minute for longer videos</p>
+                      <p className="text-zinc-400 text-sm">This may take a minute for longer videos</p>
                     </div>
                   ) : analysisResult ? (
                     <div className="prose prose-invert prose-sm max-w-none">
@@ -650,7 +650,7 @@ export function VideoAnalyzerPage() {
                     <div className="flex flex-col items-center justify-center h-full text-center">
                       <ScanSearch className="w-12 h-12 text-zinc-600 mb-4" />
                       <p className="text-zinc-400">Upload a video and click analyze to get started</p>
-                      <p className="text-zinc-500 text-sm mt-2">
+                      <p className="text-zinc-400 text-sm mt-2">
                         Get detailed breakdowns of scenes, shots, lighting, and more
                       </p>
                     </div>

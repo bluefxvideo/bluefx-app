@@ -270,14 +270,13 @@ export function GeneratorTab({
         <div className="text-xs text-muted-foreground mb-4 p-2 rounded bg-muted/30">
           {formData.model === 'fast' ? (
             <>
-              <strong>Fast Mode:</strong> Quick generation (15-30s wait), up to 20s, 1080p/2K/4K, landscape or portrait (9:16).
-              Camera movements (dolly, jib, focus shift), first & last frame control. Good for landscapes, scenes, and fast turnaround.
+              <strong>Fast Mode:</strong> Quick renders, up to 4K — great for social content. 15-30s wait, up to 20s videos,
+              1080p/2K/4K, landscape or portrait (9:16), camera movements (dolly, jib, focus shift), first & last frame control.
             </>
           ) : (
             <>
-              <strong>Pro Mode:</strong> Higher quality output, enhanced lip sync, singing mode with audio sync,
-              first & last frame control, seed for reproducibility. 5-10s duration at 720p (upscalable to 1080p).
-              Slower generation but better results for people and complex motion. 2x credit cost.
+              <strong>Pro Mode:</strong> Slower but more cinematic — best for hero shots. Enhanced lip sync, singing mode with audio sync,
+              first & last frame control, consistency number for repeatable results. 5-10s duration at 720p (upscalable to 1080p). 2x credit cost.
             </>
           )}
         </div>
@@ -484,7 +483,7 @@ export function GeneratorTab({
                 onFileSelect={handleImageUpload}
                 disabled={isGenerating}
                 title="Drop image or click to upload"
-                description="Optional - Leave empty for text-to-video mode"
+                description="Optional — upload an image to start from a specific look, or leave empty to create from scratch."
                 previewSize="medium"
               />
               <p className="text-xs text-muted-foreground mt-2">
@@ -574,7 +573,7 @@ export function GeneratorTab({
                       className="flex flex-col h-auto py-2"
                     >
                       <span className="font-medium">{d}s</span>
-                      <span className="text-xs opacity-70">{cost} cr</span>
+                      <span className="text-xs opacity-70">{cost} credits</span>
                     </Button>
                   );
                 })}
@@ -605,6 +604,9 @@ export function GeneratorTab({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                1080p is plenty for TikTok/Instagram/YouTube — use 4K only for big screens.
+              </p>
               {formData.model === 'pro' && formData.resolution === '1080p' && (
                 <p className="text-xs text-blue-600 dark:text-blue-400">
                   1080p uses AI upscaling from 720p (+1 credit/sec)
@@ -618,18 +620,18 @@ export function GeneratorTab({
                 {/* Seed Input */}
                 {config.features.seed && (
                   <div className="space-y-2">
-                    <Label htmlFor="seed">Seed (Optional)</Label>
+                    <Label htmlFor="seed">Consistency number (optional)</Label>
                     <Input
                       id="seed"
                       type="number"
-                      placeholder="Leave empty for random"
+                      placeholder="Leave empty for varied results"
                       value={formData.seed}
                       onChange={(e) => setFormData(prev => ({ ...prev, seed: e.target.value }))}
                       disabled={isGenerating}
                       className="font-mono"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Use the same seed to reproduce similar results
+                      Leave empty for varied results — enter any number to get the same result every time
                     </p>
                   </div>
                 )}
@@ -708,6 +710,11 @@ export function GeneratorTab({
             </>
           )}
         </Button>
+        {isGenerating && (
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            You can keep working — we&apos;ll notify you when it&apos;s ready.
+          </p>
+        )}
       </TabFooter>
     </TabContentWrapper>
   );

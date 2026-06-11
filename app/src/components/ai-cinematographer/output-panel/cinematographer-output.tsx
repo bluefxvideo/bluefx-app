@@ -72,6 +72,7 @@ export function CinematographerOutput({
         <div className="text-center space-y-4">
           <div className="w-12 h-12 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="text-muted-foreground">Initializing video generation...</p>
+          <p className="text-xs text-muted-foreground">You can keep working — we&apos;ll notify you when it&apos;s ready.</p>
         </div>
       </div>
     );
@@ -147,6 +148,7 @@ export function CinematographerOutput({
         <div className="text-center space-y-4">
           <div className="w-12 h-12 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="text-muted-foreground">Starting video generation...</p>
+          <p className="text-xs text-muted-foreground">You can keep working — we&apos;ll notify you when it&apos;s ready.</p>
         </div>
       </div>
     );

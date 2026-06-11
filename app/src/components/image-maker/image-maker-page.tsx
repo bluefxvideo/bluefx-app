@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { ImagePlus, Sparkles, Loader2, Download, AlertCircle, Upload, X, Wand2, History } from 'lucide-react';
+import { ImagePlus, Sparkles, Loader2, Download, AlertCircle, Upload, X, Wand2, History, Check } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -27,15 +27,25 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors',
+        'inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors',
         active ? 'bg-primary text-white border-primary' : 'bg-card text-zinc-400 border-border hover:text-foreground'
       )}
     >
+      {/* check mark = selected state isn't color-only (visible to color-blind users) */}
+      {active && <Check className="w-3.5 h-3.5" />}
       {children}
     </button>
   );
 }
+
+// One-click starter prompts — a blank textarea is the biggest first-use blocker.
+const EXAMPLE_PROMPTS = [
+  'A sleek product shot of a coffee maker on a marble counter, studio lighting, clean white background',
+  'A cozy home office with warm sunlight, plants, and a laptop — lifestyle photo for social media',
+  'Bold YouTube-style illustration of a rocket launching from a laptop screen, vibrant colors',
+];
 
 function DownloadableImage({ url, alt, className }: { url: string; alt: string; className?: string }) {
   return (
@@ -79,7 +89,7 @@ function HistoryView() {
 
   if (allImages.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3">
+      <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
         <History className="w-10 h-10" />
         <p className="text-sm">No images yet — generate your first one.</p>
       </div>
@@ -199,11 +209,30 @@ export function ImageMakerPage() {
           rows={5}
           className="w-full rounded-lg border border-border bg-card p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
+        {/* One-click starters — only while the prompt is empty */}
+        {!prompt.trim() && !hasRefs && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="text-xs text-zinc-400 self-center">Try:</span>
+            {EXAMPLE_PROMPTS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPrompt(p)}
+                className="text-xs px-2 py-1 rounded-md border border-border bg-card text-zinc-300 hover:border-primary/50 hover:text-foreground transition-colors text-left"
+              >
+                {p.length > 52 ? `${p.slice(0, 52)}…` : p}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
         <label className="block text-sm font-medium mb-2">
-          Reference images <span className="text-zinc-500 font-normal">· optional, up to {MAX_REFS}</span>
+          Reference images{' '}
+          <span className="text-zinc-400 font-normal">
+            · optional{referenceImages.length > 0 ? ` · ${referenceImages.length}/${MAX_REFS}` : ` · up to ${MAX_REFS}`}
+          </span>
         </label>
         <div className="flex flex-wrap gap-2 mb-2">
           {referenceImages.map((url, i) => (
@@ -245,7 +274,9 @@ export function ImageMakerPage() {
           className="hidden"
           onChange={(e) => e.target.files && uploadFiles(Array.from(e.target.files))}
         />
-        <p className="text-xs text-zinc-500">Add images to edit, restyle, or combine them. Leave empty for pure text-to-image.</p>
+        <p className="text-xs text-zinc-400">
+          Add images to edit, restyle, or combine them — 3–5 images usually work best. Leave empty to create from scratch.
+        </p>
       </div>
 
       <div>
@@ -303,6 +334,7 @@ export function ImageMakerPage() {
         <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
           <Loader2 className="w-8 h-8 animate-spin" />
           <p className="text-sm">Creating your image{count > 1 ? 's' : ''}…</p>
+          <p className="text-xs text-zinc-400">Usually takes 15–60 seconds{resolution === '4K' ? ' (4K can take a bit longer)' : ''}.</p>
         </div>
       ) : images.length > 0 ? (
         <div className={cn('grid gap-4', images.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
@@ -311,7 +343,7 @@ export function ImageMakerPage() {
           ))}
         </div>
       ) : (
-        <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3">
+        <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
           <ImagePlus className="w-10 h-10" />
           <p className="text-sm">Your generated images will appear here</p>
         </div>

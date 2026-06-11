@@ -559,7 +559,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                     {state.savedAvatars.length}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                   {state.savedAvatars.map((saved) => (
                     <Card
                       key={saved.id}
@@ -633,7 +633,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {state.avatarTemplates
                 .filter((template: AvatarTemplate) => {
                   if (avatarGenderFilter !== 'all' && template.gender !== avatarGenderFilter) return false;
@@ -1387,6 +1387,11 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
             {state.currentStep === 1 && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>
         </div>
+        {state.currentStep === 3 && state.isGenerating && (
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            You can keep working — we&apos;ll notify you when it&apos;s ready.
+          </p>
+        )}
         {state.currentStep === 3 && credits < estimatedCredits && (
           <div className="mt-2">
             <InsufficientCreditsNotice needed={estimatedCredits} available={credits} />

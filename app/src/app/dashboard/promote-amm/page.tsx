@@ -128,7 +128,7 @@ export default function PromoteAMMPage() {
                   min={1}
                   className="text-2xl font-bold h-14"
                 />
-                <p className="text-xs text-zinc-500 mt-2">
+                <p className="text-xs text-zinc-400 mt-2">
                   With 7.2% conversion, you need ~{Math.ceil(referrals / 0.072)} visitors
                 </p>
               </div>
@@ -193,7 +193,7 @@ export default function PromoteAMMPage() {
                 </Button>
               </div>
               {clickbankId.trim() && (
-                <p className="text-xs text-zinc-500 break-all">
+                <p className="text-xs text-zinc-400 break-all">
                   Your link: <span className="text-primary">{affiliateLink}</span>
                 </p>
               )}
@@ -234,17 +234,17 @@ export default function PromoteAMMPage() {
               <div className="p-4 bg-zinc-800/50 rounded-lg">
                 <Video className="w-6 h-6 text-primary mb-2" />
                 <h4 className="font-medium text-white mb-1">Tutorial Clips</h4>
-                <p className="text-sm text-zinc-500">Show how easy it is to use AMM features</p>
+                <p className="text-sm text-zinc-400">Show how easy it is to use AMM features</p>
               </div>
               <div className="p-4 bg-zinc-800/50 rounded-lg">
                 <Scissors className="w-6 h-6 text-primary mb-2" />
                 <h4 className="font-medium text-white mb-1">Result Showcases</h4>
-                <p className="text-sm text-zinc-500">Share impressive outputs from the tool</p>
+                <p className="text-sm text-zinc-400">Share impressive outputs from the tool</p>
               </div>
               <div className="p-4 bg-zinc-800/50 rounded-lg">
                 <TrendingUp className="w-6 h-6 text-primary mb-2" />
                 <h4 className="font-medium text-white mb-1">Proven Engagement</h4>
-                <p className="text-sm text-zinc-500">Videos already have views & social proof</p>
+                <p className="text-sm text-zinc-400">Videos already have views & social proof</p>
               </div>
             </div>
 

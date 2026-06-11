@@ -44,6 +44,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
+import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -298,6 +299,7 @@ export function DashboardSidebar({
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [credits, setCredits] = useState<number | null>(null)
+  const [showBuyCredits, setShowBuyCredits] = useState(false)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
 
   // Collapsible category state (e.g. Experimental Tools). Seed from each category's
@@ -526,20 +528,22 @@ export function DashboardSidebar({
                   <button
                     type="button"
                     onClick={() => toggleCategory(category.id)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-500 hover:text-zinc-300 uppercase tracking-wider transition-colors"
+                    aria-expanded={!isCatCollapsed}
+                    aria-controls={`sidebar-cat-${category.id}`}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase tracking-wider transition-colors"
                   >
                     <span>{category.name}</span>
                     <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isCatCollapsed && "-rotate-90")} />
                   </button>
                 ) : (
-                  <h3 className="px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                  <h3 className="px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {category.name}
                   </h3>
                 )
               )}
 
               {!isCatCollapsed && (
-              <div className="space-y-1">
+              <div className="space-y-1" id={`sidebar-cat-${category.id}`}>
                 {category.tools.map((tool) => (
                   <Tooltip key={tool.route} delayDuration={500}>
                     <TooltipTrigger asChild>
@@ -617,37 +621,39 @@ export function DashboardSidebar({
 
         {/* Footer with account management */}
         <div className="p-2 space-y-1 border-t border-border">
-          {/* Credits Display */}
+          {/* Credits Display — clickable: opens Buy Credits from anywhere */}
           {credits !== null && (
             <Tooltip delayDuration={500}>
               <TooltipTrigger asChild>
-                <div
+                <button
+                  type="button"
+                  onClick={() => setShowBuyCredits(true)}
+                  aria-label={`${credits.toLocaleString()} credits — buy more`}
                   className={cn(
-                    "flex items-center rounded-md px-2 py-1.5",
+                    "w-full flex items-center rounded-md px-2 py-1.5 transition-colors",
                     isCollapsed ? "justify-center" : "justify-between",
-                    "bg-muted/50"
+                    "bg-muted/50 hover:bg-muted cursor-pointer"
                   )}
                 >
                   <div className="flex items-center gap-1.5">
                     <Coins className="w-3.5 h-3.5 text-primary" />
                     {!isCollapsed && (
-                      <span className="text-xs text-zinc-500">Credits</span>
+                      <span className="text-xs text-zinc-400">Credits</span>
                     )}
                   </div>
                   {!isCollapsed && (
-                    <span className="text-xs font-medium text-zinc-400">
+                    <span className="text-xs font-medium text-zinc-300">
                       {credits.toLocaleString()}
                     </span>
                   )}
-                </div>
+                </button>
               </TooltipTrigger>
-              {isCollapsed && (
-                <TooltipContent side="right">
-                  <p>{credits.toLocaleString()} credits</p>
-                </TooltipContent>
-              )}
+              <TooltipContent side="right">
+                <p>{credits.toLocaleString()} credits — click to buy more</p>
+              </TooltipContent>
             </Tooltip>
           )}
+          <BuyCreditsDialog open={showBuyCredits} onOpenChange={setShowBuyCredits} />
 
           {/* My Account Dropdown */}
           <div className="relative" ref={accountDropdownRef}>

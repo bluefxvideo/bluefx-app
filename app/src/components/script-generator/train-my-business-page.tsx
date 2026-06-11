@@ -195,7 +195,7 @@ export function TrainMyBusinessPage() {
         {/* Loading State */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+            <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
           </div>
         ) : offers.length > 0 && (
           /* Offers Grid */
@@ -265,7 +265,7 @@ export function TrainMyBusinessPage() {
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-2">
                       {getContentIcons(offer)}
-                      <span className="text-xs text-zinc-500">{getOfferContentSummary(offer)}</span>
+                      <span className="text-xs text-zinc-400">{getOfferContentSummary(offer)}</span>
                     </div>
                     {offer.aggregated_content && (
                       <span className="text-xs font-medium text-primary">

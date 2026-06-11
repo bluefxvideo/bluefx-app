@@ -44,7 +44,7 @@ export function AvatarExample() {
         </div>
         
         {/* Sample Prompt Text */}
-        <p className="text-xs text-zinc-500 text-center">
+        <p className="text-xs text-zinc-400 text-center">
           Sample: "{featuredVideo.prompt}"
         </p>
       </div>

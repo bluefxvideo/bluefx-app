@@ -277,7 +277,7 @@ export function ScriptGeneratorPage() {
                     <div className="flex flex-col">
                       <span className="font-medium">{offer.name}</span>
                       {offer.niche && (
-                        <span className="text-xs text-zinc-500">{offer.niche}</span>
+                        <span className="text-xs text-zinc-400">{offer.niche}</span>
                       )}
                     </div>
                   </SelectItem>
@@ -297,7 +297,7 @@ export function ScriptGeneratorPage() {
                     <div className="flex flex-col">
                       <span className="font-medium">{product.name}</span>
                       {product.niche && (
-                        <span className="text-xs text-zinc-500">{product.niche}</span>
+                        <span className="text-xs text-zinc-400">{product.niche}</span>
                       )}
                     </div>
                   </SelectItem>
@@ -312,7 +312,7 @@ export function ScriptGeneratorPage() {
           <Card className="bg-card/50 border-border/50">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-xs text-zinc-500">Product Details:</p>
+                <p className="text-xs text-zinc-400">Product Details:</p>
                 <span className={cn(
                   "text-xs px-1.5 py-0.5 rounded",
                   selectedOffer.source === 'business'
@@ -360,7 +360,7 @@ export function ScriptGeneratorPage() {
                   )}>
                     {type.name}
                   </p>
-                  <p className="text-xs text-zinc-500 line-clamp-1">
+                  <p className="text-xs text-zinc-400 line-clamp-1">
                     {type.description}
                   </p>
                 </div>
@@ -487,7 +487,7 @@ export function ScriptGeneratorPage() {
           <div className="h-full flex items-center justify-center bg-card/50 border border-border/50 rounded-lg">
             <div className="text-center p-8">
               <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-              <p className="text-zinc-500">
+              <p className="text-zinc-400">
                 Select an offer and script type, then click Generate to create your script.
               </p>
             </div>

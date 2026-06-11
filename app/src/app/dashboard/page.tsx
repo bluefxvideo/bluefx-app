@@ -300,14 +300,20 @@ export default function DashboardPage() {
         <div className="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="font-medium text-yellow-200">
-              You&apos;re on the trial — 100 credits to explore BlueFX.
+              Your trial includes 100 credits — enough for 3–5 videos, 2 music tracks, or 30+ images.
             </p>
             <p className="text-sm text-yellow-200/70">
-              When your trial converts to a full subscription you&apos;ll get 600 fresh credits every month, automatically.
+              When your trial converts you&apos;ll get 600 fresh credits every month, automatically.{' '}
+              <button
+                className="underline underline-offset-2 hover:text-yellow-100"
+                onClick={() => router.push('/dashboard/subscription')}
+              >
+                View plans
+              </button>
             </p>
           </div>
-          <Button className="shrink-0" onClick={() => router.push('/dashboard/subscription')}>
-            View subscription
+          <Button className="shrink-0" onClick={() => router.push('/dashboard/ai-cinematographer')}>
+            Start creating
           </Button>
         </div>
       )}
@@ -432,7 +438,7 @@ export default function DashboardPage() {
                     allowFullScreen
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-500">
+                  <div className="w-full h-full flex items-center justify-center text-zinc-400">
                     Invalid video URL
                   </div>
                 )}
@@ -482,7 +488,7 @@ export default function DashboardPage() {
                         allowFullScreen
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-500">
+                      <div className="w-full h-full flex items-center justify-center text-zinc-400">
                         Invalid video URL
                       </div>
                     )}

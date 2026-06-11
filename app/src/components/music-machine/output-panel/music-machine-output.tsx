@@ -215,6 +215,10 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
                   <div className="flex-1" />
                   <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
+
+                <p className="text-xs text-muted-foreground">
+                  You can keep working — we'll notify you when it's ready.
+                </p>
               </div>
             </Card>
           </div>

@@ -18,6 +18,13 @@ interface GeneratorTabProps {
   credits: number;
 }
 
+// One-click example style prompts shown while the style input is empty
+const STYLE_EXAMPLES = [
+  'Upbeat acoustic folk with hand claps, feel-good morning vibe',
+  'Cinematic orchestral build with epic drums, trailer energy',
+  'Lo-fi chill hop with vinyl crackle, late-night study mood',
+];
+
 /**
  * Generator Tab - Simplified MiniMax v2 music generation interface
  * Two-step process: describe music style + optional lyrics
@@ -137,6 +144,22 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
                 <span className="text-amber-600">Minimum 10 characters required</span>
               )}
             </div>
+            {localPrompt.length === 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">Try:</span>
+                {STYLE_EXAMPLES.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => setLocalPrompt(example)}
+                    disabled={state.isGenerating}
+                    className="text-xs px-2 py-1 rounded-full border border-border bg-muted/50 hover:bg-muted hover:border-primary/50 transition-colors text-left"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </StandardStep>
 

@@ -115,7 +115,7 @@ function SortableProductCard({
           {...listeners}
           className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 p-1 hover:bg-zinc-700/50 rounded"
         >
-          <GripVertical className="w-4 h-4 text-zinc-500" />
+          <GripVertical className="w-4 h-4 text-zinc-400" />
         </div>
       )}
 
@@ -186,7 +186,7 @@ function SortableProductCard({
                 <span className="text-sm font-semibold text-orange-400">
                   {product.clickbank_stats.gravity_score.toFixed(1)}
                 </span>
-                <span className="text-xs text-zinc-500">gravity</span>
+                <span className="text-xs text-zinc-400">gravity</span>
               </div>
               {product.clickbank_stats.average_dollar_per_sale && (
                 <div className="flex items-center gap-1.5">
@@ -194,7 +194,7 @@ function SortableProductCard({
                   <span className="text-sm font-semibold text-green-400">
                     ${product.clickbank_stats.average_dollar_per_sale.toFixed(0)}
                   </span>
-                  <span className="text-xs text-zinc-500">/sale</span>
+                  <span className="text-xs text-zinc-400">/sale</span>
                 </div>
               )}
             </div>
@@ -244,7 +244,7 @@ function SortableProductCard({
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-2">
             {getContentIcons(product)}
-            <span className="text-xs text-zinc-500">{getProductContentSummary(product)}</span>
+            <span className="text-xs text-zinc-400">{getProductContentSummary(product)}</span>
           </div>
           {product.aggregated_content && (
             <span className="text-xs font-medium text-primary">
@@ -461,11 +461,11 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                   Earn ~$18.50/month per referral. 7.2% conversion rate. 6+ month avg retention.
                 </p>
                 <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center gap-1 text-xs text-zinc-500">
+                  <div className="flex items-center gap-1 text-xs text-zinc-400">
                     <TrendingUp className="w-3 h-3 text-green-500" />
                     <span>$111+ per customer</span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-zinc-500">
+                  <div className="flex items-center gap-1 text-xs text-zinc-400">
                     <Sparkles className="w-3 h-3 text-purple-500" />
                     <span>Use our YouTube videos</span>
                   </div>
@@ -501,7 +501,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
         {/* Loading State */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+            <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
           </div>
         ) : (
           /* Products Grid with Drag and Drop */
@@ -534,7 +534,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                     <Library className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
                     {isAdmin ? (
                       <>
-                        <p className="text-zinc-500 mb-4">No products in the library yet. Add your first product.</p>
+                        <p className="text-zinc-400 mb-4">No products in the library yet. Add your first product.</p>
                         <Button
                           onClick={() => router.push('/dashboard/script-generator/offers/new')}
                           className="gap-2"
@@ -544,7 +544,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                         </Button>
                       </>
                     ) : (
-                      <p className="text-zinc-500">No products available yet. Check back soon!</p>
+                      <p className="text-zinc-400">No products available yet. Check back soon!</p>
                     )}
                   </div>
                 )}

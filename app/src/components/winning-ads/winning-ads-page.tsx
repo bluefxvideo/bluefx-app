@@ -393,7 +393,7 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
                 ? 'No saved ads yet.'
                 : `No ${isTikTok ? 'TikTok' : 'Facebook'} ads found.`}
             </p>
-            <p className="text-zinc-500 text-sm max-w-md">
+            <p className="text-zinc-400 text-sm max-w-md">
               {showSavedOnly
                 ? 'Bookmark ads by clicking the bookmark icon on any ad card.'
                 : 'Ads are scraped automatically every few days. Check back after the next scheduled scrape.'}
@@ -602,7 +602,7 @@ function AdCard({
               {daysRunning}d running
             </span>
             <span className="flex items-center gap-1">
-              <Globe className="w-3 h-3 text-zinc-500" />
+              <Globe className="w-3 h-3 text-zinc-400" />
               {ad.brand_name ?? 'Facebook'}
             </span>
           </div>

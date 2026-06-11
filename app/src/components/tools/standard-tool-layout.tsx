@@ -6,6 +6,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '@/components/ui/resizable';
+import { useIsSmallScreen } from '@/hooks/use-media-query';
 
 interface StandardToolLayoutProps {
   children: [React.ReactNode, React.ReactNode]; // [InputPanel, OutputPanel]
@@ -14,6 +15,20 @@ interface StandardToolLayoutProps {
 
 export function StandardToolLayout({ children, className }: StandardToolLayoutProps) {
   const [inputPanel, outputPanel] = children;
+  const isSmallScreen = useIsSmallScreen();
+
+  // Phones: the side-by-side resizable split is unusable (~150px input panel),
+  // so stack the panels vertically — input first, results below.
+  if (isSmallScreen) {
+    return (
+      <div className={cn('h-full overflow-y-auto', className)}>
+        <div className="flex flex-col gap-4 p-3">
+          <div className="min-w-0">{inputPanel}</div>
+          <div className="min-w-0 min-h-[50vh]">{outputPanel}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("h-full", className)}>
@@ -29,9 +44,12 @@ export function StandardToolLayout({ children, className }: StandardToolLayoutPr
             </div>
           </div>
         </ResizablePanel>
-        
-        <ResizableHandle withHandle className="bg-border/30" />
-        
+
+        <ResizableHandle
+          withHandle
+          className="bg-border/30 hover:bg-primary/30 transition-colors"
+        />
+
         {/* Right Panel - Output (Default: 61.8%) */}
         <ResizablePanel defaultSize={61.8} minSize={40}>
           <div className="h-full p-2 md:p-4 lg:p-8 bg-background">

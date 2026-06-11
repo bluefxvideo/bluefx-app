@@ -894,6 +894,11 @@ export function GeneratorTabNew({
             )}
           </div>
         </div>
+        {isGeneratingVideo && (
+          <p className="text-xs text-muted-foreground text-center mt-3">
+            You can keep working — we'll notify you when it's ready.
+          </p>
+        )}
       </div>
     </div>
   );

@@ -247,7 +247,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
                     </div>
 
                     {/* Stats */}
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4 text-muted-foreground" />
                         <span>{formatDuration(audio.duration_seconds || 0)}</span>
@@ -331,7 +331,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
                     <Users className="w-4 h-4 text-blue-500" />
                     <span className="font-medium text-sm">Batch Generation Complete</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div>
                       <div className="font-medium text-blue-600">{state.generatedAudios.length}</div>
                       <div className="text-muted-foreground">Voices</div>
@@ -363,7 +363,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
             <Settings className="w-4 h-4" />
             <span className="font-medium text-sm">Current Settings</span>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
               <span className="text-muted-foreground">Voice:</span>
               <span className="ml-2 font-medium">{state.selectedVoice || 'None selected'}</span>
@@ -537,7 +537,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
                 <FileAudio className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">No voices in history yet</p>
+                <p className="text-muted-foreground">No voices in history yet — generate your first voice over in the panel on the left.</p>
               </div>
             </div>
           )}
@@ -552,7 +552,7 @@ export function ContextualOutput({ voiceOverState }: ContextualOutputProps) {
       <div className="flex flex-col items-center justify-center h-full">
         <UnifiedEmptyState
           icon={Settings}
-          title="Ready to Create Magic ✨"
+          title="Ready to Create Magic"
           description="Fine-tune your voice generation parameters for the perfect sound."
         />
       </div>

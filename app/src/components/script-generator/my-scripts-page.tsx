@@ -169,7 +169,7 @@ export function MyScriptsPage() {
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <Input
               type="text"
               placeholder="Search scripts..."
@@ -225,7 +225,7 @@ export function MyScriptsPage() {
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-500 mb-2">No scripts found</p>
+                <p className="text-zinc-400 mb-2">No scripts found</p>
                 <p className="text-zinc-600 text-sm">
                   {searchQuery || selectedType !== 'all' || showFavoritesOnly
                     ? 'Try adjusting your filters'
@@ -252,7 +252,7 @@ export function MyScriptsPage() {
                           <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">
                             {getScriptTypeLabel(script.script_type)}
                           </span>
-                          <span className="text-xs text-zinc-500">
+                          <span className="text-xs text-zinc-400">
                             {formatDate(script.created_at)}
                           </span>
                         </div>
@@ -269,7 +269,7 @@ export function MyScriptsPage() {
                         >
                           <Star className={cn(
                             "w-4 h-4",
-                            script.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-zinc-500"
+                            script.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-zinc-400"
                           )} />
                         </Button>
                         <Button
@@ -281,7 +281,7 @@ export function MyScriptsPage() {
                           {copiedId === script.id ? (
                             <Check className="w-4 h-4 text-green-500" />
                           ) : (
-                            <Copy className="w-4 h-4 text-zinc-500" />
+                            <Copy className="w-4 h-4 text-zinc-400" />
                           )}
                         </Button>
                         <Button

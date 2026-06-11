@@ -169,6 +169,10 @@ export function VideoPreview({ video, batchId, onCancel, onRegenerate, onTweak }
                 </div>
               </div>
 
+              <p className="text-xs text-muted-foreground">
+                You can keep working — we&apos;ll notify you when it&apos;s ready.
+              </p>
+
               {/* Cancel Button */}
               {onCancel && (
                 <Button

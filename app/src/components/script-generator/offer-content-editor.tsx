@@ -537,7 +537,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
         toolName="Offer Editor"
       >
         <div className="flex items-center justify-center h-full">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
         </div>
       </StandardToolPage>
     );
@@ -620,7 +620,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
             {/* Offer Info */}
             <div className="p-4 border-b border-border space-y-3">
               <div>
-                <Label htmlFor="name" className="text-xs text-zinc-500">Offer Name *</Label>
+                <Label htmlFor="name" className="text-xs text-zinc-400">Offer Name *</Label>
                 <Input
                   id="name"
                   value={offerName}
@@ -630,7 +630,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                 />
               </div>
               <div>
-                <Label htmlFor="niche" className="text-xs text-zinc-500">Niche</Label>
+                <Label htmlFor="niche" className="text-xs text-zinc-400">Niche</Label>
                 <Input
                   id="niche"
                   value={offerNiche}
@@ -642,7 +642,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
               {/* ClickBank Link Dropdown (Library mode only) */}
               {mode === 'library' && clickBankOffers.length > 0 && (
                 <div>
-                  <Label htmlFor="clickbank" className="text-xs text-zinc-500">Link to ClickBank Offer</Label>
+                  <Label htmlFor="clickbank" className="text-xs text-zinc-400">Link to ClickBank Offer</Label>
                   <select
                     id="clickbank"
                     value={selectedClickBankId || ''}
@@ -664,7 +664,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                 </div>
               )}
               <div>
-                <Label className="text-xs text-zinc-500">Product Image</Label>
+                <Label className="text-xs text-zinc-400">Product Image</Label>
                 {offerImageUrl ? (
                   <div className="mt-1 relative group">
                     <div className="w-full h-24 bg-zinc-800 rounded-lg overflow-hidden">
@@ -721,7 +721,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                       </div>
                     ) : (
                       <>
-                        <ImageIcon className="w-6 h-6 text-zinc-500 mb-1" />
+                        <ImageIcon className="w-6 h-6 text-zinc-400 mb-1" />
                         <span className="text-xs text-zinc-400">Click to upload image</span>
                         <span className="text-xs text-zinc-600">JPG, PNG, GIF, WebP (max 5MB)</span>
                       </>
@@ -774,7 +774,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                 )}
               >
                 <input {...getInputProps()} />
-                <Upload className="w-5 h-5 text-zinc-500 mx-auto mb-1" />
+                <Upload className="w-5 h-5 text-zinc-400 mx-auto mb-1" />
                 <p className="text-xs text-zinc-400">
                   Drop video/audio or click
                 </p>
@@ -819,7 +819,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                   <div key={upload.id} className="flex items-center gap-2 py-1">
                     <Loader2 className="w-3 h-3 animate-spin text-primary" />
                     <span className="text-xs text-zinc-400 truncate flex-1">{upload.name}</span>
-                    <span className="text-xs text-zinc-500">{upload.status}</span>
+                    <span className="text-xs text-zinc-400">{upload.status}</span>
                   </div>
                 ))}
               </div>
@@ -844,9 +844,9 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
                         onClick={() => toggleSourceCollapse(source.id)}
                       >
                         {source.isCollapsed ? (
-                          <ChevronRight className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                          <ChevronRight className="w-4 h-4 text-zinc-400 flex-shrink-0" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                          <ChevronDown className="w-4 h-4 text-zinc-400 flex-shrink-0" />
                         )}
 
                         {source.type === 'youtube' && <Youtube className="w-4 h-4 text-red-500 flex-shrink-0" />}
@@ -859,7 +859,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
 
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-white truncate">{source.name}</p>
-                          <p className="text-xs text-zinc-500">{source.wordCount.toLocaleString()} words</p>
+                          <p className="text-xs text-zinc-400">{source.wordCount.toLocaleString()} words</p>
                         </div>
 
                         <Button
@@ -911,7 +911,7 @@ export function OfferContentEditor({ offerId, mode = 'library' }: OfferContentEd
             <div className="p-4 border-b border-border flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-white">Master Document</h3>
-                <p className="text-xs text-zinc-500">This is what the AI will use to generate scripts. Edit freely.</p>
+                <p className="text-xs text-zinc-400">This is what the AI will use to generate scripts. Edit freely.</p>
               </div>
             </div>
 
