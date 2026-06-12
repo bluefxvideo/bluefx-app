@@ -6,7 +6,8 @@ import {
   createFalMiniMaxPrediction,
   getFalMiniMaxModelInfo,
 } from '@/actions/models/fal-minimax-music';
-import { createMusicRecord } from '@/actions/database/music-database';
+import { createMusicRecord, updateMusicRecord } from '@/actions/database/music-database';
+import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 
 // Request interface for Music Machine
@@ -117,6 +118,67 @@ export async function executeMusicMachine(
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
         remaining_credits: userCredits,
+      };
+    }
+
+    // INSTRUMENTAL MODE → Lyria 3 Pro (synchronous full-length track, ~20-40s).
+    // Vocals mode stays on MiniMax below, which supports user-written lyrics.
+    if (request.mode === 'instrumental') {
+      const lyriaPrompt = `${basePrompt}. Around 2 minutes long. Instrumental only — no vocals, no singing.`;
+      const lyria = await generateLyriaInstrumental(lyriaPrompt);
+
+      if (!lyria.success || !lyria.audioUrl) {
+        return {
+          success: false,
+          error: lyria.error || 'Music generation failed. Please try again.',
+          request_id: '',
+          batch_id,
+          generation_time_ms: Date.now() - startTime,
+          credits_used: 0,
+          remaining_credits: userCredits,
+        };
+      }
+
+      const lyriaRequestId = `lyria_${batch_id}`;
+      const musicRecord = await createMusicRecord(user.id, basePrompt, {
+        prediction_id: lyriaRequestId,
+        batch_id,
+        credits_used: MUSIC_CREDITS,
+        model_provider: 'lyria-3-pro',
+        tier: 'pro',
+        duration: 120,
+      });
+
+      if (musicRecord.success && musicRecord.data?.id) {
+        await updateMusicRecord(musicRecord.data.id, {
+          status: 'completed',
+          audio_url: lyria.audioUrl,
+        });
+      } else {
+        warnings.push('Track generated but the history record failed — it may not appear in History.');
+      }
+
+      // Synchronous path: deduct only after a successful generation.
+      await deductCredits(supabase, user.id, MUSIC_CREDITS, batch_id, 'music_generation');
+
+      return {
+        success: true,
+        generated_music: {
+          id: musicRecord.data?.id || `temp_${Date.now()}`,
+          request_id: lyriaRequestId,
+          prompt: basePrompt,
+          has_lyrics: false,
+          model_version: 'lyria-3-pro',
+          output_format: 'mp3',
+          status: 'completed',
+          created_at: new Date().toISOString(),
+        },
+        request_id: lyriaRequestId,
+        batch_id,
+        credits_used: MUSIC_CREDITS,
+        remaining_credits: userCredits - MUSIC_CREDITS,
+        generation_time_ms: Date.now() - startTime,
+        warnings: warnings.length > 0 ? warnings : undefined,
       };
     }
 

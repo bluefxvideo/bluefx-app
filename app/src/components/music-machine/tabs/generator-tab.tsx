@@ -117,7 +117,10 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
               )}
             >
               <Guitar className="w-5 h-5" />
-              <span className="font-medium">Instrumental</span>
+              <div className="text-left">
+                <span className="font-medium block">Instrumental</span>
+                <span className="text-xs opacity-70">Full-length track (~2 min)</span>
+              </div>
             </button>
           </div>
         </div>

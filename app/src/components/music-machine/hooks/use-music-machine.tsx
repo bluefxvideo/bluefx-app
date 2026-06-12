@@ -431,7 +431,29 @@ export function useMusicMachine() {
 
       const response = await executeMusicMachine(request);
 
-      if (response.success) {
+      if (response.success && response.generated_music?.status === 'completed') {
+        // Synchronous path (Lyria instrumentals): the track is already done —
+        // fetch the finished record and show it immediately, no webhook wait.
+        const { data: rec } = await supabase
+          .from('music_history')
+          .select('*')
+          .eq('id', response.generated_music.id)
+          .single();
+
+        setState(prev => ({
+          ...prev,
+          isGenerating: false,
+          currentGeneration: null,
+          generatedMusic: rec ? [rec as GeneratedMusic] : [],
+          musicHistory: rec
+            ? [rec as GeneratedMusic, ...prev.musicHistory.filter(m => m.id !== (rec as GeneratedMusic).id)]
+            : prev.musicHistory,
+          credits: response.remaining_credits,
+          error: null,
+        }));
+
+        toast.success('Your track is ready!');
+      } else if (response.success) {
         setState(prev => ({
           ...prev,
           currentGeneration: response.generated_music ? {
