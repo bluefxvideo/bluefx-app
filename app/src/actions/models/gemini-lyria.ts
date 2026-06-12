@@ -60,7 +60,7 @@ export async function generateLyriaInstrumental(prompt: string): Promise<{
     const bytes = Buffer.from(audioPart.inlineData.data, 'base64');
     const blob = new Blob([bytes], { type: 'audio/mpeg' });
     const upload = await uploadImageToStorage(blob, {
-      bucket: 'images',
+      bucket: 'audio', // the images bucket whitelists image/* only — audio/mpeg lives here
       folder: 'music',
       filename: `lyria_${crypto.randomUUID()}.mp3`,
       contentType: 'audio/mpeg',

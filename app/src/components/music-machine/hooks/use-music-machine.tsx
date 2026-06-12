@@ -473,12 +473,15 @@ export function useMusicMachine() {
       }
     } catch (error) {
       console.error('Music generation error:', error);
+      const message = error instanceof Error ? error.message : 'Music generation failed';
       setState(prev => ({
         ...prev,
-        error: error instanceof Error ? error.message : 'Music generation failed',
+        error: message,
         isGenerating: false
       }));
-      toast.error('Music generation failed');
+      // Long duration + real message — the error also stays visible inline on
+      // the Music page, so navigating away doesn't lose it.
+      toast.error(message, { duration: 10000 });
     }
   }, [user, state.prompt, state.lyrics, state.mode]);
 

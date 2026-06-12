@@ -437,7 +437,7 @@ async function transcribeWithWhisper(videoId: string): Promise<string | null> {
 
     const { uploadImageToStorage } = await import('../supabase-storage');
     const upload = await uploadImageToStorage(audioBlob, {
-      bucket: 'images',
+      bucket: 'audio', // images bucket whitelists image/* only
       folder: 'yt-whisper',
       filename: `yt_${Date.now()}.mp3`,
       contentType: 'audio/mpeg',

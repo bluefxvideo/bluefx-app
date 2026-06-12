@@ -166,15 +166,13 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
           </div>
         </StandardStep>
 
-        {/* Step 2: Lyrics - Different UI based on mode */}
+        {/* Step 2: Lyrics — vocals mode only. Instrumentals (Lyria 3 Pro) need
+            nothing beyond the style description, so the step is hidden. */}
+        {state.mode === 'vocals' && (
         <StandardStep
           stepNumber={2}
-          title={state.mode === 'instrumental' ? "Instrumental Formula" : "Write Lyrics"}
-          description={
-            state.mode === 'instrumental'
-              ? "Auto-filled for best results. You can customize if needed."
-              : "Write your lyrics or use AI to help"
-          }
+          title="Write Lyrics"
+          description="Write your lyrics or use AI to help"
         >
           {state.mode === 'vocals' ? (
             // Vocals mode: Two-column layout with lyrics editor + AI assistant
@@ -273,23 +271,9 @@ Together me and you`}
                 musicStyle={localPrompt}
               />
             </div>
-          ) : (
-            // Instrumental mode: Simple textarea
-            <div className="space-y-3">
-              <Textarea
-                value={localLyrics}
-                onChange={(e) => setLocalLyrics(e.target.value)}
-                placeholder="Instrumental formula is auto-filled..."
-                className="min-h-[180px] resize-y font-mono text-sm"
-                disabled={state.isGenerating}
-                maxLength={3000}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{localLyrics.length}/3000 characters</span>
-              </div>
-            </div>
-          )}
+          ) : null}
         </StandardStep>
+        )}
 
         {/* Final Prompt Preview */}
         <div className="mt-4 p-4 bg-muted/50 rounded-lg border">
@@ -304,14 +288,16 @@ Together me and you`}
                 {finalPrompt || "Enter a style description above..."}
               </span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Lyrics: </span>
-              <span className={cn(!localLyrics.trim() && "text-muted-foreground italic")}>
-                {localLyrics.trim()
-                  ? localLyrics.trim().substring(0, 100) + (localLyrics.length > 100 ? "..." : "")
-                  : "No lyrics"}
-              </span>
-            </div>
+            {state.mode === 'vocals' && (
+              <div>
+                <span className="text-muted-foreground">Lyrics: </span>
+                <span className={cn(!localLyrics.trim() && "text-muted-foreground italic")}>
+                  {localLyrics.trim()
+                    ? localLyrics.trim().substring(0, 100) + (localLyrics.length > 100 ? "..." : "")
+                    : "No lyrics"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </TabBody>
