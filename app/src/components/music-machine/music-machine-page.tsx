@@ -19,7 +19,7 @@ import { Music, History } from 'lucide-react';
  */
 export function MusicMachinePage() {
   const musicMachineState = useMusicMachine();
-  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
+  const { credits: userCredits, isLoading: creditsLoading } = useCredits();
   const { activeTab, setActiveTab: _setActiveTab } = musicMachineState;
   const [historyFilters, setHistoryFilters] = useState<HistoryFiltersType | undefined>();
 
@@ -45,7 +45,7 @@ export function MusicMachinePage() {
       case 'history':
         return null; // No left panel content for history
       default:
-        return <GeneratorTab musicMachineState={musicMachineState} credits={userCredits?.available_credits || 0} />;
+        return <GeneratorTab musicMachineState={musicMachineState} credits={userCredits?.available_credits || 0} creditsLoading={creditsLoading} />;
     }
   };
 

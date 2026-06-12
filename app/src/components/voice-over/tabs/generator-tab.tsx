@@ -27,6 +27,9 @@ interface GeneratorTabProps {
     setState: (updater: (prev: VoiceOverState) => VoiceOverState) => void;
   };
   credits: number;
+  /** True while the balance is still being fetched — suppresses the
+      insufficient-credits notice so it doesn't flash on first load. */
+  creditsLoading?: boolean;
   clonedVoices?: Array<{ id: string; name: string; minimax_voice_id: string; preview_url: string | null }>;
 }
 
@@ -34,7 +37,7 @@ interface GeneratorTabProps {
  * Generator Tab - Main voice over generation interface
  * Updated for Minimax Speech 2.6 HD with full settings
  */
-export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: GeneratorTabProps) {
+export function GeneratorTab({ voiceOverState, credits, creditsLoading, clonedVoices = [] }: GeneratorTabProps) {
   const {
     state,
     generateVoice,
@@ -74,7 +77,8 @@ export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: Gen
   };
 
   const estimatedCredits = 2;
-  const canGenerate = localScriptText.trim().length > 0 && state.selectedVoice && credits >= estimatedCredits;
+  // While the balance is loading, assume enough — the server re-checks anyway.
+  const canGenerate = localScriptText.trim().length > 0 && state.selectedVoice && (creditsLoading || credits >= estimatedCredits);
 
   // Per-voice avatar configurations for DiceBear micah style
   // Each voice gets hand-picked params matching their gender, ethnicity, and personality
@@ -415,7 +419,7 @@ export function GeneratorTab({ voiceOverState, credits, clonedVoices = [] }: Gen
 
         {/* Generate Button */}
         <div className="mt-6">
-          {credits < estimatedCredits && (
+          {!creditsLoading && credits < estimatedCredits && (
             <InsufficientCreditsNotice needed={estimatedCredits} available={credits} className="mb-3" />
           )}
           <Button

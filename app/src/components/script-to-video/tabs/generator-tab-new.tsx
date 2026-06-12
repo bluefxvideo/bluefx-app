@@ -30,6 +30,9 @@ import { cn } from '@/lib/utils';
 
 interface GeneratorTabProps {
   credits: number;
+  /** True while the balance is still being fetched — suppresses the
+      insufficient-credits notice so it doesn't flash on first load. */
+  creditsLoading?: boolean;
   onGeneratingChange?: (isGenerating: boolean) => void;
   multiStepState?: MultiStepState;
   onMultiStepStateChange?: (state: MultiStepState) => void;
@@ -60,6 +63,7 @@ export interface MultiStepState {
  */
 export function GeneratorTabNew({
   credits,
+  creditsLoading,
   onGeneratingChange,
   multiStepState,
   onMultiStepStateChange,
@@ -260,7 +264,8 @@ export function GeneratorTabNew({
 
   // Estimated credit cost for video generation (same formula used elsewhere in the codebase)
   const estimatedVideoCredits = Math.ceil(stepState.finalScript.length / 50) * 5 + 10;
-  const hasInsufficientCredits = credits < estimatedVideoCredits;
+  // While the balance is loading, assume enough — the server re-checks anyway.
+  const hasInsufficientCredits = !creditsLoading && credits < estimatedVideoCredits;
 
   // Generate video and forward to editor
   const generateVideo = async () => {

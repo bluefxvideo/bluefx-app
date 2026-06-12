@@ -21,7 +21,7 @@ import { useVideoEditorStore } from '../store/video-editor-store';
  * State management + orchestrator integration with standardized credit system
  */
 export function useScriptToVideo() {
-  const { credits, refetch: refreshCredits } = useCredits(); // Use standardized hook
+  const { credits, isLoading: creditsLoading, refetch: refreshCredits } = useCredits(); // Use standardized hook
   const [user, setUser] = useState<any>(null);
   const [result, setResult] = useState<ScriptToVideoResponse | undefined>();
   const router = useRouter();
@@ -287,6 +287,7 @@ export function useScriptToVideo() {
     result,
     error: generateMutation.error?.message || editMutation.error?.message,
     credits,
+    creditsLoading,
     
     // Actions
     clearResults: () => setResult(undefined),

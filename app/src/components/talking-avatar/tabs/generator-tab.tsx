@@ -128,9 +128,12 @@ const getVoiceAvatarUrl = (voiceId: string, name: string, gender: string) => {
 interface GeneratorTabProps {
   avatarState: UseTalkingAvatarReturn;
   credits: number;
+  /** True while the balance is still being fetched — suppresses the
+      insufficient-credits warnings so they don't flash on first load. */
+  creditsLoading?: boolean;
 }
 
-export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
+export function GeneratorTab({ avatarState, credits, creditsLoading }: GeneratorTabProps) {
   const {
     state,
     loadAvatarTemplates,
@@ -492,7 +495,8 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
     } else if (state.currentStep === 3) {
       const hasAudio = state.voiceAudioUrl || state.uploadedAudioUrl;
       const withinDuration = state.audioDurationSeconds <= MAX_AUDIO_DURATION_SECONDS;
-      return hasAudio && withinDuration && credits >= estimatedCredits;
+      // While the balance is loading, assume enough — the server re-checks anyway.
+      return hasAudio && withinDuration && (creditsLoading || credits >= estimatedCredits);
     }
     return false;
   };
@@ -792,7 +796,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                   <div className="space-y-1.5">
                     <Button
                       onClick={handleGenerateAvatar}
-                      disabled={!avatarGenPrompt.trim() || isGeneratingAvatar || credits < AVATAR_GENERATION_CREDIT_COST}
+                      disabled={!avatarGenPrompt.trim() || isGeneratingAvatar || (!creditsLoading && credits < AVATAR_GENERATION_CREDIT_COST)}
                       className="w-full"
                       size="sm"
                     >
@@ -808,7 +812,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
                         </>
                       )}
                     </Button>
-                    {credits < AVATAR_GENERATION_CREDIT_COST && (
+                    {!creditsLoading && credits < AVATAR_GENERATION_CREDIT_COST && (
                       <p className="text-xs text-destructive text-center">
                         Insufficient credits. You need {AVATAR_GENERATION_CREDIT_COST} credits.
                       </p>
@@ -1394,7 +1398,7 @@ export function GeneratorTab({ avatarState, credits }: GeneratorTabProps) {
             <ElapsedTimer typical="2–5 minutes" className="tabular-nums" />
           </p>
         )}
-        {state.currentStep === 3 && credits < estimatedCredits && (
+        {state.currentStep === 3 && !creditsLoading && credits < estimatedCredits && (
           <div className="mt-2">
             <InsufficientCreditsNotice needed={estimatedCredits} available={credits} />
           </div>

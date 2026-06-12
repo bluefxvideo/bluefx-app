@@ -14,7 +14,7 @@ import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 
 export function TalkingAvatarPage() {
   const avatarState = useTalkingAvatar();
-  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
+  const { credits: userCredits, isLoading: creditsLoading } = useCredits();
 
   // Render appropriate tab content
   const renderTabContent = () => {
@@ -22,7 +22,7 @@ export function TalkingAvatarPage() {
       case 'history':
         return null; // No left panel content for history
       default:
-        return <GeneratorTab avatarState={avatarState} credits={userCredits?.available_credits || 0} />;
+        return <GeneratorTab avatarState={avatarState} credits={userCredits?.available_credits || 0} creditsLoading={creditsLoading} />;
     }
   };
 

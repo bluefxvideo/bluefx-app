@@ -16,6 +16,9 @@ import { cn } from '@/lib/utils';
 interface GeneratorTabProps {
   musicMachineState: UseMusicMachineReturn;
   credits: number;
+  /** True while the balance is still being fetched — suppresses the
+      insufficient-credits notice so it doesn't flash on first load. */
+  creditsLoading?: boolean;
 }
 
 // One-click example style prompts shown while the style input is empty
@@ -29,7 +32,7 @@ const STYLE_EXAMPLES = [
  * Generator Tab - Simplified MiniMax v2 music generation interface
  * Two-step process: describe music style + optional lyrics
  */
-export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) {
+export function GeneratorTab({ musicMachineState, credits, creditsLoading }: GeneratorTabProps) {
   const {
     state,
     generateMusic,
@@ -70,7 +73,8 @@ export function GeneratorTab({ musicMachineState, credits }: GeneratorTabProps) 
 
   // Can generate if prompt is valid and user has enough credits
   const promptValid = localPrompt.trim().length >= 10 && localPrompt.trim().length <= 300;
-  const hasEnoughCredits = credits >= MUSIC_CREDITS;
+  // While the balance is loading, assume enough — the server re-checks anyway.
+  const hasEnoughCredits = creditsLoading || credits >= MUSIC_CREDITS;
   const canGenerate = promptValid && hasEnoughCredits && !state.isGenerating;
 
   // Build final prompt for preview (instrumental mode adds suffix)

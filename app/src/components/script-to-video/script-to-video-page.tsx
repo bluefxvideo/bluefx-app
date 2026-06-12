@@ -90,8 +90,12 @@ export function ScriptToVideoPage() {
     result,
     error,
     credits,
+    creditsLoading,
     clearResults
   } = useScriptToVideo();
+
+  // useCredits returns an object — extract the numeric balance for child props.
+  const availableCredits = credits?.available_credits ?? 0;
 
   // Wrapper to also reset video generated state
   const handleClearResults = () => {
@@ -225,7 +229,7 @@ export function ScriptToVideoPage() {
             onEdit={(editData) => edit({ type: 'edit', data: editData })}
             isEditing={isEditing}
             currentComposition={result}
-            credits={credits as unknown as number}
+            credits={availableCredits}
           />
         );
       case 'history':
@@ -233,7 +237,8 @@ export function ScriptToVideoPage() {
       default:
         return (
           <GeneratorTab
-            credits={credits as unknown as number}
+            credits={availableCredits}
+            creditsLoading={creditsLoading}
             onGeneratingChange={setIsLocalGenerating}
             multiStepState={multiStepState}
             onMultiStepStateChange={setMultiStepState}
@@ -276,7 +281,8 @@ export function ScriptToVideoPage() {
         // Single-panel layout for generator tab (like ebook writer)
         <div className="h-full overflow-hidden">
           <GeneratorTab
-            credits={credits as unknown as number}
+            credits={availableCredits}
+            creditsLoading={creditsLoading}
             onGeneratingChange={setIsLocalGenerating}
             multiStepState={multiStepState}
             onMultiStepStateChange={setMultiStepState}

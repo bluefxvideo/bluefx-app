@@ -15,7 +15,7 @@ import { Mic, History, Mic2, Repeat2 } from 'lucide-react';
 
 export function VoiceOverPage() {
   const voiceOverState = useVoiceOver();
-  const { credits: userCredits, isLoading: _creditsLoading } = useCredits();
+  const { credits: userCredits, isLoading: creditsLoading } = useCredits();
   const { activeTab } = voiceOverState;
 
   const hasResults = voiceOverState.state.generatedAudios.length > 0;
@@ -122,6 +122,7 @@ export function VoiceOverPage() {
             <GeneratorTab
               voiceOverState={voiceOverState}
               credits={userCredits?.available_credits || 0}
+              creditsLoading={creditsLoading}
               clonedVoices={voiceOverState.state.clonedVoices}
             />
 
