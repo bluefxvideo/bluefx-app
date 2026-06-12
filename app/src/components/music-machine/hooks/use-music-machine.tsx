@@ -69,6 +69,17 @@ export function useMusicMachine() {
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+
+  // new Audio() objects outlive React — without this, playback continues as a
+  // ghost after navigating away (only a full refresh would stop it).
+  const audioCleanupRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => { audioCleanupRef.current = currentAudio; }, [currentAudio]);
+  useEffect(() => () => {
+    if (audioCleanupRef.current) {
+      audioCleanupRef.current.pause();
+      audioCleanupRef.current.src = '';
+    }
+  }, []);
   const [playingMusicId, setPlayingMusicId] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -141,6 +152,29 @@ export function useMusicMachine() {
             },
             prompt: music.track_title
           }));
+          return;
+        }
+
+        // Nothing in flight — restore the most recent finished track (last hour)
+        // so returning to the page doesn't show an empty panel while your fresh
+        // track is still playing/just made.
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: recentCompleted } = await supabase
+          .from('music_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'completed')
+          .not('audio_url', 'is', null)
+          .gte('created_at', oneHourAgo)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (recentCompleted && recentCompleted.length > 0) {
+          setState(prev =>
+            prev.generatedMusic.length > 0 || prev.isGenerating
+              ? prev
+              : { ...prev, generatedMusic: [recentCompleted[0] as GeneratedMusic] }
+          );
         }
       } catch (error) {
         console.error('State restoration error:', error);

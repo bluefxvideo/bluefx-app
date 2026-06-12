@@ -45,6 +45,17 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
+  // Stop every created player on unmount — new Audio() objects otherwise keep
+  // playing as ghosts after navigating away (only a refresh would stop them).
+  const audioElementsRef = useRef(audioElements);
+  useEffect(() => { audioElementsRef.current = audioElements; }, [audioElements]);
+  useEffect(() => () => {
+    for (const audio of audioElementsRef.current.values()) {
+      audio.pause();
+      audio.src = '';
+    }
+  }, []);
+
   const startTimeTracking = useCallback(() => {
     let durationSet = false;
     const update = () => {

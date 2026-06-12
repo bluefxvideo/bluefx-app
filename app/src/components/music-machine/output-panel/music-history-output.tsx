@@ -44,6 +44,15 @@ export function MusicHistoryOutput({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Stop playback on unmount — new Audio() otherwise keeps playing as a ghost
+  // after navigating away (only a refresh would stop it).
+  useEffect(() => () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+  }, []);
   const animFrameRef = useRef<number | null>(null);
 
   const startTimeTracking = useCallback(() => {
