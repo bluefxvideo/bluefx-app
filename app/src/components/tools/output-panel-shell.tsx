@@ -151,7 +151,7 @@ export function OutputPanelShell({
                       activeTab === 'logo-generate'
                         ? '"Modern tech startup logo with geometric shapes, blue gradient, minimalist design"'
                         : activeTab === 'generate'
-                        ? '"Lifestyle morning routine with lottery excitement, bright energetic scene with money and celebration"'
+                        ? '"The person from the reference image, holding tablet, Zillow logo on screen"'
                         : '"Epic gaming moment with shocked expression, bright colors, dramatic lighting"'
                     }
                   </p>
