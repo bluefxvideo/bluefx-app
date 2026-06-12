@@ -6,20 +6,20 @@ import { useState, type VideoHTMLAttributes } from "react";
 export function CinematographerExample() {
   const [showControls, setShowControls] = useState(false);
   
-  // Show the AI cinematographer video placeholder as an example
+  // Featured example: vertical UGC-style ad generated with Video Maker
   const featuredVideo = {
-    title: "Cinematic AI Video",
-    description: "Professional cinematic generation",
-    prompt: "Cinematic shot with dynamic camera movement, professional lighting, dramatic atmosphere",
-    src: "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/videos/placeholders/ai-cinematographer.mp4",
+    title: "UGC-Style Ad",
+    description: "AI presenter with natural emotion",
+    prompt: "UGC-style ad: a woman in a bright kitchen talks to camera about a supplement, going from frustrated to excited",
+    src: "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/videos/placeholders/video-maker-example.mp4",
   };
 
   return (
     <div className="w-full">
       <div className="space-y-3">
         {/* Video Player - Matching Generated Style */}
-        <div 
-          className="relative aspect-video rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl bg-black group"
+        <div
+          className="relative aspect-[9/16] max-w-[260px] mx-auto rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl bg-black group"
           onMouseEnter={() => setShowControls(true)}
           onMouseLeave={() => setShowControls(false)}
         >
