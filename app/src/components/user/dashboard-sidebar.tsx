@@ -350,27 +350,31 @@ export function DashboardSidebar({
     : toolCategories
 
   // Fetch user credits — live via realtime subscription (instant after spending),
-  // with a slow interval as a backstop in case the websocket drops.
+  // with a slow interval as a backstop in case the websocket drops. If the auth
+  // session isn't ready at mount (common right after navigation/login), we retry
+  // on auth-state changes instead of silently staying empty.
   useEffect(() => {
     const supabase = createClient()
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let subscribed = false
 
     async function fetchCredits() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
-          .from('user_credits')
-          .select('available_credits')
-          .eq('user_id', user.id)
-          .single()
-        setCredits(data?.available_credits ?? 0)
-      }
-      return supabase
+      if (!user) return false
+      const { data } = await supabase
+        .from('user_credits')
+        .select('available_credits')
+        .eq('user_id', user.id)
+        .single()
+      if (typeof data?.available_credits === 'number') setCredits(data.available_credits)
+      return true
     }
 
     async function setup() {
+      if (subscribed) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      subscribed = true
       await fetchCredits()
       channel = supabase
         .channel('sidebar-credits')
@@ -386,9 +390,15 @@ export function DashboardSidebar({
     }
     setup()
 
+    // If the session wasn't ready on mount, set up as soon as it is.
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) setup()
+    })
+
     const interval = setInterval(fetchCredits, 60000)
     return () => {
       clearInterval(interval)
+      authSub?.unsubscribe()
       if (channel) supabase.removeChannel(channel)
     }
   }, [])
@@ -717,38 +727,38 @@ export function DashboardSidebar({
 
         {/* Footer with account management */}
         <div className="p-2 space-y-1 border-t border-border">
-          {/* Credits Display — clickable: opens Buy Credits from anywhere */}
-          {credits !== null && (
-            <Tooltip delayDuration={500}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setShowBuyCredits(true)}
-                  aria-label={`${credits.toLocaleString()} credits — buy more`}
-                  className={cn(
-                    "w-full flex items-center rounded-md px-2 py-1.5 transition-colors",
-                    isCollapsed ? "justify-center" : "justify-between",
-                    "bg-muted/50 hover:bg-muted cursor-pointer"
-                  )}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Coins className="w-3.5 h-3.5 text-primary" />
-                    {!isCollapsed && (
-                      <span className="text-xs text-zinc-400">Credits</span>
-                    )}
-                  </div>
+          {/* Credits Display — clickable: opens Buy Credits from anywhere.
+              Always rendered; shows "…" until the balance loads (was hidden,
+              which read as a flickering/missing badge). */}
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setShowBuyCredits(true)}
+                aria-label={credits !== null ? `${credits.toLocaleString()} credits — buy more` : 'Credits loading'}
+                className={cn(
+                  "w-full flex items-center rounded-md px-2 py-1.5 transition-colors",
+                  isCollapsed ? "justify-center" : "justify-between",
+                  "bg-muted/50 hover:bg-muted cursor-pointer"
+                )}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-primary" />
                   {!isCollapsed && (
-                    <span className="text-xs font-medium text-zinc-300">
-                      {credits.toLocaleString()}
-                    </span>
+                    <span className="text-xs text-zinc-400">Credits</span>
                   )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>{credits.toLocaleString()} credits — click to buy more</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+                </div>
+                {!isCollapsed && (
+                  <span className="text-xs font-medium text-zinc-300 tabular-nums">
+                    {credits !== null ? credits.toLocaleString() : '…'}
+                  </span>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>{credits !== null ? `${credits.toLocaleString()} credits — click to buy more` : 'Loading credits…'}</p>
+            </TooltipContent>
+          </Tooltip>
           <BuyCreditsDialog open={showBuyCredits} onOpenChange={setShowBuyCredits} />
 
           {/* My Account Dropdown */}

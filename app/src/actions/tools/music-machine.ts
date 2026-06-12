@@ -8,6 +8,7 @@ import {
 } from '@/actions/models/fal-minimax-music';
 import { createMusicRecord, updateMusicRecord } from '@/actions/database/music-database';
 import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
+import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 
 // Request interface for Music Machine
@@ -107,19 +108,21 @@ export async function executeMusicMachine(
 
     console.log(`🎵 Music Machine: "${prompt.substring(0, 50)}..." | Mode: ${request.mode} | Lyrics: ${hasLyrics ? 'Yes' : 'Instrumental'}`);
 
-    // Credit validation
-    const userCredits = await getUserCredits(supabase, user.id);
-    if (userCredits < MUSIC_CREDITS) {
+    // Credit validation via the entitlement gate (admin client — immune to the
+    // cookie-client/RLS hiccups that made this falsely report 0 credits).
+    const gate = await ensureCreditsForUsage(user.id, MUSIC_CREDITS);
+    if (!gate.ok) {
       return {
         success: false,
-        error: `Insufficient credits. Required: ${MUSIC_CREDITS}, Available: ${userCredits}`,
+        error: gate.error || `You need ${MUSIC_CREDITS} credits for this generation.`,
         request_id: '',
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
-        remaining_credits: userCredits,
+        remaining_credits: 0,
       };
     }
+    const userCredits = await getUserCredits(supabase, user.id);
 
     // INSTRUMENTAL MODE → Lyria 3 Pro (synchronous full-length track, ~20-40s).
     // Vocals mode stays on MiniMax below, which supports user-written lyrics.
@@ -176,7 +179,7 @@ export async function executeMusicMachine(
         request_id: lyriaRequestId,
         batch_id,
         credits_used: MUSIC_CREDITS,
-        remaining_credits: userCredits - MUSIC_CREDITS,
+        remaining_credits: Math.max(0, userCredits - MUSIC_CREDITS),
         generation_time_ms: Date.now() - startTime,
         warnings: warnings.length > 0 ? warnings : undefined,
       };
@@ -243,7 +246,7 @@ export async function executeMusicMachine(
       request_id: prediction.request_id,
       batch_id,
       credits_used: MUSIC_CREDITS,
-      remaining_credits: userCredits - MUSIC_CREDITS,
+      remaining_credits: Math.max(0, userCredits - MUSIC_CREDITS),
       generation_time_ms: Date.now() - startTime,
       warnings: warnings.length > 0 ? warnings : undefined,
     };
