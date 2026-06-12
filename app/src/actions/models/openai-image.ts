@@ -98,62 +98,6 @@ export async function generateImage(params: OpenAIImageInput): Promise<OpenAIIma
 }
 
 /**
- * Generate image variations using OpenAI's DALL-E 2 (for recreation functionality)
- */
-export async function generateImageVariation(
-  imageFile: File | string, // File object or base64 string
-  options?: {
-    n?: number;
-    size?: '256x256' | '512x512' | '1024x1024';
-    response_format?: 'url' | 'b64_json';
-    user?: string;
-  }
-): Promise<OpenAIImageOutput> {
-  try {
-    console.log(`🎨 OpenAI Image Variation: Generating ${options?.n || 1} variation(s)`);
-    
-    const formData = new FormData();
-    
-    // Handle different image input types
-    if (imageFile instanceof File) {
-      formData.append('image', imageFile);
-    } else if (typeof imageFile === 'string') {
-      // Convert base64 to blob
-      const response = await fetch(imageFile);
-      const blob = await response.blob();
-      formData.append('image', blob, 'image.png');
-    }
-    
-    formData.append('model', 'dall-e-2');
-    if (options?.n) formData.append('n', options.n.toString());
-    if (options?.size) formData.append('size', options.size);
-    if (options?.response_format) formData.append('response_format', options.response_format);
-    if (options?.user) formData.append('user', options.user);
-
-    const response = await fetch('https://api.openai.com/v1/images/variations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: formData
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`OpenAI Image Variation API Error ${response.status}: ${response.statusText} - ${JSON.stringify(errorData)}`);
-    }
-
-    const result = await response.json();
-    console.log(`✅ Generated ${result.data.length} variation(s) with OpenAI`);
-    
-    return result;
-  } catch (error) {
-    console.error('generateImageVariation error:', error);
-    throw error;
-  }
-}
-
-/**
  * Helper function for logo generation with optimized defaults
  */
 export async function generateLogo(
