@@ -2,7 +2,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/app/supabase/server';
-import { deductCredits } from '@/actions/database/script-video-database';
 
 /**
  * API endpoint to store the exported video from Remotion
@@ -133,28 +132,16 @@ export async function POST(request: NextRequest) {
       console.error(`⚠️ No rows updated in any table! video_id=${video_id}, user_id=${userId}`);
     }
 
-    // Step 5: Deduct credits for video export (if not already deducted)
-    const EXPORT_CREDITS = 10; // Credits for rendering/exporting
-    const creditResult = await deductCredits(
-      userId,
-      EXPORT_CREDITS,
-      'video-export',
-      { video_id, batch_id }
-    );
-
-    if (!creditResult.success) {
-      console.warn('Credit deduction failed:', creditResult.error);
-      // Don't fail the whole operation if credit deduction fails
-    }
-
+    // Exports are free: generation already charged for voice/images, and
+    // rendering runs on our own Remotion server (no per-unit API cost).
+    // (A 10-credit deduction lived here but never actually ran — the editor
+    // never called this endpoint until the write-back was wired up 2026-07.)
     console.log(`✅ Video exported and stored: ${storedVideoUrl}`);
 
     return NextResponse.json({
       success: true,
       video_url: storedVideoUrl,
       storage_path: fileName,
-      credits_deducted: EXPORT_CREDITS,
-      remaining_credits: creditResult.remainingCredits
     });
 
   } catch (error) {
