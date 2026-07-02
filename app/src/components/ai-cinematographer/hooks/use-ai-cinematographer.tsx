@@ -15,6 +15,7 @@ import {
   StoryboardResponse,
   ExtractedFrame,
   uploadGridImageToStorage,
+  pollCinematographerFalGeneration,
 } from '@/actions/tools/ai-cinematographer';
 import type { CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 import { getCinematographerVideos, getCinematographerVideo, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
@@ -731,7 +732,10 @@ export function useAICinematographer() {
 
       for (const item of currentGenerating) {
         try {
-          const video = await getCinematographerVideo(item.batchId!, user.id);
+          // Checks the DB row AND, for fal generations still in flight, the
+          // fal queue directly — completes the record when the webhook can't
+          // reach us (localhost) or was missed.
+          const video = await pollCinematographerFalGeneration(item.batchId!, user.id);
           if (video && (video.status === 'completed' || video.status === 'failed')) {
             console.log(`🔄 Poll fallback: updating queue item ${item.id} to ${video.status}`);
             setAnimationQueue(prev => prev.map(q =>
@@ -976,7 +980,7 @@ export function useAICinematographer() {
             prompt: finalPrompt,
             reference_image_url: item.imageUrl,
             duration: item.duration,
-            aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '9:21',
+            aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9',
             model: item.model,
             resolution: '1080p',
             generate_audio: true,
@@ -1069,7 +1073,7 @@ export function useAICinematographer() {
           prompt: finalPrompt,
           reference_image_url: item.imageUrl,
           duration: item.duration,
-          aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '9:21',
+          aspect_ratio: item.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9',
           model: item.model,
           resolution: '1080p',
           generate_audio: true,

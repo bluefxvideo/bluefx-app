@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { downloadAndUploadAudio, downloadAndUploadVideo } from '@/actions/supabase-storage';
 import { updateMusicRecordAdmin } from '@/actions/database/music-database';
 import { updateTalkingAvatarVideoAdmin } from '@/actions/database/talking-avatar-database';
+import { updateCinematographerVideoAdmin } from '@/actions/database/cinematographer-database';
 import { createAdminClient } from '@/app/supabase/server';
 
 /**
@@ -9,7 +10,8 @@ import { createAdminClient } from '@/app/supabase/server';
  * Receives completion callbacks from fal.ai queue API
  * Handles:
  * - MiniMax Music (audio output)
- * - LTX Audio-to-Video (video output)
+ * - LTX Audio-to-Video / Talking Avatar (video output)
+ * - Video Maker / AI Cinematographer (video output — LTX fast, Seedance 1.5/2.0)
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -123,8 +125,55 @@ async function handleLTXVideoCompletion(
   resultPayload: { video: { url: string } },
   startTime: number
 ): Promise<NextResponse> {
-  console.log(`🎬 Processing completed LTX video: ${request_id}`);
+  console.log(`🎬 Processing completed fal video: ${request_id}`);
 
+  const supabase = createAdminClient();
+
+  // Video Maker / AI Cinematographer first (prediction_id lives in style_preferences)
+  const { data: cinRecords } = await supabase
+    .from('cinematographer_videos')
+    .select('id, user_id')
+    .contains('style_preferences', { prediction_id: request_id });
+
+  if (cinRecords && cinRecords.length > 0) {
+    const videoId = cinRecords[0].id;
+    const userId = cinRecords[0].user_id;
+
+    const cinUpload = await downloadAndUploadVideo(
+      resultPayload.video.url,
+      'ai-cinematographer',
+      `cin_${request_id}`
+    );
+    const finalUrl = cinUpload.success && cinUpload.url ? cinUpload.url : resultPayload.video.url;
+
+    await updateCinematographerVideoAdmin(videoId, {
+      status: 'completed',
+      final_video_url: finalUrl,
+    });
+
+    // The frontend subscribes to postgres_changes on cinematographer_videos,
+    // so the row update above is the realtime signal. Broadcast too for the
+    // global generation notifier.
+    await supabase.channel(`user_${userId}_updates`).send({
+      type: 'broadcast',
+      event: 'webhook_update',
+      payload: {
+        tool_type: 'ai-cinematographer',
+        prediction_id: request_id,
+        status: 'succeeded',
+        results: { success: true, video_url: finalUrl },
+      }
+    });
+
+    console.log(`✅ fal.ai webhook: Cinematographer video complete - ${videoId} (${Date.now() - startTime}ms)`);
+    return NextResponse.json({
+      success: true,
+      message: `Processed cinematographer video webhook for ${request_id}`,
+      processing_time_ms: Date.now() - startTime,
+    });
+  }
+
+  // Otherwise: Talking Avatar LTX video
   // Download and upload video to our storage
   const uploadResult = await downloadAndUploadVideo(
     resultPayload.video.url,
@@ -142,7 +191,6 @@ async function handleLTXVideoCompletion(
   }
 
   // Find avatar video record by fal_request_id
-  const supabase = createAdminClient();
   const { data: videoRecords, error: queryError } = await supabase
     .from('avatar_videos')
     .select('id, user_id')
@@ -270,6 +318,41 @@ async function handleGenerationFailure(
     });
 
     console.log(`❌ fal.ai webhook: LTX video failed - ${videoId}`);
+  }
+
+  // Try to find a Video Maker / cinematographer record
+  const { data: cinRecords } = await supabase
+    .from('cinematographer_videos')
+    .select('id, user_id')
+    .contains('style_preferences', { prediction_id: request_id });
+
+  if (cinRecords && cinRecords.length > 0) {
+    const videoId = cinRecords[0].id;
+    const userId = cinRecords[0].user_id;
+
+    await updateCinematographerVideoAdmin(videoId, { status: 'failed' });
+
+    // Refund the failed generation (idempotent, exact-match on the original debit)
+    const { refundFailedGeneration } = await import('@/lib/credits/refund');
+    const cinRefund = await refundFailedGeneration({
+      userId,
+      referenceIds: [request_id, videoId],
+      operation: 'video generation',
+    });
+    console.log('💸 Cinematographer failure refund:', cinRefund);
+
+    await supabase.channel(`user_${userId}_updates`).send({
+      type: 'broadcast',
+      event: 'webhook_update',
+      payload: {
+        tool_type: 'ai-cinematographer',
+        prediction_id: request_id,
+        status: 'failed',
+        results: { success: false, error: error || 'Video generation failed' }
+      }
+    });
+
+    console.log(`❌ fal.ai webhook: Cinematographer video failed - ${videoId}`);
   }
 
   return NextResponse.json({

@@ -1,18 +1,21 @@
 'use server';
 
-import { createVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
-import { createSeedancePrediction, type SeedanceAspectRatio, type SeedanceDuration } from '@/actions/models/video-generation-seedance';
+import { createFalLTX23Prediction, getFalLTX23Status, getFalLTX23Result } from '@/actions/models/fal-ltx-image-to-video';
+import { createFalSeedancePrediction, getFalSeedanceStatus, getFalSeedanceResult, type SeedanceGeneration } from '@/actions/models/fal-seedance-video';
 import { generateImage } from '@/actions/models/fal-nano-banana';
 import { generateImageWithPro, generateImageWithProAsync } from '@/actions/models/fal-nano-banana-2';
-import { uploadImageToStorage, downloadAndUploadImage } from '@/actions/supabase-storage';
+import { uploadImageToStorage, downloadAndUploadImage, downloadAndUploadVideo } from '@/actions/supabase-storage';
 import {
   getUserCredits,
   deductCredits,
   storeCinematographerResults,
   storeStartingShotResult,
   recordCinematographerMetrics,
-  createPredictionRecord
+  createPredictionRecord,
+  getCinematographerVideo,
+  updateCinematographerVideo
 } from '@/actions/database/cinematographer-database';
+import { refundFailedGeneration } from '@/lib/credits/refund';
 import { Json } from '@/types/database';
 import type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 
@@ -229,9 +232,69 @@ export async function executeAICinematographer(
       }
     }
 
+    // Ultra reference-to-video: upload the reference set (up to 9 images).
+    // These replace first/last-frame control on the Seedance 2.0 endpoint.
+    let ultraReferenceUrls: string[] | undefined;
+    if (request.model === 'ultra') {
+      const urls: string[] = [...(request.ultra_reference_image_urls || [])];
+      for (const [index, file] of (request.ultra_reference_images || []).slice(0, 9).entries()) {
+        try {
+          const fileExtension = (file.name || 'ref.jpg').split('.').pop() || 'jpg';
+          const uploadResult = await uploadImageToStorage(file, {
+            bucket: 'images',
+            folder: 'cinematographer',
+            filename: `${batch_id}_ref${index + 1}.${fileExtension}`,
+            contentType: file.type || 'image/jpeg',
+          });
+          if (uploadResult.success && uploadResult.url) {
+            urls.push(uploadResult.url);
+          } else {
+            console.warn(`Reference image ${index + 1} upload failed:`, uploadResult.error);
+          }
+        } catch (error) {
+          console.warn(`Reference image ${index + 1} upload error:`, error);
+        }
+      }
+      if (urls.length > 0) {
+        ultraReferenceUrls = urls.slice(0, 9);
+        console.log(`📸 Ultra reference set: ${ultraReferenceUrls.length} image(s)`);
+      }
+    }
+
+    // Ultra reference audio (up to 3, combined ≤15s). Free on fal — only
+    // video durations are billed. Requires at least one reference image, so
+    // skip when the image set is empty. Note the 'audio' bucket has a MIME
+    // whitelist (mpeg/wav/ogg) — pass the file's own content type through.
+    let ultraReferenceAudioUrls: string[] | undefined;
+    if (request.model === 'ultra' && ultraReferenceUrls?.length) {
+      const audioUrls: string[] = [...(request.ultra_reference_audio_urls || [])];
+      for (const [index, file] of (request.ultra_reference_audios || []).slice(0, 3).entries()) {
+        try {
+          const fileExtension = (file.name || 'ref.mp3').split('.').pop() || 'mp3';
+          const uploadResult = await uploadImageToStorage(file, {
+            bucket: 'audio',
+            folder: 'cinematographer',
+            filename: `${batch_id}_refaudio${index + 1}.${fileExtension}`,
+            contentType: file.type || 'audio/mpeg',
+          });
+          if (uploadResult.success && uploadResult.url) {
+            audioUrls.push(uploadResult.url);
+          } else {
+            console.warn(`Reference audio ${index + 1} upload failed:`, uploadResult.error);
+          }
+        } catch (error) {
+          console.warn(`Reference audio ${index + 1} upload error:`, error);
+        }
+      }
+      if (audioUrls.length > 0) {
+        ultraReferenceAudioUrls = audioUrls.slice(0, 3);
+        console.log(`🎙️ Ultra reference audio: ${ultraReferenceAudioUrls.length} clip(s)`);
+      }
+    }
+
     // Handle different workflow intents
     if (request.workflow_intent === 'generate') {
-      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total, creditCheck.credits || 0, lastFrameImageUrl);
+      return await handleVideoGeneration(request, batch_id, startTime, referenceImageUrl, creditCosts.total, creditCheck.credits || 0, lastFrameImageUrl, ultraReferenceUrls, ultraReferenceAudioUrls);
     } else if (request.workflow_intent === 'audio_add') {
       return await handleAudioIntegration(request, batch_id, startTime, creditCosts.total);
     }
@@ -269,53 +332,78 @@ async function handleVideoGeneration(
   referenceImageUrl: string | undefined,
   creditCost: number,
   currentCredits: number,
-  lastFrameImageUrl?: string
+  lastFrameImageUrl?: string,
+  ultraReferenceUrls?: string[],
+  ultraReferenceAudioUrls?: string[]
 ): Promise<CinematographerResponse> {
   try {
     const model = request.model || 'fast';
-    const modelVersion = model === 'fast' ? 'ltx-2.3-fast' : 'seedance-1.5-pro';
+    const modelVersion = model === 'fast' ? 'ltx-2.3-fast' : model === 'ultra' ? 'seedance-2.0' : 'seedance-1.5-pro';
+    const falWebhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`;
 
-    // Create video generation prediction based on model selection
+    // Seedance's generated audio loves adding a background soundtrack. In
+    // 'voice' mode (default) we append an explicit no-music directive; in
+    // 'silent' mode audio generation is disabled entirely (also halves the
+    // provider cost on Seedance). Skip the directive if the user's own
+    // prompt asks for music.
+    const silent = request.audio_mode === 'silent';
+    const generateAudio = !silent && request.generate_audio !== false;
+    const wantsMusic = /\b(music|soundtrack|song|melody)\b/i.test(request.prompt);
+    const effectivePrompt = (model !== 'fast' && generateAudio && !wantsMusic)
+      ? `${request.prompt.trim()} Audio: only the person's voice with natural room ambience — no background music, no soundtrack, no melody.`
+      : request.prompt;
+
+    // Create video generation prediction based on model selection (all fal.ai)
     let prediction;
     try {
       if (model === 'fast') {
-        // LTX-2.3-Fast model
-        console.log('🎬 Attempting to create LTX-2.3-Fast prediction...');
+        // LTX-2.3-Fast: 6-20s, 1080p+; near-instant generations
+        console.log('🎬 Creating LTX-2.3-Fast (fal) prediction...');
 
-        // Validate duration for Fast model (6, 8, 10, 12, 14, 16, 18, 20)
-        const fastDuration = (request.duration || 6) as 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20;
-        const fastResolution = (request.resolution || '1080p') as '1080p' | '2k' | '4k';
+        const fastDuration = Math.max(6, Math.min(20, request.duration || 6));
+        const fastResolution = request.resolution === '2k' ? '1440p' : request.resolution === '4k' ? '2160p' : '1080p';
 
-        prediction = await createVideoGenerationPrediction({
-          prompt: request.prompt,
-          image: referenceImageUrl,
-          last_frame_image: lastFrameImageUrl,
+        // Camera motion is expressed in the prompt for the fal endpoint
+        const cameraPrompt = request.camera_motion && request.camera_motion !== 'none'
+          ? `${effectivePrompt} Camera: ${request.camera_motion.replace(/_/g, ' ')}.`
+          : effectivePrompt;
+
+        const queued = await createFalLTX23Prediction({
+          prompt: cameraPrompt,
+          image_url: referenceImageUrl,
+          end_image_url: lastFrameImageUrl,
           duration: fastDuration,
           resolution: fastResolution,
           aspect_ratio: (request.aspect_ratio as '16:9' | '9:16') || '16:9',
-          camera_motion: request.camera_motion,
-          generate_audio: request.generate_audio !== false,
-          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+          generate_audio: generateAudio,
+          webhook_url: falWebhookUrl,
         });
+        prediction = { id: queued.request_id };
       } else {
-        // Seedance 1.5 Pro model
-        console.log('🎬 Attempting to create Seedance 1.5 Pro prediction...');
+        // Seedance 1.5 Pro ('pro', 4-12s) or Seedance 2.0 ('ultra', 4-15s)
+        const generation: SeedanceGeneration = model === 'ultra' ? '2.0' : '1.5';
+        console.log(`🎬 Creating Seedance ${generation} (fal) prediction...`);
 
-        // Validate duration for Pro model (5-10 seconds)
-        const proDuration = Math.max(5, Math.min(10, request.duration || 5)) as SeedanceDuration;
-        const proAspectRatio = (request.aspect_ratio || '16:9') as SeedanceAspectRatio;
+        const maxDur = model === 'ultra' ? 15 : 12;
+        const seedanceDuration = Math.max(4, Math.min(maxDur, request.duration || 6));
 
-        prediction = await createSeedancePrediction({
-          prompt: request.prompt,
-          image: referenceImageUrl,
-          last_frame_image: lastFrameImageUrl,
-          duration: proDuration,
-          aspect_ratio: proAspectRatio,
+        const queued = await createFalSeedancePrediction({
+          generation,
+          prompt: effectivePrompt,
+          image_url: referenceImageUrl,
+          end_image_url: lastFrameImageUrl,
+          // Ultra only: reference set routes to the reference-to-video endpoint
+          reference_image_urls: model === 'ultra' ? ultraReferenceUrls : undefined,
+          reference_audio_urls: model === 'ultra' ? ultraReferenceAudioUrls : undefined,
+          duration: seedanceDuration,
+          resolution: '720p',
+          aspect_ratio: request.aspect_ratio || '16:9',
+          generate_audio: generateAudio,
           seed: request.seed,
           camera_fixed: request.camera_fixed,
-          generate_audio: request.generate_audio !== false,
-          webhook: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/replicate-ai`
+          webhook_url: falWebhookUrl,
         });
+        prediction = { id: queued.request_id };
       }
 
       // Validate prediction response
@@ -325,11 +413,10 @@ async function handleVideoGeneration(
 
       console.log(`✅ ${modelVersion} prediction created successfully:`, prediction.id);
     } catch (error) {
-      console.error('❌ Replicate prediction creation failed:', error);
-      console.error('❌ Error type:', typeof error);
+      console.error('❌ fal.ai prediction creation failed:', error);
       console.error('❌ Error details:', JSON.stringify(error, null, 2));
 
-      // Handle content moderation failures (E005) and other Replicate errors
+      // Handle content moderation failures and other provider errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown prediction error';
 
       // Check for common content moderation patterns
@@ -368,7 +455,9 @@ async function handleVideoGeneration(
     }
 
     // Create prediction tracking record
-    const effectiveDuration = model === 'fast' ? (request.duration || 6) : Math.max(5, Math.min(10, request.duration || 5));
+    const effectiveDuration = model === 'fast'
+      ? Math.max(6, Math.min(20, request.duration || 6))
+      : Math.max(4, Math.min(model === 'ultra' ? 15 : 12, request.duration || 6));
     const effectiveResolution = model === 'fast' ? (request.resolution || '1080p') : '720p';
 
     try {
@@ -376,7 +465,7 @@ async function handleVideoGeneration(
         prediction_id: prediction.id,
         user_id: request.user_id,
         tool_id: 'ai-cinematographer',
-        service_id: 'replicate',
+        service_id: 'fal-ai',
         model_version: modelVersion,
         status: 'planning',
         input_data: {
@@ -384,7 +473,8 @@ async function handleVideoGeneration(
           model,
           duration: effectiveDuration,
           resolution: effectiveResolution,
-          generate_audio: request.generate_audio !== false,
+          generate_audio: generateAudio,
+          audio_mode: request.audio_mode || 'voice',
           reference_image: referenceImageUrl,
           aspect_ratio: request.aspect_ratio || '16:9',
           last_frame_image: lastFrameImageUrl,
@@ -403,22 +493,26 @@ async function handleVideoGeneration(
     }
 
     // Store video record in database
+    const tierLabel = model === 'ultra' ? 'Ultra' : model === 'pro' ? 'Pro' : 'Fast';
     const storeResult = await storeCinematographerResults({
       user_id: request.user_id,
       video_concept: request.prompt,
-      project_name: `${model === 'pro' ? 'Pro' : 'Fast'} Video - ${new Date().toISOString()}`,
+      project_name: `${tierLabel} Video - ${new Date().toISOString()}`,
       batch_id,
       duration: effectiveDuration,
       resolution: effectiveResolution,
       settings: {
         prediction_id: prediction.id,
         model,
+        service: 'fal-ai',
+        credits_charged: creditCost,
         reference_image: referenceImageUrl,
         generation_params: {
           model,
           duration: effectiveDuration,
           resolution: effectiveResolution,
-          generate_audio: request.generate_audio !== false,
+          generate_audio: generateAudio,
+          audio_mode: request.audio_mode || 'voice',
           aspect_ratio: request.aspect_ratio || '16:9',
           last_frame_image: lastFrameImageUrl,
           ...(model === 'fast' && {
@@ -427,6 +521,10 @@ async function handleVideoGeneration(
           ...(model === 'pro' && {
             seed: request.seed,
             camera_fixed: request.camera_fixed,
+          }),
+          ...(model === 'ultra' && ultraReferenceUrls?.length && {
+            ultra_reference_image_urls: ultraReferenceUrls,
+            ...(ultraReferenceAudioUrls?.length && { ultra_reference_audio_urls: ultraReferenceAudioUrls }),
           })
         }
       } as Json,
@@ -488,11 +586,12 @@ async function handleVideoGeneration(
       credits_used: creditCost,
       remaining_credits: creditDeduction.remainingCredits || 0,
       generation_settings: {
-        model: model as 'fast' | 'pro',
+        model,
         duration: effectiveDuration,
         resolution: effectiveResolution,
         aspect_ratio: request.aspect_ratio || '16:9',
-        generate_audio: request.generate_audio !== false,
+        generate_audio: generateAudio,
+        audio_mode: request.audio_mode || 'voice',
         ...(model === 'fast' && request.camera_motion && { camera_motion: request.camera_motion }),
         ...(model === 'pro' && {
           ...(request.camera_fixed && { camera_fixed: request.camera_fixed }),
@@ -500,6 +599,8 @@ async function handleVideoGeneration(
         }),
         ...(referenceImageUrl && { reference_image_url: referenceImageUrl }),
         ...(lastFrameImageUrl && { last_frame_image_url: lastFrameImageUrl }),
+        ...(model === 'ultra' && ultraReferenceUrls?.length && { ultra_reference_image_urls: ultraReferenceUrls }),
+        ...(model === 'ultra' && ultraReferenceAudioUrls?.length && { ultra_reference_audio_urls: ultraReferenceAudioUrls }),
       },
     };
 
@@ -557,17 +658,20 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
   const model = request.model || 'fast';
 
   if (request.workflow_intent === 'generate') {
-    // Pro model: 5-10 seconds, Fast model: 6-20 seconds
-    const duration = request.duration || (model === 'fast' ? 6 : 5);
+    // Fast: 6-20s @1080p+, Pro (Seedance 1.5): 4-12s @720p, Ultra (Seedance 2.0): 4-15s @720p
+    const duration = request.duration || 6;
     const resolution = request.resolution || (model === 'fast' ? '1080p' : '720p');
 
     if (model === 'fast') {
-      // Fast mode: 1/2/4 credits per second based on resolution
-      const creditsPerSecond = resolution === '4k' ? 4 : resolution === '2k' ? 2 : 1;
+      // Fast mode: 2/4/8 credits per second based on resolution
+      const creditsPerSecond = resolution === '4k' ? 8 : resolution === '2k' ? 4 : 2;
       baseCost = duration * creditsPerSecond;
+    } else if (model === 'ultra') {
+      // Ultra (Seedance 2.0): 10 credits/sec — provider cost ~$0.30/s at 720p
+      baseCost = duration * 10;
     } else {
-      // Pro mode: 2 credits/sec
-      baseCost = duration * 2;
+      // Pro (Seedance 1.5): 4 credits/sec
+      baseCost = duration * 4;
     }
 
   } else if (request.workflow_intent === 'audio_add') {
@@ -579,7 +683,7 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
   return {
     base: baseCost,
     model,
-    duration_seconds: request.duration || (model === 'fast' ? 6 : 5),
+    duration_seconds: request.duration || 6,
     resolution: request.resolution || (model === 'fast' ? '1080p' : '720p'),
     total,
     breakdown: {
@@ -590,6 +694,74 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
 }
 
 // Removed manual deductCredits - now using the proven pattern from cinematographer-database.ts
+
+/**
+ * Polling fallback for fal.ai generations — the webhook completes videos in
+ * production, but can't reach localhost (and can occasionally be missed).
+ * Called from the frontend's existing poll loop: checks the fal queue for a
+ * still-processing video and completes/fails the DB record directly.
+ * Returns the (possibly updated) video row, mirroring getCinematographerVideo.
+ */
+export async function pollCinematographerFalGeneration(videoId: string, userId: string) {
+  const video = await getCinematographerVideo(videoId, userId);
+  if (!video) return null;
+  if (video.status === 'completed' || video.status === 'failed') return video;
+
+  const settings = (video.style_preferences || {}) as {
+    prediction_id?: string;
+    model?: string;
+    service?: string;
+  };
+  const predictionId = settings.prediction_id;
+  const model = settings.model || 'fast';
+  // Only poll fal-based generations (legacy replicate rows complete via their own webhook)
+  if (!predictionId || (settings.service && settings.service !== 'fal-ai')) return video;
+
+  try {
+    const generation: SeedanceGeneration = model === 'ultra' ? '2.0' : '1.5';
+    const status = model === 'fast'
+      ? await getFalLTX23Status(predictionId)
+      : await getFalSeedanceStatus(generation, predictionId);
+
+    if (status.status === 'COMPLETED') {
+      const result = model === 'fast'
+        ? await getFalLTX23Result(predictionId)
+        : await getFalSeedanceResult(generation, predictionId);
+
+      const providerUrl = result?.video?.url;
+      if (!providerUrl) throw new Error('Completed fal request has no video URL');
+
+      const uploaded = await downloadAndUploadVideo(providerUrl, 'ai-cinematographer', `cin_${predictionId}`);
+      const finalUrl = uploaded.success && uploaded.url ? uploaded.url : providerUrl;
+
+      await updateCinematographerVideo(videoId, {
+        status: 'completed',
+        final_video_url: finalUrl,
+        // Keep raw provider cost units for margin tracking
+        ai_director_notes: result.billable_units !== undefined
+          ? `fal billable units: ${result.billable_units}`
+          : undefined,
+      });
+      console.log(`✅ Poll fallback completed cinematographer video ${videoId} (${model})`);
+      return await getCinematographerVideo(videoId, userId);
+    }
+
+    if (status.status === 'FAILED') {
+      await updateCinematographerVideo(videoId, { status: 'failed' });
+      await refundFailedGeneration({
+        userId,
+        referenceIds: [predictionId, videoId],
+        operation: 'video generation',
+      });
+      return await getCinematographerVideo(videoId, userId);
+    }
+  } catch (error) {
+    // Poll errors are non-fatal — webhook or a later poll can still complete it
+    console.warn(`⚠️ fal poll for video ${videoId} failed:`, error);
+  }
+
+  return video;
+}
 
 /**
  * Alternative export for AI Cinematographer (helps with Server Action serialization)
