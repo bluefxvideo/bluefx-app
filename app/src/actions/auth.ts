@@ -14,7 +14,7 @@ import {
   type ApiResponse
 } from '@/types/validation'
 import { type Tables, type InsertTables } from '@/types/database'
-import type { User } from '@supabase/supabase-js'
+import { createClient as createSupabaseJsClient, type User } from '@supabase/supabase-js'
 
 // User creation data interface
 interface CreateUserData {
@@ -224,20 +224,33 @@ export async function signOut() {
 
 export async function resetPassword(data: FormData | { email: string }): Promise<ApiResponse<object>> {
   try {
-    const supabase = await createClient()
-    
+    // IMPORTANT: send the recovery email via an IMPLICIT-flow client, NOT the
+    // default SSR client. @supabase/ssr defaults to PKCE, which makes the
+    // recovery token a `pkce_…` value that can only be verified with the
+    // code_verifier cookie stored in the exact browser that requested the
+    // reset. That broke every user who opened the link on another device, in
+    // incognito, or after an email provider (Hotmail/Outlook) prefetched it —
+    // verifyOtp failed and dumped them back on /login. An implicit-flow client
+    // sends no code_challenge, so Supabase issues a plain OTP token_hash that
+    // /auth-callback can verify statelessly on any device.
+    const supabase = createSupabaseJsClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { flowType: 'implicit', persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+    )
+
     // Parse data - handle both FormData and direct object
     const email = data instanceof FormData ? data.get('email') as string : data.email
 
     // Validate data
     const validation = PasswordResetSchema.safeParse({ email })
-    
+
     if (!validation.success) {
       return createApiError(validation.error.issues.map(i => i.message).join(', '))
     }
 
     console.log('📧 Sending password reset email to:', email)
-    
+
     const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`
     console.log('🔗 Reset redirect URL:', redirectUrl)
 
