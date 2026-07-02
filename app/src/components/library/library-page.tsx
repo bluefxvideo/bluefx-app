@@ -52,7 +52,16 @@ function ItemCard({ item }: { item: LibraryItem }) {
     <div className="group rounded-xl border border-border bg-card overflow-hidden flex flex-col">
       {/* Preview */}
       <div className="relative aspect-video bg-muted/40 flex items-center justify-center overflow-hidden">
-        {isImage ? (
+        {item.draft ? (
+          // Generated but never rendered/exported — no media file exists yet.
+          <Link
+            href={item.tool_route}
+            className="flex flex-col items-center gap-2 text-zinc-400 hover:text-foreground transition-colors"
+          >
+            <Icon className="w-8 h-8" />
+            <span className="text-xs font-medium">Finish in editor to render</span>
+          </Link>
+        ) : isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.thumbnail_url || item.url} alt={item.title} className="w-full h-full object-cover" />
         ) : isVideo ? (
@@ -70,18 +79,20 @@ function ItemCard({ item }: { item: LibraryItem }) {
         )}
         <span className="absolute top-2 left-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/60 text-white flex items-center gap-1">
           <Icon className="w-3 h-3" />
-          {meta.label}
+          {item.draft ? 'Draft' : meta.label}
         </span>
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          download
-          aria-label={`Download ${meta.label.toLowerCase()}`}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white rounded-lg p-1.5"
-        >
-          <Download className="w-3.5 h-3.5" />
-        </a>
+        {!item.draft && (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            aria-label={`Download ${meta.label.toLowerCase()}`}
+            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white rounded-lg p-1.5"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </a>
+        )}
       </div>
 
       {/* Meta */}

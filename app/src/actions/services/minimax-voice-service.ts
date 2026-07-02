@@ -185,6 +185,20 @@ export async function generateMinimaxVoice(
 
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
 
+    // Measure the REAL audio duration from the MP3 itself. Downstream (the
+    // script-to-video orchestrator) sizes segment timings and the Remotion
+    // composition from this value — without it, it falls back to 30s and any
+    // longer voiceover gets cut off when the video ends.
+    let durationSeconds: number | undefined;
+    try {
+      const { parseBuffer } = await import('music-metadata');
+      const parsed = await parseBuffer(audioBuffer, 'audio/mpeg');
+      durationSeconds = parsed.format.duration;
+      console.log(`⏱️ Measured voice duration: ${durationSeconds?.toFixed(2)}s`);
+    } catch (metaError) {
+      console.warn('⚠️ Could not measure MP3 duration:', metaError);
+    }
+
     // Upload to Supabase Storage
     const fileName = `${request.user_id}/voice/${request.batch_id}.mp3`;
 
@@ -216,6 +230,7 @@ export async function generateMinimaxVoice(
       metadata: {
         voice_id: request.voice_settings.voice_id,
         file_size_bytes: audioBuffer.length,
+        duration_seconds: durationSeconds,
         provider: 'minimax-replicate',
       }
     };

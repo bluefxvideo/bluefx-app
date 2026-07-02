@@ -156,8 +156,12 @@ export async function generateScriptToVideo(
     // Generate voice first to get actual duration
     console.log('🎤 Generating voice first to determine exact duration...');
     let audioUrl: string | undefined = undefined;
-    let actualAudioDuration = 30; // Default fallback
-    
+    // Fallback if duration can't be measured: estimate from script length
+    // (~15 chars/sec of natural speech). A flat 30s default used to truncate
+    // every longer voiceover — video ended while the audio kept going.
+    const estimatedDurationFromScript = Math.max(15, Math.round(finalScript.length / 15));
+    let actualAudioDuration = estimatedDurationFromScript;
+
     try {
       // Create a temporary single segment for voice generation
       const tempSegment = {
@@ -171,10 +175,10 @@ export async function generateScriptToVideo(
       
       const voiceResult = await generateVoiceForAllSegments([tempSegment], request.user_id, batch_id, request.voice_settings);
       audioUrl = voiceResult.audio_url;
-      actualAudioDuration = voiceResult.metadata?.actual_duration || 30;
+      actualAudioDuration = voiceResult.metadata?.actual_duration || estimatedDurationFromScript;
       total_credits += voiceResult.credits_used;
-      
-      console.log(`✅ Voice generated - Actual duration: ${actualAudioDuration}s`);
+
+      console.log(`✅ Voice generated - Actual duration: ${actualAudioDuration}s${voiceResult.metadata?.actual_duration ? '' : ' (estimated from script length — measurement unavailable)'}`);
     } catch (error) {
       console.error('❌ Initial voice generation failed:', error);
       throw new Error(`Voice generation failed: ${error instanceof Error ? error.message : String(error)}`);

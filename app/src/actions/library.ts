@@ -14,13 +14,15 @@ export interface LibraryItem {
   id: string;
   type: LibraryItemType;
   title: string;
-  /** Primary media URL (video/audio/image). */
+  /** Primary media URL (video/audio/image). Empty string for drafts. */
   url: string;
   thumbnail_url?: string | null;
   /** Route of the tool that made it (for "open in tool"). */
   tool_route: string;
   tool_name: string;
   created_at: string;
+  /** Generated but not yet rendered/exported — open in the tool to finish. */
+  draft?: boolean;
 }
 
 const IMAGE_TYPE_BY_MODEL: Record<string, { type: LibraryItemType; tool: string; route: string }> = {
@@ -107,11 +109,15 @@ export async function getLibraryItems(): Promise<{ success: boolean; items?: Lib
         .not('video_url', 'is', null)
         .order('created_at', { ascending: false })
         .limit(LIMIT),
+      // NOTE: no video_url filter — generation marks rows 'completed' with a
+      // NULL video_url until the user renders/exports in the editor. Those
+      // drafts must still show in the library (as "finish in editor" cards),
+      // otherwise a finished-looking video silently never appears here.
       supabase
         .from('script_to_video_history')
-        .select('id, script_title, video_url, thumbnail_url, created_at')
+        .select('id, script_title, video_url, thumbnail_url, status, created_at')
         .eq('user_id', user.id)
-        .not('video_url', 'is', null)
+        .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(LIMIT),
       supabase
@@ -172,8 +178,9 @@ export async function getLibraryItems(): Promise<{ success: boolean; items?: Lib
       items.push({
         id: `s2v_${s.id}`, type: 'video',
         title: s.script_title || 'Script video',
-        url: s.video_url!, thumbnail_url: s.thumbnail_url,
+        url: s.video_url || '', thumbnail_url: s.thumbnail_url,
         created_at: s.created_at, tool_name: 'Script to Video', tool_route: '/dashboard/script-to-video/history',
+        draft: !s.video_url,
       });
     }
     for (const sw of swaps.data || []) {

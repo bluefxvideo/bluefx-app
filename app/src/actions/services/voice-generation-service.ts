@@ -170,24 +170,33 @@ export async function generateVoiceForAllSegments(
       throw new Error(result.error || 'Minimax voice generation failed');
     }
 
-    // Use Minimax subtitles for timing if available, otherwise fall back to estimate
+    // Duration priority: measured MP3 duration (most reliable) → Minimax
+    // subtitle timestamps → duration estimate. Getting this right matters:
+    // the orchestrator sizes the whole video composition from it, and a
+    // missing value used to silently fall back to 30s and cut off longer
+    // voiceovers.
     let actualDuration: number | undefined;
     let actualSpeechDuration: number | undefined;
     const subtitles = result.metadata?.subtitles as Array<{ text: string; start_time: number; end_time: number }> | undefined;
 
-    if (result.metadata?.duration_estimate) {
+    if (result.metadata?.duration_seconds) {
+      // Real duration parsed from the MP3 file by the minimax service
+      actualDuration = result.metadata.duration_seconds;
+    } else if (result.metadata?.duration_estimate) {
       actualDuration = result.metadata.duration_estimate;
     }
 
-    // Use Minimax subtitle timestamps for accurate duration (no Whisper needed!)
-    if (subtitles && subtitles.length > 0) {
+    if (result.metadata?.duration_seconds) {
+      actualSpeechDuration = result.metadata.duration_seconds;
+      console.log(`⏱️ Using measured MP3 duration: ${actualSpeechDuration?.toFixed(2)}s`);
+    } else if (subtitles && subtitles.length > 0) {
       // Get the end time of the last subtitle segment
       actualSpeechDuration = Math.max(...subtitles.map(s => s.end_time));
       console.log(`📝 Using Minimax subtitles: ${subtitles.length} segments, speech duration: ${actualSpeechDuration.toFixed(2)}s`);
     } else {
       // Fall back to duration estimate if no subtitles
       actualSpeechDuration = actualDuration;
-      console.log(`⚠️ No subtitles from Minimax, using duration estimate: ${actualDuration?.toFixed(2)}s`);
+      console.log(`⚠️ No measured duration or subtitles, using estimate: ${actualDuration?.toFixed(2)}s`);
     }
 
     const generationTime = Date.now() - startTime;
