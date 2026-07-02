@@ -9,12 +9,10 @@ import { Badge } from '@/components/ui/badge'
 import { CurrentSubscriptionSkeleton, CurrentCreditsSkeleton } from '@/components/dashboard/dashboard-skeletons'
 import { CancellationWarningModal } from '@/components/subscription/cancellation-warning-modal'
 import { CancellationFeedbackModal, type CancellationFeedback } from '@/components/subscription/cancellation-feedback-modal'
-import { 
-  CreditCard, 
-  AlertTriangle, 
-  Mail, 
-  Phone,
-  MessageCircle,
+import {
+  CreditCard,
+  AlertTriangle,
+  Mail,
   ArrowLeft,
   Loader2,
   Shield,
@@ -235,20 +233,6 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
     }
   }
 
-  const handleContactSupport = (method: 'email' | 'phone' | 'chat') => {
-    switch (method) {
-      case 'email':
-        window.open('mailto:support@bluefx.net?subject=Subscription Support Request')
-        break
-      case 'phone':
-        alert('Phone support: +1 (888) 344-0934\nAvailable Mon-Fri 9AM-5PM EST')
-        break
-      case 'chat':
-        console.log('Opening chat support...')
-        break
-    }
-  }
-
 
   if (error) {
     return (
@@ -435,11 +419,12 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Email is the only support channel — plain mailto anchor so the
+                user's mail client opens directly (window.open left a blank tab). */}
+            <a href="mailto:support@bluefx.net?subject=Subscription%20Support%20Request" className="block max-w-md">
               <Button
                 variant="outline"
-                onClick={() => handleContactSupport('email')}
-                className="h-auto p-4 justify-start"
+                className="h-auto p-4 justify-start w-full"
               >
                 <Mail className="h-5 w-5 mr-3 text-blue-600" />
                 <div className="text-left">
@@ -448,33 +433,7 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                   <div className="text-xs text-muted-foreground">24-48 hour response</div>
                 </div>
               </Button>
-              
-              <Button
-                variant="outline"
-                onClick={() => handleContactSupport('phone')}
-                className="h-auto p-4 justify-start"
-              >
-                <Phone className="h-5 w-5 mr-3 text-green-600" />
-                <div className="text-left">
-                  <div className="font-medium">Phone Support</div>
-                  <div className="text-sm text-muted-foreground">+1 (888) 344-0934</div>
-                  <div className="text-xs text-muted-foreground">Mon-Fri 9AM-5PM EST</div>
-                </div>
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={() => handleContactSupport('chat')}
-                className="h-auto p-4 justify-start"
-              >
-                <MessageCircle className="h-5 w-5 mr-3 text-purple-600" />
-                <div className="text-left">
-                  <div className="font-medium">Live Chat</div>
-                  <div className="text-sm text-muted-foreground">Instant messaging</div>
-                  <div className="text-xs text-muted-foreground">Available during business hours</div>
-                </div>
-              </Button>
-            </div>
+            </a>
           </CardContent>
         </Card>
 
