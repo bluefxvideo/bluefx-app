@@ -18,45 +18,52 @@ interface VideoPreviewProps {
     created_at: string;
   };
   batchId: string;
+  /** Generation tier — calibrates the time estimate ('fast' | 'pro' | 'ultra') */
+  model?: string;
   onCancel?: () => void;
   onRegenerate?: () => void;
   onTweak?: () => void;
 }
 
 /**
- * Estimate generation time in seconds based on duration and resolution
- * Based on observed patterns:
- * - 6s @ 1080p: ~37s
- * - 8s @ 1080p: ~45s
- * - Extrapolate linearly: roughly 5s base + 5.3s per second of video
- * - Higher resolutions take longer (2k ~1.5x, 4k ~2.5x)
+ * Estimate generation time in seconds, calibrated per model from measured
+ * fal.ai generations (2026-07-02):
+ * - Fast (LTX 2.3):       6s @ 1080p finished in <10s → ~10s + 2s/videosec
+ * - Pro (Seedance 1.5):   6s clips observed 80-190s   → ~60s + 15s/videosec
+ * - Ultra (Seedance 2.0): 6s ≈ 190s, 15s ≈ 300s       → ~120s + 12s/videosec
+ * Higher Fast resolutions take longer (2k ~1.5x, 4k ~2.5x).
  */
-function getEstimatedTime(duration: number, resolution?: string): number {
-  // Base time calculation for 1080p
-  const baseTime = 5; // Initial processing
-  const perSecondTime = 5.3; // Time per second of video
-  let estimatedSeconds = baseTime + (duration * perSecondTime);
-
-  // Adjust for resolution
-  if (resolution === '2k') {
-    estimatedSeconds *= 1.5;
-  } else if (resolution === '4k') {
-    estimatedSeconds *= 2.5;
+function getEstimatedTime(duration: number, resolution?: string, model?: string): number {
+  let estimatedSeconds: number;
+  if (model === 'ultra') {
+    estimatedSeconds = 120 + duration * 12;
+  } else if (model === 'pro') {
+    estimatedSeconds = 60 + duration * 15;
+  } else {
+    estimatedSeconds = 10 + duration * 2;
+    if (resolution === '2k') estimatedSeconds *= 1.5;
+    else if (resolution === '4k') estimatedSeconds *= 2.5;
   }
-
   return Math.round(estimatedSeconds);
+}
+
+/** Human-readable typical range per tier, shown next to the elapsed timer */
+function getTypicalLabel(model?: string): string {
+  if (model === 'ultra') return '3–5 minutes';
+  if (model === 'pro') return '1–3 minutes';
+  return 'under a minute';
 }
 
 /**
  * Video preview component with playback controls
  */
-export function VideoPreview({ video, batchId, onCancel, onRegenerate, onTweak }: VideoPreviewProps) {
+export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, onTweak }: VideoPreviewProps) {
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const isProcessing = !video.video_url;
 
-  // Calculate estimated time
-  const estimatedTime = getEstimatedTime(video.duration, video.resolution);
+  // Calculate estimated time (model-calibrated)
+  const estimatedTime = getEstimatedTime(video.duration, video.resolution, model);
 
   // Progress animation effect
   useEffect(() => {
@@ -172,7 +179,7 @@ export function VideoPreview({ video, batchId, onCancel, onRegenerate, onTweak }
 
               <p className="text-xs text-muted-foreground">
                 You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
-                <ElapsedTimer typical="1–3 minutes" className="tabular-nums" />
+                <ElapsedTimer typical={getTypicalLabel(model)} className="tabular-nums" />
               </p>
 
               {/* Cancel Button */}

@@ -58,6 +58,7 @@ export function CinematographerOutput({
             <VideoPreview
               video={result.video}
               batchId={result.batch_id}
+              model={result.generation_settings?.model}
               onCancel={onCancelGeneration}
             />
           </div>
@@ -117,6 +118,7 @@ export function CinematographerOutput({
             <VideoPreview
               video={result.video}
               batchId={result.batch_id}
+              model={result.generation_settings?.model}
               onRegenerate={onRegenerate}
               onTweak={onTweak}
             />
