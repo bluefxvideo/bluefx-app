@@ -86,6 +86,12 @@ export interface CloneScene {
   /** Older generated keyframes, most recent first. */
   image_versions: string[];
   anim: SceneAnim;
+  /**
+   * User override for animation length in seconds (3-15). Absent/null = auto
+   * (original cut duration rounded up). Assembly still trims to the original
+   * cut, so longer clips are extra footage for manual editing.
+   */
+  anim_seconds?: number | null;
   credits_spent: number;
 }
 

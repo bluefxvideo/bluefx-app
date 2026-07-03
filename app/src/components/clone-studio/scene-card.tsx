@@ -39,9 +39,23 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const [animating, setAnimating] = useState(false);
 
   const duration = (scene.end - scene.start).toFixed(1);
-  const animSeconds = Math.min(15, Math.max(3, Math.ceil(scene.end - scene.start)));
+  const suggestedSeconds = Math.min(15, Math.max(3, Math.ceil(scene.end - scene.start)));
+  const [animSecondsInput, setAnimSecondsInput] = useState(
+    String(scene.anim_seconds ?? suggestedSeconds)
+  );
+  const animSeconds = Math.min(15, Math.max(3, parseInt(animSecondsInput, 10) || suggestedSeconds));
   const animCredits = animSeconds * CLONE_ANIM_CREDITS_PER_SECOND;
   const animGenerating = scene.anim?.status === 'generating';
+
+  const saveAnimSeconds = async () => {
+    const parsed = parseInt(animSecondsInput, 10);
+    const clamped = Number.isFinite(parsed) ? Math.min(15, Math.max(3, parsed)) : suggestedSeconds;
+    setAnimSecondsInput(String(clamped));
+    const override = clamped === suggestedSeconds ? null : clamped;
+    if ((scene.anim_seconds ?? null) === override) return;
+    const result = await updateSceneInput(project.id, scene.n, { anim_seconds: override });
+    if (result.success && result.project) onProjectUpdate(result.project);
+  };
 
   const saveInstruction = async () => {
     if (instruction === (scene.user_instruction || '')) return;
@@ -108,7 +122,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const handleAnimate = async () => {
     setAnimating(true);
     try {
-      const result = await animateScene(project.id, scene.n);
+      const result = await animateScene(project.id, scene.n, { seconds: animSeconds });
       if (!result.success || !result.project) {
         toast.error(result.error || 'Animation failed to start');
         return;
@@ -298,28 +312,48 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           : `${scene.edited_image_url ? 'Regenerate' : 'Generate'} · ${CLONE_IMAGE_CREDITS} cr`}
       </Button>
 
-      {/* Animate (Kling O3 Pro, audio on) */}
+      {/* Animate (Kling O3 Pro, audio on) — clip length editable, pre-filled
+          with the original cut length; assembly still trims to the original
+          cut so longer clips are extra footage for manual editing */}
       {scene.edited_image_url && (
-        <Button
-          variant={scene.anim?.status === 'completed' ? 'outline' : 'secondary'}
-          size="sm"
-          className="w-full"
-          onClick={handleAnimate}
-          disabled={animating || animGenerating || generating}
-        >
-          {animating || animGenerating ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Clapperboard className="w-4 h-4 mr-2" />
-          )}
-          {animGenerating
-            ? 'Animating — 2-4 min'
-            : scene.anim?.status === 'completed'
-              ? `Re-animate ${animSeconds}s · ${animCredits} cr`
-              : scene.anim?.status === 'failed'
-                ? `Retry animation ${animSeconds}s · ${animCredits} cr`
-                : `Animate ${animSeconds}s with sound · ${animCredits} cr`}
-        </Button>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-1 shrink-0"
+            title={`Clip length (3-15s). Suggested: ${suggestedSeconds}s to cover the original ${duration}s cut. The assembled video still uses the original cut timing.`}
+          >
+            <Input
+              type="number"
+              min={3}
+              max={15}
+              value={animSecondsInput}
+              onChange={(e) => setAnimSecondsInput(e.target.value)}
+              onBlur={saveAnimSeconds}
+              className="w-16 h-8 text-xs text-center"
+              disabled={animating || animGenerating}
+            />
+            <span className="text-xs text-zinc-500">s</span>
+          </div>
+          <Button
+            variant={scene.anim?.status === 'completed' ? 'outline' : 'secondary'}
+            size="sm"
+            className="flex-1"
+            onClick={handleAnimate}
+            disabled={animating || animGenerating || generating}
+          >
+            {animating || animGenerating ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Clapperboard className="w-4 h-4 mr-2" />
+            )}
+            {animGenerating
+              ? 'Animating — 2-4 min'
+              : scene.anim?.status === 'completed'
+                ? `Re-animate ${animSeconds}s · ${animCredits} cr`
+                : scene.anim?.status === 'failed'
+                  ? `Retry animation ${animSeconds}s · ${animCredits} cr`
+                  : `Animate ${animSeconds}s with sound · ${animCredits} cr`}
+          </Button>
+        </div>
       )}
 
       {/* Scene details (editable analysis) */}

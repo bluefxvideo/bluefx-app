@@ -348,10 +348,17 @@ export async function updateSceneInput(
     user_instruction?: string;
     user_ref_urls?: string[];
     analysis?: SceneAnalysis;
+    /** 3-15 to override the animation length; null resets to auto. */
+    anim_seconds?: number | null;
   }
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const animSeconds =
+    input.anim_seconds == null
+      ? input.anim_seconds
+      : Math.min(15, Math.max(3, Math.round(input.anim_seconds)));
 
   const scenes = loaded.project.scenes.map((s) =>
     s.n === sceneN
@@ -360,6 +367,7 @@ export async function updateSceneInput(
           ...(input.user_instruction !== undefined ? { user_instruction: input.user_instruction } : {}),
           ...(input.user_ref_urls !== undefined ? { user_ref_urls: input.user_ref_urls.slice(0, 6) } : {}),
           ...(input.analysis !== undefined ? { analysis: input.analysis } : {}),
+          ...(input.anim_seconds !== undefined ? { anim_seconds: animSeconds } : {}),
         }
       : s
   );
@@ -583,9 +591,10 @@ function buildSceneMotionPrompt(scene: CloneScene): string {
 const CLONE_ANIM_NEGATIVE_PROMPT =
   'morphing, warping, distorted faces, extra fingers, deformed hands, text, subtitles, captions, watermark, background music, soundtrack';
 
-/** Animation length: cover the original cut, clamped to Kling's 3-15s range. */
+/** Animation length: user override if set, else cover the original cut; clamped to Kling's 3-15s. */
 function sceneAnimationSeconds(scene: CloneScene): number {
-  return Math.min(15, Math.max(3, Math.ceil(scene.end - scene.start)));
+  const seconds = scene.anim_seconds ?? Math.ceil(scene.end - scene.start);
+  return Math.min(15, Math.max(3, seconds));
 }
 
 /**
@@ -595,7 +604,8 @@ function sceneAnimationSeconds(scene: CloneScene): number {
  */
 export async function animateScene(
   projectId: string,
-  sceneN: number
+  sceneN: number,
+  options: { seconds?: number } = {}
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
@@ -610,7 +620,11 @@ export async function animateScene(
     return { success: false, error: 'This scene is already animating' };
   }
 
-  const durationSeconds = sceneAnimationSeconds(scene);
+  // Explicit seconds beat the stored value — the UI passes them with the
+  // click so a just-edited field can't race its own blur-save
+  const durationSeconds = options.seconds
+    ? Math.min(15, Math.max(3, Math.round(options.seconds)))
+    : sceneAnimationSeconds(scene);
   const credits = durationSeconds * CLONE_ANIM_CREDITS_PER_SECOND;
   const attemptId = randomUUID();
 
@@ -657,6 +671,7 @@ export async function animateScene(
             status: 'generating' as const,
             attempt_id: attemptId,
           },
+          anim_seconds: durationSeconds,
           credits_spent: (s.credits_spent || 0) + credits,
         }
       : s
