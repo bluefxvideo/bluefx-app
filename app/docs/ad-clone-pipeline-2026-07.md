@@ -111,3 +111,13 @@ keyframe) + action arc + locked end state + invariants + negative_prompt.
 API quirk: Kling O3 i2v takes `image_url`; Kling v3 i2v takes `start_image_url`.
 Open: retest Seedance 1.5 ($0.16) from the fixed frame — if it holds, cheap
 tier remains default even for gag shots.
+
+## Addendum 4 (2026-07-03): FINAL Path B stack — keyframe-state rule is model-independent
+Seedance 1.5 retest from the fixed stuck-state keyframe ($0.157, 0.1305 Mtok):
+HOLDS the gag through the full arc (even invented a table-brace pull beat).
+Owner's motion-quality pick: **Kling O3 Pro** ("the last kling version got it right").
+
+**Locked stack:** GPT Image 2 paints state+swap into keyframe (~$0.20) →
+animate: Seedance 1.5 default (~$0.16) / Kling O3 Pro upgrade ($0.67, `image_url`
+param) / Seedance 2.0 flagship ($1.83). Scene ≈ $0.35 default, $0.90 Kling.
+7-scene clone ≈ $2.50-6. LTX: b-roll only. Retail 100-200 credits.
