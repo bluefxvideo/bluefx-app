@@ -19,6 +19,8 @@ import {
   getKlingResult,
 } from '@/actions/models/fal-kling-video';
 import { finalizeCloneAnimation, failCloneAnimation } from '@/lib/clone-studio/animation';
+import { assembleClips } from '@/lib/clone-studio/assembly';
+import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
 import { ingestSourceVideo } from '@/lib/clone-studio/ingest';
 import {
   makeWorkDir,
@@ -26,6 +28,7 @@ import {
   probeVideo,
   segmentVideo,
   fitForInlineAnalysis,
+  downloadToFile,
 } from '@/lib/clone-studio/segmentation';
 import { analyzeScenes } from '@/lib/clone-studio/analysis';
 import {
@@ -34,6 +37,7 @@ import {
   CLONE_INGEST_CREDITS,
   CLONE_MAX_IMAGE_VERSIONS,
   CLONE_MAX_SOURCE_SECONDS,
+  CLONE_MUSIC_CREDITS,
   type CloneImageEngine,
   type CloneProject,
   type CloneProjectResponse,
@@ -670,6 +674,134 @@ export async function pollSceneAnimation(
   }
 
   return { success: true, project: loaded.project };
+}
+
+/**
+ * Assemble the final video: trim every animated clip back to its original
+ * cut duration, concat in scene order (keeping Kling's per-scene audio), and
+ * optionally mix a Lyria music bed under it. Assembly is free; the bed costs
+ * CLONE_MUSIC_CREDITS. Runs synchronously (~30-90s).
+ */
+export async function assembleCloneProject(
+  projectId: string,
+  options: { withMusic?: boolean } = {}
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const { userId, project } = loaded;
+
+  const animatedScenes = project.scenes.filter(
+    (s) => s.anim?.status === 'completed' && s.anim.video_url
+  );
+  if (animatedScenes.length === 0) {
+    return { success: false, error: 'Animate at least one scene first' };
+  }
+
+  const admin = createAdminClient();
+  const updateProject = async (fields: Record<string, unknown>) => {
+    await admin
+      .from('ad_clone_projects')
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq('id', projectId);
+  };
+
+  let musicAttemptId: string | null = null;
+  if (options.withMusic) {
+    musicAttemptId = randomUUID();
+    const deduction = await deductCredits(userId, CLONE_MUSIC_CREDITS, 'clone_studio_music', {
+      batch_id: musicAttemptId,
+      project_id: projectId,
+    });
+    if (!deduction.success) {
+      return { success: false, error: deduction.error || 'Insufficient credits' };
+    }
+  }
+
+  await updateProject({ status: 'assembling', error_message: null });
+
+  const workDir = await makeWorkDir('clone-studio-assemble-');
+  try {
+    const clips = [];
+    for (const scene of animatedScenes) {
+      const clipPath = `${workDir}/scene-${String(scene.n).padStart(2, '0')}.mp4`;
+      await downloadToFile(scene.anim.video_url!, clipPath);
+      clips.push({
+        filePath: clipPath,
+        durationSeconds: Math.max(0.5, scene.end - scene.start),
+      });
+    }
+
+    let musicFilePath: string | undefined;
+    if (options.withMusic) {
+      const brief = project.analysis_summary?.music_brief?.trim();
+      const totalSeconds = Math.ceil(clips.reduce((sum, c) => sum + c.durationSeconds, 0));
+      const musicPrompt = brief
+        ? `${brief} Instrumental only, no vocals unless the brief asks for them. About ${totalSeconds + 5} seconds.`
+        : `Upbeat, modern, positive instrumental ad track, about ${totalSeconds + 5} seconds.`;
+      const music = await generateLyriaInstrumental(musicPrompt);
+      if (music.success && music.audioUrl) {
+        musicFilePath = `${workDir}/bed.mp3`;
+        await downloadToFile(music.audioUrl, musicFilePath);
+      } else {
+        // Bed is a nice-to-have: refund it and assemble without music
+        console.warn('Clone Studio: music bed failed, assembling without it:', music.error);
+        if (musicAttemptId) {
+          await refundFailedGeneration({
+            userId,
+            referenceIds: [musicAttemptId],
+            operation: 'clone studio music',
+          });
+        }
+      }
+    }
+
+    const outPath = `${workDir}/final.mp4`;
+    await assembleClips({
+      workDir,
+      clips,
+      width: project.video_width || 1920,
+      height: project.video_height || 1080,
+      musicFilePath,
+      outPath,
+    });
+
+    const finalBuffer = await fs.readFile(outPath);
+    const upload = await uploadVideoToStorage(
+      new Blob([new Uint8Array(finalBuffer)], { type: 'video/mp4' }),
+      {
+        bucket: 'videos',
+        folder: `clone-studio/${projectId}`,
+        filename: `final-${Date.now()}.mp4`,
+        contentType: 'video/mp4',
+      }
+    );
+    if (!upload.success || !upload.url) {
+      throw new Error(`Could not store the assembled video: ${upload.error}`);
+    }
+
+    await updateProject({ status: 'completed', final_video_url: upload.url });
+
+    const refreshed = await loadOwnedProject(projectId);
+    console.log(`🎬 Clone Studio: project ${projectId} assembled — ${animatedScenes.length} scenes`);
+    return refreshed.ok
+      ? { success: true, project: refreshed.project }
+      : { success: false, error: refreshed.error };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Assembly failed';
+    console.error(`Clone Studio: assembly failed for ${projectId}:`, error);
+    // Board stays usable — assembly can be retried
+    await updateProject({ status: 'board_ready', error_message: message });
+    if (musicAttemptId) {
+      await refundFailedGeneration({
+        userId,
+        referenceIds: [musicAttemptId],
+        operation: 'clone studio music',
+      });
+    }
+    return { success: false, error: message };
+  } finally {
+    await cleanupWorkDir(workDir);
+  }
 }
 
 /** Swap a previous version back in as the scene's current image. */

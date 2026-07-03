@@ -130,6 +130,8 @@ export const CLONE_INGEST_CREDITS = 5;
 export const CLONE_IMAGE_CREDITS = 4;
 /** Credits per second of Kling O3 Pro animation, audio on (≈$0.14/s COGS → ~2-3x margin). */
 export const CLONE_ANIM_CREDITS_PER_SECOND = 5;
+/** Credits for the optional Lyria music bed at assembly (assembly itself is free). */
+export const CLONE_MUSIC_CREDITS = 5;
 /** Version history depth per scene (mirrors the editor's previousVersions UX). */
 export const CLONE_MAX_IMAGE_VERSIONS = 8;
 

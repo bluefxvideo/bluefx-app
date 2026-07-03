@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Download, Film, Info, Loader2, Music } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { pollSceneAnimation } from '@/actions/tools/clone-studio';
-import type { CloneProject } from '@/types/clone-studio';
+import { Checkbox } from '@/components/ui/checkbox';
+import { pollSceneAnimation, assembleCloneProject } from '@/actions/tools/clone-studio';
+import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
 
 interface SceneBoardProps {
@@ -17,8 +19,27 @@ interface SceneBoardProps {
 
 export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps) {
   const [showSummary, setShowSummary] = useState(false);
+  const [assembling, setAssembling] = useState(false);
+  const [withMusic, setWithMusic] = useState(true);
   const summary = project.analysis_summary;
   const pollBusy = useRef(false);
+
+  const animatedCount = project.scenes.filter((s) => s.anim?.status === 'completed').length;
+
+  const handleAssemble = async () => {
+    setAssembling(true);
+    try {
+      const result = await assembleCloneProject(project.id, { withMusic });
+      if (!result.success || !result.project) {
+        toast.error(result.error || 'Assembly failed');
+        return;
+      }
+      onProjectUpdate(result.project);
+      toast.success('Your cloned ad is ready!');
+    } finally {
+      setAssembling(false);
+    }
+  };
 
   // Poll fallback for in-flight animations — the webhook usually wins, but
   // this covers local dev and missed callbacks. Sequential to avoid races on
@@ -70,6 +91,53 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           />
         )}
       </div>
+
+      {/* Final video */}
+      {project.final_video_url && (
+        <Card className="p-4 space-y-3 border-primary/40">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Film className="w-4 h-4 text-primary" /> Your cloned ad
+            </h4>
+            <a href={project.final_video_url} download target="_blank" rel="noreferrer">
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-1.5" /> Download
+              </Button>
+            </a>
+          </div>
+          <video
+            src={project.final_video_url}
+            controls
+            className="w-full max-h-[420px] rounded-lg bg-black"
+          />
+        </Card>
+      )}
+
+      {/* Assemble */}
+      {animatedCount > 0 && (
+        <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-white">
+              {animatedCount}/{project.scenes.length} scenes animated
+            </p>
+            <p className="text-xs text-zinc-500">
+              Assembles the animated scenes cut-for-cut on the original ad&apos;s timing.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+            <Checkbox checked={withMusic} onCheckedChange={(v) => setWithMusic(v === true)} />
+            <Music className="w-3.5 h-3.5" /> AI music bed · {CLONE_MUSIC_CREDITS} cr
+          </label>
+          <Button onClick={handleAssemble} disabled={assembling || project.status === 'assembling'}>
+            {assembling || project.status === 'assembling' ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Film className="w-4 h-4 mr-2" />
+            )}
+            {project.final_video_url ? 'Re-assemble' : 'Assemble video'}
+          </Button>
+        </Card>
+      )}
 
       {/* How it works */}
       <Card className="p-4 bg-primary/5 border-primary/20">
