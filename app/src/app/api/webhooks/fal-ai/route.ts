@@ -3,6 +3,7 @@ import { downloadAndUploadAudio, downloadAndUploadVideo } from '@/actions/supaba
 import { updateMusicRecordAdmin } from '@/actions/database/music-database';
 import { updateTalkingAvatarVideoAdmin } from '@/actions/database/talking-avatar-database';
 import { updateCinematographerVideoAdmin } from '@/actions/database/cinematographer-database';
+import { finalizeCloneAnimation, failCloneAnimation } from '@/lib/clone-studio/animation';
 import { createAdminClient } from '@/app/supabase/server';
 
 /**
@@ -129,6 +130,16 @@ async function handleLTXVideoCompletion(
 
   const supabase = createAdminClient();
 
+  // Clone Studio scene animation (request_id lives inside the scenes jsonb)
+  const cloneResult = await finalizeCloneAnimation(request_id, resultPayload.video.url);
+  if (cloneResult.handled) {
+    return NextResponse.json({
+      success: true,
+      message: `Processed Clone Studio animation webhook for ${request_id}`,
+      processing_time_ms: Date.now() - startTime,
+    });
+  }
+
   // Video Maker / AI Cinematographer first (prediction_id lives in style_preferences)
   const { data: cinRecords } = await supabase
     .from('cinematographer_videos')
@@ -248,6 +259,16 @@ async function handleGenerationFailure(
   startTime: number
 ): Promise<NextResponse> {
   const supabase = createAdminClient();
+
+  // Clone Studio scene animation failure (refunds inside)
+  const cloneFail = await failCloneAnimation(request_id, typeof error === 'string' ? error : undefined);
+  if (cloneFail.handled) {
+    return NextResponse.json({
+      success: true,
+      message: `Processed Clone Studio animation failure for ${request_id}`,
+      processing_time_ms: Date.now() - startTime,
+    });
+  }
 
   // Try to find music record first
   const { data: musicRecords } = await supabase

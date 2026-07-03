@@ -50,6 +50,8 @@ export interface SceneAnim {
   request_id: string | null;
   video_url: string | null;
   status: SceneAnimStatus;
+  /** Credit-ledger reference for the pending attempt — refunds match on it. */
+  attempt_id?: string | null;
 }
 
 export interface CloneScene {
@@ -126,6 +128,8 @@ export interface CloneProjectResponse {
 export const CLONE_INGEST_CREDITS = 5;
 /** Credits per keyframe-edit attempt (nb2 ≈ $0.04-0.06, gpt-2 ≈ $0.10-0.25 COGS). */
 export const CLONE_IMAGE_CREDITS = 4;
+/** Credits per second of Kling O3 Pro animation, audio on (≈$0.14/s COGS → ~2-3x margin). */
+export const CLONE_ANIM_CREDITS_PER_SECOND = 5;
 /** Version history depth per scene (mirrors the editor's previousVersions UX). */
 export const CLONE_MAX_IMAGE_VERSIONS = 8;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, ImagePlus, Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clapperboard, ImagePlus, Loader2, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,10 @@ import {
   uploadCloneReference,
   generateSceneImage,
   restoreSceneImageVersion,
+  animateScene,
 } from '@/actions/tools/clone-studio';
 import {
+  CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_IMAGE_CREDITS,
   type CloneImageEngine,
   type CloneProject,
@@ -36,8 +38,12 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [details, setDetails] = useState(scene.analysis);
   const refInputRef = useRef<HTMLInputElement>(null);
+  const [animating, setAnimating] = useState(false);
 
   const duration = (scene.end - scene.start).toFixed(1);
+  const animSeconds = Math.min(15, Math.max(3, Math.ceil(scene.end - scene.start)));
+  const animCredits = animSeconds * CLONE_ANIM_CREDITS_PER_SECOND;
+  const animGenerating = scene.anim?.status === 'generating';
 
   const saveInstruction = async () => {
     if (instruction === (scene.user_instruction || '')) return;
@@ -97,6 +103,21 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
     if (result.success && result.project) onProjectUpdate(result.project);
   };
 
+  const handleAnimate = async () => {
+    setAnimating(true);
+    try {
+      const result = await animateScene(project.id, scene.n);
+      if (!result.success || !result.project) {
+        toast.error(result.error || 'Animation failed to start');
+        return;
+      }
+      onProjectUpdate(result.project);
+      toast.success(`Scene ${scene.n} animating — usually 2-4 minutes`);
+    } finally {
+      setAnimating(false);
+    }
+  };
+
   return (
     <Card className="p-4 space-y-3">
       {/* Header */}
@@ -130,14 +151,32 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           />
         </div>
         <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">Your version</p>
-          {scene.edited_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={scene.edited_image_url}
-              alt={`Scene ${scene.n} edited`}
-              className="w-full aspect-video object-cover rounded-md border border-primary/40"
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+            Your version{scene.anim?.status === 'completed' ? ' · animated' : ''}
+          </p>
+          {scene.anim?.status === 'completed' && scene.anim.video_url ? (
+            <video
+              src={scene.anim.video_url}
+              poster={scene.edited_image_url || undefined}
+              controls
+              preload="metadata"
+              className="w-full aspect-video object-cover rounded-md border border-primary/40 bg-black"
             />
+          ) : scene.edited_image_url ? (
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={scene.edited_image_url}
+                alt={`Scene ${scene.n} edited`}
+                className="w-full aspect-video object-cover rounded-md border border-primary/40"
+              />
+              {animGenerating && (
+                <div className="absolute inset-0 rounded-md bg-black/60 flex flex-col items-center justify-center gap-1">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-[10px] text-zinc-300">Animating…</span>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="w-full aspect-video rounded-md border border-dashed border-border/60 flex items-center justify-center">
               <ImagePlus className="w-5 h-5 text-zinc-600" />
@@ -225,7 +264,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
             Products
           </button>
         </div>
-        <Button className="flex-1" size="sm" onClick={handleGenerate} disabled={generating}>
+        <Button className="flex-1" size="sm" onClick={handleGenerate} disabled={generating || animGenerating}>
           {generating ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           ) : (
@@ -234,6 +273,30 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           {scene.edited_image_url ? 'Regenerate' : 'Generate'} · {CLONE_IMAGE_CREDITS} cr
         </Button>
       </div>
+
+      {/* Animate (Kling O3 Pro, audio on) */}
+      {scene.edited_image_url && (
+        <Button
+          variant={scene.anim?.status === 'completed' ? 'outline' : 'secondary'}
+          size="sm"
+          className="w-full"
+          onClick={handleAnimate}
+          disabled={animating || animGenerating || generating}
+        >
+          {animating || animGenerating ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Clapperboard className="w-4 h-4 mr-2" />
+          )}
+          {animGenerating
+            ? 'Animating — 2-4 min'
+            : scene.anim?.status === 'completed'
+              ? `Re-animate ${animSeconds}s · ${animCredits} cr`
+              : scene.anim?.status === 'failed'
+                ? `Retry animation ${animSeconds}s · ${animCredits} cr`
+                : `Animate ${animSeconds}s with sound · ${animCredits} cr`}
+        </Button>
+      )}
 
       {/* Scene details (editable analysis) */}
       <div>

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { pollSceneAnimation } from '@/actions/tools/clone-studio';
 import type { CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
 
@@ -17,6 +18,31 @@ interface SceneBoardProps {
 export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps) {
   const [showSummary, setShowSummary] = useState(false);
   const summary = project.analysis_summary;
+  const pollBusy = useRef(false);
+
+  // Poll fallback for in-flight animations — the webhook usually wins, but
+  // this covers local dev and missed callbacks. Sequential to avoid races on
+  // the shared scenes jsonb.
+  const generatingScenes = project.scenes.filter((s) => s.anim?.status === 'generating').map((s) => s.n);
+  useEffect(() => {
+    if (generatingScenes.length === 0) return;
+    const interval = setInterval(async () => {
+      if (pollBusy.current) return;
+      pollBusy.current = true;
+      try {
+        let latest: CloneProject | null = null;
+        for (const n of generatingScenes) {
+          const result = await pollSceneAnimation(project.id, n);
+          if (result.success && result.project) latest = result.project;
+        }
+        if (latest) onProjectUpdate(latest);
+      } finally {
+        pollBusy.current = false;
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, generatingScenes.join(','), onProjectUpdate]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">

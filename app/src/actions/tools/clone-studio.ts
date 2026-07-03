@@ -13,6 +13,12 @@ import { refundFailedGeneration } from '@/lib/credits/refund';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
 import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from '@/actions/models/fal-nano-banana-2';
 import { editWithGptImage2 } from '@/actions/models/fal-gpt-image-2';
+import {
+  submitKlingO3ProImageToVideo,
+  getKlingQueueStatus,
+  getKlingResult,
+} from '@/actions/models/fal-kling-video';
+import { finalizeCloneAnimation, failCloneAnimation } from '@/lib/clone-studio/animation';
 import { ingestSourceVideo } from '@/lib/clone-studio/ingest';
 import {
   makeWorkDir,
@@ -23,6 +29,7 @@ import {
 } from '@/lib/clone-studio/segmentation';
 import { analyzeScenes } from '@/lib/clone-studio/analysis';
 import {
+  CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_IMAGE_CREDITS,
   CLONE_INGEST_CREDITS,
   CLONE_MAX_IMAGE_VERSIONS,
@@ -520,6 +527,149 @@ export async function deleteCloneProject(
     .eq('id', projectId);
   if (error) return { success: false, error: error.message };
   return { success: true };
+}
+
+/**
+ * Motion prompt per the action-arc rule: beats + LOCKED end state + invariants
+ * repeated verbatim, camera language, spoken dialog (Kling audio-on lip-syncs
+ * quoted speech), and a no-music audio directive (the music bed is added at
+ * assembly).
+ */
+function buildSceneMotionPrompt(scene: CloneScene): string {
+  const arc = scene.analysis?.action_arc;
+  const parts: string[] = [];
+  if (arc?.action) parts.push(arc.action);
+  if (arc?.end_state) parts.push(`End state: ${arc.end_state}`);
+  if (arc?.invariants?.length) parts.push(arc.invariants.join(' '));
+  if (scene.analysis?.camera) parts.push(`Camera: ${scene.analysis.camera}.`);
+  if (scene.analysis?.dialog?.trim()) {
+    parts.push(`The person says, lips in sync: "${scene.analysis.dialog.trim()}"`);
+  }
+  parts.push('Audio: natural diegetic sound for the scene only — no background music, no soundtrack.');
+  return parts.join(' ');
+}
+
+const CLONE_ANIM_NEGATIVE_PROMPT =
+  'morphing, warping, distorted faces, extra fingers, deformed hands, text, subtitles, captions, watermark, background music, soundtrack';
+
+/** Animation length: cover the original cut, clamped to Kling's 3-15s range. */
+function sceneAnimationSeconds(scene: CloneScene): number {
+  return Math.min(15, Math.max(3, Math.ceil(scene.end - scene.start)));
+}
+
+/**
+ * Animate one approved scene with Kling O3 Pro, audio ON. Completion arrives
+ * via the fal-ai webhook; pollSceneAnimation is the fallback for local dev
+ * and missed webhooks.
+ */
+export async function animateScene(
+  projectId: string,
+  sceneN: number
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const { userId, project } = loaded;
+
+  const scene = project.scenes.find((s) => s.n === sceneN);
+  if (!scene) return { success: false, error: `Scene ${sceneN} not found` };
+  if (!scene.edited_image_url) {
+    return { success: false, error: 'Generate and approve the scene image first' };
+  }
+  if (scene.anim?.status === 'generating') {
+    return { success: false, error: 'This scene is already animating' };
+  }
+
+  const durationSeconds = sceneAnimationSeconds(scene);
+  const credits = durationSeconds * CLONE_ANIM_CREDITS_PER_SECOND;
+  const attemptId = randomUUID();
+
+  const deduction = await deductCredits(userId, credits, 'clone_studio_animation', {
+    batch_id: attemptId,
+    project_id: projectId,
+    scene: sceneN,
+    seconds: durationSeconds,
+  });
+  if (!deduction.success) {
+    return { success: false, error: deduction.error || 'Insufficient credits' };
+  }
+
+  const imageUrl = await ensureFalCompatibleImage(scene.edited_image_url, attemptId, `scene${sceneN}-anim`);
+
+  const submit = await submitKlingO3ProImageToVideo({
+    prompt: buildSceneMotionPrompt(scene),
+    image_url: imageUrl || scene.edited_image_url,
+    duration: durationSeconds,
+    aspect_ratio: (project.aspect_ratio || '16:9') as '16:9' | '9:16' | '1:1',
+    negative_prompt: CLONE_ANIM_NEGATIVE_PROMPT,
+    generate_audio: true, // owner requirement: per-scene diegetic audio
+    webhook_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`,
+  });
+
+  if (!submit.success || !submit.request_id) {
+    await refundFailedGeneration({
+      userId,
+      referenceIds: [attemptId],
+      operation: 'clone studio animation',
+    });
+    return { success: false, error: submit.error || 'Animation submit failed — credits refunded' };
+  }
+
+  const fresh = await loadOwnedProject(projectId);
+  const freshProject = fresh.ok ? fresh.project : project;
+  const scenes = freshProject.scenes.map((s) =>
+    s.n === sceneN
+      ? {
+          ...s,
+          anim: {
+            request_id: submit.request_id!,
+            video_url: null,
+            status: 'generating' as const,
+            attempt_id: attemptId,
+          },
+          credits_spent: (s.credits_spent || 0) + credits,
+        }
+      : s
+  );
+  await saveScenes(projectId, scenes, {
+    credits_spent: (freshProject.credits_spent || 0) + credits,
+  });
+
+  return { success: true, project: { ...freshProject, scenes } };
+}
+
+/**
+ * Poll fallback for scene animations (mirrors pollCinematographerFalGeneration).
+ * Safe to call repeatedly; finalization is idempotent with the webhook.
+ */
+export async function pollSceneAnimation(
+  projectId: string,
+  sceneN: number
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const scene = loaded.project.scenes.find((s) => s.n === sceneN);
+  if (!scene?.anim?.request_id || scene.anim.status !== 'generating') {
+    return { success: true, project: loaded.project };
+  }
+
+  const status = await getKlingQueueStatus(scene.anim.request_id);
+  if (status.success && status.status === 'COMPLETED') {
+    const result = await getKlingResult(scene.anim.request_id);
+    if (result.success && result.videoUrl) {
+      if (result.billableUnits) {
+        console.log(`💰 Kling scene ${sceneN}: ${result.billableUnits} billable units`);
+      }
+      await finalizeCloneAnimation(scene.anim.request_id, result.videoUrl);
+    } else {
+      await failCloneAnimation(scene.anim.request_id, result.error);
+    }
+    const refreshed = await loadOwnedProject(projectId);
+    return refreshed.ok
+      ? { success: true, project: refreshed.project }
+      : { success: false, error: refreshed.error };
+  }
+
+  return { success: true, project: loaded.project };
 }
 
 /** Swap a previous version back in as the scene's current image. */
