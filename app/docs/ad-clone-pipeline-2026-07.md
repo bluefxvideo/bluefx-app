@@ -75,3 +75,18 @@ products in frame — hero can in hands + 3 on table):
 Stack: keyframes (ffmpeg, free) → GPT Image 2 swap (~$0.10-0.25) → LTX Fast animate
 (~$0.30) → assemble. Seedance 1.5 i2v as per-scene quality step-up.
 Artifacts: images/tests/pringles-scene1-swapped-gpt2.jpg, videos/tests/test-10-scene1-pathB-ltx.mp4.
+
+## Addendum 2 (2026-07-03): animation model retest + the action-arc prompt rule
+- LTX 2.3 Fast on the busy party scene: **rejected by owner — visible morphing,
+  inconsistent realism.** LTX stays for simple b-roll only, NOT people-heavy scenes.
+- Same keyframe re-animated: **Seedance 1.5 i2v ($0.157 verified, 0.13 Mtok — cheaper
+  than LTX here!)** and **Kling v3 standard i2v (~$0.34, 3.6 units)** — both hold
+  background people far better (owner confirmed "people look real in both").
+- **Action fidelity bug found**: prompt said "struggles to pull his hand out" → models
+  animated the hand coming OUT; the source gag requires it to STAY stuck.
+  **RULE for the per-shot analysis schema: every shot prompt must encode an action
+  ARC with a locked end-state** (start state → attempts → end state) plus explicit
+  invariants ("the bottle NEVER comes off"), and use `negative_prompt` where the
+  model supports it (Kling has it; Seedance doesn't).
+- Path B stack (pending final owner eyeball of the fixed-prompt reruns):
+  GPT Image 2 swap → Seedance 1.5 or Kling v3 animate → scene total $0.30-0.60.
