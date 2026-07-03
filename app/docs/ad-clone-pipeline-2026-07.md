@@ -58,3 +58,20 @@ bottleneck. Output is "similar vibe", never a clone.
   research later as a "perfection" tier; full-reshoot is legally safer anyway.
 - Marketing synergy: every pipeline run on a famous ad = one "Can AI Clone
   This?" episode (shot board + side-by-side are the creative).
+
+## Addendum (2026-07-03): Path B locked in — model bake-off results
+Owner decision: **Path B only** (keyframe swap + animate); no motion-transfer tier for now.
+
+Bake-off on the ad's opening shot (6.8s single take, party kitchen, FOUR Pringles
+products in frame — hero can in hands + 3 on table):
+- **GPT Image 2** (`openai/gpt-image-2/edit` on fal, billed via FAL — exists, newer
+  than nano banana 2): WINNER. All four products swapped at natural scale/perspective,
+  people/lighting/grade untouched, frame stays cinematic.
+- **Nano Banana 2** (`fal-ai/nano-banana-2/edit`): hero swap OK, but table products
+  pasted oversized/floating across the letterbox, one Pringles can survived. Fallback only.
+- **Animation: LTX 2.3 Fast i2v** — 6s @1080p in ~40s wall-clock, 6 billable units
+  ($0.24-0.36). Scene total ≈ **$0.50** (vs $1.31 motion-transfer).
+
+Stack: keyframes (ffmpeg, free) → GPT Image 2 swap (~$0.10-0.25) → LTX Fast animate
+(~$0.30) → assemble. Seedance 1.5 i2v as per-scene quality step-up.
+Artifacts: images/tests/pringles-scene1-swapped-gpt2.jpg, videos/tests/test-10-scene1-pathB-ltx.mp4.
