@@ -38,6 +38,7 @@ import {
   Share2,
   Flame,
   Copy,
+  Clapperboard,
   FileText,
   ImagePlus,
   ChevronDown,
@@ -62,6 +63,8 @@ interface Tool {
   description: string;
   disabled?: boolean;
   comingSoon?: string;
+  /** Only shown to profiles.role === 'admin' (private-beta tools). */
+  adminOnly?: boolean;
 }
 
 // Tool categories with their navigation data
@@ -83,6 +86,14 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         icon: Copy,
         gradient: "bg-primary",
         description: "Clone a competitor's video ad with your product",
+      },
+      {
+        name: "Clone Studio (Beta)",
+        route: "/dashboard/clone-studio",
+        icon: Clapperboard,
+        gradient: "bg-primary",
+        description: "Scene-by-scene ad cloning with person & product swaps",
+        adminOnly: true,
       },
       {
         name: "Video Ad From Script",
@@ -631,7 +642,7 @@ export function DashboardSidebar({
 
               {!isCatCollapsed && (
               <div className="space-y-1" id={`sidebar-cat-${category.id}`}>
-                {category.tools.map((tool) => (
+                {category.tools.filter((tool) => !tool.adminOnly || isAdmin).map((tool) => (
                   <Tooltip key={tool.route} delayDuration={500}>
                     <TooltipTrigger asChild>
                       <Link

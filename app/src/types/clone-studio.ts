@@ -124,6 +124,12 @@ export interface CloneProjectResponse {
 
 /** Flat credits for ingest + segmentation + structured analysis. */
 export const CLONE_INGEST_CREDITS = 5;
+/** Credits per keyframe-edit attempt (nb2 ≈ $0.04-0.06, gpt-2 ≈ $0.10-0.25 COGS). */
+export const CLONE_IMAGE_CREDITS = 4;
+/** Version history depth per scene (mirrors the editor's previousVersions UX). */
+export const CLONE_MAX_IMAGE_VERSIONS = 8;
+
+export type CloneImageEngine = 'nb2' | 'gpt2';
 /** Longest source ad we accept, seconds (cost guard). */
 export const CLONE_MAX_SOURCE_SECONDS = 180;
 /** Scenes shorter than this get merged into the previous scene, seconds. */

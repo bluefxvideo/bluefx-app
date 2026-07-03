@@ -1,10 +1,18 @@
 'use server';
 
+import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { createClient, createAdminClient } from '@/app/supabase/server';
-import { uploadVideoToStorage } from '@/actions/supabase-storage';
+import {
+  uploadVideoToStorage,
+  uploadImageToStorage,
+  downloadAndUploadImage,
+} from '@/actions/supabase-storage';
 import { deductCredits } from '@/actions/database/cinematographer-database';
 import { refundFailedGeneration } from '@/lib/credits/refund';
+import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
+import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from '@/actions/models/fal-nano-banana-2';
+import { editWithGptImage2 } from '@/actions/models/fal-gpt-image-2';
 import { ingestSourceVideo } from '@/lib/clone-studio/ingest';
 import {
   makeWorkDir,
@@ -15,12 +23,16 @@ import {
 } from '@/lib/clone-studio/segmentation';
 import { analyzeScenes } from '@/lib/clone-studio/analysis';
 import {
+  CLONE_IMAGE_CREDITS,
   CLONE_INGEST_CREDITS,
+  CLONE_MAX_IMAGE_VERSIONS,
   CLONE_MAX_SOURCE_SECONDS,
+  type CloneImageEngine,
   type CloneProject,
   type CloneProjectResponse,
   type CloneScene,
   type CreateCloneProjectRequest,
+  type SceneAnalysis,
 } from '@/types/clone-studio';
 
 function closestAspectRatio(width: number, height: number): string {
@@ -48,10 +60,9 @@ async function assertCloneStudioAccess(userId: string): Promise<string | null> {
 }
 
 /**
- * Ingest a source ad and build the scene board: download → store a copy →
- * ffmpeg cut detection + keyframes → structured Gemini analysis. Runs
- * synchronously (1-2 min for a typical ad); status is written to the row at
- * each stage so the UI can poll getCloneProject for progress display.
+ * Create the project row and deduct the ingest fee. Returns immediately so
+ * the UI has a projectId to poll; the client then calls processCloneProject
+ * to run the 1-2 min pipeline while polling getCloneProject for stage display.
  */
 export async function createCloneProject(
   request: CreateCloneProjectRequest
@@ -100,6 +111,28 @@ export async function createCloneProject(
     return { success: false, error: deduction.error || 'Insufficient credits' };
   }
 
+  return { success: true, project: created as unknown as CloneProject };
+}
+
+/**
+ * Run the ingest pipeline for a freshly created project: download → store a
+ * copy → ffmpeg cut detection + keyframes → structured Gemini analysis.
+ * Status is written to the row at each stage; failures refund the ingest fee.
+ * The upload-path video URL is passed again because it is not stored on the
+ * row until the pipeline stores our own copy.
+ */
+export async function processCloneProject(
+  projectId: string,
+  request: CreateCloneProjectRequest
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const user = { id: loaded.userId };
+  if (loaded.project.status !== 'pending') {
+    return { success: false, error: `Project is already ${loaded.project.status}` };
+  }
+
+  const admin = createAdminClient();
   const updateProject = async (fields: Record<string, unknown>) => {
     await admin
       .from('ad_clone_projects')
@@ -234,4 +267,278 @@ export async function listCloneProjects(): Promise<{
     return { success: false, error: error.message };
   }
   return { success: true, projects: (data || []) as unknown as CloneProject[] };
+}
+
+// ---------------------------------------------------------------------------
+// Scene board actions (stage 2): per-scene inputs, keyframe edits, versions
+// ---------------------------------------------------------------------------
+
+/** Fetch a project through the user client so RLS enforces ownership. */
+async function loadOwnedProject(projectId: string): Promise<
+  | { ok: true; userId: string; project: CloneProject }
+  | { ok: false; error: string }
+> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Authentication required' };
+
+  const { data, error } = await supabase
+    .from('ad_clone_projects')
+    .select('*')
+    .eq('id', projectId)
+    .single();
+  if (error || !data) return { ok: false, error: 'Project not found' };
+  return { ok: true, userId: user.id, project: data as unknown as CloneProject };
+}
+
+async function saveScenes(
+  projectId: string,
+  scenes: CloneScene[],
+  extraFields: Record<string, unknown> = {}
+): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from('ad_clone_projects')
+    .update({ scenes, ...extraFields, updated_at: new Date().toISOString() })
+    .eq('id', projectId);
+}
+
+export async function updateSceneInput(
+  projectId: string,
+  sceneN: number,
+  input: {
+    user_instruction?: string;
+    user_ref_urls?: string[];
+    analysis?: SceneAnalysis;
+  }
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const scenes = loaded.project.scenes.map((s) =>
+    s.n === sceneN
+      ? {
+          ...s,
+          ...(input.user_instruction !== undefined ? { user_instruction: input.user_instruction } : {}),
+          ...(input.user_ref_urls !== undefined ? { user_ref_urls: input.user_ref_urls.slice(0, 6) } : {}),
+          ...(input.analysis !== undefined ? { analysis: input.analysis } : {}),
+        }
+      : s
+  );
+  await saveScenes(projectId, scenes);
+  return { success: true, project: { ...loaded.project, scenes } };
+}
+
+/** Upload one user reference image (person/product) for a scene. */
+export async function uploadCloneReference(
+  projectId: string,
+  file: File
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const extension = (file.name || 'ref.jpg').split('.').pop() || 'jpg';
+  const upload = await uploadImageToStorage(file, {
+    bucket: 'images',
+    folder: `clone-studio/${projectId}/refs`,
+    filename: `ref-${Date.now()}.${extension}`,
+    contentType: file.type || 'image/jpeg',
+  });
+  if (!upload.success || !upload.url) {
+    return { success: false, error: upload.error || 'Upload failed' };
+  }
+  return { success: true, url: upload.url };
+}
+
+/**
+ * The edit prompt intentionally does NOT restate the original character
+ * description (it would fight the user's swap instruction). It anchors on the
+ * frame itself + background-lock language, and carries the invariants so gag
+ * states survive the edit (keyframe-state rule).
+ */
+function buildSceneEditPrompt(scene: CloneScene, refCount: number): string {
+  const parts: string[] = [];
+  parts.push('Edit the first image — a single frame from a video ad.');
+  if (scene.user_instruction?.trim()) {
+    parts.push(`Apply these changes: ${scene.user_instruction.trim()}.`);
+  } else {
+    parts.push('Recreate this frame faithfully with no content changes.');
+  }
+  if (refCount > 0) {
+    parts.push(
+      refCount === 1
+        ? 'Use the additional reference image for the exact identity and appearance of the replacement person or product.'
+        : `Use the ${refCount} additional reference images for the exact identity and appearance of the replacement people or products.`
+    );
+  }
+  parts.push(
+    "Preserve everything else from the first image EXACTLY: framing, camera angle, perspective, lens look, lighting, color grade, background, setting, all other people and objects, and the subject's pose and expression."
+  );
+  parts.push(
+    'If the frame shows a physically impossible or comedic state (for example a hand stuck inside a container), that state must remain true in the edited frame.'
+  );
+  const invariants = scene.analysis?.action_arc?.invariants || [];
+  if (invariants.length > 0) {
+    parts.push(`Hard rules: ${invariants.join(' ')}`);
+  }
+  parts.push('Photorealistic, seamless edit. No borders, no added text, no watermark.');
+  return parts.join(' ');
+}
+
+/**
+ * Generate/regenerate the swapped keyframe for one scene. Always edits from
+ * the ORIGINAL keyframe (fresh edits don't compound artifacts); the previous
+ * result is kept in image_versions for one-click restore.
+ */
+export async function generateSceneImage(
+  projectId: string,
+  sceneN: number,
+  options: { engine?: CloneImageEngine } = {}
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const { userId, project } = loaded;
+
+  const scene = project.scenes.find((s) => s.n === sceneN);
+  if (!scene) return { success: false, error: `Scene ${sceneN} not found` };
+
+  const attemptId = randomUUID();
+  const deduction = await deductCredits(userId, CLONE_IMAGE_CREDITS, 'clone_studio_image', {
+    batch_id: attemptId,
+    project_id: projectId,
+    scene: sceneN,
+  });
+  if (!deduction.success) {
+    return { success: false, error: deduction.error || 'Insufficient credits' };
+  }
+
+  try {
+    // FAL rejects images over ~5MB after base64 inflation — compress if needed
+    const keyframe = (await ensureFalCompatibleImage(scene.keyframe_url, attemptId, `scene${sceneN}-key`))!;
+    const refs: string[] = [];
+    for (const [i, url] of (scene.user_ref_urls || []).entries()) {
+      const guarded = await ensureFalCompatibleImage(url, attemptId, `scene${sceneN}-ref${i + 1}`);
+      if (guarded) refs.push(guarded);
+    }
+
+    const prompt = buildSceneEditPrompt(scene, refs.length);
+    const engine: CloneImageEngine = options.engine || 'nb2';
+
+    const result =
+      engine === 'gpt2'
+        ? await editWithGptImage2({ prompt, image_urls: [keyframe, ...refs] })
+        : await generateWithFalNanaBanana2({
+            prompt,
+            image_input: [keyframe, ...refs],
+            aspect_ratio: (project.aspect_ratio || 'auto') as NanoBananaAspectRatio,
+            output_format: 'jpeg',
+          });
+
+    if (!result.success || !result.imageUrl) {
+      throw new Error(result.error || 'Image generation failed');
+    }
+
+    // Persist to our storage — fal URLs are temporary
+    const stored = await downloadAndUploadImage(result.imageUrl, 'clone-studio', undefined, {
+      bucket: 'images',
+      folder: `clone-studio/${projectId}`,
+      filename: `scene-${String(sceneN).padStart(2, '0')}-edit-${Date.now()}.jpg`,
+      contentType: 'image/jpeg',
+    });
+    if (!stored.success || !stored.url) {
+      throw new Error(`Could not store the generated image: ${stored.error}`);
+    }
+
+    // Re-read right before writing to shrink the read-modify-write window
+    // (parallel generations on other scenes update the same jsonb column)
+    const fresh = await loadOwnedProject(projectId);
+    const freshProject = fresh.ok ? fresh.project : project;
+    const scenes = freshProject.scenes.map((s) => {
+      if (s.n !== sceneN) return s;
+      const versions = s.edited_image_url
+        ? [s.edited_image_url, ...(s.image_versions || [])].slice(0, CLONE_MAX_IMAGE_VERSIONS)
+        : s.image_versions || [];
+      return {
+        ...s,
+        edited_image_url: stored.url!,
+        image_versions: versions,
+        credits_spent: (s.credits_spent || 0) + CLONE_IMAGE_CREDITS,
+      };
+    });
+    await saveScenes(projectId, scenes, {
+      credits_spent: (freshProject.credits_spent || 0) + CLONE_IMAGE_CREDITS,
+    });
+
+    return { success: true, project: { ...freshProject, scenes } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Image generation failed';
+    console.error(`Clone Studio: scene ${sceneN} image generation failed:`, error);
+    await refundFailedGeneration({
+      userId,
+      referenceIds: [attemptId],
+      operation: 'clone studio image',
+    });
+    return { success: false, error: message };
+  }
+}
+
+/** Upload a source video file (the direct-upload ingest path). */
+export async function uploadCloneSource(
+  file: File
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Authentication required' };
+
+  const accessError = await assertCloneStudioAccess(user.id);
+  if (accessError) return { success: false, error: accessError };
+
+  const upload = await uploadVideoToStorage(file, {
+    bucket: 'videos',
+    folder: 'clone-studio/uploads',
+    filename: `${user.id.slice(0, 8)}-${Date.now()}.mp4`,
+    contentType: file.type || 'video/mp4',
+  });
+  if (!upload.success || !upload.url) {
+    return { success: false, error: upload.error || 'Upload failed' };
+  }
+  return { success: true, url: upload.url };
+}
+
+export async function deleteCloneProject(
+  projectId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Authentication required' };
+
+  // RLS delete policy scopes to the owner; storage artifacts are left behind
+  // on purpose during beta (cheap, and generated scenes may be in use in the editor)
+  const { error } = await supabase
+    .from('ad_clone_projects')
+    .delete()
+    .eq('id', projectId);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+/** Swap a previous version back in as the scene's current image. */
+export async function restoreSceneImageVersion(
+  projectId: string,
+  sceneN: number,
+  versionUrl: string
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const scenes = loaded.project.scenes.map((s) => {
+    if (s.n !== sceneN) return s;
+    const others = (s.image_versions || []).filter((v) => v !== versionUrl);
+    const versions = s.edited_image_url
+      ? [s.edited_image_url, ...others].slice(0, CLONE_MAX_IMAGE_VERSIONS)
+      : others;
+    return { ...s, edited_image_url: versionUrl, image_versions: versions };
+  });
+  await saveScenes(projectId, scenes);
+  return { success: true, project: { ...loaded.project, scenes } };
 }
