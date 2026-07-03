@@ -33,6 +33,7 @@ import useStore from '../store/use-store';
 import { ITrackItem } from '@designcombo/types';
 import { dispatch } from '@designcombo/events';
 import { EDIT_OBJECT } from '@designcombo/state';
+import { addLibraryImage } from '../utils/ai-image-library';
 
 interface AIImageGeneratorPanelProps {
   trackItem: ITrackItem | null;
@@ -211,6 +212,17 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
         });
         
         console.log('✅ Image updated in timeline:', result.image_url);
+
+        // Every generation lands in the AI Images library as its own entry —
+        // the original stays visible too (its timeline tile / previous
+        // versions strip), nothing is lost.
+        addLibraryImage({ src: result.image_url, prompt });
+        if (selectedAIImage.details?.src) {
+          addLibraryImage({
+            src: selectedAIImage.details.src,
+            prompt: (selectedAIImage.metadata as any)?.prompt || originalPrompt,
+          });
+        }
         
         setProgress(100);
         setSuccess(true);

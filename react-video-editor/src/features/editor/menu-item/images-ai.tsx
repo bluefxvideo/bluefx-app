@@ -14,6 +14,7 @@ import { ImageLoading } from "@/components/ui/image-loading";
 import { AIImageGeneratorPanel } from "./ai-image-generator";
 import useStore from "../store/use-store";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getLibraryImages, AI_LIBRARY_UPDATED_EVENT, type LibraryImage } from "../utils/ai-image-library";
 
 export const ImagesAI = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
@@ -51,6 +52,37 @@ export const ImagesAI = () => {
 			(item: ITrackItem) => item.type === 'image' && item.metadata?.aiGenerated
 		) as ITrackItem[];
 	}, [trackItemsMap]);
+
+	// Persisted library entries (every regeneration result) — kept even when
+	// they're not on the timeline, so generations are never lost.
+	const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
+	useEffect(() => {
+		const refresh = () => setLibraryImages(getLibraryImages());
+		refresh();
+		window.addEventListener(AI_LIBRARY_UPDATED_EVENT, refresh);
+		window.addEventListener('storage', refresh);
+		return () => {
+			window.removeEventListener(AI_LIBRARY_UPDATED_EVENT, refresh);
+			window.removeEventListener('storage', refresh);
+		};
+	}, []);
+
+	// Grid = timeline images + library extras (deduped by src). Library-only
+	// tiles are ITrackItem-shaped so drag/click-to-add works unchanged.
+	const allAIImages = useMemo(() => {
+		const timelineSrcs = new Set(
+			aiGeneratedImages.map((item) => (item.details as any)?.src).filter(Boolean)
+		);
+		const extras = libraryImages
+			.filter((img) => !timelineSrcs.has(img.src))
+			.map((img) => ({
+				id: img.id,
+				type: 'image',
+				details: { src: img.src },
+				metadata: { aiGenerated: true, prompt: img.prompt, libraryOnly: true },
+			})) as unknown as ITrackItem[];
+		return [...aiGeneratedImages, ...extras];
+	}, [aiGeneratedImages, libraryImages]);
 
 	// Load curated images on component mount
 	useEffect(() => {
@@ -115,7 +147,7 @@ export const ImagesAI = () => {
 
 	// Determine default tab based on context
 	const defaultTab = selectedAIImage ? "ai-regenerate" : 
-	                  aiGeneratedImages.length > 0 ? "ai-images" : "pexels";
+	                  allAIImages.length > 0 ? "ai-images" : "pexels";
 
 	return (
 		<div className="flex flex-1 flex-col">
@@ -137,7 +169,7 @@ export const ImagesAI = () => {
 									Stock
 								</TabsTrigger>
 							</>
-						) : aiGeneratedImages.length > 0 ? (
+						) : allAIImages.length > 0 ? (
 							<>
 								<TabsTrigger value="ai-images" className="text-xs py-1">
 									<Sparkles className="mr-1 h-3 w-3" />
@@ -160,13 +192,13 @@ export const ImagesAI = () => {
 				</div>
 
 				{/* AI Images Tab - Show generated images */}
-				{aiGeneratedImages.length > 0 && (
+				{allAIImages.length > 0 && (
 					<TabsContent value="ai-images" className="flex-1 mt-0">
 						<ScrollArea className="flex-1 h-[calc(100vh-200px)]">
 							<div className="p-4">
 								<div className="flex items-center justify-between mb-3">
 									<p className="text-xs text-muted-foreground">
-										Your AI-generated images ({aiGeneratedImages.length})
+										Your AI-generated images ({allAIImages.length})
 									</p>
 									{selectedAIImageId && (
 										<Button
@@ -190,13 +222,13 @@ export const ImagesAI = () => {
 								)}
 								
 								<div className="masonry-sm">
-									{aiGeneratedImages.map((image) => (
+									{allAIImages.map((image) => (
 										<AIImageItem
 											key={image.id}
 											image={image}
 											shouldDisplayPreview={!isDraggingOverTimeline}
 											handleAddImage={handleAddImage}
-											onSelect={(item) => {
+											onSelect={(image.metadata as any)?.libraryOnly ? undefined : (item) => {
 												setSelectedAIImageId(item.id === selectedAIImageId ? null : item.id);
 											}}
 											isSelected={image.id === selectedAIImageId}
