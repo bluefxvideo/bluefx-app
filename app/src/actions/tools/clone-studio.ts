@@ -30,7 +30,7 @@ import {
   fitForInlineAnalysis,
   downloadToFile,
 } from '@/lib/clone-studio/segmentation';
-import { analyzeScenes } from '@/lib/clone-studio/analysis';
+import { analyzeCloneScenes, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_IMAGE_CREDITS,
@@ -193,16 +193,39 @@ export async function processCloneProject(
     const segmented = await segmentVideo(ingest.filePath, projectId, probe);
     await updateProject({ status: 'analyzing' });
 
-    // 3) Structured per-scene analysis aligned to the detected cuts
-    const fittedPath = await fitForInlineAnalysis(ingest.filePath);
-    const analysis = await analyzeScenes(fittedPath, segmented);
+    // 3) Structured per-scene analysis aligned to the detected cuts — shared
+    // finetuned analyzer. YouTube goes native (Gemini ingests the URL, the
+    // Video Analyzer's proven path); anything else, and any native failure,
+    // uses the inline video bytes.
+    let analysis: AnalyzeCloneScenesResult | null = null;
+    if (ingest.platform === 'youtube' && request.source_url) {
+      const videoId = request.source_url.match(/(?:v=|youtu\.be\/|shorts\/)([^&?/]+)/)?.[1];
+      if (videoId) {
+        analysis = await analyzeCloneScenes({
+          youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
+          sceneRanges: segmented,
+        });
+        if (!analysis.success) {
+          console.warn('Clone Studio: native YouTube analysis failed, retrying inline:', analysis.error);
+        }
+      }
+    }
+    if (!analysis?.success) {
+      const fittedPath = await fitForInlineAnalysis(ingest.filePath);
+      const videoBase64 = (await fs.readFile(fittedPath)).toString('base64');
+      analysis = await analyzeCloneScenes({ videoBase64, sceneRanges: segmented });
+    }
+    if (!analysis.success || !analysis.scenes || !analysis.summary) {
+      throw new Error(analysis.error || 'Scene analysis failed');
+    }
+    const analyzedScenes = analysis.scenes;
 
     const scenes: CloneScene[] = segmented.map((s) => ({
       n: s.n,
       start: s.start,
       end: s.end,
       keyframe_url: s.keyframe_url,
-      analysis: analysis.scenes.get(s.n)!,
+      analysis: analyzedScenes[s.n],
       user_instruction: '',
       user_ref_urls: [],
       edited_image_url: null,

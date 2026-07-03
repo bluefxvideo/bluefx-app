@@ -756,3 +756,224 @@ export async function toggleAnalysisFavorite(id: string): Promise<{
     };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Clone Studio structured scene analysis
+// ---------------------------------------------------------------------------
+// Same finetuned breakdown framework as PROMPTS.storyboard_recreation
+// (S-E-A-L-Ca per shot, verbatim dialogue, shot purpose), upgraded to
+// structured JSON aligned to ffmpeg-detected cuts, plus the two rules the
+// animation stage requires (verified on a real ad remake):
+// - Keyframe-state rule: i2v models refuse to CREATE physically absurd states
+//   mid-clip; gag states must be described as ALREADY TRUE in start_state so
+//   the image-edit stage paints them into the starting frame.
+// - Action-arc rule: "struggles to pull his hand out" gets animated as the
+//   hand coming OUT; every scene needs start → attempts → LOCKED end state
+//   plus invariants repeated verbatim in the motion prompt.
+
+const CLONE_SCENE_ANALYSIS_PROMPT = `You are a professional video breakdown specialist for shot-by-shot ad recreation.
+
+You will receive the full video plus a list of scenes detected with exact start/end timestamps. Analyze EACH listed scene (use the timestamps to know which part of the video each scene covers).
+
+## CHARACTER PROFILES (do this first)
+Identify every person who appears in more than one scene. Give each a stable ID ("MAIN CHARACTER", "CHARACTER A", ...) and a detailed profile: age, gender, ethnicity, hair (color/length/style), facial features, build, wardrobe per outfit, distinguishing features. Refer to people ONLY by these IDs in scene analyses.
+
+## PER-SCENE FIELDS
+For every scene output:
+
+1. "subject" — primary focus (person/product/object), character IDs with expression and body language, position in frame.
+2. "environment" — location/setting specifics, background elements, visible props, color palette.
+3. "lighting" — light source and direction, quality (soft/hard/diffused), contrast level, mood created.
+4. "camera" — shot type (extreme wide … extreme close-up, insert), angle (eye level/low/high/bird's eye/dutch), movement (static/pan/tilt/dolly/tracking/handheld/zoom), lens feel, composition notes.
+5. "action_arc" — the motion blueprint:
+   - "start_state": a COMPLETE visual description of the scene's FIRST moment — subjects, pose, expression, props, setting, lighting. If the scene contains a physically impossible or comedic state (hand stuck inside a bottle, person shrunk, object floating), describe that state as ALREADY TRUE here. This text is used to paint the starting image, so it must describe a paintable still frame.
+   - "action": what happens across the scene as beats (attempt 1 → attempt 2 → reaction). Movement only, no camera talk.
+   - "end_state": the LOCKED final state of the scene. Be explicit about what has NOT changed ("the hand is STILL inside the bottle").
+   - "invariants": hard rules that must hold for the entire scene, phrased as absolutes ("the bottle NEVER comes off"). Empty array if none.
+6. "dialog" — every word spoken or narrated during this scene, verbatim. Empty string if silent.
+7. "on_screen_text" — any overlay text/graphics, exact wording. Empty string if none. (Overlays are re-typed in an editor later — never describe them as part of the image.)
+8. "purpose" — the shot's narrative role: one of "hook", "problem", "solution", "proof", "CTA", "transition", "story".
+9. "swap_targets" — the entities in THIS scene a user might replace — character IDs and product names visible in frame.
+
+## GLOBAL FIELDS
+- "summary": one paragraph — what the ad is, its structure, pacing style, and mood arc.
+- "products": every distinct product/brand shown.
+- "visual_style": grade, lighting character, lens/format feel, era — enough to keep regenerated frames consistent.
+- "music_brief": one sentence for re-scoring (genre, tempo, instrumentation, emotional quality, how it changes).
+
+CRITICAL INSTRUCTIONS:
+- Be EXTREMELY precise — respect the provided cut timestamps exactly.
+- Include ALL dialogue and narration verbatim.
+- Describe visuals in enough detail to recreate with AI image generation.
+- Characters must be referenced ONLY by their stable IDs.
+
+Output valid JSON only, matching:
+{
+  "summary": "...",
+  "characters": [{ "id": "MAIN CHARACTER", "description": "..." }],
+  "products": ["..."],
+  "visual_style": "...",
+  "music_brief": "...",
+  "scenes": [
+    {
+      "n": 1,
+      "subject": "...", "environment": "...", "lighting": "...", "camera": "...",
+      "action_arc": { "start_state": "...", "action": "...", "end_state": "...", "invariants": ["..."] },
+      "dialog": "...", "on_screen_text": "...", "purpose": "...", "swap_targets": ["..."]
+    }
+  ]
+}
+Every scene in the provided list MUST appear exactly once in "scenes", with the same "n".`;
+
+interface CloneSceneRange {
+  n: number;
+  start: number;
+  end: number;
+}
+
+export interface AnalyzeCloneScenesInput {
+  /** Inline video (base64 mp4) — the default path. */
+  videoBase64?: string;
+  /** YouTube source: Gemini ingests the URL natively (same path the Video Analyzer uses). */
+  youtubeUrl?: string;
+  sceneRanges: CloneSceneRange[];
+}
+
+export interface AnalyzeCloneScenesResult {
+  success: boolean;
+  summary?: {
+    summary: string;
+    characters: Array<{ id: string; description: string }>;
+    products: string[];
+    visual_style: string;
+    music_brief: string;
+  };
+  /** Keyed by scene number `n`. */
+  scenes?: Record<number, {
+    action_arc: { start_state: string; action: string; end_state: string; invariants: string[] };
+    subject: string;
+    environment: string;
+    lighting: string;
+    dialog: string;
+    camera: string;
+    on_screen_text: string;
+    purpose: string;
+    swap_targets: string[];
+  }>;
+  error?: string;
+}
+
+function formatCloneTimestamp(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = (seconds % 60).toFixed(1).padStart(4, '0');
+  return `${m}:${s}`;
+}
+
+function coerceCloneSceneAnalysis(raw: Record<string, unknown>) {
+  const arc = (raw.action_arc || {}) as Record<string, unknown>;
+  return {
+    action_arc: {
+      start_state: String(arc.start_state || ''),
+      action: String(arc.action || ''),
+      end_state: String(arc.end_state || ''),
+      invariants: Array.isArray(arc.invariants) ? arc.invariants.map(String) : [],
+    },
+    subject: String(raw.subject || ''),
+    environment: String(raw.environment || ''),
+    lighting: String(raw.lighting || ''),
+    dialog: String(raw.dialog || ''),
+    camera: String(raw.camera || ''),
+    on_screen_text: String(raw.on_screen_text || ''),
+    purpose: String(raw.purpose || ''),
+    swap_targets: Array.isArray(raw.swap_targets) ? raw.swap_targets.map(String) : [],
+  };
+}
+
+/**
+ * Structured per-scene analysis for Clone Studio, aligned to ffmpeg-detected
+ * cut timestamps. Lives here so all video analysis shares one Gemini client
+ * and one finetuned prompt lineage.
+ */
+export async function analyzeCloneScenes(
+  input: AnalyzeCloneScenesInput
+): Promise<AnalyzeCloneScenesResult> {
+  try {
+    if (!input.videoBase64 && !input.youtubeUrl) {
+      return { success: false, error: 'Provide videoBase64 or youtubeUrl' };
+    }
+
+    const sceneList = input.sceneRanges
+      .map((s) => `Scene ${s.n}: ${formatCloneTimestamp(s.start)} – ${formatCloneTimestamp(s.end)} (${(s.end - s.start).toFixed(1)}s)`)
+      .join('\n');
+
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+
+    const videoPart = input.youtubeUrl
+      ? { fileData: { mimeType: 'video/mp4', fileUri: input.youtubeUrl } }
+      : { inlineData: { mimeType: 'video/mp4', data: input.videoBase64! } };
+
+    const result = await model.generateContent([
+      videoPart,
+      { text: `${CLONE_SCENE_ANALYSIS_PROMPT}\n\n## DETECTED SCENES (analyze each)\n${sceneList}` },
+    ]);
+
+    const responseText = result.response.text();
+    if (!responseText) {
+      return { success: false, error: 'Scene analysis returned an empty response' };
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      let clean = responseText.trim();
+      if (clean.startsWith('```json')) clean = clean.slice(7);
+      if (clean.startsWith('```')) clean = clean.slice(3);
+      if (clean.endsWith('```')) clean = clean.slice(0, -3);
+      parsed = JSON.parse(clean.trim());
+    } catch {
+      console.error('Clone scene analysis: unparseable response:', responseText.slice(0, 500));
+      return { success: false, error: 'Scene analysis returned invalid JSON' };
+    }
+
+    const summary = {
+      summary: String(parsed.summary || ''),
+      characters: Array.isArray(parsed.characters)
+        ? (parsed.characters as Array<Record<string, unknown>>).map((c) => ({
+            id: String(c.id || ''),
+            description: String(c.description || ''),
+          }))
+        : [],
+      products: Array.isArray(parsed.products) ? (parsed.products as unknown[]).map(String) : [],
+      visual_style: String(parsed.visual_style || ''),
+      music_brief: String(parsed.music_brief || ''),
+    };
+
+    const scenes: AnalyzeCloneScenesResult['scenes'] = {};
+    if (Array.isArray(parsed.scenes)) {
+      for (const raw of parsed.scenes as Array<Record<string, unknown>>) {
+        const n = Number(raw.n);
+        if (Number.isInteger(n) && n > 0) {
+          scenes[n] = coerceCloneSceneAnalysis(raw);
+        }
+      }
+    }
+    // Guarantee every detected scene has an analysis object even if the model
+    // skipped one — the board can still render and the user can fill it in.
+    for (const range of input.sceneRanges) {
+      if (!scenes[range.n]) {
+        console.warn(`Clone scene analysis: model skipped scene ${range.n}, inserting empty analysis`);
+        scenes[range.n] = coerceCloneSceneAnalysis({});
+      }
+    }
+
+    return { success: true, summary, scenes };
+  } catch (error) {
+    console.error('Clone scene analysis error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Scene analysis failed',
+    };
+  }
+}

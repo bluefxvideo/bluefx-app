@@ -32,14 +32,28 @@ export interface SceneActionArc {
   invariants: string[];
 }
 
+/**
+ * Per-scene fields follow the finetuned S-E-A-L-Ca breakdown framework from
+ * the Video Analyzer's storyboard_recreation prompt (subject, environment,
+ * action, lighting, camera), plus the action-arc layer that i2v animation
+ * requires.
+ */
 export interface SceneAnalysis {
   action_arc: SceneActionArc;
+  /** Primary focus: who/what, appearance, expression, position in frame. */
+  subject: string;
+  /** Location, background elements, props, color palette. */
+  environment: string;
+  /** Light source, quality, contrast, mood. */
+  lighting: string;
   /** Spoken words during this scene, verbatim. Empty string if none. */
   dialog: string;
-  /** Framing + camera movement, e.g. "medium close-up, slow push-in". */
+  /** Shot type + angle + movement, e.g. "medium close-up, eye level, slow push-in". */
   camera: string;
   /** Text overlays shown in this scene (re-typed in the editor, never generated). */
   on_screen_text: string;
+  /** Narrative role of the shot: hook | problem | solution | proof | CTA | transition. */
+  purpose: string;
   /** Swappable entities visible in this scene, e.g. ["MAIN CHARACTER", "Pringles can"]. */
   swap_targets: string[];
 }

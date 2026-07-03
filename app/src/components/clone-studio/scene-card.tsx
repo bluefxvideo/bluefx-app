@@ -124,6 +124,9 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge>Scene {scene.n}</Badge>
+          {scene.analysis?.purpose && (
+            <Badge variant="secondary" className="text-[10px] uppercase">{scene.analysis.purpose}</Badge>
+          )}
           <span className="text-xs text-zinc-500">
             {scene.start.toFixed(1)}–{scene.end.toFixed(1)}s · {duration}s
           </span>
@@ -309,6 +312,35 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </button>
         {showDetails && (
           <div className="mt-2 space-y-2">
+            <div>
+              <Label className="text-[10px] uppercase text-zinc-500">Subject (who/what is in frame)</Label>
+              <Textarea
+                value={details.subject}
+                onChange={(e) => setDetails({ ...details, subject: e.target.value })}
+                onBlur={saveDetails}
+                className="text-xs min-h-[40px]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[10px] uppercase text-zinc-500">Environment</Label>
+                <Textarea
+                  value={details.environment}
+                  onChange={(e) => setDetails({ ...details, environment: e.target.value })}
+                  onBlur={saveDetails}
+                  className="text-xs min-h-[40px]"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase text-zinc-500">Lighting</Label>
+                <Textarea
+                  value={details.lighting}
+                  onChange={(e) => setDetails({ ...details, lighting: e.target.value })}
+                  onBlur={saveDetails}
+                  className="text-xs min-h-[40px]"
+                />
+              </div>
+            </div>
             <div>
               <Label className="text-[10px] uppercase text-zinc-500">Start state (painted into the image)</Label>
               <Textarea

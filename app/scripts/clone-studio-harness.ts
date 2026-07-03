@@ -1,7 +1,9 @@
 /**
- * TEMPORARY verification harness for Clone Studio stage 1 — run with:
- *   node_modules/.bin/tsx --env-file=<env> scripts/clone-studio-harness.ts <video file>
- * Exercises probe → segmentation (+ real storage uploads) → analysis (real Gemini).
+ * Verification harness for Clone Studio stage 1 — run with:
+ *   node_modules/.bin/tsx --env-file=<env> scripts/clone-studio-harness.ts <video file> [youtube url]
+ * Exercises probe → segmentation (+ real storage uploads) → structured
+ * analysis via the shared video-analyzer (inline path; if a YouTube URL is
+ * given, ALSO runs the native Gemini-URL path and reports both).
  * Kept for pipeline debugging.
  */
 import { promises as fs } from 'fs';
@@ -13,11 +15,29 @@ import {
   fitForInlineAnalysis,
   cleanupWorkDir,
 } from '../src/lib/clone-studio/segmentation';
-import { analyzeScenes } from '../src/lib/clone-studio/analysis';
+import { analyzeCloneScenes, type AnalyzeCloneScenesResult } from '../src/actions/tools/video-analyzer';
+
+function report(label: string, result: AnalyzeCloneScenesResult, sceneCount: number) {
+  console.log(`--- ${label} ---`);
+  if (!result.success || !result.scenes || !result.summary) {
+    console.log('FAILED:', result.error);
+    return;
+  }
+  console.log('summary:', JSON.stringify(result.summary, null, 2).slice(0, 1200));
+  console.log('scene 1:', JSON.stringify(result.scenes[1], null, 2));
+  const missing: number[] = [];
+  for (let n = 1; n <= sceneCount; n++) {
+    const a = result.scenes[n];
+    if (!a || !a.action_arc.start_state) missing.push(n);
+  }
+  console.log(`scenes with empty analysis: ${missing.length ? missing.join(', ') : 'none'}`);
+  const withNewFields = Object.values(result.scenes).filter((s) => s.subject && s.lighting && s.purpose).length;
+  console.log(`scenes with S-E-A-L-Ca fields populated: ${withNewFields}/${sceneCount}`);
+}
 
 async function main() {
-  const src = process.argv[2];
-  if (!src) throw new Error('usage: harness.ts <video file>');
+  const [src, youtubeUrl] = process.argv.slice(2);
+  if (!src) throw new Error('usage: harness.ts <video file> [youtube url]');
 
   const workDir = await makeWorkDir('clone-studio-harness-');
   const filePath = path.join(workDir, 'source.mp4');
@@ -32,27 +52,24 @@ async function main() {
   const scenes = await segmentVideo(filePath, 'harness-test', probe);
   console.log(`${scenes.length} scenes in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   for (const s of scenes) {
-    console.log(`  scene ${s.n}: ${s.start.toFixed(2)}–${s.end.toFixed(2)} (${(s.end - s.start).toFixed(2)}s) ${s.keyframe_url}`);
+    console.log(`  scene ${s.n}: ${s.start.toFixed(2)}–${s.end.toFixed(2)} (${(s.end - s.start).toFixed(2)}s)`);
   }
 
-  console.log('=== analysis ===');
-  const t1 = Date.now();
+  console.log('=== analysis (inline) ===');
   const fitted = await fitForInlineAnalysis(filePath);
-  const stat = await fs.stat(fitted);
-  console.log(`analysis input: ${fitted === filePath ? 'original' : 'transcoded'} (${(stat.size / 1024 / 1024).toFixed(1)}MB)`);
-  const analysis = await analyzeScenes(fitted, scenes);
-  console.log(`analysis done in ${((Date.now() - t1) / 1000).toFixed(1)}s`);
-  console.log('--- summary ---');
-  console.log(JSON.stringify(analysis.summary, null, 2));
-  console.log('--- first 3 scenes ---');
-  for (const n of [1, 2, 3]) {
-    console.log(`scene ${n}:`, JSON.stringify(analysis.scenes.get(n), null, 2));
+  const videoBase64 = (await fs.readFile(fitted)).toString('base64');
+  const t1 = Date.now();
+  const inline = await analyzeCloneScenes({ videoBase64, sceneRanges: scenes });
+  console.log(`inline analysis in ${((Date.now() - t1) / 1000).toFixed(1)}s`);
+  report('inline', inline, scenes.length);
+
+  if (youtubeUrl) {
+    console.log('=== analysis (native YouTube URL) ===');
+    const t2 = Date.now();
+    const native = await analyzeCloneScenes({ youtubeUrl, sceneRanges: scenes });
+    console.log(`native analysis in ${((Date.now() - t2) / 1000).toFixed(1)}s`);
+    report('native', native, scenes.length);
   }
-  const missing = scenes.filter((s) => {
-    const a = analysis.scenes.get(s.n);
-    return !a || !a.action_arc.start_state;
-  });
-  console.log(`scenes with empty analysis: ${missing.length ? missing.map((s) => s.n).join(', ') : 'none'}`);
 
   await cleanupWorkDir(workDir);
   console.log('=== DONE ===');
