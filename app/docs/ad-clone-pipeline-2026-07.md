@@ -121,3 +121,24 @@ Owner's motion-quality pick: **Kling O3 Pro** ("the last kling version got it ri
 animate: Seedance 1.5 default (~$0.16) / Kling O3 Pro upgrade ($0.67, `image_url`
 param) / Seedance 2.0 flagship ($1.83). Scene ≈ $0.35 default, $0.90 Kling.
 7-scene clone ≈ $2.50-6. LTX: b-roll only. Retail 100-200 credits.
+
+## Addendum 5 (2026-07-03): FULL 30s REMAKE SHIPPED + audio stage
+Complete pipeline executed by hand on Pringles "Stuck In :30": all 15 scenes,
+cut-for-cut on original edit rhythm, main character swapped (guy → Black woman
+persona ref), all products → MITOLYN, aging arc INCLUDED (85th birthday +
+coffin scenes worked). Nano Banana 2 for ALL person-swap edits (owner call:
+GPT Image 2 "not getting it" for person swaps; nb2 nailed 13/15 first pass,
+3 regens with background-lock language). Kling O3 Pro animated all 15
+(3-7s each, all succeeded first try, ~5 min wall-clock parallel).
+Assembly: ffmpeg trim-to-original-cut-duration + concat, 1080p25.
+
+**Audio stage (new):** Lyria 3 Pro music bed (life-story brief, ~35s
+instrumental) + fal-ai/mmaudio-v2 video-to-audio foley (watches the assembled
+video, generates scene-matched diegetic ambience; negative_prompt 'music').
+Mix: music 0.85 + foley 0.4, 2s fade-out, aac mux.
+
+**Total cost ≈ $8** for a finished, scored 30s 15-scene remake.
+Artifacts: videos/tests/REMAKE-pringles-mitolyn-30s{,-AUDIO}.mp4.
+Product notes: per-scene edit-engine choice (nb2 vs GPT-2 fail differently),
+checkpoint-at-swap-board is the money UX, color-match LUT pass + persona ref
+enforcement are the two polish gaps.
