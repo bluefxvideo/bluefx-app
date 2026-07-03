@@ -99,7 +99,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             <h4 className="text-sm font-semibold text-white flex items-center gap-2">
               <Film className="w-4 h-4 text-primary" /> Your cloned ad
             </h4>
-            <a href={project.final_video_url} download target="_blank" rel="noreferrer">
+            <a href={`${project.final_video_url}?download=${(project.title || 'cloned-ad').replace(/[^a-z0-9-]+/gi, '-')}.mp4`}>
               <Button variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-1.5" /> Download
               </Button>

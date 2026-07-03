@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Clapperboard, ImagePlus, Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clapperboard, Download, ImagePlus, Loader2, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -165,13 +165,22 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
             Your version{scene.anim?.status === 'completed' ? ' · animated' : ''}
           </p>
           {scene.anim?.status === 'completed' && scene.anim.video_url ? (
-            <video
-              src={scene.anim.video_url}
-              poster={scene.edited_image_url || undefined}
-              controls
-              preload="metadata"
-              className="w-full h-56 object-contain rounded-md border border-primary/40 bg-black"
-            />
+            <div className="space-y-1">
+              <video
+                src={scene.anim.video_url}
+                poster={scene.edited_image_url || undefined}
+                controls
+                preload="metadata"
+                className="w-full h-56 object-contain rounded-md border border-primary/40 bg-black"
+              />
+              {/* Supabase storage: ?download= sets Content-Disposition attachment
+                  (the download attribute is ignored on cross-origin links) */}
+              <a href={`${scene.anim.video_url}?download=scene-${scene.n}.mp4`}>
+                <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-zinc-400">
+                  <Download className="w-3 h-3 mr-1.5" /> Download clip
+                </Button>
+              </a>
+            </div>
           ) : scene.edited_image_url ? (
             <div className="relative h-56">
               <a
