@@ -142,3 +142,58 @@ Artifacts: videos/tests/REMAKE-pringles-mitolyn-30s{,-AUDIO}.mp4.
 Product notes: per-scene edit-engine choice (nb2 vs GPT-2 fail differently),
 checkpoint-at-swap-board is the money UX, color-match LUT pass + persona ref
 enforcement are the two polish gaps.
+
+## BUILD PLAN (2026-07-03, owner-approved product design): "Clone Studio"
+
+### Product flow (per owner)
+1. Ingest ad → scene breakdown board: each card shows **[original snapshot] +
+   [AI-generated prompt: action, dialog, camera, details for THAT scene]**.
+2. Per scene, the user can: edit the prompt text, type swap instructions
+   ("replace person X with Y"), and upload reference images (their person,
+   their product, person-holding-product). 
+3. **Images first**: generate/regenerate the swapped keyframe per scene until
+   it looks right (cheap iteration, ~$0.04-0.15/try, version history kept —
+   reuse the previousVersions pattern from the editor).
+4. **Then animate**: Kling O3 Pro per approved scene, **generate_audio: TRUE**
+   (owner requirement — per-scene diegetic audio; pro audio-on ≈ $0.14/s).
+5. Assemble on original cut timing; optional Lyria music bed; hand off to the
+   react-video-editor as a composition (reuses timeline, captions, export).
+
+### Rollout strategy (keep current tool, test new flow, then switch)
+- Existing Clone Video Ad stays untouched at its route.
+- New flow ships as **"Clone Studio (Beta)"** — separate tab/route, gated to
+  `profiles.role = 'admin'` first (owner tests with real ads in production),
+  then a beta flag for all users, then becomes the default and the old wizard
+  retires. No migration risk; both flows share credits/storage/webhooks.
+
+### Implementation map
+- **DB**: `ad_clone_projects` (id, user_id, source_url, source_video_url,
+  status, scenes jsonb, totals). scenes[]: {n, start, end, keyframe_url,
+  analysis {action_arc, dialog, camera, on_screen_text, swap_targets},
+  user_instruction, user_ref_urls[], edited_image_url, image_versions[],
+  anim {request_id, video_url, status}, credits_spent}.
+- **ffmpeg in main app container** (Dockerfile: apk/apt ffmpeg) for scene
+  detection (`select=gt(scene,0.2)`) + keyframe extraction. (Alt: run on the
+  remotion container which already has ffmpeg.)
+- **Analysis**: Gemini 2.5 Flash on the video with a structured per-scene
+  schema aligned to detected cut timestamps; outputs the editable prompt
+  (action ARC with locked end-state + invariants — the keyframe-state rule).
+- **Model clients**: new `fal-kling-video.ts` (o3 pro i2v, `image_url` param,
+  negative_prompt, audio on) + reuse fal-nano-banana-2 edit (default engine)
+  with per-scene engine toggle to `openai/gpt-image-2/edit` (new client) —
+  the two engines fail differently (nb2 better person swaps, gpt2 better
+  multi-object scale).
+- **Webhook**: extend fal-ai route for kling completions (match by request_id
+  in project scenes) + poll fallback like Video Maker.
+- **Credits**: image gen 4/try; scene animation ~15/scene (3s audio-on Kling
+  ≈ $0.42 → 3.4x margin); assembly free. Typical 10-scene clone ≈ 190-250
+  credits retail vs ~$6-8 COGS.
+- **Reuses**: refundFailedGeneration, billable-units logging, storage patterns,
+  editor handoff via existing composition format + store-export.
+
+### Build order (~1 week)
+1. DB migration + ingest/segmentation service + structured analysis (2d)
+2. Scene board UI: cards, prompt editing, ref uploads, image gen + versions (2d)
+3. Kling orchestrator + webhook/poll + per-scene audio (1d)
+4. Assembly + editor handoff + Lyria bed option (1d)
+5. Beta gate, credits wiring, polish (1d)
