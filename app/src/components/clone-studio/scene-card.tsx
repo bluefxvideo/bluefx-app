@@ -91,6 +91,10 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       }
       onProjectUpdate(result.project);
       toast.success(`Scene ${scene.n} image ready`);
+    } catch (error) {
+      // Never fail silently — a dropped connection or server error lands here
+      console.error('generateSceneImage threw:', error);
+      toast.error('Generation did not complete — check your connection and try again');
     } finally {
       setGenerating(false);
     }
@@ -111,6 +115,9 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       }
       onProjectUpdate(result.project);
       toast.success(`Scene ${scene.n} animating — usually 2-4 minutes`);
+    } catch (error) {
+      console.error('animateScene threw:', error);
+      toast.error('Animation request did not complete — try again');
     } finally {
       setAnimating(false);
     }
@@ -212,21 +219,26 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </div>
       </div>
 
-      {/* Version history */}
+      {/* Version history — the big image above is the CURRENT one and is what
+          Animate uses; clicking an older version makes it current */}
       {scene.image_versions.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-          <span className="text-[10px] text-zinc-500 shrink-0">Versions:</span>
-          {scene.image_versions.map((url) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={url}
-              src={url}
-              alt="Previous version"
-              className="h-12 w-auto object-contain bg-black/40 rounded border border-border/50 cursor-pointer hover:border-primary shrink-0"
-              onClick={() => handleRestore(url)}
-              title="Restore this version"
-            />
-          ))}
+        <div className="space-y-1">
+          <p className="text-[10px] text-zinc-500">
+            Older versions — click one to make it the current image (the one that gets animated):
+          </p>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            {scene.image_versions.map((url) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={url}
+                src={url}
+                alt="Previous version"
+                className="h-14 w-auto object-contain bg-black/40 rounded border border-border/50 cursor-pointer hover:border-primary shrink-0"
+                onClick={() => handleRestore(url)}
+                title="Make this the current image"
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -273,14 +285,17 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </Button>
       </div>
 
-      {/* Generate */}
-      <Button className="w-full" size="sm" onClick={handleGenerate} disabled={generating || animGenerating}>
+      {/* Generate — allowed even while an animation runs (the in-flight
+          animation keeps the frame it was started with) */}
+      <Button className="w-full" size="sm" onClick={handleGenerate} disabled={generating}>
         {generating ? (
           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
         ) : (
           <Sparkles className="w-4 h-4 mr-2" />
         )}
-        {scene.edited_image_url ? 'Regenerate' : 'Generate'} · {CLONE_IMAGE_CREDITS} cr
+        {generating
+          ? 'Generating — usually 15-40s'
+          : `${scene.edited_image_url ? 'Regenerate' : 'Generate'} · ${CLONE_IMAGE_CREDITS} cr`}
       </Button>
 
       {/* Animate (Kling O3 Pro, audio on) */}

@@ -807,6 +807,9 @@ CRITICAL INSTRUCTIONS:
 - Describe visuals in enough detail to recreate with AI image generation.
 - Characters must be referenced ONLY by their stable IDs.
 
+## KEYFRAME GROUND TRUTH
+Each scene's midpoint keyframe is attached and labeled ("Keyframe of Scene N"). A scene's subject, environment, and action MUST be consistent with ITS OWN keyframe — it shows what is literally in that shot. If a keyframe shows only a product close-up with no person, that scene contains NO person and its subject/action must describe the product shot. Ultra-short scenes (under ~1.5s) are quick insert shots — describe exactly what the insert shows, never the surrounding scenes' action. Attribute dialog strictly by timestamp: if no words are spoken inside a scene's time range, its "dialog" is an empty string.
+
 Output valid JSON only, matching:
 {
   "summary": "...",
@@ -837,6 +840,12 @@ export interface AnalyzeCloneScenesInput {
   /** YouTube source: Gemini ingests the URL natively (same path the Video Analyzer uses). */
   youtubeUrl?: string;
   sceneRanges: CloneSceneRange[];
+  /**
+   * Small labeled midpoint keyframes — ground truth per scene. Without them
+   * Gemini mis-attributes content on sub-second insert shots (its timestamp
+   * resolution is ~1s, so a 0.6s cut gets neighboring action smeared into it).
+   */
+  sceneKeyframes?: Array<{ n: number; jpegBase64: string }>;
 }
 
 export interface AnalyzeCloneScenesResult {
@@ -915,8 +924,14 @@ export async function analyzeCloneScenes(
       ? { fileData: { mimeType: 'video/mp4', fileUri: input.youtubeUrl } }
       : { inlineData: { mimeType: 'video/mp4', data: input.videoBase64! } };
 
+    const keyframeParts = (input.sceneKeyframes || []).flatMap((k) => [
+      { text: `Keyframe of Scene ${k.n} (midpoint frame):` },
+      { inlineData: { mimeType: 'image/jpeg', data: k.jpegBase64 } },
+    ]);
+
     const result = await model.generateContent([
       videoPart,
+      ...keyframeParts,
       { text: `${CLONE_SCENE_ANALYSIS_PROMPT}\n\n## DETECTED SCENES (analyze each)\n${sceneList}` },
     ]);
 

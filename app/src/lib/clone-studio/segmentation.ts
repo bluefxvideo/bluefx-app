@@ -25,6 +25,33 @@ export interface SegmentedScene {
   start: number;
   end: number;
   keyframe_url: string;
+  /** Local path of the extracted frame (valid while the workDir lives). */
+  framePath: string;
+}
+
+/**
+ * Small labeled keyframes for the analysis request — ground truth of what is
+ * actually in each scene. Sub-second insert shots are invisible to Gemini's
+ * timestamp resolution; anchoring every scene to its own keyframe stops it
+ * from smearing neighboring action into them.
+ */
+export async function buildAnalysisKeyframes(
+  scenes: SegmentedScene[]
+): Promise<Array<{ n: number; jpegBase64: string }>> {
+  const sharp = (await import('sharp')).default;
+  const result: Array<{ n: number; jpegBase64: string }> = [];
+  for (const scene of scenes) {
+    try {
+      const buffer = await sharp(scene.framePath)
+        .resize({ width: 360, withoutEnlargement: true })
+        .jpeg({ quality: 60 })
+        .toBuffer();
+      result.push({ n: scene.n, jpegBase64: buffer.toString('base64') });
+    } catch (error) {
+      console.warn(`Clone Studio: could not thumbnail keyframe for scene ${scene.n}:`, error);
+    }
+  }
+  return result;
 }
 
 export async function makeWorkDir(prefix: string): Promise<string> {
@@ -195,6 +222,7 @@ export async function segmentVideo(
       start: Math.round(start * 1000) / 1000,
       end: Math.round(end * 1000) / 1000,
       keyframe_url: upload.url,
+      framePath,
     });
   }
 

@@ -14,6 +14,7 @@ import {
   segmentVideo,
   fitForInlineAnalysis,
   cleanupWorkDir,
+  buildAnalysisKeyframes,
 } from '../src/lib/clone-studio/segmentation';
 import { analyzeCloneScenes, type AnalyzeCloneScenesResult } from '../src/actions/tools/video-analyzer';
 
@@ -24,7 +25,9 @@ function report(label: string, result: AnalyzeCloneScenesResult, sceneCount: num
     return;
   }
   console.log('summary:', JSON.stringify(result.summary, null, 2).slice(0, 1200));
-  console.log('scene 1:', JSON.stringify(result.scenes[1], null, 2));
+  for (const n of [1, 2]) {
+    if (result.scenes[n]) console.log(`scene ${n}:`, JSON.stringify(result.scenes[n], null, 2));
+  }
   const missing: number[] = [];
   for (let n = 1; n <= sceneCount; n++) {
     const a = result.scenes[n];
@@ -55,18 +58,21 @@ async function main() {
     console.log(`  scene ${s.n}: ${s.start.toFixed(2)}–${s.end.toFixed(2)} (${(s.end - s.start).toFixed(2)}s)`);
   }
 
+  const sceneKeyframes = await buildAnalysisKeyframes(scenes);
+  console.log(`analysis keyframes: ${sceneKeyframes.length} (${Math.round(sceneKeyframes.reduce((s, k) => s + k.jpegBase64.length, 0) / 1024)}KB base64 total)`);
+
   console.log('=== analysis (inline) ===');
   const fitted = await fitForInlineAnalysis(filePath);
   const videoBase64 = (await fs.readFile(fitted)).toString('base64');
   const t1 = Date.now();
-  const inline = await analyzeCloneScenes({ videoBase64, sceneRanges: scenes });
+  const inline = await analyzeCloneScenes({ videoBase64, sceneRanges: scenes, sceneKeyframes });
   console.log(`inline analysis in ${((Date.now() - t1) / 1000).toFixed(1)}s`);
   report('inline', inline, scenes.length);
 
   if (youtubeUrl) {
     console.log('=== analysis (native YouTube URL) ===');
     const t2 = Date.now();
-    const native = await analyzeCloneScenes({ youtubeUrl, sceneRanges: scenes });
+    const native = await analyzeCloneScenes({ youtubeUrl, sceneRanges: scenes, sceneKeyframes });
     console.log(`native analysis in ${((Date.now() - t2) / 1000).toFixed(1)}s`);
     report('native', native, scenes.length);
   }
