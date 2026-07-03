@@ -195,7 +195,16 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
                 aspectRatio: options.aspect_ratio, // Store aspect ratio
                 visualStyle: options.visual_style,
                 quality: options.quality,
-                lastRegenerated: new Date().toISOString()
+                lastRegenerated: new Date().toISOString(),
+                // Keep the replaced image restorable — never delete originals
+                previousVersions: [
+                  ...(((selectedAIImage.metadata as any)?.previousVersions) || []),
+                  {
+                    src: selectedAIImage.details?.src,
+                    prompt: (selectedAIImage.metadata as any)?.prompt || originalPrompt,
+                    replacedAt: new Date().toISOString(),
+                  },
+                ].slice(-8)
               }
             }
           }
@@ -228,6 +237,45 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
     setPrompt(originalPrompt);
     setError(null);
     setSuccess(false);
+  };
+
+  // Swap a previous version back in: the current image goes into history,
+  // the restored one comes out — nothing is ever lost.
+  const handleRestoreVersion = (versionIndex: number) => {
+    if (!selectedAIImage) return;
+    const versions = [...(((selectedAIImage.metadata as any)?.previousVersions) || [])];
+    const version = versions[versionIndex];
+    if (!version?.src) return;
+
+    versions.splice(versionIndex, 1);
+    versions.push({
+      src: selectedAIImage.details?.src,
+      prompt: (selectedAIImage.metadata as any)?.prompt,
+      replacedAt: new Date().toISOString(),
+    });
+
+    dispatch(EDIT_OBJECT, {
+      payload: {
+        [selectedAIImage.id]: {
+          details: {
+            ...selectedAIImage.details,
+            src: version.src
+          },
+          metadata: {
+            ...selectedAIImage.metadata,
+            aiGenerated: true,
+            ...(version.prompt ? { prompt: version.prompt } : {}),
+            previousVersions: versions.slice(-8)
+          }
+        }
+      }
+    });
+
+    if (version.prompt) {
+      setPrompt(version.prompt);
+      setOriginalPrompt(version.prompt);
+    }
+    console.log('↩️ Restored previous image version:', version.src);
   };
 
   // Credit cost calculation
@@ -272,6 +320,30 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
               </span>
             </div>
           </div>
+
+          {/* Previous versions — regenerating never deletes the original */}
+          {((selectedAIImage.metadata as any)?.previousVersions?.length ?? 0) > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">
+                Previous versions — click to restore
+              </Label>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {((selectedAIImage.metadata as any).previousVersions as Array<{ src: string; prompt?: string }>).map((v, i) => (
+                  <button
+                    key={`${v.src}-${i}`}
+                    type="button"
+                    onClick={() => handleRestoreVersion(i)}
+                    disabled={isGenerating}
+                    title={v.prompt || 'Restore this version'}
+                    className="relative shrink-0 w-14 h-14 rounded border overflow-hidden hover:ring-2 hover:ring-primary transition-all disabled:opacity-50"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={v.src} alt={`Previous version ${i + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Prompt Editor */}
           <div className="space-y-2">
