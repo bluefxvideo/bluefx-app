@@ -14,6 +14,30 @@ interface DraggedData {
 	[key: string]: any;
 }
 
+/**
+ * Find our drag payload among the DataTransfer types. The Draggable encodes
+ * the payload into the format key itself (readable during dragenter, when
+ * getData() is blocked). Scan ALL types instead of trusting types[0] — the
+ * browser injects extra types (text/uri-list, text/html) when dragging <img>
+ * elements, and their order is not guaranteed. That fragile types[0] read is
+ * what made every few drops silently fail.
+ */
+const parseDraggedTypes = (dt: DataTransfer | null): DraggedData | null => {
+	if (!dt) return null;
+	for (const t of Array.from(dt.types)) {
+		if (!t.startsWith("{")) continue; // not our JSON-shaped key
+		try {
+			const parsed = JSON.parse(t);
+			if (parsed && Object.values(AcceptedDropTypes).includes(parsed.type)) {
+				return parsed as DraggedData;
+			}
+		} catch {
+			// Not our payload — keep scanning
+		}
+	}
+	return null;
+};
+
 interface DroppableAreaProps {
 	children: React.ReactNode;
 	className?: string;
@@ -44,19 +68,11 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 	const onDragEnter = useCallback(
 		(e: React.DragEvent<HTMLDivElement>) => {
 			e.preventDefault();
-			try {
-				const draggedDataString = e.dataTransfer?.types[0] as string;
-				if (!draggedDataString) return;
-				const draggedData: DraggedData = JSON.parse(draggedDataString);
-
-				if (!Object.values(AcceptedDropTypes).includes(draggedData.type))
-					return;
-				setIsDraggingOver(true);
-				setIsPointerInside(true);
-				onDragStateChange?.(true);
-			} catch (error) {
-				console.error("Error parsing dragged data:", error);
-			}
+			const draggedData = parseDraggedTypes(e.dataTransfer);
+			if (!draggedData) return;
+			setIsDraggingOver(true);
+			setIsPointerInside(true);
+			onDragStateChange?.(true);
 		},
 		[onDragStateChange],
 	);
@@ -80,10 +96,25 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 			onDragStateChange?.(false);
 
 			try {
-				const draggedDataString = e.dataTransfer?.types[0] as string;
-				const draggedData = JSON.parse(
-					e.dataTransfer!.getData(draggedDataString),
-				);
+				// Prefer the canonical application/json entry (case-preserved);
+				// fall back to the payload encoded in the format key (legacy —
+				// beware: browsers lowercase format keys).
+				let draggedData: DraggedData | null = null;
+				const raw = e.dataTransfer?.getData("application/json");
+				if (raw) {
+					try {
+						draggedData = JSON.parse(raw);
+					} catch {
+						// fall through to legacy path
+					}
+				}
+				if (!draggedData) {
+					draggedData = parseDraggedTypes(e.dataTransfer);
+				}
+				if (!draggedData || !Object.values(AcceptedDropTypes).includes(draggedData.type)) {
+					console.warn("Drop ignored — no recognizable drag payload", e.dataTransfer?.types);
+					return;
+				}
 				handleDrop(draggedData);
 			} catch (error) {
 				console.error("Error parsing dropped data:", error);

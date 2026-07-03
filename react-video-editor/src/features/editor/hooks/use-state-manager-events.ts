@@ -12,6 +12,10 @@ export const useStateManagerEvents = (stateManager: StateManager) => {
 	const isSubscribedRef = useRef(false);
 
 	// Handle track item updates
+	// NOTE: the state manager mutates trackItemsMap in place, so we must clone
+	// it before pushing into the zustand store — otherwise selectors/useMemo
+	// keyed on the map reference never see a change and the UI shows stale
+	// data (e.g. a regenerated AI image never appearing in the Photos grid).
 	const handleTrackItemUpdate = useCallback(() => {
 		const currentState = stateManager.getState();
 		const mergedTrackItemsDeatilsMap = currentState.trackItemsMap;
@@ -28,7 +32,7 @@ export const useStateManagerEvents = (stateManager: StateManager) => {
 		);
 		setState({
 			duration: currentState.duration,
-			trackItemsMap: currentState.trackItemsMap,
+			trackItemsMap: { ...currentState.trackItemsMap },
 		});
 	}, [stateManager, setState]);
 
@@ -45,7 +49,7 @@ export const useStateManagerEvents = (stateManager: StateManager) => {
 			filterTrakcItems as (ITrackItem & (IVideo | IAudio))[],
 		);
 		setState({
-			trackItemsMap: currentState.trackItemsMap,
+			trackItemsMap: { ...currentState.trackItemsMap },
 			trackItemIds: currentState.trackItemIds,
 			tracks: currentState.tracks,
 		});
@@ -54,7 +58,8 @@ export const useStateManagerEvents = (stateManager: StateManager) => {
 	const handleUpdateItemDetails = useCallback(() => {
 		const currentState = stateManager.getState();
 		setState({
-			trackItemsMap: currentState.trackItemsMap,
+			// Clone — see note on handleTrackItemUpdate
+			trackItemsMap: { ...currentState.trackItemsMap },
 		});
 	}, [stateManager, setState]);
 

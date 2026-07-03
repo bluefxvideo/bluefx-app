@@ -20,7 +20,15 @@ const Draggable: React.FC<DraggableProps> = ({
 	const handleDragStart = (e: React.DragEvent<HTMLElement>) => {
 		setIsDragging(true);
 		e.dataTransfer.setDragImage(new Image(), 0, 0); // Hides default preview
-		e.dataTransfer.setData(JSON.stringify(data), JSON.stringify(data));
+		const json = JSON.stringify(data);
+		// The format key doubles as the payload so drop targets can inspect it
+		// during dragenter/dragover, when getData() is blocked (HTML5 protected
+		// mode). NOTE: browsers lowercase format keys, so this copy must never
+		// be the only source of truth — uppercase URL chars would get corrupted.
+		e.dataTransfer.setData(json, json);
+		// Canonical payload for retrieval on drop (case preserved, immune to
+		// browser-injected types like text/uri-list shifting types[] order).
+		e.dataTransfer.setData("application/json", json);
 		e.dataTransfer.effectAllowed = "move";
 
 		setPosition({

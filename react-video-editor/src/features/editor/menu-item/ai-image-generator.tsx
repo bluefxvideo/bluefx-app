@@ -190,6 +190,7 @@ export function AIImageGeneratorPanel({ trackItem }: AIImageGeneratorPanelProps)
               },
               metadata: {
                 ...selectedAIImage.metadata,
+                aiGenerated: true, // Keep it in the AI Images grid filter
                 prompt: prompt, // Update with new prompt
                 aspectRatio: options.aspect_ratio, // Store aspect ratio
                 visualStyle: options.visual_style,
