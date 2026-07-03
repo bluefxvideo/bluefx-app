@@ -130,14 +130,20 @@ async function handleLTXVideoCompletion(
 
   const supabase = createAdminClient();
 
-  // Clone Studio scene animation (request_id lives inside the scenes jsonb)
-  const cloneResult = await finalizeCloneAnimation(request_id, resultPayload.video.url);
-  if (cloneResult.handled) {
-    return NextResponse.json({
-      success: true,
-      message: `Processed Clone Studio animation webhook for ${request_id}`,
-      processing_time_ms: Date.now() - startTime,
-    });
+  // Clone Studio scene animation (request_id lives inside the scenes jsonb).
+  // try/catch so this shared route keeps serving the other fal tools no
+  // matter what the clone path does.
+  try {
+    const cloneResult = await finalizeCloneAnimation(request_id, resultPayload.video.url);
+    if (cloneResult.handled) {
+      return NextResponse.json({
+        success: true,
+        message: `Processed Clone Studio animation webhook for ${request_id}`,
+        processing_time_ms: Date.now() - startTime,
+      });
+    }
+  } catch (cloneError) {
+    console.error('Clone Studio webhook check failed (continuing to other tools):', cloneError);
   }
 
   // Video Maker / AI Cinematographer first (prediction_id lives in style_preferences)
@@ -260,14 +266,19 @@ async function handleGenerationFailure(
 ): Promise<NextResponse> {
   const supabase = createAdminClient();
 
-  // Clone Studio scene animation failure (refunds inside)
-  const cloneFail = await failCloneAnimation(request_id, typeof error === 'string' ? error : undefined);
-  if (cloneFail.handled) {
-    return NextResponse.json({
-      success: true,
-      message: `Processed Clone Studio animation failure for ${request_id}`,
-      processing_time_ms: Date.now() - startTime,
-    });
+  // Clone Studio scene animation failure (refunds inside); guarded so the
+  // shared failure handler always reaches the other tools
+  try {
+    const cloneFail = await failCloneAnimation(request_id, typeof error === 'string' ? error : undefined);
+    if (cloneFail.handled) {
+      return NextResponse.json({
+        success: true,
+        message: `Processed Clone Studio animation failure for ${request_id}`,
+        processing_time_ms: Date.now() - startTime,
+      });
+    }
+  } catch (cloneError) {
+    console.error('Clone Studio failure check failed (continuing to other tools):', cloneError);
   }
 
   // Try to find music record first

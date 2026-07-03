@@ -50,3 +50,6 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS idx_ad_clone_projects_user ON ad_clone_projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_ad_clone_projects_created ON ad_clone_projects(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ad_clone_projects_status ON ad_clone_projects(status);
+-- The fal-ai webhook matches animation callbacks with scenes @> containment;
+-- jsonb_path_ops keeps that lookup indexed as projects accumulate
+CREATE INDEX IF NOT EXISTS idx_ad_clone_projects_scenes ON ad_clone_projects USING gin (scenes jsonb_path_ops);

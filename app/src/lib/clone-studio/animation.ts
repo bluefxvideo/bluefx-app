@@ -14,11 +14,17 @@ async function findProjectByRequestId(requestId: string): Promise<{
   scene: CloneScene;
 } | null> {
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ad_clone_projects')
     .select('*')
     .contains('scenes', JSON.stringify([{ anim: { request_id: requestId } }]))
     .limit(1);
+  if (error) {
+    // Fail open so the shared fal-ai webhook keeps serving the other tools —
+    // but say why (a missing ad_clone_projects migration lands here as 42P01)
+    console.error('Clone Studio: ad_clone_projects lookup failed (falling through):', error.message);
+    return null;
+  }
   if (!data || data.length === 0) return null;
 
   const project = data[0] as unknown as CloneProject;
