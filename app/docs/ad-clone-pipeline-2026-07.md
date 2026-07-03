@@ -90,3 +90,24 @@ Artifacts: images/tests/pringles-scene1-swapped-gpt2.jpg, videos/tests/test-10-s
   model supports it (Kling has it; Seedance doesn't).
 - Path B stack (pending final owner eyeball of the fixed-prompt reruns):
   GPT Image 2 swap → Seedance 1.5 or Kling v3 animate → scene total $0.30-0.60.
+
+## Addendum 3 (2026-07-03): THE KEYFRAME-STATE RULE (decisive finding)
+Owner review of fixed-prompt runs: Seedance 1.5 still showed "holding", Kling v3
+got only a finger stuck — because the START FRAME showed him *gripping* the
+bottle. i2v models won't create physically absurd states mid-clip; they correct
+toward plausibility.
+
+**Fix that worked: paint the state into the keyframe first.** GPT Image 2
+re-edit ("hand trapped INSIDE the oversized bottle up to the wrist, left hand
+mid-yank") produced a perfect stuck-state frame. From that frame, BOTH
+Seedance 2.0 i2v ($1.83, 130.5 units) and Kling O3 Pro i2v ($0.67, 4.8 units)
+sustained the gag through the full arc (yank → fail → raise → stare).
+
+**Pipeline rule: the image-edit stage must render the shot's START STATE
+(including impossible/gag states) into the keyframe; the video model only
+performs the action arc.** Analysis schema per shot: start_state (drawn into
+keyframe) + action arc + locked end state + invariants + negative_prompt.
+
+API quirk: Kling O3 i2v takes `image_url`; Kling v3 i2v takes `start_image_url`.
+Open: retest Seedance 1.5 ($0.16) from the fixed frame — if it holds, cheap
+tier remains default even for gag shots.
