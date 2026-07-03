@@ -19,7 +19,6 @@ import {
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_IMAGE_CREDITS,
-  type CloneImageEngine,
   type CloneProject,
   type CloneScene,
 } from '@/types/clone-studio';
@@ -32,7 +31,6 @@ interface SceneCardProps {
 
 export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const [instruction, setInstruction] = useState(scene.user_instruction || '');
-  const [engine, setEngine] = useState<CloneImageEngine>('nb2');
   const [generating, setGenerating] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -86,7 +84,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
     try {
       // Persist any unsaved instruction edit before generating with it
       await saveInstruction();
-      const result = await generateSceneImage(project.id, scene.n, { engine });
+      const result = await generateSceneImage(project.id, scene.n);
       if (!result.success || !result.project) {
         toast.error(result.error || 'Generation failed — credits refunded');
         return;
@@ -142,16 +140,25 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </p>
       )}
 
-      {/* Original vs yours */}
+      {/* Original vs yours — letterboxed (object-contain) so portrait ads
+          aren't cropped; click opens the full-size file for saving */}
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Original</p>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={scene.keyframe_url}
-            alt={`Scene ${scene.n} original`}
-            className="w-full aspect-video object-cover rounded-md border border-border/50"
-          />
+          <a
+            href={scene.keyframe_url}
+            target="_blank"
+            rel="noreferrer"
+            className="block h-56 rounded-md border border-border/50 bg-black/40 overflow-hidden"
+            title="Open full size"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={scene.keyframe_url}
+              alt={`Scene ${scene.n} original`}
+              className="w-full h-full object-contain"
+            />
+          </a>
         </div>
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">
@@ -163,16 +170,24 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               poster={scene.edited_image_url || undefined}
               controls
               preload="metadata"
-              className="w-full aspect-video object-cover rounded-md border border-primary/40 bg-black"
+              className="w-full h-56 object-contain rounded-md border border-primary/40 bg-black"
             />
           ) : scene.edited_image_url ? (
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={scene.edited_image_url}
-                alt={`Scene ${scene.n} edited`}
-                className="w-full aspect-video object-cover rounded-md border border-primary/40"
-              />
+            <div className="relative h-56">
+              <a
+                href={scene.edited_image_url}
+                target="_blank"
+                rel="noreferrer"
+                className="block h-full rounded-md border border-primary/40 bg-black/40 overflow-hidden"
+                title="Open full size (right-click to save)"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={scene.edited_image_url}
+                  alt={`Scene ${scene.n} edited`}
+                  className="w-full h-full object-contain"
+                />
+              </a>
               {animGenerating && (
                 <div className="absolute inset-0 rounded-md bg-black/60 flex flex-col items-center justify-center gap-1">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -181,7 +196,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               )}
             </div>
           ) : (
-            <div className="w-full aspect-video rounded-md border border-dashed border-border/60 flex items-center justify-center">
+            <div className="w-full h-56 rounded-md border border-dashed border-border/60 flex items-center justify-center">
               <ImagePlus className="w-5 h-5 text-zinc-600" />
             </div>
           )}
@@ -198,7 +213,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               key={url}
               src={url}
               alt="Previous version"
-              className="h-10 aspect-video object-cover rounded border border-border/50 cursor-pointer hover:border-primary shrink-0"
+              className="h-12 w-auto object-contain bg-black/40 rounded border border-border/50 cursor-pointer hover:border-primary shrink-0"
               onClick={() => handleRestore(url)}
               title="Restore this version"
             />
@@ -249,33 +264,15 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </Button>
       </div>
 
-      {/* Engine + generate */}
-      <div className="flex items-center gap-2">
-        <div className="flex rounded-md border border-border/60 overflow-hidden text-xs">
-          <button
-            className={`px-2.5 py-1.5 ${engine === 'nb2' ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white'}`}
-            onClick={() => setEngine('nb2')}
-            title="Best for swapping people"
-          >
-            People
-          </button>
-          <button
-            className={`px-2.5 py-1.5 ${engine === 'gpt2' ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white'}`}
-            onClick={() => setEngine('gpt2')}
-            title="Best for products & multi-object scenes"
-          >
-            Products
-          </button>
-        </div>
-        <Button className="flex-1" size="sm" onClick={handleGenerate} disabled={generating || animGenerating}>
-          {generating ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Sparkles className="w-4 h-4 mr-2" />
-          )}
-          {scene.edited_image_url ? 'Regenerate' : 'Generate'} · {CLONE_IMAGE_CREDITS} cr
-        </Button>
-      </div>
+      {/* Generate */}
+      <Button className="w-full" size="sm" onClick={handleGenerate} disabled={generating || animGenerating}>
+        {generating ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : (
+          <Sparkles className="w-4 h-4 mr-2" />
+        )}
+        {scene.edited_image_url ? 'Regenerate' : 'Generate'} · {CLONE_IMAGE_CREDITS} cr
+      </Button>
 
       {/* Animate (Kling O3 Pro, audio on) */}
       {scene.edited_image_url && (
@@ -312,44 +309,6 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </button>
         {showDetails && (
           <div className="mt-2 space-y-2">
-            <div>
-              <Label className="text-[10px] uppercase text-zinc-500">Subject (who/what is in frame)</Label>
-              <Textarea
-                value={details.subject}
-                onChange={(e) => setDetails({ ...details, subject: e.target.value })}
-                onBlur={saveDetails}
-                className="text-xs min-h-[40px]"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-[10px] uppercase text-zinc-500">Environment</Label>
-                <Textarea
-                  value={details.environment}
-                  onChange={(e) => setDetails({ ...details, environment: e.target.value })}
-                  onBlur={saveDetails}
-                  className="text-xs min-h-[40px]"
-                />
-              </div>
-              <div>
-                <Label className="text-[10px] uppercase text-zinc-500">Lighting</Label>
-                <Textarea
-                  value={details.lighting}
-                  onChange={(e) => setDetails({ ...details, lighting: e.target.value })}
-                  onBlur={saveDetails}
-                  className="text-xs min-h-[40px]"
-                />
-              </div>
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase text-zinc-500">Start state (painted into the image)</Label>
-              <Textarea
-                value={details.action_arc.start_state}
-                onChange={(e) => setDetails({ ...details, action_arc: { ...details.action_arc, start_state: e.target.value } })}
-                onBlur={saveDetails}
-                className="text-xs min-h-[56px]"
-              />
-            </div>
             <div>
               <Label className="text-[10px] uppercase text-zinc-500">Action (what happens)</Label>
               <Textarea
@@ -401,15 +360,6 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                   className="text-xs"
                 />
               </div>
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase text-zinc-500">On-screen text (added in the editor later)</Label>
-              <Input
-                value={details.on_screen_text}
-                onChange={(e) => setDetails({ ...details, on_screen_text: e.target.value })}
-                onBlur={saveDetails}
-                className="text-xs"
-              />
             </div>
           </div>
         )}
