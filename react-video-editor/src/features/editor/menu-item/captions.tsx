@@ -132,6 +132,43 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
     console.log('🗑️ Caption segment deleted:', { trackId: segment.trackId, segmentIndex: segment.segmentIndex });
   };
 
+  const handleAddSegment = () => {
+    const track = captionTracks[0];
+    if (!track) return;
+    const trackItem = trackItemsMap[track.id];
+    if (!trackItem) return;
+
+    const segments = [...((trackItem.details as any)?.captionSegments || [])];
+    // Append right after the current last segment (or at 0 on an empty track)
+    const lastEnd = segments.reduce((max: number, s: any) => Math.max(max, s.end ?? 0), 0);
+    const start = lastEnd;
+    const end = start + 2000;
+    const text = 'New caption';
+    segments.push({
+      start,
+      end,
+      text,
+      words: [
+        { word: 'New', start, end: start + 1000 },
+        { word: 'caption', start: start + 1000, end },
+      ],
+    });
+
+    dispatch(EDIT_OBJECT, {
+      payload: {
+        [track.id]: {
+          details: { captionSegments: segments }
+        }
+      }
+    });
+
+    // The list is sorted by start time, so the new segment (max start) lands
+    // at the end — open it for text editing right away.
+    setEditingSegmentIndex(allSegments.length);
+    setEditText(text);
+    console.log('➕ Caption segment added:', { trackId: track.id, start, end });
+  };
+
   const handleCancel = () => {
     setEditingSegmentIndex(null);
     setEditText("");
@@ -170,7 +207,7 @@ function CaptionSegmentManager({ captionTracks }: { captionTracks: any[] }) {
           <Edit className="h-4 w-4" />
           Segments ({allSegments.length})
         </h4>
-        <Button size="sm" variant="outline" className="text-xs">
+        <Button size="sm" variant="outline" className="text-xs" onClick={handleAddSegment}>
           Add Segment
         </Button>
       </div>

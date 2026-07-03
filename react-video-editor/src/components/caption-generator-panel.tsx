@@ -216,7 +216,7 @@ export function CaptionGeneratorPanel({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               {audioInfo.audioUrl ? (
-                <span className="text-green-600">Audio detected ({audioInfo.duration?.toFixed(1)}s)</span>
+                <span className="text-green-600">Audio detected ({audioInfo.duration ? (audioInfo.duration / 1000).toFixed(1) : '?'}s)</span>
               ) : (
                 <span className="text-yellow-600">No audio found in timeline</span>
               )}
