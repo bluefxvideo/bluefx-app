@@ -197,3 +197,54 @@ enforcement are the two polish gaps.
 3. Kling orchestrator + webhook/poll + per-scene audio (1d)
 4. Assembly + editor handoff + Lyria bed option (1d)
 5. Beta gate, credits wiring, polish (1d)
+
+## BUILDER'S CHEAT SHEET (verified facts a fresh session must not rediscover)
+
+### Ingest (server has NO yt-dlp)
+- Social URLs (TikTok/IG/FB): reuse `src/actions/tools/social-video-downloader.ts`
+  (`downloadSocialVideo`) + `detectPlatform` from `@/lib/social-video-utils` —
+  already used by video-analyzer (see analyzeSocialMediaVideo).
+- YouTube: no server downloader today — MVP: direct file upload + social URLs;
+  YouTube ingest is a later add (worker or service).
+- ffmpeg is NOT in the main app container. Either add to app Dockerfile or run
+  segmentation on the remotion container (has ffmpeg). Commands proven:
+  cuts: `ffmpeg -i in.mp4 -vf "select='gt(scene,0.2)',showinfo" -f null -`
+  keyframe: `-ss <mid> -frames:v 1 -q:v 2`; merge scenes <0.4s; pad clips to ≥2s.
+
+### FAL queue URL trap (cost us a prod incident once already)
+Submit URL ≠ status URL. Status/result use the BASE app id — a variant suffix
+404s/405s. Bases: `fal-ai/kling-video`, `fal-ai/bytedance`, `bytedance/seedance-2.0`,
+`fal-ai/ltx-2.3`, `fal-ai/mmaudio-v2`. Pattern:
+`https://queue.fal.run/<base>/requests/<id>[/status]`. Capture
+`x-fal-billable-units` response header on result fetch for cost logging.
+
+### Verified minimal payloads
+- Kling O3 Pro i2v (`fal-ai/kling-video/o3/pro/image-to-video`): { prompt,
+  image_url (NOT start_image_url — that's v3), duration: "3".."15" (string),
+  aspect_ratio "16:9"|"9:16"|"1:1", generate_audio: true, shot_type "customize",
+  negative_prompt }. ~0.8 units/s; audio-on ≈ $0.14/s.
+- NB2 edit (`fal-ai/nano-banana-2/edit`, sync via fal.run): { prompt,
+  image_urls: [keyframe, ...refs], num_images: 1 } → images[0].url.
+- GPT Image 2 edit (`openai/gpt-image-2/edit`, sync): { prompt, image_urls,
+  quality: "high", output_format: "jpeg" } (+ mask_url exists).
+- MMAudio v2 foley: { video_url, prompt, negative_prompt: "music...", duration }.
+- Lyria music bed: see `src/actions/models/gemini-lyria.ts` (existing client).
+
+### Editor handoff (assembly target)
+Scene clips → a script_to_video_history-style record with
+`remotion_composition` (see column shape in that table / the S2V orchestrator's
+Step 8) → open editor at `${NEXT_PUBLIC_VIDEO_EDITOR_URL}/?videoId=X&userId=Y&apiUrl=Z`
+(see `editor-redirect.tsx`); export writes back via /api/script-video/store-export.
+Alt for v1: server-side ffmpeg concat (proven: trim each clip to original cut
+duration, concat, single mp4) + audio mix (music 0.85 + foley 0.4, 2s fade).
+
+### Existing code to reuse (file paths)
+`src/actions/models/fal-nano-banana-2.ts` (edit client) ·
+`src/lib/fal-image-guard.ts` (>5MB compression — apply to keyframes/refs) ·
+`src/lib/credits/refund.ts` (idempotent refunds; reference by batch_id) ·
+`src/actions/database/cinematographer-database.ts` deductCredits pattern ·
+fal webhook: `src/app/api/webhooks/fal-ai/route.ts` (extend for kling request_ids) ·
+poll-fallback pattern: `pollCinematographerFalGeneration` in ai-cinematographer.ts ·
+version-history UX: ai-image-generator.tsx previousVersions ·
+Persona refs: pass the SAME 2-3 person reference images into every scene edit
+(identity drift was the one visible flaw in the hand-run remake).
