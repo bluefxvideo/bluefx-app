@@ -382,6 +382,8 @@ export async function updateSceneInput(
           ...(input.user_ref_urls !== undefined ? { user_ref_urls: input.user_ref_urls.slice(0, 6) } : {}),
           ...(input.analysis !== undefined ? { analysis: input.analysis } : {}),
           ...(input.anim_seconds !== undefined ? { anim_seconds: animSeconds } : {}),
+          // Custom scenes have no source timing — their assembly duration IS the chosen clip length
+          ...(input.anim_seconds != null && s.is_custom ? { start: 0, end: animSeconds ?? 3 } : {}),
           ...(input.motion_prompt !== undefined ? { motion_prompt: input.motion_prompt } : {}),
           ...(input.negative_prompt !== undefined ? { negative_prompt: input.negative_prompt } : {}),
         }
@@ -845,6 +847,85 @@ export async function assembleCloneProject(
   } finally {
     await cleanupWorkDir(workDir);
   }
+}
+
+function emptySceneAnalysis(): SceneAnalysis {
+  return {
+    action_arc: { start_state: '', action: '', end_state: '', invariants: [] },
+    subject: '',
+    environment: '',
+    lighting: '',
+    dialog: '',
+    camera: '',
+    on_screen_text: '',
+    purpose: 'story',
+    swap_targets: [],
+  };
+}
+
+/**
+ * Insert a user-supplied frame as a new scene. Free — the frame is theirs;
+ * generation/animation charge as usual. Scenes are renumbered sequentially
+ * so ordering (and assembly order) stays consistent.
+ */
+export async function addCustomScene(
+  projectId: string,
+  opts: { image_url: string; afterScene?: number; durationSeconds?: number }
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const duration = Math.min(15, Math.max(1, Math.round(opts.durationSeconds ?? 3)));
+  const newScene: CloneScene = {
+    n: 0, // renumbered below
+    start: 0,
+    end: duration,
+    keyframe_url: opts.image_url,
+    analysis: emptySceneAnalysis(),
+    user_instruction: '',
+    user_ref_urls: [],
+    // The uploaded frame IS the user's version — animatable immediately,
+    // and still editable via Generate (which edits from keyframe_url)
+    edited_image_url: opts.image_url,
+    image_versions: [],
+    anim: { request_id: null, video_url: null, status: 'idle' },
+    anim_seconds: duration,
+    motion_prompt: '',
+    is_custom: true,
+    credits_spent: 0,
+  };
+
+  const scenes = [...loaded.project.scenes];
+  const insertIndex =
+    opts.afterScene != null
+      ? Math.max(0, Math.min(scenes.length, scenes.findIndex((s) => s.n === opts.afterScene) + 1))
+      : scenes.length;
+  scenes.splice(insertIndex, 0, newScene);
+  const renumbered = scenes.map((s, i) => ({ ...s, n: i + 1 }));
+
+  await saveScenes(projectId, renumbered);
+  return { success: true, project: { ...loaded.project, scenes: renumbered } };
+}
+
+/** Remove a user-added scene (analyzed scenes from the source ad are kept). */
+export async function removeCustomScene(
+  projectId: string,
+  sceneN: number
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const scene = loaded.project.scenes.find((s) => s.n === sceneN);
+  if (!scene) return { success: false, error: `Scene ${sceneN} not found` };
+  if (!scene.is_custom) {
+    return { success: false, error: 'Only custom scenes can be removed' };
+  }
+
+  const renumbered = loaded.project.scenes
+    .filter((s) => s.n !== sceneN)
+    .map((s, i) => ({ ...s, n: i + 1 }));
+  await saveScenes(projectId, renumbered);
+  return { success: true, project: { ...loaded.project, scenes: renumbered } };
 }
 
 /** Swap a previous version back in as the scene's current image. */

@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, Film, Info, Loader2, Music } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, Film, ImagePlus, Info, Loader2, Music } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { pollSceneAnimation, assembleCloneProject } from '@/actions/tools/clone-studio';
+import { pollSceneAnimation, assembleCloneProject, addCustomScene, uploadCloneReference } from '@/actions/tools/clone-studio';
 import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
 
@@ -21,6 +21,9 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const [showSummary, setShowSummary] = useState(false);
   const [assembling, setAssembling] = useState(false);
   const [withMusic, setWithMusic] = useState(true);
+  const [addingScene, setAddingScene] = useState(false);
+  const [addAfter, setAddAfter] = useState<string>('end');
+  const addSceneInputRef = useRef<HTMLInputElement>(null);
   const summary = project.analysis_summary;
   const pollBusy = useRef(false);
 
@@ -209,12 +212,76 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {project.scenes.map((scene) => (
           <SceneCard
-            key={scene.n}
+            key={`${scene.n}-${scene.keyframe_url}`}
             project={project}
             scene={scene}
             onProjectUpdate={onProjectUpdate}
           />
         ))}
+
+        {/* Add your own scene — any frame becomes a scene like the others */}
+        <Card className="p-4 border-dashed flex flex-col items-center justify-center gap-3 min-h-[220px]">
+          <ImagePlus className="w-6 h-6 text-zinc-600" />
+          <p className="text-sm text-zinc-400 text-center">
+            Add your own scene from an image — prompt and animate it like any other.
+          </p>
+          <div className="flex items-center gap-2">
+            <select
+              value={addAfter}
+              onChange={(e) => setAddAfter(e.target.value)}
+              disabled={addingScene}
+              className="h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-zinc-300"
+            >
+              <option value="end">At the end</option>
+              {project.scenes.map((s) => (
+                <option key={s.n} value={String(s.n)}>After scene {s.n}</option>
+              ))}
+            </select>
+            <input
+              ref={addSceneInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setAddingScene(true);
+                try {
+                  const upload = await uploadCloneReference(project.id, file);
+                  if (!upload.success || !upload.url) {
+                    toast.error(upload.error || 'Image upload failed');
+                    return;
+                  }
+                  const result = await addCustomScene(project.id, {
+                    image_url: upload.url,
+                    afterScene: addAfter === 'end' ? undefined : parseInt(addAfter, 10),
+                  });
+                  if (!result.success || !result.project) {
+                    toast.error(result.error || 'Could not add the scene');
+                    return;
+                  }
+                  onProjectUpdate(result.project);
+                  toast.success('Scene added');
+                } catch (error) {
+                  console.error('addCustomScene threw:', error);
+                  toast.error('Could not add the scene — try again');
+                } finally {
+                  setAddingScene(false);
+                  if (addSceneInputRef.current) addSceneInputRef.current.value = '';
+                }
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={addingScene}
+              onClick={() => addSceneInputRef.current?.click()}
+            >
+              {addingScene ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ImagePlus className="w-4 h-4 mr-1.5" />}
+              Upload frame
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );

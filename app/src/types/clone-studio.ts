@@ -101,6 +101,11 @@ export interface CloneScene {
   motion_prompt?: string | null;
   /** Editable negative prompt; absent/null = CLONE_ANIM_NEGATIVE_PROMPT default. */
   negative_prompt?: string | null;
+  /**
+   * User-added scene (uploaded frame, no source timing). Its start/end are
+   * synthetic (0..duration) and assembly uses the chosen clip length.
+   */
+  is_custom?: boolean;
   credits_spent: number;
 }
 

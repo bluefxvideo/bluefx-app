@@ -14,6 +14,7 @@ import {
   generateSceneImage,
   restoreSceneImageVersion,
   animateScene,
+  removeCustomScene,
 } from '@/actions/tools/clone-studio';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
@@ -161,16 +162,38 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge>Scene {scene.n}</Badge>
-          {scene.analysis?.purpose && (
-            <Badge variant="secondary" className="text-[10px] uppercase">{scene.analysis.purpose}</Badge>
+          {scene.is_custom ? (
+            <Badge variant="secondary" className="text-[10px] uppercase">custom</Badge>
+          ) : (
+            scene.analysis?.purpose && (
+              <Badge variant="secondary" className="text-[10px] uppercase">{scene.analysis.purpose}</Badge>
+            )
           )}
           <span className="text-xs text-zinc-500">
-            {scene.start.toFixed(1)}–{scene.end.toFixed(1)}s · {duration}s
+            {scene.is_custom ? `${duration}s` : `${scene.start.toFixed(1)}–${scene.end.toFixed(1)}s · ${duration}s`}
           </span>
         </div>
-        {scene.credits_spent > 0 && (
-          <span className="text-xs text-zinc-500">{scene.credits_spent} cr</span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {scene.credits_spent > 0 && (
+            <span className="text-xs text-zinc-500">{scene.credits_spent} cr</span>
+          )}
+          {scene.is_custom && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-zinc-500 hover:text-red-400"
+              title="Remove this custom scene"
+              onClick={async () => {
+                if (!window.confirm(`Remove custom scene ${scene.n}?`)) return;
+                const result = await removeCustomScene(project.id, scene.n);
+                if (result.success && result.project) onProjectUpdate(result.project);
+                else toast.error(result.error || 'Could not remove the scene');
+              }}
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {scene.analysis?.dialog && (
