@@ -221,8 +221,8 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         </Card>
       )}
 
-      {/* Scene cards */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      {/* Scene cards — one per row so frames stay big and comparable */}
+      <div className="grid grid-cols-1 gap-4">
         {project.scenes.map((scene) => (
           <SceneCard
             key={`${scene.n}-${scene.keyframe_url}`}

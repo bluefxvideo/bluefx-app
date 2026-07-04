@@ -219,7 +219,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Original</p>
-          <div className="relative h-56">
+          <div className="relative h-56 lg:h-80">
             <a
               href={scene.keyframe_url}
               target="_blank"
@@ -254,7 +254,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                 poster={scene.edited_image_url || undefined}
                 controls
                 preload="metadata"
-                className="w-full h-56 object-contain rounded-md border border-primary/40 bg-black"
+                className="w-full h-56 lg:h-80 object-contain rounded-md border border-primary/40 bg-black"
               />
               <div className="flex items-center gap-1.5">
                 {/* The generated image stays reachable after animation — it's
@@ -283,7 +283,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               </div>
             </div>
           ) : scene.edited_image_url ? (
-            <div className="relative h-56">
+            <div className="relative h-56 lg:h-80">
               <a
                 href={scene.edited_image_url}
                 target="_blank"
@@ -315,7 +315,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               )}
             </div>
           ) : (
-            <div className="w-full h-56 rounded-md border border-dashed border-border/60 flex items-center justify-center">
+            <div className="w-full h-56 lg:h-80 rounded-md border border-dashed border-border/60 flex items-center justify-center">
               <ImagePlus className="w-5 h-5 text-zinc-600" />
             </div>
           )}
