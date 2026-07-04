@@ -38,6 +38,9 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const [motionPrompt, setMotionPrompt] = useState(
     scene.motion_prompt ?? composeMotionPrompt(scene.analysis)
   );
+  const [negativePrompt, setNegativePrompt] = useState(
+    scene.negative_prompt ?? CLONE_ANIM_NEGATIVE_PROMPT
+  );
   const refInputRef = useRef<HTMLInputElement>(null);
   const [animating, setAnimating] = useState(false);
 
@@ -70,6 +73,13 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
     const current = scene.motion_prompt ?? composeMotionPrompt(scene.analysis);
     if (motionPrompt === current) return;
     const result = await updateSceneInput(project.id, scene.n, { motion_prompt: motionPrompt });
+    if (result.success && result.project) onProjectUpdate(result.project);
+  };
+
+  const saveNegativePrompt = async () => {
+    const current = scene.negative_prompt ?? CLONE_ANIM_NEGATIVE_PROMPT;
+    if (negativePrompt === current) return;
+    const result = await updateSceneInput(project.id, scene.n, { negative_prompt: negativePrompt });
     if (result.success && result.project) onProjectUpdate(result.project);
   };
 
@@ -129,6 +139,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       const result = await animateScene(project.id, scene.n, {
         seconds: animSeconds,
         prompt: motionPrompt,
+        negative_prompt: negativePrompt,
       });
       if (!result.success || !result.project) {
         toast.error(result.error || 'Animation failed to start');
@@ -402,16 +413,28 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               className="text-xs min-h-[140px]"
               disabled={animating || animGenerating}
             />
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] text-zinc-600">
-                Fixed quality guard (negative prompt): {CLONE_ANIM_NEGATIVE_PROMPT}
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                Negative prompt (what the video must avoid)
               </p>
+              <Textarea
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                onBlur={saveNegativePrompt}
+                className="text-xs min-h-[48px]"
+                disabled={animating || animGenerating}
+              />
+            </div>
+            <div className="flex justify-end">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 text-[10px] text-zinc-500 shrink-0"
-                onClick={() => setMotionPrompt(composeMotionPrompt(scene.analysis))}
-                title="Restore the AI-suggested prompt"
+                className="h-6 text-[10px] text-zinc-500"
+                onClick={() => {
+                  setMotionPrompt(composeMotionPrompt(scene.analysis));
+                  setNegativePrompt(CLONE_ANIM_NEGATIVE_PROMPT);
+                }}
+                title="Restore the AI-suggested prompt and default negative prompt"
               >
                 Reset to suggestion
               </Button>

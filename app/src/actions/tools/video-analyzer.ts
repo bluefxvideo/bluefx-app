@@ -794,16 +794,18 @@ THE CLIP IS THE ENTIRE SCENE. Describe ONLY what is visible and audible inside t
 
 Refer to people ONLY by the provided character IDs when they match a profile.
 
+IMPORTANT — the action_arc fields feed an image-to-video model that ALREADY receives the scene's starting frame. The frame defines appearance, wardrobe, setting, and lighting; the user may also have SWAPPED the person or product in it. So in "action" and "end_state": describe ONLY movement, poses, and positions — never restate wardrobe, appearance, environment, or lighting, and keep each under 2 short sentences. Put full visual descriptions in "subject"/"environment"/"lighting" instead (those are reference fields, not part of the motion prompt).
+
 Output valid JSON only, matching:
 {
   "subject": "primary focus: who/what, expression, body language, position in frame",
   "environment": "location specifics, background elements, visible props, color palette",
   "lighting": "light source and direction, quality, contrast, mood",
-  "camera": "shot type, angle, movement, lens feel, composition notes",
+  "camera": "one short sentence: shot type, angle, movement",
   "action_arc": {
     "start_state": "COMPLETE visual description of the clip's FIRST moment — a paintable still frame; any physically impossible/comedic state described as ALREADY TRUE",
-    "action": "what happens across THIS CLIP ONLY, as beats; movement only, no camera talk",
-    "end_state": "the LOCKED final state at the clip's last frame; explicit about what has NOT changed",
+    "action": "movement beats across THIS CLIP ONLY — max 2 short sentences, no appearance/setting",
+    "end_state": "LOCKED final pose/positions at the last frame, explicit about what has NOT changed — max 2 short sentences, no appearance/setting",
     "invariants": ["hard rules that hold for the whole clip, phrased as absolutes; [] if none"]
   },
   "dialog": "every word spoken/narrated INSIDE this clip, verbatim; empty string if silent",

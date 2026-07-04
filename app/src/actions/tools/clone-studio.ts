@@ -362,6 +362,8 @@ export async function updateSceneInput(
     anim_seconds?: number | null;
     /** Verbatim video prompt; null resets to the composed default. */
     motion_prompt?: string | null;
+    /** Verbatim negative prompt; null resets to the default quality guard. */
+    negative_prompt?: string | null;
   }
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
@@ -381,6 +383,7 @@ export async function updateSceneInput(
           ...(input.analysis !== undefined ? { analysis: input.analysis } : {}),
           ...(input.anim_seconds !== undefined ? { anim_seconds: animSeconds } : {}),
           ...(input.motion_prompt !== undefined ? { motion_prompt: input.motion_prompt } : {}),
+          ...(input.negative_prompt !== undefined ? { negative_prompt: input.negative_prompt } : {}),
         }
       : s
   );
@@ -594,7 +597,7 @@ function sceneAnimationSeconds(scene: CloneScene): number {
 export async function animateScene(
   projectId: string,
   sceneN: number,
-  options: { seconds?: number; prompt?: string } = {}
+  options: { seconds?: number; prompt?: string; negative_prompt?: string } = {}
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
@@ -633,13 +636,15 @@ export async function animateScene(
   // blur-save) — what the user sees in the box is exactly what the model gets
   const motionPrompt =
     options.prompt?.trim() || scene.motion_prompt?.trim() || composeMotionPrompt(scene.analysis);
+  const negativePrompt =
+    options.negative_prompt?.trim() || scene.negative_prompt?.trim() || CLONE_ANIM_NEGATIVE_PROMPT;
 
   const submit = await submitKlingO3ProImageToVideo({
     prompt: motionPrompt,
     image_url: imageUrl || scene.edited_image_url,
     duration: durationSeconds,
     aspect_ratio: (project.aspect_ratio || '16:9') as '16:9' | '9:16' | '1:1',
-    negative_prompt: CLONE_ANIM_NEGATIVE_PROMPT,
+    negative_prompt: negativePrompt,
     generate_audio: true, // owner requirement: per-scene diegetic audio
     webhook_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`,
   });
@@ -667,6 +672,7 @@ export async function animateScene(
           },
           anim_seconds: durationSeconds,
           motion_prompt: motionPrompt,
+          negative_prompt: negativePrompt,
           credits_spent: (s.credits_spent || 0) + credits,
         }
       : s

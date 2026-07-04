@@ -99,6 +99,8 @@ export interface CloneScene {
    * default the card displays.
    */
   motion_prompt?: string | null;
+  /** Editable negative prompt; absent/null = CLONE_ANIM_NEGATIVE_PROMPT default. */
+  negative_prompt?: string | null;
   credits_spent: number;
 }
 
