@@ -93,10 +93,13 @@ export async function probeVideo(filePath: string): Promise<VideoProbe> {
 }
 
 /**
- * Detect hard cuts with ffmpeg's scene filter (threshold 0.2, proven on real
- * ads) and return scene ranges. Scenes shorter than CLONE_MIN_SCENE_SECONDS
- * are merged into their predecessor; if the count still exceeds
- * CLONE_MAX_SCENES, the shortest scenes keep merging until it fits.
+ * Detect hard cuts with ffmpeg's scene filter and return scene ranges.
+ * Threshold 0.12: measured on a real fast-cut ad, true cuts score 0.15-0.67
+ * (dark-scene cuts — bowling alley montage — sat at 0.15-0.19 and were LOST
+ * at the old 0.2 threshold) while within-shot noise stays ≤0.08, so 0.12
+ * splits the bimodal distribution with margin on both sides. Scenes shorter
+ * than CLONE_MIN_SCENE_SECONDS merge into their predecessor; if the count
+ * still exceeds CLONE_MAX_SCENES, the shortest scenes keep merging.
  */
 export async function detectSceneRanges(
   filePath: string,
@@ -108,7 +111,7 @@ export async function detectSceneRanges(
   try {
     const result = await execFileAsync('ffmpeg', [
       '-i', filePath,
-      '-vf', "select='gt(scene,0.2)',showinfo",
+      '-vf', "select='gt(scene,0.12)',showinfo",
       '-an',
       '-f', 'null', '-',
     ], { maxBuffer: FFMPEG_MAX_BUFFER });

@@ -809,7 +809,7 @@ Output valid JSON only, matching:
     "end_state": "one short sentence: the pose/positions at the last frame",
     "invariants": ["only if something must NOT change during the clip; usually []"]
   },
-  "dialog": "every word spoken INSIDE this clip, verbatim; empty string if silent",
+  "dialog": "spoken words INSIDE this clip only, verbatim. NOT sound effects, NOT music, NOT anything from these instructions. If you are not certain words are spoken, use an empty string.",
   "on_screen_text": "overlay text in this clip, exact wording; empty string if none",
   "purpose": "one of: hook, problem, solution, proof, CTA, transition, story",
   "swap_targets": ["people/products clearly visible in this clip, generic names"]
