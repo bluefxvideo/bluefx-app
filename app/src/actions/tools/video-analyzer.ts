@@ -771,6 +771,47 @@ export async function toggleAnalysisFavorite(id: string): Promise<{
 //   hand coming OUT; every scene needs start → attempts → LOCKED end state
 //   plus invariants repeated verbatim in the motion prompt.
 
+const CLONE_GLOBAL_ANALYSIS_PROMPT = `You are a professional video breakdown specialist for shot-by-shot ad recreation.
+
+You will receive a full video ad. Extract the GLOBAL context that later per-scene analysis depends on.
+
+## CHARACTER PROFILES (most important)
+Identify every person who appears in the ad. Give each a stable ID ("MAIN CHARACTER", "CHARACTER A", ...) and a detailed profile: age, gender, ethnicity, hair (color/length/style), facial features, build, wardrobe per outfit, distinguishing features.
+
+## FIELDS
+- "summary": one paragraph — what the ad is, its structure, pacing style, and mood arc.
+- "characters": the profiles above.
+- "products": every distinct product/brand shown.
+- "visual_style": grade, lighting character, lens/format feel, era — enough to keep regenerated frames consistent.
+- "music_brief": one sentence for re-scoring (genre, tempo, instrumentation, emotional quality, how it changes).
+
+Output valid JSON only:
+{ "summary": "...", "characters": [{ "id": "MAIN CHARACTER", "description": "..." }], "products": ["..."], "visual_style": "...", "music_brief": "..." }`;
+
+const CLONE_SCENE_CLIP_PROMPT = `You are a professional video breakdown specialist. You will receive ONE short clip — a single scene cut from a longer ad — plus the ad's global context (summary + character profiles).
+
+THE CLIP IS THE ENTIRE SCENE. Describe ONLY what is visible and audible inside this clip. Do not anticipate, continue, or reference anything from other scenes. If the clip is under ~2 seconds it is a quick cut — describe exactly its brief content, however minimal.
+
+Refer to people ONLY by the provided character IDs when they match a profile.
+
+Output valid JSON only, matching:
+{
+  "subject": "primary focus: who/what, expression, body language, position in frame",
+  "environment": "location specifics, background elements, visible props, color palette",
+  "lighting": "light source and direction, quality, contrast, mood",
+  "camera": "shot type, angle, movement, lens feel, composition notes",
+  "action_arc": {
+    "start_state": "COMPLETE visual description of the clip's FIRST moment — a paintable still frame; any physically impossible/comedic state described as ALREADY TRUE",
+    "action": "what happens across THIS CLIP ONLY, as beats; movement only, no camera talk",
+    "end_state": "the LOCKED final state at the clip's last frame; explicit about what has NOT changed",
+    "invariants": ["hard rules that hold for the whole clip, phrased as absolutes; [] if none"]
+  },
+  "dialog": "every word spoken/narrated INSIDE this clip, verbatim; empty string if silent",
+  "on_screen_text": "overlay text/graphics in this clip, exact wording; empty string if none",
+  "purpose": "one of: hook, problem, solution, proof, CTA, transition, story",
+  "swap_targets": ["character IDs and product names visible in this clip"]
+}`;
+
 const CLONE_SCENE_ANALYSIS_PROMPT = `You are a professional video breakdown specialist for shot-by-shot ad recreation.
 
 You will receive the full video plus a list of scenes detected with exact start/end timestamps. Analyze EACH listed scene (use the timestamps to know which part of the video each scene covers).
@@ -841,11 +882,18 @@ export interface AnalyzeCloneScenesInput {
   youtubeUrl?: string;
   sceneRanges: CloneSceneRange[];
   /**
-   * Small labeled midpoint keyframes — ground truth per scene. Without them
-   * Gemini mis-attributes content on sub-second insert shots (its timestamp
-   * resolution is ~1s, so a 0.6s cut gets neighboring action smeared into it).
+   * Small labeled midpoint keyframes — ground truth per scene for the
+   * single-pass fallback path.
    */
   sceneKeyframes?: Array<{ n: number; jpegBase64: string }>;
+  /**
+   * Per-scene clips (physically cut at the detected boundaries). When
+   * present, each scene is analyzed from ITS OWN clip in its own request —
+   * exact attribution by construction. Gemini's timeline attribution drifts
+   * ±1-2s, which is wider than a fast-cut ad's shots, so the timestamped
+   * single-pass path mis-assigns action/dialog on short scenes.
+   */
+  sceneClips?: Array<{ n: number; clipBase64: string }>;
 }
 
 export interface AnalyzeCloneScenesResult {
@@ -898,6 +946,81 @@ function coerceCloneSceneAnalysis(raw: Record<string, unknown>) {
   };
 }
 
+type GeminiVideoPart =
+  | { fileData: { mimeType: string; fileUri: string } }
+  | { inlineData: { mimeType: string; data: string } };
+
+function parseJsonResponse(text: string): Record<string, unknown> | null {
+  try {
+    let clean = text.trim();
+    if (clean.startsWith('```json')) clean = clean.slice(7);
+    if (clean.startsWith('```')) clean = clean.slice(3);
+    if (clean.endsWith('```')) clean = clean.slice(0, -3);
+    return JSON.parse(clean.trim());
+  } catch {
+    return null;
+  }
+}
+
+async function runCloneGlobalAnalysis(videoPart: GeminiVideoPart) {
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    generationConfig: { responseMimeType: 'application/json' },
+  });
+  const result = await model.generateContent([videoPart, { text: CLONE_GLOBAL_ANALYSIS_PROMPT }]);
+  const parsed = parseJsonResponse(result.response.text() || '');
+  if (!parsed) return null;
+  return {
+    summary: String(parsed.summary || ''),
+    characters: Array.isArray(parsed.characters)
+      ? (parsed.characters as Array<Record<string, unknown>>).map((c) => ({
+          id: String(c.id || ''),
+          description: String(c.description || ''),
+        }))
+      : [],
+    products: Array.isArray(parsed.products) ? (parsed.products as unknown[]).map(String) : [],
+    visual_style: String(parsed.visual_style || ''),
+    music_brief: String(parsed.music_brief || ''),
+  };
+}
+
+async function runCloneSceneClipAnalysis(opts: {
+  clipBase64: string;
+  n: number;
+  durationSeconds: number;
+  contextText: string;
+}) {
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    generationConfig: { responseMimeType: 'application/json' },
+  });
+  const result = await model.generateContent([
+    { inlineData: { mimeType: 'video/mp4', data: opts.clipBase64 } },
+    {
+      text: `${CLONE_SCENE_CLIP_PROMPT}\n\n## GLOBAL CONTEXT\n${opts.contextText}\n\n## THIS CLIP\nScene ${opts.n}, duration ${opts.durationSeconds.toFixed(1)}s. Remember: this clip is the whole scene.`,
+    },
+  ]);
+  const parsed = parseJsonResponse(result.response.text() || '');
+  return parsed ? coerceCloneSceneAnalysis(parsed) : null;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 /**
  * Structured per-scene analysis for Clone Studio, aligned to ffmpeg-detected
  * cut timestamps. Lives here so all video analysis shares one Gemini client
@@ -911,6 +1034,56 @@ export async function analyzeCloneScenes(
       return { success: false, error: 'Provide videoBase64 or youtubeUrl' };
     }
 
+    const videoPart: GeminiVideoPart = input.youtubeUrl
+      ? { fileData: { mimeType: 'video/mp4', fileUri: input.youtubeUrl } }
+      : { inlineData: { mimeType: 'video/mp4', data: input.videoBase64! } };
+
+    // Preferred path: per-scene clips — exact attribution by construction.
+    if (input.sceneClips && input.sceneClips.length > 0) {
+      const summary = await runCloneGlobalAnalysis(videoPart);
+      if (!summary) {
+        return { success: false, error: 'Global analysis returned invalid JSON' };
+      }
+      const contextText =
+        `Ad summary: ${summary.summary}\n` +
+        `Characters:\n${summary.characters.map((c) => `- ${c.id}: ${c.description}`).join('\n') || '(none)'}\n` +
+        `Products: ${summary.products.join(', ') || '(none)'}`;
+
+      const clipByScene = new Map(input.sceneClips.map((c) => [c.n, c.clipBase64]));
+      const analyses = await mapWithConcurrency(input.sceneRanges, 5, async (range) => {
+        const clipBase64 = clipByScene.get(range.n);
+        if (!clipBase64) return null;
+        const opts = {
+          clipBase64,
+          n: range.n,
+          durationSeconds: range.end - range.start,
+          contextText,
+        };
+        try {
+          return (await runCloneSceneClipAnalysis(opts)) ?? (await runCloneSceneClipAnalysis(opts));
+        } catch (error) {
+          console.warn(`Clone scene analysis: clip ${range.n} failed, retrying once:`, error);
+          try {
+            return await runCloneSceneClipAnalysis(opts);
+          } catch {
+            return null;
+          }
+        }
+      });
+
+      const scenes: AnalyzeCloneScenesResult['scenes'] = {};
+      input.sceneRanges.forEach((range, i) => {
+        if (analyses[i]) {
+          scenes[range.n] = analyses[i]!;
+        } else {
+          console.warn(`Clone scene analysis: no result for scene ${range.n}, inserting empty analysis`);
+          scenes[range.n] = coerceCloneSceneAnalysis({});
+        }
+      });
+      return { success: true, summary, scenes };
+    }
+
+    // Fallback: timestamped single pass over the full video (+ keyframe anchors)
     const sceneList = input.sceneRanges
       .map((s) => `Scene ${s.n}: ${formatCloneTimestamp(s.start)} – ${formatCloneTimestamp(s.end)} (${(s.end - s.start).toFixed(1)}s)`)
       .join('\n');
@@ -919,10 +1092,6 @@ export async function analyzeCloneScenes(
       model: 'gemini-2.5-flash',
       generationConfig: { responseMimeType: 'application/json' },
     });
-
-    const videoPart = input.youtubeUrl
-      ? { fileData: { mimeType: 'video/mp4', fileUri: input.youtubeUrl } }
-      : { inlineData: { mimeType: 'video/mp4', data: input.videoBase64! } };
 
     const keyframeParts = (input.sceneKeyframes || []).flatMap((k) => [
       { text: `Keyframe of Scene ${k.n} (midpoint frame):` },

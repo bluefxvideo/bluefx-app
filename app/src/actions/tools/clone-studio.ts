@@ -30,6 +30,7 @@ import {
   fitForInlineAnalysis,
   downloadToFile,
   buildAnalysisKeyframes,
+  extractSceneClips,
 } from '@/lib/clone-studio/segmentation';
 import { analyzeCloneScenes, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
@@ -200,7 +201,12 @@ export async function processCloneProject(
     // finetuned analyzer. YouTube goes native (Gemini ingests the URL, the
     // Video Analyzer's proven path); anything else, and any native failure,
     // uses the inline video bytes.
-    const sceneKeyframes = await buildAnalysisKeyframes(segmented);
+    // Per-scene clips give exact attribution (each scene analyzed from its
+    // own cut); keyframes are only needed by the single-pass fallback
+    const sceneClips = await extractSceneClips(ingest.filePath, segmented);
+    const sceneKeyframes = sceneClips.length === segmented.length
+      ? []
+      : await buildAnalysisKeyframes(segmented);
 
     let analysis: AnalyzeCloneScenesResult | null = null;
     if (ingest.platform === 'youtube' && request.source_url) {
@@ -209,6 +215,7 @@ export async function processCloneProject(
         analysis = await analyzeCloneScenes({
           youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
           sceneRanges: segmented,
+          sceneClips,
           sceneKeyframes,
         });
         if (!analysis.success) {
@@ -219,7 +226,7 @@ export async function processCloneProject(
     if (!analysis?.success) {
       const fittedPath = await fitForInlineAnalysis(ingest.filePath);
       const videoBase64 = (await fs.readFile(fittedPath)).toString('base64');
-      analysis = await analyzeCloneScenes({ videoBase64, sceneRanges: segmented, sceneKeyframes });
+      analysis = await analyzeCloneScenes({ videoBase64, sceneRanges: segmented, sceneClips, sceneKeyframes });
     }
     if (!analysis.success || !analysis.scenes || !analysis.summary) {
       throw new Error(analysis.error || 'Scene analysis failed');

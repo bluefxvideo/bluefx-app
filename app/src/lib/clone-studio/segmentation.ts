@@ -230,6 +230,39 @@ export async function segmentVideo(
 }
 
 /**
+ * Cut every scene into its own small clip for analysis. Gemini's timestamp
+ * attribution drifts ±1-2s — bigger than a fast-cut ad's shots — so per-scene
+ * analysis runs on physically-cut clips: the model can't describe the next
+ * shot when it never sees it. -ss before -i with re-encode is frame-accurate.
+ */
+export async function extractSceneClips(
+  filePath: string,
+  ranges: Array<{ n: number; start: number; end: number }>
+): Promise<Array<{ n: number; clipBase64: string }>> {
+  const workDir = path.dirname(filePath);
+  const clips: Array<{ n: number; clipBase64: string }> = [];
+  for (const range of ranges) {
+    const clipPath = path.join(workDir, `clip-${String(range.n).padStart(2, '0')}.mp4`);
+    try {
+      await execFileAsync('ffmpeg', [
+        '-ss', range.start.toFixed(3),
+        '-i', filePath,
+        '-t', Math.max(0.2, range.end - range.start).toFixed(3),
+        '-vf', 'scale=-2:480',
+        '-c:v', 'libx264', '-crf', '28', '-preset', 'veryfast',
+        '-c:a', 'aac', '-b:a', '64k',
+        '-y', clipPath,
+      ], { maxBuffer: FFMPEG_MAX_BUFFER });
+      const buffer = await fs.readFile(clipPath);
+      clips.push({ n: range.n, clipBase64: buffer.toString('base64') });
+    } catch (error) {
+      console.warn(`Clone Studio: could not cut clip for scene ${range.n}:`, error);
+    }
+  }
+  return clips;
+}
+
+/**
  * Produce a small copy of the video that fits Gemini's inline-data budget
  * (~20MB request). Returns the original path if it is already small enough.
  */
