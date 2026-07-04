@@ -518,13 +518,18 @@ export async function generateSceneImage(
     const freshProject = fresh.ok ? fresh.project : project;
     const scenes = freshProject.scenes.map((s) => {
       if (s.n !== sceneN) return s;
-      const versions = s.edited_image_url
-        ? [s.edited_image_url, ...(s.image_versions || [])].slice(0, CLONE_MAX_IMAGE_VERSIONS)
-        : s.image_versions || [];
+      // image_versions is the FULL history (newest first) INCLUDING the
+      // current image; edited_image_url is just the selected pointer. Stable
+      // order means the version strip never reshuffles on restore. Legacy
+      // rows (current not in the list) converge here.
+      const history = s.image_versions || [];
+      const withCurrent = s.edited_image_url && !history.includes(s.edited_image_url)
+        ? [s.edited_image_url, ...history]
+        : history;
       return {
         ...s,
         edited_image_url: stored.url!,
-        image_versions: versions,
+        image_versions: [stored.url!, ...withCurrent].slice(0, CLONE_MAX_IMAGE_VERSIONS),
         credits_spent: (s.credits_spent || 0) + CLONE_IMAGE_CREDITS,
       };
     });
@@ -940,11 +945,13 @@ export async function restoreSceneImageVersion(
 
   const scenes = loaded.project.scenes.map((s) => {
     if (s.n !== sceneN) return s;
-    const others = (s.image_versions || []).filter((v) => v !== versionUrl);
-    const versions = s.edited_image_url
-      ? [s.edited_image_url, ...others].slice(0, CLONE_MAX_IMAGE_VERSIONS)
-      : others;
-    return { ...s, edited_image_url: versionUrl, image_versions: versions };
+    // Selecting a version only moves the pointer — the history list stays in
+    // stable order (converging legacy rows whose current wasn't listed)
+    const history = s.image_versions || [];
+    const withCurrent = s.edited_image_url && !history.includes(s.edited_image_url)
+      ? [s.edited_image_url, ...history].slice(0, CLONE_MAX_IMAGE_VERSIONS)
+      : history;
+    return { ...s, edited_image_url: versionUrl, image_versions: withCurrent };
   });
   await saveScenes(projectId, scenes);
   return { success: true, project: { ...loaded.project, scenes } };

@@ -294,28 +294,42 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </div>
       </div>
 
-      {/* Version history — the big image above is the CURRENT one and is what
-          Animate uses; clicking an older version makes it current */}
-      {scene.image_versions.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-[10px] text-zinc-500">
-            Older versions — click one to make it the current image (the one that gets animated):
-          </p>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {scene.image_versions.map((url) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={url}
-                src={url}
-                alt="Previous version"
-                className="h-14 w-auto object-contain bg-black/40 rounded border border-border/50 cursor-pointer hover:border-primary shrink-0"
-                onClick={() => handleRestore(url)}
-                title="Make this the current image"
-              />
-            ))}
+      {/* Version history — full list in stable order, current highlighted.
+          Clicking selects; nothing appears or reorders. */}
+      {(() => {
+        const history = scene.image_versions || [];
+        const strip = scene.edited_image_url && !history.includes(scene.edited_image_url)
+          ? [scene.edited_image_url, ...history]
+          : history;
+        if (strip.length < 2) return null;
+        return (
+          <div className="space-y-1">
+            <p className="text-[10px] text-zinc-500">
+              Versions — the highlighted one is current (used for Animate); click to switch:
+            </p>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {strip.map((url) => {
+                const isCurrent = url === scene.edited_image_url;
+                return (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={url}
+                    src={url}
+                    alt={isCurrent ? 'Current version' : 'Version'}
+                    className={`h-14 w-auto object-contain bg-black/40 rounded shrink-0 ${
+                      isCurrent
+                        ? 'border-2 border-primary'
+                        : 'border border-border/50 cursor-pointer hover:border-primary'
+                    }`}
+                    onClick={() => !isCurrent && handleRestore(url)}
+                    title={isCurrent ? 'Current image' : 'Switch to this version'}
+                  />
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Swap instructions */}
       <Textarea
