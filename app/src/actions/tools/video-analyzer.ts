@@ -776,7 +776,8 @@ const CLONE_GLOBAL_ANALYSIS_PROMPT = `You are a professional video breakdown spe
 You will receive a full video ad. Extract the GLOBAL context that later per-scene analysis depends on.
 
 ## CHARACTER PROFILES (most important)
-Identify every person who appears in the ad. Give each a stable ID ("MAIN CHARACTER", "CHARACTER A", ...) and a detailed profile: age, gender, ethnicity, hair (color/length/style), facial features, build, wardrobe per outfit, distinguishing features.
+Identify every person who appears in the ad. Give each a stable ID ("MAIN CHARACTER", "CHARACTER A", ...) and a detailed profile: age, gender, ethnicity, hair (color/length/style), facial features, build, wardrobe per outfit, distinguishing PHYSICAL features.
+Profiles are for RECOGNITION ONLY: never include props, held objects, products, or plot states (e.g. "holds a can", "hand stuck in X") — those belong to individual scenes, not to the person.
 
 ## FIELDS
 - "summary": one paragraph — what the ad is, its structure, pacing style, and mood arc.
@@ -788,30 +789,30 @@ Identify every person who appears in the ad. Give each a stable ID ("MAIN CHARAC
 Output valid JSON only:
 { "summary": "...", "characters": [{ "id": "MAIN CHARACTER", "description": "..." }], "products": ["..."], "visual_style": "...", "music_brief": "..." }`;
 
-const CLONE_SCENE_CLIP_PROMPT = `You are a professional video breakdown specialist. You will receive ONE short clip — a single scene cut from a longer ad — plus the ad's global context (summary + character profiles).
+const CLONE_SCENE_CLIP_PROMPT = `You will receive ONE short clip — a single scene cut from a longer video ad. The clip is the ENTIRE scene.
 
-THE CLIP IS THE ENTIRE SCENE. Describe ONLY what is visible and audible inside this clip. Do not anticipate, continue, or reference anything from other scenes. If the clip is under ~2 seconds it is a quick cut — describe exactly its brief content, however minimal.
+Describe ONLY what is visible and audible inside this clip. Nothing else exists: do not guess what came before or after, and do not mention any object that is not clearly visible in the clip.
 
-Refer to people ONLY by the provided character IDs when they match a profile.
+Refer to people GENERICALLY by what you see — "the man", "the woman in the red dress", "the older man on the couch". Never invent names, identities, or backstory.
 
-IMPORTANT — the action_arc fields feed an image-to-video model that ALREADY receives the scene's starting frame. The frame defines appearance, wardrobe, setting, and lighting; the user may also have SWAPPED the person or product in it. So in "action" and "end_state": describe ONLY movement, poses, and positions — never restate wardrobe, appearance, environment, or lighting, and keep each under 2 short sentences. Put full visual descriptions in "subject"/"environment"/"lighting" instead (those are reference fields, not part of the motion prompt).
+Keep it SIMPLE. These fields feed an image-to-video model that already receives the scene's start frame, so appearance, wardrobe, setting, and lighting are already defined by the image — describe only motion.
 
 Output valid JSON only, matching:
 {
-  "subject": "primary focus: who/what, expression, body language, position in frame",
-  "environment": "location specifics, background elements, visible props, color palette",
-  "lighting": "light source and direction, quality, contrast, mood",
-  "camera": "one short sentence: shot type, angle, movement",
+  "subject": "one short sentence: who/what is in frame",
+  "environment": "one short sentence: where",
+  "lighting": "a few words",
+  "camera": "one short sentence: shot type and camera motion, only if noticeable",
   "action_arc": {
-    "start_state": "COMPLETE visual description of the clip's FIRST moment — a paintable still frame; any physically impossible/comedic state described as ALREADY TRUE",
-    "action": "movement beats across THIS CLIP ONLY — max 2 short sentences, no appearance/setting",
-    "end_state": "LOCKED final pose/positions at the last frame, explicit about what has NOT changed — max 2 short sentences, no appearance/setting",
-    "invariants": ["hard rules that hold for the whole clip, phrased as absolutes; [] if none"]
+    "start_state": "one short sentence: the pose/positions at the first frame",
+    "action": "the motion in this clip, 1-2 short sentences",
+    "end_state": "one short sentence: the pose/positions at the last frame",
+    "invariants": ["only if something must NOT change during the clip; usually []"]
   },
-  "dialog": "every word spoken/narrated INSIDE this clip, verbatim; empty string if silent",
-  "on_screen_text": "overlay text/graphics in this clip, exact wording; empty string if none",
+  "dialog": "every word spoken INSIDE this clip, verbatim; empty string if silent",
+  "on_screen_text": "overlay text in this clip, exact wording; empty string if none",
   "purpose": "one of: hook, problem, solution, proof, CTA, transition, story",
-  "swap_targets": ["character IDs and product names visible in this clip"]
+  "swap_targets": ["people/products clearly visible in this clip, generic names"]
 }`;
 
 const CLONE_SCENE_ANALYSIS_PROMPT = `You are a professional video breakdown specialist for shot-by-shot ad recreation.
@@ -990,16 +991,18 @@ async function runCloneSceneClipAnalysis(opts: {
   clipBase64: string;
   n: number;
   durationSeconds: number;
-  contextText: string;
 }) {
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
     generationConfig: { responseMimeType: 'application/json' },
   });
+  // Deliberately NO global context: identity lives in the start image, and
+  // shared context is how other scenes' props leaked into clips that never
+  // showed them. The clip is the only evidence this call ever sees.
   const result = await model.generateContent([
     { inlineData: { mimeType: 'video/mp4', data: opts.clipBase64 } },
     {
-      text: `${CLONE_SCENE_CLIP_PROMPT}\n\n## GLOBAL CONTEXT\n${opts.contextText}\n\n## THIS CLIP\nScene ${opts.n}, duration ${opts.durationSeconds.toFixed(1)}s. Remember: this clip is the whole scene.`,
+      text: `${CLONE_SCENE_CLIP_PROMPT}\n\nThis clip is ${opts.durationSeconds.toFixed(1)}s long and is the whole scene.`,
     },
   ]);
   const parsed = parseJsonResponse(result.response.text() || '');
@@ -1042,16 +1045,16 @@ export async function analyzeCloneScenes(
 
     // Preferred path: per-scene clips — exact attribution by construction.
     if (input.sceneClips && input.sceneClips.length > 0) {
-      const summary = await runCloneGlobalAnalysis(videoPart);
-      if (!summary) {
-        return { success: false, error: 'Global analysis returned invalid JSON' };
-      }
-      const contextText =
-        `Ad summary: ${summary.summary}\n` +
-        `Characters:\n${summary.characters.map((c) => `- ${c.id}: ${c.description}`).join('\n') || '(none)'}\n` +
-        `Products: ${summary.products.join(', ') || '(none)'}`;
-
       const clipByScene = new Map(input.sceneClips.map((c) => [c.n, c.clipBase64]));
+
+      // The global pass only feeds the project summary card and the music
+      // brief — it is intentionally NOT given to the per-scene calls, so it
+      // can run concurrently with them.
+      const summaryPromise = runCloneGlobalAnalysis(videoPart).catch((error) => {
+        console.warn('Clone global analysis failed (summary card will be empty):', error);
+        return null;
+      });
+
       const analyses = await mapWithConcurrency(input.sceneRanges, 5, async (range) => {
         const clipBase64 = clipByScene.get(range.n);
         if (!clipBase64) return null;
@@ -1059,7 +1062,6 @@ export async function analyzeCloneScenes(
           clipBase64,
           n: range.n,
           durationSeconds: range.end - range.start,
-          contextText,
         };
         try {
           return (await runCloneSceneClipAnalysis(opts)) ?? (await runCloneSceneClipAnalysis(opts));
@@ -1082,6 +1084,13 @@ export async function analyzeCloneScenes(
           scenes[range.n] = coerceCloneSceneAnalysis({});
         }
       });
+      const summary = (await summaryPromise) || {
+        summary: '',
+        characters: [],
+        products: [],
+        visual_style: '',
+        music_brief: '',
+      };
       return { success: true, summary, scenes };
     }
 
