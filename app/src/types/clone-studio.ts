@@ -179,12 +179,21 @@ export interface CloneProjectResponse {
   error?: string;
 }
 
-/** Flat credits for ingest + segmentation + structured analysis. */
-export const CLONE_INGEST_CREDITS = 5;
+/**
+ * Flat credits for ingest + segmentation + structured analysis. Covers the
+ * worst case: big YouTube ads cost $0.30-0.40 via the Apify fallback plus
+ * Gemini analysis (owner-priced 2026-07-04).
+ */
+export const CLONE_INGEST_CREDITS = 10;
 /** Credits per keyframe-edit attempt (nb2 ≈ $0.04-0.06, gpt-2 ≈ $0.10-0.25 COGS). */
 export const CLONE_IMAGE_CREDITS = 4;
-/** Credits per second of Kling O3 Pro animation, audio on (≈$0.14/s COGS → ~2-3x margin). */
-export const CLONE_ANIM_CREDITS_PER_SECOND = 5;
+/**
+ * Credits per second of Kling O3 Pro animation, audio on. COGS verified at
+ * $0.14/s (1 billable unit ≈ 1s on real runs) → 3.5x monthly / 1.8x yearly
+ * margin at 8 cr/s — the same markup tier as Video Maker Pro (owner-priced
+ * 2026-07-04; was 5 cr/s ≈ break-even for yearly subscribers).
+ */
+export const CLONE_ANIM_CREDITS_PER_SECOND = 8;
 /** Credits for the optional Lyria music bed at assembly (assembly itself is free). */
 export const CLONE_MUSIC_CREDITS = 5;
 /** Version history depth per scene (mirrors the editor's previousVersions UX). */
