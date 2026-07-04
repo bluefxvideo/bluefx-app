@@ -301,22 +301,18 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               disabled={applyingInstruction || !!batchStatus}
             />
             <Button
-              variant="outline"
               onClick={handleApplyInstruction}
               disabled={applyingInstruction || !globalInstruction.trim() || !!batchStatus}
-              className="sm:self-end"
+              className="sm:self-end h-11 px-6 font-medium"
+              size="lg"
             >
-              {applyingInstruction ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
+              {applyingInstruction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Apply to all scenes
             </Button>
           </div>
         </div>
 
-        <p className="text-xs text-zinc-300 pt-1 border-t border-border/40">
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">3</span>
-          Generate all the images, review them below (regenerate any you don&apos;t like), then animate:
-        </p>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/40">
           <Button
             onClick={handleGenerateAll}
             disabled={!!batchStatus || missingImages.length === 0}
