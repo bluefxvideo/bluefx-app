@@ -398,9 +398,12 @@ export async function uploadCloneReference(
 
 /**
  * The edit prompt intentionally does NOT restate the original character
- * description (it would fight the user's swap instruction). It anchors on the
- * frame itself + background-lock language, and carries the invariants so gag
- * states survive the edit (keyframe-state rule).
+ * description (it would fight the user's swap instruction) and does NOT
+ * carry the scene's action-arc invariants — those describe the whole scene's
+ * motion and can reference objects that aren't in this frame, which makes the
+ * edit model ADD them (a "the can never comes off" rule conjured a can into
+ * an untouched hand). The frame itself is the only ground truth; invariants
+ * stay in the animation prompt where they belong.
  */
 function buildSceneEditPrompt(scene: CloneScene, refCount: number): string {
   const parts: string[] = [];
@@ -421,12 +424,8 @@ function buildSceneEditPrompt(scene: CloneScene, refCount: number): string {
     "Preserve everything else from the first image EXACTLY: framing, camera angle, perspective, lens look, lighting, color grade, background, setting, all other people and objects, and the subject's pose and expression."
   );
   parts.push(
-    'If the frame shows a physically impossible or comedic state (for example a hand stuck inside a container), that state must remain true in the edited frame.'
+    'Do NOT add, remove, or relocate any object beyond what the requested changes require. If the frame shows a physically impossible or comedic state, that state must remain true in the edited frame.'
   );
-  const invariants = scene.analysis?.action_arc?.invariants || [];
-  if (invariants.length > 0) {
-    parts.push(`Hard rules: ${invariants.join(' ')}`);
-  }
   parts.push('Photorealistic, seamless edit. No borders, no added text, no watermark.');
   return parts.join(' ');
 }
