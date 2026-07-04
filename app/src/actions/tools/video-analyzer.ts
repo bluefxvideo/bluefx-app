@@ -795,6 +795,8 @@ Describe ONLY what is visible and audible inside this clip. Nothing else exists:
 
 Refer to people GENERICALLY by what you see — "the man", "the woman in the red dress", "the older man on the couch". Never invent names, identities, or backstory.
 
+Refer to handled objects and products GENERICALLY too — "the product", "the container", "the object" — NEVER by brand or product name inside "start_state", "action", "end_state", or "invariants". The user may swap the product for their own; the motion is identical either way. Real product names belong ONLY in "swap_targets".
+
 Keep it SIMPLE. These fields feed an image-to-video model that already receives the scene's start frame, so appearance, wardrobe, setting, and lighting are already defined by the image — describe only motion.
 
 Output valid JSON only, matching:
