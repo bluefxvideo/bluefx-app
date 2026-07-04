@@ -14,12 +14,14 @@
  * - `duration` is a STRING, "3".."15".
  */
 
-const KLING_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/pro/image-to-video';
+const KLING_I2V_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/pro/image-to-video';
+const KLING_T2V_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/pro/text-to-video';
 const KLING_BASE = 'fal-ai/kling-video';
 
 export interface KlingO3ProSubmitParams {
   prompt: string;
-  image_url: string;
+  /** Start frame; omit for text-to-video. */
+  image_url?: string;
   /** Seconds, 3-15. Sent as a string per the API contract. */
   duration: number;
   aspect_ratio?: '16:9' | '9:16' | '1:1';
@@ -28,14 +30,14 @@ export interface KlingO3ProSubmitParams {
   webhook_url?: string;
 }
 
-export async function submitKlingO3ProImageToVideo(
+async function submitKlingO3Pro(
   params: KlingO3ProSubmitParams
 ): Promise<{ success: boolean; request_id?: string; error?: string }> {
   const falKey = process.env.FAL_KEY;
   if (!falKey) return { success: false, error: 'FAL_KEY not configured' };
 
   try {
-    let url = KLING_SUBMIT_URL;
+    let url = params.image_url ? KLING_I2V_SUBMIT_URL : KLING_T2V_SUBMIT_URL;
     if (params.webhook_url) {
       url += `?fal_webhook=${encodeURIComponent(params.webhook_url)}`;
     }
@@ -50,7 +52,7 @@ export async function submitKlingO3ProImageToVideo(
       },
       body: JSON.stringify({
         prompt: params.prompt,
-        image_url: params.image_url,
+        ...(params.image_url ? { image_url: params.image_url } : {}),
         duration,
         aspect_ratio: params.aspect_ratio || '16:9',
         generate_audio: params.generate_audio !== false,
@@ -62,20 +64,32 @@ export async function submitKlingO3ProImageToVideo(
     if (!response.ok) {
       const errorText = await response.text();
       console.error('🚨 Kling O3 Pro submit error:', response.status, errorText.substring(0, 300));
-      return { success: false, error: `Kling submit failed (${response.status}): ${errorText.substring(0, 150)}` };
+      return { success: false, error: `Video submit failed (${response.status}): ${errorText.substring(0, 150)}` };
     }
 
     const result = await response.json();
     if (!result.request_id) {
-      return { success: false, error: 'Kling submit returned no request_id' };
+      return { success: false, error: 'Video submit returned no request_id' };
     }
 
-    console.log(`🎬 Kling O3 Pro submitted: ${result.request_id} (${duration}s, audio ${params.generate_audio !== false ? 'on' : 'off'})`);
+    console.log(`🎬 Kling O3 Pro submitted: ${result.request_id} (${duration}s, ${params.image_url ? 'i2v' : 't2v'}, audio ${params.generate_audio !== false ? 'on' : 'off'})`);
     return { success: true, request_id: result.request_id };
   } catch (error) {
     console.error('🚨 Kling O3 Pro submit error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Kling submit failed' };
+    return { success: false, error: error instanceof Error ? error.message : 'Video submit failed' };
   }
+}
+
+export async function submitKlingO3ProImageToVideo(
+  params: KlingO3ProSubmitParams & { image_url: string }
+): Promise<{ success: boolean; request_id?: string; error?: string }> {
+  return submitKlingO3Pro(params);
+}
+
+export async function submitKlingO3ProTextToVideo(
+  params: Omit<KlingO3ProSubmitParams, 'image_url'>
+): Promise<{ success: boolean; request_id?: string; error?: string }> {
+  return submitKlingO3Pro(params);
 }
 
 export async function getKlingQueueStatus(

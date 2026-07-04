@@ -2,6 +2,7 @@
 
 import { createFalLTX23Prediction, getFalLTX23Status, getFalLTX23Result } from '@/actions/models/fal-ltx-image-to-video';
 import { createFalSeedancePrediction, getFalSeedanceStatus, getFalSeedanceResult, type SeedanceGeneration } from '@/actions/models/fal-seedance-video';
+import { submitKlingO3ProImageToVideo, submitKlingO3ProTextToVideo, getKlingQueueStatus, getKlingResult } from '@/actions/models/fal-kling-video';
 import { generateImage } from '@/actions/models/fal-nano-banana';
 import { generateImageWithPro, generateImageWithProAsync } from '@/actions/models/fal-nano-banana-2';
 import { uploadImageToStorage, downloadAndUploadImage, downloadAndUploadVideo } from '@/actions/supabase-storage';
@@ -262,36 +263,9 @@ export async function executeAICinematographer(
       }
     }
 
-    // Ultra reference audio (up to 3, combined ≤15s). Free on fal — only
-    // video durations are billed. Requires at least one reference image, so
-    // skip when the image set is empty. Note the 'audio' bucket has a MIME
-    // whitelist (mpeg/wav/ogg) — pass the file's own content type through.
-    let ultraReferenceAudioUrls: string[] | undefined;
-    if (request.model === 'ultra' && ultraReferenceUrls?.length) {
-      const audioUrls: string[] = [...(request.ultra_reference_audio_urls || [])];
-      for (const [index, file] of (request.ultra_reference_audios || []).slice(0, 3).entries()) {
-        try {
-          const fileExtension = (file.name || 'ref.mp3').split('.').pop() || 'mp3';
-          const uploadResult = await uploadImageToStorage(file, {
-            bucket: 'audio',
-            folder: 'cinematographer',
-            filename: `${batch_id}_refaudio${index + 1}.${fileExtension}`,
-            contentType: file.type || 'audio/mpeg',
-          });
-          if (uploadResult.success && uploadResult.url) {
-            audioUrls.push(uploadResult.url);
-          } else {
-            console.warn(`Reference audio ${index + 1} upload failed:`, uploadResult.error);
-          }
-        } catch (error) {
-          console.warn(`Reference audio ${index + 1} upload error:`, error);
-        }
-      }
-      if (audioUrls.length > 0) {
-        ultraReferenceAudioUrls = audioUrls.slice(0, 3);
-        console.log(`🎙️ Ultra reference audio: ${ultraReferenceAudioUrls.length} clip(s)`);
-      }
-    }
+    // Reference audio was a Seedance 2.0 feature; the Kling engine that now
+    // powers Ultra has no audio-reference input, so incoming clips are ignored.
+    const ultraReferenceAudioUrls: string[] | undefined = undefined;
 
     // Handle different workflow intents
     if (request.workflow_intent === 'generate') {
@@ -339,7 +313,7 @@ async function handleVideoGeneration(
 ): Promise<CinematographerResponse> {
   try {
     const model = request.model || 'fast';
-    const modelVersion = model === 'fast' ? 'ltx-2.3-fast' : model === 'ultra' ? 'seedance-2.0' : 'seedance-1.5-pro';
+    const modelVersion = model === 'fast' ? 'ltx-2.3-fast' : model === 'ultra' ? 'kling-o3-pro' : 'seedance-1.5-pro';
     const falWebhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`;
 
     // fal rejects input images over 7MiB — shrink oversized ones first
@@ -389,22 +363,46 @@ async function handleVideoGeneration(
           webhook_url: falWebhookUrl,
         });
         prediction = { id: queued.request_id };
-      } else {
-        // Seedance 1.5 Pro ('pro', 4-12s) or Seedance 2.0 ('ultra', 4-15s)
-        const generation: SeedanceGeneration = model === 'ultra' ? '2.0' : '1.5';
-        console.log(`🎬 Creating Seedance ${generation} (fal) prediction...`);
+      } else if (model === 'ultra') {
+        // Ultra: Kling O3 Pro, 1080p with native audio (switched from
+        // Seedance 2.0 — equal quality at ~half the provider cost). i2v when
+        // a starting image exists (Starting Shot or first uploaded reference),
+        // t2v otherwise. No end-image or audio-reference support.
+        console.log('🎬 Creating Ultra (Kling O3 Pro, fal) prediction...');
 
-        const maxDur = model === 'ultra' ? 15 : 12;
-        const seedanceDuration = Math.max(4, Math.min(maxDur, request.duration || 6));
+        const ultraDuration = Math.max(3, Math.min(15, request.duration || 6));
+        const startImage = referenceImageUrl || ultraReferenceUrls?.[0];
+
+        const klingParams = {
+          prompt: effectivePrompt,
+          duration: ultraDuration,
+          aspect_ratio: ((request.aspect_ratio === '9:16' || request.aspect_ratio === '1:1')
+            ? request.aspect_ratio
+            : '16:9') as '16:9' | '9:16' | '1:1',
+          generate_audio: generateAudio,
+          // Content-free quality guard only — never adds objects
+          negative_prompt:
+            'morphing, warping, distorted faces, extra fingers, deformed hands, text, subtitles, watermark',
+          webhook_url: falWebhookUrl,
+        };
+        const queued = startImage
+          ? await submitKlingO3ProImageToVideo({ ...klingParams, image_url: startImage })
+          : await submitKlingO3ProTextToVideo(klingParams);
+        if (!queued.success || !queued.request_id) {
+          throw new Error(queued.error || 'Ultra video submit failed');
+        }
+        prediction = { id: queued.request_id };
+      } else {
+        // Seedance 1.5 Pro ('pro', 4-12s)
+        console.log('🎬 Creating Seedance 1.5 (fal) prediction...');
+
+        const seedanceDuration = Math.max(4, Math.min(12, request.duration || 6));
 
         const queued = await createFalSeedancePrediction({
-          generation,
+          generation: '1.5',
           prompt: effectivePrompt,
           image_url: referenceImageUrl,
           end_image_url: lastFrameImageUrl,
-          // Ultra only: reference set routes to the reference-to-video endpoint
-          reference_image_urls: model === 'ultra' ? ultraReferenceUrls : undefined,
-          reference_audio_urls: model === 'ultra' ? ultraReferenceAudioUrls : undefined,
           duration: seedanceDuration,
           resolution: '720p',
           aspect_ratio: request.aspect_ratio || '16:9',
@@ -467,8 +465,13 @@ async function handleVideoGeneration(
     // Create prediction tracking record
     const effectiveDuration = model === 'fast'
       ? Math.max(6, Math.min(20, request.duration || 6))
-      : Math.max(4, Math.min(model === 'ultra' ? 15 : 12, request.duration || 6));
-    const effectiveResolution = model === 'fast' ? (request.resolution || '1080p') : '720p';
+      : model === 'ultra'
+        ? Math.max(3, Math.min(15, request.duration || 6))
+        : Math.max(4, Math.min(12, request.duration || 6));
+    // Fast picks its resolution; Ultra (Kling pro tier) outputs 1080p; Pro is 720p
+    const effectiveResolution = model === 'fast'
+      ? (request.resolution || '1080p')
+      : model === 'ultra' ? '1080p' : '720p';
 
     try {
       await createPredictionRecord({
@@ -515,6 +518,9 @@ async function handleVideoGeneration(
         prediction_id: prediction.id,
         model,
         service: 'fal-ai',
+        // Poll fallback dispatches on this: new ultra rows are Kling, legacy
+        // ultra rows without it still poll the old Seedance base
+        ...(model === 'ultra' ? { engine: 'kling' } : {}),
         credits_charged: creditCost,
         reference_image: referenceImageUrl,
         generation_params: {
@@ -721,22 +727,35 @@ export async function pollCinematographerFalGeneration(videoId: string, userId: 
     prediction_id?: string;
     model?: string;
     service?: string;
+    engine?: string;
   };
   const predictionId = settings.prediction_id;
   const model = settings.model || 'fast';
+  // New ultra rows run on Kling; legacy ultra rows (no engine marker) were Seedance 2.0
+  const isKling = settings.engine === 'kling';
   // Only poll fal-based generations (legacy replicate rows complete via their own webhook)
   if (!predictionId || (settings.service && settings.service !== 'fal-ai')) return video;
 
   try {
     const generation: SeedanceGeneration = model === 'ultra' ? '2.0' : '1.5';
-    const status = model === 'fast'
-      ? await getFalLTX23Status(predictionId)
-      : await getFalSeedanceStatus(generation, predictionId);
+    const status = isKling
+      ? await getKlingQueueStatus(predictionId)
+      : model === 'fast'
+        ? await getFalLTX23Status(predictionId)
+        : await getFalSeedanceStatus(generation, predictionId);
 
     if (status.status === 'COMPLETED') {
-      const result = model === 'fast'
-        ? await getFalLTX23Result(predictionId)
-        : await getFalSeedanceResult(generation, predictionId);
+      const result = isKling
+        ? await (async () => {
+            const kling = await getKlingResult(predictionId);
+            return {
+              video: kling.videoUrl ? { url: kling.videoUrl } : undefined,
+              billable_units: kling.billableUnits,
+            };
+          })()
+        : model === 'fast'
+          ? await getFalLTX23Result(predictionId)
+          : await getFalSeedanceResult(generation, predictionId);
 
       const providerUrl = result?.video?.url;
       if (!providerUrl) throw new Error('Completed fal request has no video URL');

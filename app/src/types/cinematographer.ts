@@ -24,8 +24,8 @@ export type StartingShotAspectRatio = NanoBananaAspectRatio;
 export type VideoModel = 'fast' | 'pro' | 'ultra';
 
 // Audio mode: 'voice' = AI audio with a server-side "no background music"
-// directive (Seedance loves adding a soundtrack); 'silent' = no audio track
-// (half provider cost on Seedance — pairs with the Music tool).
+// directive (generated audio loves adding a soundtrack); 'silent' = no audio
+// track (cheaper on some engines — pairs with the Music tool).
 export type VideoAudioMode = 'voice' | 'silent';
 
 // Model configurations (all hosted on fal.ai)
@@ -79,19 +79,19 @@ export const VIDEO_MODEL_CONFIG = {
   ultra: {
     id: 'ultra',
     name: 'Ultra',
-    description: 'Cinematic multi-shot scenes, complex direction — our most advanced model',
-    model: 'bytedance/seedance-2.0',
+    description: 'Our top cinema engine — best motion and realism, native voice and sound',
+    model: 'fal-ai/kling-video/o3/pro',
     maxDuration: 15,
-    minDuration: 4,
-    durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const,
-    resolutions: ['720p'] as const,
-    aspectRatios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9'] as const,
+    minDuration: 3,
+    durations: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const,
+    resolutions: ['1080p'] as const,
+    aspectRatios: ['16:9', '9:16', '1:1'] as const,
     creditsPerSecond: {
-      '720p': 10,
+      '1080p': 10,
     },
     features: {
       firstFrame: true,
-      lastFrame: true,
+      lastFrame: false, // the engine has no end-frame input
       seed: false,
       lipSync: true,
       singing: true,
@@ -126,7 +126,7 @@ export interface CinematographerRequest {
   audio_file?: File | null;
   user_id: string;
   // Model selection
-  model?: VideoModel; // 'fast' = LTX-2.3-Fast, 'pro' = Seedance 1.5 Pro, 'ultra' = Seedance 2.0
+  model?: VideoModel; // 'fast' = LTX-2.3-Fast, 'pro' = Seedance 1.5 Pro, 'ultra' = Kling O3 Pro
   // Audio handling for models with generated audio (pro/ultra)
   audio_mode?: VideoAudioMode; // 'voice' (default) = AI audio without music; 'silent' = no audio track
   // Shared options (both models)

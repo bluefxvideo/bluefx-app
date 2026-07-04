@@ -140,7 +140,7 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         route: "/dashboard/image-maker",
         icon: ImagePlus,
         gradient: "bg-primary",
-        description: "Generate AI images with Nano Banana 2",
+        description: "Generate stunning AI images from text or references",
       },
       {
         name: "Thumbnail Maker",

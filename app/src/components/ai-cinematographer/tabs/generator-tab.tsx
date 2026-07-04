@@ -15,12 +15,6 @@ import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-
 import type { CinematographerRequest, GenerationSettings } from '@/types/cinematographer';
 import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
 
-// Worked Ultra example — a real 15s multi-shot generation made with two
-// reference images. Shown as an expandable helper to teach the [Image1]
-// syntax and multi-shot prompt structure.
-const ULTRA_EXAMPLE_VIDEO_URL = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/videos/placeholders/ultra-multishot-example.mp4';
-const ULTRA_EXAMPLE_PROMPT = `Shot 1: The woman from [Image1] stands in her bright kitchen holding the supplement bottle from [Image2], looks into the camera and says: "Okay, real talk — three weeks in, and my mornings are unrecognizable." Subtle handheld feel. Shot 2: Hard cut to a macro close-up of the bottle from [Image2] standing on the wooden counter, morning sunlight raking across the label, camera slowly orbits around it. Shot 3: Cut to the same woman from [Image1] outdoors at golden hour, jogging toward the camera on a tree-lined street, she laughs and pumps her fist, camera tracking backward smoothly. Audio: her natural voice in shot 1, quiet kitchen ambience in shot 2, birdsong and footsteps in shot 3 — no background music.`;
-
 // Camera style presets that append to the prompt
 const CAMERA_PRESETS: Record<string, string> = {
   none: '',
@@ -74,9 +68,7 @@ export function GeneratorTab({
     reference_image: null as File | null,
     last_frame_image: null as File | null,
     // Ultra reference set (up to 9) — replaces first/last frame when present
-    ultra_reference_images: [] as File[],
     // Ultra reference audio (up to 3 clips, combined ≤15s) — free, needs ≥1 ref image
-    ultra_reference_audios: [] as File[],
     model: 'fast' as VideoModel,
     duration: 6 as number,
     resolution: '1080p' as string,
@@ -90,7 +82,6 @@ export function GeneratorTab({
   // Camera style presets only used for Pro mode (Fast uses native camera_motion)
   const [cameraStyle, setCameraStyle] = useState<string>('none');
   const [customCameraText, setCustomCameraText] = useState<string>('');
-  const [showUltraExample, setShowUltraExample] = useState(false);
 
   // Apply tweak settings when provided (pre-fill form for retry)
   useEffect(() => {
@@ -100,8 +91,6 @@ export function GeneratorTab({
         prompt,
         reference_image: null,
         last_frame_image: null,
-        ultra_reference_images: [],
-        ultra_reference_audios: [],
         model: settings.model,
         duration: settings.duration,
         resolution: settings.resolution,
@@ -120,10 +109,6 @@ export function GeneratorTab({
   // Track if we're using a pending image URL from Starting Shot
   const usingPendingImage = !!pendingImageUrl && !formData.reference_image;
 
-  // Ultra is references-only: a Starting Shot handoff becomes [Image1]
-  const ultraPendingRef = formData.model === 'ultra' && usingPendingImage && !!pendingImageUrl;
-  const ultraRefCount = formData.ultra_reference_images.length + (ultraPendingRef ? 1 : 0);
-
   // Get available durations for the selected model
   const availableDurations = config.durations as readonly number[];
 
@@ -138,7 +123,7 @@ export function GeneratorTab({
         }
       : formData.model === 'ultra'
         ? {
-            '720p': { label: '720p', creditsPerSecond: 10 },
+            '1080p': { label: '1080p (Full HD)', creditsPerSecond: 10 },
           }
         : {
             '720p': { label: '720p', creditsPerSecond: 4 },
@@ -151,15 +136,12 @@ export function GeneratorTab({
       model: newModel,
       // 6s is a valid duration on every model — keep the default consistent
       duration: 6,
-      // Reset resolution based on model
-      resolution: newModel === 'fast' ? '1080p' : '720p',
+      // Reset resolution based on model (Fast picks, Ultra is 1080p, Pro 720p)
+      resolution: newModel === 'pro' ? '720p' : '1080p',
       // Reset aspect ratio to 16:9 (valid for all models)
       aspect_ratio: '16:9',
       // Seed is only supported on Pro (Seedance 1.5)
       seed: newModel === 'pro' ? prev.seed : '',
-      // Reference sets are Ultra-only
-      ultra_reference_images: newModel === 'ultra' ? prev.ultra_reference_images : [],
-      ultra_reference_audios: newModel === 'ultra' ? prev.ultra_reference_audios : [],
       // Reset camera motion when switching models
       camera_motion: 'none' as FastCameraMotion,
     }));
@@ -213,31 +195,14 @@ export function GeneratorTab({
       aspect_ratio: formData.aspect_ratio,
     };
 
-    if (formData.model === 'ultra') {
-      // Ultra is references-only: a Starting Shot handoff becomes [Image1],
-      // uploaded files follow. First/last-frame inputs don't apply here.
-      if (usingPendingImage && pendingImageUrl) {
-        request.ultra_reference_image_urls = [pendingImageUrl];
-      }
-      if (formData.ultra_reference_images.length > 0) {
-        request.ultra_reference_images = formData.ultra_reference_images;
-      }
-      if (
-        (formData.ultra_reference_images.length > 0 || (usingPendingImage && pendingImageUrl)) &&
-        formData.ultra_reference_audios.length > 0
-      ) {
-        request.ultra_reference_audios = formData.ultra_reference_audios;
-      }
-    } else {
-      // Fast/Pro: exact first/last frame control
-      if (formData.reference_image) {
-        request.reference_image = formData.reference_image;
-      } else if (usingPendingImage && pendingImageUrl) {
-        request.reference_image_url = pendingImageUrl;
-      }
-      if (formData.last_frame_image) {
-        request.last_frame_image = formData.last_frame_image;
-      }
+    // All tiers: optional starting frame (Ultra has no end-frame input)
+    if (formData.reference_image) {
+      request.reference_image = formData.reference_image;
+    } else if (usingPendingImage && pendingImageUrl) {
+      request.reference_image_url = pendingImageUrl;
+    }
+    if (formData.last_frame_image && formData.model !== 'ultra') {
+      request.last_frame_image = formData.last_frame_image;
     }
 
     // Add Fast model specific fields
@@ -270,10 +235,10 @@ export function GeneratorTab({
       const creditsPerSecond = formData.resolution === '4k' ? 8 : formData.resolution === '2k' ? 4 : 2;
       return formData.duration * creditsPerSecond;
     } else if (formData.model === 'ultra') {
-      // Ultra (Seedance 2.0): 10 credits/sec
+      // Ultra: 10 credits/sec
       return formData.duration * 10;
     } else {
-      // Pro (Seedance 1.5): 4 credits/sec
+      // Pro: 4 credits/sec
       return formData.duration * 4;
     }
   };
@@ -336,8 +301,8 @@ export function GeneratorTab({
             </>
           ) : formData.model === 'ultra' ? (
             <>
-              <strong>Ultra Mode:</strong> Our most advanced model (Seedance 2.0) — cinematic multi-shot scenes, complex direction,
-              top-tier motion and consistency. Reference images keep people and products consistent across scenes. Voice with lip sync, 4-15s at 720p.
+              <strong>Ultra Mode:</strong> Our top cinema engine — the best motion and realism we offer, with native
+              voice and sound effects, lip sync, and complex multi-beat direction. Start from an image for exact framing. 3-15s at 1080p.
             </>
           ) : (
             <>
@@ -346,52 +311,6 @@ export function GeneratorTab({
             </>
           )}
         </div>
-
-        {/* Ultra worked example — video + the exact prompt, teaches [Image1] syntax */}
-        {formData.model === 'ultra' && (
-          <div className="mb-4 rounded-lg border bg-muted/20 overflow-hidden">
-            <button
-              type="button"
-              className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium hover:bg-muted/40 transition-colors"
-              onClick={() => setShowUltraExample(prev => !prev)}
-            >
-              <span className="flex items-center gap-2">
-                <Video className="w-4 h-4 text-primary" />
-                See an Ultra example — 3 scenes, 1 generation
-              </span>
-              <span className="text-muted-foreground">{showUltraExample ? '▴' : '▾'}</span>
-            </button>
-            {showUltraExample && (
-              <div className="p-3 pt-0 space-y-3">
-                <div className="flex gap-3 flex-col sm:flex-row">
-                  <video
-                    src={ULTRA_EXAMPLE_VIDEO_URL}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="rounded-lg border w-full sm:w-[180px] sm:shrink-0 aspect-[9/16] object-cover bg-black"
-                  />
-                  <div className="space-y-2 min-w-0">
-                    <p className="text-xs text-muted-foreground">
-                      Made from two reference images (the woman + the product) and this prompt — kitchen pitch,
-                      macro product shot, outdoor scene, all in one 15s generation:
-                    </p>
-                    <pre className="text-[11px] leading-relaxed whitespace-pre-wrap bg-muted/40 rounded-md p-2 max-h-40 overflow-y-auto font-mono">{ULTRA_EXAMPLE_PROMPT}</pre>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isGenerating}
-                      onClick={() => setFormData(prev => ({ ...prev, prompt: ULTRA_EXAMPLE_PROMPT, duration: 15 }))}
-                    >
-                      Use as template
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Step 1: Describe Your Video */}
         <StandardStep
@@ -554,175 +473,7 @@ export function GeneratorTab({
           )}
         </StandardStep>
 
-        {/* Ultra only: Reference Images (Seedance 2.0 reference-to-video) */}
-        {formData.model === 'ultra' && (
-          <StandardStep
-            stepNumber={2}
-            title="Reference Images"
-            description="Optional: Up to 9 images for consistent people, products, or scenes"
-          >
-            <div className="space-y-3">
-              {ultraRefCount > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {ultraPendingRef && (
-                    <div className="relative rounded-lg overflow-hidden border bg-muted/30 aspect-video">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={pendingImageUrl}
-                        alt="Starting Shot reference"
-                        className="w-full h-full object-cover"
-                      />
-                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono">
-                        [Image1]
-                      </span>
-                      <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary/90 text-primary-foreground text-[10px]">
-                        Starting Shot
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-1 right-1 h-5 w-5 bg-background/80 hover:bg-background"
-                        onClick={() => onClearPendingImage?.()}
-                        disabled={isGenerating}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  )}
-                  {formData.ultra_reference_images.map((file, i) => (
-                    <div key={`${file.name}-${i}`} className="relative rounded-lg overflow-hidden border bg-muted/30 aspect-video">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={`Reference ${i + (ultraPendingRef ? 2 : 1)}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono">
-                        [Image{i + (ultraPendingRef ? 2 : 1)}]
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-1 right-1 h-5 w-5 bg-background/80 hover:bg-background"
-                        onClick={() => setFormData(prev => {
-                          const remaining = prev.ultra_reference_images.filter((_, idx) => idx !== i);
-                          return {
-                            ...prev,
-                            ultra_reference_images: remaining,
-                            // Audio refs require ≥1 image — drop them with the last one
-                            ultra_reference_audios: remaining.length === 0 && !ultraPendingRef ? [] : prev.ultra_reference_audios,
-                          };
-                        })}
-                        disabled={isGenerating}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {ultraRefCount < 9 && (
-                <label className="flex flex-col items-center justify-center gap-1 p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/50 cursor-pointer transition-colors text-center">
-                  <Image className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm">Add reference images ({ultraRefCount}/9)</span>
-                  <span className="text-xs text-muted-foreground">People, products, scenes — JPG/PNG/WebP</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    disabled={isGenerating}
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      if (files.length) {
-                        const maxFiles = 9 - (ultraPendingRef ? 1 : 0);
-                        setFormData(prev => ({
-                          ...prev,
-                          ultra_reference_images: [...prev.ultra_reference_images, ...files].slice(0, maxFiles),
-                        }));
-                      }
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                Mention them in your prompt as <code className="font-mono">[Image1]</code>, <code className="font-mono">[Image2]</code>… —
-                e.g. “The woman from [Image1] holds the product from [Image2] in a bright kitchen.”
-                To start on an exact look, add that image and open with “Start on the framing of [Image1]”.
-              </p>
-
-              {/* Reference audio — free extra; the model requires ≥1 ref image alongside */}
-              <div className="space-y-2 pt-2 border-t">
-                  <Label className="flex items-center gap-1.5">
-                    <Mic className="w-3.5 h-3.5" />
-                    Reference Audio <span className="text-xs font-normal text-muted-foreground">(optional, no extra credits)</span>
-                  </Label>
-                  {ultraRefCount === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Add at least one reference image above to attach audio — the model needs a visual
-                      anchor and can&apos;t generate from audio alone.
-                    </p>
-                  )}
-                  {formData.ultra_reference_audios.map((file, i) => (
-                    <div key={`${file.name}-${i}`} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
-                      <span className="px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono shrink-0">[Audio{i + 1}]</span>
-                      <span className="text-xs truncate flex-1">{file.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 shrink-0"
-                        onClick={() => setFormData(prev => ({
-                          ...prev,
-                          ultra_reference_audios: prev.ultra_reference_audios.filter((_, idx) => idx !== i),
-                        }))}
-                        disabled={isGenerating}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  {formData.ultra_reference_audios.length < 3 && (
-                    <label className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-border transition-colors ${
-                      ultraRefCount === 0
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:border-primary/50 cursor-pointer'
-                    }`}>
-                      <Volume2 className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-xs">Add audio clip ({formData.ultra_reference_audios.length}/3) — voice line or music, ≤15s combined</span>
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        multiple
-                        className="hidden"
-                        disabled={isGenerating || ultraRefCount === 0}
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          if (files.length) {
-                            setFormData(prev => ({
-                              ...prev,
-                              ultra_reference_audios: [...prev.ultra_reference_audios, ...files].slice(0, 3),
-                            }));
-                          }
-                          e.target.value = '';
-                        }}
-                      />
-                    </label>
-                  )}
-                  {formData.ultra_reference_audios.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Reference it in your prompt — e.g. “She speaks the line from [Audio1]” or “Score the scene with [Audio1].”
-                    </p>
-                  )}
-              </div>
-            </div>
-          </StandardStep>
-        )}
-
-        {/* Step 2: First Frame (Fast/Pro) — Ultra uses the reference set instead */}
-        {formData.model !== 'ultra' && (
+        {/* Step 2: First Frame — all tiers support image-to-video */}
         <StandardStep
           stepNumber={2}
           title="First Frame Image"
@@ -774,9 +525,8 @@ export function GeneratorTab({
             </>
           )}
         </StandardStep>
-        )}
 
-        {/* Step 2.5: Last Frame (Fast/Pro) — Ultra uses the reference set instead */}
+        {/* Step 2.5: Last Frame (Fast/Pro) — Ultra's engine has no end-frame input */}
         {config.features.lastFrame && formData.model !== 'ultra' && (
           <StandardStep
             stepNumber={2.5}
