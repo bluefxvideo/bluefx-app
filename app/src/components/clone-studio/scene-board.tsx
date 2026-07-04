@@ -243,61 +243,15 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         </Card>
       )}
 
-      {/* Assemble */}
-      {animatedCount > 0 && (
-        <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-white">
-              {animatedCount}/{project.scenes.length} scenes animated
-            </p>
-            <p className="text-xs text-zinc-500">
-              Joins your animated scenes in order, full length.
-            </p>
-          </div>
-          <label
-            className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer"
-            title="Trim every clip back to the source ad's exact cut lengths. Tighter rhythm, but actions in short scenes may get cut off."
-          >
-            <Checkbox checked={trimToOriginal} onCheckedChange={(v) => setTrimToOriginal(v === true)} />
-            Cut to original ad timing
-          </label>
-          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
-            <Checkbox checked={withMusic} onCheckedChange={(v) => setWithMusic(v === true)} />
-            <Music className="w-3.5 h-3.5" /> AI music bed · {CLONE_MUSIC_CREDITS} cr
-          </label>
-          <Button onClick={handleAssemble} disabled={assembling || project.status === 'assembling'}>
-            {assembling || project.status === 'assembling' ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Film className="w-4 h-4 mr-2" />
-            )}
-            {project.final_video_url ? 'Re-assemble' : 'Assemble video'}
-          </Button>
-        </Card>
-      )}
-
-      {/* How it works */}
-      <Card className="p-4 bg-primary/5 border-primary/20">
-        <div className="flex gap-3 text-sm text-zinc-300">
-          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-          <div>
-            <span className="font-medium text-white">How to clone:</span> for each scene, tell it
-            what to swap (&quot;replace the man with the woman in my reference photo&quot;), upload your
-            reference images, and generate until the frame looks right. Use the <span className="text-white">same
-            2–3 photos of your person in every scene</span> so they stay consistent. Animation comes
-            after your images are approved.
-          </div>
-        </div>
-      </Card>
-
       {/* Setup: project refs + one instruction + batch actions */}
       <Card className="p-4 space-y-4">
-        <p className="text-sm font-semibold text-white">Set up once, apply everywhere</p>
+        <p className="text-sm font-semibold text-white">How it works — set up once, then review scene by scene</p>
 
         <div className="space-y-2">
-          <p className="text-xs text-zinc-400">
-            Your references — included automatically in <span className="text-white">every</span> scene
-            generation (keeps your person and product consistent across scenes):
+          <p className="text-xs text-zinc-300">
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">1</span>
+            Add photos of <span className="text-white">your person and product</span> — they're used in every scene
+            automatically, so everyone stays consistent:
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             {projectRefs.map((url) => (
@@ -334,7 +288,10 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs text-zinc-400">One swap instruction for the whole ad (each scene stays editable):</p>
+          <p className="text-xs text-zinc-300">
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">2</span>
+            Say what to swap, once — it fills every scene (you can still tweak any scene after):
+          </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <Textarea
               value={globalInstruction}
@@ -355,7 +312,11 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-1 border-t border-border/40">
+        <p className="text-xs text-zinc-300 pt-1 border-t border-border/40">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">3</span>
+          Generate all the images, review them below (regenerate any you don&apos;t like), then animate:
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             onClick={handleGenerateAll}
             disabled={!!batchStatus || missingImages.length === 0}
@@ -383,25 +344,6 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           </div>
         )}
       </Card>
-
-      {/* Progress strip — one dot per scene, click to jump */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {project.scenes.map((sc) => {
-          const state = sc.anim?.status === 'completed' ? 'done' : sc.anim?.status === 'generating' ? 'anim' : sc.edited_image_url ? 'image' : 'todo';
-          const color = state === 'done' ? 'bg-green-500/80 border-green-400' : state === 'anim' ? 'bg-amber-500/80 border-amber-400 animate-pulse' : state === 'image' ? 'bg-primary/80 border-primary' : 'bg-zinc-700 border-border';
-          return (
-            <button
-              key={sc.n}
-              className={`w-7 h-7 rounded-full text-[10px] font-medium text-white border ${color} hover:scale-110 transition-transform`}
-              title={`Scene ${sc.n}: ${state === 'done' ? 'animated' : state === 'anim' ? 'animating' : state === 'image' ? 'image ready' : 'not started'}`}
-              onClick={() => document.getElementById(`clone-scene-${sc.n}`)?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              {sc.n}
-            </button>
-          );
-        })}
-        <span className="text-[10px] text-zinc-500 ml-2">gray = not started · blue = image ready · amber = animating · green = animated</span>
-      </div>
 
       {/* Analysis summary */}
       {summary && (
@@ -519,6 +461,40 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           </div>
         </Card>
       </div>
+
+      {/* Assemble */}
+      {animatedCount > 0 && (
+        <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-white">
+              {animatedCount}/{project.scenes.length} scenes animated
+            </p>
+            <p className="text-xs text-zinc-500">
+              Joins your animated scenes in order, full length.
+            </p>
+          </div>
+          <label
+            className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer"
+            title="Trim every clip back to the source ad's exact cut lengths. Tighter rhythm, but actions in short scenes may get cut off."
+          >
+            <Checkbox checked={trimToOriginal} onCheckedChange={(v) => setTrimToOriginal(v === true)} />
+            Cut to original ad timing
+          </label>
+          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+            <Checkbox checked={withMusic} onCheckedChange={(v) => setWithMusic(v === true)} />
+            <Music className="w-3.5 h-3.5" /> AI music bed · {CLONE_MUSIC_CREDITS} cr
+          </label>
+          <Button onClick={handleAssemble} disabled={assembling || project.status === 'assembling'}>
+            {assembling || project.status === 'assembling' ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Film className="w-4 h-4 mr-2" />
+            )}
+            {project.final_video_url ? 'Re-assemble' : 'Assemble video'}
+          </Button>
+        </Card>
+      )}
+
     </div>
   );
 }
