@@ -93,7 +93,6 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         icon: Clapperboard,
         gradient: "bg-primary",
         description: "Scene-by-scene ad cloning with person & product swaps",
-        adminOnly: true,
       },
       {
         name: "Video Ad From Script",

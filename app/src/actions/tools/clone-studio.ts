@@ -58,23 +58,6 @@ function closestAspectRatio(width: number, height: number): string {
 }
 
 /**
- * Clone Studio is in beta: gated to admins while the owner tests the flow on
- * real ads in production. Flip this to a beta flag, then remove, per rollout.
- */
-async function assertCloneStudioAccess(userId: string): Promise<string | null> {
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
-    .single();
-  if (profile?.role !== 'admin') {
-    return 'Clone Studio is in private beta and not available on your account yet.';
-  }
-  return null;
-}
-
-/**
  * Create the project row and deduct the ingest fee. Returns immediately so
  * the UI has a projectId to poll; the client then calls processCloneProject
  * to run the 1-2 min pipeline while polling getCloneProject for stage display.
@@ -86,11 +69,6 @@ export async function createCloneProject(
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
     return { success: false, error: 'Authentication required' };
-  }
-
-  const accessError = await assertCloneStudioAccess(user.id);
-  if (accessError) {
-    return { success: false, error: accessError };
   }
 
   if (!request.source_url && !request.video_url) {
@@ -561,9 +539,6 @@ export async function uploadCloneSource(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Authentication required' };
-
-  const accessError = await assertCloneStudioAccess(user.id);
-  if (accessError) return { success: false, error: accessError };
 
   const upload = await uploadVideoToStorage(file, {
     bucket: 'videos',
