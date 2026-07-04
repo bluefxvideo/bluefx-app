@@ -376,6 +376,8 @@ async function handleVideoGeneration(
         const klingParams = {
           prompt: effectivePrompt,
           duration: ultraDuration,
+          // Per the fal schema: aspect_ratio exists on t2v only — i2v output
+          // follows the start image's aspect
           aspect_ratio: ((request.aspect_ratio === '9:16' || request.aspect_ratio === '1:1')
             ? request.aspect_ratio
             : '16:9') as '16:9' | '9:16' | '1:1',
@@ -386,7 +388,12 @@ async function handleVideoGeneration(
           webhook_url: falWebhookUrl,
         };
         const queued = startImage
-          ? await submitKlingO3ProImageToVideo({ ...klingParams, image_url: startImage })
+          ? await submitKlingO3ProImageToVideo({
+              ...klingParams,
+              image_url: startImage,
+              // i2v also takes an optional end frame (verified in the schema)
+              end_image_url: lastFrameImageUrl,
+            })
           : await submitKlingO3ProTextToVideo(klingParams);
         if (!queued.success || !queued.request_id) {
           throw new Error(queued.error || 'Ultra video submit failed');
@@ -683,8 +690,9 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
       const creditsPerSecond = resolution === '4k' ? 8 : resolution === '2k' ? 4 : 2;
       baseCost = duration * creditsPerSecond;
     } else if (model === 'ultra') {
-      // Ultra (Seedance 2.0): 10 credits/sec — provider cost ~$0.30/s at 720p
-      baseCost = duration * 10;
+      // Ultra (Kling O3 Pro): 8 credits/sec — provider cost ~$0.14/s at 1080p,
+      // same engine and rate as Clone Studio animation
+      baseCost = duration * 8;
     } else {
       // Pro (Seedance 1.5): 4 credits/sec
       baseCost = duration * 4;

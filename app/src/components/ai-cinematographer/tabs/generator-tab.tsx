@@ -123,7 +123,7 @@ export function GeneratorTab({
         }
       : formData.model === 'ultra'
         ? {
-            '1080p': { label: '1080p (Full HD)', creditsPerSecond: 10 },
+            '1080p': { label: '1080p (Full HD)', creditsPerSecond: 8 },
           }
         : {
             '720p': { label: '720p', creditsPerSecond: 4 },
@@ -201,7 +201,7 @@ export function GeneratorTab({
     } else if (usingPendingImage && pendingImageUrl) {
       request.reference_image_url = pendingImageUrl;
     }
-    if (formData.last_frame_image && formData.model !== 'ultra') {
+    if (formData.last_frame_image) {
       request.last_frame_image = formData.last_frame_image;
     }
 
@@ -235,8 +235,8 @@ export function GeneratorTab({
       const creditsPerSecond = formData.resolution === '4k' ? 8 : formData.resolution === '2k' ? 4 : 2;
       return formData.duration * creditsPerSecond;
     } else if (formData.model === 'ultra') {
-      // Ultra: 10 credits/sec
-      return formData.duration * 10;
+      // Ultra: 8 credits/sec — same engine and rate as Clone Studio animation
+      return formData.duration * 8;
     } else {
       // Pro: 4 credits/sec
       return formData.duration * 4;
@@ -302,7 +302,8 @@ export function GeneratorTab({
           ) : formData.model === 'ultra' ? (
             <>
               <strong>Ultra Mode:</strong> Our top cinema engine — the best motion and realism we offer, with native
-              voice and sound effects, lip sync, and complex multi-beat direction. Start from an image for exact framing. 3-15s at 1080p.
+              voice and sound effects, lip sync, and complex multi-beat direction. First &amp; last frame control; with a
+              start image the video follows its aspect ratio. 3-15s at 1080p.
             </>
           ) : (
             <>
@@ -526,8 +527,8 @@ export function GeneratorTab({
           )}
         </StandardStep>
 
-        {/* Step 2.5: Last Frame (Fast/Pro) — Ultra's engine has no end-frame input */}
-        {config.features.lastFrame && formData.model !== 'ultra' && (
+        {/* Step 2.5: Last Frame — supported on every tier */}
+        {config.features.lastFrame && (
           <StandardStep
             stepNumber={2.5}
             title="Last Frame Image"
@@ -594,7 +595,7 @@ export function GeneratorTab({
                   const cost = formData.model === 'fast'
                     ? d * (formData.resolution === '4k' ? 8 : formData.resolution === '2k' ? 4 : 2)
                     : formData.model === 'ultra'
-                      ? d * 10 // Ultra (Seedance 2.0): 10 credits/sec
+                      ? d * 8 // Ultra: 8 credits/sec
                       : d * 4; // Pro (Seedance 1.5): 4 credits/sec
                   return (
                     <Button

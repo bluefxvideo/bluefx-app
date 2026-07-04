@@ -87,11 +87,11 @@ export const VIDEO_MODEL_CONFIG = {
     resolutions: ['1080p'] as const,
     aspectRatios: ['16:9', '9:16', '1:1'] as const,
     creditsPerSecond: {
-      '1080p': 10,
+      '1080p': 8,
     },
     features: {
       firstFrame: true,
-      lastFrame: false, // the engine has no end-frame input
+      lastFrame: true, // optional end_image_url per the fal schema
       seed: false,
       lipSync: true,
       singing: true,

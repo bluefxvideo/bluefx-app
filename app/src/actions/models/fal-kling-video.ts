@@ -22,8 +22,11 @@ export interface KlingO3ProSubmitParams {
   prompt: string;
   /** Start frame; omit for text-to-video. */
   image_url?: string;
+  /** Optional end frame (i2v only, per the fal schema). */
+  end_image_url?: string;
   /** Seconds, 3-15. Sent as a string per the API contract. */
   duration: number;
+  /** t2v only — i2v output follows the start image's aspect ratio. */
   aspect_ratio?: '16:9' | '9:16' | '1:1';
   negative_prompt?: string;
   generate_audio?: boolean;
@@ -53,8 +56,10 @@ async function submitKlingO3Pro(
       body: JSON.stringify({
         prompt: params.prompt,
         ...(params.image_url ? { image_url: params.image_url } : {}),
+        ...(params.image_url && params.end_image_url ? { end_image_url: params.end_image_url } : {}),
         duration,
-        aspect_ratio: params.aspect_ratio || '16:9',
+        // aspect_ratio is a t2v-only field; i2v follows the start image
+        ...(params.image_url ? {} : { aspect_ratio: params.aspect_ratio || '16:9' }),
         generate_audio: params.generate_audio !== false,
         shot_type: 'customize',
         ...(params.negative_prompt ? { negative_prompt: params.negative_prompt } : {}),
