@@ -216,8 +216,10 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       )}
 
       {/* Original vs yours — letterboxed (object-contain) so portrait ads
-          aren't cropped; click opens the full-size file for saving */}
-      <div className="grid grid-cols-2 gap-2">
+          aren't cropped; click opens the full-size file for saving. Animated
+          scenes show THREE panels: original, your image, the video — the
+          image never gets buried behind the clip. */}
+      <div className={`grid grid-cols-2 gap-2 ${scene.anim?.status === 'completed' && scene.anim.video_url ? 'lg:grid-cols-3' : ''}`}>
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Original</p>
           <div className="relative h-56 lg:h-80">
@@ -267,45 +269,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           </div>
         </div>
         <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">
-            Your version{scene.anim?.status === 'completed' ? ' · animated' : ''}
-          </p>
-          {scene.anim?.status === 'completed' && scene.anim.video_url ? (
-            <div className="space-y-1">
-              <video
-                src={scene.anim.video_url}
-                poster={scene.edited_image_url || undefined}
-                controls
-                preload="metadata"
-                className="w-full h-56 lg:h-80 object-contain rounded-md border border-primary/40 bg-black"
-              />
-              <div className="flex items-center gap-1.5">
-                {/* The generated image stays reachable after animation — it's
-                    still the input for Regenerate/Re-animate */}
-                {scene.edited_image_url && (
-                  <a
-                    href={`${scene.edited_image_url}?download=scene-${scene.n}-image.jpg`}
-                    title="Download the image this clip was animated from"
-                    className="shrink-0"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={scene.edited_image_url}
-                      alt={`Scene ${scene.n} source image`}
-                      className="h-9 w-auto object-contain bg-black/40 rounded border border-border/50 hover:border-primary"
-                    />
-                  </a>
-                )}
-                {/* Supabase storage: ?download= sets Content-Disposition attachment
-                    (the download attribute is ignored on cross-origin links) */}
-                <a href={`${scene.anim.video_url}?download=scene-${scene.n}.mp4`} className="flex-1">
-                  <Button variant="ghost" size="sm" className="w-full h-9 text-xs text-zinc-400">
-                    <Download className="w-3 h-3 mr-1.5" /> Download clip
-                  </Button>
-                </a>
-              </div>
-            </div>
-          ) : scene.edited_image_url ? (
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500">Your image</p>
+          {scene.edited_image_url ? (
             <div className="relative h-56 lg:h-80">
               <a
                 href={scene.edited_image_url}
@@ -343,6 +308,31 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
             </div>
           )}
         </div>
+
+        {/* Animated clip — its own full panel, never replacing the image */}
+        {scene.anim?.status === 'completed' && scene.anim.video_url && (
+          <div className="space-y-1 col-span-2 lg:col-span-1">
+            <p className="text-[10px] uppercase tracking-wide text-zinc-500">Animated clip</p>
+            <div className="relative h-56 lg:h-80">
+              <video
+                src={scene.anim.video_url}
+                poster={scene.edited_image_url || undefined}
+                controls
+                preload="metadata"
+                className="w-full h-full object-contain rounded-md border border-primary/40 bg-black"
+              />
+              {/* Supabase storage: ?download= sets Content-Disposition attachment
+                  (the download attribute is ignored on cross-origin links) */}
+              <a
+                href={`${scene.anim.video_url}?download=scene-${scene.n}.mp4`}
+                className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors"
+                title="Download this clip"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Version history — full list in stable order, current highlighted.
