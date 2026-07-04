@@ -187,23 +187,30 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           <Button variant="ghost" size="sm" onClick={onBack} className="text-zinc-400 -ml-2">
             <ArrowLeft className="w-4 h-4 mr-1" /> All projects
           </Button>
-          <h3 className="text-xl font-bold text-white">{project.title || 'Untitled clone'}</h3>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Badge variant="secondary">{project.source_platform}</Badge>
-            <Badge variant="secondary">{Math.round(project.video_duration_seconds || 0)}s</Badge>
-            <Badge variant="secondary">{project.scenes.length} scenes</Badge>
-            <Badge variant="secondary">{project.aspect_ratio}</Badge>
-            <Badge variant="secondary">{project.credits_spent} credits spent</Badge>
+          <h3 className="text-2xl font-bold text-white tracking-tight">{project.title || 'Untitled clone'}</h3>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-zinc-500 tabular-nums">
+            <span>{project.source_platform}</span>
+            <span className="text-zinc-700">·</span>
+            <span>{Math.round(project.video_duration_seconds || 0)}s</span>
+            <span className="text-zinc-700">·</span>
+            <span>{project.scenes.length} scenes</span>
+            <span className="text-zinc-700">·</span>
+            <span>{project.aspect_ratio}</span>
+            <span className="text-zinc-700">·</span>
+            <span>{project.credits_spent} cr spent</span>
             {project.source_url && (
-              <a
-                href={project.source_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline"
-                title={project.source_url}
-              >
-                <ExternalLink className="w-3 h-3" /> Original video
-              </a>
+              <>
+                <span className="text-zinc-700">·</span>
+                <a
+                  href={project.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline font-sans"
+                  title={project.source_url}
+                >
+                  <ExternalLink className="w-3 h-3" /> original
+                </a>
+              </>
             )}
           </div>
         </div>
