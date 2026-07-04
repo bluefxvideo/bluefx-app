@@ -32,7 +32,7 @@ import {
   buildAnalysisKeyframes,
   extractSceneClips,
 } from '@/lib/clone-studio/segmentation';
-import { analyzeCloneScenes, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
+import { analyzeCloneScenes, rewriteMotionPromptsForSwap, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_ANIM_NEGATIVE_PROMPT,
@@ -881,7 +881,11 @@ export async function updateProjectReferences(
   return { success: true, project: { ...loaded.project, analysis_summary: summary } };
 }
 
-/** Write one swap instruction into every scene (each stays editable after). */
+/**
+ * Write one swap instruction into every scene AND reconcile every scene's
+ * motion prompt with it (references to replaced products/people go generic,
+ * so old prompts can't fight the swapped images). Each scene stays editable.
+ */
 export async function applyInstructionToAllScenes(
   projectId: string,
   instruction: string
@@ -889,7 +893,21 @@ export async function applyInstructionToAllScenes(
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
 
-  const scenes = loaded.project.scenes.map((s) => ({ ...s, user_instruction: instruction }));
+  let scenes = loaded.project.scenes.map((s) => ({ ...s, user_instruction: instruction }));
+
+  // Non-fatal: if the rewrite fails, instructions still apply
+  const rewrite = await rewriteMotionPromptsForSwap(
+    scenes.map((s) => ({ n: s.n, text: s.motion_prompt?.trim() || composeMotionPrompt(s.analysis) })),
+    instruction
+  );
+  if (rewrite.success && rewrite.prompts) {
+    scenes = scenes.map((s) =>
+      rewrite.prompts![s.n] ? { ...s, motion_prompt: rewrite.prompts![s.n] } : s
+    );
+  } else if (rewrite.error) {
+    console.warn('Clone Studio: motion-prompt reconcile failed (instructions still applied):', rewrite.error);
+  }
+
   await saveScenes(projectId, scenes);
   return { success: true, project: { ...loaded.project, scenes } };
 }

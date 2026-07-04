@@ -1029,6 +1029,58 @@ async function mapWithConcurrency<T, R>(
 }
 
 /**
+ * Reconcile stored motion prompts with a swap instruction: references to
+ * replaced people/objects become generic ("the product", "the person") so
+ * the prompt can't fight the swapped image. One text-only call for the whole
+ * board; everything else in each prompt is preserved verbatim.
+ */
+export async function rewriteMotionPromptsForSwap(
+  prompts: Array<{ n: number; text: string }>,
+  swapInstruction: string
+): Promise<{ success: boolean; prompts?: Record<number, string>; error?: string }> {
+  try {
+    if (!prompts.length || !swapInstruction.trim()) {
+      return { success: true, prompts: {} };
+    }
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent([
+      {
+        text: `The user is remaking a video ad and replacing people/products per this instruction:
+"${swapInstruction.trim()}"
+
+Below are per-scene MOTION prompts written from the ORIGINAL footage. Some may name the original brand, product, or person being replaced. Rewrite each prompt so that:
+- any reference to a replaced product/object becomes GENERIC ("the product", "the container", "the jar") or matches the replacement named in the instruction
+- any reference to a replaced person becomes generic ("the person", "the woman")
+- EVERYTHING ELSE stays word-for-word identical — motion, camera, audio directives, punctuation
+- if a prompt needs no change, return it unchanged
+
+Input prompts:
+${JSON.stringify(prompts)}
+
+Output valid JSON only: { "prompts": [ { "n": 1, "text": "..." } ] } — one entry per input, same n values.`,
+      },
+    ]);
+    const parsed = parseJsonResponse(result.response.text() || '');
+    if (!parsed || !Array.isArray(parsed.prompts)) {
+      return { success: false, error: 'Rewrite returned invalid JSON' };
+    }
+    const out: Record<number, string> = {};
+    for (const item of parsed.prompts as Array<Record<string, unknown>>) {
+      const n = Number(item.n);
+      const text = String(item.text || '');
+      if (Number.isInteger(n) && text.trim()) out[n] = text;
+    }
+    return { success: true, prompts: out };
+  } catch (error) {
+    console.error('rewriteMotionPromptsForSwap error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Rewrite failed' };
+  }
+}
+
+/**
  * Structured per-scene analysis for Clone Studio, aligned to ffmpeg-detected
  * cut timestamps. Lives here so all video analysis shares one Gemini client
  * and one finetuned prompt lineage.
