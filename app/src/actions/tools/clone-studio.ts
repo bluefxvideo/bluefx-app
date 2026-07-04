@@ -729,7 +729,7 @@ export async function pollSceneAnimation(
  */
 export async function assembleCloneProject(
   projectId: string,
-  options: { withMusic?: boolean } = {}
+  options: { withMusic?: boolean; trimToOriginal?: boolean } = {}
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
@@ -807,6 +807,7 @@ export async function assembleCloneProject(
       width: project.video_width || 1920,
       height: project.video_height || 1080,
       musicFilePath,
+      trimToOriginal: options.trimToOriginal === true,
       outPath,
     });
 

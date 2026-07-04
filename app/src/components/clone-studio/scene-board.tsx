@@ -21,6 +21,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const [showSummary, setShowSummary] = useState(false);
   const [assembling, setAssembling] = useState(false);
   const [withMusic, setWithMusic] = useState(true);
+  const [trimToOriginal, setTrimToOriginal] = useState(false);
   const [addingScene, setAddingScene] = useState(false);
   const [addAfter, setAddAfter] = useState<string>('end');
   const addSceneInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +33,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const handleAssemble = async () => {
     setAssembling(true);
     try {
-      const result = await assembleCloneProject(project.id, { withMusic });
+      const result = await assembleCloneProject(project.id, { withMusic, trimToOriginal });
       if (!result.success || !result.project) {
         toast.error(result.error || 'Assembly failed');
         return;
@@ -135,9 +136,16 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               {animatedCount}/{project.scenes.length} scenes animated
             </p>
             <p className="text-xs text-zinc-500">
-              Assembles the animated scenes cut-for-cut on the original ad&apos;s timing.
+              Joins your animated scenes in order, full length.
             </p>
           </div>
+          <label
+            className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer"
+            title="Trim every clip back to the source ad's exact cut lengths. Tighter rhythm, but actions in short scenes may get cut off."
+          >
+            <Checkbox checked={trimToOriginal} onCheckedChange={(v) => setTrimToOriginal(v === true)} />
+            Cut to original ad timing
+          </label>
           <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
             <Checkbox checked={withMusic} onCheckedChange={(v) => setWithMusic(v === true)} />
             <Music className="w-3.5 h-3.5" /> AI music bed · {CLONE_MUSIC_CREDITS} cr
