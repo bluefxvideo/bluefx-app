@@ -15,6 +15,11 @@ import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-
 import type { CinematographerRequest, GenerationSettings } from '@/types/cinematographer';
 import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
 
+// Default quality guard for the Ultra engine's negative prompt — shown in the
+// UI, fully editable, sent verbatim (never hidden)
+const ULTRA_NEGATIVE_DEFAULT =
+  'morphing, warping, distorted faces, extra fingers, deformed hands, text, subtitles, watermark';
+
 // Camera style presets that append to the prompt
 const CAMERA_PRESETS: Record<string, string> = {
   none: '',
@@ -81,6 +86,17 @@ export function GeneratorTab({
 
   // Camera style presets only used for Pro mode (Fast uses native camera_motion)
   const [cameraStyle, setCameraStyle] = useState<string>('none');
+  // Ultra engine controls
+  const [ultraNegative, setUltraNegative] = useState(ULTRA_NEGATIVE_DEFAULT);
+  const [ultraCfg, setUltraCfg] = useState(0.5);
+  const [ultraShotType, setUltraShotType] = useState<'customize' | 'intelligent'>('customize');
+  const [useTimedShots, setUseTimedShots] = useState(false);
+  const [ultraShots, setUltraShots] = useState<Array<{ prompt: string; duration: number }>>([
+    { prompt: '', duration: 5 },
+  ]);
+  const validUltraShots = ultraShots.filter((sh) => sh.prompt.trim());
+  const ultraShotsTotal = validUltraShots.reduce((sum, sh) => sum + sh.duration, 0);
+  const timedShotsActive = formData.model === 'ultra' && useTimedShots && validUltraShots.length > 0;
   const [customCameraText, setCustomCameraText] = useState<string>('');
 
   // Apply tweak settings when provided (pre-fill form for retry)
@@ -166,7 +182,7 @@ export function GeneratorTab({
   };
 
   const handleSubmit = () => {
-    if (!formData.prompt?.trim()) return;
+    if (!formData.prompt?.trim() && !timedShotsActive) return;
 
     // For Pro/Ultra (Seedance), append text-based camera style to prompt
     // For Fast mode, camera is controlled via native camera_motion param
@@ -205,6 +221,17 @@ export function GeneratorTab({
       request.last_frame_image = formData.last_frame_image;
     }
 
+    // Ultra engine controls — everything the engine supports, all visible
+    if (formData.model === 'ultra') {
+      request.negative_prompt = ultraNegative.trim();
+      request.cfg_scale = ultraCfg;
+      request.shot_type = ultraShotType;
+      if (timedShotsActive) {
+        request.multi_prompt = validUltraShots;
+        request.duration = Math.max(3, Math.min(15, ultraShotsTotal));
+      }
+    }
+
     // Add Fast model specific fields
     if (formData.model === 'fast') {
       request.camera_motion = formData.camera_motion;
@@ -235,8 +262,10 @@ export function GeneratorTab({
       const creditsPerSecond = formData.resolution === '4k' ? 8 : formData.resolution === '2k' ? 4 : 2;
       return formData.duration * creditsPerSecond;
     } else if (formData.model === 'ultra') {
-      // Ultra: 8 credits/sec — same engine and rate as Clone Studio animation
-      return formData.duration * 8;
+      // Ultra: 8 credits/sec — same engine and rate as Clone Studio animation.
+      // Timed shots bill on the sum of shot durations.
+      const seconds = timedShotsActive ? Math.max(3, Math.min(15, ultraShotsTotal)) : formData.duration;
+      return seconds * 8;
     } else {
       // Pro: 4 credits/sec
       return formData.duration * 4;
@@ -395,6 +424,7 @@ export function GeneratorTab({
           )}
 
           <Textarea
+            disabled={isGenerating || timedShotsActive}
             placeholder={formData.model === 'ultra'
               ? "Describe your scene(s)... Ultra handles complex direction and multiple shots (e.g., 'Shot 1: close-up of a chef plating pasta. Shot 2: wide shot of the busy kitchen, camera dollies right')"
               : formData.model === 'pro'
@@ -404,8 +434,12 @@ export function GeneratorTab({
             value={formData.prompt}
             onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
             className="min-h-[120px] resize-y"
-            disabled={isGenerating}
           />
+          {timedShotsActive && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Using the timed shots below — the single prompt is ignored.
+            </p>
+          )}
           <div className="flex justify-between text-sm text-muted-foreground mt-1">
             <span>Be specific for better results</span>
             <span>{formData.prompt.length}/500</span>
@@ -470,6 +504,120 @@ export function GeneratorTab({
               <p className="text-xs text-muted-foreground">
                 Adds camera movement style to your prompt
               </p>
+            </div>
+          )}
+
+          {/* Ultra engine controls — every knob the engine supports, nothing hidden */}
+          {formData.model === 'ultra' && (
+            <div className="space-y-4 mt-4 p-3 rounded-lg border bg-muted/20">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Engine controls</p>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Negative prompt (what the video must avoid)</Label>
+                <Textarea
+                  value={ultraNegative}
+                  onChange={(e) => setUltraNegative(e.target.value)}
+                  className="text-xs min-h-[48px]"
+                  disabled={isGenerating}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Prompt strength: {ultraCfg.toFixed(2)}</Label>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={ultraCfg}
+                  onChange={(e) => setUltraCfg(parseFloat(e.target.value))}
+                  disabled={isGenerating}
+                  className="w-full accent-primary"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Higher sticks closer to your prompt; lower gives the engine more freedom. 0.50 is the default.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Shot cutting</Label>
+                <Select
+                  value={ultraShotType}
+                  onValueChange={(v: 'customize' | 'intelligent') => setUltraShotType(v)}
+                  disabled={isGenerating}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customize">Follow my prompt / shots exactly</SelectItem>
+                    <SelectItem value="intelligent">Let the engine decide the cuts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useTimedShots}
+                    onChange={(e) => setUseTimedShots(e.target.checked)}
+                    disabled={isGenerating}
+                    className="accent-primary"
+                  />
+                  <span className="font-medium">Timed shots</span>
+                  <span className="text-muted-foreground">— give each shot its own prompt and length (total ≤ 15s)</span>
+                </label>
+                {useTimedShots && (
+                  <div className="space-y-2">
+                    {ultraShots.map((shot, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <select
+                          value={shot.duration}
+                          onChange={(e) => setUltraShots(prev => prev.map((sh, idx) => idx === i ? { ...sh, duration: parseInt(e.target.value, 10) } : sh))}
+                          disabled={isGenerating}
+                          className="h-9 rounded-md border border-border/60 bg-transparent text-xs px-1.5 shrink-0"
+                        >
+                          {Array.from({ length: 15 }, (_, n) => n + 1).map((n) => (
+                            <option key={n} value={n}>{n}s</option>
+                          ))}
+                        </select>
+                        <Textarea
+                          value={shot.prompt}
+                          onChange={(e) => setUltraShots(prev => prev.map((sh, idx) => idx === i ? { ...sh, prompt: e.target.value } : sh))}
+                          placeholder={`Shot ${i + 1} — what happens, who speaks...`}
+                          className="text-xs min-h-[38px] flex-1"
+                          disabled={isGenerating}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={() => setUltraShots(prev => prev.filter((_, idx) => idx !== i))}
+                          disabled={isGenerating || ultraShots.length <= 1}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUltraShots(prev => [...prev, { prompt: '', duration: 3 }])}
+                        disabled={isGenerating || ultraShotsTotal >= 15}
+                      >
+                        Add shot
+                      </Button>
+                      <span className={`text-xs ${ultraShotsTotal > 15 ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                        Total: {ultraShotsTotal}s {ultraShotsTotal > 15 ? '— over the 15s limit' : `· ${Math.max(3, Math.min(15, ultraShotsTotal)) * 8} credits`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </StandardStep>
@@ -590,6 +738,11 @@ export function GeneratorTab({
             {/* Duration Selection - Button Grid */}
             <div className="space-y-2">
               <Label>Duration</Label>
+              {timedShotsActive && (
+                <p className="text-xs text-muted-foreground">
+                  Set by your timed shots: {Math.max(3, Math.min(15, ultraShotsTotal))}s total.
+                </p>
+              )}
               <div className="grid grid-cols-4 gap-2">
                 {availableDurations.map((d) => {
                   const cost = formData.model === 'fast'
@@ -604,7 +757,7 @@ export function GeneratorTab({
                       variant={formData.duration === d ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => handleDurationChange(d)}
-                      disabled={isGenerating}
+                      disabled={isGenerating || timedShotsActive}
                       className="flex flex-col h-auto py-2"
                     >
                       <span className="font-medium">{d}s</span>
@@ -735,7 +888,7 @@ export function GeneratorTab({
         )}
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || (!isLoadingCredits && credits < estimatedCredits) || !formData.prompt?.trim()}
+          disabled={isGenerating || (!isLoadingCredits && credits < estimatedCredits) || (!formData.prompt?.trim() && !timedShotsActive) || (timedShotsActive && ultraShotsTotal > 15)}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >

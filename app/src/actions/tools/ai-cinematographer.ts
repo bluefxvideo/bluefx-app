@@ -370,11 +370,22 @@ async function handleVideoGeneration(
         // t2v otherwise. No end-image or audio-reference support.
         console.log('🎬 Creating Ultra (Kling O3 Pro, fal) prediction...');
 
-        const ultraDuration = Math.max(3, Math.min(15, request.duration || 6));
+        // Timed shots: total duration is the sum of the shots (capped 15s)
+        const multiPrompt = request.multi_prompt?.length
+          ? request.multi_prompt
+              .filter((m) => m.prompt?.trim())
+              .map((m) => ({ prompt: m.prompt.trim(), duration: Math.min(15, Math.max(1, Math.round(m.duration || 5))) }))
+          : undefined;
+        const ultraDuration = multiPrompt?.length
+          ? Math.max(3, Math.min(15, multiPrompt.reduce((sum, m) => sum + m.duration, 0)))
+          : Math.max(3, Math.min(15, request.duration || 6));
         const startImage = referenceImageUrl || ultraReferenceUrls?.[0];
 
         const klingParams = {
           prompt: effectivePrompt,
+          multi_prompt: multiPrompt,
+          shot_type: request.shot_type === 'intelligent' ? 'intelligent' as const : 'customize' as const,
+          ...(request.cfg_scale != null ? { cfg_scale: request.cfg_scale } : {}),
           duration: ultraDuration,
           // Per the fal schema: aspect_ratio exists on t2v only — i2v output
           // follows the start image's aspect
@@ -382,8 +393,9 @@ async function handleVideoGeneration(
             ? request.aspect_ratio
             : '16:9') as '16:9' | '9:16' | '1:1',
           generate_audio: generateAudio,
-          // Content-free quality guard only — never adds objects
-          negative_prompt:
+          // The UI pre-fills this exact guard and lets the user edit it —
+          // the fallback only covers API callers that omit the field
+          negative_prompt: request.negative_prompt?.trim() ||
             'morphing, warping, distorted faces, extra fingers, deformed hands, text, subtitles, watermark',
           webhook_url: falWebhookUrl,
         };
@@ -545,6 +557,12 @@ async function handleVideoGeneration(
             seed: request.seed,
             camera_fixed: request.camera_fixed,
           }),
+          ...(model === 'ultra' && {
+            ...(request.negative_prompt ? { negative_prompt: request.negative_prompt } : {}),
+            ...(request.cfg_scale != null ? { cfg_scale: request.cfg_scale } : {}),
+            ...(request.shot_type ? { shot_type: request.shot_type } : {}),
+            ...(request.multi_prompt?.length ? { multi_prompt: request.multi_prompt } : {}),
+          }),
           ...(model === 'ultra' && ultraReferenceUrls?.length && {
             ultra_reference_image_urls: ultraReferenceUrls,
             ...(ultraReferenceAudioUrls?.length && { ultra_reference_audio_urls: ultraReferenceAudioUrls }),
@@ -691,8 +709,12 @@ function calculateCinematographerCreditCost(request: CinematographerRequest) {
       baseCost = duration * creditsPerSecond;
     } else if (model === 'ultra') {
       // Ultra (Kling O3 Pro): 8 credits/sec — provider cost ~$0.14/s at 1080p,
-      // same engine and rate as Clone Studio animation
-      baseCost = duration * 8;
+      // same engine and rate as Clone Studio animation. With timed shots the
+      // engine bills the SUM of shot durations, so we charge on it too.
+      const ultraSeconds = request.multi_prompt?.length
+        ? Math.min(15, Math.max(3, request.multi_prompt.reduce((sum, m) => sum + Math.min(15, Math.max(1, m.duration || 5)), 0)))
+        : duration;
+      baseCost = ultraSeconds * 8;
     } else {
       // Pro (Seedance 1.5): 4 credits/sec
       baseCost = duration * 4;

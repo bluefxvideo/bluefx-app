@@ -127,6 +127,15 @@ export interface CinematographerRequest {
   user_id: string;
   // Model selection
   model?: VideoModel; // 'fast' = LTX-2.3-Fast, 'pro' = Seedance 1.5 Pro, 'ultra' = Kling O3 Pro
+  // Ultra engine controls (verified against the fal o3/pro schemas):
+  /** What the video must avoid. UI pre-fills the quality guard; sent verbatim. */
+  negative_prompt?: string;
+  /** Prompt adherence strength, 0-1 (engine default 0.5). */
+  cfg_scale?: number;
+  /** 'customize' = follow the prompt/shots exactly; 'intelligent' = the engine decides the cuts. */
+  shot_type?: 'customize' | 'intelligent';
+  /** Timed shot list (multi-shot); replaces `prompt` when present. Total duration ≤ 15s. */
+  multi_prompt?: Array<{ prompt: string; duration: number }>;
   // Audio handling for models with generated audio (pro/ultra)
   audio_mode?: VideoAudioMode; // 'voice' (default) = AI audio without music; 'silent' = no audio track
   // Shared options (both models)

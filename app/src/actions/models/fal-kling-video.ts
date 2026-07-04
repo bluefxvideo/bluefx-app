@@ -19,6 +19,7 @@ const KLING_T2V_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/pro/te
 const KLING_BASE = 'fal-ai/kling-video';
 
 export interface KlingO3ProSubmitParams {
+  /** Ignored when multi_prompt is provided (the API takes one or the other). */
   prompt: string;
   /** Start frame; omit for text-to-video. */
   image_url?: string;
@@ -29,6 +30,12 @@ export interface KlingO3ProSubmitParams {
   /** t2v only — i2v output follows the start image's aspect ratio. */
   aspect_ratio?: '16:9' | '9:16' | '1:1';
   negative_prompt?: string;
+  /** Prompt adherence strength, 0-1. */
+  cfg_scale?: number;
+  /** 'customize' follows the prompt/shots; 'intelligent' lets the engine cut. */
+  shot_type?: 'customize' | 'intelligent';
+  /** Timed shots; per-shot duration 1-15s, total ≤ 15s. Replaces prompt. */
+  multi_prompt?: Array<{ prompt: string; duration: number }>;
   generate_audio?: boolean;
   webhook_url?: string;
 }
@@ -54,14 +61,23 @@ async function submitKlingO3Pro(
         'Authorization': `Key ${falKey}`,
       },
       body: JSON.stringify({
-        prompt: params.prompt,
+        // prompt XOR multi_prompt per the API contract
+        ...(params.multi_prompt?.length
+          ? {
+              multi_prompt: params.multi_prompt.map((m) => ({
+                prompt: m.prompt,
+                duration: String(Math.min(15, Math.max(1, Math.round(m.duration)))),
+              })),
+            }
+          : { prompt: params.prompt }),
         ...(params.image_url ? { image_url: params.image_url } : {}),
         ...(params.image_url && params.end_image_url ? { end_image_url: params.end_image_url } : {}),
         duration,
         // aspect_ratio is a t2v-only field; i2v follows the start image
         ...(params.image_url ? {} : { aspect_ratio: params.aspect_ratio || '16:9' }),
         generate_audio: params.generate_audio !== false,
-        shot_type: 'customize',
+        shot_type: params.shot_type || 'customize',
+        ...(params.cfg_scale != null ? { cfg_scale: Math.min(1, Math.max(0, params.cfg_scale)) } : {}),
         ...(params.negative_prompt ? { negative_prompt: params.negative_prompt } : {}),
       }),
     });
