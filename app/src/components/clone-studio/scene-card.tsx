@@ -204,7 +204,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
     >
       <div className="flex flex-col xl:flex-row">
         {/* ——— MEDIA ZONE ——— */}
-        <div className="flex-1 min-w-0 p-4 space-y-2.5">
+        <div className="flex-1 min-w-0 p-4 flex flex-col gap-2.5">
           {/* Slate header */}
           <div className="flex items-baseline justify-between gap-3">
             <div className="flex items-baseline gap-3 min-w-0">
@@ -244,9 +244,9 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           </div>
 
           {/* Panels — labels overlaid like monitor tags */}
-          <div className={`grid grid-cols-2 gap-2 ${hasVideo ? '2xl:grid-cols-3' : ''}`}>
+          <div className={`grid grid-cols-2 gap-2 flex-1 ${hasVideo ? '2xl:grid-cols-3' : ''}`}>
             {/* Original */}
-            <div className="relative h-52 lg:h-72 rounded-md overflow-hidden bg-black/50 border border-border/40">
+            <div className="relative h-full min-h-[13rem] rounded-md overflow-hidden bg-black/50 border border-border/40">
               {showOriginalClip && project.source_video_url && !scene.is_custom ? (
                 <video
                   src={`${project.source_video_url}#t=${scene.start},${scene.end}`}
@@ -295,7 +295,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
             </div>
 
             {/* Your image */}
-            <div className="relative h-52 lg:h-72 rounded-md overflow-hidden bg-black/50 border border-border/40">
+            <div className="relative h-full min-h-[13rem] rounded-md overflow-hidden bg-black/50 border border-border/40">
               {scene.edited_image_url ? (
                 <>
                   <a
@@ -341,7 +341,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
 
             {/* Animated clip */}
             {hasVideo && (
-              <div className="relative h-52 lg:h-72 col-span-2 2xl:col-span-1 rounded-md overflow-hidden bg-black border border-border/40">
+              <div className="relative h-full min-h-[13rem] col-span-2 2xl:col-span-1 rounded-md overflow-hidden bg-black border border-border/40">
                 <video
                   src={scene.anim!.video_url!}
                   poster={scene.edited_image_url || undefined}
@@ -482,7 +482,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                 onChange={(e) => setMotionPrompt(e.target.value)}
                 onFocus={() => { focusedFields.current.motion = true; }}
                 onBlur={() => { focusedFields.current.motion = false; saveMotionPrompt(); }}
-                className="text-sm min-h-[110px]"
+                className="text-sm min-h-[84px]"
                 disabled={animating || animGenerating}
               />
               <button
