@@ -84,18 +84,30 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
     if (result.success && result.project) onProjectUpdate(result.project);
   };
 
-  const handleAddRef = async (file: File | undefined) => {
-    if (!file) return;
+  const handleAddRefs = async (files: FileList | null) => {
+    const existing = scene.user_ref_urls || [];
+    const slots = 6 - existing.length;
+    const selected = Array.from(files || []).slice(0, slots);
+    if (!selected.length) return;
+    if ((files?.length || 0) > slots) {
+      toast.info(`Max 6 references per scene — uploading the first ${slots}`);
+    }
     setUploadingRef(true);
     try {
-      const upload = await uploadCloneReference(project.id, file);
-      if (!upload.success || !upload.url) {
-        toast.error(upload.error || 'Reference upload failed');
-        return;
+      const uploaded: string[] = [];
+      for (const file of selected) {
+        const upload = await uploadCloneReference(project.id, file);
+        if (upload.success && upload.url) uploaded.push(upload.url);
+        else toast.error(upload.error || `Upload failed for ${file.name}`);
       }
-      const urls = [...(scene.user_ref_urls || []), upload.url].slice(0, 6);
-      const result = await updateSceneInput(project.id, scene.n, { user_ref_urls: urls });
-      if (result.success && result.project) onProjectUpdate(result.project);
+      if (uploaded.length) {
+        const urls = [...existing, ...uploaded].slice(0, 6);
+        const result = await updateSceneInput(project.id, scene.n, { user_ref_urls: urls });
+        if (result.success && result.project) onProjectUpdate(result.project);
+      }
+    } catch (error) {
+      console.error('reference upload threw:', error);
+      toast.error('Reference upload did not complete — try again');
     } finally {
       setUploadingRef(false);
       if (refInputRef.current) refInputRef.current.value = '';
@@ -359,8 +371,9 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           ref={refInputRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
-          onChange={(e) => handleAddRef(e.target.files?.[0])}
+          onChange={(e) => handleAddRefs(e.target.files)}
         />
         <Button
           variant="outline"
