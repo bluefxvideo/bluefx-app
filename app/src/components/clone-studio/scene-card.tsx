@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Clapperboard, Download, ImagePlus, Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clapperboard, Download, ImagePlus, Loader2, Play, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const [instruction, setInstruction] = useState(scene.user_instruction || '');
   const [generating, setGenerating] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showNegative, setShowNegative] = useState(false);
+  const [showOriginalClip, setShowOriginalClip] = useState(false);
   const [motionPrompt, setMotionPrompt] = useState(
     scene.motion_prompt ?? composeMotionPrompt(scene.analysis)
   );
@@ -169,7 +170,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   };
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card id={`clone-scene-${scene.n}`} className="p-4 space-y-3 scroll-mt-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -220,27 +221,49 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Original</p>
           <div className="relative h-56 lg:h-80">
-            <a
-              href={scene.keyframe_url}
-              target="_blank"
-              rel="noreferrer"
-              className="block h-full rounded-md border border-border/50 bg-black/40 overflow-hidden"
-              title="Click to view full size"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={scene.keyframe_url}
-                alt={`Scene ${scene.n} original`}
-                className="w-full h-full object-contain"
+            {showOriginalClip && project.source_video_url && !scene.is_custom ? (
+              // Media fragment plays exactly this scene's slice of the source
+              <video
+                src={`${project.source_video_url}#t=${scene.start},${scene.end}`}
+                controls
+                autoPlay
+                className="w-full h-full object-contain rounded-md border border-border/50 bg-black"
               />
-            </a>
-            <a
-              href={`${scene.keyframe_url}?download=scene-${scene.n}-original.jpg`}
-              className="absolute bottom-1.5 right-1.5 p-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors"
-              title="Download this frame"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </a>
+            ) : (
+              <a
+                href={scene.keyframe_url}
+                target="_blank"
+                rel="noreferrer"
+                className="block h-full rounded-md border border-border/50 bg-black/40 overflow-hidden"
+                title="Click to view full size"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={scene.keyframe_url}
+                  alt={`Scene ${scene.n} original`}
+                  className="w-full h-full object-contain"
+                />
+              </a>
+            )}
+            {project.source_video_url && !scene.is_custom && (
+              <button
+                className="absolute bottom-1.5 left-1.5 px-2 py-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors text-[10px] flex items-center gap-1"
+                onClick={() => setShowOriginalClip((v) => !v)}
+                title={showOriginalClip ? 'Back to the frame' : 'Play this scene from the original ad'}
+              >
+                {showOriginalClip ? <ImagePlus className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                {showOriginalClip ? 'Frame' : 'Play original'}
+              </button>
+            )}
+            {!showOriginalClip && (
+              <a
+                href={`${scene.keyframe_url}?download=scene-${scene.n}-original.jpg`}
+                className="absolute bottom-1.5 right-1.5 p-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors"
+                title="Download this frame"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </a>
+            )}
           </div>
         </div>
         <div className="space-y-1">
@@ -416,6 +439,53 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           : `${scene.edited_image_url ? 'Regenerate' : 'Generate'} · ${CLONE_IMAGE_CREDITS} cr`}
       </Button>
 
+      {/* Video prompt — ALWAYS visible right above Animate so a bad prompt
+          can't slip through unseen (it is exactly what the model receives) */}
+      {scene.edited_image_url && (
+        <div className="space-y-1.5 pt-1 border-t border-border/40">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">
+              Video prompt — exactly what Animate will use
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 text-[10px] text-zinc-500"
+              onClick={() => {
+                setMotionPrompt(composeMotionPrompt(scene.analysis));
+                setNegativePrompt(CLONE_ANIM_NEGATIVE_PROMPT);
+              }}
+              title="Restore the AI-suggested prompt and default negative prompt"
+            >
+              Reset to suggestion
+            </Button>
+          </div>
+          <Textarea
+            value={motionPrompt}
+            onChange={(e) => setMotionPrompt(e.target.value)}
+            onBlur={saveMotionPrompt}
+            className="text-sm min-h-[96px]"
+            disabled={animating || animGenerating}
+          />
+          <button
+            className="w-full flex items-center justify-between text-[10px] text-zinc-500 hover:text-zinc-300"
+            onClick={() => setShowNegative((v) => !v)}
+          >
+            <span>Negative prompt (what the video must avoid)</span>
+            {showNegative ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {showNegative && (
+            <Textarea
+              value={negativePrompt}
+              onChange={(e) => setNegativePrompt(e.target.value)}
+              onBlur={saveNegativePrompt}
+              className="text-xs min-h-[48px]"
+              disabled={animating || animGenerating}
+            />
+          )}
+        </div>
+      )}
+
       {/* Animate (Kling O3 Pro, audio on) — clip length editable, pre-filled
           with the original cut length; assembly still trims to the original
           cut so longer clips are extra footage for manual editing */}
@@ -460,54 +530,6 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </div>
       )}
 
-      {/* Video prompt — the EXACT text the animation model receives. Nothing
-          else is appended; the fixed negative quality guard is shown below. */}
-      <div>
-        <button
-          className="w-full flex items-center justify-between text-xs font-medium text-zinc-400 hover:text-white"
-          onClick={() => setShowDetails((v) => !v)}
-        >
-          <span>Video prompt — exactly what the animation receives</span>
-          {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        </button>
-        {showDetails && (
-          <div className="mt-2 space-y-1.5">
-            <Textarea
-              value={motionPrompt}
-              onChange={(e) => setMotionPrompt(e.target.value)}
-              onBlur={saveMotionPrompt}
-              className="text-xs min-h-[140px]"
-              disabled={animating || animGenerating}
-            />
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                Negative prompt (what the video must avoid)
-              </p>
-              <Textarea
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                onBlur={saveNegativePrompt}
-                className="text-xs min-h-[48px]"
-                disabled={animating || animGenerating}
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[10px] text-zinc-500"
-                onClick={() => {
-                  setMotionPrompt(composeMotionPrompt(scene.analysis));
-                  setNegativePrompt(CLONE_ANIM_NEGATIVE_PROMPT);
-                }}
-                title="Restore the AI-suggested prompt and default negative prompt"
-              >
-                Reset to suggestion
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
     </Card>
   );
 }

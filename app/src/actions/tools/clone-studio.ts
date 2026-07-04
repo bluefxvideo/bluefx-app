@@ -478,8 +478,12 @@ export async function generateSceneImage(
   try {
     // FAL rejects images over ~5MB after base64 inflation — compress if needed
     const keyframe = (await ensureFalCompatibleImage(scene.keyframe_url, attemptId, `scene${sceneN}-key`))!;
+    // Project-level refs (same person/product in every scene) come first,
+    // then scene-specific ones; dedup, cap 6 total
+    const projectRefs = project.analysis_summary?.project_ref_urls || [];
+    const combinedRefs = [...new Set([...projectRefs, ...(scene.user_ref_urls || [])])].slice(0, 6);
     const refs: string[] = [];
-    for (const [i, url] of (scene.user_ref_urls || []).entries()) {
+    for (const [i, url] of combinedRefs.entries()) {
       const guarded = await ensureFalCompatibleImage(url, attemptId, `scene${sceneN}-ref${i + 1}`);
       if (guarded) refs.push(guarded);
     }
@@ -853,6 +857,41 @@ export async function assembleCloneProject(
   } finally {
     await cleanupWorkDir(workDir);
   }
+}
+
+/** Set the project-level reference images (auto-included in every scene). */
+export async function updateProjectReferences(
+  projectId: string,
+  urls: string[]
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const summary = {
+    ...(loaded.project.analysis_summary || {
+      summary: '', characters: [], products: [], visual_style: '', music_brief: '',
+    }),
+    project_ref_urls: urls.slice(0, 6),
+  };
+  const admin = createAdminClient();
+  await admin
+    .from('ad_clone_projects')
+    .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
+    .eq('id', projectId);
+  return { success: true, project: { ...loaded.project, analysis_summary: summary } };
+}
+
+/** Write one swap instruction into every scene (each stays editable after). */
+export async function applyInstructionToAllScenes(
+  projectId: string,
+  instruction: string
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const scenes = loaded.project.scenes.map((s) => ({ ...s, user_instruction: instruction }));
+  await saveScenes(projectId, scenes);
+  return { success: true, project: { ...loaded.project, scenes } };
 }
 
 function emptySceneAnalysis(): SceneAnalysis {

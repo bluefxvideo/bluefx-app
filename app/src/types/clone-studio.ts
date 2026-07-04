@@ -149,6 +149,12 @@ export interface CloneAnalysisSummary {
   products: string[];
   visual_style: string;
   music_brief: string;
+  /**
+   * Project-level reference images (person/product) automatically included
+   * in EVERY scene generation — the identity-consistency fix. Lives in this
+   * jsonb to avoid a schema migration.
+   */
+  project_ref_urls?: string[];
 }
 
 export interface CloneProject {

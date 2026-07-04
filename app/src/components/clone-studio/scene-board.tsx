@@ -1,14 +1,29 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, Film, ImagePlus, Info, Loader2, Music } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Clapperboard, Download, ExternalLink, Film, ImagePlus, Info, Loader2, Music, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { pollSceneAnimation, assembleCloneProject, addCustomScene, uploadCloneReference } from '@/actions/tools/clone-studio';
-import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  pollSceneAnimation,
+  assembleCloneProject,
+  addCustomScene,
+  uploadCloneReference,
+  updateProjectReferences,
+  applyInstructionToAllScenes,
+  generateSceneImage,
+  animateScene,
+} from '@/actions/tools/clone-studio';
+import {
+  CLONE_ANIM_CREDITS_PER_SECOND,
+  CLONE_IMAGE_CREDITS,
+  CLONE_MUSIC_CREDITS,
+  type CloneProject,
+} from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
 
 interface SceneBoardProps {
@@ -25,10 +40,105 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const [addingScene, setAddingScene] = useState(false);
   const [addAfter, setAddAfter] = useState<string>('end');
   const addSceneInputRef = useRef<HTMLInputElement>(null);
+  const projectRefInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingProjectRefs, setUploadingProjectRefs] = useState(false);
+  const [globalInstruction, setGlobalInstruction] = useState('');
+  const [applyingInstruction, setApplyingInstruction] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<string | null>(null);
+  const batchCancel = useRef(false);
   const summary = project.analysis_summary;
   const pollBusy = useRef(false);
 
   const animatedCount = project.scenes.filter((s) => s.anim?.status === 'completed').length;
+  const projectRefs = project.analysis_summary?.project_ref_urls || [];
+  const missingImages = project.scenes.filter((s) => !s.edited_image_url);
+  const readyToAnimate = project.scenes.filter(
+    (s) => s.edited_image_url && (s.anim?.status === 'idle' || s.anim?.status === 'failed' || !s.anim)
+  );
+  const animateAllCredits = readyToAnimate.reduce((sum, s) => {
+    const seconds = s.anim_seconds ?? Math.min(15, Math.max(3, Math.ceil(s.end - s.start)));
+    return sum + seconds * CLONE_ANIM_CREDITS_PER_SECOND;
+  }, 0);
+
+  const handleProjectRefUpload = async (files: FileList | null) => {
+    const slots = 6 - projectRefs.length;
+    const selected = Array.from(files || []).slice(0, slots);
+    if (!selected.length) return;
+    setUploadingProjectRefs(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of selected) {
+        const up = await uploadCloneReference(project.id, file);
+        if (up.success && up.url) uploaded.push(up.url);
+        else toast.error(up.error || `Upload failed for ${file.name}`);
+      }
+      if (uploaded.length) {
+        const result = await updateProjectReferences(project.id, [...projectRefs, ...uploaded]);
+        if (result.success && result.project) onProjectUpdate(result.project);
+      }
+    } finally {
+      setUploadingProjectRefs(false);
+      if (projectRefInputRef.current) projectRefInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveProjectRef = async (url: string) => {
+    const result = await updateProjectReferences(project.id, projectRefs.filter((u) => u !== url));
+    if (result.success && result.project) onProjectUpdate(result.project);
+  };
+
+  const handleApplyInstruction = async () => {
+    if (!globalInstruction.trim()) return;
+    if (!window.confirm('Write this instruction into ALL scenes? (overwrites each scene\u2019s current instruction)')) return;
+    setApplyingInstruction(true);
+    try {
+      const result = await applyInstructionToAllScenes(project.id, globalInstruction.trim());
+      if (result.success && result.project) {
+        onProjectUpdate(result.project);
+        toast.success('Instruction applied to all scenes');
+      } else toast.error(result.error || 'Could not apply');
+    } finally {
+      setApplyingInstruction(false);
+    }
+  };
+
+  const handleGenerateAll = async () => {
+    const targets = missingImages.map((s) => s.n);
+    if (!targets.length) return;
+    if (!window.confirm(`Generate images for ${targets.length} scenes (${targets.length * CLONE_IMAGE_CREDITS} credits)?`)) return;
+    batchCancel.current = false;
+    let done = 0, failed = 0;
+    for (const [i, n] of targets.entries()) {
+      if (batchCancel.current) break;
+      setBatchStatus(`Generating scene ${n} (${i + 1}/${targets.length})\u2026`);
+      try {
+        const result = await generateSceneImage(project.id, n);
+        if (result.success && result.project) { onProjectUpdate(result.project); done++; }
+        else failed++;
+      } catch { failed++; }
+    }
+    setBatchStatus(null);
+    toast[failed ? 'warning' : 'success'](`Generated ${done} scene image${done === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}`);
+  };
+
+  const handleAnimateAll = async () => {
+    const targets = readyToAnimate.map((s) => s.n);
+    if (!targets.length) return;
+    if (!window.confirm(`Animate ${targets.length} scenes with sound (${animateAllCredits} credits)? They render in parallel (~2-4 min).`)) return;
+    batchCancel.current = false;
+    let done = 0, failed = 0;
+    for (const [i, n] of targets.entries()) {
+      if (batchCancel.current) break;
+      setBatchStatus(`Starting animation for scene ${n} (${i + 1}/${targets.length})\u2026`);
+      try {
+        const result = await animateScene(project.id, n);
+        if (result.success && result.project) { onProjectUpdate(result.project); done++; }
+        else failed++;
+      } catch { failed++; }
+    }
+    setBatchStatus(null);
+    toast[failed ? 'warning' : 'success'](`${done} animation${done === 1 ? '' : 's'} started${failed ? `, ${failed} failed` : ''}`);
+  };
 
   const handleAssemble = async () => {
     setAssembling(true);
@@ -179,6 +289,119 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           </div>
         </div>
       </Card>
+
+      {/* Setup: project refs + one instruction + batch actions */}
+      <Card className="p-4 space-y-4">
+        <p className="text-sm font-semibold text-white">Set up once, apply everywhere</p>
+
+        <div className="space-y-2">
+          <p className="text-xs text-zinc-400">
+            Your references — included automatically in <span className="text-white">every</span> scene
+            generation (keeps your person and product consistent across scenes):
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {projectRefs.map((url) => (
+              <div key={url} className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="Project reference" className="w-14 h-14 object-cover rounded border border-border/50" />
+                <button
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center"
+                  onClick={() => handleRemoveProjectRef(url)}
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ))}
+            <input
+              ref={projectRefInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleProjectRefUpload(e.target.files)}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-14"
+              onClick={() => projectRefInputRef.current?.click()}
+              disabled={uploadingProjectRefs || projectRefs.length >= 6}
+            >
+              {uploadingProjectRefs ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ImagePlus className="w-4 h-4 mr-1.5" />}
+              Add references
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs text-zinc-400">One swap instruction for the whole ad (each scene stays editable):</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Textarea
+              value={globalInstruction}
+              onChange={(e) => setGlobalInstruction(e.target.value)}
+              placeholder='e.g. "Replace the young man with the bald man from reference 1. Replace every Pringles can with the Nutella jar from reference 2."'
+              className="text-sm min-h-[60px] flex-1"
+              disabled={applyingInstruction || !!batchStatus}
+            />
+            <Button
+              variant="outline"
+              onClick={handleApplyInstruction}
+              disabled={applyingInstruction || !globalInstruction.trim() || !!batchStatus}
+              className="sm:self-end"
+            >
+              {applyingInstruction ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
+              Apply to all scenes
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 pt-1 border-t border-border/40">
+          <Button
+            onClick={handleGenerateAll}
+            disabled={!!batchStatus || missingImages.length === 0}
+            className="flex-1"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Generate {missingImages.length} missing image{missingImages.length === 1 ? '' : 's'} · {missingImages.length * CLONE_IMAGE_CREDITS} cr
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleAnimateAll}
+            disabled={!!batchStatus || readyToAnimate.length === 0}
+            className="flex-1"
+          >
+            <Clapperboard className="w-4 h-4 mr-2" />
+            Animate {readyToAnimate.length} ready scene{readyToAnimate.length === 1 ? '' : 's'} · {animateAllCredits} cr
+          </Button>
+        </div>
+        {batchStatus && (
+          <div className="flex items-center justify-between text-xs text-zinc-300">
+            <span className="flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> {batchStatus}</span>
+            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { batchCancel.current = true; }}>
+              Stop after current
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      {/* Progress strip — one dot per scene, click to jump */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {project.scenes.map((sc) => {
+          const state = sc.anim?.status === 'completed' ? 'done' : sc.anim?.status === 'generating' ? 'anim' : sc.edited_image_url ? 'image' : 'todo';
+          const color = state === 'done' ? 'bg-green-500/80 border-green-400' : state === 'anim' ? 'bg-amber-500/80 border-amber-400 animate-pulse' : state === 'image' ? 'bg-primary/80 border-primary' : 'bg-zinc-700 border-border';
+          return (
+            <button
+              key={sc.n}
+              className={`w-7 h-7 rounded-full text-[10px] font-medium text-white border ${color} hover:scale-110 transition-transform`}
+              title={`Scene ${sc.n}: ${state === 'done' ? 'animated' : state === 'anim' ? 'animating' : state === 'image' ? 'image ready' : 'not started'}`}
+              onClick={() => document.getElementById(`clone-scene-${sc.n}`)?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              {sc.n}
+            </button>
+          );
+        })}
+        <span className="text-[10px] text-zinc-500 ml-2">gray = not started · blue = image ready · amber = animating · green = animated</span>
+      </div>
 
       {/* Analysis summary */}
       {summary && (
