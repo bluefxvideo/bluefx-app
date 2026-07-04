@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Clapperboard, Download, ExternalLink, Film, ImagePlus, Info, Loader2, Music, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, Film, ImagePlus, Info, Loader2, Music, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,15 +15,8 @@ import {
   uploadCloneReference,
   updateProjectReferences,
   applyInstructionToAllScenes,
-  generateSceneImage,
-  animateScene,
 } from '@/actions/tools/clone-studio';
-import {
-  CLONE_ANIM_CREDITS_PER_SECOND,
-  CLONE_IMAGE_CREDITS,
-  CLONE_MUSIC_CREDITS,
-  type CloneProject,
-} from '@/types/clone-studio';
+import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
 
 interface SceneBoardProps {
@@ -44,22 +37,11 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const [uploadingProjectRefs, setUploadingProjectRefs] = useState(false);
   const [globalInstruction, setGlobalInstruction] = useState('');
   const [applyingInstruction, setApplyingInstruction] = useState(false);
-  const [batchStatus, setBatchStatus] = useState<string | null>(null);
-  const batchCancel = useRef(false);
   const summary = project.analysis_summary;
   const pollBusy = useRef(false);
 
   const animatedCount = project.scenes.filter((s) => s.anim?.status === 'completed').length;
   const projectRefs = project.analysis_summary?.project_ref_urls || [];
-  const missingImages = project.scenes.filter((s) => !s.edited_image_url);
-  const readyToAnimate = project.scenes.filter(
-    (s) => s.edited_image_url && (s.anim?.status === 'idle' || s.anim?.status === 'failed' || !s.anim)
-  );
-  const animateAllCredits = readyToAnimate.reduce((sum, s) => {
-    const seconds = s.anim_seconds ?? Math.min(15, Math.max(3, Math.ceil(s.end - s.start)));
-    return sum + seconds * CLONE_ANIM_CREDITS_PER_SECOND;
-  }, 0);
-
   const handleProjectRefUpload = async (files: FileList | null) => {
     const slots = 6 - projectRefs.length;
     const selected = Array.from(files || []).slice(0, slots);
@@ -100,44 +82,6 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
     } finally {
       setApplyingInstruction(false);
     }
-  };
-
-  const handleGenerateAll = async () => {
-    const targets = missingImages.map((s) => s.n);
-    if (!targets.length) return;
-    if (!window.confirm(`Generate images for ${targets.length} scenes (${targets.length * CLONE_IMAGE_CREDITS} credits)?`)) return;
-    batchCancel.current = false;
-    let done = 0, failed = 0;
-    for (const [i, n] of targets.entries()) {
-      if (batchCancel.current) break;
-      setBatchStatus(`Generating scene ${n} (${i + 1}/${targets.length})\u2026`);
-      try {
-        const result = await generateSceneImage(project.id, n);
-        if (result.success && result.project) { onProjectUpdate(result.project); done++; }
-        else failed++;
-      } catch { failed++; }
-    }
-    setBatchStatus(null);
-    toast[failed ? 'warning' : 'success'](`Generated ${done} scene image${done === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}`);
-  };
-
-  const handleAnimateAll = async () => {
-    const targets = readyToAnimate.map((s) => s.n);
-    if (!targets.length) return;
-    if (!window.confirm(`Animate ${targets.length} scenes with sound (${animateAllCredits} credits)? They render in parallel (~2-4 min).`)) return;
-    batchCancel.current = false;
-    let done = 0, failed = 0;
-    for (const [i, n] of targets.entries()) {
-      if (batchCancel.current) break;
-      setBatchStatus(`Starting animation for scene ${n} (${i + 1}/${targets.length})\u2026`);
-      try {
-        const result = await animateScene(project.id, n);
-        if (result.success && result.project) { onProjectUpdate(result.project); done++; }
-        else failed++;
-      } catch { failed++; }
-    }
-    setBatchStatus(null);
-    toast[failed ? 'warning' : 'success'](`${done} animation${done === 1 ? '' : 's'} started${failed ? `, ${failed} failed` : ''}`);
   };
 
   const handleAssemble = async () => {
@@ -305,11 +249,11 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               onChange={(e) => setGlobalInstruction(e.target.value)}
               placeholder='e.g. "Replace the young man with the bald man from reference 1. Replace every Pringles can with the Nutella jar from reference 2."'
               className="text-sm min-h-[60px] flex-1"
-              disabled={applyingInstruction || !!batchStatus}
+              disabled={applyingInstruction}
             />
             <Button
               onClick={handleApplyInstruction}
-              disabled={applyingInstruction || !globalInstruction.trim() || !!batchStatus}
+              disabled={applyingInstruction || !globalInstruction.trim()}
               className="sm:self-end h-11 px-6 font-medium"
               size="lg"
             >
@@ -319,33 +263,6 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/40">
-          <Button
-            onClick={handleGenerateAll}
-            disabled={!!batchStatus || missingImages.length === 0}
-            className="flex-1"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            Generate {missingImages.length} missing image{missingImages.length === 1 ? '' : 's'} · {missingImages.length * CLONE_IMAGE_CREDITS} cr
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleAnimateAll}
-            disabled={!!batchStatus || readyToAnimate.length === 0}
-            className="flex-1"
-          >
-            <Clapperboard className="w-4 h-4 mr-2" />
-            Animate {readyToAnimate.length} ready scene{readyToAnimate.length === 1 ? '' : 's'} · {animateAllCredits} cr
-          </Button>
-        </div>
-        {batchStatus && (
-          <div className="flex items-center justify-between text-xs text-zinc-300">
-            <span className="flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> {batchStatus}</span>
-            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { batchCancel.current = true; }}>
-              Stop after current
-            </Button>
-          </div>
-        )}
       </Card>
 
       {/* Analysis summary */}
