@@ -414,8 +414,14 @@ export function DashboardSidebar({
     }
   }, [])
 
-  // Check if user is admin
+  // Check if user is admin. The network check takes seconds on cold loads,
+  // which made admin-only menu items pop in late — so render from the cached
+  // verdict immediately and let the real check correct it in the background.
+  // Cosmetic only: server actions enforce the actual gate.
   useEffect(() => {
+    try {
+      setIsAdmin(localStorage.getItem('bfx_is_admin') === '1')
+    } catch { /* private mode */ }
     async function checkAdmin() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -425,7 +431,11 @@ export function DashboardSidebar({
           .select('role')
           .eq('id', user.id)
           .single()
-        setIsAdmin(profile?.role === 'admin')
+        const admin = profile?.role === 'admin'
+        setIsAdmin(admin)
+        try {
+          localStorage.setItem('bfx_is_admin', admin ? '1' : '0')
+        } catch { /* private mode */ }
       }
     }
     checkAdmin()
