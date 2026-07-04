@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import {
   updateSceneInput,
   uploadCloneReference,
@@ -18,7 +17,9 @@ import {
 } from '@/actions/tools/clone-studio';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
+  CLONE_ANIM_NEGATIVE_PROMPT,
   CLONE_IMAGE_CREDITS,
+  composeMotionPrompt,
   type CloneProject,
   type CloneScene,
 } from '@/types/clone-studio';
@@ -34,7 +35,9 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const [generating, setGenerating] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [details, setDetails] = useState(scene.analysis);
+  const [motionPrompt, setMotionPrompt] = useState(
+    scene.motion_prompt ?? composeMotionPrompt(scene.analysis)
+  );
   const refInputRef = useRef<HTMLInputElement>(null);
   const [animating, setAnimating] = useState(false);
 
@@ -63,9 +66,10 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
     if (result.success && result.project) onProjectUpdate(result.project);
   };
 
-  const saveDetails = async () => {
-    if (JSON.stringify(details) === JSON.stringify(scene.analysis)) return;
-    const result = await updateSceneInput(project.id, scene.n, { analysis: details });
+  const saveMotionPrompt = async () => {
+    const current = scene.motion_prompt ?? composeMotionPrompt(scene.analysis);
+    if (motionPrompt === current) return;
+    const result = await updateSceneInput(project.id, scene.n, { motion_prompt: motionPrompt });
     if (result.success && result.project) onProjectUpdate(result.project);
   };
 
@@ -122,7 +126,10 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const handleAnimate = async () => {
     setAnimating(true);
     try {
-      const result = await animateScene(project.id, scene.n, { seconds: animSeconds });
+      const result = await animateScene(project.id, scene.n, {
+        seconds: animSeconds,
+        prompt: motionPrompt,
+      });
       if (!result.success || !result.project) {
         toast.error(result.error || 'Animation failed to start');
         return;
@@ -356,68 +363,38 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         </div>
       )}
 
-      {/* Scene details (editable analysis) */}
+      {/* Video prompt — the EXACT text the animation model receives. Nothing
+          else is appended; the fixed negative quality guard is shown below. */}
       <div>
         <button
           className="w-full flex items-center justify-between text-xs font-medium text-zinc-400 hover:text-white"
           onClick={() => setShowDetails((v) => !v)}
         >
-          <span>Scene details (camera, action, dialog)</span>
+          <span>Video prompt — exactly what the animation receives</span>
           {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
         {showDetails && (
-          <div className="mt-2 space-y-2">
-            <div>
-              <Label className="text-[10px] uppercase text-zinc-500">Action (what happens)</Label>
-              <Textarea
-                value={details.action_arc.action}
-                onChange={(e) => setDetails({ ...details, action_arc: { ...details.action_arc, action: e.target.value } })}
-                onBlur={saveDetails}
-                className="text-xs min-h-[56px]"
-              />
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase text-zinc-500">End state (locked)</Label>
-              <Textarea
-                value={details.action_arc.end_state}
-                onChange={(e) => setDetails({ ...details, action_arc: { ...details.action_arc, end_state: e.target.value } })}
-                onBlur={saveDetails}
-                className="text-xs min-h-[40px]"
-              />
-            </div>
-            <div>
-              <Label className="text-[10px] uppercase text-zinc-500">Rules (one per line, e.g. &quot;the can NEVER comes off&quot;)</Label>
-              <Textarea
-                value={details.action_arc.invariants.join('\n')}
-                onChange={(e) =>
-                  setDetails({
-                    ...details,
-                    action_arc: { ...details.action_arc, invariants: e.target.value.split('\n').filter(Boolean) },
-                  })
-                }
-                onBlur={saveDetails}
-                className="text-xs min-h-[40px]"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-[10px] uppercase text-zinc-500">Dialog</Label>
-                <Input
-                  value={details.dialog}
-                  onChange={(e) => setDetails({ ...details, dialog: e.target.value })}
-                  onBlur={saveDetails}
-                  className="text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-[10px] uppercase text-zinc-500">Camera</Label>
-                <Input
-                  value={details.camera}
-                  onChange={(e) => setDetails({ ...details, camera: e.target.value })}
-                  onBlur={saveDetails}
-                  className="text-xs"
-                />
-              </div>
+          <div className="mt-2 space-y-1.5">
+            <Textarea
+              value={motionPrompt}
+              onChange={(e) => setMotionPrompt(e.target.value)}
+              onBlur={saveMotionPrompt}
+              className="text-xs min-h-[140px]"
+              disabled={animating || animGenerating}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] text-zinc-600">
+                Fixed quality guard (negative prompt): {CLONE_ANIM_NEGATIVE_PROMPT}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] text-zinc-500 shrink-0"
+                onClick={() => setMotionPrompt(composeMotionPrompt(scene.analysis))}
+                title="Restore the AI-suggested prompt"
+              >
+                Reset to suggestion
+              </Button>
             </div>
           </div>
         )}

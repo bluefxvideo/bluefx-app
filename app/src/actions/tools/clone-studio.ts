@@ -34,11 +34,13 @@ import {
 import { analyzeCloneScenes, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
+  CLONE_ANIM_NEGATIVE_PROMPT,
   CLONE_IMAGE_CREDITS,
   CLONE_INGEST_CREDITS,
   CLONE_MAX_IMAGE_VERSIONS,
   CLONE_MAX_SOURCE_SECONDS,
   CLONE_MUSIC_CREDITS,
+  composeMotionPrompt,
   type CloneImageEngine,
   type CloneProject,
   type CloneProjectResponse,
@@ -235,6 +237,7 @@ export async function processCloneProject(
       edited_image_url: null,
       image_versions: [],
       anim: { request_id: null, video_url: null, status: 'idle' },
+      motion_prompt: composeMotionPrompt(analyzedScenes[s.n]),
       credits_spent: 0,
     }));
 
@@ -350,6 +353,8 @@ export async function updateSceneInput(
     analysis?: SceneAnalysis;
     /** 3-15 to override the animation length; null resets to auto. */
     anim_seconds?: number | null;
+    /** Verbatim video prompt; null resets to the composed default. */
+    motion_prompt?: string | null;
   }
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
@@ -368,6 +373,7 @@ export async function updateSceneInput(
           ...(input.user_ref_urls !== undefined ? { user_ref_urls: input.user_ref_urls.slice(0, 6) } : {}),
           ...(input.analysis !== undefined ? { analysis: input.analysis } : {}),
           ...(input.anim_seconds !== undefined ? { anim_seconds: animSeconds } : {}),
+          ...(input.motion_prompt !== undefined ? { motion_prompt: input.motion_prompt } : {}),
         }
       : s
   );
@@ -567,29 +573,6 @@ export async function deleteCloneProject(
   return { success: true };
 }
 
-/**
- * Motion prompt per the action-arc rule: beats + LOCKED end state + invariants
- * repeated verbatim, camera language, spoken dialog (Kling audio-on lip-syncs
- * quoted speech), and a no-music audio directive (the music bed is added at
- * assembly).
- */
-function buildSceneMotionPrompt(scene: CloneScene): string {
-  const arc = scene.analysis?.action_arc;
-  const parts: string[] = [];
-  if (arc?.action) parts.push(arc.action);
-  if (arc?.end_state) parts.push(`End state: ${arc.end_state}`);
-  if (arc?.invariants?.length) parts.push(arc.invariants.join(' '));
-  if (scene.analysis?.camera) parts.push(`Camera: ${scene.analysis.camera}.`);
-  if (scene.analysis?.dialog?.trim()) {
-    parts.push(`The person says, lips in sync: "${scene.analysis.dialog.trim()}"`);
-  }
-  parts.push('Audio: natural diegetic sound for the scene only — no background music, no soundtrack.');
-  return parts.join(' ');
-}
-
-const CLONE_ANIM_NEGATIVE_PROMPT =
-  'morphing, warping, distorted faces, extra fingers, deformed hands, text, subtitles, captions, watermark, background music, soundtrack';
-
 /** Animation length: user override if set, else cover the original cut; clamped to Kling's 3-15s. */
 function sceneAnimationSeconds(scene: CloneScene): number {
   const seconds = scene.anim_seconds ?? Math.ceil(scene.end - scene.start);
@@ -604,7 +587,7 @@ function sceneAnimationSeconds(scene: CloneScene): number {
 export async function animateScene(
   projectId: string,
   sceneN: number,
-  options: { seconds?: number } = {}
+  options: { seconds?: number; prompt?: string } = {}
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
@@ -639,8 +622,13 @@ export async function animateScene(
 
   const imageUrl = await ensureFalCompatibleImage(scene.edited_image_url, attemptId, `scene${sceneN}-anim`);
 
+  // The card shows this prompt and passes it with the click (beats a stale
+  // blur-save) — what the user sees in the box is exactly what the model gets
+  const motionPrompt =
+    options.prompt?.trim() || scene.motion_prompt?.trim() || composeMotionPrompt(scene.analysis);
+
   const submit = await submitKlingO3ProImageToVideo({
-    prompt: buildSceneMotionPrompt(scene),
+    prompt: motionPrompt,
     image_url: imageUrl || scene.edited_image_url,
     duration: durationSeconds,
     aspect_ratio: (project.aspect_ratio || '16:9') as '16:9' | '9:16' | '1:1',
@@ -671,6 +659,7 @@ export async function animateScene(
             attempt_id: attemptId,
           },
           anim_seconds: durationSeconds,
+          motion_prompt: motionPrompt,
           credits_spent: (s.credits_spent || 0) + credits,
         }
       : s

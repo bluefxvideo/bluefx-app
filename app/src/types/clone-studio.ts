@@ -92,8 +92,43 @@ export interface CloneScene {
    * cut, so longer clips are extra footage for manual editing.
    */
   anim_seconds?: number | null;
+  /**
+   * The EXACT prompt sent to the video model — visible and editable in the
+   * card, no hidden additions. Pre-filled from the scene analysis at ingest;
+   * absent on older scenes, where composeMotionPrompt provides the same
+   * default the card displays.
+   */
+  motion_prompt?: string | null;
   credits_spent: number;
 }
+
+/**
+ * Default video prompt composed from the scene analysis (action-arc rule:
+ * beats + locked end state + invariants, camera, lip-synced dialog, no-music
+ * audio directive). This is a SUGGESTION shown in the card — whatever text
+ * the user leaves in the box is what the model receives, verbatim.
+ */
+export function composeMotionPrompt(analysis: SceneAnalysis | undefined): string {
+  const parts: string[] = [];
+  const arc = analysis?.action_arc;
+  if (arc?.action) parts.push(arc.action);
+  if (arc?.end_state) parts.push(`End state: ${arc.end_state}`);
+  if (arc?.invariants?.length) parts.push(arc.invariants.join(' '));
+  if (analysis?.camera) parts.push(`Camera: ${analysis.camera}.`);
+  if (analysis?.dialog?.trim()) {
+    parts.push(`The person says, lips in sync: "${analysis.dialog.trim()}"`);
+  }
+  parts.push('Audio: natural diegetic sound for the scene only — no background music, no soundtrack.');
+  return parts.join(' ');
+}
+
+/**
+ * Fixed quality guard sent as the NEGATIVE prompt with every animation —
+ * shown in the card so nothing about the request is invisible. Content-free
+ * on purpose: it can only suppress artifacts, never add objects.
+ */
+export const CLONE_ANIM_NEGATIVE_PROMPT =
+  'morphing, warping, distorted faces, extra fingers, deformed hands, text, subtitles, captions, watermark, background music, soundtrack';
 
 export interface CloneCharacterProfile {
   /** Stable identifier used across scene analyses, e.g. "MAIN CHARACTER". */
