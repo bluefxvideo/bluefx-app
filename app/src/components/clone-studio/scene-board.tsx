@@ -98,12 +98,17 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           </div>
         </div>
         {project.source_video_url && (
-          <video
-            src={project.source_video_url}
-            controls
-            preload="metadata"
-            className="w-full lg:w-64 rounded-lg border border-border/50 bg-black"
-          />
+          <div className="w-full lg:w-[520px] xl:w-[600px] shrink-0 space-y-1">
+            <video
+              src={project.source_video_url}
+              controls
+              preload="metadata"
+              className="w-full rounded-lg border border-border/50 bg-black"
+            />
+            <p className="text-[10px] text-zinc-600 text-right">
+              Tip: use the player&apos;s ⋮ menu → Picture in Picture to keep it floating while you scroll.
+            </p>
+          </div>
         )}
       </div>
 
