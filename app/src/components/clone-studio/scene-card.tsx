@@ -219,20 +219,29 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Original</p>
-          <a
-            href={scene.keyframe_url}
-            target="_blank"
-            rel="noreferrer"
-            className="block h-56 rounded-md border border-border/50 bg-black/40 overflow-hidden"
-            title="Open full size"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={scene.keyframe_url}
-              alt={`Scene ${scene.n} original`}
-              className="w-full h-full object-contain"
-            />
-          </a>
+          <div className="relative h-56">
+            <a
+              href={scene.keyframe_url}
+              target="_blank"
+              rel="noreferrer"
+              className="block h-full rounded-md border border-border/50 bg-black/40 overflow-hidden"
+              title="Click to view full size"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={scene.keyframe_url}
+                alt={`Scene ${scene.n} original`}
+                className="w-full h-full object-contain"
+              />
+            </a>
+            <a
+              href={`${scene.keyframe_url}?download=scene-${scene.n}-original.jpg`}
+              className="absolute bottom-1.5 right-1.5 p-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors"
+              title="Download this frame"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </a>
+          </div>
         </div>
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">
@@ -252,10 +261,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                     still the input for Regenerate/Re-animate */}
                 {scene.edited_image_url && (
                   <a
-                    href={scene.edited_image_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="The image this clip was animated from — open full size (right-click to save)"
+                    href={`${scene.edited_image_url}?download=scene-${scene.n}-image.jpg`}
+                    title="Download the image this clip was animated from"
                     className="shrink-0"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -282,7 +289,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                 target="_blank"
                 rel="noreferrer"
                 className="block h-full rounded-md border border-primary/40 bg-black/40 overflow-hidden"
-                title="Open full size (right-click to save)"
+                title="Click to view full size"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -291,6 +298,15 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                   className="w-full h-full object-contain"
                 />
               </a>
+              {!animGenerating && (
+                <a
+                  href={`${scene.edited_image_url}?download=scene-${scene.n}-image.jpg`}
+                  className="absolute bottom-1.5 right-1.5 p-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors"
+                  title="Download this image"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </a>
+              )}
               {animGenerating && (
                 <div className="absolute inset-0 rounded-md bg-black/60 flex flex-col items-center justify-center gap-1">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
