@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Download, Film, Info, Loader2, Music } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, Film, Info, Loader2, Music } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,12 +74,23 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             <ArrowLeft className="w-4 h-4 mr-1" /> All projects
           </Button>
           <h3 className="text-xl font-bold text-white">{project.title || 'Untitled clone'}</h3>
-          <div className="flex flex-wrap gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <Badge variant="secondary">{project.source_platform}</Badge>
             <Badge variant="secondary">{Math.round(project.video_duration_seconds || 0)}s</Badge>
             <Badge variant="secondary">{project.scenes.length} scenes</Badge>
             <Badge variant="secondary">{project.aspect_ratio}</Badge>
             <Badge variant="secondary">{project.credits_spent} credits spent</Badge>
+            {project.source_url && (
+              <a
+                href={project.source_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+                title={project.source_url}
+              >
+                <ExternalLink className="w-3 h-3" /> Original video
+              </a>
+            )}
           </div>
         </div>
         {project.source_video_url && (
