@@ -201,13 +201,33 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                 preload="metadata"
                 className="w-full h-56 object-contain rounded-md border border-primary/40 bg-black"
               />
-              {/* Supabase storage: ?download= sets Content-Disposition attachment
-                  (the download attribute is ignored on cross-origin links) */}
-              <a href={`${scene.anim.video_url}?download=scene-${scene.n}.mp4`}>
-                <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-zinc-400">
-                  <Download className="w-3 h-3 mr-1.5" /> Download clip
-                </Button>
-              </a>
+              <div className="flex items-center gap-1.5">
+                {/* The generated image stays reachable after animation — it's
+                    still the input for Regenerate/Re-animate */}
+                {scene.edited_image_url && (
+                  <a
+                    href={scene.edited_image_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="The image this clip was animated from — open full size (right-click to save)"
+                    className="shrink-0"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={scene.edited_image_url}
+                      alt={`Scene ${scene.n} source image`}
+                      className="h-9 w-auto object-contain bg-black/40 rounded border border-border/50 hover:border-primary"
+                    />
+                  </a>
+                )}
+                {/* Supabase storage: ?download= sets Content-Disposition attachment
+                    (the download attribute is ignored on cross-origin links) */}
+                <a href={`${scene.anim.video_url}?download=scene-${scene.n}.mp4`} className="flex-1">
+                  <Button variant="ghost" size="sm" className="w-full h-9 text-xs text-zinc-400">
+                    <Download className="w-3 h-3 mr-1.5" /> Download clip
+                  </Button>
+                </a>
+              </div>
             </div>
           ) : scene.edited_image_url ? (
             <div className="relative h-56">
