@@ -81,7 +81,7 @@ export async function getLibraryItems(): Promise<{ success: boolean; items?: Lib
 
     const LIMIT = 60; // per source; merged feed is sorted + capped below
 
-    const [videos, images, music, avatars, scriptVideos, swaps, voices] = await Promise.all([
+    const [videos, images, music, avatars, scriptVideos, swaps, voices, cloneProjects] = await Promise.all([
       supabase
         .from('cinematographer_videos')
         .select('id, project_name, final_video_url, created_at')
@@ -134,6 +134,14 @@ export async function getLibraryItems(): Promise<{ success: boolean; items?: Lib
         .not('audio_url', 'is', null)
         .order('created_at', { ascending: false })
         .limit(LIMIT),
+      // Clone Studio: one row per project; scene media lives in the jsonb.
+      // 10 most recent projects — an 18-scene ad can contribute dozens of items.
+      supabase
+        .from('ad_clone_projects')
+        .select('id, title, scenes, final_video_url, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(10),
     ]);
 
     const items: LibraryItem[] = [];
@@ -198,6 +206,46 @@ export async function getLibraryItems(): Promise<{ success: boolean; items?: Lib
         url: vo.audio_url!, created_at: vo.created_at,
         tool_name: 'Voice', tool_route: '/dashboard/voice-over/history',
       });
+    }
+
+    for (const cp of cloneProjects.data || []) {
+      const projectTitle = cp.title || 'Cloned ad';
+      if (cp.final_video_url) {
+        items.push({
+          id: `clone_${cp.id}_final`, type: 'video',
+          title: `${projectTitle} — final cut`,
+          url: cp.final_video_url, created_at: cp.updated_at || cp.created_at,
+          tool_name: 'Clone Studio', tool_route: '/dashboard/clone-studio',
+        });
+      }
+      const scenes = (cp.scenes || []) as Array<{
+        n: number;
+        keyframe_url?: string | null;
+        edited_image_url?: string | null;
+        anim?: { video_url?: string | null; status?: string } | null;
+      }>;
+      for (const scene of scenes) {
+        if (scene.anim?.status === 'completed' && scene.anim.video_url) {
+          items.push({
+            id: `clone_${cp.id}_s${scene.n}_clip`, type: 'video',
+            title: `${projectTitle} — scene ${scene.n} clip`,
+            url: scene.anim.video_url, thumbnail_url: scene.edited_image_url,
+            created_at: cp.updated_at || cp.created_at,
+            tool_name: 'Clone Studio', tool_route: '/dashboard/clone-studio',
+          });
+        }
+        // Generated frames only — a custom scene's untouched upload is the
+        // user's own file, not a creation (edited === keyframe until regenerated)
+        if (scene.edited_image_url && scene.edited_image_url !== scene.keyframe_url) {
+          items.push({
+            id: `clone_${cp.id}_s${scene.n}_img`, type: 'image',
+            title: `${projectTitle} — scene ${scene.n} image`,
+            url: scene.edited_image_url, thumbnail_url: scene.edited_image_url,
+            created_at: cp.updated_at || cp.created_at,
+            tool_name: 'Clone Studio', tool_route: '/dashboard/clone-studio',
+          });
+        }
+      }
     }
 
     items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
