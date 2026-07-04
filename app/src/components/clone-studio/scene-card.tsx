@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Clapperboard, Download, ImagePlus, Loader2, Play, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -54,6 +54,24 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const animSeconds = Math.min(15, Math.max(3, parseInt(animSecondsInput, 10) || suggestedSeconds));
   const animCredits = animSeconds * CLONE_ANIM_CREDITS_PER_SECOND;
   const animGenerating = scene.anim?.status === 'generating';
+
+  // Server-side updates (Apply to all scenes, other tabs) must show up live —
+  // but never clobber a box the user is actively typing in
+  const focusedFields = useRef<Record<string, boolean>>({});
+  /* eslint-disable react-hooks/exhaustive-deps */
+  useEffect(() => {
+    if (!focusedFields.current.instruction) setInstruction(scene.user_instruction || '');
+  }, [scene.user_instruction]);
+  useEffect(() => {
+    if (!focusedFields.current.motion) setMotionPrompt(scene.motion_prompt ?? composeMotionPrompt(scene.analysis));
+  }, [scene.motion_prompt]);
+  useEffect(() => {
+    if (!focusedFields.current.negative) setNegativePrompt(scene.negative_prompt ?? CLONE_ANIM_NEGATIVE_PROMPT);
+  }, [scene.negative_prompt]);
+  useEffect(() => {
+    if (!focusedFields.current.seconds) setAnimSecondsInput(String(scene.anim_seconds ?? suggestedSeconds));
+  }, [scene.anim_seconds]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const saveAnimSeconds = async () => {
     const parsed = parseInt(animSecondsInput, 10);
@@ -391,7 +409,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
           <Textarea
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
-            onBlur={saveInstruction}
+            onFocus={() => { focusedFields.current.instruction = true; }}
+            onBlur={() => { focusedFields.current.instruction = false; saveInstruction(); }}
             placeholder='e.g. "Replace the man with the woman from my reference photo."'
             className="text-sm min-h-[64px]"
             disabled={generating}
@@ -439,7 +458,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               : `${scene.edited_image_url ? 'Regenerate' : 'Generate'} · ${CLONE_IMAGE_CREDITS} cr`}
           </Button>
 
-          {scene.edited_image_url && (
+          {(
             <>
               <div className="flex items-center justify-between pt-2 border-t border-border/40">
                 <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
@@ -461,7 +480,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               <Textarea
                 value={motionPrompt}
                 onChange={(e) => setMotionPrompt(e.target.value)}
-                onBlur={saveMotionPrompt}
+                onFocus={() => { focusedFields.current.motion = true; }}
+                onBlur={() => { focusedFields.current.motion = false; saveMotionPrompt(); }}
                 className="text-sm min-h-[110px]"
                 disabled={animating || animGenerating}
               />
@@ -476,7 +496,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                 <Textarea
                   value={negativePrompt}
                   onChange={(e) => setNegativePrompt(e.target.value)}
-                  onBlur={saveNegativePrompt}
+                  onFocus={() => { focusedFields.current.negative = true; }}
+                  onBlur={() => { focusedFields.current.negative = false; saveNegativePrompt(); }}
                   className="text-xs min-h-[48px]"
                   disabled={animating || animGenerating}
                 />
@@ -492,7 +513,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                     max={15}
                     value={animSecondsInput}
                     onChange={(e) => setAnimSecondsInput(e.target.value)}
-                    onBlur={saveAnimSeconds}
+                    onFocus={() => { focusedFields.current.seconds = true; }}
+                    onBlur={() => { focusedFields.current.seconds = false; saveAnimSeconds(); }}
                     className="w-14 h-9 text-xs text-center font-mono"
                     disabled={animating || animGenerating}
                   />
@@ -503,7 +525,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                   size="sm"
                   className="flex-1 h-9"
                   onClick={handleAnimate}
-                  disabled={animating || animGenerating || generating}
+                  disabled={animating || animGenerating || generating || !scene.edited_image_url}
+                  title={!scene.edited_image_url ? 'Generate an image first — Animate uses your current image' : undefined}
                 >
                   {animating || animGenerating ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
