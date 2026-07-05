@@ -53,11 +53,20 @@ export async function finalizeCloneAnimation(
   const finalUrl = upload.success && upload.url ? upload.url : falVideoUrl;
 
   const supabase = createAdminClient();
-  const scenes = project.scenes.map((s) =>
-    s.n === scene.n
-      ? { ...s, anim: { ...s.anim, video_url: finalUrl, status: 'completed' as const } }
-      : s
-  );
+  const scenes = project.scenes.map((s) => {
+    if (s.n !== scene.n) return s;
+    // Clip history: stable newest-first list including the current clip
+    // (mirrors image_versions); the old clip stays selectable as a take
+    const history = s.anim_versions || [];
+    const withCurrent = s.anim?.video_url && !history.includes(s.anim.video_url)
+      ? [s.anim.video_url, ...history]
+      : history;
+    return {
+      ...s,
+      anim: { ...s.anim, video_url: finalUrl, status: 'completed' as const },
+      anim_versions: [finalUrl, ...withCurrent].slice(0, 5),
+    };
+  });
   await supabase
     .from('ad_clone_projects')
     .update({ scenes, updated_at: new Date().toISOString() })

@@ -102,6 +102,12 @@ export interface CloneScene {
   /** Editable negative prompt; absent/null = CLONE_ANIM_NEGATIVE_PROMPT default. */
   negative_prompt?: string | null;
   /**
+   * Clip history, newest first, INCLUDING the current one — anim.video_url
+   * is just the selected pointer (same stable-order pattern as
+   * image_versions). Assembly uses the selected clip.
+   */
+  anim_versions?: string[];
+  /**
    * User-added scene (uploaded frame, no source timing). Its start/end are
    * synthetic (0..duration) and assembly uses the chosen clip length.
    */

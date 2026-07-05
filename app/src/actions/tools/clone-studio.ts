@@ -966,6 +966,28 @@ export async function removeCustomScene(
   return { success: true, project: { ...loaded.project, scenes: renumbered } };
 }
 
+/** Swap a previous clip back in as the scene's current one (assembly uses it). */
+export async function restoreSceneClipVersion(
+  projectId: string,
+  sceneN: number,
+  clipUrl: string
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const scenes = loaded.project.scenes.map((s) => {
+    if (s.n !== sceneN || s.anim?.status !== 'completed') return s;
+    const history = s.anim_versions || [];
+    const withCurrent = s.anim.video_url && !history.includes(s.anim.video_url)
+      ? [s.anim.video_url, ...history].slice(0, 5)
+      : history;
+    if (!withCurrent.includes(clipUrl)) return s;
+    return { ...s, anim: { ...s.anim, video_url: clipUrl }, anim_versions: withCurrent };
+  });
+  await saveScenes(projectId, scenes);
+  return { success: true, project: { ...loaded.project, scenes } };
+}
+
 /** Swap a previous version back in as the scene's current image. */
 export async function restoreSceneImageVersion(
   projectId: string,

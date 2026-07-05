@@ -13,6 +13,7 @@ import {
   uploadCloneReference,
   generateSceneImage,
   restoreSceneImageVersion,
+  restoreSceneClipVersion,
   animateScene,
   removeCustomScene,
 } from '@/actions/tools/clone-studio';
@@ -162,6 +163,11 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
 
   const handleRestore = async (url: string) => {
     const result = await restoreSceneImageVersion(project.id, scene.n, url);
+    if (result.success && result.project) onProjectUpdate(result.project);
+  };
+
+  const handleRestoreClip = async (url: string) => {
+    const result = await restoreSceneClipVersion(project.id, scene.n, url);
     if (result.success && result.project) onProjectUpdate(result.project);
   };
 
@@ -369,6 +375,41 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               &ldquo;{scene.analysis.dialog}&rdquo;
             </p>
           )}
+
+          {/* Clip takes — every animation kept, click to make one current
+              (assembly uses the current clip) */}
+          {(() => {
+            if (!hasVideo) return null;
+            const history = scene.anim_versions || [];
+            const strip = scene.anim?.video_url && !history.includes(scene.anim.video_url)
+              ? [scene.anim.video_url, ...history]
+              : history;
+            if (strip.length < 2) return null;
+            return (
+              <div className="flex items-center gap-1.5 overflow-x-auto pt-1">
+                <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-600 shrink-0">Clip takes</span>
+                {strip.map((url) => {
+                  const isCurrent = url === scene.anim?.video_url;
+                  return (
+                    <video
+                      key={url}
+                      src={url}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className={`h-14 w-auto object-contain bg-black rounded shrink-0 transition-transform ${
+                        isCurrent
+                          ? 'border-2 border-green-500/80'
+                          : 'border border-border/50 cursor-pointer hover:border-green-400 hover:scale-105'
+                      }`}
+                      onClick={() => !isCurrent && handleRestoreClip(url)}
+                      title={isCurrent ? 'Current clip (used in assembly)' : 'Switch to this take'}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Versions */}
           {(() => {
