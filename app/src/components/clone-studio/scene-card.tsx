@@ -384,7 +384,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
             const strip = scene.anim?.video_url && !history.includes(scene.anim.video_url)
               ? [scene.anim.video_url, ...history]
               : history;
-            if (strip.length < 2) return null;
+            if (strip.length < 1) return null;
             return (
               <div className="flex items-center gap-1.5 overflow-x-auto pt-1">
                 <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-600 shrink-0">Clip takes</span>
@@ -407,6 +407,11 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                     />
                   );
                 })}
+                {strip.length === 1 && (
+                  <span className="text-[10px] text-zinc-600">
+                    Re-animate to add takes — every clip is kept, click one to use it
+                  </span>
+                )}
               </div>
             );
           })()}
