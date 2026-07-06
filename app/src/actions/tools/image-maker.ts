@@ -6,7 +6,7 @@
  * records them in `generated_images`, and deducts credits.
  */
 
-import { createClient } from '@/app/supabase/server';
+import { createClient, createAdminClient } from '@/app/supabase/server';
 import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from '../models/fal-nano-banana-2';
 import { downloadAndUploadImage } from '../supabase-storage';
 import { deductCredits } from '../database/cinematographer-database';
@@ -111,23 +111,35 @@ export async function generateImage(request: ImageMakerRequest): Promise<ImageMa
       })
     );
 
-    // Record in the library (best-effort — never fail the generation on a DB hiccup).
+    // Record in the library (best-effort — never fail the generation on a DB
+    // hiccup). supabase-js returns errors instead of throwing, so CHECK the
+    // result; an RLS denial on the user-scoped client was previously silent
+    // and no history was ever written. Fall back to the admin client with the
+    // authenticated user's id (the pattern the other tools' webhooks use).
+    const row = {
+      user_id: user.id,
+      prompt,
+      image_urls: stored,
+      model_name: 'image-maker',
+      batch_id,
+      metadata: {
+        aspect_ratio: request.aspect_ratio || '1:1',
+        resolution,
+        model: 'nano-banana-2',
+        count: stored.length,
+      },
+    };
     try {
-      await supabase.from('generated_images').insert({
-        user_id: user.id,
-        prompt,
-        image_urls: stored,
-        model_name: 'image-maker',
-        batch_id,
-        metadata: {
-          aspect_ratio: request.aspect_ratio || '1:1',
-          resolution,
-          model: 'nano-banana-2',
-          count: stored.length,
-        },
-      });
+      const { error: insertError } = await supabase.from('generated_images').insert(row);
+      if (insertError) {
+        console.error('[image-maker] user-scoped insert failed, retrying with admin client:', insertError.message);
+        const { error: adminError } = await createAdminClient().from('generated_images').insert(row);
+        if (adminError) {
+          console.error('[image-maker] admin insert also failed (history will miss this batch):', adminError.message);
+        }
+      }
     } catch (e) {
-      console.error('[image-maker] generated_images insert failed (non-fatal):', e);
+      console.error('[image-maker] generated_images insert threw (non-fatal):', e);
     }
 
     // Charge for the images that actually succeeded.
