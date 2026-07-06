@@ -46,6 +46,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   );
   const refInputRef = useRef<HTMLInputElement>(null);
   const [animating, setAnimating] = useState(false);
+  const [refDragOver, setRefDragOver] = useState(false);
 
   const duration = (scene.end - scene.start).toFixed(1);
   const suggestedSeconds = Math.min(15, Math.max(3, Math.ceil(scene.end - scene.start)));
@@ -107,9 +108,10 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   const handleAddRefs = async (files: FileList | null) => {
     const existing = scene.user_ref_urls || [];
     const slots = 6 - existing.length;
-    const selected = Array.from(files || []).slice(0, slots);
+    const images = Array.from(files || []).filter((f) => f.type.startsWith('image/'));
+    const selected = images.slice(0, slots);
     if (!selected.length) return;
-    if ((files?.length || 0) > slots) {
+    if (images.length > slots) {
       toast.info(`Max 6 references per scene — uploading the first ${slots}`);
     }
     setUploadingRef(true);
@@ -461,7 +463,18 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
             className="text-sm min-h-[64px]"
             disabled={generating}
           />
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div
+            className={`flex items-center gap-1.5 flex-wrap rounded-md transition-colors ${
+              refDragOver ? 'ring-2 ring-primary bg-primary/10 p-1' : ''
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setRefDragOver(true); }}
+            onDragLeave={() => setRefDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setRefDragOver(false);
+              handleAddRefs(e.dataTransfer.files);
+            }}
+          >
             {(scene.user_ref_urls || []).map((url) => (
               <div key={url} className="relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -492,6 +505,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               {uploadingRef ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
               Ref
             </Button>
+            <span className="text-[10px] text-zinc-600">or drop images here</span>
           </div>
           <Button className="w-full" size="sm" onClick={handleGenerate} disabled={generating}>
             {generating ? (

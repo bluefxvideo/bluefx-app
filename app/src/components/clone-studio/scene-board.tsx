@@ -35,6 +35,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const addSceneInputRef = useRef<HTMLInputElement>(null);
   const projectRefInputRef = useRef<HTMLInputElement>(null);
   const [uploadingProjectRefs, setUploadingProjectRefs] = useState(false);
+  const [projectRefDragOver, setProjectRefDragOver] = useState(false);
   const [globalInstruction, setGlobalInstruction] = useState('');
   const [applyingInstruction, setApplyingInstruction] = useState(false);
   const summary = project.analysis_summary;
@@ -44,7 +45,9 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const projectRefs = project.analysis_summary?.project_ref_urls || [];
   const handleProjectRefUpload = async (files: FileList | null) => {
     const slots = 6 - projectRefs.length;
-    const selected = Array.from(files || []).slice(0, slots);
+    const selected = Array.from(files || [])
+      .filter((f) => f.type.startsWith('image/'))
+      .slice(0, slots);
     if (!selected.length) return;
     setUploadingProjectRefs(true);
     try {
@@ -204,7 +207,18 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             Add photos of <span className="text-white">your person and product</span> — they're used in every scene
             automatically, so everyone stays consistent:
           </p>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className={`flex items-center gap-2 flex-wrap rounded-md transition-colors ${
+              projectRefDragOver ? 'ring-2 ring-primary bg-primary/10 p-1.5' : ''
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setProjectRefDragOver(true); }}
+            onDragLeave={() => setProjectRefDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setProjectRefDragOver(false);
+              handleProjectRefUpload(e.dataTransfer.files);
+            }}
+          >
             {projectRefs.map((url) => (
               <div key={url} className="relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -235,6 +249,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               {uploadingProjectRefs ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ImagePlus className="w-4 h-4 mr-1.5" />}
               Add references
             </Button>
+            <span className="text-[10px] text-zinc-600">or drag &amp; drop images here</span>
           </div>
         </div>
 
