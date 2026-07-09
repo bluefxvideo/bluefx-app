@@ -535,6 +535,7 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
         onProceedToCancel={handleProceedToCancel}
         currentPrice="$37"
         futurePrice="$67"
+        isTrial={subscription?.status === 'trial'}
       />
       
       <CancellationFeedbackModal

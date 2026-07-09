@@ -11,6 +11,8 @@ interface CancellationWarningModalProps {
   onProceedToCancel: () => void
   currentPrice?: string
   futurePrice?: string
+  /** Trials cancel immediately (access ends right away); paid plans run to period end */
+  isTrial?: boolean
 }
 
 export function CancellationWarningModal({
@@ -19,7 +21,8 @@ export function CancellationWarningModal({
   onKeepPlan,
   onProceedToCancel,
   currentPrice = "$37",
-  futurePrice = "$67"
+  futurePrice = "$67",
+  isTrial = false
 }: CancellationWarningModalProps) {
   if (!isOpen) return null
 
@@ -104,7 +107,9 @@ export function CancellationWarningModal({
               </li>
             </ul>
             <p className="text-xs text-muted-foreground">
-              You keep access until the end of your current period — no further charges after that.
+              {isTrial
+                ? 'Cancelling a trial takes effect immediately — your access ends right away and your card is never charged.'
+                : 'You keep access until the end of your current period — no further charges after that.'}
             </p>
           </div>
 
