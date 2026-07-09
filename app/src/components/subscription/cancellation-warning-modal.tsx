@@ -96,17 +96,16 @@ export function CancellationWarningModal({
               </li>
               <li className="flex items-start">
                 <span className="text-red-500 mr-2 mt-0.5">•</span>
-                <span>Access to all your generated content and files</span>
+                <span>Access to the AI tools when your current period ends</span>
               </li>
               <li className="flex items-start">
                 <span className="text-red-500 mr-2 mt-0.5">•</span>
-                <span>Your account data and creation history</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-red-500 mr-2 mt-0.5">•</span>
-                <span>Any remaining credits in your account</span>
+                <span>Your monthly credit renewals</span>
               </li>
             </ul>
+            <p className="text-xs text-muted-foreground">
+              You keep access until the end of your current period — no further charges after that.
+            </p>
           </div>
 
           {/* Re-subscription Warning */}

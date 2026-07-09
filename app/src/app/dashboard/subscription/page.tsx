@@ -324,8 +324,19 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Credits per Month</h4>
-                  <p className="text-lg font-semibold">{subscription.credits_per_month.toLocaleString()}</p>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                    {subscription.status === 'trial' ? 'Trial Credits' : 'Credits per Month'}
+                  </h4>
+                  <p className="text-lg font-semibold">
+                    {subscription.status === 'trial'
+                      ? (credits?.total_credits ?? 100).toLocaleString()
+                      : subscription.credits_per_month.toLocaleString()}
+                  </p>
+                  {subscription.status === 'trial' && (
+                    <p className="text-xs text-muted-foreground">
+                      {subscription.credits_per_month.toLocaleString()}/month after your trial converts
+                    </p>
+                  )}
                 </div>
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-1">Current Period</h4>
@@ -333,10 +344,16 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                   <p className="text-sm text-muted-foreground">to {formatDate(subscription.current_period_end)}</p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Next Billing</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                    {subscription.status === 'trial' ? 'Trial Ends' : 'Next Billing'}
+                  </h4>
                   <p className="text-sm">{formatDate(subscription.current_period_end)}</p>
                   <p className="text-sm text-muted-foreground">
-                    {subscription.cancel_at_period_end ? 'Subscription ends' : 'Renews automatically'}
+                    {subscription.cancel_at_period_end
+                      ? 'Subscription ends — no further charges'
+                      : subscription.status === 'trial'
+                        ? 'First charge on this date unless you cancel'
+                        : 'Renews automatically'}
                   </p>
                 </div>
               </div>
@@ -486,8 +503,10 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
           </CardContent>
         </Card>
 
-        {/* Cancellation Section */}
-        {subscription && subscription.status === 'active' && !subscription.cancel_at_period_end && (
+        {/* Cancellation Section — must also be visible for trials: an
+            auto-converting trial the user can't cancel is a chargeback (and
+            compliance) problem, and was a real support complaint. */}
+        {subscription && (subscription.status === 'active' || subscription.status === 'trial') && !subscription.cancel_at_period_end && (
           <Card className="border-red-200 dark:border-red-800">
             <CardContent className="p-6">
               <div className="text-center">

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/app/supabase/server'
-import { deleteUserAccount } from '@/app/actions/account-deletion'
 
 interface CancellationFeedback {
   primaryReason: string
@@ -57,11 +56,18 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // Update subscription status in database
+    // Mark the subscription as cancelling at period end. FastSpring's DELETE
+    // cancels at the end of the current period (no further charges), so the
+    // user keeps access until then — status flips to 'cancelled' when the
+    // FastSpring webhook delivers the deactivation event.
+    // NOTE: this used to also delete the entire account and all user data
+    // immediately — cancelling a subscription must never destroy the account
+    // (users keep leftover credits per our model; account deletion is a
+    // separate, explicit flow).
     const { error: updateError } = await supabase
       .from('user_subscriptions')
       .update({
-        status: 'cancelled',
+        cancel_at_period_end: true,
         canceled_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -72,18 +78,9 @@ export async function POST(request: NextRequest) {
       console.error('Failed to update subscription status:', updateError)
     }
 
-    // Delete user account and all data immediately
-    console.log('Starting complete account deletion for user:', user.id)
-    const deletionResult = await deleteUserAccount(user.id)
-
-    if (!deletionResult.success) {
-      console.error('Failed to delete user data:', deletionResult.error)
-      // Continue anyway - subscription is already cancelled
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Subscription cancelled and account deleted successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Subscription cancelled. You keep access until the end of your current period, and no further charges will be made.'
     })
 
   } catch (error) {
