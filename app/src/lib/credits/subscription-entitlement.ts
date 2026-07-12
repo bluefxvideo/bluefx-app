@@ -179,6 +179,12 @@ export async function reconcileSubscription(
   sub: SubRow,
   opts: { dryRun?: boolean } = {},
 ): Promise<{ outcome: string; changed: boolean }> {
+  if (sub.plan_type === 'lifetime') {
+    // Paid in full — there is no processor-side subscription that models it.
+    // Reconciling would flip these to 'cancelled' (the split-pay sub deactivates
+    // itself after the final installment). Credits refresh via ensureCreditsForUsage.
+    return { outcome: 'skipped_lifetime', changed: false }
+  }
   if (!sub.fastspring_subscription_id) {
     return { outcome: 'skipped_no_fs_id', changed: false }
   }

@@ -26,6 +26,18 @@ const PLAN_CONFIG: Record<string, { planType: string; credits: number }> = {
   'ai-media-machine-yearly': { planType: 'starter', credits: 600 },
 }
 
+// Lifetime products (one-time $297 and the 3x$100 split-pay). Compared lowercased
+// because the live FastSpring path is capitalized ('AI-Media-Machine-Lifetime').
+// Lifetime rows are stored with plan_type 'lifetime', status 'active', a ~100-year
+// period and NO fastspring_subscription_id: the split-pay "subscription" deactivates
+// itself after the final installment, and a paid-in-full purchase must never be
+// reconciled against (or cancelled by) FastSpring subscription state.
+const LIFETIME_PRODUCTS = new Set([
+  'ai-media-machine-lifetime',
+  'ai-media-machine-lifetime-split',
+])
+const LIFETIME_PERIOD_DAYS = 36500 // ~100 years
+
 // FastSpring webhook payload interfaces
 interface FastSpringContact {
   email?: string
@@ -327,29 +339,36 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
     return
   }
 
-  // Log webhook event
-  await supabase
-    .from('webhook_events')
-    .insert({
-      event_id: dedupKey,
-      event_type: eventType === 'subscription.charge.completed' ? 'SUBSCRIPTION_CHARGE' : 'SUBSCRIPTION',
-      processor: 'fastspring',
-      payload: { data, customerEmail, subscriptionId, eventType } as unknown as Json
-    })
+  // Record the processed event ONLY after provisioning succeeds. Writing it up
+  // front meant a transient failure mid-provisioning left the dedup row behind,
+  // so FastSpring's automatic retry was skipped as a "duplicate" and the paying
+  // customer was silently never created.
+  const markProcessed = async () => {
+    await supabase
+      .from('webhook_events')
+      .insert({
+        event_id: dedupKey,
+        event_type: eventType === 'subscription.charge.completed' ? 'SUBSCRIPTION_CHARGE' : 'SUBSCRIPTION',
+        processor: 'fastspring',
+        payload: { data, customerEmail, subscriptionId, eventType } as unknown as Json
+      })
+  }
 
   // Determine plan type and credits based on product - handle both formats
   const productId = typeof data.product === 'object' ? (data.product?.product || '') : (data.product || '')
   const intervalUnit = data.intervalUnit || ''
   const isYearlyPlan = productId.includes('yearly') || intervalUnit === 'year'
+  const isLifetime = LIFETIME_PRODUCTS.has(productId.toLowerCase())
 
   // Look up plan configuration from PLAN_CONFIG, default to starter if not found
   const planConfig = PLAN_CONFIG[productId] || { planType: 'starter', credits: 600 }
-  const planType = planConfig.planType
+  const planType = isLifetime ? 'lifetime' : planConfig.planType
 
   // Detect trial state - trial users get limited credits to reduce loss on cancellations
   // Yearly purchasers (even if starting with trial) get full credits since they're committed
   // A charge.completed event means money changed hands — never treat it as a trial.
-  const isTrial = data.state === 'trial' && eventType !== 'subscription.charge.completed'
+  // Lifetime purchases are never trials.
+  const isTrial = !isLifetime && data.state === 'trial' && eventType !== 'subscription.charge.completed'
   const creditsAllocation = (isTrial && !isYearlyPlan) ? TRIAL_CREDITS : FULL_CREDITS
 
   console.log(`Creating ${isTrial ? 'TRIAL' : planType.toUpperCase()} subscription with ${creditsAllocation} credits (product: ${productId}, trial: ${isTrial}, yearly: ${isYearlyPlan})`)
@@ -396,11 +415,77 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
       .in('status', ['active', 'trial'])
       .single()
 
-    if (existingSubscription && existingSubscription.status === 'active' && !isYearlyPlan) {
+    if (existingSubscription?.plan_type === 'lifetime') {
+      // Lifetime is terminal: no later webhook (split-pay installments, stray monthly
+      // events, re-activations) may ever downgrade or overwrite a paid-in-full account.
+      console.log(`♾️ User ${customerEmail} owns lifetime access — ignoring ${eventType} for product ${productId}`)
+      return
+    }
+
+    if (existingSubscription && existingSubscription.status === 'active' && !isYearlyPlan && !isLifetime) {
       // Existing active subscriber getting a stale monthly event (e.g. trial charge.completed
       // arriving after yearly upgrade) — do NOT downgrade them
       console.log(`⚠️ Skipping stale monthly event for already-active user ${customerEmail} (sub: ${existingSubscription.fastspring_subscription_id})`)
       return
+    }
+
+    if (existingSubscription && isLifetime) {
+      // Existing subscriber (trial, monthly or yearly) bought the lifetime deal:
+      // upgrade in place, exactly like the yearly-upsell path but terminal.
+      console.log(`Upgrading existing ${existingSubscription.status} subscription to LIFETIME for user ${userId}`)
+
+      const currentPeriodStart = new Date()
+      const currentPeriodEnd = new Date(Date.now() + LIFETIME_PERIOD_DAYS * 24 * 60 * 60 * 1000)
+
+      const { error: lifetimeUpdateError } = await supabase
+        .from('user_subscriptions')
+        .update({
+          plan_type: 'lifetime',
+          status: 'active',
+          // No FS id on purpose: the split-pay sub self-deactivates after the last
+          // installment and must never be treated as this account's billing anchor.
+          fastspring_subscription_id: null,
+          current_period_start: currentPeriodStart.toISOString(),
+          current_period_end: currentPeriodEnd.toISOString(),
+          cancel_at_period_end: false,
+          credits_per_month: FULL_CREDITS,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingSubscription.id)
+
+      if (lifetimeUpdateError) {
+        console.error('FastSpring lifetime upgrade error:', lifetimeUpdateError)
+        throw new Error(`Failed to upgrade subscription to lifetime: ${lifetimeUpdateError.message}`)
+      }
+
+      // Full 600 immediately; preserves purchased bonus credits.
+      const { error: lifetimeCreditsError } = await supabase
+        .rpc('topup_user_credits', { p_user_id: userId, p_target_credits: FULL_CREDITS })
+      if (lifetimeCreditsError) {
+        console.error('Lifetime credits topup error:', lifetimeCreditsError)
+        throw new Error(`Failed to grant lifetime credits: ${lifetimeCreditsError.message}`)
+      }
+
+      // Cancel the superseded monthly/trial/yearly subscription in FastSpring so the
+      // customer is never billed again.
+      const oldSubId = existingSubscription.fastspring_subscription_id
+      if (oldSubId && oldSubId !== subscriptionId) {
+        const cancelled = await cancelFastSpringSubscription(oldSubId)
+        console.log(cancelled
+          ? `✅ Cancelled superseded subscription ${oldSubId} for lifetime buyer ${customerEmail}`
+          : `⚠️ Could NOT cancel subscription ${oldSubId} for ${customerEmail} — cancel it manually in FastSpring`)
+      }
+
+      // Never leave a lifetime buyer suspended (e.g. their old sub's cancellation
+      // webhook raced ahead of this upgrade).
+      await supabase
+        .from('profiles')
+        .update({ is_suspended: false, suspension_reason: null, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+
+      console.log(`✅ Upgraded ${customerEmail} to LIFETIME — ${FULL_CREDITS} credits/month forever`)
+      await markProcessed()
+      return // Exit early - lifetime upgrade complete
     }
 
     if (existingSubscription && isYearlyPlan) {
@@ -467,6 +552,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
       console.log(`✅ Upgraded subscription to yearly for user ${customerEmail} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
       console.log(`✅ Credits boosted to ${FULL_CREDITS} for yearly upgrade`)
       console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
+      await markProcessed()
       return // Exit early - upgrade complete
     }
 
@@ -505,6 +591,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
       }
 
       console.log(`✅ Activated subscription for ${customerEmail} — ${FULL_CREDITS} credits granted (was ${existingSubscription.status})`)
+      await markProcessed()
       return // Exit early - conversion complete
     }
   } else {
@@ -560,7 +647,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
 
   // Create subscription (following admin pattern) - set correct period based on plan type
   const currentPeriodStart = new Date()
-  const periodDays = isYearlyPlan ? 365 : 30 // 1 year for yearly, 30 days for monthly
+  const periodDays = isLifetime ? LIFETIME_PERIOD_DAYS : (isYearlyPlan ? 365 : 30)
   const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
 
   // Delete any existing subscriptions then insert fresh — prevents duplicates from race conditions
@@ -582,7 +669,8 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
       current_period_end: currentPeriodEnd.toISOString(),
       credits_per_month: FULL_CREDITS,  // Always 600 for renewals
       max_concurrent_jobs: 5,
-      fastspring_subscription_id: subscriptionId,
+      // Lifetime rows keep NO billing anchor — see LIFETIME_PRODUCTS comment.
+      fastspring_subscription_id: isLifetime ? null : subscriptionId,
       updated_at: new Date().toISOString()
     })
 
@@ -619,6 +707,16 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
   }
   console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}`)
 
+  // A previously-cancelled (suspended) customer who buys again — monthly, yearly
+  // or lifetime — must get access back; cancellation is the only thing that suspends.
+  if (!isTrial) {
+    await supabase
+      .from('profiles')
+      .update({ is_suspended: false, suspension_reason: null, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+  }
+
+  await markProcessed()
   console.log(`FastSpring subscription processed successfully for ${customerEmail}`)
 }
 
@@ -674,6 +772,14 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
     return
   }
 
+  if (subscription?.plan_type === 'lifetime') {
+    // Paid in full: no billing period to renew. Credits refresh via the lazy
+    // top-up in ensureCreditsForUsage — a renewal event must not shrink the
+    // lifetime period back to 30 days.
+    console.log(`♾️ Ignoring renewal event for lifetime user ${userId}`)
+    return
+  }
+
   // Log webhook event
   await supabase
     .from('webhook_events')
@@ -722,6 +828,25 @@ async function handleFastSpringOrderCompleted(data: FastSpringEventData) {
 
   // Check if this order contains subscription products or credit packs
   const items = (data.items as Array<{ product?: string }>) || []
+
+  // LIFETIME FIRST: the one-time $297 product fires ONLY order.completed (there is
+  // no subscription.activated for a non-subscription product), and its path would
+  // otherwise substring-match 'ai-media-machine' below and be skipped forever.
+  const lifetimeItem =
+    items.map(i => (i.product || '')).find(p => LIFETIME_PRODUCTS.has(p.toLowerCase())) ||
+    (() => {
+      const direct = typeof data.product === 'string' ? data.product : (data.product?.product || '')
+      return LIFETIME_PRODUCTS.has(direct.toLowerCase()) ? direct : undefined
+    })()
+
+  if (lifetimeItem) {
+    console.log(`♾️ Lifetime product in order.completed (${lifetimeItem}) — provisioning lifetime access`)
+    await handleFastSpringSubscription(
+      { ...data, product: lifetimeItem, state: 'active' },
+      'order.completed'
+    )
+    return
+  }
 
   // Subscription product patterns - includes all tier variants
   const subscriptionProductPatterns = [
@@ -1069,11 +1194,20 @@ async function handleFastSpringCancellation(data: FastSpringEventData) {
   // NOT suspend them, because their current (yearly) subscription is a different id.
   const { data: currentSub } = await supabase
     .from('user_subscriptions')
-    .select('fastspring_subscription_id, status')
+    .select('fastspring_subscription_id, status, plan_type')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  if (currentSub?.plan_type === 'lifetime') {
+    // The 3x$100 split-pay sub DEACTIVATES ITSELF after its final installment —
+    // that's FastSpring saying "paid in full", not a cancellation. And a lifetime
+    // row has no fastspring_subscription_id, so the superseded-sub guard below
+    // can't protect it. Never cancel or suspend a lifetime account from here.
+    console.log(`♾️ Ignoring FastSpring cancellation/deactivation for lifetime user ${userId} (sub: ${subscriptionId})`)
+    return
+  }
 
   if (currentSub?.fastspring_subscription_id && currentSub.fastspring_subscription_id !== subscriptionId) {
     console.log(`Ignoring cancellation of superseded subscription ${subscriptionId} for user ${userId} (current active sub: ${currentSub.fastspring_subscription_id})`)

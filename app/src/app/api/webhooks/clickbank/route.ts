@@ -133,6 +133,22 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * A lifetime owner (paid-in-full via FastSpring) must never be downgraded,
+ * cancelled or deleted by events from an OLD ClickBank subscription tied to
+ * the same email. Returns true when the user's current plan is lifetime.
+ */
+async function isLifetimeOwner(supabase: ReturnType<typeof createAdminClient>, userId: string): Promise<boolean> {
+  const { data: sub } = await supabase
+    .from('user_subscriptions')
+    .select('plan_type')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return sub?.plan_type === 'lifetime'
+}
+
 async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false, isYearlyProduct: boolean = false) {
   const supabase = createAdminClient()
   
@@ -393,6 +409,11 @@ async function handleClickBankRefund(customer: { email?: string }) {
     return
   }
 
+  if (await isLifetimeOwner(supabase, profile.id)) {
+    console.log(`♾️ Ignoring ClickBank refund for lifetime owner ${email} — old CB subscription no longer governs access`)
+    return
+  }
+
   // Update subscription status
   await supabase
     .from('user_subscriptions')
@@ -451,6 +472,11 @@ async function handleClickBankRenewal(customer: { email?: string }, lineItems: {
     return
   }
 
+  if (await isLifetimeOwner(supabase, user.id)) {
+    console.log(`♾️ Ignoring ClickBank renewal for lifetime owner ${searchEmail} — lifetime plan is not overwritten by CB rebills`)
+    return
+  }
+
   // Calculate renewal amount and plan
   const totalAmount = lineItems.reduce((sum, item) => sum + parseFloat(item.amount || '37.00'), 0)
   const planType = 'pro' // Everyone gets pro plan like FastSpring
@@ -506,9 +532,23 @@ async function handleClickBankCancelRebill(customer: { email?: string }, receipt
     return
   }
 
-  // Import and call the account deletion action
-  const { handleAccountCancellation } = await import('@/app/actions/account-deletion')
-  await handleAccountCancellation(searchEmail)
-  
-  console.log(`Account deletion initiated for cancelled user: ${searchEmail}`)
+  if (await isLifetimeOwner(supabase, user.id)) {
+    console.log(`♾️ Ignoring ClickBank cancel-rebill for lifetime owner ${searchEmail}`)
+    return
+  }
+
+  // Owner policy (2026-07): cancellation must NEVER delete the account or its
+  // data — suspend access and mark the subscription cancelled, same as the
+  // FastSpring path. (This handler used to hard-delete the account.)
+  await supabase
+    .from('user_subscriptions')
+    .update({ status: 'cancelled', cancel_at_period_end: true, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+
+  await supabase
+    .from('profiles')
+    .update({ is_suspended: true, suspension_reason: 'Cancelled subscription', updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+
+  console.log(`ClickBank cancel-rebill: suspended user ${searchEmail} (account kept, not deleted)`)
 }

@@ -195,6 +195,18 @@ export function useCredits() {
     }
   }, []) // Empty deps - only runs once
 
+  // Self-heal lapsed credit periods on mount. Webhook renewals and crons cannot
+  // be relied on (lifetime plans have NO renewal webhooks at all), so the server
+  // re-grants the monthly allotment lazily; without this, a user returning after
+  // 30+ days away would stare at a stale zero until they ran a tool.
+  useEffect(() => {
+    fetch('/api/credits/ensure', { method: 'POST' })
+      .then((res) => {
+        if (res.ok) queryClient.invalidateQueries({ queryKey: ['user-credits'] })
+      })
+      .catch(() => { /* non-blocking: display-only self-heal */ })
+  }, [queryClient])
+
   // Set up real-time subscription for server-side updates
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null

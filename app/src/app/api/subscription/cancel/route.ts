@@ -25,6 +25,23 @@ export async function POST(request: NextRequest) {
 
     const { subscriptionId, feedback }: CancelRequest = await request.json()
 
+    // Lifetime guard FIRST, keyed by user (lifetime rows have no FastSpring id,
+    // so any lookup by subscriptionId can never find them — and a stale tab from
+    // a just-upgraded user may still POST their old monthly sub id here).
+    const { data: currentSub } = await supabase
+      .from('user_subscriptions')
+      .select('plan_type')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (currentSub?.plan_type === 'lifetime') {
+      return NextResponse.json({
+        error: 'Lifetime access has no subscription to cancel — you own it. For a refund within 30 days of purchase, email contact@bluefx.net.'
+      }, { status: 400 })
+    }
+
     if (!subscriptionId) {
       return NextResponse.json({ error: 'Subscription ID is required' }, { status: 400 })
     }
@@ -53,10 +70,18 @@ export async function POST(request: NextRequest) {
     // access until the end of the period they paid for.
     const { data: subRow } = await supabase
       .from('user_subscriptions')
-      .select('status')
+      .select('status, plan_type')
       .eq('fastspring_subscription_id', subscriptionId)
       .eq('user_id', user.id)
       .single()
+
+    if (subRow?.plan_type === 'lifetime') {
+      // Nothing recurs on a lifetime account; there is nothing to cancel.
+      return NextResponse.json({
+        error: 'Lifetime access has no subscription to cancel — you own it. For a refund within 30 days of purchase, email contact@bluefx.net.'
+      }, { status: 400 })
+    }
+
     const isTrial = subRow?.status === 'trial'
 
     // Cancel subscription via FastSpring API (immediately for trials)

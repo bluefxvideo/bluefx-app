@@ -84,6 +84,14 @@ export default function SubscriptionPage() {
         
         setIsAdmin(profile?.role === 'admin')
 
+        // Self-heal the monthly allotment before reading credits, so active and
+        // lifetime users whose 30-day credit period lapsed while they were away
+        // see a fresh 600 instead of stale zeros (lifetime plans have no billing
+        // webhooks, so this lazy top-up is their renewal mechanism).
+        try {
+          await fetch('/api/credits/ensure', { method: 'POST' })
+        } catch { /* non-blocking — page still renders with stored values */ }
+
         // Get subscription data
         const { data: subData, error: subError } = await supabase
           .from('user_subscriptions')
@@ -139,7 +147,11 @@ export default function SubscriptionPage() {
     })
   }
 
-  const getStatusBadge = (status: string, cancelAtPeriodEnd: boolean) => {
+  const getStatusBadge = (status: string, cancelAtPeriodEnd: boolean, planType?: string) => {
+    if (planType === 'lifetime') {
+      return <Badge variant="default" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-100">Lifetime</Badge>
+    }
+
     if (cancelAtPeriodEnd) {
       return <Badge variant="destructive">Cancelling at Period End</Badge>
     }
@@ -307,7 +319,7 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                   <Shield className="h-5 w-5 mr-2" />
                   Current Subscription
                 </span>
-                {getStatusBadge(subscription.status, subscription.cancel_at_period_end)}
+                {getStatusBadge(subscription.status, subscription.cancel_at_period_end, subscription.plan_type)}
               </CardTitle>
               <CardDescription>
                 Your current plan and billing information
@@ -339,24 +351,61 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                   )}
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Current Period</h4>
-                  <p className="text-sm">{formatDate(subscription.current_period_start)}</p>
-                  <p className="text-sm text-muted-foreground">to {formatDate(subscription.current_period_end)}</p>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                    {subscription.plan_type === 'lifetime' ? 'Access' : 'Current Period'}
+                  </h4>
+                  {subscription.plan_type === 'lifetime' ? (
+                    <>
+                      <p className="text-sm font-semibold">Forever</p>
+                      <p className="text-sm text-muted-foreground">since {formatDate(subscription.current_period_start)}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm">{formatDate(subscription.current_period_start)}</p>
+                      <p className="text-sm text-muted-foreground">to {formatDate(subscription.current_period_end)}</p>
+                    </>
+                  )}
                 </div>
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                    {subscription.status === 'trial' ? 'Trial Ends' : 'Next Billing'}
+                    {subscription.plan_type === 'lifetime'
+                      ? 'Billing'
+                      : subscription.status === 'trial' ? 'Trial Ends' : 'Next Billing'}
                   </h4>
-                  <p className="text-sm">{formatDate(subscription.current_period_end)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {subscription.cancel_at_period_end
-                      ? 'Subscription ends — no further charges'
-                      : subscription.status === 'trial'
-                        ? 'First charge on this date unless you cancel'
-                        : 'Renews automatically'}
-                  </p>
+                  {subscription.plan_type === 'lifetime' ? (
+                    <>
+                      <p className="text-sm font-semibold">None — paid in full</p>
+                      <p className="text-sm text-muted-foreground">
+                        {credits?.period_end
+                          ? `Credits refresh ${formatDate(credits.period_end)}`
+                          : 'Credits refresh monthly'}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm">{formatDate(subscription.current_period_end)}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {subscription.cancel_at_period_end
+                          ? 'Subscription ends — no further charges'
+                          : subscription.status === 'trial'
+                            ? 'First charge on this date unless you cancel'
+                            : 'Renews automatically'}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
+
+              {/* Lifetime explanation */}
+              {subscription.plan_type === 'lifetime' && (
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Lifetime Access:</strong> You own AI Media Machine. Your {subscription.credits_per_month.toLocaleString()} credits
+                    refresh every month, forever — no renewals, no billing, nothing to cancel.
+                    Need more in a heavy month? You can buy a credit pack anytime, and unused bonus credits carry over.
+                  </p>
+                </div>
+              )}
 
               {/* Trial explanation */}
               {subscription.status === 'trial' && (
@@ -506,7 +555,7 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
         {/* Cancellation Section — must also be visible for trials: an
             auto-converting trial the user can't cancel is a chargeback (and
             compliance) problem, and was a real support complaint. */}
-        {subscription && (subscription.status === 'active' || subscription.status === 'trial') && !subscription.cancel_at_period_end && (
+        {subscription && subscription.plan_type !== 'lifetime' && (subscription.status === 'active' || subscription.status === 'trial') && !subscription.cancel_at_period_end && (
           <Card className="border-red-200 dark:border-red-800">
             <CardContent className="p-6">
               <div className="text-center">

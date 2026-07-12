@@ -82,6 +82,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         .from('user_subscriptions')
         .select('id, user_id, status, credits_per_month, current_period_end')
         .is('fastspring_subscription_id', null)
+        // Lifetime rows also have a NULL fs id — they are paid in full and must
+        // never be flipped by a stale ClickBank receipt from a previous purchase.
+        .neq('plan_type', 'lifetime')
       const cbSubs = (cbAll || []).slice(0, limit)
       cbChecked = cbSubs.length
 
