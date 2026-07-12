@@ -38,6 +38,39 @@ const LIFETIME_PRODUCTS = new Set([
 ])
 const LIFETIME_PERIOD_DAYS = 36500 // ~100 years
 
+// The AI Creators Club ($1 trial -> $37/mo) is fulfilled in SKOOL, not in the
+// app: buying it must never touch user_subscriptions or user_credits. We only
+// log the event so membership history is queryable. Access is granted via the
+// FastSpring fulfillment email (Skool invite link) and revoked in Skool on
+// cancellation.
+const SKOOL_PRODUCTS = new Set([
+  'ai-creators-club',
+])
+
+/** True when the event's product (or any order item) is a Skool-fulfilled product. */
+function isSkoolProduct(data: FastSpringEventData): string | undefined {
+  const direct = typeof data.product === 'object' ? (data.product?.product || '') : (data.product || '')
+  if (SKOOL_PRODUCTS.has(direct.toLowerCase())) return direct
+  const items = (data.items as Array<{ product?: string }>) || []
+  return items.map(i => i.product || '').find(p => SKOOL_PRODUCTS.has(p.toLowerCase()))
+}
+
+/** Log a Skool-product event for membership history, then do nothing else. */
+async function logSkoolProductEvent(data: FastSpringEventData, eventType: string, product: string) {
+  const supabase = createAdminClient()
+  const ref = data.id || data.reference || String(Date.now())
+  const email = typeof data.account === 'object' ? (data.account?.contact?.email || '') : ''
+  await supabase
+    .from('webhook_events')
+    .insert({
+      event_id: ref + '_' + eventType,
+      event_type: 'CLUB',
+      processor: 'fastspring',
+      payload: { data, product, eventType, email, note: 'Skool-fulfilled product - no app entitlement change' } as unknown as Json
+    })
+  console.log('Skool product ' + product + ' ' + eventType + ' for ' + (email || ref) + ' - logged only, fulfilled in Skool')
+}
+
 // FastSpring webhook payload interfaces
 interface FastSpringContact {
   email?: string
@@ -171,6 +204,16 @@ export async function POST(request: NextRequest) {
       items: eventData.items,
       rawPayload: payload
     })
+
+    // Skool-fulfilled products (AI Creators Club): log and acknowledge. These are
+    // real FastSpring subscriptions, so they fire the full subscription lifecycle,
+    // none of which may touch app entitlements (a club cancellation must NOT
+    // suspend an AI Media Machine owner, and activation must NOT overwrite plans).
+    const skoolProduct = isSkoolProduct(eventData)
+    if (skoolProduct) {
+      await logSkoolProductEvent(eventData, eventType, skoolProduct)
+      return NextResponse.json({ success: true })
+    }
 
     // Route to appropriate handler based on event type
     switch (eventType) {
