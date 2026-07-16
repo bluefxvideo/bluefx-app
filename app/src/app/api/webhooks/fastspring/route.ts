@@ -35,6 +35,9 @@ const PLAN_CONFIG: Record<string, { planType: string; credits: number }> = {
 const LIFETIME_PRODUCTS = new Set([
   'ai-media-machine-lifetime',
   'ai-media-machine-lifetime-split',
+  // Ad-hoc product the owner uses to grant lifetime deals manually from the
+  // FastSpring dashboard (first used for keith@allinwithhba.com, 2026-07-16).
+  'lifetime-membership-addon',
 ])
 const LIFETIME_PERIOD_DAYS = 36500 // ~100 years
 
@@ -170,82 +173,90 @@ export async function POST(request: NextRequest) {
   // 1. Events array: { events: [{ type: "order.completed", data: {...} }] }
   // 2. Direct order object: { order: "...", id: "...", items: [...], account: {...}, ... }
 
-  let eventType: string
-  let eventData: FastSpringEventData
-
   // Check if this is a direct order payload (has 'order' or 'items' at top level)
   const directPayload = payload as unknown as Record<string, unknown>
+  let eventsToProcess: Array<{ type: string; data: FastSpringEventData }>
   if (directPayload.order || directPayload.items || directPayload.account) {
     // Direct order format - this IS the order data
     console.log('FastSpring webhook received in direct order format')
-    eventType = 'order.completed'
-    eventData = directPayload as unknown as FastSpringEventData
+    eventsToProcess = [{ type: 'order.completed', data: directPayload as unknown as FastSpringEventData }]
   } else if (payload.events && Array.isArray(payload.events) && payload.events.length > 0) {
-    // Events array format
+    // Events array format. FastSpring batches events that occur close together
+    // into ONE POST — every event must be processed, not just the first.
+    // (Processing only events[0] and returning 200 silently discarded the rest
+    // forever; that is how a real lifetime purchase was lost on 2026-07-16.)
     console.log(`Processing ${payload.events.length} FastSpring event(s)...`)
-    const event = payload.events[0]
-    eventType = event?.type || ''
-    eventData = event?.data as FastSpringEventData
+    eventsToProcess = payload.events.map(e => ({ type: e?.type || '', data: e?.data as FastSpringEventData }))
   } else {
     console.log('FastSpring webhook received without recognizable format:', Object.keys(directPayload))
     return NextResponse.json({ message: 'No events to process' }, { status: 200 })
   }
 
-  try {
-    if (!eventType || !eventData) {
-      console.error('Missing event type or data:', { eventType, hasData: !!eventData })
-      return NextResponse.json({ error: 'Invalid event format' }, { status: 400 })
+  let failures = 0
+  for (const { type: evType, data: evData } of eventsToProcess) {
+    try {
+      if (!evType || !evData) {
+        console.error('Missing event type or data:', { eventType: evType, hasData: !!evData })
+        failures++
+        continue
+      }
+      await processFastSpringEvent(evType, evData)
+    } catch (error) {
+      console.error(`FastSpring webhook processing error (${evType}):`, error)
+      failures++
     }
+  }
 
-    console.log('FastSpring webhook payload received:', {
-      eventType,
-      orderId: eventData.id || (eventData as Record<string, unknown>).order,
-      customerEmail: typeof eventData.account === 'object' ? eventData.account?.contact?.email : undefined,
-      items: eventData.items,
-      rawPayload: payload
-    })
+  if (failures > 0) {
+    // Non-2xx makes FastSpring retry the whole batch. Events that already
+    // succeeded are skipped on replay via their webhook_events dedup rows.
+    return NextResponse.json({ error: `Processing failed for ${failures} of ${eventsToProcess.length} event(s)` }, { status: 500 })
+  }
+  return NextResponse.json({ success: true })
+}
 
-    // Skool-fulfilled products (AI Creators Club): log and acknowledge. These are
-    // real FastSpring subscriptions, so they fire the full subscription lifecycle,
-    // none of which may touch app entitlements (a club cancellation must NOT
-    // suspend an AI Media Machine owner, and activation must NOT overwrite plans).
-    const skoolProduct = isSkoolProduct(eventData)
-    if (skoolProduct) {
-      await logSkoolProductEvent(eventData, eventType, skoolProduct)
-      return NextResponse.json({ success: true })
-    }
+async function processFastSpringEvent(eventType: string, eventData: FastSpringEventData) {
+  console.log('FastSpring webhook event received:', {
+    eventType,
+    orderId: eventData.id || (eventData as Record<string, unknown>).order,
+    customerEmail: typeof eventData.account === 'object' ? eventData.account?.contact?.email : undefined,
+    items: eventData.items
+  })
 
-    // Route to appropriate handler based on event type
-    switch (eventType) {
-      case 'subscription.activated':
-      case 'subscription.charge.completed':
-        await handleFastSpringSubscription(eventData, eventType)
-        break
+  // Skool-fulfilled products (AI Creators Club): log and acknowledge. These are
+  // real FastSpring subscriptions, so they fire the full subscription lifecycle,
+  // none of which may touch app entitlements (a club cancellation must NOT
+  // suspend an AI Media Machine owner, and activation must NOT overwrite plans).
+  const skoolProduct = isSkoolProduct(eventData)
+  if (skoolProduct) {
+    await logSkoolProductEvent(eventData, eventType, skoolProduct)
+    return
+  }
 
-      case 'subscription.updated':
-        await handleFastSpringRenewal(eventData)
-        break
+  // Route to appropriate handler based on event type
+  switch (eventType) {
+    case 'subscription.activated':
+    case 'subscription.charge.completed':
+      await handleFastSpringSubscription(eventData, eventType)
+      break
 
-      case 'order.completed':
-        // Handle order.completed - could be credit packs OR subscription upgrades
-        await handleFastSpringOrderCompleted(eventData)
-        break
+    case 'subscription.updated':
+      await handleFastSpringRenewal(eventData)
+      break
 
-      case 'subscription.canceled':
-      case 'subscription.deactivated':
-        await handleFastSpringCancellation(eventData)
-        break
+    case 'order.completed':
+      // Handle order.completed - could be credit packs OR subscription upgrades
+      await handleFastSpringOrderCompleted(eventData)
+      break
 
-      default:
-        console.log('Unhandled FastSpring event type:', eventType)
-        // Don't throw error for unknown event types, just acknowledge
-    }
+    case 'subscription.canceled':
+    case 'subscription.deactivated':
+      await handleFastSpringCancellation(eventData)
+      break
 
-    return NextResponse.json({ success: true })
-    
-  } catch (error) {
-    console.error('FastSpring webhook processing error:', error)
-    return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
+    default:
+      console.log('Unhandled FastSpring event type:', eventType)
+      // Don't throw error for unknown event types, just acknowledge
   }
 }
 

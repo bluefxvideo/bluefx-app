@@ -160,7 +160,7 @@ export default function DashboardPage() {
   });
 
   // Fetch featured tutorial separately
-  const { data: featuredTutorial } = useQuery<Tutorial | null>({
+  const { data: featuredTutorial, isLoading: isLoadingFeatured } = useQuery<Tutorial | null>({
     queryKey: ['featured-tutorial'],
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -398,6 +398,70 @@ export default function DashboardPage() {
       )}
 
       <div className="space-y-6">
+        {/* Featured Tutorial: reserve the space while loading so the page doesn't jump */}
+        {isLoadingFeatured && (
+          <Card className="mb-8 overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="h-6 w-72 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
+              <div className="h-4 w-96 max-w-full bg-gray-200 dark:bg-gray-700 animate-pulse rounded mt-2" />
+            </CardHeader>
+            <CardContent>
+              <div className="aspect-video bg-gray-200 dark:bg-gray-800 animate-pulse rounded-lg" />
+            </CardContent>
+          </Card>
+        )}
+        {featuredTutorial && featuredTutorial.video_url && (
+          <Card className="mb-8 overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">{featuredTutorial.title}</CardTitle>
+                  <CardDescription>{featuredTutorial.description || 'Learn everything about AI Media Machine in one video'}</CardDescription>
+                </div>
+                <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                  Start Here
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+                {getYouTubeVideoId(featuredTutorial.video_url) ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${getYouTubeVideoId(featuredTutorial.video_url)}`}
+                    title={featuredTutorial.title}
+                    className="w-full h-full"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                    Invalid video URL
+                  </div>
+                )}
+                {currentUser?.profile?.role === 'admin' && (
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <button
+                      className="p-2 bg-zinc-800/80 text-white rounded-full hover:bg-zinc-700 transition-colors shadow-lg"
+                      title="Edit Tutorial"
+                      onClick={() => openEditTutorial(featuredTutorial)}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                      title="Delete Tutorial"
+                      onClick={() => openDeleteDialog(featuredTutorial)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Credit Balance and Community Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {isLoadingCredits ? (
@@ -490,59 +554,6 @@ export default function DashboardPage() {
 
         {/* Video Showcase Carousel */}
         <VideoShowcase />
-
-        {/* Featured Tutorial */}
-        {featuredTutorial && featuredTutorial.video_url && (
-          <Card className="mb-8 overflow-hidden">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl">{featuredTutorial.title}</CardTitle>
-                  <CardDescription>{featuredTutorial.description || 'Learn everything about AI Media Machine in one video'}</CardDescription>
-                </div>
-                <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                  Featured
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
-                {getYouTubeVideoId(featuredTutorial.video_url) ? (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${getYouTubeVideoId(featuredTutorial.video_url)}`}
-                    title={featuredTutorial.title}
-                    className="w-full h-full"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-400">
-                    Invalid video URL
-                  </div>
-                )}
-                {currentUser?.profile?.role === 'admin' && (
-                  <div className="absolute top-2 right-2 flex gap-2">
-                    <button
-                      className="p-2 bg-zinc-800/80 text-white rounded-full hover:bg-zinc-700 transition-colors shadow-lg"
-                      title="Edit Tutorial"
-                      onClick={() => openEditTutorial(featuredTutorial)}
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                    <button
-                      className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
-                      title="Delete Tutorial"
-                      onClick={() => openDeleteDialog(featuredTutorial)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Tool Tutorials */}
         <h2 className="text-xl font-semibold mb-4">Tool Tutorials</h2>
