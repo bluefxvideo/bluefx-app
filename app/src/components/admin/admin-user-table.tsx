@@ -49,7 +49,11 @@ type SortDirection = 'asc' | 'desc'
 /**
  * Determine if subscription is yearly or monthly based on period length
  */
-function getBillingType(subscription?: Tables<'user_subscriptions'> | null): 'yearly' | 'monthly' | null {
+function getBillingType(subscription?: Tables<'user_subscriptions'> | null): 'lifetime' | 'yearly' | 'monthly' | null {
+  // plan_type cast: generated DB types predate the 'lifetime' plan (migration 20260712000000)
+  if ((subscription?.plan_type as string) === 'lifetime') {
+    return 'lifetime'
+  }
   if (!subscription?.current_period_start || !subscription?.current_period_end) {
     return null
   }
@@ -385,7 +389,9 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                   {getRoleBadge(user.role, user.is_suspended ?? undefined)}
                 </div>
                 <div>
-                  {getBillingType(user.subscription) === 'yearly' ? (
+                  {getBillingType(user.subscription) === 'lifetime' ? (
+                    <Badge variant="default" className="text-xs bg-blue-100 text-blue-700">Lifetime</Badge>
+                  ) : getBillingType(user.subscription) === 'yearly' ? (
                     <Badge variant="default" className="text-xs bg-purple-100 text-purple-700">Yearly</Badge>
                   ) : getBillingType(user.subscription) === 'monthly' ? (
                     <Badge variant="outline" className="text-xs">Monthly</Badge>
