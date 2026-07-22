@@ -149,7 +149,8 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
       await saveInstruction();
       const result = await generateSceneImage(project.id, scene.n);
       if (!result.success || !result.project) {
-        toast.error(result.error || 'Generation failed — credits refunded');
+        // Safety-filter rejections need reading time — keep the toast up long
+        toast.error(result.error || 'Generation failed — credits refunded', { duration: 12000 });
         return;
       }
       onProjectUpdate(result.project);
@@ -182,7 +183,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
         negative_prompt: negativePrompt,
       });
       if (!result.success || !result.project) {
-        toast.error(result.error || 'Animation failed to start');
+        toast.error(result.error || 'Animation failed to start', { duration: 12000 });
         return;
       }
       onProjectUpdate(result.project);

@@ -1,5 +1,7 @@
 'use server';
 
+import { friendlyFalImageError } from './fal-error';
+
 /**
  * Nano-Banana 2 via fal.ai (replaces Nano-Banana Pro — same quality, half the cost, faster)
  * Text-to-image: https://fal.run/fal-ai/nano-banana-2
@@ -90,7 +92,7 @@ export async function generateWithFalNanaBanana2(params: FalNanoBanana2Input): P
     if (!response.ok) {
       const errorText = await response.text();
       console.error('🚨 fal.ai error:', response.status, errorText.substring(0, 200));
-      return { success: false, error: `fal.ai API error (${response.status}): ${errorText.substring(0, 100)}` };
+      return { success: false, error: friendlyFalImageError(response.status, errorText) };
     }
 
     const result: FalNanoBanana2Output = await response.json();

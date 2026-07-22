@@ -1,5 +1,7 @@
 'use server';
 
+import { friendlyFalImageError } from './fal-error';
+
 /**
  * Seedream v5 Lite Edit via fal.ai
  * Image editing/cleanup endpoint — cheaper and ~20% faster than Nano Banana 2.
@@ -73,7 +75,7 @@ export async function generateWithSeedreamEdit(params: SeedreamEditInput): Promi
     if (!response.ok) {
       const errorText = await response.text();
       console.error('🚨 fal.ai seedream error:', response.status, errorText.substring(0, 200));
-      return { success: false, error: `fal.ai API error (${response.status}): ${errorText.substring(0, 100)}` };
+      return { success: false, error: friendlyFalImageError(response.status, errorText) };
     }
 
     const result: SeedreamEditOutput = await response.json();
