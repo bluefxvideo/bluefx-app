@@ -475,6 +475,15 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               handleAddRefs(e.dataTransfer.files);
             }}
           >
+            {/* Project-wide refs are sent with every scene's generation — show
+                them here (read-only) so it's clear they're already included */}
+            {(project.analysis_summary?.project_ref_urls || []).map((url) => (
+              <div key={`proj-${url}`} className="relative" title="Project reference — included in every scene">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="Project reference" className="w-9 h-9 object-cover rounded border border-primary/40 opacity-80" />
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-0.5 rounded bg-primary/80 text-white text-[7px] font-mono uppercase leading-tight">all</span>
+              </div>
+            ))}
             {(scene.user_ref_urls || []).map((url) => (
               <div key={url} className="relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

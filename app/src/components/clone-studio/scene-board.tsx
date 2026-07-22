@@ -256,7 +256,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         <div className="space-y-2">
           <p className="text-xs text-zinc-300">
             <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">2</span>
-            Say what to swap, once — it fills every scene (you can still tweak any scene after):
+            Say what to swap, once — each scene gets only the parts that apply to it (review and tweak any card after):
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <Textarea

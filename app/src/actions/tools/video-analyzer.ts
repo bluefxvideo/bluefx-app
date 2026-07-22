@@ -1029,6 +1029,67 @@ async function mapWithConcurrency<T, R>(
 }
 
 /**
+ * Tailor a global swap instruction to each scene: a scene gets ONLY the parts
+ * of the instruction that apply to what is actually visible in it (per the
+ * stored scene analysis). A hand-only shot of the product never receives the
+ * "replace the woman with..." half, so the image model can't conjure people
+ * or objects the scene never had. Scenes where nothing applies get an empty
+ * instruction. One text-only call for the whole board; results land in each
+ * card's visible, editable Swap field — nothing hidden.
+ */
+export async function contextualizeSwapInstruction(
+  scenes: Array<{ n: number; subject: string; action: string }>,
+  swapInstruction: string
+): Promise<{ success: boolean; instructions?: Record<number, string>; error?: string }> {
+  try {
+    if (!scenes.length || !swapInstruction.trim()) {
+      return { success: true, instructions: {} };
+    }
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent([
+      {
+        text: `The user is remaking a video scene-by-scene and gave ONE global swap instruction:
+"${swapInstruction.trim()}"
+
+Below is what each scene actually shows (subject + action from frame-accurate analysis). Write a per-scene edit instruction that:
+- includes ONLY the swap parts that apply to what is visible in THAT scene (e.g. if the instruction replaces a food item and a person, a scene showing only hands and the food gets ONLY the food swap — no mention of the person)
+- keeps the user's replacement wording (names, descriptions like clothing/hair) exactly as they wrote it for the parts that DO apply
+- is phrased as a direct edit instruction ("Replace the raw chicken pieces with raw beef chunks.")
+- states each applicable swap exactly ONCE — no redundant restatement of the same swap
+- is an EMPTY STRING if nothing in the instruction applies to that scene
+- never invents swaps the user did not ask for, and never adds objects or people to a scene that does not show them
+
+Scenes:
+${JSON.stringify(scenes)}
+
+Output valid JSON only: { "instructions": [ { "n": 1, "text": "..." } ] } — one entry per input scene, same n values, text may be "".`,
+      },
+    ]);
+    const parsed = parseJsonResponse(result.response.text() || '');
+    if (!parsed || !Array.isArray(parsed.instructions)) {
+      return { success: false, error: 'Contextualize returned invalid JSON' };
+    }
+    const out: Record<number, string> = {};
+    for (const item of parsed.instructions as Array<Record<string, unknown>>) {
+      const n = Number(item.n);
+      if (Number.isInteger(n)) out[n] = String(item.text ?? '').trim();
+    }
+    // Every input scene must be covered — a partial map would silently leave
+    // stale instructions on the missing scenes.
+    if (scenes.some((s) => out[s.n] === undefined)) {
+      return { success: false, error: 'Contextualize response missed scenes' };
+    }
+    return { success: true, instructions: out };
+  } catch (error) {
+    console.error('contextualizeSwapInstruction error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Contextualize failed' };
+  }
+}
+
+/**
  * Reconcile stored motion prompts with a swap instruction: references to
  * replaced people/objects become generic ("the product", "the person") so
  * the prompt can't fight the swapped image. One text-only call for the whole

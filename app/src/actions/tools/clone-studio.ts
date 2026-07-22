@@ -32,7 +32,7 @@ import {
   buildAnalysisKeyframes,
   extractSceneClips,
 } from '@/lib/clone-studio/segmentation';
-import { analyzeCloneScenes, rewriteMotionPromptsForSwap, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
+import { analyzeCloneScenes, contextualizeSwapInstruction, rewriteMotionPromptsForSwap, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_ANIM_NEGATIVE_PROMPT,
@@ -868,13 +868,35 @@ export async function applyInstructionToAllScenes(
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
 
-  let scenes = loaded.project.scenes.map((s) => ({ ...s, user_instruction: instruction }));
+  // Tailor the instruction per scene (only the applicable parts) and
+  // reconcile motion prompts — two independent AI passes, run concurrently.
+  const [contextualized, rewrite] = await Promise.all([
+    contextualizeSwapInstruction(
+      loaded.project.scenes.map((s) => ({
+        n: s.n,
+        subject: s.analysis?.subject || '',
+        action: s.analysis?.action_arc?.action || '',
+      })),
+      instruction
+    ),
+    rewriteMotionPromptsForSwap(
+      loaded.project.scenes.map((s) => ({ n: s.n, text: s.motion_prompt?.trim() || composeMotionPrompt(s.analysis) })),
+      instruction
+    ),
+  ]);
 
-  // Non-fatal: if the rewrite fails, instructions still apply
-  const rewrite = await rewriteMotionPromptsForSwap(
-    scenes.map((s) => ({ n: s.n, text: s.motion_prompt?.trim() || composeMotionPrompt(s.analysis) })),
-    instruction
-  );
+  // Per-scene tailored instruction; verbatim copy is the fallback so a
+  // failed AI pass degrades to the old behavior instead of doing nothing.
+  let scenes = loaded.project.scenes.map((s) => ({
+    ...s,
+    user_instruction:
+      contextualized.success && contextualized.instructions
+        ? contextualized.instructions[s.n] ?? instruction
+        : instruction,
+  }));
+  if (!contextualized.success && contextualized.error) {
+    console.warn('Clone Studio: instruction contextualize failed (applied verbatim):', contextualized.error);
+  }
   if (rewrite.success && rewrite.prompts) {
     scenes = scenes.map((s) =>
       rewrite.prompts![s.n] ? { ...s, motion_prompt: rewrite.prompts![s.n] } : s
