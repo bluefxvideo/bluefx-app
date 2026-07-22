@@ -136,6 +136,21 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
     }
   };
 
+  // Project-wide refs can be dropped per scene (e.g. the presenter ref on a
+  // hands-only shot) — this only excludes them HERE, other scenes keep them.
+  const handleExcludeProjectRef = async (url: string) => {
+    const next = [...new Set([...(scene.excluded_project_ref_urls || []), url])];
+    const result = await updateSceneInput(project.id, scene.n, { excluded_project_ref_urls: next });
+    if (result.success && result.project) onProjectUpdate(result.project);
+    else toast.error(result.error || 'Could not remove the reference');
+  };
+
+  const handleRestoreProjectRefs = async () => {
+    const result = await updateSceneInput(project.id, scene.n, { excluded_project_ref_urls: [] });
+    if (result.success && result.project) onProjectUpdate(result.project);
+    else toast.error(result.error || 'Could not restore the references');
+  };
+
   const handleRemoveRef = async (url: string) => {
     const urls = (scene.user_ref_urls || []).filter((u) => u !== url);
     const result = await updateSceneInput(project.id, scene.n, { user_ref_urls: urls });
@@ -476,15 +491,32 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               handleAddRefs(e.dataTransfer.files);
             }}
           >
-            {/* Project-wide refs are sent with every scene's generation — show
-                them here (read-only) so it's clear they're already included */}
-            {(project.analysis_summary?.project_ref_urls || []).map((url) => (
-              <div key={`proj-${url}`} className="relative" title="Project reference — included in every scene">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="Project reference" className="w-9 h-9 object-cover rounded border border-primary/40 opacity-80" />
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-0.5 rounded bg-primary/80 text-white text-[7px] font-mono uppercase leading-tight">all</span>
-              </div>
-            ))}
+            {/* Project-wide refs ride along with every generation; removing one
+                here excludes it from THIS scene only */}
+            {(project.analysis_summary?.project_ref_urls || [])
+              .filter((url) => !(scene.excluded_project_ref_urls || []).includes(url))
+              .map((url) => (
+                <div key={`proj-${url}`} className="relative group" title="Project reference — remove to exclude from this scene only">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="Project reference" className="w-9 h-9 object-cover rounded border border-primary/40 opacity-80" />
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-0.5 rounded bg-primary/80 text-white text-[7px] font-mono uppercase leading-tight">all</span>
+                  <button
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center"
+                    onClick={() => handleExcludeProjectRef(url)}
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ))}
+            {(scene.excluded_project_ref_urls || []).length > 0 && (
+              <button
+                className="text-[10px] text-zinc-500 hover:text-zinc-300 underline underline-offset-2"
+                onClick={handleRestoreProjectRefs}
+                title="Bring back the project references you removed from this scene"
+              >
+                +{(scene.excluded_project_ref_urls || []).length} hidden
+              </button>
+            )}
             {(scene.user_ref_urls || []).map((url) => (
               <div key={url} className="relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

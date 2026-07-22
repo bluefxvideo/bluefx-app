@@ -81,6 +81,8 @@ export interface CloneScene {
   user_instruction: string;
   /** User-uploaded reference images for this scene (person, product, person+product). */
   user_ref_urls: string[];
+  /** Project-wide reference URLs the user removed from THIS scene only. */
+  excluded_project_ref_urls?: string[];
   /** Currently approved swapped keyframe (null until first generation). */
   edited_image_url: string | null;
   /** Older generated keyframes, most recent first. */

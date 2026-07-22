@@ -342,6 +342,8 @@ export async function updateSceneInput(
     motion_prompt?: string | null;
     /** Verbatim negative prompt; null resets to the default quality guard. */
     negative_prompt?: string | null;
+    /** Project-wide refs to exclude from THIS scene's generations. */
+    excluded_project_ref_urls?: string[];
   }
 ): Promise<CloneProjectResponse> {
   const loaded = await loadOwnedProject(projectId);
@@ -364,6 +366,9 @@ export async function updateSceneInput(
           ...(input.anim_seconds != null && s.is_custom ? { start: 0, end: animSeconds ?? 3 } : {}),
           ...(input.motion_prompt !== undefined ? { motion_prompt: input.motion_prompt } : {}),
           ...(input.negative_prompt !== undefined ? { negative_prompt: input.negative_prompt } : {}),
+          ...(input.excluded_project_ref_urls !== undefined
+            ? { excluded_project_ref_urls: input.excluded_project_ref_urls }
+            : {}),
         }
       : s
   );
@@ -457,8 +462,12 @@ export async function generateSceneImage(
     // FAL rejects images over ~5MB after base64 inflation — compress if needed
     const keyframe = (await ensureFalCompatibleImage(scene.keyframe_url, attemptId, `scene${sceneN}-key`))!;
     // Project-level refs (same person/product in every scene) come first,
-    // then scene-specific ones; dedup, cap 6 total
-    const projectRefs = project.analysis_summary?.project_ref_urls || [];
+    // then scene-specific ones; dedup, cap 6 total. Refs the user removed
+    // from this scene's card are skipped.
+    const excluded = new Set(scene.excluded_project_ref_urls || []);
+    const projectRefs = (project.analysis_summary?.project_ref_urls || []).filter(
+      (url) => !excluded.has(url)
+    );
     const combinedRefs = [...new Set([...projectRefs, ...(scene.user_ref_urls || [])])].slice(0, 6);
     const refs: string[] = [];
     for (const [i, url] of combinedRefs.entries()) {
