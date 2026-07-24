@@ -125,6 +125,13 @@ export function GeneratorTab({
   // Track if we're using a pending image URL from Starting Shot
   const usingPendingImage = !!pendingImageUrl && !formData.reference_image;
 
+  // A last frame only works as an interpolation target when there is also a
+  // first frame: every engine's end_image_url is gated behind image_url (i2v).
+  // Without a start image the request silently falls back to text-to-video and
+  // the last frame is dropped — so require the first frame here instead.
+  const hasFirstFrame = !!formData.reference_image || !!pendingImageUrl;
+  const lastFrameNeedsFirst = !!formData.last_frame_image && !hasFirstFrame;
+
   // Get available durations for the selected model
   const availableDurations = config.durations as readonly number[];
 
@@ -183,6 +190,8 @@ export function GeneratorTab({
 
   const handleSubmit = () => {
     if (!formData.prompt?.trim() && !timedShotsActive) return;
+    // Guard: a last frame with no first frame would be silently ignored.
+    if (lastFrameNeedsFirst) return;
 
     // For Pro/Ultra (Seedance), append text-based camera style to prompt
     // For Fast mode, camera is controlled via native camera_motion param
@@ -211,7 +220,7 @@ export function GeneratorTab({
       aspect_ratio: formData.aspect_ratio,
     };
 
-    // All tiers: optional starting frame (Ultra has no end-frame input)
+    // All tiers: optional starting frame (a last frame also needs this)
     if (formData.reference_image) {
       request.reference_image = formData.reference_image;
     } else if (usingPendingImage && pendingImageUrl) {
@@ -691,6 +700,11 @@ export function GeneratorTab({
               description="Optional - The video will transition to this frame"
               previewSize="medium"
             />
+            {lastFrameNeedsFirst && (
+              <p className="text-xs text-amber-500 mt-2 font-medium">
+                Add a first frame too. The last frame needs a starting image to transition from, otherwise it is ignored.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground mt-2">
               Control how your video ends by specifying the last frame. Requires a first frame image.
             </p>
@@ -888,7 +902,7 @@ export function GeneratorTab({
         )}
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || (!isLoadingCredits && credits < estimatedCredits) || (!formData.prompt?.trim() && !timedShotsActive) || (timedShotsActive && ultraShotsTotal > 15)}
+          disabled={isGenerating || (!isLoadingCredits && credits < estimatedCredits) || (!formData.prompt?.trim() && !timedShotsActive) || (timedShotsActive && ultraShotsTotal > 15) || lastFrameNeedsFirst}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >

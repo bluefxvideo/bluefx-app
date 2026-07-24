@@ -316,6 +316,15 @@ async function handleVideoGeneration(
     const modelVersion = model === 'fast' ? 'ltx-2.3-fast' : model === 'ultra' ? 'kling-o3-pro' : 'seedance-1.5-pro';
     const falWebhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`;
 
+    // A last frame is an interpolation target: it only works with a start
+    // image (the UI blocks this, but guard here for direct API callers so the
+    // frame is never silently dropped without a trace).
+    const startImageForRun = referenceImageUrl || ultraReferenceUrls?.[0];
+    if (lastFrameImageUrl && !startImageForRun) {
+      console.warn('⚠️ last_frame ignored: no starting image to interpolate from (t2v)');
+      lastFrameImageUrl = undefined;
+    }
+
     // fal rejects input images over 7MiB — shrink oversized ones first
     referenceImageUrl = await ensureFalCompatibleImage(referenceImageUrl, batch_id, 'reference');
     lastFrameImageUrl = await ensureFalCompatibleImage(lastFrameImageUrl, batch_id, 'last_frame');
@@ -367,7 +376,8 @@ async function handleVideoGeneration(
         // Ultra: Kling O3 Pro, 1080p with native audio (switched from
         // Seedance 2.0 — equal quality at ~half the provider cost). i2v when
         // a starting image exists (Starting Shot or first uploaded reference),
-        // t2v otherwise. No end-image or audio-reference support.
+        // t2v otherwise. An end frame is honored ONLY in i2v (it needs a start
+        // image to interpolate from); t2v silently ignores it.
         console.log('🎬 Creating Ultra (Kling O3 Pro, fal) prediction...');
 
         // Timed shots: total duration is the sum of the shots (capped 15s)
