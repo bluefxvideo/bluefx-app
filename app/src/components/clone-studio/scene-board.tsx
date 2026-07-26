@@ -15,6 +15,7 @@ import {
   uploadCloneReference,
   updateProjectReferences,
   applyInstructionToAllScenes,
+  generateProjectTranscript,
 } from '@/actions/tools/clone-studio';
 import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
@@ -126,6 +127,20 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, generatingScenes.join(','), onProjectUpdate]);
 
+  // Transcript backfill for projects scanned before transcripts existed.
+  // Once stored (even as ''), this never fires again for the project.
+  const transcript = project.analysis_summary?.transcript;
+  const transcriptRequested = useRef(false);
+  useEffect(() => {
+    if (transcript !== undefined || transcriptRequested.current) return;
+    if (!project.analysis_summary) return; // still processing — scan will fill it
+    transcriptRequested.current = true;
+    generateProjectTranscript(project.id).then((result) => {
+      if (result.success && result.project) onProjectUpdate(result.project);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, transcript]);
+
   return (
     <div className="max-w-6xl mx-auto space-y-4">
       {/* Header */}
@@ -160,6 +175,27 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               </>
             )}
           </div>
+
+          {/* Full audio transcript — the per-scene dialog lines drift at cut
+              boundaries; this is the uncut reference, always at hand */}
+          {project.analysis_summary && (
+            <div className="rounded-lg border border-border/40 bg-muted/20">
+              <p className="px-3 pt-2.5 font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+                Transcript — full audio
+              </p>
+              {transcript === undefined ? (
+                <p className="px-3 py-3 text-xs text-zinc-500 flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Transcribing the original audio…
+                </p>
+              ) : transcript === '' ? (
+                <p className="px-3 py-3 text-xs text-zinc-500">No spoken audio detected in this video.</p>
+              ) : (
+                <pre className="px-3 py-2.5 text-xs leading-relaxed text-zinc-300 whitespace-pre-wrap font-sans max-h-[340px] lg:max-h-[420px] overflow-y-auto select-text">
+                  {transcript}
+                </pre>
+              )}
+            </div>
+          )}
         </div>
         {project.source_video_url && (
           <div className="w-full lg:w-[520px] xl:w-[600px] shrink-0 space-y-1">

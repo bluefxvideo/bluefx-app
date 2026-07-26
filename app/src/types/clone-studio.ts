@@ -163,6 +163,13 @@ export interface CloneAnalysisSummary {
    * jsonb to avoid a schema migration.
    */
   project_ref_urls?: string[];
+  /**
+   * Verbatim transcript of the source video's spoken audio with rough
+   * [m:ss] line timestamps. Display-only (board reference panel) — never
+   * fed into image/video generation. '' = transcribed, no speech found;
+   * undefined = not yet transcribed (legacy projects backfill on open).
+   */
+  transcript?: string;
 }
 
 export interface CloneProject {

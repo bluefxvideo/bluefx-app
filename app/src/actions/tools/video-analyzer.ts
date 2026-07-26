@@ -785,9 +785,10 @@ Profiles are for RECOGNITION ONLY: never include props, held objects, products, 
 - "products": every distinct product/brand shown.
 - "visual_style": grade, lighting character, lens/format feel, era — enough to keep regenerated frames consistent.
 - "music_brief": one sentence for re-scoring (genre, tempo, instrumentation, emotional quality, how it changes).
+- "transcript": VERBATIM transcript of every spoken word in the video, one line per utterance, each line prefixed with a rough [m:ss] timestamp. Spoken words only — no sound-effect or music descriptions. Empty string if nothing is spoken.
 
 Output valid JSON only:
-{ "summary": "...", "characters": [{ "id": "MAIN CHARACTER", "description": "..." }], "products": ["..."], "visual_style": "...", "music_brief": "..." }`;
+{ "summary": "...", "characters": [{ "id": "MAIN CHARACTER", "description": "..." }], "products": ["..."], "visual_style": "...", "music_brief": "...", "transcript": "[0:01] ...\\n[0:04] ..." }`;
 
 const CLONE_SCENE_CLIP_PROMPT = `You will receive ONE short clip — a single scene cut from a longer video ad. The clip is the ENTIRE scene.
 
@@ -986,7 +987,52 @@ async function runCloneGlobalAnalysis(videoPart: GeminiVideoPart) {
     products: Array.isArray(parsed.products) ? (parsed.products as unknown[]).map(String) : [],
     visual_style: String(parsed.visual_style || ''),
     music_brief: String(parsed.music_brief || ''),
+    transcript: normalizeTranscript(String(parsed.transcript || '')),
   };
+}
+
+/** Gemini sometimes joins transcript lines with commas — one utterance per line. */
+function normalizeTranscript(raw: string): string {
+  return raw
+    .replace(/\r/g, '')
+    .replace(/[ \t]*,?[ \t]*\n?\[(\d{1,2}:\d{2})\]/g, '\n[$1]')
+    .trim();
+}
+
+/**
+ * Transcript-only pass for projects scanned before transcripts existed.
+ * Same output contract as the global pass's "transcript" field.
+ */
+export async function transcribeCloneVideo(input: {
+  videoBase64?: string;
+  youtubeUrl?: string;
+}): Promise<{ success: boolean; transcript?: string; error?: string }> {
+  try {
+    if (!input.videoBase64 && !input.youtubeUrl) {
+      return { success: false, error: 'Provide videoBase64 or youtubeUrl' };
+    }
+    const videoPart: GeminiVideoPart = input.youtubeUrl
+      ? { fileData: { mimeType: 'video/mp4', fileUri: input.youtubeUrl } }
+      : { inlineData: { mimeType: 'video/mp4', data: input.videoBase64! } };
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent([
+      videoPart,
+      {
+        text: `Transcribe every spoken word in this video VERBATIM, one line per utterance, each line prefixed with a rough [m:ss] timestamp. Spoken words only — no sound-effect or music descriptions. Empty string if nothing is spoken.
+
+Output valid JSON only: { "transcript": "[0:01] ...\\n[0:04] ..." }`,
+      },
+    ]);
+    const parsed = parseJsonResponse(result.response.text() || '');
+    if (!parsed) return { success: false, error: 'Transcription returned invalid JSON' };
+    return { success: true, transcript: normalizeTranscript(String(parsed.transcript || '')) };
+  } catch (error) {
+    console.error('transcribeCloneVideo error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Transcription failed' };
+  }
 }
 
 async function runCloneSceneClipAnalysis(opts: {
@@ -1205,6 +1251,7 @@ export async function analyzeCloneScenes(
         products: [],
         visual_style: '',
         music_brief: '',
+        transcript: '',
       };
       return { success: true, summary, scenes };
     }

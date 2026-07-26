@@ -32,7 +32,7 @@ import {
   buildAnalysisKeyframes,
   extractSceneClips,
 } from '@/lib/clone-studio/segmentation';
-import { analyzeCloneScenes, contextualizeSwapInstruction, rewriteMotionPromptsForSwap, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
+import { analyzeCloneScenes, contextualizeSwapInstruction, rewriteMotionPromptsForSwap, transcribeCloneVideo, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_ANIM_NEGATIVE_PROMPT,
@@ -863,6 +863,59 @@ export async function updateProjectReferences(
     .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
     .eq('id', projectId);
   return { success: true, project: { ...loaded.project, analysis_summary: summary } };
+}
+
+/**
+ * Backfill the full-audio transcript for projects scanned before transcripts
+ * were part of the global analysis. Idempotent: once transcript is a string
+ * (even ''), this is a no-op. Free — display-only reference, no credits.
+ */
+export async function generateProjectTranscript(projectId: string): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const project = loaded.project;
+
+  if (typeof project.analysis_summary?.transcript === 'string') {
+    return { success: true, project };
+  }
+
+  let transcript: string | undefined;
+  // YouTube sources: Gemini reads the URL natively — no download needed.
+  if (project.source_platform === 'youtube' && project.source_url) {
+    const res = await transcribeCloneVideo({ youtubeUrl: project.source_url });
+    if (res.success) transcript = res.transcript ?? '';
+  }
+  // Everything else (or a failed native pass): transcribe our stored copy.
+  if (transcript === undefined && project.source_video_url) {
+    const workDir = await makeWorkDir(`clone-transcript-${projectId.slice(0, 8)}`);
+    try {
+      const filePath = `${workDir}/source.mp4`;
+      await downloadToFile(project.source_video_url, filePath);
+      const base64 = await fitForInlineAnalysis(filePath);
+      const res = await transcribeCloneVideo({ videoBase64: base64 });
+      if (res.success) transcript = res.transcript ?? '';
+    } catch (error) {
+      console.error('Clone Studio: transcript backfill failed:', error);
+    } finally {
+      await cleanupWorkDir(workDir);
+    }
+  }
+  if (transcript === undefined) {
+    return { success: false, error: 'Could not transcribe the source video — try reopening the project.' };
+  }
+
+  const summary = {
+    ...(project.analysis_summary || {
+      summary: '', characters: [], products: [], visual_style: '', music_brief: '',
+    }),
+    transcript,
+  };
+  const admin = createAdminClient();
+  await admin
+    .from('ad_clone_projects')
+    .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
+    .eq('id', projectId);
+  return { success: true, project: { ...project, analysis_summary: summary } };
 }
 
 /**
