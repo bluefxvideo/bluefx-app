@@ -170,6 +170,12 @@ export interface CloneAnalysisSummary {
    * undefined = not yet transcribed (legacy projects backfill on open).
    */
   transcript?: string;
+  /**
+   * True once per-scene dialog has been corrected against the full
+   * transcript (fragment transcriptions mishear words). Legacy projects
+   * backfill on open; new scans set it during analysis.
+   */
+  dialog_reconciled?: boolean;
 }
 
 export interface CloneProject {

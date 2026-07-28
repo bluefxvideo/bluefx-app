@@ -32,7 +32,7 @@ import {
   buildAnalysisKeyframes,
   extractSceneClips,
 } from '@/lib/clone-studio/segmentation';
-import { analyzeCloneScenes, contextualizeSwapInstruction, rewriteMotionPromptsForSwap, transcribeCloneVideo, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
+import { analyzeCloneScenes, contextualizeSwapInstruction, reconcileSceneDialogWithTranscript, rewriteMotionPromptsForSwap, transcribeCloneVideo, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_ANIM_NEGATIVE_PROMPT,
@@ -916,6 +916,46 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
     .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
     .eq('id', projectId);
   return { success: true, project: { ...project, analysis_summary: summary } };
+}
+
+/**
+ * Correct every scene's dialog against the full transcript — fragment
+ * transcriptions mishear words ("swim" -> "sweat") and hallucinate repeats.
+ * Backfill for projects scanned before this ran inside analysis. Idempotent
+ * via analysis_summary.dialog_reconciled. Never touches a user-edited
+ * motion_prompt — cards recompose their motion text from the corrected
+ * dialog only where the user hasn't overridden it.
+ */
+export async function reconcileProjectDialog(projectId: string): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const project = loaded.project;
+  const summary = project.analysis_summary;
+
+  if (!summary || summary.dialog_reconciled) return { success: true, project };
+  if (typeof summary.transcript !== 'string') {
+    return { success: false, error: 'Transcript not ready yet' };
+  }
+
+  let scenes = project.scenes;
+  if (summary.transcript) {
+    const rec = await reconcileSceneDialogWithTranscript(
+      project.scenes.map((s) => ({ n: s.n, start: s.start, end: s.end, dialog: s.analysis?.dialog || '' })),
+      summary.transcript
+    );
+    if (!rec.success || !rec.dialog) {
+      return { success: false, error: rec.error || 'Dialog reconcile failed' };
+    }
+    scenes = project.scenes.map((s) =>
+      rec.dialog![s.n] !== undefined
+        ? { ...s, analysis: { ...s.analysis, dialog: rec.dialog![s.n] } }
+        : s
+    );
+  }
+
+  const nextSummary = { ...summary, dialog_reconciled: true };
+  await saveScenes(projectId, scenes, { analysis_summary: nextSummary });
+  return { success: true, project: { ...project, scenes, analysis_summary: nextSummary } };
 }
 
 /**

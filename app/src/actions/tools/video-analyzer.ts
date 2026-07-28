@@ -910,6 +910,8 @@ export interface AnalyzeCloneScenesResult {
     products: string[];
     visual_style: string;
     music_brief: string;
+    transcript?: string;
+    dialog_reconciled?: boolean;
   };
   /** Keyed by scene number `n`. */
   scenes?: Record<number, {
@@ -989,6 +991,65 @@ async function runCloneGlobalAnalysis(videoPart: GeminiVideoPart) {
     music_brief: String(parsed.music_brief || ''),
     transcript: normalizeTranscript(String(parsed.transcript || '')),
   };
+}
+
+/**
+ * Per-scene dialog is transcribed from 1-2s audio fragments in isolation and
+ * routinely comes out garbled (misheard words, hallucinated repeats) — tiny
+ * clips carry no linguistic context. The FULL transcript is accurate because
+ * it hears whole sentences. This pass reassigns the transcript's words to
+ * scenes by time window, using each scene's originally-heard fragment as
+ * alignment evidence. Words may only come from the transcript — never invented.
+ */
+export async function reconcileSceneDialogWithTranscript(
+  scenes: Array<{ n: number; start: number; end: number; dialog: string }>,
+  transcript: string
+): Promise<{ success: boolean; dialog?: Record<number, string>; error?: string }> {
+  try {
+    if (!scenes.length || !transcript.trim()) {
+      return { success: true, dialog: {} };
+    }
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent([
+      {
+        text: `A video was cut into scenes at exact timestamps. Each scene's dialog was transcribed from its tiny audio fragment ALONE, so many lines are misheard or garbled. Below is the ACCURATE full-video transcript (rough [m:ss] line stamps) and each scene's time window plus what its fragment transcription heard.
+
+Reassign the transcript's words to the scenes:
+- each scene gets ONLY the words actually spoken inside its [start–end] window (seconds)
+- use the scene's originally-heard fragment to fine-align sentences that span a boundary: split at the word where the cut falls, matching what each side heard
+- words must come VERBATIM from the full transcript — fix misheard words to the transcript's version, drop hallucinated repeats, never invent new words
+- empty string for scenes where nothing is spoken
+- do not add speaker labels, timestamps, or punctuation that is not in the transcript
+
+Full transcript:
+${transcript}
+
+Scenes:
+${JSON.stringify(scenes)}
+
+Output valid JSON only: { "dialog": [ { "n": 1, "text": "..." } ] } — one entry per input scene, same n values, text may be "".`,
+      },
+    ]);
+    const parsed = parseJsonResponse(result.response.text() || '');
+    if (!parsed || !Array.isArray(parsed.dialog)) {
+      return { success: false, error: 'Dialog reconcile returned invalid JSON' };
+    }
+    const out: Record<number, string> = {};
+    for (const item of parsed.dialog as Array<Record<string, unknown>>) {
+      const n = Number(item.n);
+      if (Number.isInteger(n)) out[n] = String(item.text ?? '').trim();
+    }
+    if (scenes.some((s) => out[s.n] === undefined)) {
+      return { success: false, error: 'Dialog reconcile response missed scenes' };
+    }
+    return { success: true, dialog: out };
+  } catch (error) {
+    console.error('reconcileSceneDialogWithTranscript error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Dialog reconcile failed' };
+  }
 }
 
 /** Gemini sometimes joins transcript lines with commas — one utterance per line. */
@@ -1245,7 +1306,7 @@ export async function analyzeCloneScenes(
           scenes[range.n] = coerceCloneSceneAnalysis({});
         }
       });
-      const summary = (await summaryPromise) || {
+      const summary: NonNullable<AnalyzeCloneScenesResult['summary']> = (await summaryPromise) || {
         summary: '',
         characters: [],
         products: [],
@@ -1253,6 +1314,33 @@ export async function analyzeCloneScenes(
         music_brief: '',
         transcript: '',
       };
+
+      // Fragment transcriptions are unreliable — replace each scene's dialog
+      // with the words the accurate full transcript puts inside its window.
+      // Non-fatal: on failure the fragment dialog stands.
+      if (summary.transcript) {
+        const rec = await reconcileSceneDialogWithTranscript(
+          input.sceneRanges.map((r) => ({
+            n: r.n,
+            start: r.start,
+            end: r.end,
+            dialog: scenes[r.n]?.dialog || '',
+          })),
+          summary.transcript
+        );
+        if (rec.success && rec.dialog) {
+          for (const r of input.sceneRanges) {
+            if (rec.dialog[r.n] !== undefined && scenes[r.n]) {
+              scenes[r.n] = { ...scenes[r.n], dialog: rec.dialog[r.n] };
+            }
+          }
+          summary.dialog_reconciled = true;
+        } else if (rec.error) {
+          console.warn('Clone scene analysis: dialog reconcile failed (fragment dialog kept):', rec.error);
+        }
+      } else {
+        summary.dialog_reconciled = true; // nothing spoken — nothing to reconcile
+      }
       return { success: true, summary, scenes };
     }
 

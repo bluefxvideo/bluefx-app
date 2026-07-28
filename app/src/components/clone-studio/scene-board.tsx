@@ -16,6 +16,7 @@ import {
   updateProjectReferences,
   applyInstructionToAllScenes,
   generateProjectTranscript,
+  reconcileProjectDialog,
 } from '@/actions/tools/clone-studio';
 import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
@@ -140,6 +141,22 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, transcript]);
+
+  // Once the transcript exists, correct the per-scene dialog against it
+  // (fragment transcriptions mishear words). Runs once per project ever.
+  const dialogReconciled = project.analysis_summary?.dialog_reconciled;
+  const reconcileRequested = useRef(false);
+  useEffect(() => {
+    if (typeof transcript !== 'string' || dialogReconciled || reconcileRequested.current) return;
+    reconcileRequested.current = true;
+    reconcileProjectDialog(project.id).then((result) => {
+      if (result.success && result.project) {
+        onProjectUpdate(result.project);
+        toast.info('Scene dialog lines were corrected against the full transcript.');
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, transcript, dialogReconciled]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
