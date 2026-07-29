@@ -33,7 +33,7 @@ import {
   buildAnalysisKeyframes,
   extractSceneClips,
 } from '@/lib/clone-studio/segmentation';
-import { analyzeCloneScenes, contextualizeSwapInstruction, reconcileSceneDialogWithTranscript, rewriteMotionPromptsForSwap, transcribeCloneVideo, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
+import { analyzeCloneScenes, buildSoundtrackPromptOptions, contextualizeSwapInstruction, reconcileSceneDialogWithTranscript, rewriteMotionPromptsForSwap, transcribeCloneVideo, type AnalyzeCloneScenesResult } from '@/actions/tools/video-analyzer';
 import {
   CLONE_ANIM_CREDITS_PER_SECOND,
   CLONE_ANIM_NEGATIVE_PROMPT,
@@ -237,10 +237,22 @@ export async function processCloneProject(
       console.warn('Clone Studio: tempo detection failed (non-fatal):', error);
     }
 
+    // Three paste-ready soundtrack prompts, built with the measured BPM.
+    let musicOptions: Array<{ label: string; prompt: string }> | undefined;
+    if (analysis.summary.music_brief) {
+      const opts = await buildSoundtrackPromptOptions(analysis.summary.music_brief, musicBpm);
+      if (opts.success && opts.options?.length) musicOptions = opts.options;
+      else if (opts.error) console.warn('Clone Studio: soundtrack options failed (non-fatal):', opts.error);
+    }
+
     await updateProject({
       status: 'board_ready',
       scenes,
-      analysis_summary: { ...analysis.summary, ...(musicBpm ? { music_bpm: musicBpm } : {}) },
+      analysis_summary: {
+        ...analysis.summary,
+        ...(musicBpm ? { music_bpm: musicBpm } : {}),
+        ...(musicOptions ? { music_prompt_options: musicOptions } : {}),
+      },
     });
 
     const { data: project } = await admin
@@ -895,21 +907,6 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
     return { success: true, project };
   }
 
-  // Measured from the stored copy — cheap (~100ms) and deterministic.
-  let musicBpm: number | undefined;
-  if (project.source_video_url) {
-    const tempoDir = await makeWorkDir(`clone-tempo-${projectId.slice(0, 8)}`);
-    try {
-      const tempoPath = `${tempoDir}/source.mp4`;
-      await downloadToFile(project.source_video_url, tempoPath);
-      const tempo = await detectTempo(tempoPath);
-      if (tempo) musicBpm = tempo.bpm;
-    } catch (error) {
-      console.warn('Clone Studio: tempo backfill failed (non-fatal):', error);
-    } finally {
-      await cleanupWorkDir(tempoDir);
-    }
-  }
 
   let transcript: string | undefined;
   // YouTube sources: Gemini reads the URL natively — no download needed.
@@ -941,7 +938,6 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
       summary: '', characters: [], products: [], visual_style: '', music_brief: '',
     }),
     transcript,
-    ...(musicBpm ? { music_bpm: musicBpm } : {}),
   };
   const admin = createAdminClient();
   await admin
@@ -949,6 +945,64 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
     .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
     .eq('id', projectId);
   return { success: true, project: { ...project, analysis_summary: summary } };
+}
+
+/**
+ * Backfill the measured tempo and the three paste-ready soundtrack prompts
+ * for projects scanned before those existed. Separate from the transcript
+ * backfill on purpose: projects that already have a transcript would
+ * otherwise never reach this. Idempotent via music_prompt_options; free.
+ */
+export async function ensureProjectSoundtrack(projectId: string): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+  const project = loaded.project;
+  const summary = project.analysis_summary;
+
+  if (!summary || summary.music_prompt_options?.length) return { success: true, project };
+
+  // Measure tempo if we don't have it yet (~100ms once downloaded).
+  let musicBpm = summary.music_bpm;
+  if (musicBpm === undefined && project.source_video_url) {
+    const workDir = await makeWorkDir(`clone-tempo-${projectId.slice(0, 8)}`);
+    try {
+      const filePath = `${workDir}/source.mp4`;
+      await downloadToFile(project.source_video_url, filePath);
+      const tempo = await detectTempo(filePath);
+      if (tempo) musicBpm = tempo.bpm;
+    } catch (error) {
+      console.warn('Clone Studio: tempo backfill failed (non-fatal):', error);
+    } finally {
+      await cleanupWorkDir(workDir);
+    }
+  }
+
+  if (!summary.music_brief?.trim()) {
+    // Nothing to build prompts from — still persist any measured tempo.
+    if (musicBpm === undefined || musicBpm === summary.music_bpm) return { success: true, project };
+    const withBpm = { ...summary, music_bpm: musicBpm };
+    await createAdminClient()
+      .from('ad_clone_projects')
+      .update({ analysis_summary: withBpm, updated_at: new Date().toISOString() })
+      .eq('id', projectId);
+    return { success: true, project: { ...project, analysis_summary: withBpm } };
+  }
+
+  const opts = await buildSoundtrackPromptOptions(summary.music_brief, musicBpm);
+  if (!opts.success || !opts.options?.length) {
+    return { success: false, error: opts.error || 'Could not build soundtrack prompts' };
+  }
+
+  const nextSummary = {
+    ...summary,
+    ...(musicBpm !== undefined ? { music_bpm: musicBpm } : {}),
+    music_prompt_options: opts.options,
+  };
+  await createAdminClient()
+    .from('ad_clone_projects')
+    .update({ analysis_summary: nextSummary, updated_at: new Date().toISOString() })
+    .eq('id', projectId);
+  return { success: true, project: { ...project, analysis_summary: nextSummary } };
 }
 
 /** Save the user-editable soundtrack prompt (assembly sends it verbatim + length suffix). */

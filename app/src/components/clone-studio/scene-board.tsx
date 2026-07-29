@@ -18,6 +18,7 @@ import {
   generateProjectTranscript,
   reconcileProjectDialog,
   updateProjectMusicPrompt,
+  ensureProjectSoundtrack,
 } from '@/actions/tools/clone-studio';
 import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
@@ -156,6 +157,18 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, transcript]);
 
+  // Backfill measured tempo + the three paste-ready soundtrack prompts.
+  const musicOptions = project.analysis_summary?.music_prompt_options;
+  const soundtrackRequested = useRef(false);
+  useEffect(() => {
+    if (!project.analysis_summary || musicOptions?.length || soundtrackRequested.current) return;
+    soundtrackRequested.current = true;
+    ensureProjectSoundtrack(project.id).then((result) => {
+      if (result.success && result.project) onProjectUpdate(result.project);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, musicOptions?.length]);
+
   // Once the transcript exists, correct the per-scene dialog against it
   // (fragment transcriptions mishear words). Runs once per project ever.
   const dialogReconciled = project.analysis_summary?.dialog_reconciled;
@@ -245,6 +258,56 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                   </span>
                 )}
               </div>
+              {/* Three ready-to-paste directions — click to use, or copy into
+                  Music Maker. Getting music right by hand takes many tries. */}
+              {musicOptions && musicOptions.length > 0 && (
+                <div className="space-y-1.5">
+                  {musicOptions.map((opt) => {
+                    const active = musicPrompt.trim() === opt.prompt.trim();
+                    return (
+                      <div
+                        key={opt.label}
+                        className={`rounded-md border p-2 space-y-1 transition-colors ${
+                          active ? 'border-primary/60 bg-primary/5' : 'border-border/40 bg-background/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-400">
+                            {opt.label}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-1.5 text-[10px]"
+                              onClick={() => {
+                                navigator.clipboard.writeText(opt.prompt);
+                                toast.success(`${opt.label} prompt copied — paste into Music Maker`);
+                              }}
+                            >
+                              Copy
+                            </Button>
+                            <Button
+                              variant={active ? 'secondary' : 'outline'}
+                              size="sm"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={async () => {
+                                setMusicPrompt(opt.prompt);
+                                const result = await updateProjectMusicPrompt(project.id, opt.prompt);
+                                if (result.success && result.project) onProjectUpdate(result.project);
+                                else toast.error(result.error || 'Could not save the soundtrack prompt');
+                              }}
+                            >
+                              {active ? 'In use' : 'Use'}
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-zinc-400">{opt.prompt}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <Textarea
                 value={musicPrompt}
                 onChange={(e) => setMusicPrompt(e.target.value)}
@@ -260,8 +323,9 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                 className="text-xs min-h-[72px]"
               />
               <p className="text-[10px] text-zinc-600">
-                Prefilled from the original ad&apos;s music. The target length is added automatically on assemble.
-                Copy it into Music Maker for a standalone track.
+                This exact text is sent on assemble (target length appended automatically).
+                Pick a direction above, edit freely, or copy one into Music Maker for a standalone track.
+                Generated tracks vary in length — trim to your cut.
               </p>
             </div>
           )}

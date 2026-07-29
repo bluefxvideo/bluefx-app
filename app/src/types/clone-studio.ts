@@ -188,6 +188,12 @@ export interface CloneAnalysisSummary {
    * Absent when no steady pulse was found (speech-only ads).
    */
   music_bpm?: number;
+  /**
+   * Three ready-to-paste soundtrack prompts (Faithful / Bolder / Modern),
+   * built from music_brief + the measured BPM. Picking one loads it into the
+   * editable music_prompt; they are also copyable into Music Maker.
+   */
+  music_prompt_options?: Array<{ label: string; prompt: string }>;
 }
 
 export interface CloneProject {

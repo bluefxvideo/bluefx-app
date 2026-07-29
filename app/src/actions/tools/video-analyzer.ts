@@ -994,6 +994,73 @@ async function runCloneGlobalAnalysis(videoPart: GeminiVideoPart) {
 }
 
 /**
+ * Three ready-to-use soundtrack prompts for the music engine, built from the
+ * analysed music description plus the MEASURED tempo. Structure is what
+ * actually produced usable beds first try (owner picked one of four on the
+ * Dos Equis clone after ~20 failed manual attempts): explicit BPM, instruments
+ * named individually rather than genre labels, stated attitude, "steady energy,
+ * no build" so the bed does not climb under narration, production character,
+ * and hard no-vocals constraint.
+ */
+export async function buildSoundtrackPromptOptions(
+  musicBrief: string,
+  bpm?: number
+): Promise<{ success: boolean; options?: Array<{ label: string; prompt: string }>; error?: string }> {
+  try {
+    if (!musicBrief.trim()) return { success: true, options: [] };
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const tempoLine = bpm
+      ? `The original's measured tempo is ${bpm} BPM — state this tempo explicitly in every prompt.`
+      : `No tempo was measurable; describe the pace in words instead of a BPM number.`;
+
+    const result = await model.generateContent([
+      {
+        text: `An ad's original soundtrack was described as:
+"${musicBrief.trim()}"
+
+${tempoLine}
+
+Write THREE prompts for a text-to-music model, each a different creative direction for recreating this soundtrack:
+1. label "Faithful" — as close to the original as possible
+2. label "Bolder" — same era/genre family but more characterful and playful
+3. label "Modern" — a polished contemporary commercial bed version
+
+RULES for every prompt:
+- one paragraph, 40-60 words, ready to paste with no placeholders or brackets
+- name individual instruments (e.g. "nylon-string guitar, upright bass, congas, shaker"), never only a genre label
+- state the tempo as instructed above
+- state the intended attitude/mood in plain words (e.g. "effortlessly cool, confident")
+- include a production/recording character (e.g. "warm analog recording", "radio-ready mix")
+- include "steady energy throughout, no build" so it stays even under narration
+- ALWAYS name an explicit drum backbeat — the words "kick" and "snare" must both appear, on a steady grid, plus a live hand percussion or shaker element (e.g. "crisp kick and snare on a steady grid with live shaker"). Verified: vague "electronic percussion" or pad-led arrangements drift off the requested tempo; a named kick/snare backbeat holds it
+- end with an instrumental only, no vocals constraint (write it as plain words, not hyphenated)
+- never name real artists, bands, or existing songs
+- the three must be genuinely different arrangements, not rewordings
+
+Output valid JSON only:
+{ "options": [ { "label": "Faithful", "prompt": "..." }, { "label": "Bolder", "prompt": "..." }, { "label": "Modern", "prompt": "..." } ] }`,
+      },
+    ]);
+    const parsed = parseJsonResponse(result.response.text() || '');
+    if (!parsed || !Array.isArray(parsed.options)) {
+      return { success: false, error: 'Soundtrack options returned invalid JSON' };
+    }
+    const options = (parsed.options as Array<Record<string, unknown>>)
+      .map((o) => ({ label: String(o.label || '').trim(), prompt: String(o.prompt || '').trim() }))
+      .filter((o) => o.label && o.prompt)
+      .slice(0, 3);
+    if (options.length === 0) return { success: false, error: 'No usable soundtrack options' };
+    return { success: true, options };
+  } catch (error) {
+    console.error('buildSoundtrackPromptOptions error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Soundtrack options failed' };
+  }
+}
+
+/**
  * Per-scene dialog is transcribed from 1-2s audio fragments in isolation and
  * routinely comes out garbled (misheard words, hallucinated repeats) — tiny
  * clips carry no linguistic context. The FULL transcript is accurate because
