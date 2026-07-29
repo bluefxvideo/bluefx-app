@@ -20,6 +20,7 @@ import {
 } from '@/actions/models/fal-kling-video';
 import { finalizeCloneAnimation, failCloneAnimation } from '@/lib/clone-studio/animation';
 import { assembleClips } from '@/lib/clone-studio/assembly';
+import { detectTempo } from '@/lib/clone-studio/tempo';
 import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
 import { ingestSourceVideo } from '@/lib/clone-studio/ingest';
 import {
@@ -226,10 +227,20 @@ export async function processCloneProject(
       credits_spent: 0,
     }));
 
+    // Tempo is MEASURED from the audio, not asked of the model (LLM BPM
+    // guesses vary by 20+ between runs on the same clip). Non-fatal.
+    let musicBpm: number | undefined;
+    try {
+      const tempo = await detectTempo(ingest.filePath);
+      if (tempo) musicBpm = tempo.bpm;
+    } catch (error) {
+      console.warn('Clone Studio: tempo detection failed (non-fatal):', error);
+    }
+
     await updateProject({
       status: 'board_ready',
       scenes,
-      analysis_summary: analysis.summary,
+      analysis_summary: { ...analysis.summary, ...(musicBpm ? { music_bpm: musicBpm } : {}) },
     });
 
     const { data: project } = await admin
@@ -871,8 +882,8 @@ export async function updateProjectReferences(
 }
 
 /**
- * Backfill the full-audio transcript for projects scanned before transcripts
- * were part of the global analysis. Idempotent: once transcript is a string
+ * Backfill the full-audio transcript (and the measured tempo) for projects
+ * scanned before those existed. Idempotent: once transcript is a string
  * (even ''), this is a no-op. Free — display-only reference, no credits.
  */
 export async function generateProjectTranscript(projectId: string): Promise<CloneProjectResponse> {
@@ -882,6 +893,22 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
 
   if (typeof project.analysis_summary?.transcript === 'string') {
     return { success: true, project };
+  }
+
+  // Measured from the stored copy — cheap (~100ms) and deterministic.
+  let musicBpm: number | undefined;
+  if (project.source_video_url) {
+    const tempoDir = await makeWorkDir(`clone-tempo-${projectId.slice(0, 8)}`);
+    try {
+      const tempoPath = `${tempoDir}/source.mp4`;
+      await downloadToFile(project.source_video_url, tempoPath);
+      const tempo = await detectTempo(tempoPath);
+      if (tempo) musicBpm = tempo.bpm;
+    } catch (error) {
+      console.warn('Clone Studio: tempo backfill failed (non-fatal):', error);
+    } finally {
+      await cleanupWorkDir(tempoDir);
+    }
   }
 
   let transcript: string | undefined;
@@ -914,6 +941,7 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
       summary: '', characters: [], products: [], visual_style: '', music_brief: '',
     }),
     transcript,
+    ...(musicBpm ? { music_bpm: musicBpm } : {}),
   };
   const admin = createAdminClient();
   await admin

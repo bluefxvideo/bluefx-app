@@ -182,6 +182,12 @@ export interface CloneAnalysisSummary {
    * the board's Soundtrack panel is the single source of truth.
    */
   music_prompt?: string;
+  /**
+   * Tempo of the original soundtrack, MEASURED from the audio by
+   * autocorrelation (see lib/clone-studio/tempo.ts) — never model-guessed.
+   * Absent when no steady pulse was found (speech-only ads).
+   */
+  music_bpm?: number;
 }
 
 export interface CloneProject {

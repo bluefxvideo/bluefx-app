@@ -43,9 +43,10 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const [applyingInstruction, setApplyingInstruction] = useState(false);
   // Soundtrack prompt: what assembly sends to the music engine. Defaults to
   // the analysis' music description so it's always visible and editable.
+  const musicBpm = project.analysis_summary?.music_bpm;
   const defaultMusicPrompt = project.analysis_summary?.music_prompt
     ?? (project.analysis_summary?.music_brief
-      ? `${project.analysis_summary.music_brief} Instrumental only, no vocals.`
+      ? `${project.analysis_summary.music_brief}${musicBpm ? ` Tempo around ${musicBpm} BPM.` : ''} Instrumental only, no vocals.`
       : '');
   const [musicPrompt, setMusicPrompt] = useState(defaultMusicPrompt);
   const musicFocused = useRef(false);
@@ -231,9 +232,19 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               and EXACTLY what assemble sends to the music engine */}
           {project.analysis_summary && (
             <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-1.5">
-              <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
-                Soundtrack — sent on assemble
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+                  Soundtrack — sent on assemble
+                </p>
+                {musicBpm && (
+                  <span
+                    className="font-mono text-[10px] text-zinc-400 tabular-nums px-1.5 py-0.5 rounded bg-muted/60 border border-border/40"
+                    title="Measured from the original audio, not estimated by AI"
+                  >
+                    {musicBpm} BPM
+                  </span>
+                )}
+              </div>
               <Textarea
                 value={musicPrompt}
                 onChange={(e) => setMusicPrompt(e.target.value)}
