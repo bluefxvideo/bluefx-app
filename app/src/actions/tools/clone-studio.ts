@@ -771,11 +771,16 @@ export async function assembleCloneProject(
 
     let musicFilePath: string | undefined;
     if (options.withMusic) {
+      // The user-visible Soundtrack prompt is the source of truth; only the
+      // computed target length is appended (disclosed in the UI). Legacy
+      // fallbacks: analysis music_brief, then a generic bed.
+      const userPrompt = project.analysis_summary?.music_prompt?.trim();
       const brief = project.analysis_summary?.music_brief?.trim();
       const totalSeconds = Math.ceil(clips.reduce((sum, c) => sum + c.durationSeconds, 0));
-      const musicPrompt = brief
-        ? `${brief} Instrumental only, no vocals unless the brief asks for them. About ${totalSeconds + 5} seconds.`
-        : `Upbeat, modern, positive instrumental ad track, about ${totalSeconds + 5} seconds.`;
+      const base =
+        userPrompt ||
+        (brief ? `${brief} Instrumental only, no vocals.` : 'Upbeat, modern, positive instrumental ad track.');
+      const musicPrompt = `${base} About ${totalSeconds + 5} seconds.`;
       const music = await generateLyriaInstrumental(musicPrompt);
       if (music.success && music.audioUrl) {
         musicFilePath = `${workDir}/bed.mp3`;
@@ -916,6 +921,28 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
     .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
     .eq('id', projectId);
   return { success: true, project: { ...project, analysis_summary: summary } };
+}
+
+/** Save the user-editable soundtrack prompt (assembly sends it verbatim + length suffix). */
+export async function updateProjectMusicPrompt(
+  projectId: string,
+  musicPrompt: string
+): Promise<CloneProjectResponse> {
+  const loaded = await loadOwnedProject(projectId);
+  if (!loaded.ok) return { success: false, error: loaded.error };
+
+  const summary = {
+    ...(loaded.project.analysis_summary || {
+      summary: '', characters: [], products: [], visual_style: '', music_brief: '',
+    }),
+    music_prompt: musicPrompt.trim(),
+  };
+  const admin = createAdminClient();
+  await admin
+    .from('ad_clone_projects')
+    .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
+    .eq('id', projectId);
+  return { success: true, project: { ...loaded.project, analysis_summary: summary } };
 }
 
 /**

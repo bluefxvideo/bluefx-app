@@ -17,6 +17,7 @@ import {
   applyInstructionToAllScenes,
   generateProjectTranscript,
   reconcileProjectDialog,
+  updateProjectMusicPrompt,
 } from '@/actions/tools/clone-studio';
 import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
@@ -40,6 +41,18 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const [projectRefDragOver, setProjectRefDragOver] = useState(false);
   const [globalInstruction, setGlobalInstruction] = useState('');
   const [applyingInstruction, setApplyingInstruction] = useState(false);
+  // Soundtrack prompt: what assembly sends to the music engine. Defaults to
+  // the analysis' music description so it's always visible and editable.
+  const defaultMusicPrompt = project.analysis_summary?.music_prompt
+    ?? (project.analysis_summary?.music_brief
+      ? `${project.analysis_summary.music_brief} Instrumental only, no vocals.`
+      : '');
+  const [musicPrompt, setMusicPrompt] = useState(defaultMusicPrompt);
+  const musicFocused = useRef(false);
+  useEffect(() => {
+    if (!musicFocused.current) setMusicPrompt(defaultMusicPrompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultMusicPrompt]);
   const summary = project.analysis_summary;
   const pollBusy = useRef(false);
 
@@ -211,6 +224,34 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                   {transcript}
                 </pre>
               )}
+            </div>
+          )}
+
+          {/* Soundtrack — the analysis' read on the original music, editable,
+              and EXACTLY what assemble sends to the music engine */}
+          {project.analysis_summary && (
+            <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-1.5">
+              <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+                Soundtrack — sent on assemble
+              </p>
+              <Textarea
+                value={musicPrompt}
+                onChange={(e) => setMusicPrompt(e.target.value)}
+                onFocus={() => { musicFocused.current = true; }}
+                onBlur={async () => {
+                  musicFocused.current = false;
+                  if (musicPrompt.trim() === (project.analysis_summary?.music_prompt ?? '').trim() && project.analysis_summary?.music_prompt !== undefined) return;
+                  const result = await updateProjectMusicPrompt(project.id, musicPrompt);
+                  if (result.success && result.project) onProjectUpdate(result.project);
+                  else toast.error(result.error || 'Could not save the soundtrack prompt');
+                }}
+                placeholder="Describe the music bed — genre, tempo, instruments, mood…"
+                className="text-xs min-h-[72px]"
+              />
+              <p className="text-[10px] text-zinc-600">
+                Prefilled from the original ad&apos;s music. The target length is added automatically on assemble.
+                Copy it into Music Maker for a standalone track.
+              </p>
             </div>
           )}
         </div>

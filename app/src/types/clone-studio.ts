@@ -176,6 +176,12 @@ export interface CloneAnalysisSummary {
    * backfill on open; new scans set it during analysis.
    */
   dialog_reconciled?: boolean;
+  /**
+   * User-editable soundtrack prompt — SENT to the music engine on assemble
+   * (plus an automatic target-length suffix). Defaults from music_brief;
+   * the board's Soundtrack panel is the single source of truth.
+   */
+  music_prompt?: string;
 }
 
 export interface CloneProject {
