@@ -295,8 +295,12 @@ export async function ensureCreditsForUsage(
   // 4) Trial without a FastSpring id (ClickBank/manual): verify against ClickBank.
   //    A missed rebill webhook can leave a converted payer stuck on trial — self-heal
   //    them at point of use; only deny when ClickBank confirms they aren't active.
+  //    CAUTION: a ClickBank $1 trial reports lineItem status ACTIVE from day one
+  //    (there is no trial state on their side), so ACTIVE only proves a real
+  //    conversion once the trial window has ended. Never self-heal inside it.
   if (status === 'trial') {
-    const cbActive = await fetchClickBankActive(admin, userId)
+    const inTrialWindow = !!sub?.current_period_end && new Date(sub.current_period_end) > now
+    const cbActive = inTrialWindow ? null : await fetchClickBankActive(admin, userId)
     if (cbActive === true) {
       await admin
         .from('user_subscriptions')

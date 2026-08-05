@@ -124,6 +124,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
       for (const sub of cbSubs) {
         if (overDeadline()) { cbStats['deadline_skip'] = (cbStats['deadline_skip'] || 0) + 1; continue }
+        // A ClickBank $1 trial is ACTIVE on their side from day one — ACTIVE only
+        // proves a real conversion after the trial window has ended. Leave
+        // in-window trials alone or every trial gets promoted to 600 credits.
+        if (sub.status === 'trial' && sub.current_period_end && new Date(sub.current_period_end) > new Date()) {
+          cbStats['in_trial_window'] = (cbStats['in_trial_window'] || 0) + 1; continue
+        }
         const receipts = receiptsByUser.get(sub.user_id) || []
         if (!receipts.length) { cbStats['no_receipt'] = (cbStats['no_receipt'] || 0) + 1; continue }
 
