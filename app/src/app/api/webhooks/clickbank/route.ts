@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
   const bluefx02LifetimeItems = ['1', '2']
   const vendor = ((payload.vendor || payload.account || '') as string).toLowerCase()
   const isBluefx02 = vendor === 'bluefx02'
+  // Who drove the sale: ClickBank sends the affiliate nickname, empty when the
+  // vendor sold it directly. Kept on the event so sales can be attributed later.
+  const affiliate = ((payload.affiliate || payload.affiliate_id || '') as string).trim()
   const targetProductIds = [monthlyProductId, monthlyProductId2, yearlyProductId, lifetimeProductId,
                             ...(isBluefx02 ? bluefx02LifetimeItems : [])]
 
@@ -129,7 +132,8 @@ export async function POST(request: NextRequest) {
     switch (transactionType) {
       case 'SALE':
       case 'TEST_SALE':  // Handle test transactions
-        await handleClickBankSale(customer, lineItems, receipt, isLifetimeProduct, isYearlyProduct)
+        await handleClickBankSale(customer, lineItems, receipt, isLifetimeProduct, isYearlyProduct,
+                                  { affiliate, vendor, itemNo: flatItemNo })
         break
       case 'REFUND':
       case 'TEST_REFUND':
@@ -171,7 +175,7 @@ async function isLifetimeOwner(supabase: ReturnType<typeof createAdminClient>, u
   return sub?.plan_type === 'lifetime'
 }
 
-async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false, isYearlyProduct: boolean = false) {
+async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false, isYearlyProduct: boolean = false, meta: { affiliate?: string; vendor?: string; itemNo?: string } = {}) {
   const supabase = createAdminClient()
   
   // Extract customer information
@@ -202,7 +206,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       event_id: receipt,
       event_type: 'SALE',
       processor: 'clickbank',
-      payload: { customer, lineItems, receipt }
+      payload: { customer, lineItems, receipt, ...meta }
     })
 
   // Calculate total amount and determine plan type based on product ID
