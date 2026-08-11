@@ -78,6 +78,18 @@ export async function POST(request: NextRequest) {
   let hasTargetProduct = false
   let isLifetimeProduct = false
   let isYearlyProduct = false
+
+  // Zapier's ClickBank trigger flattens lineItemData into discrete fields, so the
+  // item number can arrive as a plain value (itemNo / item_no) rather than the raw
+  // ClickBank JSON string. Accept both shapes.
+  const flatItemNo = String(payload.itemNo || payload.item_no || payload.lineItemDataItemNo || '').trim()
+  if (flatItemNo) {
+    hasTargetProduct = targetProductIds.includes(flatItemNo)
+    isLifetimeProduct = flatItemNo === lifetimeProductId ||
+      (isBluefx02 && bluefx02LifetimeItems.includes(flatItemNo))
+    isYearlyProduct = flatItemNo === yearlyProductId
+  }
+
   if (payload.lineItemData) {
     try {
       const lineItemData = JSON.parse((payload.lineItemData as string).replace(/'/g, '"'))
