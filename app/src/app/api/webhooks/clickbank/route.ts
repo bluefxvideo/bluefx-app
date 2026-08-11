@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
+import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 
 // Credit allocation constants - match FastSpring trial handling
 const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
@@ -155,6 +156,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('ClickBank webhook processing error:', error)
+
+    // The event row is written before provisioning runs, so leaving it behind
+    // after a failure would make the duplicate guard skip every retry and the
+    // buyer would never be provisioned. Drop it so a retry can do the work.
+    // Scoped to the event_type this transaction writes: a CANCEL-REBILL failure
+    // must not delete the original SALE's row, which shares its receipt.
+    const failedEventType = transactionType?.includes('SALE') ? 'SALE'
+      : transactionType?.includes('BILL') && !transactionType?.includes('CANCEL') ? 'BILL'
+      : null
+    if (failedEventType) {
+      try {
+        const supabase = createAdminClient()
+        await supabase
+          .from('webhook_events')
+          .delete()
+          .eq('event_id', receipt)
+          .eq('event_type', failedEventType)
+          .eq('processor', 'clickbank')
+      } catch (cleanupError) {
+        console.error('Failed to clear ClickBank event for retry:', cleanupError)
+      }
+    }
+
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
 }
@@ -228,8 +252,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
   console.log(`ClickBank sale: ${email} -> ${planType} (${creditsAllocation} credits) - ${subscriptionType} - Amount: $${totalAmount} - Product: ${productInfo}`)
 
   // Check for existing user to decide upgrade vs new user
-  const { data: authUsers } = await supabase.auth.admin.listUsers()
-  const existingUser = authUsers.users.find(u => u.email === email)
+  const existingUser = await findAuthUserByEmail(supabase, email)
   let userId: string
 
   if (existingUser) {
@@ -497,8 +520,7 @@ async function handleClickBankRenewal(customer: { email?: string }, lineItems: {
 
   // Find user by email (handle test emails)
   const searchEmail = email || `test-${receipt.toLowerCase()}@clickbank-test.com`
-  const { data: authUser } = await supabase.auth.admin.listUsers()
-  const user = authUser.users.find(u => u.email === searchEmail)
+  const user = await findAuthUserByEmail(supabase, searchEmail)
 
   if (!user) {
     console.error('User not found for ClickBank renewal:', searchEmail)
@@ -557,8 +579,7 @@ async function handleClickBankCancelRebill(customer: { email?: string }, receipt
   const searchEmail = email || `test-${receipt.toLowerCase()}@clickbank-test.com`
   
   // Find user by email
-  const { data: users } = await supabase.auth.admin.listUsers()
-  const user = users.users.find(u => u.email === searchEmail)
+  const user = await findAuthUserByEmail(supabase, searchEmail)
 
   if (!user) {
     console.error('User not found for ClickBank cancel rebill:', searchEmail)

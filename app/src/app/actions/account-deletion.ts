@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/app/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Database } from '@/types/database'
+import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 
 interface DeleteAccountResult {
   success: boolean
@@ -160,12 +161,9 @@ async function _isReceiptForUser(receipt: string, userId: string): Promise<boole
   const supabase = createAdminClient()
   
   // Check if there's a user with this receipt in their metadata
-  const { data: users } = await supabase.auth.admin.listUsers()
-  
-  return users.users.some(user => 
-    user.id === userId && 
-    user.user_metadata?.receipt === receipt
-  )
+  const { data: { user } } = await supabase.auth.admin.getUserById(userId)
+
+  return user?.user_metadata?.receipt === receipt
 }
 
 /**
@@ -177,8 +175,7 @@ export async function handleAccountCancellation(email: string): Promise<void> {
   
   try {
     // Find user by email
-    const { data: users } = await supabase.auth.admin.listUsers()
-    const user = users.users.find(u => u.email === email)
+    const user = await findAuthUserByEmail(supabase, email)
     
     if (!user) {
       console.error('User not found for cancellation:', email)

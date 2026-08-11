@@ -3,6 +3,7 @@ import { createAdminClient } from '@/app/supabase/server'
 import { cancelFastSpringSubscription } from '@/lib/credits/subscription-entitlement'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
+import { findAuthUser, findAuthUserByEmail } from '@/lib/auth-user-lookup'
 
 export const maxDuration = 30 // Allow up to 30s for webhook processing (multiple API calls)
 
@@ -285,9 +286,8 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
     // Don't skip trials anymore - we'll try to get email from API
     
     // For renewals or other events, try to find existing user
-    const { data: authUsers } = await supabase.auth.admin.listUsers()
-    const existingUser = authUsers.users.find(u => 
-      u.user_metadata?.payment_processor === 'fastspring' && 
+    const existingUser = await findAuthUser(supabase, u =>
+      u.user_metadata?.payment_processor === 'fastspring' &&
       u.user_metadata?.fastspring_account_id === accountId
     )
     
@@ -433,8 +433,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
   let userId: string
 
   // First check if user exists in auth
-  const { data: authUsers } = await supabase.auth.admin.listUsers()
-  const existingUser = authUsers.users.find(u => u.email === customerEmail)
+  const existingUser = await findAuthUserByEmail(supabase, customerEmail)
 
   if (existingUser) {
     userId = existingUser.id
@@ -809,8 +808,7 @@ async function handleFastSpringRenewal(data: FastSpringEventData) {
     userId = subByFsId.user_id
     subscription = subByFsId
   } else if (customerEmail) {
-    const { data: authUsers } = await supabase.auth.admin.listUsers()
-    userId = authUsers.users.find(u => u.email === customerEmail)?.id || null
+    userId = (await findAuthUserByEmail(supabase, customerEmail))?.id || null
     if (userId) {
       const { data: subByUser } = await supabase
         .from('user_subscriptions')
@@ -1234,8 +1232,7 @@ async function handleFastSpringCancellation(data: FastSpringEventData) {
   if (subByFsId) {
     userId = subByFsId.user_id
   } else if (customerEmail) {
-    const { data: authUsers } = await supabase.auth.admin.listUsers()
-    userId = authUsers.users.find(u => u.email === customerEmail)?.id || null
+    userId = (await findAuthUserByEmail(supabase, customerEmail))?.id || null
   }
 
   if (!userId) {

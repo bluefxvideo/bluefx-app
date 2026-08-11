@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
+import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -18,8 +19,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Check auth users
-    const { data: authUsers } = await supabase.auth.admin.listUsers()
-    const user = authUsers.users.find(u => u.email === email)
+    const user = await findAuthUserByEmail(supabase, email)
 
     if (!user) {
       results.checks.authUser = { found: false }
