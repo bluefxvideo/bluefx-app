@@ -64,8 +64,16 @@ export async function POST(request: NextRequest) {
   const monthlyProductId2 = '61'
   const yearlyProductId = '68'
   const lifetimeProductId = '55'
-  const targetProductIds = [monthlyProductId, monthlyProductId2, yearlyProductId, lifetimeProductId]
-  
+  // bluefx02 AI Media Machine lifetime cart: item 1 = $297 one-pay, item 2 = 3x$100.
+  // These item numbers ALSO existed as old bundle products on other accounts, so
+  // they only count when the zap identifies the selling account as bluefx02
+  // (the bluefx02 zap must send vendor=bluefx02 in its payload).
+  const bluefx02LifetimeItems = ['1', '2']
+  const vendor = ((payload.vendor || payload.account || '') as string).toLowerCase()
+  const isBluefx02 = vendor === 'bluefx02'
+  const targetProductIds = [monthlyProductId, monthlyProductId2, yearlyProductId, lifetimeProductId,
+                            ...(isBluefx02 ? bluefx02LifetimeItems : [])]
+
   // Parse lineItemData to check product numbers and detect lifetime/yearly
   let hasTargetProduct = false
   let isLifetimeProduct = false
@@ -74,14 +82,16 @@ export async function POST(request: NextRequest) {
     try {
       const lineItemData = JSON.parse((payload.lineItemData as string).replace(/'/g, '"'))
       hasTargetProduct = lineItemData.some((item: { itemNo?: string }) => targetProductIds.includes(item.itemNo || ''))
-      isLifetimeProduct = lineItemData.some((item: { itemNo?: string }) => item.itemNo === lifetimeProductId)
+      isLifetimeProduct = lineItemData.some((item: { itemNo?: string }) =>
+        item.itemNo === lifetimeProductId || (isBluefx02 && bluefx02LifetimeItems.includes(item.itemNo || '')))
       isYearlyProduct = lineItemData.some((item: { itemNo?: string }) => item.itemNo === yearlyProductId)
     } catch {
       // Fallback: check if product ID appears anywhere in the raw string
       hasTargetProduct = targetProductIds.some(id =>
         (payload.lineItemData as string).includes(`'itemNo': '${id}'`)
       )
-      isLifetimeProduct = (payload.lineItemData as string).includes(`'itemNo': '${lifetimeProductId}'`)
+      isLifetimeProduct = (payload.lineItemData as string).includes(`'itemNo': '${lifetimeProductId}'`) ||
+        (isBluefx02 && bluefx02LifetimeItems.some(id => (payload.lineItemData as string).includes(`'itemNo': '${id}'`)))
       isYearlyProduct = (payload.lineItemData as string).includes(`'itemNo': '${yearlyProductId}'`)
     }
   }
@@ -185,9 +195,12 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
 
   // Calculate total amount and determine plan type based on product ID
   const totalAmount = lineItems.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
-  const isLifetime = isLifetimeProduct // Use product ID detection (product 55)
+  const isLifetime = isLifetimeProduct // Product 55, or items 1/2 on bluefx02
   const isYearly = isYearlyProduct // Use product ID detection (product 68)
-  const planType = 'pro' // Everyone gets pro plan like FastSpring
+  // Lifetime buyers MUST get plan_type 'lifetime': isLifetimeOwner() and the
+  // reconcile cron's .neq('plan_type','lifetime') exclusion both key on it —
+  // a lifetime row marked 'pro' would be cancellable by a stale CB receipt.
+  const planType = isLifetime ? 'lifetime' : 'pro'
 
   // Detect $1 trial - give 100 credits like FastSpring trials
   // Yearly and lifetime always get full credits (customer committed)
@@ -254,6 +267,10 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
           current_period_end: currentPeriodEnd.toISOString(),
           credits_per_month: creditsAllocation,
           max_concurrent_jobs: 5, // Pro plan gets 5 jobs
+          // Lifetime is terminal: mark the plan so isLifetimeOwner() and the
+          // reconcile exclusions protect it, and drop the FastSpring billing
+          // anchor so no processor state can ever cancel a paid-in-full plan.
+          ...(isLifetime ? { plan_type: 'lifetime', fastspring_subscription_id: null } : {}),
           updated_at: new Date().toISOString()
         })
         .eq('id', existingSubscription.id)
