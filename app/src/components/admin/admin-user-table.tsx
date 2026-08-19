@@ -37,13 +37,14 @@ interface UserWithStats extends Tables<'profiles'> {
   credits?: Tables<'user_credits'> | null
   totalCreditsUsed?: number
   lastActivity?: string | null
+  lastSignIn?: string | null
 }
 
 interface AdminUserTableProps {
   users: UserWithStats[]
 }
 
-type SortField = 'user' | 'role' | 'plan' | 'status' | 'credits' | 'joined' | 'lastActivity'
+type SortField = 'user' | 'role' | 'plan' | 'status' | 'credits' | 'joined' | 'lastSignIn' | 'lastActivity'
 type SortDirection = 'asc' | 'desc'
 
 /**
@@ -193,6 +194,11 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
         const joinedB = b.created_at ? new Date(b.created_at).getTime() : 0
         comparison = joinedA - joinedB
         break
+      case 'lastSignIn': {
+        const signA = a.lastSignIn ? new Date(a.lastSignIn).getTime() : 0
+        const signB = b.lastSignIn ? new Date(b.lastSignIn).getTime() : 0
+        return sortDirection === 'asc' ? signA - signB : signB - signA
+      }
       case 'lastActivity':
         const dateA = a.lastActivity ? new Date(a.lastActivity).getTime() : 0
         const dateB = b.lastActivity ? new Date(b.lastActivity).getTime() : 0
@@ -330,7 +336,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
         </CardHeader>
         <CardContent>
           {/* Table Header */}
-          <div className="grid gap-3 py-3 border-b bg-muted/50 px-2" style={{ gridTemplateColumns: '200px 70px 70px 150px 100px 100px 85px 85px 140px' }}>
+          <div className="grid gap-3 py-3 border-b bg-muted/50 px-2" style={{ gridTemplateColumns: '200px 70px 70px 150px 100px 100px 85px 85px 85px 140px' }}>
             <button
               onClick={() => handleSort('user')}
               className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
@@ -369,6 +375,12 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
               Joined {getSortIcon('joined')}
             </button>
             <button
+              onClick={() => handleSort('lastSignIn')}
+              className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
+            >
+              Last Login {getSortIcon('lastSignIn')}
+            </button>
+            <button
               onClick={() => handleSort('lastActivity')}
               className="font-medium text-muted-foreground flex items-center hover:text-foreground transition-colors text-left"
             >
@@ -380,7 +392,7 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
           {/* Table Body */}
           <div className="divide-y">
             {paginatedUsers.map((user) => (
-              <div key={user.id} className="grid gap-3 py-3 hover:bg-accent/50 px-2 items-center" style={{ gridTemplateColumns: '200px 70px 70px 150px 100px 100px 85px 85px 140px' }}>
+              <div key={user.id} className="grid gap-3 py-3 hover:bg-accent/50 px-2 items-center" style={{ gridTemplateColumns: '200px 70px 70px 150px 100px 100px 85px 85px 85px 140px' }}>
                 <div>
                   <div className="font-medium text-foreground">{user.email || user.username}</div>
                   <div className="text-sm text-muted-foreground">{user.full_name || user.username}</div>
@@ -416,6 +428,12 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
                   {user.created_at
                     ? new Date(user.created_at).toLocaleDateString()
                     : '-'
+                  }
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {user.lastSignIn
+                    ? new Date(user.lastSignIn).toLocaleDateString()
+                    : 'Never'
                   }
                 </div>
                 <div className="text-sm text-muted-foreground">

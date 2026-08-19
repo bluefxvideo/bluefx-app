@@ -12,6 +12,7 @@ interface UserWithStats extends Tables<'profiles'> {
   credits?: Tables<'user_credits'> | null
   totalCreditsUsed?: number
   lastActivity?: string | null
+  lastSignIn?: string | null
 }
 
 export async function GET(_request: NextRequest) {
@@ -93,8 +94,10 @@ export async function GET(_request: NextRequest) {
     
     // Create a map of user IDs to emails for quick lookup
     const emailMap = new Map<string, string>()
+    const signInMap = new Map<string, string | null>()
     authUsers?.forEach(user => {
       emailMap.set(user.id, user.email || '')
+      signInMap.set(user.id, user.last_sign_in_at || null)
     })
 
     // Get subscription and credit data for each user
@@ -141,7 +144,8 @@ export async function GET(_request: NextRequest) {
           subscription,
           credits,
           totalCreditsUsed,
-          lastActivity: lastActivityData?.created_at || null
+          lastActivity: lastActivityData?.created_at || null,
+          lastSignIn: signInMap.get(profile.id) || null
         }
       })
     )
