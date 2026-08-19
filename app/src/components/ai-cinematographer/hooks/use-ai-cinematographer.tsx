@@ -694,7 +694,7 @@ export function useAICinematographer() {
                       ...item,
                       status: updatedVideo.status === 'completed' ? 'completed' as const : 'failed' as const,
                       videoUrl: updatedVideo.final_video_url || undefined,
-                      error: updatedVideo.status === 'failed' ? 'Video generation failed' : undefined,
+                      error: updatedVideo.status === 'failed' ? (updatedVideo.ai_director_notes || 'Video generation failed') : undefined,
                     }
                   : item
               ));
@@ -744,7 +744,7 @@ export function useAICinematographer() {
                     ...q,
                     status: video.status === 'completed' ? 'completed' as const : 'failed' as const,
                     videoUrl: video.final_video_url || undefined,
-                    error: video.status === 'failed' ? 'Video generation failed' : undefined,
+                    error: video.status === 'failed' ? (video.ai_director_notes || 'Video generation failed') : undefined,
                   }
                 : q
             ));

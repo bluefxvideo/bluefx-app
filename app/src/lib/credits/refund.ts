@@ -11,6 +11,20 @@ import { createAdminClient } from '@/app/supabase/server';
  * - Two ledgers: most tools log debits in `credit_transactions` (metadata.batch_id /
  *   job_id / prediction_id); voice-over and music log in `credit_usage` (reference_id).
  */
+/**
+ * Translate a raw provider failure into a message a user can act on.
+ * Moderation rejections matter most: users retry the same blocked prompt
+ * repeatedly when all they see is a generic "failed".
+ */
+export function describeGenerationFailure(raw?: string | null): string {
+  const s = (raw || '').toLowerCase();
+  if (/content|policy|moderat|nsfw|safety|flag|prohibit|inappropriate/.test(s)) {
+    return "Blocked by the AI provider's content filter. Close-ups of skin or body parts, medical themes, and real brand products often trigger it. Reword the scene (wider shot, no brand names) and try again. Credits for this render have been refunded.";
+  }
+  if (raw && raw.trim()) return `${raw.trim()} — credits for this render have been refunded.`;
+  return 'Video generation failed on the provider side. Credits for this render have been refunded.';
+}
+
 export async function refundFailedGeneration(opts: {
   userId: string;
   /** Every id we know for this job (prediction id, batch id, record id, …). */
@@ -82,16 +96,21 @@ export async function refundFailedGeneration(opts: {
       .single();
     if (!credits) return { refunded: false, reason: 'no user_credits row' };
 
-    const newAvailable = (credits.available_credits || 0) + amount;
+    // available_credits is a GENERATED column (total - used): writing it makes
+    // Postgres reject the whole update, which silently killed every refund
+    // since this shipped. Only used_credits may be written; available follows.
+    const applied = Math.min(amount, credits.used_credits || 0);
+    if (applied <= 0) return { refunded: false, reason: 'nothing to reclaim: used_credits already 0' };
+    const newAvailable = (credits.available_credits || 0) + applied;
     const { error: updErr } = await supabase
       .from('user_credits')
       .update({
-        available_credits: newAvailable,
-        used_credits: Math.max(0, (credits.used_credits || 0) - amount),
+        used_credits: (credits.used_credits || 0) - applied,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', opts.userId);
     if (updErr) return { refunded: false, reason: `balance update failed: ${updErr.message}` };
+    amount = applied;
 
     // 4) Ledger entry (also serves as the idempotency marker)
     await supabase.from('credit_transactions').insert({

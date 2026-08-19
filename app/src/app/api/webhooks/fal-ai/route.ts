@@ -362,10 +362,14 @@ async function handleGenerationFailure(
     const videoId = cinRecords[0].id;
     const userId = cinRecords[0].user_id;
 
-    await updateCinematographerVideoAdmin(videoId, { status: 'failed' });
+    const { refundFailedGeneration, describeGenerationFailure } = await import('@/lib/credits/refund');
+    const failureReason = describeGenerationFailure(typeof error === 'string' ? error : undefined);
+    await updateCinematographerVideoAdmin(videoId, {
+      status: 'failed',
+      ai_director_notes: failureReason,
+    });
 
     // Refund the failed generation (idempotent, exact-match on the original debit)
-    const { refundFailedGeneration } = await import('@/lib/credits/refund');
     const cinRefund = await refundFailedGeneration({
       userId,
       referenceIds: [request_id, videoId],
@@ -380,7 +384,7 @@ async function handleGenerationFailure(
         tool_type: 'ai-cinematographer',
         prediction_id: request_id,
         status: 'failed',
-        results: { success: false, error: error || 'Video generation failed' }
+        results: { success: false, error: failureReason }
       }
     });
 
