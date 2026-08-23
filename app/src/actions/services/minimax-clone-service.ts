@@ -2,6 +2,11 @@
 
 import Replicate from 'replicate';
 import { createClient } from '@supabase/supabase-js';
+import { getUserCredits, deductCredits } from '@/actions/database/cinematographer-database';
+
+// What the clone tab advertises on its button. Charged only AFTER a
+// successful clone, so a failed attempt costs nothing and needs no refund.
+const VOICE_CLONE_CREDITS = 50;
 
 // Lazy initialization
 function getReplicate() {
@@ -202,6 +207,16 @@ export async function cloneVoiceFromFile(
     volume_normalization?: boolean;
   }
 ): Promise<VoiceCloneResponse> {
+  // Enough credits to start? Checked upfront so a zero-balance account
+  // cannot run the (provider-billed) clone at all.
+  const creditCheck = await getUserCredits(userId);
+  if (!creditCheck.success || (creditCheck.credits ?? 0) < VOICE_CLONE_CREDITS) {
+    return {
+      success: false,
+      error: `Voice cloning costs ${VOICE_CLONE_CREDITS} credits and your balance is ${creditCheck.credits ?? 0}. Top up or free some credits and try again.`
+    };
+  }
+
   // Decode base64 to Buffer
   const file = Buffer.from(fileData, 'base64');
 
@@ -216,9 +231,25 @@ export async function cloneVoiceFromFile(
   }
 
   // Then clone the voice
-  return cloneVoice({
+  const result = await cloneVoice({
     voice_file_url: uploadResult.url,
     need_noise_reduction: options?.noise_reduction ?? true,
     need_volume_normalization: options?.volume_normalization ?? true
   });
+
+  // Charge only for a delivered voice. The button has advertised 50 credits
+  // since launch; nothing ever deducted them until now.
+  if (result.success && result.voice_id) {
+    const deduction = await deductCredits(userId, VOICE_CLONE_CREDITS, 'voice-clone', {
+      voice_id: result.voice_id,
+      file_name: fileName,
+    });
+    if (!deduction.success) {
+      // The voice exists and the user should keep it; a rare post-success
+      // deduction failure is logged for reconciliation, not punished.
+      console.error('Voice clone succeeded but credit deduction failed:', deduction.error);
+    }
+  }
+
+  return result;
 }
