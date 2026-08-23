@@ -48,7 +48,10 @@ export function GlobalGenerationNotifier() {
       channel = supabase
         .channel(`user_${user.id}_updates`)
         .on('broadcast', { event: 'webhook_update' }, ({ payload }) => {
-          const p = (payload || {}) as { tool_type?: string; prediction_id?: string; status?: string };
+          const p = (payload || {}) as {
+            tool_type?: string; prediction_id?: string; status?: string;
+            results?: { error?: string; refunded?: number };
+          };
           const info = p.tool_type ? TOOL_INFO[p.tool_type] : undefined;
           if (!info) return;
 
@@ -71,8 +74,15 @@ export function GlobalGenerationNotifier() {
               action: { label: 'View', onClick: () => router.push(`${info.route}/history`) },
             });
           } else {
-            toast.error(`${info.label} generation failed — your credits were refunded automatically.`, {
-              duration: 10000,
+            // The reason already states what was returned (built server-side from
+            // the ledger write), so the toast never promises a refund that did not land.
+            const refunded = p.results?.refunded || 0;
+            const reason = p.results?.error
+              || (refunded > 0 ? `${refunded} credits have been returned to your balance.` : 'Open the video in your history for details.');
+            toast.error(`${info.label} generation failed`, {
+              description: reason,
+              duration: 15000,
+              action: { label: 'View', onClick: () => router.push(`${info.route}/history`) },
             });
           }
         })

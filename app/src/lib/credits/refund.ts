@@ -11,18 +11,44 @@ import { createAdminClient } from '@/app/supabase/server';
  * - Two ledgers: most tools log debits in `credit_transactions` (metadata.batch_id /
  *   job_id / prediction_id); voice-over and music log in `credit_usage` (reference_id).
  */
-/**
- * Translate a raw provider failure into a message a user can act on.
- * Moderation rejections matter most: users retry the same blocked prompt
- * repeatedly when all they see is a generic "failed".
- */
-export function describeGenerationFailure(raw?: string | null): string {
-  const s = (raw || '').toLowerCase();
-  if (/content|policy|moderat|nsfw|safety|flag|prohibit|inappropriate/.test(s)) {
-    return "Blocked by the AI provider's content filter. Close-ups of skin or body parts, medical themes, and real brand products often trigger it. Reword the scene (wider shot, no brand names) and try again. Credits for this render have been refunded.";
+/** Flatten whatever the provider sent (string, {message}, {detail:[...]}) into one line. */
+export function normalizeProviderError(raw: unknown): string | undefined {
+  if (!raw) return undefined;
+  if (typeof raw === 'string') return raw.trim() || undefined;
+  if (typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    const m = o.message ?? o.detail ?? o.error ?? o.msg;
+    if (typeof m === 'string') return m.trim() || undefined;
+    if (Array.isArray(m)) {
+      return m.map(x => (typeof x === 'string' ? x : (x as { msg?: string })?.msg || JSON.stringify(x))).join('; ');
+    }
+    try { return JSON.stringify(raw).slice(0, 300); } catch { return undefined; }
   }
-  if (raw && raw.trim()) return `${raw.trim()} — credits for this render have been refunded.`;
-  return 'Video generation failed on the provider side. Credits for this render have been refunded.';
+  return String(raw);
+}
+
+/**
+ * Turn a provider failure into a message the user can act on: what went
+ * wrong with THIS render, and what came back to their balance. Moderation
+ * rejections get the explicit treatment because users otherwise re-roll the
+ * same blocked prompt and pay every time. Never claims a refund that did not
+ * happen: the amount comes from the ledger write, not from hope.
+ */
+export function describeGenerationFailure(raw: unknown, refundedCredits?: number): string {
+  const detail = normalizeProviderError(raw);
+  const s = (detail || '').toLowerCase();
+  let why: string;
+  if (/content|policy|moderat|nsfw|safety|flag|prohibit|inappropriate/.test(s)) {
+    why = `Blocked by the AI provider's content filter${detail ? ` (provider said: "${detail.slice(0, 160)}")` : ''}. Close-ups of skin or body parts, medical themes, and real brand products often trigger it. Reword the scene (wider shot, no brand names) and try again.`;
+  } else if (detail) {
+    why = `The provider could not generate this video: ${detail.slice(0, 220)}`;
+  } else {
+    why = 'The provider could not generate this video and gave no reason. Trying again usually works.';
+  }
+  const refund = refundedCredits && refundedCredits > 0
+    ? ` ${refundedCredits} credits have been returned to your balance.`
+    : '';
+  return why + refund;
 }
 
 export async function refundFailedGeneration(opts: {

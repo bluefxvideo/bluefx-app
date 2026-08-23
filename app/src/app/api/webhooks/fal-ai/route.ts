@@ -294,14 +294,15 @@ async function handleGenerationFailure(
 
     await updateMusicRecordAdmin(musicId, { status: 'failed' });
 
-    // Refund the failed generation (idempotent, exact-match on the original debit)
-    const { refundFailedGeneration } = await import('@/lib/credits/refund');
+    // Refund first so the message can state the real amount returned
+    const { refundFailedGeneration, describeGenerationFailure } = await import('@/lib/credits/refund');
     const musicRefund = await refundFailedGeneration({
       userId,
       referenceIds: [request_id, musicId, settings.batch_id, settings.prediction_id],
       operation: 'music generation',
     });
     console.log('💸 Music failure refund:', musicRefund);
+    const musicReason = describeGenerationFailure(error, musicRefund.refunded ? musicRefund.amount : 0);
 
     await supabase.channel(`user_${userId}_updates`).send({
       type: 'broadcast',
@@ -310,7 +311,7 @@ async function handleGenerationFailure(
         tool_type: 'music-machine',
         prediction_id: request_id,
         status: 'failed',
-        results: { success: false, error: error || 'Music generation failed' }
+        results: { success: false, error: musicReason, refunded: musicRefund.refunded ? musicRefund.amount : 0 }
       }
     });
 
@@ -329,14 +330,15 @@ async function handleGenerationFailure(
 
     await updateTalkingAvatarVideoAdmin(videoId, { status: 'failed' });
 
-    // Refund the failed generation (idempotent, exact-match on the original debit)
-    const { refundFailedGeneration } = await import('@/lib/credits/refund');
+    // Refund first so the message can state the real amount returned
+    const { refundFailedGeneration, describeGenerationFailure } = await import('@/lib/credits/refund');
     const avatarRefund = await refundFailedGeneration({
       userId,
       referenceIds: [request_id, videoId],
       operation: 'talking avatar generation',
     });
     console.log('💸 Avatar failure refund:', avatarRefund);
+    const avatarReason = describeGenerationFailure(error, avatarRefund.refunded ? avatarRefund.amount : 0);
 
     await supabase.channel(`user_${userId}_updates`).send({
       type: 'broadcast',
@@ -345,7 +347,7 @@ async function handleGenerationFailure(
         tool_type: 'talking-avatar',
         prediction_id: request_id,
         status: 'failed',
-        results: { success: false, error: error || 'Video generation failed' }
+        results: { success: false, error: avatarReason, refunded: avatarRefund.refunded ? avatarRefund.amount : 0 }
       }
     });
 
@@ -362,20 +364,19 @@ async function handleGenerationFailure(
     const videoId = cinRecords[0].id;
     const userId = cinRecords[0].user_id;
 
+    // Refund first so the persisted reason can state the real amount returned
     const { refundFailedGeneration, describeGenerationFailure } = await import('@/lib/credits/refund');
-    const failureReason = describeGenerationFailure(typeof error === 'string' ? error : undefined);
-    await updateCinematographerVideoAdmin(videoId, {
-      status: 'failed',
-      ai_director_notes: failureReason,
-    });
-
-    // Refund the failed generation (idempotent, exact-match on the original debit)
     const cinRefund = await refundFailedGeneration({
       userId,
       referenceIds: [request_id, videoId],
       operation: 'video generation',
     });
     console.log('💸 Cinematographer failure refund:', cinRefund);
+    const failureReason = describeGenerationFailure(error, cinRefund.refunded ? cinRefund.amount : 0);
+    await updateCinematographerVideoAdmin(videoId, {
+      status: 'failed',
+      ai_director_notes: failureReason,
+    });
 
     await supabase.channel(`user_${userId}_updates`).send({
       type: 'broadcast',
@@ -384,7 +385,7 @@ async function handleGenerationFailure(
         tool_type: 'ai-cinematographer',
         prediction_id: request_id,
         status: 'failed',
-        results: { success: false, error: failureReason }
+        results: { success: false, error: failureReason, refunded: cinRefund.refunded ? cinRefund.amount : 0 }
       }
     });
 

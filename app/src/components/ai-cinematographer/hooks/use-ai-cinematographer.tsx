@@ -19,6 +19,7 @@ import {
 } from '@/actions/tools/ai-cinematographer';
 import type { CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 import { getCinematographerVideos, getCinematographerVideo, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
+import { toast } from 'sonner';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 
 export function useAICinematographer() {
@@ -688,6 +689,14 @@ export function useAICinematographer() {
             const matchingQueueItem = currentQueue.find(item => item.batchId === updatedVideo.id);
             if (matchingQueueItem && (updatedVideo.status === 'completed' || updatedVideo.status === 'failed')) {
               console.log('Updating animation queue item:', matchingQueueItem.id, 'status:', updatedVideo.status);
+              if (updatedVideo.status === 'failed') {
+                // id dedupes: the realtime row update and the poll fallback can both report it
+                toast.error('Video generation failed', {
+                  id: `gen-failed-${updatedVideo.id}`,
+                  description: updatedVideo.ai_director_notes || 'The provider gave no reason. Trying again usually works.',
+                  duration: 15000,
+                });
+              }
               setAnimationQueue(prev => prev.map(item =>
                 item.batchId === updatedVideo.id
                   ? {
@@ -738,6 +747,13 @@ export function useAICinematographer() {
           const video = await pollCinematographerFalGeneration(item.batchId!, user.id);
           if (video && (video.status === 'completed' || video.status === 'failed')) {
             console.log(`🔄 Poll fallback: updating queue item ${item.id} to ${video.status}`);
+            if (video.status === 'failed') {
+              toast.error('Video generation failed', {
+                id: `gen-failed-${video.id}`,
+                description: video.ai_director_notes || 'The provider gave no reason. Trying again usually works.',
+                duration: 15000,
+              });
+            }
             setAnimationQueue(prev => prev.map(q =>
               q.id === item.id
                 ? {

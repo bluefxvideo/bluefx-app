@@ -817,15 +817,16 @@ export async function pollCinematographerFalGeneration(videoId: string, userId: 
 
     if (status.status === 'FAILED') {
       const { describeGenerationFailure } = await import('@/lib/credits/refund');
-      const rawError = (status as { error?: string }).error;
-      await updateCinematographerVideo(videoId, {
-        status: 'failed',
-        ai_director_notes: describeGenerationFailure(rawError),
-      });
-      await refundFailedGeneration({
+      const pollRefund = await refundFailedGeneration({
         userId,
         referenceIds: [predictionId, videoId],
         operation: 'video generation',
+      });
+      const rawError = (status as { error?: unknown; detail?: unknown }).error
+        ?? (status as { detail?: unknown }).detail;
+      await updateCinematographerVideo(videoId, {
+        status: 'failed',
+        ai_director_notes: describeGenerationFailure(rawError, pollRefund.refunded ? pollRefund.amount : 0),
       });
       return await getCinematographerVideo(videoId, userId);
     }
