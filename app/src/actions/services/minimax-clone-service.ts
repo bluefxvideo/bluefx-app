@@ -100,6 +100,19 @@ export async function cloneVoice(
   }
 }
 
+/** Reduce a user-supplied filename to an S3-safe key segment, keeping the extension. */
+function safeStorageName(fileName: string): string {
+  const dot = fileName.lastIndexOf('.');
+  const ext = dot > -1 ? fileName.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+  const base = (dot > -1 ? fileName.slice(0, dot) : fileName)
+    .normalize('NFKD')                 // split accents from letters
+    .replace(/[\u0300-\u036f]/g, '')   // drop the accent marks
+    .replace(/[^A-Za-z0-9._-]+/g, '-') // everything else becomes a dash
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'voice';
+  return ext ? `${base}.${ext}` : base;
+}
+
 /**
  * Upload a voice file to Supabase storage for cloning
  * Returns the public URL to use with the cloning API
@@ -127,8 +140,12 @@ export async function uploadVoiceForCloning(
     };
     const contentType = contentTypes[ext || ''] || 'audio/mpeg';
 
-    // Upload to storage
-    const storagePath = `${userId}/voice-cloning/${Date.now()}_${fileName}`;
+    // Storage keys must stay within Supabase's S3-safe character set. User
+    // filenames routinely carry accents (Hangfelvétel, Înregistrare) or '#',
+    // which made the upload fail with "Invalid key" before the clone ever
+    // started. The key is built from the extension only; the original name
+    // is irrelevant to the provider.
+    const storagePath = `${userId}/voice-cloning/${Date.now()}_${safeStorageName(fileName)}`;
 
     const { error: uploadError } = await supabase.storage
       .from('script-videos')
@@ -141,16 +158,26 @@ export async function uploadVoiceForCloning(
       throw new Error(`Upload failed: ${uploadError.message}`);
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
+    // Use a SIGNED url, not the public one. The public URL is served through a
+    // CDN edge that lags behind a fresh upload by 15s+, returning 400
+    // NoSuchBucket until it propagates — and we hand this straight to Replicate,
+    // which fetches it immediately and fails ("voice cloning failed"). This was
+    // an intermittent, filename-independent failure: some clones raced ahead of
+    // propagation, some didn't. Signed URLs read from origin, so they resolve
+    // the instant the upload returns. 1h TTL is far longer than the ~10s clone.
+    const { data: signed, error: signErr } = await supabase.storage
       .from('script-videos')
-      .getPublicUrl(storagePath);
+      .createSignedUrl(storagePath, 3600);
 
-    console.log(`📤 Voice file uploaded: ${urlData.publicUrl}`);
+    if (signErr || !signed?.signedUrl) {
+      throw new Error(`Could not sign uploaded file: ${signErr?.message || 'no url'}`);
+    }
+
+    console.log(`📤 Voice file uploaded and signed: ${storagePath}`);
 
     return {
       success: true,
-      url: urlData.publicUrl
+      url: signed.signedUrl
     };
 
   } catch (error) {
