@@ -198,6 +198,103 @@ export async function uploadVoiceForCloning(
  * Clone voice from uploaded file - combines upload and cloning
  * @param fileData - Base64 encoded audio file data
  */
+/**
+ * Create a signed upload slot so the BROWSER can push the audio straight to
+ * storage. The old path base64-encoded the file into the server-action call,
+ * which died somewhere in transport for multi-MB files (reproduced at 15MB,
+ * fine at 321KB) — the user only ever saw a generic Server Components error.
+ * Direct-to-storage uploads never touch our server, so file size stops
+ * mattering up to the product's own 20MB rule.
+ */
+export async function prepareVoiceUpload(
+  userId: string,
+  fileName: string
+): Promise<{ success: boolean; path?: string; token?: string; error?: string }> {
+  const authed = await verifyCaller(userId);
+  if (!authed.ok) return { success: false, error: authed.error };
+
+  try {
+    const supabase = getSupabaseClient();
+    const storagePath = `${userId}/voice-cloning/${Date.now()}_${safeStorageName(fileName)}`;
+    const { data, error } = await supabase.storage
+      .from('script-videos')
+      .createSignedUploadUrl(storagePath);
+    if (error || !data?.token) {
+      return { success: false, error: `Could not prepare upload: ${error?.message || 'no token'}` };
+    }
+    return { success: true, path: storagePath, token: data.token };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Could not prepare upload' };
+  }
+}
+
+/** Clone from a file the browser already placed in storage via prepareVoiceUpload. */
+export async function cloneVoiceFromStorage(
+  userId: string,
+  storagePath: string,
+  options?: { noise_reduction?: boolean; volume_normalization?: boolean }
+): Promise<VoiceCloneResponse> {
+  const authed = await verifyCaller(userId);
+  if (!authed.ok) return { success: false, error: authed.error };
+
+  // The path must be the caller's own clone slot — nothing else is signable here.
+  if (!storagePath.startsWith(`${userId}/voice-cloning/`)) {
+    return { success: false, error: 'Invalid upload path' };
+  }
+
+  const creditCheck = await getUserCredits(userId);
+  if (!creditCheck.success || (creditCheck.credits ?? 0) < VOICE_CLONE_CREDITS) {
+    return {
+      success: false,
+      error: `Voice cloning costs ${VOICE_CLONE_CREDITS} credits and your balance is ${creditCheck.credits ?? 0}. Top up or free some credits and try again.`
+    };
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const { data: signed, error: signErr } = await supabase.storage
+      .from('script-videos')
+      .createSignedUrl(storagePath, 3600);
+    if (signErr || !signed?.signedUrl) {
+      return { success: false, error: `Uploaded file not found: ${signErr?.message || 'no url'}` };
+    }
+
+    const result = await cloneVoice({
+      voice_file_url: signed.signedUrl,
+      need_noise_reduction: options?.noise_reduction ?? true,
+      need_volume_normalization: options?.volume_normalization ?? true
+    });
+
+    if (result.success && result.voice_id) {
+      const deduction = await deductCredits(userId, VOICE_CLONE_CREDITS, 'voice-clone', {
+        voice_id: result.voice_id,
+        storage_path: storagePath,
+      });
+      if (!deduction.success) {
+        console.error('Voice clone succeeded but credit deduction failed:', deduction.error);
+      }
+    }
+
+    return result;
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Voice cloning failed' };
+  }
+}
+
+/** The caller's session must belong to the userId it claims to act for. */
+async function verifyCaller(userId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { createClient: createSessionClient } = await import('@/app/supabase/server');
+    const supabase = await createSessionClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'Not signed in. Reload the page and try again.' };
+    if (user.id !== userId) return { ok: false, error: 'Session mismatch. Reload the page and try again.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not verify your session. Reload the page and try again.' };
+  }
+}
+
 export async function cloneVoiceFromFile(
   fileData: string,
   userId: string,

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { executeVoiceOver, VoiceOverRequest, VoiceOption, GeneratedVoice, executeVoiceChanger } from '@/actions/tools/voice-over';
 import { getVoiceOverHistory, deleteGeneratedVoice } from '@/actions/database/voice-over-database';
 import { getUserClonedVoices, deleteClonedVoice, saveClonedVoice } from '@/actions/database/cloned-voices-database';
-import { cloneVoiceFromFile } from '@/actions/services/minimax-clone-service';
+import { prepareVoiceUpload, cloneVoiceFromStorage } from '@/actions/services/minimax-clone-service';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -390,20 +390,25 @@ export function useVoiceOver() {
     setState(prev => ({ ...prev, isCloning: true }));
 
     try {
-      // Convert file to base64 string (serializes correctly through server actions)
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = '';
-      for (let i = 0; i < uint8Array.length; i++) {
-        binary += String.fromCharCode(uint8Array[i]);
+      // The browser uploads straight to storage: shipping file bytes through a
+      // server action died in transport for multi-MB files.
+      const prep = await prepareVoiceUpload(user.id, file.name);
+      if (!prep.success || !prep.path || !prep.token) {
+        throw new Error(prep.error || 'Could not prepare the upload');
       }
-      const base64Data = btoa(binary);
 
-      // Clone the voice via Minimax (pass base64 instead of Buffer)
-      const result = await cloneVoiceFromFile(
-        base64Data,
+      const { error: uploadError } = await supabase.storage
+        .from('script-videos')
+        .uploadToSignedUrl(prep.path, prep.token, file, {
+          contentType: file.type || 'audio/mpeg',
+        });
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      const result = await cloneVoiceFromStorage(
         user.id,
-        file.name,
+        prep.path,
         {
           noise_reduction: options.noiseReduction,
           volume_normalization: options.volumeNormalization,

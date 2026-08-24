@@ -157,12 +157,25 @@ export function CloneTab({
         volumeNormalization
       });
 
-      // Reset form on success
+      // Reset form on success. The hook already raises the success toast,
+      // so raising another here double-fired it.
       setSelectedFile(null);
       setVoiceName('');
-      toast.success('Voice cloned successfully!');
     } catch (error) {
-      toast.error('Voice cloning failed. Please try again.');
+      const detail = error instanceof Error ? error.message : String(error || '');
+      // A tab left open across a deploy calls a server-action id that no longer
+      // exists; React reports it as a Server Components render error, which
+      // tells the user nothing actionable. Name the actual remedy instead.
+      const isStaleBundle = /Server Components render|Failed to find Server Action|digest/i.test(detail);
+      toast.error(
+        isStaleBundle ? 'The page is out of date after an update' : 'Voice cloning failed',
+        {
+          description: isStaleBundle
+            ? 'Reload the page (Cmd+Shift+R or Ctrl+F5) and clone again. Your credits were not charged.'
+            : (detail || 'Please try again.'),
+          duration: 12000,
+        }
+      );
     }
   };
 
