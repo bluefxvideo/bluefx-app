@@ -130,7 +130,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           continue;
         }
 
-        const { items } = await client.dataset(run.defaultDatasetId).listItems();
+        const { items: allItems } = await client.dataset(run.defaultDatasetId).listItems();
+        // The actor can return far more than maxItems; bound one cron run's
+        // processing (cover downloads + upserts) so a scheduled pass stays cheap.
+        const items = (allItems ?? []).slice(0, 150);
 
         if (!items?.length) {
           termResults.push({ term: searchTerm, ads: 0, error: 'Empty dataset' });

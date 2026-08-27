@@ -88,7 +88,7 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         description: "Clone a competitor's video ad with your product",
       },
       {
-        name: "Clone Studio (Beta)",
+        name: "Clone Studio (New)",
         route: "/dashboard/clone-studio",
         icon: Clapperboard,
         gradient: "bg-primary",

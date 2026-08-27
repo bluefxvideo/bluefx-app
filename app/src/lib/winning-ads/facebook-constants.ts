@@ -24,6 +24,24 @@ export const FACEBOOK_SEARCH_TERMS = [
   'insurance',
   'fitness',
   'software',
+  // Health-offer terms requested by users: GLP-1 telehealth + ClickBank-style offers
+  'GLP-1',
+  'semaglutide',
+  'telehealth',
+  'blood sugar support',
+  'prostate health',
+  'metabolism booster',
+  // Affiliate / ClickBank-style verticals
+  'make money online',
+  'side hustle',
+  'passive income',
+  'manifestation',
+  'keto',
+  'joint pain relief',
+  'hair growth',
+  'testosterone booster',
+  'tinnitus',
+  'survival gear',
 ];
 
 /**

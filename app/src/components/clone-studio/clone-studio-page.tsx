@@ -141,7 +141,7 @@ export function CloneStudioPage() {
             <Card className="p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold text-white">Clone an ad</h3>
-                <Badge variant="secondary">Beta</Badge>
+                <Badge variant="secondary">New</Badge>
               </div>
               <p className="text-sm text-zinc-400">
                 Paste a TikTok, Instagram, Facebook, or YouTube link to the ad you want to clone.

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const platform = searchParams.get('platform') || 'tiktok';
     const niche = searchParams.get('niche');
     const mediaType = searchParams.get('media_type'); // 'video' | 'image' | null
-    const sort = searchParams.get('sort') || 'clone_score';
+    const sort = searchParams.get('sort') || 'newest';
     const search = searchParams.get('search');
     const country = searchParams.get('country');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
@@ -83,7 +83,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         query = query.order('ctr', { ascending: false });
         break;
       case 'newest':
-        query = query.order('date_scraped', { ascending: false });
+        // Newly ADDED ads first (library insert time), not ad launch date:
+        // fresh scrape batches surface at the top of the finder by default.
+        query = query.order('created_at', { ascending: false });
         break;
       case 'clone_score':
       default:
