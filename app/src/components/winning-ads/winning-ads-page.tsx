@@ -115,7 +115,7 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
   });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNiche, setSelectedNiche] = useState<string>('all');
-  const [mediaType, setMediaType] = useState<'all' | 'video' | 'image'>('all');
+  const [mediaType, setMediaType] = useState<'all' | 'video' | 'image'>('video');
   const [sortBy, setSortBy] = useState<string>('newest');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedSearch, setDebouncedSearch] = useState<string>('');
@@ -124,11 +124,14 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset filters when switching platforms
+  // Reset filters when switching platforms. This also runs on first render,
+  // so it MUST set the product defaults: video ads first (we clone videos),
+  // newest first (fresh scrapes on top). It silently stomped useState
+  // defaults back to clone_score/all for months.
   useEffect(() => {
     setSelectedNiche('all');
-    setMediaType('all');
-    setSortBy('clone_score');
+    setMediaType('video');
+    setSortBy('newest');
     setSearchQuery('');
     setDebouncedSearch('');
   }, [platform]);

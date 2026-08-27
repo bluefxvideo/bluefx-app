@@ -20,7 +20,7 @@ import { FACEBOOK_SEARCH_TERMS } from '@/lib/winning-ads/facebook-constants';
  */
 
 const ACTOR_ID = 'curious_coder/facebook-ads-library-scraper';
-const ADS_PER_TERM = 20;
+const ADS_PER_TERM = 50;
 const STORAGE_BUCKET = 'images';
 const STORAGE_FOLDER = 'winning-ads';
 
@@ -116,11 +116,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       try {
         console.log(`Scraping Facebook ads for: "${searchTerm}"`);
 
-        const fbUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(searchTerm)}&search_type=keyword_unordered`;
+        // media_type=video: the finder feeds the ad CLONING flow, so video ads
+        // are the inventory that matters. Image-only ads are no longer scraped.
+        const fbUrl = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${encodeURIComponent(searchTerm)}&search_type=keyword_unordered&media_type=video`;
 
+        // limitPerSource is this actor's REAL cap (maxItems is silently
+        // ignored and scrapes everything — ~620 ads/term, which used to burn
+        // the entire Apify monthly budget in one run). May overshoot by ~30.
         const run = await client.actor(ACTOR_ID).call(
-          { urls: [{ url: fbUrl }], maxItems: ADS_PER_TERM },
-          { waitSecs: 180 }
+          { urls: [{ url: fbUrl }], limitPerSource: ADS_PER_TERM },
+          // maxTotalChargeUsd is the airtight guard: at $0.00075/ad a term
+          // costs ~$0.04, so even if the actor ignores its limits again a
+          // full 34-term run is capped at ~$3.40 — under the free tier.
+          { waitSecs: 180, maxTotalChargeUsd: 0.10 }
         );
 
         if (!run?.defaultDatasetId) {
@@ -163,11 +171,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           const snap = item.snapshot ?? {};
           const cards = snap.cards ?? [];
 
-          const adTitle =
+          const rawTitle =
             (typeof snap.body === 'object' ? snap.body?.text : snap.body) ??
             cards[0]?.body ??
             snap.title ??
             null;
+          // Dynamic-ad templates arrive unrendered ("{{product.brand}}"):
+          // strip the placeholders instead of showing template soup to users.
+          const adTitle = rawTitle
+            ? String(rawTitle).replace(/\{\{[^}]*\}\}/g, '').replace(/\s{2,}/g, ' ').trim() || null
+            : null;
 
           const rawCoverUrl =
             cards.find((c) => c.video_preview_image_url)?.video_preview_image_url ??

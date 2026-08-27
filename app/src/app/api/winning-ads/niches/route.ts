@@ -45,8 +45,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         }
       }
 
+      // Search terms are lowercase utility strings; show humans Title Case
+      // (slug stays the raw term because filtering matches industry_key).
+      const SPECIAL: Record<string, string> = {
+        'GLP-1': 'GLP-1 (Weight Loss Rx)',
+        'make money online': 'Make Money Online',
+        'app download': 'Apps',
+      };
+      const pretty = (term: string) =>
+        SPECIAL[term] ?? term.replace(/\b\w/g, (c) => c.toUpperCase());
       const niches = Object.entries(countMap)
-        .map(([name, ad_count]) => ({ name, slug: name, ad_count }))
+        .map(([name, ad_count]) => ({ name: pretty(name), slug: name, ad_count }))
         .sort((a, b) => b.ad_count - a.ad_count);
 
       return NextResponse.json({ niches });
