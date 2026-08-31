@@ -281,7 +281,7 @@ export async function analyzeVideo(request: AnalyzeVideoRequest): Promise<Analyz
     const minutes = Math.ceil(request.videoDurationSeconds / 60);
     const creditsUsed = Math.max(3, minutes * 3);
 
-    console.log('📝 Analyzing video with Gemini 2.0 Flash...', {
+    console.log('📝 Analyzing video with Gemini 3.6 Flash...', {
       mimeType: request.videoMimeType,
       duration: request.videoDurationSeconds,
       analysisType: request.analysisType,
@@ -291,8 +291,8 @@ export async function analyzeVideo(request: AnalyzeVideoRequest): Promise<Analyz
     // Build the prompt based on analysis type
     const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
 
-    // Use Gemini 2.0 Flash for video analysis
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // Use Gemini 3.6 Flash for video analysis
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
     const result = await model.generateContent([
       {
@@ -368,7 +368,7 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
     // For YouTube videos, we charge a flat 6 credits (assuming ~2 min average)
     const creditsUsed = 6;
 
-    console.log('📝 Analyzing YouTube video with Gemini 2.0 Flash...', {
+    console.log('📝 Analyzing YouTube video with Gemini 3.6 Flash...', {
       url: request.youtubeUrl,
       analysisType: request.analysisType,
       creditsUsed
@@ -377,9 +377,9 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
     // Build the prompt based on analysis type
     const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
 
-    // Use Gemini 2.0 Flash for video analysis
+    // Use Gemini 3.6 Flash for video analysis
     // Gemini can analyze YouTube URLs directly
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
     const result = await model.generateContent([
       {
@@ -542,7 +542,7 @@ export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest
       console.error('❌ GOOGLE_GENERATIVE_AI_API_KEY is not set on the server');
       return { success: false, error: 'Gemini API key is not configured on the server. Contact support.' };
     }
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
     const geminiStart = Date.now();
     let result;
@@ -972,7 +972,7 @@ function parseJsonResponse(text: string): Record<string, unknown> | null {
 
 async function runCloneGlobalAnalysis(videoPart: GeminiVideoPart) {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.6-flash',
     generationConfig: { responseMimeType: 'application/json' },
   });
   const result = await model.generateContent([videoPart, { text: CLONE_GLOBAL_ANALYSIS_PROMPT }]);
@@ -1009,7 +1009,7 @@ export async function buildSoundtrackPromptOptions(
   try {
     if (!musicBrief.trim()) return { success: true, options: [] };
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       generationConfig: { responseMimeType: 'application/json' },
     });
     const tempoLine = bpm
@@ -1077,7 +1077,7 @@ export async function reconcileSceneDialogWithTranscript(
       return { success: true, dialog: {} };
     }
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       generationConfig: { responseMimeType: 'application/json' },
     });
     const result = await model.generateContent([
@@ -1143,7 +1143,7 @@ export async function transcribeCloneVideo(input: {
       ? { fileData: { mimeType: 'video/mp4', fileUri: input.youtubeUrl } }
       : { inlineData: { mimeType: 'video/mp4', data: input.videoBase64! } };
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       generationConfig: { responseMimeType: 'application/json' },
     });
     const result = await model.generateContent([
@@ -1169,7 +1169,7 @@ async function runCloneSceneClipAnalysis(opts: {
   durationSeconds: number;
 }) {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.6-flash',
     generationConfig: { responseMimeType: 'application/json' },
   });
   // Deliberately NO global context: identity lives in the start image, and
@@ -1220,7 +1220,7 @@ export async function contextualizeSwapInstruction(
       return { success: true, instructions: {} };
     }
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       generationConfig: { responseMimeType: 'application/json' },
     });
     const result = await model.generateContent([
@@ -1278,7 +1278,7 @@ export async function rewriteMotionPromptsForSwap(
       return { success: true, prompts: {} };
     }
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       generationConfig: { responseMimeType: 'application/json' },
     });
     const result = await model.generateContent([
@@ -1417,7 +1417,7 @@ export async function analyzeCloneScenes(
       .join('\n');
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       generationConfig: { responseMimeType: 'application/json' },
     });
 
