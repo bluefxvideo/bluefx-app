@@ -378,10 +378,14 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
     const finalPrompt = buildPrompt(request.analysisType, request.customPrompt);
 
     // Use Gemini 3.6 Flash for video analysis
-    // Gemini can analyze YouTube URLs directly
+    // Gemini can analyze YouTube URLs directly. First ingestion of a video can
+    // exceed Node's fetch header timeout (~5 min) while Gemini processes it,
+    // but the processed video is cached on their side, so a retry after a
+    // failed attempt typically answers in seconds. Cap each attempt below the
+    // fetch timeout and retry instead of failing the whole analysis.
     const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
-    const result = await model.generateContent([
+    const parts = [
       {
         fileData: {
           mimeType: 'video/mp4',
@@ -389,7 +393,24 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
         }
       },
       { text: finalPrompt }
-    ]);
+    ];
+
+    let result;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        result = await model.generateContent(parts, { timeout: 150_000 });
+        break;
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        const retriable = /fetch failed|timeout|timed out|aborted|503|429/i.test(msg);
+        console.warn(`⏳ Gemini YouTube attempt ${attempt} failed (${retriable ? 'retrying' : 'fatal'}): ${msg.slice(0, 160)}`);
+        if (!retriable || attempt === 3) throw err;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+    if (!result) throw lastError;
 
     const response = await result.response;
     const analysisText = response.text();
