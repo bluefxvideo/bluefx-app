@@ -67,7 +67,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const authHeader = request.headers.get('authorization');
     const expectedToken = process.env.CRON_SECRET_TOKEN;
 
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+    // Fail closed: an unset secret must never leave a paid endpoint open.
+
+    if (!expectedToken) {
+
+      return NextResponse.json({ error: 'CRON_SECRET_TOKEN not configured' }, { status: 503 });
+
+    }
+
+    if (authHeader !== `Bearer ${expectedToken}`) {
       console.warn('Unauthorized winning-ads-scrape cron request');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -121,7 +129,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
               dashboard_limit: ADS_PER_PAGE,
             };
 
-            const run = await client.actor(APIFY_ACTOR_ID).call(runInput, { waitSecs: 120 });
+            const run = await client.actor(APIFY_ACTOR_ID).call(runInput, { waitSecs: 120, maxTotalChargeUsd: 0.10 });
 
             if (!run?.defaultDatasetId) {
               totalErrors++;
