@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -51,6 +52,32 @@ interface AgentCloneTabProps {
   onAnimateShot: (shotId: string) => void;
 }
 
+// Images go to storage first and only the URL travels through the server
+// action. Sending the photo itself as a base64 data URL used to work, but
+// Next 15.5 caps server-action arguments at 1,000,000 characters and fails
+// the request before the action runs ("Maximum array nesting exceeded" —
+// shown to the user as the generic Server Components error). Any photo over
+// ~750 KB tripped it (Karen, 2026-09-03), and the base64 blob was also
+// being persisted into the history row.
+async function uploadImage(file: File): Promise<string | null> {
+  try {
+    const formData = new FormData();
+    formData.append('files', file);
+    const res = await fetch('/api/upload/reelestate', { method: 'POST', body: formData });
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error(`Upload endpoint returned ${res.status}`);
+    }
+    const data = await res.json();
+    if (!data.success || !data.urls?.[0]) throw new Error(data.error || 'Upload failed');
+    return data.urls[0] as string;
+  } catch (err) {
+    console.error('❌ Agent Clone image upload failed:', err);
+    toast.error(err instanceof Error ? err.message : 'Image upload failed');
+    return null;
+  }
+}
+
 export function AgentCloneTab({
   agentPhotoUrl,
   onSetAgentPhoto,
@@ -81,27 +108,22 @@ export function AgentCloneTab({
 
   // ─── File Helpers ──────────────────────────────
 
-  const fileToDataUri = (file: File): Promise<string> =>
-    new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-
   const handleAgentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      onSetAgentPhoto(await fileToDataUri(file));
-    }
     if (agentFileRef.current) agentFileRef.current.value = '';
+    if (file && file.type.startsWith('image/')) {
+      const url = await uploadImage(file);
+      if (url) onSetAgentPhoto(url);
+    }
   };
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      setBgUrl(await fileToDataUri(file));
-    }
     if (bgFileRef.current) bgFileRef.current.value = '';
+    if (file && file.type.startsWith('image/')) {
+      const url = await uploadImage(file);
+      if (url) setBgUrl(url);
+    }
   };
 
   const handleBgDrop = useCallback(async (e: React.DragEvent) => {
@@ -110,9 +132,8 @@ export function AgentCloneTab({
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onloadend = () => setBgUrl(reader.result as string);
-      reader.readAsDataURL(file);
+      const url = await uploadImage(file);
+      if (url) setBgUrl(url);
       return;
     }
     const text = e.dataTransfer.getData('text/plain');
