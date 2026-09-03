@@ -723,6 +723,90 @@ export function useAICinematographer() {
     };
   }, [user?.id, supabase]);
 
+  // Polling fallback for the single-video flow. The Realtime row update is the
+  // primary completion signal, but when it never reaches the tab (websocket
+  // blocked or dropped, tab slept through it) the spinner sat there until the
+  // 15-minute watchdog even though the file had been in History for ages
+  // (Kazeem, 2026-09-02: two 70-second renders shown as "Processing" for 8+
+  // minutes). Poll the row every 10s while a generation is in flight and
+  // finish it here; the batch queue below has had this backstop all along.
+  useEffect(() => {
+    if (!isGenerating || !user?.id) return;
+    const batchId = resultRef.current?.success ? resultRef.current.batch_id : undefined;
+    if (!batchId || batchId.startsWith('error_')) return;
+
+    let stopped = false;
+    const finish = (video: CinematographerVideo) => {
+      if (stopped) return;
+      stopped = true;
+      console.log(`🔄 Poll fallback: single generation ${video.id} is ${video.status}`);
+      const metadata = video.metadata as { resolution?: string } | null;
+      setResult(prev => prev ? {
+        ...prev,
+        video: prev.video ? {
+          ...prev.video,
+          video_url: video.final_video_url || prev.video.video_url,
+          thumbnail_url: video.preview_urls?.[0] || prev.video.thumbnail_url || '',
+        } : {
+          id: video.id,
+          video_url: video.final_video_url || '',
+          thumbnail_url: video.preview_urls?.[0] || '',
+          duration: video.total_duration_seconds || 6,
+          resolution: metadata?.resolution || '1080p',
+          prompt: video.video_concept,
+          created_at: video.created_at || new Date().toISOString(),
+        },
+      } : prev);
+      if (video.status === 'failed') {
+        const reason = video.ai_director_notes || 'The provider gave no reason. Trying again usually works.';
+        setError(reason);
+        toast.error('Video generation failed', { id: `gen-failed-${video.id}`, description: reason, duration: 15000 });
+      } else {
+        setError(undefined);
+      }
+      setIsGenerating(false);
+      setIsStateRestored(false);
+      setVideos(prev => prev.some(v => v.id === video.id)
+        ? prev.map(v => (v.id === video.id ? video : v))
+        : [video, ...prev]);
+    };
+
+    const tick = async () => {
+      if (stopped || !isGeneratingRef.current) return;
+      try {
+        const video = await pollCinematographerFalGeneration(batchId, user.id);
+        if (video && (video.status === 'completed' || video.status === 'failed')) {
+          finish(video as CinematographerVideo);
+        }
+        return;
+      } catch {
+        // Server action unreachable (typically a deploy landed while this tab
+        // was open: "Failed to find Server Action"). Fall through to a plain
+        // row read, which needs no action id and still tells us if the
+        // webhook finished the video.
+      }
+      try {
+        const { data: row } = await supabase
+          .from('cinematographer_videos')
+          .select('*')
+          .eq('id', batchId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (row && (row.status === 'completed' || row.status === 'failed')) {
+          finish(row as CinematographerVideo);
+        }
+      } catch {
+        // Next tick or Realtime can still finish it
+      }
+    };
+    const pollInterval = setInterval(tick, 10000);
+
+    return () => {
+      stopped = true;
+      clearInterval(pollInterval);
+    };
+  }, [isGenerating, user?.id, result?.batch_id]);
+
   // Polling fallback: check generating items every 10s in case Realtime misses an event
   useEffect(() => {
     const generatingItems = animationQueueRef.current.filter(
