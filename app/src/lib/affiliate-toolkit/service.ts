@@ -1,8 +1,10 @@
 // Affiliate Toolkit Service - Client-side wrapper for server actions
 import { AffiliateOffer, LibraryProduct, UserBusinessOffer, ScriptType } from './types';
+import type { HumanizeScriptResponse } from '@/actions/tools/affiliate-script-generator';
 import {
   generateAffiliateScript,
   refineAffiliateScript,
+  humanizeAffiliateScript,
   fetchAffiliateOffers,
   fetchAllOffersForContentGenerator as fetchAllOffersAction
 } from '@/actions/tools/affiliate-script-generator';
@@ -69,4 +71,17 @@ export async function fetchAllOffersForContentGenerator(): Promise<{
     libraryProducts: result.libraryProducts || [],
     userOffers: result.userOffers || []
   };
+}
+
+// Rewrite a script so it sounds like the user, not a chatbot
+export async function humanizeScript(
+  currentScript: string,
+  scriptType?: ScriptType,
+  offerId?: string | null
+): Promise<Required<Pick<HumanizeScriptResponse, 'script' | 'tellsBefore' | 'tellsAfter'>>> {
+  const result = await humanizeAffiliateScript({ currentScript, scriptType, offerId });
+  if (!result.success || !result.script) {
+    throw new Error(result.error || 'Failed to humanize script');
+  }
+  return { script: result.script, tellsBefore: result.tellsBefore ?? 0, tellsAfter: result.tellsAfter ?? 0 };
 }

@@ -6,6 +6,7 @@ import { createClient } from '@/app/supabase/server';
 import { getPromptForScriptType, getRefinementPrompt } from '@/lib/affiliate-toolkit/prompts';
 import type { AffiliateOffer, LibraryProduct, UserBusinessOffer, ScriptType, SavedScript, OfferMediaFile, OfferYouTubeTranscript } from '@/lib/affiliate-toolkit/types';
 import { aggregateOfferContent } from '@/lib/affiliate-toolkit/types';
+import { detectAiTells, getHumanizePrompt } from '@/lib/affiliate-toolkit/humanize';
 
 interface GenerateScriptRequest {
   offer: AffiliateOffer;
@@ -22,6 +23,21 @@ interface GenerateScriptResponse {
 interface RefineScriptRequest {
   currentScript: string;
   refinementInstructions: string;
+}
+
+interface HumanizeScriptRequest {
+  currentScript: string;
+  scriptType?: ScriptType;
+  offerId?: string | null;
+}
+
+export interface HumanizeScriptResponse {
+  success: boolean;
+  script?: string;
+  tellsBefore?: number;
+  tellsAfter?: number;
+  patternsBefore?: string[];
+  error?: string;
 }
 
 /**
@@ -159,6 +175,85 @@ export async function refineAffiliateScript(
       success: false,
       error: error instanceof Error ? error.message : 'Script refinement failed'
     };
+  }
+}
+
+/**
+ * Server action: rewrite a generated script so it reads like the user wrote it.
+ * Removes machine-writing patterns (Wikipedia "Signs of AI writing" list plus
+ * spoken-word rules) while keeping every claim. Uses the user's own offer
+ * content and favourited scripts as the voice sample.
+ */
+export async function humanizeAffiliateScript(
+  request: HumanizeScriptRequest
+): Promise<HumanizeScriptResponse> {
+  console.log('🧹 Server Action: humanizeAffiliateScript called');
+
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const before = detectAiTells(request.currentScript);
+
+    // Voice sample: the user's own words about their business, plus scripts they favourited.
+    const voiceParts: string[] = [];
+    const { data: offers } = await supabase
+      .from('user_business_offers')
+      .select('id, offer_content, description')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(3);
+    for (const o of offers || []) {
+      const preferred = request.offerId && o.id === request.offerId;
+      const text = (o.offer_content || o.description || '').trim();
+      if (text) {
+        if (preferred) voiceParts.unshift(text);
+        else voiceParts.push(text);
+      }
+    }
+    const { data: favs } = await supabase
+      .from('affiliate_toolkit_saved_scripts')
+      .select('content')
+      .eq('user_id', user.id)
+      .eq('is_favorite', true)
+      .order('created_at', { ascending: false })
+      .limit(2);
+    for (const s of favs || []) if (s.content) voiceParts.push(s.content);
+    const voiceSample = voiceParts.length ? voiceParts.join('\n\n---\n\n') : null;
+
+    const spoken = !request.scriptType ||
+      ['short_video', 'long_video', 'hooks', 'cinematic_storyboard', 'custom'].includes(request.scriptType);
+
+    const { text } = await generateText({
+      model: google('gemini-3-flash-preview'),
+      prompt: getHumanizePrompt(request.currentScript, voiceSample, spoken),
+      maxOutputTokens: 8000,
+      temperature: 0.6,
+    });
+
+    // Deterministic post-pass: the model occasionally leaves a dash in titles/labels.
+    const cleaned = text
+      .trim()
+      .replace(/^---\s*/, '')
+      .replace(/\s*---$/, '')
+      .replace(/\s*[—–]\s*|\s+--\s+/g, ', ')
+      .replace(/,\s*,/g, ',');
+    const after = detectAiTells(cleaned);
+    console.log(`✅ Script humanized: ${before.total} tells -> ${after.total}`);
+
+    return {
+      success: true,
+      script: cleaned,
+      tellsBefore: before.total,
+      tellsAfter: after.total,
+      patternsBefore: before.tells.map((t) => t.pattern),
+    };
+  } catch (error) {
+    console.error('💥 Script humanize error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Humanize failed' };
   }
 }
 

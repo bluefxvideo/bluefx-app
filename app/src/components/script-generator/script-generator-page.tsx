@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library, Bot, User, Clapperboard, Ban } from 'lucide-react';
+import { FileText, Video, Film, Mail, Layout, Share2, Target, Pencil, Copy, Check, Loader2, RefreshCw, Settings, Zap, Calendar, Mic, UserRound, Briefcase, Library, Bot, User, Clapperboard, Ban, Wand2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { LibraryProduct, UserBusinessOffer, ScriptType, SCRIPT_TYPES } from '@/lib/affiliate-toolkit/types';
-import { fetchAllOffersForContentGenerator, generateScript, refineScript } from '@/lib/affiliate-toolkit/service';
+import { fetchAllOffersForContentGenerator, generateScript, refineScript, humanizeScript } from '@/lib/affiliate-toolkit/service';
 import { createClient } from '@/app/supabase/client';
 
 // Icon mapping for script types
@@ -65,6 +65,7 @@ export function ScriptGeneratorPage() {
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
+  const [isHumanizing, setIsHumanizing] = useState(false);
   const [isLoadingOffers, setIsLoadingOffers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -176,6 +177,27 @@ export function ScriptGeneratorPage() {
       console.error(err);
     } finally {
       setIsRefining(false);
+    }
+  };
+
+  // Humanize: strip machine-writing patterns, match the user's own voice
+  const handleHumanize = async () => {
+    if (!generatedScript || isHumanizing) return;
+    setIsHumanizing(true);
+    setError(null);
+    setConversationHistory(prev => [...prev, { role: 'user', content: 'Humanize this script so it sounds like me, not like AI.' }]);
+    try {
+      const result = await humanizeScript(generatedScript, selectedScriptType ?? undefined, selectedOffer?.id ?? null);
+      setGeneratedScript(result.script);
+      const note = result.tellsBefore > 0
+        ? `AI writing patterns removed: ${result.tellsBefore} → ${result.tellsAfter}.`
+        : 'No obvious AI patterns were detected. Smoothed the wording to match your voice.';
+      setConversationHistory(prev => [...prev, { role: 'assistant', content: `${result.script}\n\n_${note}_` }]);
+    } catch (err) {
+      setError('Failed to humanize script. Please try again.');
+      console.error(err);
+    } finally {
+      setIsHumanizing(false);
     }
   };
 
@@ -420,6 +442,18 @@ export function ScriptGeneratorPage() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-white">Generated Script</h3>
         {generatedScript && (
+          <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleHumanize}
+            disabled={isHumanizing || isRefining}
+            className="gap-2"
+            title="Remove AI-sounding phrasing and match your own voice"
+          >
+            {isHumanizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+            {isHumanizing ? 'Humanizing…' : 'Humanize'}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -438,6 +472,7 @@ export function ScriptGeneratorPage() {
               </>
             )}
           </Button>
+          </div>
         )}
       </div>
 
