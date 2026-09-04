@@ -1,27 +1,24 @@
 'use server';
 
 /**
- * LTX-2.3-Fast Video Generation Model
- * Model: lightricks/ltx-2.3-fast
+ * LTX 2.5 Fast video generation (Replicate)
+ * Model: lightricks/ltx-2.5-fast — $0.06/s at 1080p, same price 2.3 fast had
  * Base URL: https://api.replicate.com/v1
- * Description: Generate high-quality videos with built-in audio using LTX-2.3-Fast
  *
  * Key Features:
- * - Text-to-video (no reference image required)
- * - Image-to-video (optional reference image)
- * - First frame + last frame interpolation
+ * - Text-to-video and image-to-video, optional last-frame interpolation
  * - Built-in AI audio generation
- * - Multiple resolutions: 1080p, 2k, 4k
- * - Aspect ratios: 16:9, 9:16
- * - Camera motions: dolly_in, dolly_out, dolly_left, dolly_right, jib_up, jib_down, static, focus_shift, none
- * - Durations: 6, 8, 10, 12, 14, 16, 18, 20 seconds
- * - Note: Durations > 10 seconds require 1080p resolution
+ * - Resolutions: 720p, 1080p, 2k, 4k; aspect ratios 16:9, 9:16
+ * - Durations: 6–20 seconds (> 10 s requires 720p/1080p)
+ * - No camera_motion input (2.3 fast had one; 2.5 fast on Replicate dropped
+ *   it). Callers may still pass it for their own records — it is never sent.
+ *   Owner decision 2026-09-04: camera control is not needed on this path.
  */
 
 interface VideoGenerationV1Input {
   prompt: string; // Text prompt for video generation (required)
   duration?: 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20; // Duration in seconds
-  resolution?: '1080p' | '2k' | '4k'; // Video resolution (default: 1080p)
+  resolution?: '720p' | '1080p' | '2k' | '4k'; // Video resolution (default: 1080p)
   aspect_ratio?: '16:9' | '9:16'; // Aspect ratio (default: 16:9)
   generate_audio?: boolean; // Enable AI audio generation (default: true)
   image?: string; // Optional reference/first frame image for image-to-video mode
@@ -53,21 +50,22 @@ interface VideoGenerationV1Output {
 interface CreateVideoPredictionParams {
   prompt: string;
   duration?: 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20;
-  resolution?: '1080p' | '2k' | '4k';
+  resolution?: '720p' | '1080p' | '2k' | '4k';
   aspect_ratio?: '16:9' | '9:16';
   generate_audio?: boolean;
   image?: string; // Optional reference image URL
   last_frame_image?: string; // Optional ending frame URL (requires image)
+  /** Accepted for backwards compatibility; LTX 2.5 fast has no such input and it is never sent. */
   camera_motion?: 'none' | 'dolly_in' | 'dolly_out' | 'dolly_left' | 'dolly_right' | 'jib_up' | 'jib_down' | 'static' | 'focus_shift';
   start_image?: string; // Legacy field, mapped to image
   webhook?: string;
 }
 
-// Valid durations for LTX-2.3-Fast
+// Valid durations for LTX 2.5 Fast (we only ever ask for 6–20)
 const VALID_DURATIONS = [6, 8, 10, 12, 14, 16, 18, 20] as const;
 
 /**
- * Create a new video generation prediction using LTX-2.3-Fast
+ * Create a new video generation prediction using LTX 2.5 Fast
  */
 export async function createVideoGenerationPrediction(
   params: CreateVideoPredictionParams
@@ -82,17 +80,17 @@ export async function createVideoGenerationPrediction(
       );
     }
 
-    // Validate resolution - durations > 10s require 1080p
+    // Validate resolution - durations > 10s require 720p/1080p
     let resolution = params.resolution || '1080p';
-    if (duration > 10 && resolution !== '1080p') {
-      console.warn(`Duration ${duration}s requires 1080p resolution. Forcing 1080p.`);
+    if (duration > 10 && resolution !== '1080p' && resolution !== '720p') {
+      console.warn(`Duration ${duration}s requires 720p/1080p resolution. Forcing 1080p.`);
       resolution = '1080p';
     }
 
     // Map start_image to image for backwards compatibility
     const imageUrl = params.image || params.start_image;
 
-    // Build input for LTX-2.3-Fast
+    // Build input for LTX 2.5 Fast
     const input: Record<string, unknown> = {
       prompt: params.prompt,
       duration: duration,
@@ -115,19 +113,16 @@ export async function createVideoGenerationPrediction(
       input.last_frame_image = params.last_frame_image;
     }
 
-    // Add camera motion if specified
-    if (params.camera_motion && params.camera_motion !== 'none') {
-      input.camera_motion = params.camera_motion;
-    }
+    // camera_motion intentionally not forwarded: LTX 2.5 fast has no such input
 
-    console.log('🎬 Creating LTX-2.3-Fast prediction with input:', {
+    console.log('🎬 Creating LTX 2.5 Fast prediction with input:', {
       ...input,
       image: imageUrl ? '[IMAGE_URL]' : undefined,
       last_frame_image: params.last_frame_image ? '[LAST_FRAME_URL]' : undefined,
     });
 
-    // Use the model endpoint for LTX-2.3-Fast
-    const response = await fetch('https://api.replicate.com/v1/models/lightricks/ltx-2.3-fast/predictions', {
+    // Model endpoint for LTX 2.5 Fast
+    const response = await fetch('https://api.replicate.com/v1/models/lightricks/ltx-2.5-fast/predictions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -145,12 +140,12 @@ export async function createVideoGenerationPrediction(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('LTX-2.3-Fast API error:', response.status, errorText);
+      console.error('LTX 2.5 Fast API error:', response.status, errorText);
       throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
     }
 
     const result = await response.json();
-    console.log('✅ LTX-2.3-Fast prediction created:', result.id);
+    console.log('✅ LTX 2.5 Fast prediction created:', result.id);
     return result;
   } catch (error) {
     console.error('createVideoGenerationPrediction error:', error);

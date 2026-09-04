@@ -124,7 +124,7 @@ export async function generateAgentComposite(
   }
 }
 
-// ─── Start Animation (LTX) ──────────────────
+// ─── Start Animation (LTX 2.5 fast via Replicate) ─────
 
 export async function startAgentAnimation(
   compositeUrl: string,
@@ -173,7 +173,7 @@ export async function startAgentAnimation(
       duration,
       resolution: '1080p',
       aspect_ratio: aspectRatio,
-      camera_motion: cameraMotion,
+      // LTX 2.5 fast (Replicate) has no camera input; cameraMotion is only kept on the record
       generate_audio: true,
     });
 

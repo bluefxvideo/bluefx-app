@@ -11,8 +11,8 @@ import { StandardStep } from '@/components/tools/standard-step';
 import {
   Upload, Loader2, ImagePlus, Sparkles, Film, RefreshCw, X, Download, RotateCcw, Mic,
 } from 'lucide-react';
-import type { AgentCloneShot, AgentCloneCameraMotion, AgentCloneDuration } from '@/types/reelestate';
-import { AGENT_CLONE_CAMERA_MOTIONS, AGENT_CLONE_DURATIONS } from '@/types/reelestate';
+import type { AgentCloneShot, AgentCloneDuration } from '@/types/reelestate';
+import { AGENT_CLONE_DURATIONS } from '@/types/reelestate';
 
 const DEFAULT_PROMPT = 'A real estate agent standing naturally in this property. Professional photo, natural lighting, matching perspective and shadows.';
 
@@ -24,18 +24,6 @@ const ACTION_PRESETS = [
   { label: 'Opening door', value: 'opening a door and walking through, inviting the viewer inside' },
   { label: 'Looking out window', value: 'looking out the window and turning back to the camera with a smile' },
 ];
-
-const CAMERA_MOTION_LABELS: Record<AgentCloneCameraMotion, string> = {
-  none: 'None',
-  dolly_in: 'Dolly In',
-  dolly_out: 'Dolly Out',
-  dolly_left: 'Dolly Left',
-  dolly_right: 'Dolly Right',
-  jib_up: 'Jib Up',
-  jib_down: 'Jib Down',
-  static: 'Static',
-  focus_shift: 'Focus Shift',
-};
 
 interface AgentCloneTabProps {
   agentPhotoUrl: string | null;
@@ -439,21 +427,7 @@ export function AgentCloneTab({
 
                 <div className="border-t border-border/50 pt-3 space-y-3">
                   {/* Animation controls */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Camera</Label>
-                      <Select
-                        value={shot.cameraMotion}
-                        onValueChange={(v) => onUpdateShot(shot.id, { cameraMotion: v as AgentCloneCameraMotion })}
-                      >
-                        <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {AGENT_CLONE_CAMERA_MOTIONS.map(m => (
-                            <SelectItem key={m} value={m}>{CAMERA_MOTION_LABELS[m]}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="grid grid-cols-1 gap-2">
                     <div>
                       <Label className="text-xs">Duration</Label>
                       <Select

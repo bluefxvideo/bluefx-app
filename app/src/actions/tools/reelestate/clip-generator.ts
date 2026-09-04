@@ -7,19 +7,19 @@ import {
 import type { ClipGenerationRequest, ClipStatus } from '@/types/reelestate';
 
 /**
- * Generate a single video clip from a listing photo using LTX-2.3-Fast.
+ * Generate a single video clip from a listing photo using LTX 2.5 Fast (Replicate).
  * Returns the prediction ID for polling.
  */
 export async function generateListingClip(
   request: ClipGenerationRequest
 ): Promise<ClipStatus> {
   try {
-    console.log(`🎬 Generating clip ${request.index}: ${request.camera_motion} motion`);
+    console.log(`🎬 Generating clip ${request.index}`);
 
     const prediction = await createVideoGenerationPrediction({
       prompt: request.prompt,
       image: request.photo_url,
-      camera_motion: request.camera_motion,
+      // camera_motion dropped: LTX 2.5 fast on Replicate has no such input
       duration: 6,
       resolution: '1080p',
       aspect_ratio: request.aspect_ratio,

@@ -86,7 +86,7 @@ export function useAgentClone() {
       prompt: '',
       dialogue: '',
       action: '',
-      cameraMotion: 'dolly_in',
+      cameraMotion: 'none',
       duration: 6,
       error: null,
     };
@@ -128,7 +128,7 @@ export function useAgentClone() {
       prompt,
       dialogue: '',
       action: '',
-      cameraMotion: 'dolly_in',
+      cameraMotion: 'none',
       duration: 6,
       error: null,
     };
