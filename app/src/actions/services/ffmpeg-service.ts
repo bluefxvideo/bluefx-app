@@ -41,6 +41,21 @@ export async function replaceAudioInVideo(
 /**
  * Create a temporary file path with a unique name.
  */
+/**
+ * Transcode any audio file to MP3 (192 kbps). Used to persist voice-changer
+ * results: Chatterbox returns WAV, and the history table only accepts mp3.
+ */
+export async function convertAudioToMp3(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+  const command = `ffmpeg -i "${inputPath}" -vn -c:a libmp3lame -b:a 192k -y "${outputPath}"`;
+  await execAsync(command);
+}
+
 export async function createTempPath(prefix: string, extension: string): Promise<string> {
   const { tmpdir } = await import('os');
   const { join } = await import('path');

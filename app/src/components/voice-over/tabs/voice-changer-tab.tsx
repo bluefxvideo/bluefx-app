@@ -333,7 +333,7 @@ export function VoiceChangerTab({
               ) : changedAudioUrl ? (
                 <>
                   <audio controls src={changedAudioUrl} className="w-full" />
-                  <a href={changedAudioUrl} download="voice-changed.wav" className="inline-block">
+                  <a href={changedAudioUrl} download="voice-changed.mp3" className="inline-block">
                     <Button variant="outline" size="sm">
                       <Download className="w-3.5 h-3.5 mr-1.5" />
                       Download

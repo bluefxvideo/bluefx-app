@@ -518,32 +518,37 @@ export function useVoiceOver() {
       const ext = '.' + (sourceFile.name.split('.').pop()?.toLowerCase() || '');
       const isVideo = videoMimeTypes.includes(sourceFile.type) || videoExtensions.includes(ext);
 
-      // Convert source file to base64
-      const sourceBuffer = await sourceFile.arrayBuffer();
-      const sourceUint8 = new Uint8Array(sourceBuffer);
-      let sourceBinary = '';
-      for (let i = 0; i < sourceUint8.length; i++) {
-        sourceBinary += String.fromCharCode(sourceUint8[i]);
-      }
-      const sourceBase64 = btoa(sourceBinary);
-
-      // Convert target voice file to base64
-      const targetBuffer = await targetVoiceFile.arrayBuffer();
-      const targetUint8 = new Uint8Array(targetBuffer);
-      let targetBinary = '';
-      for (let i = 0; i < targetUint8.length; i++) {
-        targetBinary += String.fromCharCode(targetUint8[i]);
-      }
-      const targetBase64 = btoa(targetBinary);
+      // Files go to storage through the upload route; the server action only
+      // receives URLs. (Base64 through the action hit Next's 1,000,000-char
+      // argument cap — any real video failed before the conversion started.)
+      const batchId = `voice_changer_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      const upload = async (file: File, kind: 'source' | 'target') => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('kind', kind);
+        formData.append('batchId', batchId);
+        const res = await fetch('/api/upload/voice-changer', { method: 'POST', body: formData });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Upload failed (${res.status})`);
+        }
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.error || `Failed to upload ${kind} file`);
+        return data as { url: string; is_video: boolean };
+      };
+      const [source, target] = await Promise.all([
+        upload(sourceFile, 'source'),
+        upload(targetVoiceFile, 'target'),
+      ]);
 
       const response = await executeVoiceChanger({
-        source_audio_base64: sourceBase64,
+        source_url: source.url,
         source_filename: sourceFile.name,
-        source_is_video: isVideo,
+        source_is_video: isVideo || source.is_video,
         target_mode: 'custom',
-        target_voice_base64: targetBase64,
-        target_voice_filename: targetVoiceFile.name,
+        target_voice_url: target.url,
         high_quality_audio: highQuality || false,
+        batch_id: batchId,
       });
 
       if (response.success && (response.audio_url || response.video_url)) {
