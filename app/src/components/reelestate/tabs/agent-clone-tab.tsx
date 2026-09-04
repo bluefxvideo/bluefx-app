@@ -93,6 +93,11 @@ export function AgentCloneTab({
   const [bgUrl, setBgUrl] = useState('');
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [isDragging, setIsDragging] = useState(false);
+  const [isAgentDragging, setIsAgentDragging] = useState(false);
+  const [isVoiceDragging, setIsVoiceDragging] = useState(false);
+  // A sample from a previous switch is offered, never pre-selected (a
+  // pre-filled "Using x.mp3" read as if a voice had been added by itself).
+  const [useLastSample, setUseLastSample] = useState(false);
 
   // Current active shot (latest)
   const shot = shots.length > 0 ? shots[shots.length - 1] : null;
@@ -161,26 +166,54 @@ export function AgentCloneTab({
     setPrompt(DEFAULT_PROMPT);
   };
 
-  const handleVoiceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (voiceFileRef.current) voiceFileRef.current.value = '';
-    if (file && (file.type.startsWith('audio/') || /\.(mp3|wav|m4a)$/i.test(file.name))) {
+  const handleAgentDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsAgentDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Drop an image file (JPG or PNG)');
+      return;
+    }
+    const url = await uploadImage(file);
+    if (url) onSetAgentPhoto(url);
+  }, [onSetAgentPhoto]);
+
+  const acceptVoiceFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.type.startsWith('audio/') || /\.(mp3|wav|m4a)$/i.test(file.name)) {
       setVoiceFile(file);
-    } else if (file) {
+      setUseLastSample(false);
+    } else {
       toast.error('Upload an MP3, WAV or M4A voice sample');
     }
   };
 
+  const handleVoiceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (voiceFileRef.current) voiceFileRef.current.value = '';
+    acceptVoiceFile(file);
+  };
+
+  const handleVoiceDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsVoiceDragging(false);
+    acceptVoiceFile(e.dataTransfer.files[0]);
+  };
+
   const handleSwitchVoice = () => {
     if (!shot) return;
-    onSwitchVoice(shot.id, voiceFile);
+    // A freshly chosen file wins; null tells the hook to reuse the remembered sample
+    onSwitchVoice(shot.id, useLastSample ? null : voiceFile);
   };
 
   // ─── Credit Checks ────────────────────────────
 
   const canGenerate = credits >= 2;
   const canAnimate = shot ? credits >= shot.duration : false;
-  const canSwitchVoice = credits >= 4 && !!(voiceFile || lastVoiceSample);
+  const canSwitchVoice = credits >= 4 && (!!voiceFile || (useLastSample && !!lastVoiceSample));
 
   return (
     <TabContentWrapper>
@@ -191,26 +224,39 @@ export function AgentCloneTab({
           title="Setup"
           description="Upload your photo and choose format"
         >
-          {/* Agent Photo */}
-          {agentPhotoUrl ? (
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-lg overflow-hidden border border-border/50">
-                <img src={agentPhotoUrl} alt="Agent" className="w-full h-full object-cover" />
+          {/* Agent Photo — click or drop */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsAgentDragging(true); }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsAgentDragging(false); }}
+            onDrop={handleAgentDrop}
+            className={`rounded-lg transition-colors ${isAgentDragging ? 'ring-2 ring-primary/60 bg-primary/5' : ''}`}
+          >
+            {agentPhotoUrl ? (
+              <div className="flex items-center gap-3 p-1">
+                <div className="w-16 h-16 rounded-lg overflow-hidden border border-border/50">
+                  <img src={agentPhotoUrl} alt="Agent" className="w-full h-full object-cover" />
+                </div>
+                <Button variant="outline" size="sm" onClick={() => agentFileRef.current?.click()}>
+                  Change Photo
+                </Button>
+                <span className="text-[11px] text-muted-foreground">or drop a new one here</span>
               </div>
-              <Button variant="outline" size="sm" onClick={() => agentFileRef.current?.click()}>
-                Change Photo
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => agentFileRef.current?.click()}
-              className="w-full h-20 border-dashed"
-            >
-              <Upload className="w-5 h-5 mr-2" />
-              Upload Your Photo
-            </Button>
-          )}
+            ) : (
+              <button
+                type="button"
+                onClick={() => agentFileRef.current?.click()}
+                className={`w-full h-20 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-sm transition-colors ${
+                  isAgentDragging ? 'border-primary bg-primary/5' : 'border-border/60 hover:border-muted-foreground/50 hover:bg-muted/30'
+                }`}
+              >
+                <span className="flex items-center font-medium">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Your Photo
+                </span>
+                <span className="text-[11px] text-muted-foreground">or drop it here</span>
+              </button>
+            )}
+          </div>
           <input ref={agentFileRef} type="file" accept="image/*" onChange={handleAgentUpload} className="hidden" />
 
           {/* Aspect Ratio — inline below photo */}
@@ -361,7 +407,14 @@ export function AgentCloneTab({
 
                 {/* Switch voice — re-voice the finished clip with the user's own sample */}
                 {shot.videoUrl && (
-                  <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-2">
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsVoiceDragging(true); }}
+                    onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsVoiceDragging(false); }}
+                    onDrop={handleVoiceDrop}
+                    className={`rounded-lg border bg-muted/20 p-3 space-y-2 transition-colors ${
+                      isVoiceDragging ? 'border-primary bg-primary/5' : 'border-border/50'
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
                       <Mic className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-medium">
@@ -369,7 +422,7 @@ export function AgentCloneTab({
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Upload a clean recording of your voice (10–30 seconds, no music). The picture and lip movement stay exactly as they are; only the voice changes.
+                      Upload or drop a clean recording of your voice (10–30 seconds, no music). The picture and lip movement stay exactly as they are; only the voice changes.
                     </p>
                     <input
                       ref={voiceFileRef}
@@ -387,12 +440,26 @@ export function AgentCloneTab({
                         onClick={() => voiceFileRef.current?.click()}
                       >
                         <Upload className="w-3.5 h-3.5 mr-1.5" />
-                        {voiceFile || lastVoiceSample ? 'Change sample' : 'Choose voice sample'}
+                        {voiceFile || useLastSample ? 'Change sample' : 'Choose voice sample'}
                       </Button>
                       <span className="text-[11px] text-muted-foreground truncate">
-                        {voiceFile ? voiceFile.name : lastVoiceSample ? `Using ${lastVoiceSample.name}` : 'MP3, WAV or M4A'}
+                        {voiceFile
+                          ? `Selected: ${voiceFile.name}`
+                          : useLastSample && lastVoiceSample
+                            ? `Using last sample: ${lastVoiceSample.name}`
+                            : 'MP3, WAV or M4A, or drop it here'}
                       </span>
                     </div>
+                    {lastVoiceSample && !voiceFile && !useLastSample && (
+                      <button
+                        type="button"
+                        onClick={() => setUseLastSample(true)}
+                        disabled={isWorking}
+                        className="text-[11px] text-primary hover:underline text-left"
+                      >
+                        Reuse the sample from last time ({lastVoiceSample.name})
+                      </button>
+                    )}
                     <Button
                       onClick={handleSwitchVoice}
                       disabled={!canSwitchVoice || isWorking}
