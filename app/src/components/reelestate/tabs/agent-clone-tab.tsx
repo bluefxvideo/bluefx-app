@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TabContentWrapper, TabBody } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import {
-  Upload, Loader2, ImagePlus, Sparkles, Film, RefreshCw, X, Download, RotateCcw,
+  Upload, Loader2, ImagePlus, Sparkles, Film, RefreshCw, X, Download, RotateCcw, Mic,
 } from 'lucide-react';
 import type { AgentCloneShot, AgentCloneCameraMotion, AgentCloneDuration } from '@/types/reelestate';
 import { AGENT_CLONE_CAMERA_MOTIONS, AGENT_CLONE_DURATIONS } from '@/types/reelestate';
@@ -50,6 +50,9 @@ interface AgentCloneTabProps {
   onCreateAndGenerate: (backgroundUrl: string, prompt: string) => void;
   onRegenerateComposite: (shotId: string, prompt: string) => void;
   onAnimateShot: (shotId: string) => void;
+  /** null file = reuse the remembered sample */
+  onSwitchVoice: (shotId: string, file: File | null) => void;
+  lastVoiceSample: { url: string; name: string } | null;
 }
 
 // Images go to storage first and only the URL travels through the server
@@ -91,9 +94,13 @@ export function AgentCloneTab({
   onCreateAndGenerate,
   onRegenerateComposite,
   onAnimateShot,
+  onSwitchVoice,
+  lastVoiceSample,
 }: AgentCloneTabProps) {
   const agentFileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
+  const voiceFileRef = useRef<HTMLInputElement>(null);
+  const [voiceFile, setVoiceFile] = useState<File | null>(null);
 
   const [bgUrl, setBgUrl] = useState('');
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
@@ -166,10 +173,26 @@ export function AgentCloneTab({
     setPrompt(DEFAULT_PROMPT);
   };
 
+  const handleVoiceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (voiceFileRef.current) voiceFileRef.current.value = '';
+    if (file && (file.type.startsWith('audio/') || /\.(mp3|wav|m4a)$/i.test(file.name))) {
+      setVoiceFile(file);
+    } else if (file) {
+      toast.error('Upload an MP3, WAV or M4A voice sample');
+    }
+  };
+
+  const handleSwitchVoice = () => {
+    if (!shot) return;
+    onSwitchVoice(shot.id, voiceFile);
+  };
+
   // ─── Credit Checks ────────────────────────────
 
   const canGenerate = credits >= 2;
   const canAnimate = shot ? credits >= shot.duration : false;
+  const canSwitchVoice = credits >= 4 && !!(voiceFile || lastVoiceSample);
 
   return (
     <TabContentWrapper>
@@ -344,6 +367,61 @@ export function AgentCloneTab({
                     <Button variant="outline" size="sm" onClick={handleNewShot} className="flex-1">
                       <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                       New
+                    </Button>
+                  </div>
+                )}
+
+                {/* Switch voice — re-voice the finished clip with the user's own sample */}
+                {shot.videoUrl && (
+                  <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Mic className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-medium">
+                        {shot.voiceVideoUrl ? 'Your voice is on this clip' : 'Put your own voice on this clip'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Upload a clean recording of your voice (10–30 seconds, no music). The picture and lip movement stay exactly as they are; only the voice changes.
+                    </p>
+                    <input
+                      ref={voiceFileRef}
+                      type="file"
+                      accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"
+                      className="hidden"
+                      onChange={handleVoiceFile}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        disabled={isWorking}
+                        onClick={() => voiceFileRef.current?.click()}
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        {voiceFile || lastVoiceSample ? 'Change sample' : 'Choose voice sample'}
+                      </Button>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        {voiceFile ? voiceFile.name : lastVoiceSample ? `Using ${lastVoiceSample.name}` : 'MP3, WAV or M4A'}
+                      </span>
+                    </div>
+                    <Button
+                      onClick={handleSwitchVoice}
+                      disabled={!canSwitchVoice || isWorking}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {shot.isSwitchingVoice ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          Switching voice…
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3.5 h-3.5 mr-1.5" />
+                          {shot.voiceVideoUrl ? 'Switch voice again' : 'Switch voice'} {credits >= 4 ? '(4 credits)' : '(need 4 credits)'}
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}

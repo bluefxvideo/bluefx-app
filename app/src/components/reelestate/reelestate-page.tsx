@@ -194,6 +194,8 @@ export function ReelEstatePage() {
               onCreateAndGenerate={agentClone.createAndGenerate}
               onRegenerateComposite={agentClone.regenerateComposite}
               onAnimateShot={agentClone.animateShot}
+              onSwitchVoice={agentClone.switchVoice}
+              lastVoiceSample={agentClone.lastVoiceSample}
             />
           </div>
           <AgentCloneOutput

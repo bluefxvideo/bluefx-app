@@ -2,6 +2,7 @@
 
 import { createClient } from '@/app/supabase/server';
 import { generateWithFalNanaBanana2 } from '@/actions/models/fal-nano-banana-2';
+import { convertVoiceInMedia } from '@/lib/voice-changer/convert';
 import { createVideoGenerationPrediction, getVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { deductCredits } from '@/actions/database/cinematographer-database';
 import { getUserCredits } from '@/actions/credit-management';
@@ -13,6 +14,8 @@ import type { AgentCloneCameraMotion, AgentCloneDuration } from '@/types/reelest
 const CREDITS = {
   COMPOSITE: 2,
   ANIMATION_PER_SECOND: 1,
+  /** Same as the Voice Changer's high-quality price (always HQ here). */
+  VOICE_SWITCH: 4,
 };
 
 // ─── Helpers ────────────────────────────────
@@ -262,5 +265,86 @@ export async function pollAgentAnimation(
       status: 'failed',
       error: error instanceof Error ? error.message : 'Failed to check animation status',
     };
+  }
+}
+
+// ─── Switch Voice (ChatterboxHD S2S on the finished clip) ───
+
+/**
+ * Re-voice a finished Agent Clone clip with the user's own voice sample.
+ * Keeps the LTX picture untouched (lips stay in sync) and swaps the audio
+ * track for a ChatterboxHD speech-to-speech conversion, always at high
+ * quality. Original stays in video_url; the re-voiced clip goes to
+ * voice_video_url so History keeps both.
+ */
+export async function switchAgentCloneVoice(
+  generationId: string,
+  targetVoiceUrl: string,
+): Promise<{ success: boolean; videoUrl?: string; creditsUsed?: number; error?: string }> {
+  try {
+    const user = await getAuthenticatedUser();
+
+    const storageRoot = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
+    if (!targetVoiceUrl?.startsWith(storageRoot)) {
+      return { success: false, error: 'Voice sample is missing — please upload it again' };
+    }
+
+    const supabase = await createClient();
+    const { data: row, error: rowError } = await supabase
+      .from('agent_clone_generations')
+      .select('id, user_id, status, video_url, credits_used')
+      .eq('id', generationId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (rowError || !row) return { success: false, error: 'Clip not found' };
+    if (!row.video_url) return { success: false, error: 'Generate the video first, then switch the voice' };
+
+    const creditResult = await getUserCredits(user.id);
+    if (!creditResult.success || (creditResult.credits || 0) < CREDITS.VOICE_SWITCH) {
+      return { success: false, error: `Not enough credits (need ${CREDITS.VOICE_SWITCH})` };
+    }
+
+    const batchId = `agent_voice_${generationId.slice(0, 8)}_${Date.now()}`;
+    console.log(`🎙️ Agent Clone: switching voice (${batchId})`);
+
+    const result = await convertVoiceInMedia({
+      batchId,
+      sourceUrl: row.video_url,
+      sourceIsVideo: true,
+      sourceExt: 'mp4',
+      target: { mode: 'custom', sampleUrl: targetVoiceUrl },
+      highQuality: true,
+      output: { bucket: 'videos', folder: `agent-clone/${user.id}` },
+      // `videos` only accepts video/*; the extracted WAV needs an audio-friendly bucket
+      scratch: { bucket: 'script-videos', folder: `${user.id}/agent-clone` },
+    });
+    if (!result.success) return { success: false, error: result.error };
+    if (result.resultType !== 'video') return { success: false, error: 'Voice switch did not return a video' };
+
+    await deductCredits(user.id, CREDITS.VOICE_SWITCH, 'agent-clone-voice-switch', {
+      generation_id: generationId,
+      batch_id: batchId,
+    } as unknown as Json);
+
+    const update = await updateAgentCloneGeneration(generationId, {
+      voice_video_url: result.videoUrl,
+      voice_swap: {
+        target_voice_url: targetVoiceUrl,
+        high_quality: true,
+        batch_id: batchId,
+        converted_at: new Date().toISOString(),
+        credits: CREDITS.VOICE_SWITCH,
+      },
+      credits_used: (row.credits_used || 0) + CREDITS.VOICE_SWITCH,
+    });
+    if (!update.success) {
+      console.error('⚠️ Agent Clone: voice switch stored in storage but the row update failed:', update.error);
+    }
+
+    console.log(`✅ Agent Clone: voice switched (${batchId})`);
+    return { success: true, videoUrl: result.videoUrl, creditsUsed: CREDITS.VOICE_SWITCH };
+  } catch (error) {
+    console.error('❌ Agent Clone voice switch error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Voice switch failed' };
   }
 }

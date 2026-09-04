@@ -40,6 +40,12 @@ export interface VoiceConvertInput {
   highQuality: boolean;
   /** Where results are written: `${bucket}/${folder}/${batchId}_result.*` */
   output: { bucket: string; folder: string };
+  /**
+   * Where the intermediate extracted WAV goes (fal must be able to fetch it).
+   * Defaults to `output`; pass a bucket that allows audio/* when the result
+   * bucket is video-only (the `videos` bucket rejects audio/wav).
+   */
+  scratch?: { bucket: string; folder: string };
 }
 
 export type VoiceConvertResult =
@@ -52,10 +58,11 @@ export async function convertVoiceInMedia(input: VoiceConvertInput): Promise<Voi
   const admin = createAdminClient();
   const tempFiles: string[] = [];
 
-  const upload = async (path: string, body: Buffer, contentType: string) => {
-    const { error } = await admin.storage.from(output.bucket).upload(path, body, { contentType, upsert: true });
+  const scratch = input.scratch || output;
+  const upload = async (path: string, body: Buffer, contentType: string, bucket = output.bucket) => {
+    const { error } = await admin.storage.from(bucket).upload(path, body, { contentType, upsert: true });
     if (error) throw new Error(`Failed to store ${path.split('/').pop()}: ${error.message}`);
-    return admin.storage.from(output.bucket).getPublicUrl(path).data.publicUrl;
+    return admin.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   };
 
   try {
@@ -78,9 +85,10 @@ export async function convertVoiceInMedia(input: VoiceConvertInput): Promise<Voi
       await extractAudioFromVideo(videoTempPath, audioTempPath);
 
       chatterboxSourceUrl = await upload(
-        `${output.folder}/${batchId}_extracted.wav`,
+        `${scratch.folder}/${batchId}_extracted.wav`,
         await readFile(audioTempPath),
         'audio/wav',
+        scratch.bucket,
       );
     }
 

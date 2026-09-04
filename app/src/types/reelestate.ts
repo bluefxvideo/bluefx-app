@@ -326,6 +326,10 @@ export interface AgentCloneShot {
   cameraMotion: AgentCloneCameraMotion;
   duration: AgentCloneDuration;
   error: string | null;
+  /** Same clip as videoUrl with the speech re-voiced to the user's sample. */
+  voiceVideoUrl: string | null;
+  /** True while the voice switch (upload + conversion) is running. */
+  isSwitchingVoice?: boolean;
 }
 
 // ═══════════════════════════════════════════
@@ -395,4 +399,13 @@ export interface AgentCloneGenerationRow {
   credits_used: number;
   created_at: string;
   updated_at: string;
+  /** Re-voiced copy of video_url (ChatterboxHD), null until the user switches the voice. */
+  voice_video_url?: string | null;
+  voice_swap?: {
+    target_voice_url?: string;
+    high_quality?: boolean;
+    batch_id?: string;
+    converted_at?: string;
+    credits?: number;
+  } | null;
 }

@@ -51,7 +51,7 @@ export async function updateAgentCloneGeneration(
   updates: Partial<Pick<AgentCloneGenerationRow,
     'composite_url' | 'video_url' | 'status' | 'prediction_id' |
     'error_message' | 'credits_used' | 'dialogue' | 'action' |
-    'camera_motion' | 'duration'
+    'camera_motion' | 'duration' | 'voice_video_url' | 'voice_swap'
   >>,
 ): Promise<{ success: boolean; error?: string }> {
   try {

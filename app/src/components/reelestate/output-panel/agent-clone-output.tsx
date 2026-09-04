@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { containerStyles } from '@/lib/container-styles';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { UserCircle, Download, Loader2 } from 'lucide-react';
+import { UserCircle, Download, Loader2, Mic } from 'lucide-react';
 import type { AgentCloneShot } from '@/types/reelestate';
 
 interface AgentCloneOutputProps {
@@ -11,6 +12,9 @@ interface AgentCloneOutputProps {
 }
 
 export function AgentCloneOutput({ shot }: AgentCloneOutputProps) {
+  // Which audio track to show once a voice switch exists (hook must run before any early return)
+  const [view, setView] = useState<'voice' | 'original'>('voice');
+
   // Empty state
   if (!shot || shot.status === 'idle') {
     return (
@@ -27,19 +31,49 @@ export function AgentCloneOutput({ shot }: AgentCloneOutputProps) {
   }
 
   const isProcessing = shot.status === 'compositing' || shot.status === 'animating';
+  const showVoice = view === 'voice' && !!shot.voiceVideoUrl;
+  const shownVideoUrl = showVoice ? shot.voiceVideoUrl : shot.videoUrl;
 
   return (
     <div className={`h-full flex flex-col ${containerStyles.panel}`}>
       {/* Main media area */}
-      <div className="flex-1 flex items-center justify-center p-4">
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-4">
+        {shot.voiceVideoUrl && shot.status === 'ready' && (
+          <div className="flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setView('voice')}
+              className={`px-2.5 py-1 rounded ${showVoice ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+            >
+              <Mic className="w-3 h-3 inline mr-1" />
+              Your voice
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('original')}
+              className={`px-2.5 py-1 rounded ${!showVoice ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+            >
+              Original
+            </button>
+          </div>
+        )}
         <div className="relative w-full max-w-lg aspect-video rounded-lg overflow-hidden bg-black">
           {/* Video (top priority) */}
           {shot.videoUrl && shot.status === 'ready' ? (
-            <video
-              src={shot.videoUrl}
-              controls
-              className="w-full h-full object-contain"
-            />
+            <>
+              <video
+                key={shownVideoUrl || 'video'}
+                src={shownVideoUrl || shot.videoUrl}
+                controls
+                className="w-full h-full object-contain"
+              />
+              {shot.isSwitchingVoice && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60">
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  <span className="text-sm text-white font-medium">Switching voice...</span>
+                </div>
+              )}
+            </>
           ) : shot.compositeUrl ? (
             <>
               <img
@@ -98,6 +132,9 @@ export function AgentCloneOutput({ shot }: AgentCloneOutputProps) {
           {shot.status === 'ready' && (
             <Badge className="bg-green-500/20 text-green-400 text-xs">Video Ready</Badge>
           )}
+          {shot.voiceVideoUrl && shot.status === 'ready' && (
+            <Badge className="bg-purple-500/20 text-purple-300 text-xs">Voice switched</Badge>
+          )}
           {shot.status === 'failed' && (
             <Badge className="bg-red-500/20 text-red-400 text-xs">Failed</Badge>
           )}
@@ -113,10 +150,15 @@ export function AgentCloneOutput({ shot }: AgentCloneOutputProps) {
             </a>
           )}
           {shot.videoUrl && shot.status === 'ready' && (
-            <a href={shot.videoUrl} download="agent-clone-video.mp4" target="_blank" rel="noopener noreferrer">
+            <a
+              href={shownVideoUrl || shot.videoUrl}
+              download={showVoice ? 'agent-clone-video-your-voice.mp4' : 'agent-clone-video.mp4'}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Button variant="ghost" size="sm" className="text-xs">
                 <Download className="w-3.5 h-3.5 mr-1" />
-                Video
+                {showVoice ? 'Video (your voice)' : 'Video'}
               </Button>
             </a>
           )}

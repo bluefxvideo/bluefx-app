@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Loader2, Video, Calendar, ImageIcon, Download, Trash2, Play, ExternalLink } from 'lucide-react';
+import { RefreshCw, Loader2, Video, Calendar, ImageIcon, Download, Trash2, Play, ExternalLink, Mic } from 'lucide-react';
 import type { ReelEstateListingRow, AgentCloneGenerationRow } from '@/types/reelestate';
 
 // Lazy video — only loads <video> when user clicks play
@@ -262,9 +262,16 @@ function HistoryRow({ item, onLoadProject, onDeleteGeneration }: {
           </a>
         )}
         {hasVideo && (
-          <a href={d.video_url!} target="_blank" rel="noopener noreferrer" title="Download video">
+          <a href={d.video_url!} target="_blank" rel="noopener noreferrer" title="Download video (original voice)">
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
               <Download className="w-3.5 h-3.5" />
+            </Button>
+          </a>
+        )}
+        {d.voice_video_url && (
+          <a href={d.voice_video_url} target="_blank" rel="noopener noreferrer" title="Download video with your voice">
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-purple-300">
+              <Mic className="w-3.5 h-3.5" />
             </Button>
           </a>
         )}

@@ -8,6 +8,7 @@ import {
   generateAgentComposite,
   startAgentAnimation,
   pollAgentAnimation,
+  switchAgentCloneVoice,
 } from '@/actions/tools/reelestate/agent-clone';
 import {
   getAgentCloneGenerations,
@@ -25,6 +26,7 @@ export function useAgentClone() {
   const [isLoadingCredits, setIsLoadingCredits] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [history, setHistory] = useState<AgentCloneGenerationRow[]>([]);
+  const [lastVoiceSample, setLastVoiceSample] = useState<{ url: string; name: string } | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -41,6 +43,12 @@ export function useAgentClone() {
         setUserId(user.id);
         const result = await getUserCredits(user.id);
         if (result.success) setCredits(result.credits || 0);
+        try {
+          const saved = localStorage.getItem(`agentclone.voiceSample.${user.id}`);
+          if (saved) setLastVoiceSample(JSON.parse(saved));
+        } catch {
+          // no remembered sample
+        }
       }
       setIsLoadingCredits(false);
     };
@@ -72,6 +80,7 @@ export function useAgentClone() {
       backgroundUrl,
       compositeUrl: null,
       videoUrl: null,
+      voiceVideoUrl: null,
       predictionId: null,
       status: 'idle',
       prompt: '',
@@ -113,6 +122,7 @@ export function useAgentClone() {
       backgroundUrl,
       compositeUrl: null,
       videoUrl: null,
+      voiceVideoUrl: null,
       predictionId: null,
       status: 'compositing',
       prompt,
@@ -161,7 +171,7 @@ export function useAgentClone() {
     const shot = shotsRef.current.find(s => s.id === shotId);
     if (!shot) return;
 
-    updateShot(shotId, { status: 'compositing', prompt, compositeUrl: null, videoUrl: null, error: null });
+    updateShot(shotId, { status: 'compositing', prompt, compositeUrl: null, videoUrl: null, voiceVideoUrl: null, error: null });
 
     let result;
     try {
@@ -200,7 +210,7 @@ export function useAgentClone() {
     const shot = shotsRef.current.find(s => s.id === shotId);
     if (!shot || !shot.compositeUrl) return;
 
-    updateShot(shotId, { status: 'animating', error: null, videoUrl: null });
+    updateShot(shotId, { status: 'animating', error: null, videoUrl: null, voiceVideoUrl: null });
 
     const result = await startAgentAnimation(
       shot.compositeUrl,
@@ -223,6 +233,46 @@ export function useAgentClone() {
     await refreshCredits();
     toast.success('Animation started');
   }, [aspectRatio, updateShot, refreshCredits]);
+
+  // ─── Switch Voice (ChatterboxHD on the finished clip) ──
+  // `file` null = reuse the remembered sample from a previous switch.
+
+  const switchVoice = useCallback(async (shotId: string, file: File | null) => {
+    const shot = shotsRef.current.find(s => s.id === shotId);
+    if (!shot || !shot.videoUrl || !shot.generationId) return;
+
+    updateShot(shotId, { isSwitchingVoice: true, error: null });
+    try {
+      let sample = lastVoiceSample;
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('kind', 'target');
+        const res = await fetch('/api/upload/voice-changer', { method: 'POST', body: formData });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) throw new Error(`Upload failed (${res.status})`);
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.error || 'Failed to upload the voice sample');
+        sample = { url: data.url as string, name: file.name };
+        setLastVoiceSample(sample);
+        if (userId) {
+          try { localStorage.setItem(`agentclone.voiceSample.${userId}`, JSON.stringify(sample)); } catch { /* ignore */ }
+        }
+      }
+      if (!sample) throw new Error('Choose a voice sample first');
+
+      const result = await switchAgentCloneVoice(shot.generationId, sample.url);
+      if (!result.success || !result.videoUrl) throw new Error(result.error || 'Voice switch failed');
+
+      updateShot(shotId, { voiceVideoUrl: result.videoUrl, isSwitchingVoice: false });
+      await refreshCredits();
+      toast.success('Voice switched — your voice is on the clip');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Voice switch failed';
+      updateShot(shotId, { isSwitchingVoice: false, error: msg });
+      toast.error(msg);
+    }
+  }, [lastVoiceSample, userId, updateShot, refreshCredits]);
 
   // ─── Poll Active Animations ────────────────────
 
@@ -288,7 +338,7 @@ export function useAgentClone() {
 
   // ─── Derived State ─────────────────────────────
 
-  const isWorking = shots.some(s => s.status === 'compositing' || s.status === 'animating');
+  const isWorking = shots.some(s => s.status === 'compositing' || s.status === 'animating' || s.isSwitchingVoice);
 
   return {
     agentPhotoUrl,
@@ -305,6 +355,8 @@ export function useAgentClone() {
     createAndGenerate,
     regenerateComposite,
     animateShot,
+    switchVoice,
+    lastVoiceSample,
     isWorking,
     history,
     isLoadingHistory,
