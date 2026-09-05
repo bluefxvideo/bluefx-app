@@ -19,6 +19,18 @@ import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 
 const FULL_CREDITS = 600
 const LIFETIME_PRODUCT = '451075'
+
+/**
+ * webhook_events writes were fire-and-forget; a CHECK constraint that did not
+ * list 'jvzoo' rejected every row without anyone noticing (first test
+ * purchase, 2026-09-05). Never swallow these — the duplicate guard depends
+ * on the row existing.
+ */
+function logIfError(result: { error: { message: string } | null }, what: string) {
+  if (result.error) {
+    console.error(`❌ JVZoo webhook: failed to ${what}: ${result.error.message}`)
+  }
+}
 const KNOWN_PRODUCTS = new Set([
   '451075', '451105', '451107', '451097', '451099', '451101', '451103',
 ])
@@ -147,12 +159,12 @@ async function recordEvent({ eventId, transactionType, fields }: { eventId: stri
     return
   }
   const { cverify: _cverify, ...payload } = fields
-  await supabase.from('webhook_events').insert({
+  logIfError(await supabase.from('webhook_events').insert({
     event_id: eventId,
     event_type: transactionType,
     processor: 'jvzoo',
     payload,
-  })
+  }), 'record event')
   console.log(`Recorded JVZoo ${transactionType} for product ${fields.cproditem} (${fields.ccustemail})`)
 }
 
@@ -169,12 +181,12 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
     return
   }
 
-  await supabase.from('webhook_events').insert({
+  logIfError(await supabase.from('webhook_events').insert({
     event_id: eventId,
     event_type: transactionType,
     processor: 'jvzoo',
     payload: { email, custName, receipt, amount, affiliate, productId },
-  })
+  }), 'record lifetime sale')
 
   const nameParts = custName.split(/\s+/)
   const firstName = nameParts[0] || ''
@@ -358,12 +370,12 @@ async function suspendLifetime(email: string, eventId: string, transactionType: 
     return
   }
   const { cverify: _cverify, ...payload } = fields
-  await supabase.from('webhook_events').insert({
+  logIfError(await supabase.from('webhook_events').insert({
     event_id: eventId,
     event_type: transactionType,
     processor: 'jvzoo',
     payload,
-  })
+  }), 'record refund/suspension')
 
   if (!email) {
     console.error('No email provided for JVZoo refund')
