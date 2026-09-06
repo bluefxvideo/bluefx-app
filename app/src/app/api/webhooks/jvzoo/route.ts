@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { createAdminClient } from '@/app/supabase/server'
+import { subscribeToMailerLite, mailerLiteGroupsForJvzooProduct } from '@/lib/mailerlite/subscribe'
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 
 // JVZoo IPN handler for the AI Media Machine funnel on aimediamachine.com.
@@ -101,6 +102,16 @@ export async function POST(request: NextRequest) {
           await provisionLifetime({ email, custName, receipt, eventId, transactionType, amount, affiliate, productId })
         } else {
           await recordEvent({ eventId, transactionType, fields })
+        }
+        // Every buyer joins the MailerLite list (first sale only, not rebills).
+        // Best-effort: a list outage must never fail the IPN or the provisioning above.
+        if (transactionType === 'SALE' && email) {
+          await subscribeToMailerLite({
+            email,
+            fullName: custName,
+            groups: mailerLiteGroupsForJvzooProduct(productId),
+            fields: { jvzoo_product: productId },
+          })
         }
         break
       case 'RFND':
