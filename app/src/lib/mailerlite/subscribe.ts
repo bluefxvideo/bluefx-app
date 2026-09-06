@@ -10,7 +10,8 @@
  * Env (declared in docker-compose.yml, filled in Coolify):
  *   MAILERLITE_API_KEY      API token from MailerLite → Integrations → API
  *   MAILERLITE_GROUP_JVZOO  group id every JVZoo buyer joins
- *   MAILERLITE_GROUPS_JSON  optional {"<jvzoo product id>": "<group id>"} for per-product groups
+ *   MAILERLITE_GROUPS       optional per-product groups as "productId:groupId,productId:groupId"
+ *                           (plain pairs: JSON in a compose-interpolated env var loses its quotes)
  */
 
 const API_BASE = 'https://connect.mailerlite.com/api'
@@ -77,11 +78,17 @@ export async function subscribeToMailerLite(input: MailerLiteSubscribeInput): Pr
 export function mailerLiteGroupsForJvzooProduct(productId: string): string[] {
   const groups: string[] = []
   if (process.env.MAILERLITE_GROUP_JVZOO) groups.push(process.env.MAILERLITE_GROUP_JVZOO)
-  try {
-    const map = JSON.parse(process.env.MAILERLITE_GROUPS_JSON || '{}') as Record<string, string>
-    if (map[productId]) groups.push(map[productId])
-  } catch {
-    console.warn('MailerLite: MAILERLITE_GROUPS_JSON is not valid JSON, ignoring')
-  }
+  const productGroup = parseProductGroups(process.env.MAILERLITE_GROUPS)[productId]
+  if (productGroup) groups.push(productGroup)
   return groups
+}
+
+/** "451075:1600…,451101:1978…" → { '451075': '1600…', … }. Malformed pairs are skipped. */
+export function parseProductGroups(raw: string | undefined): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const pair of (raw || '').split(',')) {
+    const [product, group] = pair.split(':').map((s) => s.trim())
+    if (product && group && /^\d+$/.test(product) && /^\d+$/.test(group)) map[product] = group
+  }
+  return map
 }
