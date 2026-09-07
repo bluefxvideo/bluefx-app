@@ -17,6 +17,9 @@ interface CinematographerOutputProps {
   onTweak?: () => void;
   activeTab?: string;
   isStateRestored?: boolean;
+  onSwitchVoice?: (file: File | null) => void;
+  lastVoiceSample?: { url: string; name: string } | null;
+  isSwitchingVoice?: boolean;
 }
 
 /**
@@ -33,7 +36,10 @@ export function CinematographerOutput({
   onRegenerate,
   onTweak,
   activeTab = 'generate',
-  isStateRestored = false
+  isStateRestored = false,
+  onSwitchVoice,
+  lastVoiceSample,
+  isSwitchingVoice,
 }: CinematographerOutputProps) {
   // Debug logging for restoration issues
   console.log('🎬 CinematographerOutput render:', {
@@ -121,6 +127,9 @@ export function CinematographerOutput({
               model={result.generation_settings?.model}
               onRegenerate={onRegenerate}
               onTweak={onTweak}
+              onSwitchVoice={onSwitchVoice}
+              lastVoiceSample={lastVoiceSample}
+              isSwitchingVoice={isSwitchingVoice}
             />
           )}
           

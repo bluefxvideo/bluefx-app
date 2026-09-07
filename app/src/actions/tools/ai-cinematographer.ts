@@ -17,6 +17,8 @@ import {
   updateCinematographerVideo
 } from '@/actions/database/cinematographer-database';
 import { refundFailedGeneration } from '@/lib/credits/refund';
+import { convertVoiceInMedia } from '@/lib/voice-changer/convert';
+import { createClient as createServerClient } from '@/app/supabase/server';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
 import { Json } from '@/types/database';
 import type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
@@ -1599,5 +1601,89 @@ export async function generateSingleSceneImage(params: {
   } catch (error) {
     console.error('Single scene image generation error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error', creditsUsed: 0 };
+  }
+}
+
+// ─── Switch voice on a finished clip (ChatterboxHD S2S) ──────────────
+
+const VOICE_SWITCH_CREDITS = 4;
+
+/**
+ * Re-voice a completed Video Maker clip with the user's own voice sample.
+ * Same pipeline as ReelEstate Agent Clone: the picture is untouched, only the
+ * audio track is replaced (Chatterbox keeps the original timing, so lips stay
+ * in sync). The re-voiced file is kept next to the original in the row's
+ * metadata (`voice_video_url`), so History offers both. Always high quality.
+ */
+export async function switchCinematographerVoice(
+  videoId: string,
+  targetVoiceUrl: string,
+): Promise<{ success: boolean; videoUrl?: string; creditsUsed?: number; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'Authentication required' };
+
+    const storageRoot = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
+    if (!targetVoiceUrl?.startsWith(storageRoot)) {
+      return { success: false, error: 'Voice sample is missing — please upload it again' };
+    }
+
+    const video = await getCinematographerVideo(videoId, user.id);
+    if (!video) return { success: false, error: 'Video not found' };
+    if (video.status !== 'completed' || !video.final_video_url) {
+      return { success: false, error: 'Wait for the video to finish, then switch the voice' };
+    }
+
+    const creditCheck = await getUserCredits(user.id);
+    if (!creditCheck.success || (creditCheck.credits || 0) < VOICE_SWITCH_CREDITS) {
+      return { success: false, error: `Not enough credits (need ${VOICE_SWITCH_CREDITS})` };
+    }
+
+    const batchId = `cin_voice_${videoId.slice(0, 8)}_${Date.now()}`;
+    console.log(`🎙️ Video Maker: switching voice (${batchId})`);
+
+    const result = await convertVoiceInMedia({
+      batchId,
+      sourceUrl: video.final_video_url,
+      sourceIsVideo: true,
+      sourceExt: 'mp4',
+      target: { mode: 'custom', sampleUrl: targetVoiceUrl },
+      highQuality: true,
+      output: { bucket: 'videos', folder: 'cinematographer' },
+      // `videos` only accepts video/*; the extracted WAV needs an audio-friendly bucket
+      scratch: { bucket: 'script-videos', folder: `${user.id}/cinematographer` },
+    });
+    if (!result.success) return { success: false, error: result.error };
+    if (result.resultType !== 'video') return { success: false, error: 'Voice switch did not return a video' };
+
+    const deduction = await deductCredits(user.id, VOICE_SWITCH_CREDITS, 'video-voice-switch', {
+      video_id: videoId,
+      batch_id: batchId,
+    } as Json);
+    if (!deduction.success) console.warn('Video Maker voice switch: credit deduction failed:', deduction.error);
+
+    const existing = (video.metadata && typeof video.metadata === 'object' && !Array.isArray(video.metadata))
+      ? (video.metadata as Record<string, unknown>)
+      : {};
+    await updateCinematographerVideo(videoId, {
+      metadata: {
+        ...existing,
+        voice_video_url: result.videoUrl,
+        voice_swap: {
+          target_voice_url: targetVoiceUrl,
+          high_quality: true,
+          batch_id: batchId,
+          converted_at: new Date().toISOString(),
+          credits: VOICE_SWITCH_CREDITS,
+        },
+      } as Json,
+    });
+
+    console.log(`✅ Video Maker: voice switched (${batchId})`);
+    return { success: true, videoUrl: result.videoUrl, creditsUsed: VOICE_SWITCH_CREDITS };
+  } catch (error) {
+    console.error('❌ Video Maker voice switch error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Voice switch failed' };
   }
 }

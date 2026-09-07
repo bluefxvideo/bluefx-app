@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Clock, History, Loader2, Trash2, Video, Image } from 'lucide-react';
+import { Download, Eye, Clock, History, Loader2, Trash2, Video, Image, Mic } from 'lucide-react';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
 
@@ -324,6 +324,20 @@ export function HistoryOutput({
                           </span>
                         </Button>
                       )}
+                      {(() => {
+                        const voiceUrl = (video.metadata as { voice_video_url?: string } | null)?.voice_video_url;
+                        return voiceUrl ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 justify-start text-purple-300"
+                            onClick={(e) => { e.stopPropagation(); window.open(voiceUrl, '_blank'); }}
+                          >
+                            <Mic className="w-3 h-3 mr-1" />
+                            <span className="text-sm">Video with your voice</span>
+                          </Button>
+                        ) : null;
+                      })()}
                       {isImageType(video) && video.final_video_url && onMakeVideoFromImage && (
                         <Button
                           variant="ghost"

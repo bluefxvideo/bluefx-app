@@ -97,6 +97,11 @@ export function AICinematographerPage() {
     user,
     // Cancel
     cancelGeneration,
+
+    // Switch voice
+    switchVoice,
+    isSwitchingVoice,
+    lastVoiceSample,
     // Remember aspect ratio
     lastUsedAspectRatio,
     setLastUsedAspectRatio,
@@ -810,6 +815,9 @@ Maintain visual consistency across all frames.`;
             onRefresh={loadHistory}
             isStateRestored={isStateRestored}
             onDeleteVideo={deleteVideo}
+            onSwitchVoice={switchVoice}
+            lastVoiceSample={lastVoiceSample}
+            isSwitchingVoice={isSwitchingVoice}
           />
         </StandardToolLayout>
       )}

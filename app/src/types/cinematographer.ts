@@ -187,6 +187,8 @@ export interface CinematographerResponse {
     resolution: string;
     prompt: string;
     created_at: string;
+    /** Same clip with the speech re-voiced to the user's sample (Switch voice). */
+    voice_video_url?: string | null;
   };
   batch_id: string;
   generation_time_ms: number;

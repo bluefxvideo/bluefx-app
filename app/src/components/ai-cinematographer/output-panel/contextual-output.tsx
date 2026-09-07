@@ -20,6 +20,9 @@ interface ContextualOutputProps {
   onRefresh?: () => void;
   isStateRestored?: boolean;
   onDeleteVideo?: (videoId: string) => Promise<boolean>;
+  onSwitchVoice?: (file: File | null) => void;
+  lastVoiceSample?: { url: string; name: string } | null;
+  isSwitchingVoice?: boolean;
 }
 
 /**
@@ -39,7 +42,10 @@ export function ContextualOutput({
   isLoadingHistory = false,
   onRefresh,
   isStateRestored = false,
-  onDeleteVideo
+  onDeleteVideo,
+  onSwitchVoice,
+  lastVoiceSample,
+  isSwitchingVoice,
 }: ContextualOutputProps) {
   // History tab
   if (activeTab === 'history') {
@@ -80,6 +86,9 @@ export function ContextualOutput({
           onTweak={onTweak}
           activeTab={activeTab}
           isStateRestored={isStateRestored}
+          onSwitchVoice={onSwitchVoice}
+          lastVoiceSample={lastVoiceSample}
+          isSwitchingVoice={isSwitchingVoice}
         />
       }
       empty={
@@ -94,6 +103,9 @@ export function ContextualOutput({
             onTweak={onTweak}
             activeTab={activeTab}
             isStateRestored={isStateRestored}
+          onSwitchVoice={onSwitchVoice}
+          lastVoiceSample={lastVoiceSample}
+          isSwitchingVoice={isSwitchingVoice}
           />
         ) : (
           <CinematographerOutput
@@ -102,6 +114,9 @@ export function ContextualOutput({
             error={undefined}
             onClearResults={onClearResults}
             activeTab={activeTab}
+          onSwitchVoice={onSwitchVoice}
+          lastVoiceSample={lastVoiceSample}
+          isSwitchingVoice={isSwitchingVoice}
           />
         )
       }
@@ -115,6 +130,9 @@ export function ContextualOutput({
         onTweak={onTweak}
         activeTab={activeTab}
         isStateRestored={isStateRestored}
+      onSwitchVoice={onSwitchVoice}
+      lastVoiceSample={lastVoiceSample}
+      isSwitchingVoice={isSwitchingVoice}
       />
     </OutputPanelShell>
   );

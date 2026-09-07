@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { ElapsedTimer } from '@/components/tools/elapsed-timer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Clock, Loader2, Video, X, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Download, Clock, Loader2, Video, X, RefreshCw, SlidersHorizontal, Mic, Upload } from 'lucide-react';
 
 interface VideoPreviewProps {
   video: {
@@ -16,6 +17,7 @@ interface VideoPreviewProps {
     resolution?: string;
     prompt: string;
     created_at: string;
+    voice_video_url?: string | null;
   };
   batchId: string;
   /** Generation tier — calibrates the time estimate ('fast' | 'pro' | 'ultra') */
@@ -23,6 +25,10 @@ interface VideoPreviewProps {
   onCancel?: () => void;
   onRegenerate?: () => void;
   onTweak?: () => void;
+  /** Switch voice: null file = reuse the remembered sample. Absent = feature hidden. */
+  onSwitchVoice?: (file: File | null) => void;
+  lastVoiceSample?: { url: string; name: string } | null;
+  isSwitchingVoice?: boolean;
 }
 
 /**
@@ -57,8 +63,27 @@ function getTypicalLabel(model?: string): string {
 /**
  * Video preview component with playback controls
  */
-export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, onTweak }: VideoPreviewProps) {
+export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, onTweak, onSwitchVoice, lastVoiceSample, isSwitchingVoice }: VideoPreviewProps) {
   const [progress, setProgress] = useState(0);
+  // Switch voice UI state
+  const [view, setView] = useState<'voice' | 'original'>('voice');
+  const [voiceFile, setVoiceFile] = useState<File | null>(null);
+  const [useLastSample, setUseLastSample] = useState(false);
+  const [isVoiceDragging, setIsVoiceDragging] = useState(false);
+  const voiceFileRef = useRef<HTMLInputElement>(null);
+  const showVoice = view === 'voice' && !!video.voice_video_url;
+  const shownVideoUrl = showVoice ? (video.voice_video_url as string) : video.video_url;
+
+  const acceptVoiceFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.type.startsWith('audio/') || /\.(mp3|wav|m4a)$/i.test(file.name)) {
+      setVoiceFile(file);
+      setUseLastSample(false);
+    } else {
+      toast.error('Upload an MP3, WAV or M4A voice sample');
+    }
+  };
+  const canSwitchVoice = !!voiceFile || (useLastSample && !!lastVoiceSample);
   const [elapsedTime, setElapsedTime] = useState(0);
   const isProcessing = !video.video_url;
 
@@ -101,11 +126,11 @@ export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, on
   };
 
   const handleDownload = async () => {
-    if (!video.video_url) return;
+    if (!shownVideoUrl) return;
     
     try {
-      // Fetch the video blob
-      const response = await fetch(video.video_url);
+      // Fetch the video blob (the version currently shown: original or re-voiced)
+      const response = await fetch(shownVideoUrl);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch video: ${response.status}`);
@@ -117,7 +142,7 @@ export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, on
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `cinematographer-${batchId}-${Date.now()}.mp4`;
+      a.download = `cinematographer-${batchId}${showVoice ? '-your-voice' : ''}-${Date.now()}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -127,7 +152,7 @@ export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, on
     } catch (error) {
       console.error('Download failed:', error);
       // Fallback to opening in new tab
-      window.open(video.video_url, '_blank');
+      window.open(shownVideoUrl, '_blank');
     }
   };
 
@@ -138,13 +163,39 @@ export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, on
         {/* Video Player - Natural aspect ratio */}
         {video.video_url ? (
           <div className="relative aspect-video bg-black">
+            {video.voice_video_url && (
+              <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-md border border-white/20 bg-black/60 p-0.5 text-xs backdrop-blur">
+                <button
+                  type="button"
+                  onClick={() => setView('voice')}
+                  className={`px-2.5 py-1 rounded ${showVoice ? 'bg-primary text-primary-foreground' : 'text-white/80'}`}
+                >
+                  <Mic className="w-3 h-3 inline mr-1" />
+                  Your voice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('original')}
+                  className={`px-2.5 py-1 rounded ${!showVoice ? 'bg-primary text-primary-foreground' : 'text-white/80'}`}
+                >
+                  Original
+                </button>
+              </div>
+            )}
             <video
-              src={video.video_url}
+              key={shownVideoUrl}
+              src={shownVideoUrl}
               className="w-full h-full object-contain"
               controls
               preload="metadata"
               poster={video.thumbnail_url}
             />
+            {isSwitchingVoice && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+                <span className="text-sm text-white font-medium">Switching voice...</span>
+              </div>
+            )}
           </div>
         ) : (
           // Processing Card using aspect-video without footer
@@ -223,6 +274,54 @@ export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, on
                 Tweak & Retry
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Switch voice — re-voice the finished clip with the user's own sample */}
+        {video.video_url && onSwitchVoice && (
+          <div
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsVoiceDragging(true); }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsVoiceDragging(false); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsVoiceDragging(false); acceptVoiceFile(e.dataTransfer.files[0]); }}
+            className={`mx-4 mt-3 mb-1 rounded-lg border bg-muted/20 p-3 space-y-2 transition-colors ${isVoiceDragging ? 'border-primary bg-primary/5' : 'border-border/50'}`}
+          >
+            <div className="flex items-center gap-2">
+              <Mic className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-medium">
+                {video.voice_video_url ? 'Your voice is on this clip' : 'Put your own voice on this clip'}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Upload or drop a clean recording of your voice (10–30 seconds, no music). The picture and lip movement stay exactly as they are; only the voice changes.
+            </p>
+            <input
+              ref={voiceFileRef}
+              type="file"
+              accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (voiceFileRef.current) voiceFileRef.current.value = ''; acceptVoiceFile(f); }}
+            />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="shrink-0" disabled={isSwitchingVoice} onClick={() => voiceFileRef.current?.click()}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                {voiceFile || useLastSample ? 'Change sample' : 'Choose voice sample'}
+              </Button>
+              <span className="text-[11px] text-muted-foreground truncate">
+                {voiceFile ? `Selected: ${voiceFile.name}` : useLastSample && lastVoiceSample ? `Using last sample: ${lastVoiceSample.name}` : 'MP3, WAV or M4A, or drop it here'}
+              </span>
+            </div>
+            {lastVoiceSample && !voiceFile && !useLastSample && (
+              <button type="button" onClick={() => setUseLastSample(true)} disabled={isSwitchingVoice} className="text-[11px] text-primary hover:underline text-left">
+                Reuse the sample from last time ({lastVoiceSample.name})
+              </button>
+            )}
+            <Button onClick={() => onSwitchVoice(useLastSample ? null : voiceFile)} disabled={!canSwitchVoice || isSwitchingVoice} size="sm" className="w-full">
+              {isSwitchingVoice ? (
+                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Switching voice…</>
+              ) : (
+                <><Mic className="w-3.5 h-3.5 mr-1.5" />{video.voice_video_url ? 'Switch voice again' : 'Switch voice'} (4 credits)</>
+              )}
+            </Button>
           </div>
         )}
 

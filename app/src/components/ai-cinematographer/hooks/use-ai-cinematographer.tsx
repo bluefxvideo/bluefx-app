@@ -16,6 +16,7 @@ import {
   ExtractedFrame,
   uploadGridImageToStorage,
   pollCinematographerFalGeneration,
+  switchCinematographerVoice,
 } from '@/actions/tools/ai-cinematographer';
 import type { CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
 import { getCinematographerVideos, getCinematographerVideo, deleteCinematographerVideo } from '@/actions/database/cinematographer-database';
@@ -32,6 +33,9 @@ export function useAICinematographer() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isStateRestored, setIsStateRestored] = useState(false);
+  // Switch voice (same feature as ReelEstate Agent Clone)
+  const [isSwitchingVoice, setIsSwitchingVoice] = useState(false);
+  const [lastVoiceSample, setLastVoiceSample] = useState<{ url: string; name: string } | null>(null);
 
   // Starting Shot state
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -935,6 +939,58 @@ export function useAICinematographer() {
     setStoredAssetReferences([]);
   }, []);
 
+  // Remembered voice sample — shared with Agent Clone so one upload serves both tools
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const saved = localStorage.getItem(`bluefx.voiceSample.${user.id}`) || localStorage.getItem(`agentclone.voiceSample.${user.id}`);
+      if (saved) setLastVoiceSample(JSON.parse(saved));
+    } catch {
+      // no remembered sample
+    }
+  }, [user?.id]);
+
+  // Put the user's own voice on the finished clip. `file` null = reuse the remembered sample.
+  const switchVoice = useCallback(async (file: File | null) => {
+    const current = resultRef.current;
+    const videoId = current?.success ? current.batch_id : undefined;
+    if (!videoId || !current?.video?.video_url || !user?.id) return;
+
+    setIsSwitchingVoice(true);
+    try {
+      let sample = lastVoiceSample;
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('kind', 'target');
+        const res = await fetch('/api/upload/voice-changer', { method: 'POST', body: formData });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) throw new Error(`Upload failed (${res.status})`);
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.error || 'Failed to upload the voice sample');
+        sample = { url: data.url as string, name: file.name };
+        setLastVoiceSample(sample);
+        try { localStorage.setItem(`bluefx.voiceSample.${user.id}`, JSON.stringify(sample)); } catch { /* ignore */ }
+      }
+      if (!sample) throw new Error('Choose a voice sample first');
+
+      const response = await switchCinematographerVoice(videoId, sample.url);
+      if (!response.success || !response.videoUrl) throw new Error(response.error || 'Voice switch failed');
+
+      const voiceUrl = response.videoUrl;
+      setResult(prev => prev?.video ? { ...prev, video: { ...prev.video, voice_video_url: voiceUrl } } : prev);
+      setVideos(prev => prev.map(v => v.id === videoId
+        ? { ...v, metadata: { ...((v.metadata && typeof v.metadata === 'object' && !Array.isArray(v.metadata)) ? v.metadata as Record<string, unknown> : {}), voice_video_url: voiceUrl } as CinematographerVideo['metadata'] }
+        : v));
+      toast.success('Voice switched — your voice is on the clip');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Voice switch failed';
+      toast.error(msg);
+    } finally {
+      setIsSwitchingVoice(false);
+    }
+  }, [lastVoiceSample, user?.id]);
+
   // Cancel ongoing generation (escape from stuck state)
   const cancelGeneration = useCallback(() => {
     setIsGenerating(false);
@@ -1262,6 +1318,9 @@ export function useAICinematographer() {
     loadHistory,
     deleteVideo,
     cancelGeneration,
+    switchVoice,
+    isSwitchingVoice,
+    lastVoiceSample,
     lastUsedAspectRatio,
     setLastUsedAspectRatio,
     analyzerShots,
