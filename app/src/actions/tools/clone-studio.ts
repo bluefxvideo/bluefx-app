@@ -13,6 +13,7 @@ import { refundFailedGeneration } from '@/lib/credits/refund';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
 import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from '@/actions/models/fal-nano-banana-2';
 import { editWithGptImage2 } from '@/actions/models/fal-gpt-image-2';
+import { imageEngine } from '@/lib/image-engine';
 import {
   submitKlingO3ProImageToVideo,
   getKlingQueueStatus,
@@ -499,7 +500,9 @@ export async function generateSceneImage(
     }
 
     const prompt = buildSceneEditPrompt(scene, refs.length);
-    const engine: CloneImageEngine = options.engine || 'nb2';
+    // GPT Image 2.5 edits by default (see src/lib/image-engine.ts); nb2 stays
+    // available per scene and as the IMAGE_ENGINE=nb2 rollback.
+    const engine: CloneImageEngine = options.engine || (imageEngine() === 'gpt25' ? 'gpt2' : 'nb2');
 
     const result =
       engine === 'gpt2'

@@ -1,6 +1,9 @@
 'use server';
 
 import { createAdminClient } from '@/app/supabase/server';
+import { generateWithFalNanaBanana2 } from '@/actions/models/fal-nano-banana-2';
+import { generateWithGptImage25 } from '@/actions/models/fal-gpt-image-25';
+import { imageEngine } from '@/lib/image-engine';
 import { getUserCredits, deductCredits } from '@/actions/database/talking-avatar-database';
 
 /**
@@ -45,8 +48,7 @@ export async function generateAvatarImage(
   request: AvatarGeneratorRequest
 ): Promise<AvatarGeneratorResult> {
   try {
-    const falKey = process.env.FAL_KEY;
-    if (!falKey) {
+    if (!process.env.FAL_KEY) {
       return { success: false, error: 'FAL_KEY not configured' };
     }
 
@@ -81,45 +83,23 @@ export async function generateAvatarImage(
       ? `${request.prompt.trim()} ${styleSuffix}`
       : request.prompt.trim();
 
-    // Build request body
-    const body: Record<string, unknown> = {
+    // GPT Image 2.5 by default (photoreal people from a prompt, and it accepts
+    // a real headshot as reference); IMAGE_ENGINE=nb2 rolls back to Nano Banana 2.
+    const generate = imageEngine() === 'gpt25' ? generateWithGptImage25 : generateWithFalNanaBanana2;
+    const generated = await generate({
       prompt: fullPrompt,
       aspect_ratio: '16:9',
       resolution: '1K',
       output_format: 'png',
-    };
-
-    // Add reference image for image-to-image (uses /edit endpoint with image_urls array)
-    const hasReferenceImage = !!request.reference_image_url;
-    if (hasReferenceImage) {
-      body.image_urls = [request.reference_image_url];
-    }
-
-    // Use /edit endpoint when reference image provided, base endpoint otherwise
-    const endpoint = hasReferenceImage
-      ? 'https://fal.run/fal-ai/nano-banana-2/edit'
-      : 'https://fal.run/fal-ai/nano-banana-2';
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Key ${falKey}`,
-      },
-      body: JSON.stringify(body),
+      image_input: request.reference_image_url ? [request.reference_image_url] : undefined,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Avatar generator fal.ai error: ${response.status} - ${errorText}`);
-      return { success: false, error: `Image generation failed: ${response.status}`, remaining_credits: deductResult.remainingCredits };
+    if (!generated.success || !generated.imageUrl) {
+      console.error(`Avatar generator image error: ${generated.error}`);
+      return { success: false, error: generated.error || 'Image generation failed', remaining_credits: deductResult.remainingCredits };
     }
 
-    const result = await response.json();
-    if (!result.images || result.images.length === 0) {
-      return { success: false, error: 'No images returned', remaining_credits: deductResult.remainingCredits };
-    }
-
-    const generatedImageUrl = result.images[0].url;
+    const generatedImageUrl = generated.imageUrl;
 
     // Download and upload to Supabase Storage
     const imageResponse = await fetch(generatedImageUrl);

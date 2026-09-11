@@ -15,6 +15,9 @@ import {
   deductCredits 
 } from '../database/thumbnail-database';
 import { Json } from '@/types/database';
+import { generateWithGptImage25 } from '../models/fal-gpt-image-25';
+import type { NanoBananaAspectRatio } from '../models/fal-nano-banana-2';
+import { imageEngine, imageEngineLabel } from '@/lib/image-engine';
 
 // Style-based system prompts from legacy thumbnail system
 const THUMBNAIL_STYLES = {
@@ -394,34 +397,61 @@ export async function generateThumbnails(
     // Map aspect ratio - nano-banana supports same ratios as Ideogram
     const aspectRatio = request.aspect_ratio || '16:9';
 
-    const singlePrediction = await createImageGenerationPrediction({
-      prompt: enhancedPrompt,
-      aspect_ratio: aspectRatio as any, // nano-banana supports: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
-      ...(webhookUrl && { webhook: webhookUrl }),
-      ...(request.image_input && request.image_input.length > 0 && { image_input: request.image_input }),
-    });
-    const predictions = [singlePrediction];
+    // GPT Image 2.5 on fal (synchronous) by default; IMAGE_ENGINE=nb2 keeps the
+    // Replicate nano-banana path with its webhook bookkeeping.
+    let completed_predictions: Array<{ status: string; output?: string | string[] }>;
+    if (imageEngine() === 'gpt25') {
+      await createPredictionRecord({
+        prediction_id: batch_id,
+        user_id: request.user_id,
+        tool_id: 'thumbnail-machine',
+        service_id: 'generate',
+        model_version: imageEngineLabel(),
+        status: 'processing',
+        input_data: request as unknown as Json,
+        external_id: batch_id,
+      });
+      const generated = await generateWithGptImage25({
+        prompt: enhancedPrompt,
+        aspect_ratio: aspectRatio as NanoBananaAspectRatio,
+        resolution: '1K',
+        output_format: 'jpeg',
+        image_input: request.image_input && request.image_input.length > 0 ? request.image_input : undefined,
+      });
+      if (!generated.success || !generated.imageUrl) {
+        throw new Error(generated.error || 'Thumbnail generation failed');
+      }
+      completed_predictions = [{ status: 'succeeded', output: generated.imageUrl }];
+    } else {
+      const singlePrediction = await createImageGenerationPrediction({
+        prompt: enhancedPrompt,
+        aspect_ratio: aspectRatio as any, // nano-banana supports: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
+        ...(webhookUrl && { webhook: webhookUrl }),
+        ...(request.image_input && request.image_input.length > 0 && { image_input: request.image_input }),
+      });
+      const predictions = [singlePrediction];
 
-    // Create a single prediction record with the main Replicate prediction ID
-    // This allows us to track and poll if webhooks fail
-    const predictionIds = predictions.map(p => p.id);
-    await createPredictionRecord({
-      prediction_id: batch_id,
-      user_id: request.user_id,
-      tool_id: 'thumbnail-machine',
-      service_id: 'generate',
-      model_version: 'nano-banana',
-      status: 'processing',
-      input_data: request as unknown as Json,
-      external_id: predictionIds[0], // Store the main prediction ID for webhook matching
-    });
+      // Create a single prediction record with the main Replicate prediction ID
+      // This allows us to track and poll if webhooks fail
+      const predictionIds = predictions.map(p => p.id);
+      await createPredictionRecord({
+        prediction_id: batch_id,
+        user_id: request.user_id,
+        tool_id: 'thumbnail-machine',
+        service_id: 'generate',
+        model_version: 'nano-banana',
+        status: 'processing',
+        input_data: request as unknown as Json,
+        external_id: predictionIds[0], // Store the main prediction ID for webhook matching
+      });
 
-    // Step 5: Wait for All Completions
-    console.log(`⏳ Waiting for ${predictions.length} nano-banana completions`);
-    console.log(`📝 Replicate prediction IDs available for polling:`, predictionIds);
-    const completed_predictions = await Promise.all(
-      predictions.map(p => waitForImageGenerationCompletion(p.id))
-    );
+      // Step 5: Wait for All Completions
+      console.log(`⏳ Waiting for ${predictions.length} nano-banana completions`);
+      console.log(`📝 Replicate prediction IDs available for polling:`, predictionIds);
+      completed_predictions = await Promise.all(
+        predictions.map(p => waitForImageGenerationCompletion(p.id))
+      );
+    }
 
     // Check for any failures
     const failed_predictions = completed_predictions.filter(p => p.status !== 'succeeded');
@@ -844,7 +874,7 @@ async function executeProGenerationWorkflow(
       user_id: request.user_id,
       tool_id: 'thumbnail-machine',
       service_id: 'generate-pro',
-      model_version: 'nano-banana-pro-fal',
+      model_version: imageEngineLabel('pro'),
       status: 'starting',
       input_data: request as unknown as Json,
     });
@@ -869,12 +899,14 @@ async function executeProGenerationWorkflow(
 
     console.log('📝 Pro prompt:', enhancedPrompt.substring(0, 200) + '...');
 
-    // Step 3: Generate with fal.ai nano-banana-2 (synchronous — no polling needed)
+    // Step 3: Generate on fal (synchronous — no polling needed). GPT Image 2.5
+    // by default; IMAGE_ENGINE=nb2 rolls back to nano-banana-2.
     const { generateWithFalNanaBanana2 } = await import('../models/fal-nano-banana-2');
+    const generateThumbnail = imageEngine() === 'gpt25' ? generateWithGptImage25 : generateWithFalNanaBanana2;
 
     await updatePredictionRecord(batch_id, { status: 'processing' });
 
-    const falResult = await generateWithFalNanaBanana2({
+    const falResult = await generateThumbnail({
       prompt: enhancedPrompt,
       aspect_ratio: (request.aspect_ratio as any) || '16:9',
       resolution: '1K',
@@ -923,8 +955,8 @@ async function executeProGenerationWorkflow(
       dimensions,
       height,
       width,
-      model_name: 'nano-banana-pro-fal',
-      model_version: 'nano-banana-pro-fal',
+      model_name: imageEngineLabel('pro'),
+      model_version: imageEngineLabel('pro'),
       batch_id,
       generation_settings: request as unknown as Json,
       metadata: {
@@ -941,7 +973,7 @@ async function executeProGenerationWorkflow(
     await recordGenerationMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'nano-banana-pro-fal',
+      model_version: imageEngineLabel('pro'),
       style_type: 'pro',
       num_variations: 1,
       generation_time_ms: Date.now() - startTime,

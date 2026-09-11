@@ -8,6 +8,8 @@
 
 import { createClient, createAdminClient } from '@/app/supabase/server';
 import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from '../models/fal-nano-banana-2';
+import { generateWithGptImage25 } from '../models/fal-gpt-image-25';
+import { imageEngine, imageEngineLabel } from '@/lib/image-engine';
 import { downloadAndUploadImage } from '../supabase-storage';
 import { deductCredits } from '../database/cinematographer-database';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
@@ -81,10 +83,12 @@ export async function generateImage(request: ImageMakerRequest): Promise<ImageMa
 
     const batch_id = crypto.randomUUID();
 
-    // Generate N images in parallel (Nano Banana 2 returns one image per call).
+    // Generate N images in parallel (one image per call). GPT Image 2.5 by
+    // default; IMAGE_ENGINE=nb2 rolls back to Nano Banana 2.
+    const generate = imageEngine() === 'gpt25' ? generateWithGptImage25 : generateWithFalNanaBanana2;
     const results = await Promise.all(
       Array.from({ length: count }, () =>
-        generateWithFalNanaBanana2({
+        generate({
           prompt,
           aspect_ratio: request.aspect_ratio || '1:1',
           resolution,
@@ -125,7 +129,7 @@ export async function generateImage(request: ImageMakerRequest): Promise<ImageMa
       metadata: {
         aspect_ratio: request.aspect_ratio || '1:1',
         resolution,
-        model: 'nano-banana-2',
+        model: imageEngineLabel(),
         count: stored.length,
       },
     };
