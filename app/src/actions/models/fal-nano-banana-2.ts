@@ -1,6 +1,8 @@
 'use server';
 
 import { friendlyFalImageError } from './fal-error';
+import { generateWithGptImage25 } from './fal-gpt-image-25';
+import { imageEngine } from '@/lib/image-engine';
 
 /**
  * Nano-Banana 2 via fal.ai (replaces Nano-Banana Pro — same quality, half the cost, faster)
@@ -127,7 +129,9 @@ export async function generateImageWithPro(
   // Map 'jpg' to 'jpeg' for fal.ai API compatibility (same binary JPEG format)
   const falOutputFormat = outputFormat === 'jpg' ? 'jpeg' : outputFormat;
 
-  return generateWithFalNanaBanana2({
+  // GPT Image 2.5 by default (see src/lib/image-engine.ts); IMAGE_ENGINE=nb2 rolls back.
+  const generate = imageEngine() === 'gpt25' ? generateWithGptImage25 : generateWithFalNanaBanana2;
+  return generate({
     prompt,
     aspect_ratio: aspectRatio,
     resolution,

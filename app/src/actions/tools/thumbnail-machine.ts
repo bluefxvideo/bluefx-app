@@ -1070,30 +1070,44 @@ async function executeFaceSwapOnlyWorkflow(
       console.log(`🎨 Attempting to generate base thumbnail with aspect ratio: ${request.aspect_ratio}`);
 
       try {
-        // Create a base thumbnail with the desired aspect ratio using nano-banana
-        const baseThumbnailPrediction = await createImageGenerationPrediction({
-          prompt: 'professional headshot, clean background, high quality portrait',
-          aspect_ratio: request.aspect_ratio as any,
-        });
+        // Create a base thumbnail with the desired aspect ratio. GPT Image 2.5
+        // (synchronous) by default; IMAGE_ENGINE=nb2 keeps the Replicate nano-banana path.
+        if (imageEngine() === 'gpt25') {
+          const base = await generateWithGptImage25({
+            prompt: 'professional headshot, clean background, high quality portrait',
+            aspect_ratio: request.aspect_ratio as NanoBananaAspectRatio,
+            resolution: '1K',
+            output_format: 'jpeg',
+          });
+          if (!base.success || !base.imageUrl) {
+            throw new Error(`Base thumbnail generation failed: ${base.error || 'Unknown error'}`);
+          }
+          targetImageUrl = base.imageUrl;
+        } else {
+          const baseThumbnailPrediction = await createImageGenerationPrediction({
+            prompt: 'professional headshot, clean background, high quality portrait',
+            aspect_ratio: request.aspect_ratio as any,
+          });
 
-        if (!baseThumbnailPrediction.id) {
-          throw new Error('Failed to create base thumbnail prediction');
+          if (!baseThumbnailPrediction.id) {
+            throw new Error('Failed to create base thumbnail prediction');
+          }
+
+          // Wait for completion
+          const completedBasePrediction = await waitForImageGenerationCompletion(baseThumbnailPrediction.id);
+          if (completedBasePrediction.status === 'failed') {
+            throw new Error(`Base thumbnail generation failed: ${completedBasePrediction.error || 'Unknown error'}`);
+          }
+
+          if (!completedBasePrediction.output) {
+            throw new Error('Base thumbnail generation completed but no output received');
+          }
+
+          // nano-banana output can be string or array
+          targetImageUrl = Array.isArray(completedBasePrediction.output)
+            ? completedBasePrediction.output[0]
+            : completedBasePrediction.output;
         }
-
-        // Wait for completion
-        const completedBasePrediction = await waitForImageGenerationCompletion(baseThumbnailPrediction.id);
-        if (completedBasePrediction.status === 'failed') {
-          throw new Error(`Base thumbnail generation failed: ${completedBasePrediction.error || 'Unknown error'}`);
-        }
-
-        if (!completedBasePrediction.output) {
-          throw new Error('Base thumbnail generation completed but no output received');
-        }
-
-        // nano-banana output can be string or array
-        targetImageUrl = Array.isArray(completedBasePrediction.output)
-          ? completedBasePrediction.output[0]
-          : completedBasePrediction.output;
         console.log('✅ Generated base thumbnail:', targetImageUrl);
 
         // Add small delay to ensure image is fully available on CDN

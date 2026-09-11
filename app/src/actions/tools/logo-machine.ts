@@ -11,6 +11,7 @@ import {
   deductCredits 
 } from '../database/logo-database';
 import { Json } from '@/types/database';
+import { imageEngineLabel } from '@/lib/image-engine';
 import { createClient } from '@/app/supabase/server';
 
 /**
@@ -133,7 +134,7 @@ export async function generateLogo(
       user_id: request.user_id,
       tool_id: 'logo-machine',
       service_id: request.workflow_intent || 'generate',
-      model_version: 'dall-e-3',
+      model_version: imageEngineLabel(),
       status: 'starting',
       input_data: request as unknown as Json,
     });
@@ -272,7 +273,7 @@ export async function generateLogo(
     await recordLogoMetrics({
       user_id: request.user_id,
       batch_id,
-      model_version: 'dall-e-3',
+      model_version: imageEngineLabel(),
       company_name: request.company_name,
       generation_time_ms: Date.now() - startTime,
       credits_used: total_credits,

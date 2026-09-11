@@ -1,5 +1,8 @@
 'use server';
 
+import { generateWithGptImage25 } from './fal-gpt-image-25';
+import { imageEngine } from '@/lib/image-engine';
+
 import { friendlyFalImageError } from './fal-error';
 
 /**
@@ -35,6 +38,19 @@ export async function generateImage(
   aspectRatio: NanoBananaAspectRatio = '16:9',
   referenceImages?: string[]
 ): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  // Fast tier: GPT Image 2.5 at medium quality (about $0.01 per 1080p image,
+  // faster than high); IMAGE_ENGINE=nb2 rolls back to the original nano-banana.
+  if (imageEngine() === 'gpt25') {
+    return generateWithGptImage25({
+      prompt,
+      aspect_ratio: aspectRatio,
+      resolution: '1K',
+      quality: 'medium',
+      output_format: 'jpeg',
+      image_input: referenceImages && referenceImages.length > 0 ? referenceImages : undefined,
+    });
+  }
+
   const falKey = process.env.FAL_KEY;
   if (!falKey) {
     return { success: false, error: 'FAL_KEY not configured' };

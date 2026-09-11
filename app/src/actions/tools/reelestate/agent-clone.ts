@@ -2,6 +2,8 @@
 
 import { createClient } from '@/app/supabase/server';
 import { generateWithFalNanaBanana2 } from '@/actions/models/fal-nano-banana-2';
+import { generateWithGptImage25 } from '@/actions/models/fal-gpt-image-25';
+import { imageEngine } from '@/lib/image-engine';
 import { convertVoiceInMedia } from '@/lib/voice-changer/convert';
 import { createVideoGenerationPrediction, getVideoGenerationPrediction } from '@/actions/models/video-generation-v1';
 import { deductCredits } from '@/actions/database/cinematographer-database';
@@ -77,7 +79,9 @@ export async function generateAgentComposite(
       fetchImageAsBase64(backgroundUrl),
     ]);
 
-    const result = await generateWithFalNanaBanana2({
+    // GPT Image 2.5 edit by default (accepts the base64 references); IMAGE_ENGINE=nb2 rolls back.
+    const generate = imageEngine() === 'gpt25' ? generateWithGptImage25 : generateWithFalNanaBanana2;
+    const result = await generate({
       prompt,
       image_input: [agentBase64, bgBase64],
       aspect_ratio: aspectRatio,

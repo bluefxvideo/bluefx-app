@@ -1,6 +1,8 @@
 'use server';
 
 import { createImageGenerationPrediction, waitForImageGenerationCompletion } from '../models/image-generation-nano-banana';
+import { generateWithGptImage25 } from '../models/fal-gpt-image-25';
+import { imageEngine } from '@/lib/image-engine';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
@@ -187,21 +189,36 @@ export async function generateEbookCover(params: GenerateCoverParams): Promise<G
     
     console.log('📝 Enhanced prompt:', enhancedPrompt);
     
-    // Create prediction with nano-banana (faster than Ideogram)
-    const prediction = await createImageGenerationPrediction({
-      prompt: enhancedPrompt,
-      aspect_ratio: '2:3', // Standard book cover aspect ratio
-    });
+    // GPT Image 2.5 (synchronous, strong at cover typography) by default;
+    // IMAGE_ENGINE=nb2 keeps the Replicate nano-banana path.
+    let outputUrl: string;
+    if (imageEngine() === 'gpt25') {
+      const generated = await generateWithGptImage25({
+        prompt: enhancedPrompt,
+        aspect_ratio: '2:3', // Standard book cover aspect ratio
+        resolution: '1K',
+        output_format: 'jpeg',
+      });
+      if (!generated.success || !generated.imageUrl) {
+        throw new Error(generated.error || 'Cover generation failed');
+      }
+      outputUrl = generated.imageUrl;
+    } else {
+      const prediction = await createImageGenerationPrediction({
+        prompt: enhancedPrompt,
+        aspect_ratio: '2:3', // Standard book cover aspect ratio
+      });
 
-    // Wait for completion
-    const result = await waitForImageGenerationCompletion(prediction.id, 60000); // 60 second timeout
+      // Wait for completion
+      const result = await waitForImageGenerationCompletion(prediction.id, 60000); // 60 second timeout
 
-    if (result.status !== 'succeeded' || !result.output) {
-      throw new Error(result.error || 'Cover generation failed');
+      if (result.status !== 'succeeded' || !result.output) {
+        throw new Error(result.error || 'Cover generation failed');
+      }
+
+      // nano-banana output can be string or array
+      outputUrl = Array.isArray(result.output) ? result.output[0] : result.output;
     }
-
-    // nano-banana output can be string or array
-    const outputUrl = Array.isArray(result.output) ? result.output[0] : result.output;
     
     // Upload to Supabase storage
     const timestamp = new Date().toISOString().replace(/[:.]/g, '');

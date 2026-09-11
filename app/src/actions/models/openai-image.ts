@@ -8,6 +8,8 @@
  * keep working unchanged.
  */
 import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from './fal-nano-banana-2';
+import { generateWithGptImage25 } from './fal-gpt-image-25';
+import { imageEngine } from '@/lib/image-engine';
 
 // Map OpenAI sizes / aspect-ratio strings to the nearest Nano Banana 2 aspect ratio.
 function toNanoAspect(value?: string): NanoBananaAspectRatio {
@@ -78,9 +80,20 @@ export async function generateImage(params: OpenAIImageInput): Promise<OpenAIIma
       ? params.output_format
       : 'png';
 
+    // GPT Image 2.5 by default; it can also honour a transparent background for
+    // logos, which Nano Banana 2 ignores. IMAGE_ENGINE=nb2 rolls back.
+    const useGpt = imageEngine() === 'gpt25';
     const results = await Promise.all(
       Array.from({ length: count }, () =>
-        generateWithFalNanaBanana2({ prompt: params.prompt, aspect_ratio, resolution: '2K', output_format })
+        useGpt
+          ? generateWithGptImage25({
+              prompt: params.prompt,
+              aspect_ratio,
+              resolution: '2K',
+              output_format: params.background === 'transparent' ? 'png' : output_format,
+              background: params.background === 'transparent' ? 'transparent' : undefined,
+            })
+          : generateWithFalNanaBanana2({ prompt: params.prompt, aspect_ratio, resolution: '2K', output_format })
       )
     );
 
@@ -187,7 +200,8 @@ export async function recreateLogo(
 
     // Nano Banana 2 takes the reference image URL directly (image_input → /edit endpoint),
     // so there's no need to download/re-upload the reference first.
-    const result = await generateWithFalNanaBanana2({
+    const generate = imageEngine() === 'gpt25' ? generateWithGptImage25 : generateWithFalNanaBanana2;
+    const result = await generate({
       prompt: enhancedPrompt,
       aspect_ratio: toNanoAspect(aspectRatio),
       resolution: '2K',
