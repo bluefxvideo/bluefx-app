@@ -342,8 +342,11 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{isTikTok ? 'All Niches' : 'All Categories'}</SelectItem>
+                {/* Facebook filters on industry_key, the raw scrape term the niches
+                    route returns as slug; the pretty name is display only. TikTok rows
+                    store the display name in the niche column, so they keep the name. */}
                 {niches.map((niche) => (
-                  <SelectItem key={niche.slug} value={niche.name}>
+                  <SelectItem key={niche.slug} value={isTikTok ? niche.name : niche.slug}>
                     {niche.name} ({niche.ad_count})
                   </SelectItem>
                 ))}
