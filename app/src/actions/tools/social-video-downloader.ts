@@ -110,15 +110,28 @@ async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoD
       const snapshot = ad.snapshot as Record<string, unknown> | undefined;
       const videos = snapshot?.videos as Array<Record<string, unknown>> | undefined;
 
-      // Videos are inside snapshot.cards[].videoHdUrl (camelCase), not snapshot.videos
+      // Field names differ by ad shape: single-video ads carry
+      // snapshot.videos[].videoHdUrl (camelCase, cards empty), carousels carry
+      // snapshot.cards[].videoHdUrl, older actor builds used snake_case.
+      // Scan every entry of both arrays with both spellings.
       const cards = snapshot?.cards as Array<Record<string, unknown>> | undefined;
+      const pick = (entries: Array<Record<string, unknown>> | undefined, keys: string[]): string | undefined => {
+        for (const entry of entries ?? []) {
+          for (const key of keys) {
+            const value = entry?.[key];
+            if (typeof value === 'string' && value.startsWith('http')) return value;
+          }
+        }
+        return undefined;
+      };
+      const hdKeys = ['videoHdUrl', 'video_hd_url'];
+      const sdKeys = ['videoSdUrl', 'video_sd_url'];
       const videoUrl =
-        (cards?.[0]?.videoHdUrl as string | undefined) ||
-        (cards?.[0]?.videoSdUrl as string | undefined) ||
-        (videos?.[0]?.video_hd_url as string | undefined) ||
-        (videos?.[0]?.video_sd_url as string | undefined) ||
-        (snapshot?.video_hd_url as string | undefined) ||
-        (snapshot?.video_sd_url as string | undefined);
+        pick(cards, hdKeys) ||
+        pick(videos, hdKeys) ||
+        pick(cards, sdKeys) ||
+        pick(videos, sdKeys) ||
+        pick([snapshot ?? {}], [...hdKeys, ...sdKeys]);
 
       if (videoUrl) {
         console.log(`✅ Extracted Ads Library video URL via apify/facebook-ads-scraper: ${videoUrl.slice(0, 100)}...`);
@@ -126,7 +139,7 @@ async function extractFacebookAdsLibraryVideo(url: string): Promise<SocialVideoD
           success: true,
           videoUrl,
           title: (snapshot?.pageName as string | undefined) ? `Facebook Ad – ${snapshot?.pageName}` : `Facebook Ad ${adId || ''}`.trim(),
-          thumbnail: (cards?.[0]?.videoPreviewImageUrl as string | undefined) || undefined,
+          thumbnail: pick(cards, ['videoPreviewImageUrl']) || pick(videos, ['videoPreviewImageUrl']),
           platform: 'facebook',
         };
       }
