@@ -123,6 +123,13 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
   const [savedAdIds, setSavedAdIds] = useState<Set<number>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Filter clicks fire overlapping requests; only the newest may touch state.
+  // Without this, a slower earlier response (e.g. an empty result) could land
+  // after the current one and leave "0 ads found" on screen for a filter that
+  // has ads.
+  const adsRequestRef = useRef(0);
+  const adsAbortRef = useRef<AbortController | null>(null);
+  const nichesRequestRef = useRef(0);
 
   // Reset filters when switching platforms. This also runs on first render,
   // so it MUST set the product defaults: video ads first (we clone videos),
@@ -148,6 +155,10 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
   }, [searchQuery]);
 
   const fetchAds = useCallback(async (page = 1) => {
+    const requestId = ++adsRequestRef.current;
+    adsAbortRef.current?.abort();
+    const controller = new AbortController();
+    adsAbortRef.current = controller;
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -159,25 +170,31 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
       params.set('limit', '20');
       if (debouncedSearch) params.set('search', debouncedSearch);
 
-      const response = await fetch(`/api/winning-ads?${params.toString()}`);
+      const response = await fetch(`/api/winning-ads?${params.toString()}`, { signal: controller.signal });
       if (!response.ok) throw new Error('Failed to fetch ads');
 
       const data = await response.json();
+      if (requestId !== adsRequestRef.current) return; // superseded by a newer request
       setAds(data.ads);
       setPagination(data.pagination);
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (requestId !== adsRequestRef.current) return;
       console.error('Failed to fetch ads:', error);
       toast.error('Something went wrong loading ads. Please try again.');
     } finally {
-      setIsLoading(false);
+      // A superseded request must not clear the spinner the newer one turned on.
+      if (requestId === adsRequestRef.current) setIsLoading(false);
     }
   }, [platform, selectedNiche, mediaType, sortBy, debouncedSearch]);
 
   const fetchNiches = useCallback(async () => {
+    const requestId = ++nichesRequestRef.current;
     try {
       const response = await fetch(`/api/winning-ads/niches?platform=${platform}`);
       if (!response.ok) throw new Error('Failed to fetch niches');
       const data = await response.json();
+      if (requestId !== nichesRequestRef.current) return; // platform changed meanwhile
       setNiches(data.niches);
     } catch (error) {
       console.error('Failed to fetch niches:', error);
