@@ -2,6 +2,7 @@
 
 import { friendlyFalImageError } from './fal-error';
 import type { NanoBananaAspectRatio } from './fal-nano-banana-2';
+import { pixelSizeFor } from '@/lib/image-sizes';
 
 /**
  * GPT Image 2.5 via fal.ai (billed through FAL, no OpenAI account needed).
@@ -35,43 +36,6 @@ interface GptImage25Input {
   background?: 'auto' | 'transparent' | 'opaque';
 }
 
-type Size = { width: number; height: number };
-
-// Pixel sizes that match what the Nano Banana resolution tiers meant to callers.
-// 'auto' is handled separately: edits keep the input image's size.
-const SIZES: Record<ImageResolution, Partial<Record<NanoBananaAspectRatio, Size>>> = {
-  '1K': {
-    '16:9': { width: 1920, height: 1080 },
-    '9:16': { width: 1080, height: 1920 },
-    '1:1': { width: 1024, height: 1024 },
-    '4:3': { width: 1024, height: 768 },
-    '3:4': { width: 768, height: 1024 },
-    '3:2': { width: 1536, height: 1024 },
-    '2:3': { width: 1024, height: 1536 },
-    '21:9': { width: 1920, height: 816 },
-  },
-  '2K': {
-    '16:9': { width: 2560, height: 1440 },
-    '9:16': { width: 1440, height: 2560 },
-    '1:1': { width: 2048, height: 2048 },
-    '4:3': { width: 2048, height: 1536 },
-    '3:4': { width: 1536, height: 2048 },
-    '3:2': { width: 2160, height: 1440 },
-    '2:3': { width: 1440, height: 2160 },
-    '21:9': { width: 2560, height: 1088 },
-  },
-  '4K': {
-    '16:9': { width: 3840, height: 2160 },
-    '9:16': { width: 2160, height: 3840 },
-    '1:1': { width: 3072, height: 3072 },
-    '4:3': { width: 3072, height: 2304 },
-    '3:4': { width: 2304, height: 3072 },
-    '3:2': { width: 3240, height: 2160 },
-    '2:3': { width: 2160, height: 3240 },
-    '21:9': { width: 3840, height: 1632 },
-  },
-};
-
 /**
  * Generate or edit an image with GPT Image 2.5 via fal.ai (synchronous).
  * Uses the /edit endpoint when reference images are provided.
@@ -90,7 +54,7 @@ export async function generateWithGptImage25(params: GptImage25Input): Promise<{
   const variant: GptImage25Variant = params.variant || 'flare';
   const endpoint = `https://fal.run/openai/gpt-image-2.5/${variant}/${hasImages ? 'edit' : 'text-to-image'}`;
   const aspect = params.aspect_ratio || '16:9';
-  const size = aspect === 'auto' ? undefined : SIZES[params.resolution || '1K'][aspect];
+  const size = aspect === 'auto' ? undefined : pixelSizeFor(aspect, params.resolution || '1K');
 
   const body: Record<string, unknown> = {
     prompt: params.prompt,

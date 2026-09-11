@@ -10,6 +10,7 @@ import { createClient, createAdminClient } from '@/app/supabase/server';
 import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from '../models/fal-nano-banana-2';
 import { generateWithGptImage25 } from '../models/fal-gpt-image-25';
 import { imageEngine, imageEngineLabel } from '@/lib/image-engine';
+import { pixelSizeFor, orientationOf } from '@/lib/image-sizes';
 import { downloadAndUploadImage } from '../supabase-storage';
 import { deductCredits } from '../database/cinematographer-database';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
@@ -120,11 +121,19 @@ export async function generateImage(request: ImageMakerRequest): Promise<ImageMa
     // result; an RLS denial on the user-scoped client was previously silent
     // and no history was ever written. Fall back to the admin client with the
     // authenticated user's id (the pattern the other tools' webhooks use).
+    // generated_images requires dimensions/width/height (NOT NULL); without
+    // them every insert failed and Image Maker history stayed empty.
+    const aspect = request.aspect_ratio || '1:1';
+    const size = pixelSizeFor(aspect, resolution) || { width: 1024, height: 1024 };
     const row = {
       user_id: user.id,
       prompt,
       image_urls: stored,
       model_name: 'image-maker',
+      dimensions: orientationOf(aspect),
+      width: size.width,
+      height: size.height,
+      variations_count: stored.length,
       batch_id,
       metadata: {
         aspect_ratio: request.aspect_ratio || '1:1',
