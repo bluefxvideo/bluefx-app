@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Clapperboard, Film, Link2, Loader2, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
@@ -34,6 +35,14 @@ export function CloneStudioPage() {
   const [starting, setStarting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const searchParams = useSearchParams();
+
+  // The Winning Ads library hands an ad over as ?url=<its public page>. Only
+  // prefill the field: the user presses the button, so credits move only then.
+  useEffect(() => {
+    const handedOver = searchParams.get('url');
+    if (handedOver) setSourceUrl(handedOver);
+  }, [searchParams]);
 
   const refreshList = useCallback(async () => {
     const result = await listCloneProjects();
@@ -154,7 +163,7 @@ export function CloneStudioPage() {
                   <Input
                     value={sourceUrl}
                     onChange={(e) => setSourceUrl(e.target.value)}
-                    placeholder="https://www.tiktok.com/... or youtube.com/..."
+                    placeholder="TikTok, Facebook Ad Library, Instagram or YouTube link"
                     className="pl-9"
                     disabled={starting}
                   />

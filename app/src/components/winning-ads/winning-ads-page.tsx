@@ -226,17 +226,14 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
       toast.error('This ad is missing its source ID and cannot be cloned.');
       return;
     }
-    if (ad.platform === 'facebook') {
-      const adUrl = `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`;
-      router.push(`/dashboard/video-analyzer?videoUrl=${encodeURIComponent(adUrl)}`);
-    } else {
-      const adUrl = `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
-      // Forward the stored CDN video_url so the analyzer can skip the
-      // Creative Center HTML extraction (which TikTok now client-renders).
-      const params = new URLSearchParams({ videoUrl: adUrl });
-      if (ad.video_url) params.set('directUrl', ad.video_url);
-      router.push(`/dashboard/video-analyzer?${params.toString()}`);
-    }
+    // Hand Clone Studio the ad's public page. Facebook rows keep the Ad Library
+    // ID, which Clone Studio resolves while the ad is still running; TikTok
+    // rows point at their Creative Center page.
+    const adUrl =
+      ad.platform === 'facebook'
+        ? `https://www.facebook.com/ads/library/?id=${ad.tiktok_material_id}`
+        : `https://ads.tiktok.com/business/creativecenter/topads/${ad.tiktok_material_id}/pc/en`;
+    router.push(`/dashboard/clone-studio?url=${encodeURIComponent(adUrl)}`);
   };
 
   const handleCopyUrl = async (ad: WinningAd) => {
@@ -653,17 +650,10 @@ function AdCard({
 
         {/* Action buttons */}
         <div className="flex gap-2">
-          {isTikTok ? (
-            <Button className="flex-1" size="sm" onClick={onClone}>
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              Clone This Ad
-            </Button>
-          ) : (
-            <Button className="flex-1" size="sm" onClick={onClone}>
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              Clone This Ad
-            </Button>
-          )}
+          <Button className="flex-1" size="sm" onClick={onClone}>
+            <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+            Clone This Ad
+          </Button>
           <Button
             variant="outline"
             size="sm"
