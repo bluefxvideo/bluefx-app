@@ -24,6 +24,7 @@ export function VideoSwapWizard() {
     currentStep,
     sourceVideo,
     sourceVideoPreview,
+    sourceVideoDuration,
     characterImage,
     characterImagePreview,
     settings,
@@ -129,6 +130,7 @@ export function VideoSwapWizard() {
             onSettingsChange={updateSettings}
             availableCredits={availableCredits}
             creditsRequired={creditsRequired}
+            sourceVideoDuration={sourceVideoDuration}
             onGenerate={startVideoSwap}
             onBack={prevStep}
             isLoading={isLoading}

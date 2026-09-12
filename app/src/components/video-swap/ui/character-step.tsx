@@ -144,8 +144,8 @@ export function CharacterStep({
           <div className="text-sm">
             <p className="font-medium">Character image requirements:</p>
             <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
-              <li>Clear, well-lit face visible</li>
-              <li>Front-facing or slight angle works best</li>
+              <li>Clear body proportions, nothing covering the person</li>
+              <li>The person fills a good part of the frame (at least 5% of the image)</li>
               <li>High resolution for better quality</li>
               <li>Single person in the image</li>
             </ul>

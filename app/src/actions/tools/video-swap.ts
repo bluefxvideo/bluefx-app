@@ -1,17 +1,44 @@
 'use server';
 
-import { performVideoSwap } from '@/actions/models/wan-video-swap';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import {
+  submitKlingMotionControl,
+  getKlingMotionControlStatus,
+  getKlingMotionControlResult,
+} from '@/actions/models/fal-kling-motion-control';
 import {
   createVideoSwapJob,
   updateVideoSwapJob,
   getUserCredits,
   deductCredits,
-  recordVideoSwapMetrics,
 } from '@/actions/database/video-swap-database';
+import { refundFailedGeneration } from '@/lib/credits/refund';
+import { finalizeVideoSwap, failVideoSwap } from '@/lib/video-swap/finalize';
+import {
+  VIDEO_SWAP_MAX_SECONDS,
+  videoSwapCredits,
+  type VideoSwapOrientation,
+} from '@/lib/video-swap/pricing';
 import { Json } from '@/types/database';
 
-// Credits cost for video swap
-const VIDEO_SWAP_CREDITS = 50;
+const execFileAsync = promisify(execFile);
+const PROVIDER = 'fal-kling-2.6-pro-motion-control';
+
+/** Length of a hosted video in seconds; ffprobe reads http(s) sources directly. */
+async function probeRemoteDuration(url: string): Promise<number> {
+  const { stdout } = await execFileAsync('ffprobe', [
+    '-v', 'error',
+    '-show_entries', 'format=duration',
+    '-of', 'csv=p=0',
+    url,
+  ], { timeout: 60_000 });
+  const duration = parseFloat(stdout.trim());
+  if (!duration || Number.isNaN(duration)) {
+    throw new Error('Could not read the video length (is this a valid video file?)');
+  }
+  return duration;
+}
 
 /**
  * Request types for Video Swap
@@ -20,12 +47,10 @@ const VIDEO_SWAP_CREDITS = 50;
 export interface VideoSwapRequest {
   source_video_url: string;
   character_image_url: string;
-  resolution?: '480' | '720';
-  frames_per_second?: number;
-  merge_audio?: boolean;
-  go_fast?: boolean;
-  refert_num?: 1 | 5;
-  seed?: number;
+  /** 'video' follows the reference video (complex motion, up to 30 s); 'image' follows the image (camera moves, up to 10 s). */
+  character_orientation: VideoSwapOrientation;
+  keep_original_sound: boolean;
+  prompt?: string;
   user_id: string;
 }
 
@@ -48,265 +73,139 @@ export interface VideoSwapResponse {
 }
 
 /**
- * Validate video file
- */
-function validateVideo(file: File): { valid: boolean; error?: string } {
-  const validTypes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'];
-  const maxSize = 100 * 1024 * 1024; // 100MB
-
-  if (!validTypes.includes(file.type)) {
-    return {
-      valid: false,
-      error: `Invalid video format. Supported: MP4, MOV, WebM. Got: ${file.type}`
-    };
-  }
-
-  if (file.size > maxSize) {
-    return {
-      valid: false,
-      error: `Video file too large. Maximum: 100MB. Got: ${(file.size / 1024 / 1024).toFixed(1)}MB`
-    };
-  }
-
-  return { valid: true };
-}
-
-/**
- * Validate image file
- */
-function validateImage(file: File): { valid: boolean; error?: string } {
-  const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  const maxSize = 10 * 1024 * 1024; // 10MB
-
-  if (!validTypes.includes(file.type)) {
-    return {
-      valid: false,
-      error: `Invalid image format. Supported: JPEG, PNG, WebP, GIF. Got: ${file.type}`
-    };
-  }
-
-  if (file.size > maxSize) {
-    return {
-      valid: false,
-      error: `Image file too large. Maximum: 10MB. Got: ${(file.size / 1024 / 1024).toFixed(1)}MB`
-    };
-  }
-
-  return { valid: true };
-}
-
-/**
- * Execute Video Swap - Main orchestrator
+ * Execute Video Swap.
  *
- * Workflow:
- * 1. Validate URLs are provided
- * 2. Check user credits
- * 3. Deduct credits
- * 4. Create job record
- * 5. Call Replicate API with webhook
- * 6. Return job ID for tracking
+ * 1. Measure the source clip and check it against fal's length limit for
+ *    the chosen orientation.
+ * 2. Price it (8 credits per second, rounded up) and check the balance.
+ * 3. Create the job row, then charge with the row id in the ledger so a
+ *    failure can be refunded against it.
+ * 4. Submit to Kling motion control on fal with the webhook; the webhook
+ *    (or the status poller) finishes the job minutes later.
  *
- * Note: File uploads are now handled by the /api/upload/video-swap API route
- * This function receives URLs instead of Files
+ * Files are uploaded by /api/upload/video-swap first; this takes URLs.
  */
 export async function executeVideoSwap(
   request: VideoSwapRequest
 ): Promise<VideoSwapResponse> {
   const startTime = Date.now();
-  const job_id = crypto.randomUUID();
+  const fail = (error: string, extra: Partial<VideoSwapResponse> = {}): VideoSwapResponse => ({
+    success: false,
+    error,
+    job_id: extra.job_id || '',
+    generation_time_ms: Date.now() - startTime,
+    credits_used: extra.credits_used || 0,
+    remaining_credits: extra.remaining_credits || 0,
+  });
 
   try {
-    console.log('🎬 Video Swap: Starting execution', {
-      job_id,
-      user_id: request.user_id,
-      source_video_url: request.source_video_url.substring(0, 50) + '...',
-      character_image_url: request.character_image_url.substring(0, 50) + '...',
-      resolution: request.resolution || '720',
-    });
+    if (!request.source_video_url) return fail('Source video URL is required');
+    if (!request.character_image_url) return fail('Character image URL is required');
+    const orientation: VideoSwapOrientation = request.character_orientation === 'image' ? 'image' : 'video';
 
-    // Step 1: Validate URLs are provided
-    if (!request.source_video_url) {
-      return {
-        success: false,
-        error: 'Source video URL is required',
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: 0,
-      };
+    // Step 1: length check against fal's limit for this orientation
+    let duration: number;
+    try {
+      duration = await probeRemoteDuration(request.source_video_url);
+    } catch (probeError) {
+      return fail(probeError instanceof Error ? probeError.message : 'Could not read the video');
+    }
+    const maxSeconds = VIDEO_SWAP_MAX_SECONDS[orientation];
+    if (duration > maxSeconds + 0.5) {
+      return fail(
+        `This clip is ${duration.toFixed(1)} s. ${orientation === 'image' ? 'Following the image' : 'Following the video'} allows up to ${maxSeconds} s.`
+      );
     }
 
-    if (!request.character_image_url) {
-      return {
-        success: false,
-        error: 'Character image URL is required',
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: 0,
-      };
-    }
-
-    // Step 2: Credit Validation
+    // Step 2: price + balance
+    const credits = videoSwapCredits(duration);
     const creditCheck = await getUserCredits(request.user_id);
-    if (!creditCheck.success) {
-      return {
-        success: false,
-        error: 'Unable to verify credit balance',
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: 0,
-      };
-    }
-
-    if ((creditCheck.credits || 0) < VIDEO_SWAP_CREDITS) {
-      return {
-        success: false,
-        error: `Insufficient credits. Required: ${VIDEO_SWAP_CREDITS}, Available: ${creditCheck.credits || 0}`,
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
+    if (!creditCheck.success) return fail('Unable to verify credit balance');
+    if ((creditCheck.credits || 0) < credits) {
+      return fail(`Insufficient credits. Required: ${credits}, Available: ${creditCheck.credits || 0}`, {
         remaining_credits: creditCheck.credits || 0,
-      };
+      });
     }
 
-    console.log(`💳 Credits validated: ${creditCheck.credits} available, ${VIDEO_SWAP_CREDITS} required`);
-
-    // Step 3: Deduct credits
-    const deductResult = await deductCredits(
-      request.user_id,
-      VIDEO_SWAP_CREDITS,
-      'video-swap',
-      {
-        job_id,
-        resolution: request.resolution || '720',
-      } as Json
-    );
-
-    if (!deductResult.success) {
-      console.error('Credit deduction failed:', deductResult.error);
-      return {
-        success: false,
-        error: `Failed to deduct credits: ${deductResult.error}`,
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: 0,
-        remaining_credits: creditCheck.credits || 0,
-      };
-    }
-
-    console.log(`💳 Credits deducted: ${VIDEO_SWAP_CREDITS}. Remaining: ${deductResult.remainingCredits}`);
-
-    // Step 4: Create job record in database
+    // Step 3: job row first, then the charge references it
     const jobResult = await createVideoSwapJob({
       user_id: request.user_id,
       source_video_url: request.source_video_url,
       character_image_url: request.character_image_url,
-      resolution: request.resolution || '720',
-      frames_per_second: request.frames_per_second || 24,
-      merge_audio: request.merge_audio ?? true,
-      go_fast: request.go_fast ?? true,
-      refert_num: request.refert_num || 1,
-      seed: request.seed,
-      metadata: {} as Json,
+      merge_audio: request.keep_original_sound,
+      credits_used: credits,
+      processing_provider: PROVIDER,
+      duration_seconds: Math.round(duration * 100) / 100,
+      metadata: {
+        character_orientation: orientation,
+        keep_original_sound: request.keep_original_sound,
+        prompt: request.prompt?.trim() || null,
+        engine: 'fal-ai/kling-video/v2.6/pro/motion-control',
+      } as Json,
+    });
+    if (!jobResult.success || !jobResult.job) {
+      return fail(`Failed to create job record: ${jobResult.error}`);
+    }
+    const job = jobResult.job;
+
+    const deductResult = await deductCredits(request.user_id, credits, 'video-swap', {
+      job_id: job.id,
+      seconds: Math.ceil(duration),
+      character_orientation: orientation,
+    } as Json);
+    if (!deductResult.success) {
+      await updateVideoSwapJob(job.id, { status: 'failed', error_message: deductResult.error || 'Credit deduction failed' });
+      return fail(`Failed to deduct credits: ${deductResult.error}`, { job_id: job.id, remaining_credits: creditCheck.credits || 0 });
+    }
+    console.log(`💳 Video Swap: ${credits} credits for ${duration.toFixed(1)} s (job ${job.id}). Remaining: ${deductResult.remainingCredits}`);
+
+    // Step 4: submit to fal with the webhook
+    await updateVideoSwapJob(job.id, { status: 'processing' });
+    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://app.bluefx.net'}/api/webhooks/fal-ai`;
+    const submitted = await submitKlingMotionControl({
+      image_url: request.character_image_url,
+      video_url: request.source_video_url,
+      character_orientation: orientation,
+      keep_original_sound: request.keep_original_sound,
+      prompt: request.prompt,
+      webhook_url: webhookUrl,
     });
 
-    if (!jobResult.success || !jobResult.job) {
-      console.error('Failed to create job record:', jobResult.error);
-      return {
-        success: false,
-        error: `Failed to create job record: ${jobResult.error}`,
-        job_id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: VIDEO_SWAP_CREDITS,
-        remaining_credits: deductResult.remainingCredits || 0,
-      };
+    if (!submitted.success || !submitted.request_id) {
+      const refund = await refundFailedGeneration({
+        userId: request.user_id,
+        referenceIds: [job.id],
+        operation: 'video swap',
+      });
+      const message = `${submitted.error || 'Video swap submit failed'}${refund.refunded ? ` — ${refund.amount} credits were refunded.` : ''}`;
+      await updateVideoSwapJob(job.id, { status: 'failed', error_message: message });
+      return fail(message, {
+        job_id: job.id,
+        credits_used: refund.refunded ? 0 : credits,
+        remaining_credits: (deductResult.remainingCredits || 0) + (refund.refunded ? credits : 0),
+      });
     }
 
-    const job = jobResult.job;
-    console.log('📝 Job record created:', job.id);
+    await updateVideoSwapJob(job.id, { external_job_id: submitted.request_id, status: 'processing' });
+    console.log('✅ Video Swap: submitted', { job_id: job.id, request_id: submitted.request_id });
 
-    // Step 5: Update job status to processing
-    await updateVideoSwapJob(job.id, { status: 'processing' });
-
-    // Step 6: Call Replicate API with webhook
-    const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://app.bluefx.net'}/api/webhooks/replicate-ai`;
-
-    console.log('🚀 Calling Replicate API...', { webhookUrl });
-
-    try {
-      const predictionResult = await performVideoSwap(
-        request.source_video_url,
-        request.character_image_url,
-        {
-          resolution: request.resolution || '720',
-          frames_per_second: request.frames_per_second || 24,
-          merge_audio: request.merge_audio ?? true,
-          go_fast: request.go_fast ?? true,
-          refert_num: request.refert_num || 1,
-          seed: request.seed,
-        },
-        webhookUrl,
-        request.user_id,
-        job.id
-      );
-
-      // Update job with external prediction ID
-      await updateVideoSwapJob(job.id, {
-        external_job_id: predictionResult.predictionId,
+    return {
+      success: true,
+      job: {
+        id: job.id,
         status: 'processing',
-      });
-
-      console.log('✅ Video Swap: Prediction submitted', {
-        job_id: job.id,
-        prediction_id: predictionResult.predictionId,
-      });
-
-      return {
-        success: true,
-        job: {
-          id: job.id,
-          status: 'processing',
-          source_video_url: request.source_video_url,
-          character_image_url: request.character_image_url,
-          created_at: job.created_at || new Date().toISOString(),
-        },
-        job_id: job.id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: VIDEO_SWAP_CREDITS,
-        remaining_credits: deductResult.remainingCredits || 0,
-      };
-
-    } catch (apiError) {
-      console.error('Replicate API call failed:', apiError);
-
-      // Update job status to failed
-      await updateVideoSwapJob(job.id, {
-        status: 'failed',
-        error_message: apiError instanceof Error ? apiError.message : 'API call failed',
-      });
-
-      return {
-        success: false,
-        error: `Video swap API call failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`,
-        job_id: job.id,
-        generation_time_ms: Date.now() - startTime,
-        credits_used: VIDEO_SWAP_CREDITS,
-        remaining_credits: deductResult.remainingCredits || 0,
-      };
-    }
-
+        source_video_url: request.source_video_url,
+        character_image_url: request.character_image_url,
+        created_at: job.created_at || new Date().toISOString(),
+      },
+      job_id: job.id,
+      generation_time_ms: Date.now() - startTime,
+      credits_used: credits,
+      remaining_credits: deductResult.remainingCredits || 0,
+    };
   } catch (error) {
     console.error('Video Swap execution error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
-      job_id,
-      generation_time_ms: Date.now() - startTime,
-      credits_used: 0,
-      remaining_credits: 0,
-    };
+    return fail(error instanceof Error ? error.message : 'Unknown error occurred');
   }
 }
 
@@ -329,13 +228,28 @@ export async function getVideoSwapStatus(
 }> {
   try {
     const { getVideoSwapJob } = await import('@/actions/database/video-swap-database');
-    const job = await getVideoSwapJob(jobId, userId);
+    let job = await getVideoSwapJob(jobId, userId);
 
     if (!job) {
       return {
         success: false,
         error: 'Job not found',
       };
+    }
+
+    // Webhooks can be missed; when the row still says processing, ask fal
+    // directly and finish or fail the job here (idempotent with the webhook).
+    if (job.status === 'processing' && job.external_job_id && job.processing_provider === PROVIDER) {
+      const queue = await getKlingMotionControlStatus(job.external_job_id);
+      if (queue.success && queue.status === 'COMPLETED') {
+        const result = await getKlingMotionControlResult(job.external_job_id);
+        if (result.success && result.videoUrl) {
+          await finalizeVideoSwap(job.external_job_id, result.videoUrl);
+        } else {
+          await failVideoSwap(job.external_job_id, result.error);
+        }
+        job = (await getVideoSwapJob(jobId, userId)) || job;
+      }
     }
 
     return {
@@ -415,7 +329,7 @@ export async function cancelVideoSwapJob(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { getVideoSwapJob, updateVideoSwapJob } = await import('@/actions/database/video-swap-database');
-    const { cancelVideoSwapPrediction } = await import('@/actions/models/wan-video-swap');
+    const { cancelKlingMotionControl } = await import('@/actions/models/fal-kling-motion-control');
 
     const job = await getVideoSwapJob(jobId, userId);
 
@@ -427,14 +341,13 @@ export async function cancelVideoSwapJob(
       return { success: false, error: 'Job is not in a cancellable state' };
     }
 
-    // Cancel the Replicate prediction if we have an external job ID
+    // Ask fal to cancel; a run already in progress still finishes on fal's
+    // side, but the job is closed here and the credits go back either way.
     if (job.external_job_id) {
-      try {
-        await cancelVideoSwapPrediction(job.external_job_id);
-      } catch (cancelError) {
-        console.warn('Failed to cancel Replicate prediction:', cancelError);
-        // Continue anyway - we'll mark the job as failed
-      }
+      const cancelled = await cancelKlingMotionControl(job.external_job_id);
+      if (!cancelled.success) console.warn('Video Swap: fal cancel refused:', cancelled.error);
+      const closed = await failVideoSwap(job.external_job_id, 'Cancelled by you');
+      if (closed.handled) return { success: true };
     }
 
     // Update job status

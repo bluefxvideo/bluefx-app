@@ -62,6 +62,10 @@ export async function createVideoSwapJob(
     seed?: number;
     external_job_id?: string;
     metadata?: Json;
+    /** Credits charged for this job (per-second pricing since the Kling engine). */
+    credits_used?: number;
+    processing_provider?: string;
+    duration_seconds?: number;
   }
 ): Promise<{ success: boolean; job?: VideoSwapJob; error?: string }> {
   try {
@@ -82,8 +86,9 @@ export async function createVideoSwapJob(
         status: 'pending',
         progress_percentage: 0,
         external_job_id: params.external_job_id || null,
-        processing_provider: 'replicate',
-        credits_used: VIDEO_SWAP_CREDITS,
+        processing_provider: params.processing_provider || 'replicate',
+        credits_used: params.credits_used ?? VIDEO_SWAP_CREDITS,
+        duration_seconds: params.duration_seconds ?? null,
         metadata: params.metadata || {},
       })
       .select()

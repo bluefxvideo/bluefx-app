@@ -4,6 +4,7 @@ import { updateMusicRecordAdmin } from '@/actions/database/music-database';
 import { updateTalkingAvatarVideoAdmin } from '@/actions/database/talking-avatar-database';
 import { updateCinematographerVideoAdmin } from '@/actions/database/cinematographer-database';
 import { finalizeCloneAnimation, failCloneAnimation } from '@/lib/clone-studio/animation';
+import { finalizeVideoSwap, failVideoSwap } from '@/lib/video-swap/finalize';
 import { createAdminClient } from '@/app/supabase/server';
 
 /**
@@ -146,6 +147,32 @@ async function handleLTXVideoCompletion(
     console.error('Clone Studio webhook check failed (continuing to other tools):', cloneError);
   }
 
+  // Video Swap (Kling motion control): the fal request id is the job's external id
+  try {
+    const swap = await finalizeVideoSwap(request_id, resultPayload.video.url);
+    if (swap.handled) {
+      if (swap.userId) {
+        await supabase.channel(`user_${swap.userId}_updates`).send({
+          type: 'broadcast',
+          event: 'webhook_update',
+          payload: {
+            tool_type: 'video-swap',
+            prediction_id: request_id,
+            status: 'succeeded',
+            results: { success: true, video_url: swap.resultUrl },
+          }
+        });
+      }
+      return NextResponse.json({
+        success: true,
+        message: `Processed Video Swap webhook for ${request_id}`,
+        processing_time_ms: Date.now() - startTime,
+      });
+    }
+  } catch (swapError) {
+    console.error('Video Swap webhook check failed (continuing to other tools):', swapError);
+  }
+
   // Video Maker / AI Cinematographer first (prediction_id lives in style_preferences)
   const { data: cinRecords } = await supabase
     .from('cinematographer_videos')
@@ -279,6 +306,20 @@ async function handleGenerationFailure(
     }
   } catch (cloneError) {
     console.error('Clone Studio failure check failed (continuing to other tools):', cloneError);
+  }
+
+  // Video Swap failure (refunds inside)
+  try {
+    const swapFail = await failVideoSwap(request_id, typeof error === 'string' ? error : undefined);
+    if (swapFail.handled) {
+      return NextResponse.json({
+        success: true,
+        message: `Processed Video Swap failure for ${request_id}`,
+        processing_time_ms: Date.now() - startTime,
+      });
+    }
+  } catch (swapError) {
+    console.error('Video Swap failure check failed (continuing to other tools):', swapError);
   }
 
   // Try to find music record first

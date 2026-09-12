@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { videoSwapCredits, type VideoSwapOrientation } from '@/lib/video-swap/pricing';
 import { devtools } from 'zustand/middleware';
 
 /**
@@ -29,12 +30,11 @@ export interface VideoSwapJob {
 
 // Settings interface
 export interface VideoSwapSettings {
-  resolution: '480' | '720';
-  frames_per_second: number;
-  merge_audio: boolean;
-  go_fast: boolean;
-  refert_num: 1 | 5;
-  seed?: number;
+  /** Whose orientation the character keeps: the video's (complex motion, up to 30 s) or the image's (camera moves, up to 10 s). */
+  character_orientation: VideoSwapOrientation;
+  keep_original_sound: boolean;
+  /** Optional scene description passed straight to the engine. */
+  prompt: string;
 }
 
 // Store state interface
@@ -45,6 +45,8 @@ export interface VideoSwapState {
   // File state
   sourceVideo: File | null;
   sourceVideoPreview: string | null;
+  /** Length of the source clip in seconds, read in the browser; prices the job. */
+  sourceVideoDuration: number | null;
   characterImage: File | null;
   characterImagePreview: string | null;
 
@@ -73,7 +75,7 @@ export interface VideoSwapActions {
   resetWizard: () => void;
 
   // File management
-  setSourceVideo: (file: File | null) => void;
+  setSourceVideo: (file: File | null, durationSeconds?: number | null) => void;
   setCharacterImage: (file: File | null) => void;
   clearFiles: () => void;
 
@@ -99,11 +101,9 @@ export interface VideoSwapActions {
 
 // Default settings
 const defaultSettings: VideoSwapSettings = {
-  resolution: '720',
-  frames_per_second: 24,
-  merge_audio: true,
-  go_fast: true,
-  refert_num: 1,
+  character_orientation: 'video',
+  keep_original_sound: true,
+  prompt: '',
 };
 
 // Initial state
@@ -111,6 +111,7 @@ const initialState: VideoSwapState = {
   currentStep: 'upload',
   sourceVideo: null,
   sourceVideoPreview: null,
+  sourceVideoDuration: null,
   characterImage: null,
   characterImagePreview: null,
   settings: defaultSettings,
@@ -119,7 +120,7 @@ const initialState: VideoSwapState = {
   isLoading: false,
   error: null,
   availableCredits: 0,
-  creditsRequired: 50, // VIDEO_SWAP_CREDITS
+  creditsRequired: 0, // set from the clip length: VIDEO_SWAP_CREDITS_PER_SECOND × seconds
 };
 
 // Step order for navigation
@@ -165,14 +166,20 @@ export const useVideoSwapStore = create<VideoSwapState & VideoSwapActions>()(
       },
 
       // File management actions
-      setSourceVideo: (file) => {
+      setSourceVideo: (file, durationSeconds) => {
         const { sourceVideoPreview } = get();
 
         // Revoke previous preview URL
         if (sourceVideoPreview) URL.revokeObjectURL(sourceVideoPreview);
 
         const preview = file ? URL.createObjectURL(file) : null;
-        set({ sourceVideo: file, sourceVideoPreview: preview });
+        const duration = file && durationSeconds ? durationSeconds : null;
+        set({
+          sourceVideo: file,
+          sourceVideoPreview: preview,
+          sourceVideoDuration: duration,
+          creditsRequired: duration ? videoSwapCredits(duration) : 0,
+        });
       },
 
       setCharacterImage: (file) => {
@@ -194,6 +201,8 @@ export const useVideoSwapStore = create<VideoSwapState & VideoSwapActions>()(
         set({
           sourceVideo: null,
           sourceVideoPreview: null,
+          sourceVideoDuration: null,
+          creditsRequired: 0,
           characterImage: null,
           characterImagePreview: null,
         });

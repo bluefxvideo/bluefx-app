@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { VIDEO_SWAP_MAX_SECONDS } from '@/lib/video-swap/pricing';
 import { toast } from 'sonner';
 import { useVideoSwapStore, VideoSwapJob, JobStatus } from '../store/video-swap-store';
 import { executeVideoSwap, getVideoSwapStatus, getVideoSwapHistory, cancelVideoSwapJob } from '@/actions/tools/video-swap';
@@ -186,6 +187,11 @@ export function useVideoSwap() {
       toast.error(`Insufficient credits. Required: ${creditsRequired}, Available: ${availableCredits}`);
       return { success: false };
     }
+    const maxSeconds = VIDEO_SWAP_MAX_SECONDS[settings.character_orientation];
+    if (store.sourceVideoDuration && store.sourceVideoDuration > maxSeconds + 0.5) {
+      toast.error(`This clip is ${store.sourceVideoDuration.toFixed(1)} s. ${settings.character_orientation === 'image' ? 'Following the image' : 'Following the video'} allows up to ${maxSeconds} s.`);
+      return { success: false };
+    }
 
     store.setLoading(true);
     store.setError(null);
@@ -215,12 +221,9 @@ export function useVideoSwap() {
       const result = await executeVideoSwap({
         source_video_url: videoUpload.url,
         character_image_url: imageUpload.url,
-        resolution: settings.resolution,
-        frames_per_second: settings.frames_per_second,
-        merge_audio: settings.merge_audio,
-        go_fast: settings.go_fast,
-        refert_num: settings.refert_num,
-        seed: settings.seed,
+        character_orientation: settings.character_orientation,
+        keep_original_sound: settings.keep_original_sound,
+        prompt: settings.prompt,
         user_id: userId,
       });
 

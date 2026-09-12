@@ -20,7 +20,7 @@ export function VideoSwap() {
         <div>
           <h1 className="text-3xl font-bold">Video Swap</h1>
           <p className="text-muted-foreground">
-            Replace the character in your video while keeping all motion and expressions
+            Put a new person into your video. The motion, timing and camera stay exactly the same.
           </p>
         </div>
       </div>

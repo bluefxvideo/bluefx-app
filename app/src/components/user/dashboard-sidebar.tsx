@@ -81,6 +81,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         description: "Professional AI video creation",
       },
       {
+        name: "Video Swap",
+        route: "/dashboard/video-swap",
+        icon: Repeat,
+        gradient: "bg-primary",
+        description: "Put a new person into a video, motion kept",
+      },
+      {
         name: "Clone Video Ad",
         route: "/dashboard/clone-video-ad",
         icon: Copy,
@@ -229,13 +236,6 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         icon: Film,
         gradient: "bg-primary",
         description: "Convert scripts to videos",
-      },
-      {
-        name: "Video Swap",
-        route: "/dashboard/video-swap",
-        icon: Repeat,
-        gradient: "bg-primary",
-        description: "Swap characters in videos",
       },
       {
         name: "YouTube Repurpose",
