@@ -21,8 +21,16 @@ import {
   type VideoSwapOrientation,
 } from '@/lib/video-swap/pricing';
 import { Json } from '@/types/database';
+import { createClient } from '@/app/supabase/server';
 
 const execFileAsync = promisify(execFile);
+
+/** The signed-in user's id; every entry point below trusts the session, not the caller. */
+async function currentUserId(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
 const PROVIDER = 'fal-kling-2.6-pro-motion-control';
 
 /** Length of a hosted video in seconds; ffprobe reads http(s) sources directly. */
@@ -51,7 +59,8 @@ export interface VideoSwapRequest {
   character_orientation: VideoSwapOrientation;
   keep_original_sound: boolean;
   prompt?: string;
-  user_id: string;
+  /** Ignored: the user comes from the session. Kept so older callers still type-check. */
+  user_id?: string;
 }
 
 export interface VideoSwapResponse {
@@ -99,6 +108,8 @@ export async function executeVideoSwap(
   });
 
   try {
+    const userId = await currentUserId();
+    if (!userId) return fail('You must be signed in.');
     if (!request.source_video_url) return fail('Source video URL is required');
     if (!request.character_image_url) return fail('Character image URL is required');
     const orientation: VideoSwapOrientation = request.character_orientation === 'image' ? 'image' : 'video';
@@ -119,7 +130,7 @@ export async function executeVideoSwap(
 
     // Step 2: price + balance
     const credits = videoSwapCredits(duration);
-    const creditCheck = await getUserCredits(request.user_id);
+    const creditCheck = await getUserCredits(userId);
     if (!creditCheck.success) return fail('Unable to verify credit balance');
     if ((creditCheck.credits || 0) < credits) {
       return fail(`Insufficient credits. Required: ${credits}, Available: ${creditCheck.credits || 0}`, {
@@ -129,7 +140,7 @@ export async function executeVideoSwap(
 
     // Step 3: job row first, then the charge references it
     const jobResult = await createVideoSwapJob({
-      user_id: request.user_id,
+      user_id: userId,
       source_video_url: request.source_video_url,
       character_image_url: request.character_image_url,
       merge_audio: request.keep_original_sound,
@@ -148,7 +159,7 @@ export async function executeVideoSwap(
     }
     const job = jobResult.job;
 
-    const deductResult = await deductCredits(request.user_id, credits, 'video-swap', {
+    const deductResult = await deductCredits(userId, credits, 'video-swap', {
       job_id: job.id,
       seconds: Math.ceil(duration),
       character_orientation: orientation,
@@ -173,7 +184,7 @@ export async function executeVideoSwap(
 
     if (!submitted.success || !submitted.request_id) {
       const refund = await refundFailedGeneration({
-        userId: request.user_id,
+        userId,
         referenceIds: [job.id],
         operation: 'video swap',
       });
@@ -214,7 +225,7 @@ export async function executeVideoSwap(
  */
 export async function getVideoSwapStatus(
   jobId: string,
-  userId: string
+  _userId?: string
 ): Promise<{
   success: boolean;
   job?: {
@@ -227,6 +238,8 @@ export async function getVideoSwapStatus(
   error?: string;
 }> {
   try {
+    const userId = await currentUserId();
+    if (!userId) return { success: false, error: 'You must be signed in.' };
     const { getVideoSwapJob } = await import('@/actions/database/video-swap-database');
     let job = await getVideoSwapJob(jobId, userId);
 
@@ -276,7 +289,7 @@ export async function getVideoSwapStatus(
  * Get user's video swap history
  */
 export async function getVideoSwapHistory(
-  userId: string,
+  _userId?: string,
   limit: number = 20,
   offset: number = 0
 ): Promise<{
@@ -294,6 +307,8 @@ export async function getVideoSwapHistory(
   error?: string;
 }> {
   try {
+    const userId = await currentUserId();
+    if (!userId) return { success: false, error: 'You must be signed in.' };
     const { getVideoSwapJobs } = await import('@/actions/database/video-swap-database');
     const { jobs, total } = await getVideoSwapJobs(userId, limit, offset);
 
@@ -325,9 +340,11 @@ export async function getVideoSwapHistory(
  */
 export async function cancelVideoSwapJob(
   jobId: string,
-  userId: string
+  _userId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const userId = await currentUserId();
+    if (!userId) return { success: false, error: 'You must be signed in.' };
     const { getVideoSwapJob, updateVideoSwapJob } = await import('@/actions/database/video-swap-database');
     const { cancelKlingMotionControl } = await import('@/actions/models/fal-kling-motion-control');
 
