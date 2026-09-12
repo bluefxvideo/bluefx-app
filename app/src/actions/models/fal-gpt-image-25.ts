@@ -1,6 +1,6 @@
 'use server';
 
-import { friendlyFalImageError } from './fal-error';
+import { friendlyFalImageError, isFalSafetyRefusal } from './fal-error';
 import type { NanoBananaAspectRatio } from './fal-nano-banana-2';
 import { pixelSizeFor } from '@/lib/image-sizes';
 
@@ -13,6 +13,13 @@ import { pixelSizeFor } from '@/lib/image-sizes';
  * Drop-in for generateWithFalNanaBanana2: same parameters, same result shape,
  * so call sites can pick an engine with one ternary (see src/lib/image-engine.ts).
  * Flare is the fast default; Sunburst trades time for edit precision.
+ *
+ * OpenAI's checker is stricter than Google's: it refuses ordinary swimwear,
+ * lingerie catalog shots and low-cut tops that Nano Banana renders. fal
+ * exposes no moderation level for this endpoint, so a safety refusal (422
+ * content_policy_violation, not billed) reruns the same request on Nano
+ * Banana 2, the engine every call site used before the switch. Only a
+ * refusal by both engines reaches the user.
  *
  * fal prices per image, 2026-09 (high quality): 1920x1080 $0.040, 2560x1440
  * $0.055, 3840x2160 $0.100; edits run about 20% more. Nano Banana 2 was
@@ -96,6 +103,19 @@ export async function generateWithGptImage25(params: GptImage25Input): Promise<{
     if (!response.ok) {
       const errorText = await response.text();
       console.error('🚨 fal.ai gpt-image-2.5 error:', response.status, errorText.substring(0, 200));
+      if (isFalSafetyRefusal(errorText)) {
+        console.log('🛟 gpt-image-2.5 refused on safety grounds; rerunning on nano-banana-2');
+        // Dynamic import: fal-nano-banana-2 imports this module for its own
+        // engine picker, so a static import would form a cycle.
+        const { generateWithFalNanaBanana2 } = await import('./fal-nano-banana-2');
+        return generateWithFalNanaBanana2({
+          prompt: params.prompt,
+          aspect_ratio: aspect,
+          resolution: params.resolution || '1K',
+          output_format: params.output_format || 'jpeg',
+          image_input: params.image_input,
+        });
+      }
       return { success: false, error: friendlyFalImageError(response.status, errorText) };
     }
 
