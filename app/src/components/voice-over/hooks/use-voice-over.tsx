@@ -468,7 +468,8 @@ export function useVoiceOver() {
     } catch (error) {
       console.error('Clone error:', error);
       setState(prev => ({ ...prev, isCloning: false }));
-      toast.error(error instanceof Error ? error.message : 'Voice cloning failed');
+      // The clone tab shows the error with the detail; a second toast here
+      // used to stack on top of it.
       throw error;
     }
   }, [user]);

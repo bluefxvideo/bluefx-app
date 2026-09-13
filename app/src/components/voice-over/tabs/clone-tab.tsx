@@ -107,7 +107,8 @@ export function CloneTab({
         return;
       }
     } catch {
-      // If we can't check duration, proceed anyway (server will validate)
+      // If the browser cannot read the length, the server measures it with
+      // ffprobe before anything is sent to the provider.
       console.warn('Could not check audio duration');
     }
 
@@ -130,7 +131,10 @@ export function CloneTab({
       }, 5000);
       audio.onloadedmetadata = () => {
         clearTimeout(timeout);
-        resolve(audio.duration);
+        // Streams and some encoders report Infinity; treat as unknown so the
+        // server measurement decides instead of a bogus "too long".
+        if (!Number.isFinite(audio.duration)) reject(new Error('Unknown duration'));
+        else resolve(audio.duration);
         URL.revokeObjectURL(audio.src);
       };
       audio.onerror = () => {
@@ -138,7 +142,12 @@ export function CloneTab({
         reject(new Error('Could not load audio'));
         URL.revokeObjectURL(audio.src);
       };
+      // Safari does not fetch metadata for a detached Audio element until
+      // load() is called, so the 5 s timeout used to fire and the check was
+      // skipped; the file then reached the provider and failed there.
+      audio.preload = 'metadata';
       audio.src = URL.createObjectURL(file);
+      audio.load();
     });
   };
 

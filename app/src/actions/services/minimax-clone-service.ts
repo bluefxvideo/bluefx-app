@@ -2,11 +2,46 @@
 
 import Replicate from 'replicate';
 import { createClient } from '@supabase/supabase-js';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { getUserCredits, deductCredits } from '@/actions/database/cinematographer-database';
+
+const execFileAsync = promisify(execFile);
 
 // What the clone tab advertises on its button. Charged only AFTER a
 // successful clone, so a failed attempt costs nothing and needs no refund.
 const VOICE_CLONE_CREDITS = 50;
+
+// MiniMax's hard limits for a cloning sample. Checked here, before the
+// provider call: a 5-second sample used to reach MiniMax, fail with the bare
+// "voice duration too short", and one buyer retried it eight times in a row.
+const VOICE_SAMPLE_MIN_SECONDS = 10;
+const VOICE_SAMPLE_MAX_SECONDS = 300;
+
+/** Length of a hosted audio file in seconds; ffprobe reads http(s) sources directly. */
+async function probeSampleSeconds(url: string): Promise<number | null> {
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'csv=p=0',
+      url,
+    ], { timeout: 30_000 });
+    const seconds = parseFloat(stdout.trim());
+    return seconds && !Number.isNaN(seconds) ? seconds : null;
+  } catch (error) {
+    console.warn('Voice clone: could not measure the sample, letting the provider decide:', error);
+    return null;
+  }
+}
+
+/** The one sentence a too-short or too-long sample gets, with the real length in it. */
+function sampleLengthError(seconds: number | null): string {
+  const opening = seconds == null
+    ? 'Your sample'
+    : `Your sample is ${seconds < 60 ? `${Math.round(seconds)} seconds` : `${(seconds / 60).toFixed(1)} minutes`} long. It`;
+  return `${opening} needs to be between ${VOICE_SAMPLE_MIN_SECONDS} seconds and ${VOICE_SAMPLE_MAX_SECONDS / 60} minutes of clear speech. Record a longer sample (15 to 30 seconds works well) and try again. Nothing was charged.`;
+}
 
 // Lazy initialization
 function getReplicate() {
@@ -53,6 +88,14 @@ export async function cloneVoice(
   try {
     console.log(`🎙️ Cloning voice from: ${request.voice_file_url}`);
 
+    // Length gate: the sample is measured here so an out-of-range file never
+    // reaches the provider and the user learns the actual number.
+    const seconds = await probeSampleSeconds(request.voice_file_url);
+    if (seconds != null && (seconds < VOICE_SAMPLE_MIN_SECONDS || seconds > VOICE_SAMPLE_MAX_SECONDS)) {
+      console.warn(`Voice clone rejected before MiniMax: sample is ${seconds.toFixed(1)}s`);
+      return { success: false, error: sampleLengthError(seconds) };
+    }
+
     // Prepare input for voice cloning
     const input = {
       voice_file: request.voice_file_url,
@@ -98,10 +141,12 @@ export async function cloneVoice(
 
   } catch (error) {
     console.error('❌ Voice cloning error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Voice cloning failed'
-    };
+    const raw = error instanceof Error ? error.message : 'Voice cloning failed';
+    // The provider's own wording, for the case where the gate above could not measure the file.
+    if (/voice duration too (short|long)/i.test(raw)) {
+      return { success: false, error: sampleLengthError(null) };
+    }
+    return { success: false, error: raw };
   }
 }
 
