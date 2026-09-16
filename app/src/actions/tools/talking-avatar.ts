@@ -1,7 +1,19 @@
 'use server';
 
-import { createClient } from '@/app/supabase/server';
-import { uploadImageToStorage, uploadAudioToStorage } from '@/actions/supabase-storage';
+import { createClient, createAdminClient } from '@/app/supabase/server';
+import { uploadImageToStorage, uploadAudioToStorage, downloadAndUploadVideo } from '@/actions/supabase-storage';
+import { createFalLTX23Prediction } from '@/actions/models/fal-ltx-image-to-video';
+import { submitKlingO3ProImageToVideo } from '@/actions/models/fal-kling-video';
+import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
+import { refundFailedGeneration } from '@/lib/credits/refund';
+import {
+  AVATAR_TIER_CONFIG,
+  scriptFit,
+  buildAvatarSpeechPrompt,
+  isScriptTier,
+  readAvatarTier,
+  type AvatarQualityTier,
+} from '@/types/talking-avatar-tiers';
 import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
 import {
   createFalLTXPrediction,
@@ -15,7 +27,9 @@ import {
   getUserCredits,
   deductCredits,
   storeTalkingAvatarResults,
-  recordTalkingAvatarMetrics
+  recordTalkingAvatarMetrics,
+  getTalkingAvatarVideo,
+  updateTalkingAvatarVideoAdmin
 } from '@/actions/database/talking-avatar-database';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { MINIMAX_VOICE_OPTIONS } from '@/components/shared/voice-constants';
@@ -41,6 +55,12 @@ export interface TalkingAvatarRequest {
   audio_duration_seconds?: number; // Duration of uploaded audio
   resolution?: LTXResolution; // 'landscape' | 'portrait'
   action_prompt?: string; // Optional prompt for visual style/movements
+  /**
+   * Quality tier. 'standard' (default) is the audio-driven LTX-2 19B path.
+   * 'fast' | 'ultra' render the typed script with a Video Maker engine that
+   * speaks the line itself; no audio fields are needed or read.
+   */
+  quality_tier?: AvatarQualityTier;
 }
 
 export interface TalkingAvatarResponse {
@@ -161,6 +181,9 @@ export async function executeTalkingAvatar(
       case 'audio_upload':
         return await handleAudioUpload(authenticatedRequest, batch_id, startTime);
       case 'video_generate':
+        if (isScriptTier(authenticatedRequest.quality_tier)) {
+          return await handleScriptTierGeneration(authenticatedRequest, authenticatedRequest.quality_tier, batch_id, startTime);
+        }
         return await handleVideoGeneration(authenticatedRequest, batch_id, startTime, supabase);
       default:
         return {
@@ -372,6 +395,352 @@ async function handleAudioUpload(
       remaining_credits: 0,
     };
   }
+}
+
+/**
+ * Fast / Ultra: the avatar speaks the typed script.
+ *
+ * Reuses the Video Maker engines (LTX-2.3 fast, Kling O3 Pro) with the avatar
+ * photo as first frame and the script as a quoted line in the prompt. Order:
+ * validate the script against the tier cap (no DB, no charge when too long),
+ * price it from the snapped clip length, check the balance, write the row,
+ * submit to fal with the shared webhook, charge only once fal accepted.
+ * Completion arrives through /api/webhooks/fal-ai, which already resolves
+ * avatar_videos by fal_request_id, or through pollAvatarTierGeneration.
+ */
+async function handleScriptTierGeneration(
+  request: TalkingAvatarRequest,
+  tier: Exclude<AvatarQualityTier, 'standard'>,
+  batch_id: string,
+  startTime: number
+): Promise<TalkingAvatarResponse> {
+  const fail = (error: string, remaining = 0): TalkingAvatarResponse => ({
+    success: false,
+    error,
+    batch_id,
+    generation_time_ms: Date.now() - startTime,
+    credits_used: 0,
+    remaining_credits: remaining,
+  });
+
+  const config = AVATAR_TIER_CONFIG[tier];
+  const script = (request.script_text || '').trim();
+  if (!script) return fail('Type the script the avatar should speak.');
+  if (!request.avatar_image_url) return fail('Pick an avatar first.');
+
+  // 1. Script length against the tier cap, before anything is written or charged
+  const fit = scriptFit(tier, script);
+  if (!fit.fits || !fit.clipSeconds) {
+    return fail(
+      `Your script is ${fit.words} words. ${config.label} carries up to ${fit.maxWords} words (${config.maxSeconds} s). Cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'}, or switch to Standard for scripts up to 60 seconds.`
+    );
+  }
+  const clipSeconds = fit.clipSeconds;
+  const credits = fit.credits;
+
+  // 2. Balance
+  const userCreditsResult = await getUserCredits(request.user_id);
+  if (!userCreditsResult.success) return fail(userCreditsResult.error || 'Failed to check credits');
+  const userCredits = userCreditsResult.credits || 0;
+  if (userCredits < credits) {
+    return fail(`Insufficient credits. Required: ${credits}, Available: ${userCredits}`, userCredits);
+  }
+
+  // 3. Inputs for the engine
+  const resolution: LTXResolution = request.resolution || (request.aspect_ratio === '9:16' ? 'portrait' : 'landscape');
+  const aspect = resolution === 'portrait' ? '9:16' : '16:9';
+  const prompt = buildAvatarSpeechPrompt(script, request.action_prompt);
+  const imageUrl = (await ensureFalCompatibleImage(request.avatar_image_url, batch_id, 'avatar')) || request.avatar_image_url;
+  const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://app.bluefx.net'}/api/webhooks/fal-ai`;
+  const settings = {
+    tier,
+    model_version: config.modelVersion,
+    engine: config.videoSource,
+    clip_seconds: clipSeconds,
+    words: fit.words,
+    aspect_ratio: config.aspectFromResolution ? aspect : 'follows-image',
+    prompt,
+  };
+  // Fast renders 1080p at the chosen aspect; Ultra follows the photo, so no size is stored.
+  const size = config.aspectFromResolution
+    ? (resolution === 'portrait' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 })
+    : { width: undefined, height: undefined };
+
+  // 4. Row first, so every later step has something to mark
+  const stored = await storeTalkingAvatarResults({
+    user_id: request.user_id,
+    script_text: script,
+    avatar_template_id: request.avatar_template_id || null,
+    batch_id,
+    avatar_image_url: request.avatar_image_url,
+    video_source: config.videoSource,
+    resolution_width: size.width,
+    resolution_height: size.height,
+    duration: clipSeconds,
+    audio_duration_seconds: clipSeconds,
+    action_prompt: request.action_prompt,
+    settings,
+    status: 'processing',
+  });
+  if (!stored.success) {
+    console.error('Database insert error:', stored.error);
+    return fail('Failed to save video generation record', userCredits);
+  }
+
+  // 5. Charge before submitting (the Video Swap / Clone Studio order): a debit
+  // then exists for any webhook, and a submit failure refunds against it.
+  const deductResult = await deductCredits(request.user_id, credits, 'talking_avatar_generation', {
+    batch_id,
+    tier,
+    model: config.modelVersion,
+    duration_seconds: clipSeconds,
+    video_source: config.videoSource,
+  });
+  if (!deductResult.success) {
+    await updateTalkingAvatarVideoAdmin(batch_id, { status: 'failed', error_message: deductResult.error || 'Credit deduction failed' });
+    return fail(`Failed to deduct credits: ${deductResult.error || 'unknown error'}`, userCredits);
+  }
+  const refundAndFail = async (message: string) => {
+    const refund = await refundFailedGeneration({ userId: request.user_id, referenceIds: [batch_id], operation: 'talking avatar generation' });
+    const text = `${message}${refund.refunded ? ` — ${refund.amount} credits were refunded.` : ''}`;
+    try {
+      await updateTalkingAvatarVideoAdmin(batch_id, { status: 'failed', error_message: text });
+    } catch (updateError) {
+      console.error('Could not mark the avatar row failed:', updateError);
+    }
+    return fail(`Video generation failed: ${text}`, (deductResult.remainingCredits ?? userCredits - credits) + (refund.refunded ? refund.amount || 0 : 0));
+  };
+
+  // 6. Submit
+  let requestId: string | undefined;
+  try {
+    if (tier === 'fast') {
+      const res = await createFalLTX23Prediction({
+        prompt,
+        image_url: imageUrl,
+        duration: clipSeconds,
+        resolution: '1080p',
+        aspect_ratio: aspect,
+        fps: 25,
+        generate_audio: true,
+        webhook_url: webhookUrl,
+      });
+      requestId = res.request_id;
+    } else {
+      const res = await submitKlingO3ProImageToVideo({
+        prompt,
+        image_url: imageUrl,
+        duration: clipSeconds,
+        generate_audio: true,
+        shot_type: 'customize',
+        webhook_url: webhookUrl,
+      });
+      if (!res.success) throw new Error(res.error || 'Video submit failed');
+      requestId = res.request_id;
+    }
+    if (!requestId) throw new Error('fal.ai did not return a request_id');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Video submit failed';
+    console.error(`Avatar ${tier} submit error:`, message);
+    return await refundAndFail(message);
+  }
+
+  // 7. Request id on the row: the webhook and the poller look the job up by it,
+  // so the charge is only kept once the key is durably stored.
+  let keyed = false;
+  try {
+    await updateTalkingAvatarVideoAdmin(batch_id, { fal_request_id: requestId, status: 'processing' });
+    keyed = true;
+  } catch (error) {
+    console.error('Could not store fal_request_id, retrying once:', error);
+    try {
+      await updateTalkingAvatarVideoAdmin(batch_id, { fal_request_id: requestId, status: 'processing' });
+      keyed = true;
+    } catch (retryError) {
+      console.error('fal_request_id still not stored:', retryError);
+    }
+  }
+  if (!keyed) {
+    return await refundAndFail(`The job was submitted (${requestId}) but could not be tracked`);
+  }
+
+  await createPredictionRecord({
+    prediction_id: requestId,
+    user_id: request.user_id,
+    tool_id: 'talking-avatar',
+    service_id: 'fal-ai',
+    model_version: config.modelVersion,
+    status: 'processing',
+    input_data: {
+      avatar_image_url: request.avatar_image_url,
+      script_text: script,
+      avatar_template_id: request.avatar_template_id,
+      avatar_video_id: batch_id,
+      tier,
+      clip_seconds: clipSeconds,
+      resolution,
+      action_prompt: request.action_prompt,
+    } as any,
+  });
+
+  await recordTalkingAvatarMetrics({
+    user_id: request.user_id,
+    batch_id,
+    model_version: config.modelVersion,
+    script_text: script,
+    duration: clipSeconds,
+    aspect_ratio: aspect,
+    generation_time_ms: Date.now() - startTime,
+    credits_used: credits,
+    workflow_type: 'generate',
+    has_custom_avatar: !!request.custom_avatar_image,
+  });
+
+  console.log(`✅ Avatar ${tier} generation started: ${requestId} (${clipSeconds}s, ${credits} credits)`);
+  return {
+    success: true,
+    step_data: { current_step: 3, total_steps: 3 },
+    video: {
+      id: batch_id,
+      video_url: '',
+      script_text: script,
+      avatar_image_url: request.avatar_image_url,
+      created_at: new Date().toISOString(),
+    },
+    batch_id,
+    prediction_id: requestId,
+    generation_time_ms: Date.now() - startTime,
+    credits_used: credits,
+    remaining_credits: deductResult.remainingCredits ?? userCredits - credits,
+  };
+}
+
+/**
+ * Poll fallback for Fast / Ultra avatar jobs. The webhook is the primary
+ * path; the page calls this every 10 s so a missed webhook still finishes
+ * the job. fal's queue status never says FAILED: a failed job reports
+ * COMPLETED and the result endpoint answers 4xx with the reason, while 5xx,
+ * 429 and network errors are transient. Terminal writes claim the row with
+ * a status guard so the webhook and this poller cannot both refund or both
+ * complete the same job.
+ */
+export async function pollAvatarTierGeneration(videoId: string): Promise<{
+  status: 'processing' | 'completed' | 'failed';
+  video_url?: string | null;
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: 'processing', error: 'Not signed in' };
+
+  const video = await getTalkingAvatarVideo(videoId, user.id);
+  if (!video) return { status: 'failed', error: 'Video not found' };
+  if (video.status === 'completed') return { status: 'completed', video_url: video.video_url };
+  if (video.status === 'failed') return { status: 'failed', error: video.error_message || 'Video generation failed' };
+
+  const tier = readAvatarTier(video);
+  const requestId = video.fal_request_id;
+  if (!isScriptTier(tier) || !requestId) return { status: 'processing' };
+
+  const base = tier === 'fast' ? 'fal-ai/ltx-2.3' : 'fal-ai/kling-video';
+  const falKey = process.env.FAL_KEY;
+  if (!falKey) return { status: 'processing' };
+
+  try {
+    const statusRes = await fetch(`https://queue.fal.run/${base}/requests/${requestId}/status`, { headers: { Authorization: `Key ${falKey}` } });
+    if (!statusRes.ok) return { status: 'processing' };
+    const queue = (await statusRes.json()) as { status?: string };
+    if (queue.status === 'FAILED') {
+      return await failAvatarTierJob(videoId, user.id, 'The video engine reported a failure');
+    }
+    if (queue.status !== 'COMPLETED') {
+      // Age guard: a job that never resolves (lost webhook, fal never answers)
+      // is closed and refunded instead of spinning until the user gives up.
+      const ageMs = Date.now() - new Date(video.created_at || Date.now()).getTime();
+      if (ageMs > 45 * 60 * 1000) {
+        return await failAvatarTierJob(videoId, user.id, 'The video engine did not finish in time');
+      }
+      return { status: 'processing' };
+    }
+
+    const resultRes = await fetch(`https://queue.fal.run/${base}/requests/${requestId}`, { headers: { Authorization: `Key ${falKey}` } });
+    if (!resultRes.ok) {
+      // 400/422 from the result endpoint is fal's way of reporting a failed job.
+      // Everything else (auth, 404, 405, 429, 5xx, network) is transient here:
+      // the webhook or the next tick decides, never a refund.
+      if (resultRes.status === 400 || resultRes.status === 422) {
+        const detail = (await resultRes.text()).slice(0, 300);
+        return await failAvatarTierJob(videoId, user.id, describeProviderFailure(detail));
+      }
+      return { status: 'processing' };
+    }
+    const result = (await resultRes.json()) as { video?: { url?: string } };
+    const providerUrl = result?.video?.url;
+    if (!providerUrl) {
+      return await failAvatarTierJob(videoId, user.id, 'The video engine finished without a video');
+    }
+
+    const uploaded = await downloadAndUploadVideo(providerUrl, 'talking-avatar', `${tier}_${requestId}`);
+    const finalUrl = uploaded.success && uploaded.url ? uploaded.url : providerUrl;
+
+    // Claim the completion: only a row still in 'processing' is ours to finish
+    const admin = createAdminClient();
+    const { data: claimed } = await admin
+      .from('avatar_videos')
+      .update({ status: 'completed', video_url: finalUrl, updated_at: new Date().toISOString() })
+      .eq('id', videoId)
+      .eq('status', 'processing')
+      .select('id');
+    if (!claimed || claimed.length === 0) {
+      const fresh = await getTalkingAvatarVideo(videoId, user.id);
+      if (fresh?.status === 'failed') return { status: 'failed', error: fresh.error_message || 'Video generation failed' };
+      return { status: 'completed', video_url: fresh?.video_url || finalUrl };
+    }
+    return { status: 'completed', video_url: finalUrl };
+  } catch (error) {
+    console.error('pollAvatarTierGeneration error:', error);
+    return { status: 'processing' };
+  }
+}
+
+/** fal's 4xx result payload → one plain sentence for the user. */
+function describeProviderFailure(detail: string): string {
+  try {
+    const parsed = JSON.parse(detail) as { detail?: Array<{ msg?: string }> | string };
+    const msg = Array.isArray(parsed.detail) ? parsed.detail.map((d) => d.msg || '').filter(Boolean).join(' ') : String(parsed.detail || '');
+    if (/content|safety|flagged|policy/i.test(msg)) return 'The video engine declined this script or photo on safety grounds';
+    if (msg) return `The video engine reported: ${msg.slice(0, 160)}`;
+  } catch {
+    // not JSON
+  }
+  return 'The video engine reported a failure';
+}
+
+/**
+ * Claim the row as failed (status guard), then refund. If the webhook already
+ * closed the row, nothing is refunded here and its state is returned instead.
+ */
+async function failAvatarTierJob(videoId: string, userId: string, reason: string) {
+  const admin = createAdminClient();
+  const { data: claimed } = await admin
+    .from('avatar_videos')
+    .update({ status: 'failed', error_message: reason, updated_at: new Date().toISOString() })
+    .eq('id', videoId)
+    .eq('status', 'processing')
+    .select('id');
+  if (!claimed || claimed.length === 0) {
+    const fresh = await getTalkingAvatarVideo(videoId, userId);
+    if (fresh?.status === 'completed') return { status: 'completed' as const, video_url: fresh.video_url };
+    return { status: 'failed' as const, error: fresh?.error_message || reason };
+  }
+  const refund = await refundFailedGeneration({
+    userId,
+    referenceIds: [videoId],
+    operation: 'talking avatar generation',
+  });
+  const message = `${reason}${refund.refunded ? ` — ${refund.amount} credits were refunded.` : ''}`;
+  await admin.from('avatar_videos').update({ error_message: message }).eq('id', videoId);
+  return { status: 'failed' as const, error: message };
 }
 
 /**

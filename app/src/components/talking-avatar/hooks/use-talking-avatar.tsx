@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { executeTalkingAvatar, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
+import { executeTalkingAvatar, pollAvatarTierGeneration, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
+import { isScriptTier, readAvatarTier, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { getAvatarTemplates, getTalkingAvatarVideos, deleteTalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import { getUserClonedVoices, saveClonedVoice } from '@/actions/database/cloned-voices-database';
@@ -37,6 +38,8 @@ export interface TalkingAvatarState {
   uploadedAudioFile: File | null;
   audioDurationSeconds: number; // Duration of audio (TTS estimated or uploaded actual)
   actionPrompt: string; // Optional prompt for visual style/movements
+  /** Standard = own voice on LTX-2 19B; Fast / Ultra = the engine speaks the script. */
+  qualityTier: AvatarQualityTier;
 
   // Video Generation (Step 3)
   selectedResolution: 'landscape' | 'portrait';
@@ -88,6 +91,7 @@ export interface UseTalkingAvatarReturn {
   setActionPrompt: (prompt: string) => void;
   setSelectedResolution: (resolution: 'landscape' | 'portrait') => void;
   setScriptText: (text: string) => void;
+  setQualityTier: (tier: AvatarQualityTier) => void;
   // Voice cloning
   loadClonedVoices: () => Promise<void>;
   cloneVoice: (file: File, name: string, options: { noiseReduction: boolean; volumeNormalization: boolean }) => Promise<void>;
@@ -131,6 +135,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     customAvatarUrl: null,
     // Audio input (Step 2)
     audioInputMode: 'tts',
+    qualityTier: 'standard',
     scriptText: '',
     voiceOptions: [],
     selectedVoiceId: null,
@@ -348,13 +353,18 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const handleVideoGeneration = useCallback(async () => {
     if (!user) return;
 
-    // Determine audio URL based on input mode
+    // Fast / Ultra speak the typed script themselves; only Standard needs audio
+    const scriptTier = isScriptTier(state.qualityTier);
     const audioUrl = state.audioInputMode === 'upload'
       ? state.uploadedAudioUrl
       : state.voiceAudioUrl;
 
-    if (!audioUrl) {
+    if (!scriptTier && !audioUrl) {
       toast.error('Please generate voice or upload audio first');
+      return;
+    }
+    if (scriptTier && !state.scriptText.trim()) {
+      toast.error('Type the script the avatar should speak');
       return;
     }
 
@@ -384,12 +394,13 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         avatar_template_id: state.selectedAvatarTemplate?.id,
         workflow_step: 'video_generate',
         user_id: user.id,
-        // Audio input mode specific fields
+        quality_tier: state.qualityTier,
+        // Audio input mode specific fields (Standard only)
         audio_input_mode: state.audioInputMode,
-        voice_audio_url: state.audioInputMode === 'tts' ? state.voiceAudioUrl ?? undefined : undefined,
-        uploaded_audio_url: state.audioInputMode === 'upload' ? state.uploadedAudioUrl ?? undefined : undefined,
-        audio_duration_seconds: state.audioDurationSeconds,
-        voice_id: state.selectedVoiceId ?? undefined,
+        voice_audio_url: !scriptTier && state.audioInputMode === 'tts' ? state.voiceAudioUrl ?? undefined : undefined,
+        uploaded_audio_url: !scriptTier && state.audioInputMode === 'upload' ? state.uploadedAudioUrl ?? undefined : undefined,
+        audio_duration_seconds: scriptTier ? undefined : state.audioDurationSeconds,
+        voice_id: scriptTier ? undefined : state.selectedVoiceId ?? undefined,
         // Video settings
         resolution: state.selectedResolution,
         aspect_ratio: state.selectedResolution === 'portrait' ? '9:16' : '16:9',
@@ -430,7 +441,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }
   }, [user, state.audioInputMode, state.voiceAudioUrl, state.uploadedAudioUrl, state.audioDurationSeconds,
       state.scriptText, state.customAvatarUrl, state.selectedAvatarTemplate, state.selectedVoiceId,
-      state.selectedResolution, state.actionPrompt]);
+      state.selectedResolution, state.actionPrompt, state.qualityTier]);
 
   // Reset to step 1
   const resetWizard = useCallback(() => {
@@ -449,6 +460,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       uploadedAudioFile: null,
       audioDurationSeconds: 0,
       actionPrompt: '',
+      qualityTier: 'standard',
       // Video settings reset
       selectedResolution: 'landscape',
       generatedVideo: null,
@@ -478,6 +490,21 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const setAudioInputMode = useCallback((mode: 'tts' | 'upload') => {
     setState(prev => ({ ...prev, audioInputMode: mode }));
   }, []);
+
+  // Quality tier. Leaving Standard drops any generated or uploaded audio so a
+  // leftover voice file never rides along with a Fast / Ultra job.
+  const setQualityTier = useCallback((tier: AvatarQualityTier) => {
+    if (tier !== 'standard' && (state.voiceAudioUrl || state.uploadedAudioUrl)) {
+      toast('Your voice file was cleared: Fast and Ultra speak the script themselves.');
+    }
+    setState(prev => ({
+      ...prev,
+      qualityTier: tier,
+      ...(tier !== 'standard'
+        ? { voiceAudioUrl: null, uploadedAudioUrl: null, uploadedAudioFile: null, audioDurationSeconds: 0, audioInputMode: 'tts' as const }
+        : {}),
+    }));
+  }, [state.voiceAudioUrl, state.uploadedAudioUrl]);
 
   // Set uploaded audio
   const setUploadedAudio = useCallback((url: string | null, file: File | null, duration: number) => {
@@ -691,12 +718,14 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
 
           // Retrieved videos from database
 
-          // Only consider very recent videos (within last 2 minutes)
+          // Only consider recent videos: 2 minutes for Standard, 20 minutes for
+          // Fast / Ultra (Ultra alone takes 3 to 6 minutes and the poller settles them)
           // Check for both fal_request_id (new) and hedra_generation_id (legacy)
-          const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+          const now = Date.now();
           const processingVideo = videos?.find((v: any) => {
             const isProcessingStatus = v.status === 'processing' || v.status === 'pending';
-            const isRecent = new Date(v.created_at || '') > twoMinutesAgo;
+            const windowMs = isScriptTier(readAvatarTier(v)) ? 20 * 60 * 1000 : 2 * 60 * 1000;
+            const isRecent = new Date(v.created_at || '').getTime() > now - windowMs;
             const hasValidGenerationId = (v.fal_request_id && v.fal_request_id.trim()) ||
                                          (v.hedra_generation_id && v.hedra_generation_id.trim());
 
@@ -725,6 +754,9 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 currentGenerationId: generationId || null,
                 isStateRestored: true,
                 currentStep: 3,
+                qualityTier: readAvatarTier(processingVideo as any),
+                scriptText: processingVideo.script_text || prev.scriptText,
+                actionPrompt: (processingVideo as any).action_prompt || prev.actionPrompt,
               }));
 
               // Resume polling for legacy Hedra generations (fal.ai uses webhooks)
@@ -870,8 +902,9 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 setState(prev => ({ ...prev, error: null }));
                 toast.success('Video generation completed!');
               } else if (updatedVideo.status === 'failed') {
-                setState(prev => ({ ...prev, error: 'Video generation failed' }));
-                toast.error('Video generation failed');
+                const reason = (updatedVideo as any).error_message || 'Video generation failed';
+                setState(prev => ({ ...prev, error: reason }));
+                toast.error(reason);
               }
             }
           }
@@ -918,14 +951,17 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   // fal.ai LTX polling for local development (webhooks can't reach localhost)
   // In production, webhooks handle completion - no polling needed
   useEffect(() => {
-    // Only poll in local development - production uses webhooks
-    if (!isLocalDev) {
+    // Standard polls only in local development (production relies on the webhook).
+    // Fast / Ultra poll everywhere: never let the spinner wait on Realtime alone.
+    const scriptTier = isScriptTier(state.qualityTier);
+    if (!isLocalDev && !scriptTier) {
       return;
     }
 
     // Only poll if we're generating and have a request ID
     // New generations use fal.ai, legacy ones use Hedra (which has its own polling)
     const requestId = state.currentGenerationId;
+    const videoId = state.generatedVideo?.id;
 
     if (!state.isGenerating || !requestId) {
       if (falPollingRef.current) {
@@ -940,8 +976,18 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     // Poll every 5 seconds
     const pollInterval = setInterval(async () => {
       try {
-        const result = await pollLTXVideoGeneration(requestId);
+        const result = scriptTier && videoId
+          ? await pollAvatarTierGeneration(videoId)
+          : await pollLTXVideoGeneration(requestId);
         console.log(`🔄 [DEV] fal.ai poll result for ${requestId}:`, result.status);
+
+        // A Realtime update may have finished this job while the request was in
+        // flight; then the id ref is already cleared and this tick must stay quiet.
+        if (currentGenerationIdRef.current !== requestId) {
+          clearInterval(pollInterval);
+          falPollingRef.current = null;
+          return;
+        }
 
         if (result.status === 'completed' && result.video_url) {
           console.log(`✅ [DEV] fal.ai LTX completed! ${result.video_url}`);
@@ -971,6 +1017,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           setState(prev => ({
             ...prev,
             isGenerating: false,
+            isStateRestored: false,
             error: result.error || 'Video generation failed',
             currentGenerationId: null,
           }));
@@ -986,7 +1033,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         console.error('[DEV] fal.ai polling error:', error);
         // Don't stop polling on network errors - they might be temporary
       }
-    }, 5000); // Poll every 5 seconds
+    }, scriptTier && !isLocalDev ? 10000 : 5000);
 
     falPollingRef.current = pollInterval;
 
@@ -995,7 +1042,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       clearInterval(pollInterval);
       falPollingRef.current = null;
     };
-  }, [state.isGenerating, state.currentGenerationId, isLocalDev]);
+  }, [state.isGenerating, state.currentGenerationId, state.qualityTier, state.generatedVideo?.id, isLocalDev]);
 
   // Load user's cloned voices
   const loadClonedVoices = useCallback(async () => {
@@ -1238,6 +1285,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     setActionPrompt,
     setSelectedResolution,
     setScriptText,
+    setQualityTier,
     // Voice cloning
     loadClonedVoices,
     cloneVoice: cloneVoiceAction,

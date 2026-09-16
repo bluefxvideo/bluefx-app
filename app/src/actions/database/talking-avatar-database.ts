@@ -26,7 +26,7 @@ export interface TalkingAvatarVideo {
   hedra_generation_id?: string | null;
   // New fields for fal.ai LTX integration
   fal_request_id: string | null;
-  video_source: 'hedra' | 'fal-ltx' | null;
+  video_source: 'hedra' | 'fal-ltx' | 'fal-ltx-2.3' | 'fal-kling-o3-pro' | null;
   resolution_width: number | null;
   resolution_height: number | null;
   audio_duration_seconds: number | null;
@@ -410,7 +410,7 @@ export async function storeTalkingAvatarResults(params: {
   hedra_asset_id?: string;
   // New fal.ai LTX fields
   fal_request_id?: string;
-  video_source?: 'hedra' | 'fal-ltx';
+  video_source?: 'hedra' | 'fal-ltx' | 'fal-ltx-2.3' | 'fal-kling-o3-pro';
   resolution_width?: number;
   resolution_height?: number;
   audio_duration_seconds?: number;

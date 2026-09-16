@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Download, Eye, Clock, History, Loader2, AlertCircle, Trash2, Video, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
+import { readAvatarTier, tierLabel } from '@/types/talking-avatar-tiers';
 
 interface HistoryOutputProps {
   videos: TalkingAvatarVideo[];
@@ -189,7 +190,7 @@ export function HistoryOutput({
                   <Badge className={`text-sm ${getStatusColor(video.status)}`}>
                     {video.status}
                   </Badge>
-                  <span className="text-sm text-muted-foreground">-</span>
+                  <Badge variant="outline" className="text-xs">{tierLabel(readAvatarTier(video))}</Badge>
                 </div>
                 
                 {/* Script Text Preview */}

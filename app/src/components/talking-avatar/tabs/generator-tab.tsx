@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, Clock, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart } from 'lucide-react';
+import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, Clock, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart, Zap, Gem } from 'lucide-react';
+import { AVATAR_TIER_CONFIG, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
@@ -148,6 +149,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
     setActionPrompt,
     setSelectedResolution,
     setScriptText,
+    setQualityTier,
     cloneVoice,
     saveAvatar,
     deleteSavedAvatar,
@@ -331,9 +333,10 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   // Update local state when wizard state changes
   useEffect(() => {
     setLocalScriptText(state.scriptText);
+    setLocalActionPrompt(state.actionPrompt);
     setSelectedTemplate(state.selectedAvatarTemplate);
     setSelectedVoice(state.selectedVoiceId || '');
-  }, [state.scriptText, state.selectedAvatarTemplate, state.selectedVoiceId]);
+  }, [state.scriptText, state.actionPrompt, state.selectedAvatarTemplate, state.selectedVoiceId]);
 
   // Auto-select matching voice when avatar template is selected
   useEffect(() => {
@@ -441,6 +444,10 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   };
 
   // Step actions
+  // Fast / Ultra: the script alone decides the clip length and the price.
+  const scriptTier = isScriptTier(state.qualityTier) ? state.qualityTier : null;
+  const fit = scriptTier ? scriptFit(scriptTier, localScriptText) : null;
+
   const handleStepAction = async () => {
     if (state.currentStep === 1) {
       if (customImage) {
@@ -452,7 +459,10 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
         goToStep(2);
       }
     } else if (state.currentStep === 2) {
-      if (state.audioInputMode === 'upload') {
+      if (scriptTier) {
+        // Fast / Ultra: no voice step, the script goes straight to the preview
+        if (fit?.fits) goToStep(3);
+      } else if (state.audioInputMode === 'upload') {
         // Upload mode: skip voice gen, go to step 3
         if (state.uploadedAudioUrl && state.audioDurationSeconds > 0) {
           goToStep(3);
@@ -481,18 +491,20 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
     return Math.min(Math.ceil(wordCount / 1.5), MAX_AUDIO_DURATION_SECONDS);
   };
   const estimatedDuration = getEstimatedDuration();
-  const estimatedCredits = Math.min(60, Math.ceil(estimatedDuration));
+  const estimatedCredits = fit ? fit.credits : Math.min(60, Math.ceil(estimatedDuration));
 
   const canProceed = () => {
     if (state.currentStep === 1) {
       return selectedTemplate || customImage;
     } else if (state.currentStep === 2) {
+      if (scriptTier) return !!fit?.fits;
       if (state.audioInputMode === 'upload') {
         return state.uploadedAudioUrl && state.audioDurationSeconds > 0 && state.audioDurationSeconds <= MAX_AUDIO_DURATION_SECONDS;
       }
       // TTS: need script + selected voice (duration is validated in step 3 with actual audio)
       return selectedVoice && localScriptText.trim();
     } else if (state.currentStep === 3) {
+      if (scriptTier) return !!fit?.fits && (creditsLoading || credits >= estimatedCredits);
       const hasAudio = state.voiceAudioUrl || state.uploadedAudioUrl;
       const withinDuration = state.audioDurationSeconds <= MAX_AUDIO_DURATION_SECONDS;
       // While the balance is loading, assume enough — the server re-checks anyway.
@@ -510,9 +522,14 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
     }
     if (state.currentStep === 1) return 'Select Avatar';
     if (state.currentStep === 2) {
+      if (scriptTier) return 'Continue to Preview';
       return state.audioInputMode === 'upload' ? 'Continue to Preview' : 'Generate Voice';
     }
-    if (state.currentStep === 3) return `Generate Video · ${estimatedCredits} credits`;
+    if (state.currentStep === 3) {
+      return scriptTier
+        ? `Generate ${tierLabel(scriptTier)} Video · ${estimatedCredits} credits`
+        : `Generate Video · ${estimatedCredits} credits`;
+    }
     return 'Next';
   };
 
@@ -916,6 +933,80 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
         {/* ===== STEP 2: Script & Voice ===== */}
         {state.currentStep === 2 && (
           <div className="space-y-4">
+            {/* Quality: Standard keeps today's voice flow; Fast / Ultra let the engine speak the script */}
+            <div className="space-y-2">
+              <Label>Quality</Label>
+              <div className="grid grid-cols-3 gap-2 p-1 bg-muted/50 rounded-lg">
+                {([
+                  { id: 'standard' as AvatarQualityTier, label: 'Standard', icon: Mic, blurb: 'Your voice · up to 60 s · 1 cr/s' },
+                  { id: 'fast' as AvatarQualityTier, label: 'Fast', icon: Zap, blurb: `Avatar speaks · up to ${AVATAR_TIER_CONFIG.fast.maxSeconds} s · ${AVATAR_TIER_CONFIG.fast.creditsPerSecond} cr/s` },
+                  { id: 'ultra' as AvatarQualityTier, label: 'Ultra', icon: Gem, blurb: `Avatar speaks · up to ${AVATAR_TIER_CONFIG.ultra.maxSeconds} s · ${AVATAR_TIER_CONFIG.ultra.creditsPerSecond} cr/s` },
+                ]).map((option) => {
+                  const Icon = option.icon;
+                  const active = state.qualityTier === option.id;
+                  return (
+                    <Button
+                      key={option.id}
+                      type="button"
+                      variant={active ? 'default' : 'ghost'}
+                      className="flex flex-col h-auto py-2 gap-0.5"
+                      onClick={() => setQualityTier(option.id)}
+                      disabled={state.isLoading || state.isGenerating}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Icon className="w-4 h-4" />
+                        <span className="font-medium">{option.label}</span>
+                      </span>
+                      <span className="text-[10px] opacity-70 whitespace-normal leading-tight">{option.blurb}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {scriptTier && fit && (
+              <div className="space-y-2">
+                <Label>Script</Label>
+                <Textarea
+                  value={localScriptText}
+                  onChange={(e) => {
+                    setLocalScriptText(e.target.value);
+                    setScriptText(e.target.value);
+                  }}
+                  placeholder="Type what the avatar should say..."
+                  className="min-h-[140px] resize-none"
+                  disabled={state.isLoading}
+                />
+                <div
+                  className={`flex items-center justify-between text-xs ${
+                    fit.words === 0
+                      ? 'text-muted-foreground'
+                      : fit.fits
+                        ? fit.words > fit.maxWords * 0.85
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-destructive'
+                  }`}
+                >
+                  <span>
+                    {fit.words} words{fit.clipSeconds ? ` · ${fit.clipSeconds} s clip` : ''}
+                  </span>
+                  <span>
+                    {fit.words === 0
+                      ? `Up to ${fit.maxWords} words on ${tierLabel(scriptTier)}`
+                      : fit.fits
+                        ? `Fits ${tierLabel(scriptTier)} · ${fit.credits} credits`
+                        : `Too long for ${tierLabel(scriptTier)}: cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'} or switch to Standard`}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The avatar speaks this text in a voice chosen by the model. It can sound different on each run.
+                </p>
+              </div>
+            )}
+
+            {!scriptTier && (
+            <>
             <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
               <Clock className="w-4 h-4 text-amber-500 shrink-0" />
               <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -945,9 +1036,11 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                 </Button>
               </div>
             </div>
+            </>
+            )}
 
             {/* TTS Mode */}
-            {state.audioInputMode === 'tts' && (
+            {!scriptTier && state.audioInputMode === 'tts' && (
               <>
                 <div className="space-y-2">
                   <Label>Script Text</Label>
@@ -1189,7 +1282,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
             )}
 
             {/* Upload Mode */}
-            {state.audioInputMode === 'upload' && (
+            {!scriptTier && state.audioInputMode === 'upload' && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label>Upload Audio File</Label>
@@ -1250,7 +1343,28 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
         {/* ===== STEP 3: Preview & Generate ===== */}
         {state.currentStep === 3 && (
           <div className="space-y-4">
-            {/* Voice Preview */}
+            {scriptTier && fit && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Script</Label>
+                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => goToStep(2)} disabled={state.isGenerating}>
+                    <RotateCcw className="w-3 h-3 mr-1" />
+                    Edit Script
+                  </Button>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm">{localScriptText}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {fit.fits
+                      ? `${fit.words} words · ${fit.clipSeconds} s ${tierLabel(scriptTier)} clip · the avatar speaks it in a voice chosen by the model`
+                      : `${fit.words} words · too long for ${tierLabel(scriptTier)}, go back and cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'}`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Voice Preview (Standard) */}
+            {!scriptTier && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Voice Preview</Label>
@@ -1304,11 +1418,17 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                 </div>
               )}
             </div>
+            )}
 
             {/* Video Settings */}
             <div className="space-y-3">
               <Label>Video Settings</Label>
 
+              {scriptTier && !AVATAR_TIER_CONFIG[scriptTier].aspectFromResolution ? (
+                <p className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg">
+                  {tierLabel(scriptTier)} follows the shape of your avatar photo. Gallery avatars are landscape; upload your own portrait photo in step 1 for a vertical clip.
+                </p>
+              ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Card
                   className={`p-3 cursor-pointer transition-all duration-200 ${
@@ -1320,7 +1440,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                     <Monitor className={`w-4 h-4 ${state.selectedResolution === 'landscape' ? 'text-primary' : 'text-muted-foreground'}`} />
                     <div>
                       <p className={`text-xs font-medium ${state.selectedResolution === 'landscape' ? 'text-primary' : 'text-foreground'}`}>Landscape</p>
-                      <p className="text-xs text-muted-foreground">1024×576</p>
+                      <p className="text-xs text-muted-foreground">{scriptTier ? '1920×1080' : '1024×576'}</p>
                     </div>
                   </div>
                 </Card>
@@ -1334,11 +1454,12 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                     <Smartphone className={`w-4 h-4 ${state.selectedResolution === 'portrait' ? 'text-primary' : 'text-muted-foreground'}`} />
                     <div>
                       <p className={`text-xs font-medium ${state.selectedResolution === 'portrait' ? 'text-primary' : 'text-foreground'}`}>Portrait</p>
-                      <p className="text-xs text-muted-foreground">576×1024</p>
+                      <p className="text-xs text-muted-foreground">{scriptTier ? '1080×1920' : '576×1024'}</p>
                     </div>
                   </div>
                 </Card>
               </div>
+              )}
 
               {/* Action Prompt */}
               <div className="space-y-2">
@@ -1358,7 +1479,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
             {/* Credit Summary */}
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
-              <span>Estimated cost:</span>
+              <span>{scriptTier && fit?.clipSeconds ? `${tierLabel(scriptTier)} · ${fit.clipSeconds} s clip` : 'Estimated cost:'}</span>
               <span className="font-medium text-primary">{estimatedCredits} credits</span>
             </div>
           </div>
@@ -1395,7 +1516,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
         {state.currentStep === 3 && state.isGenerating && (
           <p className="text-xs text-muted-foreground text-center mt-2">
             You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
-            <ElapsedTimer typical="2–5 minutes" className="tabular-nums" />
+            <ElapsedTimer typical={scriptTier ? AVATAR_TIER_CONFIG[scriptTier].waitLabel : '2–5 minutes'} className="tabular-nums" />
           </p>
         )}
         {state.currentStep === 3 && !creditsLoading && credits < estimatedCredits && (

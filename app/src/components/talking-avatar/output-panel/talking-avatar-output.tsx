@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { TalkingAvatarState } from '../hooks/use-talking-avatar';
 import { AvatarExample } from './avatar-example';
 import { AvatarVideoPreview } from './avatar-video-preview';
+import { isScriptTier } from '@/types/talking-avatar-tiers';
 
 interface StepIndicatorProps {
   stepNumber: number;
@@ -121,6 +122,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         <div className="w-full max-w-4xl">
           <AvatarVideoPreview
             video={state.generatedVideo}
+            tier={state.qualityTier}
             onDownload={handleDownload}
             onOpenInNewTab={handleOpenInNewTab}
             onCreateNew={resetWizard}
@@ -154,6 +156,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
           <div className="w-full max-w-4xl">
             <AvatarVideoPreview
               video={state.generatedVideo}
+              tier={state.qualityTier}
               onDownload={undefined} // No download during processing
               onOpenInNewTab={undefined} // No open during processing
               onCreateNew={undefined} // No create new during processing
@@ -174,12 +177,15 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         return 'Generating your voice...';
       }
       if (state.currentStep === 2) {
+        if (isScriptTier(state.qualityTier)) return 'Type the lines the avatar will speak.';
         return state.audioInputMode === 'upload'
           ? 'Upload your audio file.'
           : 'Write your script and choose a voice.';
       }
       if (state.currentStep === 3) {
-        return 'Preview your voice and generate the video.';
+        return isScriptTier(state.qualityTier)
+          ? 'Check the script and generate the video.'
+          : 'Preview your voice and generate the video.';
       }
       return 'Continue setting up your talking avatar video.';
     };
@@ -189,7 +195,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         return 'Generating Voice';
       }
       if (state.currentStep === 2) {
-        return 'Script & Voice';
+        return isScriptTier(state.qualityTier) ? 'Script' : 'Script & Voice';
       }
       if (state.currentStep === 3) {
         return 'Preview & Generate';
@@ -257,10 +263,12 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
             <StepIndicator
               stepNumber={2}
-              title="Script & Voice"
-              description="Write and choose"
+              title={isScriptTier(state.qualityTier) ? 'Script' : 'Script & Voice'}
+              description={isScriptTier(state.qualityTier) ? 'Type the lines' : 'Write and choose'}
               icon={Mic}
-              isCompleted={!!(state.voiceAudioUrl || (state.uploadedAudioUrl && state.currentStep > 2))}
+              isCompleted={isScriptTier(state.qualityTier)
+                ? !!(state.scriptText.trim() && state.currentStep > 2)
+                : !!(state.voiceAudioUrl || (state.uploadedAudioUrl && state.currentStep > 2))}
               isActive={state.currentStep === 2 && !state.isLoading}
               isLoading={state.isLoading && state.currentStep === 2}
             />

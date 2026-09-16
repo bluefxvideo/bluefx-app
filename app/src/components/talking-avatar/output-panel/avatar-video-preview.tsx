@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Loader2, ExternalLink } from 'lucide-react';
+import { AVATAR_TIER_CONFIG, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 
 interface AvatarVideoPreviewProps {
   video: {
@@ -17,6 +18,8 @@ interface AvatarVideoPreviewProps {
   onDownload?: () => void;
   onOpenInNewTab?: () => void;
   onCreateNew?: () => void;
+  /** Quality tier the clip was rendered on; shown as the card badge. */
+  tier?: AvatarQualityTier;
 }
 
 /**
@@ -27,7 +30,8 @@ export function AvatarVideoPreview({
   video, 
   onDownload, 
   onOpenInNewTab, 
-  onCreateNew 
+  onCreateNew,
+  tier,
 }: AvatarVideoPreviewProps) {
   const handleDownload = async () => {
     if (!video.video_url || !onDownload) return;
@@ -68,7 +72,7 @@ export function AvatarVideoPreview({
                   })()}
                 </p>
                 <p className="text-xs text-yellow-500">
-                  ~2-3 minutes
+                  {isScriptTier(tier) ? AVATAR_TIER_CONFIG[tier].waitLabel : '~2-3 minutes'}
                 </p>
               </div>
             </Card>
@@ -81,7 +85,7 @@ export function AvatarVideoPreview({
             <div className="flex-1 min-w-0 mr-2">
               <div className="flex items-center gap-2 mb-1">
                 <h4 className="font-medium text-sm">Generated Talking Avatar</h4>
-                <Badge variant="outline" className="text-xs">Avatar Video</Badge>
+                <Badge variant="outline" className="text-xs">{tier && tier !== 'standard' ? `${tierLabel(tier)} Avatar` : 'Avatar Video'}</Badge>
               </div>
               <p className="text-xs text-muted-foreground truncate">
                 {(() => {

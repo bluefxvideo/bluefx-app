@@ -250,11 +250,17 @@ async function handleLTXVideoCompletion(
     const videoId = videoRecords[0].id;
     const userId = videoRecords[0].user_id;
 
-    // Update avatar video record with completed status and video URL
-    await updateTalkingAvatarVideoAdmin(videoId, {
-      status: 'completed',
-      video_url: uploadResult.url,
-    });
+    // Complete the row unless the poller already closed it as failed (a
+    // refunded job must not flip back to completed and keep both)
+    const { error: completeError } = await supabase
+      .from('avatar_videos')
+      .update({ status: 'completed', video_url: uploadResult.url, updated_at: new Date().toISOString() })
+      .eq('id', videoId)
+      .neq('status', 'failed');
+    if (completeError) {
+      // Throwing answers fal with a 500 so it redelivers; the update is idempotent.
+      throw new Error(`Avatar completion update failed: ${completeError.message}`);
+    }
 
     // Broadcast completion to user's real-time channel
     await supabase.channel(`user_${userId}_updates`).send({
@@ -273,7 +279,15 @@ async function handleLTXVideoCompletion(
 
     console.log(`✅ fal.ai webhook: LTX video complete - ${videoId} (${Date.now() - startTime}ms)`);
   } else {
+    // No tool owns this request id yet. Fast / Ultra avatar jobs write their
+    // fal_request_id moments after submit, so a callback that beats that write
+    // must be redelivered: a non-2xx makes fal retry on its backoff schedule.
     console.warn(`⚠️ fal.ai webhook: No avatar video record found for fal_request_id: ${request_id}`);
+    return NextResponse.json({
+      success: false,
+      error: `No record for ${request_id} yet`,
+      processing_time_ms: Date.now() - startTime,
+    }, { status: 404 });
   }
 
   return NextResponse.json({
@@ -369,17 +383,34 @@ async function handleGenerationFailure(
     const videoId = videoRecords[0].id;
     const userId = videoRecords[0].user_id;
 
-    await updateTalkingAvatarVideoAdmin(videoId, { status: 'failed' });
-
-    // Refund first so the message can state the real amount returned
+    // Claim the row: only a job still processing is failed and refunded here.
+    // The Fast/Ultra poller uses the same guard, so the two never both refund.
     const { refundFailedGeneration, describeGenerationFailure } = await import('@/lib/credits/refund');
-    const avatarRefund = await refundFailedGeneration({
-      userId,
-      referenceIds: [request_id, videoId],
-      operation: 'talking avatar generation',
-    });
-    console.log('💸 Avatar failure refund:', avatarRefund);
+    // The claim carries a provisional reason so the Realtime event that fires
+    // on this write already shows the user why, before the refund amount is known.
+    const { data: claimed, error: claimError } = await supabase
+      .from('avatar_videos')
+      .update({ status: 'failed', error_message: describeGenerationFailure(error, 0), updated_at: new Date().toISOString() })
+      .eq('id', videoId)
+      .eq('status', 'processing')
+      .select('id');
+    if (claimError) {
+      throw new Error(`Avatar failure claim failed: ${claimError.message}`);
+    }
+    const ownsFailure = !!claimed && claimed.length > 0;
+    const avatarRefund = ownsFailure
+      ? await refundFailedGeneration({
+          userId,
+          referenceIds: [request_id, videoId],
+          operation: 'talking avatar generation',
+        })
+      : { refunded: false, amount: 0 };
+    console.log('💸 Avatar failure refund:', avatarRefund, ownsFailure ? '' : '(row already closed)');
     const avatarReason = describeGenerationFailure(error, avatarRefund.refunded ? avatarRefund.amount : 0);
+    if (ownsFailure) {
+      // Persist the reason so History, the poller and Realtime all show the same text
+      await updateTalkingAvatarVideoAdmin(videoId, { status: 'failed', error_message: avatarReason });
+    }
 
     await supabase.channel(`user_${userId}_updates`).send({
       type: 'broadcast',
