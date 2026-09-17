@@ -190,13 +190,16 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
     deleteSavedAvatar,
   } = avatarState;
 
-  const [localScriptText, setLocalScriptText] = useState(state.scriptText);
+  // The hook owns the script and the movement text: one source of truth. They used to be
+  // copied into local state and synced back through an effect; with keys arriving fast
+  // the two copies chased each other ("Maximum update depth exceeded").
+  const localScriptText = state.scriptText;
   const [selectedTemplate, setSelectedTemplate] = useState<AvatarTemplate | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string>('Friendly_Person');
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
-  const [localActionPrompt, setLocalActionPrompt] = useState(state.actionPrompt);
+  const localActionPrompt = state.actionPrompt;
   const audioInputRef = useRef<HTMLInputElement>(null);
   const stepTopRef = useRef<HTMLDivElement>(null);
 
@@ -361,8 +364,6 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
   useEffect(() => {
     const prefillScript = localStorage.getItem('prefill_script');
     if (prefillScript) {
-      setLocalScriptText(prefillScript);
-      // The hook owns the script: without this the sync effect below wipes the handoff
       setScriptText(prefillScript);
       localStorage.removeItem('prefill_script');
     }
@@ -371,10 +372,8 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
 
   // Update local state when wizard state changes
   useEffect(() => {
-    setLocalScriptText(state.scriptText);
-    setLocalActionPrompt(state.actionPrompt);
     setSelectedTemplate(state.selectedAvatarTemplate);
-  }, [state.scriptText, state.actionPrompt, state.selectedAvatarTemplate]);
+  }, [state.selectedAvatarTemplate]);
 
   // The voice pick follows the hook only when the hook's voice changes. It used
   // to ride on the effect above, so every typed letter cleared the chosen voice.
@@ -1083,10 +1082,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                 <Label>Script</Label>
                 <Textarea
                   value={localScriptText}
-                  onChange={(e) => {
-                    setLocalScriptText(e.target.value);
-                    setScriptText(e.target.value);
-                  }}
+                  onChange={(e) => setScriptText(e.target.value)}
                   placeholder="Type what the avatar should say..."
                   className="min-h-[140px] resize-none"
                   disabled={state.isLoading}
@@ -1156,10 +1152,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                   <Label>Script</Label>
                   <Textarea
                     value={localScriptText}
-                    onChange={(e) => {
-                      setLocalScriptText(e.target.value);
-                      setScriptText(e.target.value);
-                    }}
+                    onChange={(e) => setScriptText(e.target.value)}
                     placeholder="Type what the avatar should say..."
                     className="min-h-[140px] resize-none"
                     disabled={state.isLoading}
@@ -1606,11 +1599,9 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                 <Label className="text-xs">How should the avatar move? (optional)</Label>
                 <Textarea
                   value={localActionPrompt}
-                  onChange={(e) => {
-                    setLocalActionPrompt(e.target.value);
-                    setActionPrompt(e.target.value);
-                  }}
+                  onChange={(e) => setActionPrompt(e.target.value)}
                   placeholder="Example: smiles warmly and nods while talking"
+                  maxLength={300}
                   className="min-h-[50px] resize-none text-sm"
                   disabled={state.isLoading || state.isGenerating}
                 />

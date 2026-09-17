@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Loader2, Download, RefreshCw, Pencil, Trash2, ImageIcon, Zap, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Download, RefreshCw, Pencil, Trash2, ImageIcon, Zap, Upload, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import type { WizardData, ExtractedFrame } from '../wizard-types';
 import { toast } from 'sonner';
@@ -13,6 +13,10 @@ interface ImageGenerationStepProps {
   isGenerating: boolean;
   progress: { current: number; total: number };
   onGenerateAll: () => void;
+  /** Scenes whose image could not be made in the last run, with the reason. */
+  failures?: { sceneNumber: number; reason: string; notCharged?: boolean }[];
+  /** Make images for just these scenes and keep the frames that exist. */
+  onGenerateScenes?: (sceneNumbers: number[]) => void;
   onUpdateFrame: (frameId: string, updates: Partial<ExtractedFrame>) => void;
   onRemoveFrame: (frameId: string) => void;
   onRegenerateFrame?: (frameId: string) => void;
@@ -24,6 +28,8 @@ export function ImageGenerationStep({
   isGenerating,
   progress,
   onGenerateAll,
+  failures,
+  onGenerateScenes,
   onUpdateFrame,
   onRemoveFrame,
   onRegenerateFrame,
@@ -39,6 +45,14 @@ export function ImageGenerationStep({
   const frames = wizardData.extractedFrames;
   const hasFrames = frames.length > 0;
   const enabledCount = wizardData.scenes.filter(s => wizardData.enabledScenes.has(s.sceneNumber)).length;
+
+  // Switched-on scenes that have no image. Worked out from the frames themselves, so the
+  // hint survives a page reload (the failure reasons of the last run do not).
+  const missingScenes = wizardData.scenes
+    .filter(s => wizardData.enabledScenes.has(s.sceneNumber) && !frames.some(f => f.sceneNumber === s.sceneNumber))
+    .map(s => s.sceneNumber);
+  const knownFailures = (failures || []).filter(f => missingScenes.includes(f.sceneNumber));
+  const showMissingBox = !isGenerating && (knownFailures.length > 0 || (!!onGenerateScenes && hasFrames && missingScenes.length > 0));
 
   // Version navigation helpers
   const getVersionCount = (frame: ExtractedFrame) => frame.imageVersions?.length || 1;
@@ -214,8 +228,42 @@ export function ImageGenerationStep({
         </div>
       )}
 
+      {/* What is missing and why: a failure used to leave no trace on this screen */}
+      {showMissingBox && (
+        <div className={`rounded-lg border p-4 space-y-3 ${knownFailures.length > 0 ? 'border-destructive/30 bg-destructive/10' : 'border-amber-500/30 bg-amber-500/10'}`}>
+          <div className="flex items-start gap-2">
+            <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${knownFailures.length > 0 ? 'text-destructive' : 'text-amber-500'}`} />
+            <div className="space-y-1.5 min-w-0">
+              <p className="text-sm font-medium">
+                {knownFailures.length > 0
+                  ? (missingScenes.length === 1
+                    ? `The image for scene ${missingScenes[0]} could not be made`
+                    : `${missingScenes.length} images could not be made`)
+                  : (missingScenes.length === 1
+                    ? `Scene ${missingScenes[0]} has no image yet`
+                    : `Scenes ${missingScenes.join(', ')} have no image yet`)}
+              </p>
+              {knownFailures.map((f) => (
+                <p key={f.sceneNumber} className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Scene {f.sceneNumber}:</span> {f.reason}
+                </p>
+              ))}
+              {knownFailures.length > 0 && knownFailures.every((f) => f.notCharged) && (
+                <p className="text-xs text-muted-foreground">No credits were taken for {knownFailures.length === 1 ? 'this scene' : 'these scenes'}.</p>
+              )}
+            </div>
+          </div>
+          {onGenerateScenes && missingScenes.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => onGenerateScenes(missingScenes)}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              {knownFailures.length > 0 ? 'Try again' : missingScenes.length === 1 ? 'Make this image' : 'Make these images'} ({missingScenes.length * 2} credits)
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Empty state */}
-      {!hasFrames && !isGenerating && (
+      {!hasFrames && !isGenerating && !showMissingBox && (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <ImageIcon className="w-12 h-12 mb-4 opacity-30" />
           <p className="text-sm">Click &quot;Generate All Images&quot; to create storyboard frames</p>

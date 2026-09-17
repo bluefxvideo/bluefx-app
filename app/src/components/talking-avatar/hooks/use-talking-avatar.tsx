@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { executeTalkingAvatar, pollAvatarTierGeneration, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
+import { executeTalkingAvatar, pollAvatarTierGeneration, switchAvatarVoice, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
 import { isScriptTier, readAvatarTier, waitLabelFor, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { getAvatarTemplates, getTalkingAvatarVideos, deleteTalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
@@ -45,7 +45,16 @@ export interface TalkingAvatarState {
   // Video Generation (Step 3)
   selectedResolution: 'landscape' | 'portrait';
   isGenerating: boolean;
-  generatedVideo: { id: string; video_url: string; thumbnail_url?: string; script_text: string; avatar_image_url: string; created_at: string; } | null;
+  generatedVideo: {
+    id: string;
+    video_url: string;
+    thumbnail_url?: string;
+    script_text: string;
+    avatar_image_url: string;
+    created_at: string;
+    /** The copy with the user's own voice ("Switch voice"), when one was made. */
+    voice_video_url?: string | null;
+  } | null;
 
   // General state
   isLoading: boolean;
@@ -101,6 +110,10 @@ export interface UseTalkingAvatarReturn {
   setQualityTier: (tier: AvatarQualityTier) => void;
   // Voice cloning
   loadClonedVoices: () => Promise<void>;
+  /** Put the user's own voice on the finished video. `file` null = reuse the remembered sample. */
+  switchVoice: (file: File | null) => Promise<void>;
+  isSwitchingVoice: boolean;
+  lastVoiceSample: { url: string; name: string } | null;
   /** Resolves with the saved voice so the page can select it. */
   cloneVoice: (file: File, name: string, options: { noiseReduction: boolean; volumeNormalization: boolean }) => Promise<ClonedVoice | undefined>;
   // Saved avatars
@@ -1301,6 +1314,71 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }
   }, [user?.id, loadClonedVoices]);
 
+  // ─── Switch voice: the user's own voice on the finished video ───
+  const [isSwitchingVoice, setIsSwitchingVoice] = useState(false);
+  const [lastVoiceSample, setLastVoiceSample] = useState<{ url: string; name: string } | null>(null);
+
+  // Remembered voice sample, shared with Video Maker and Agent Clone: one upload serves all three
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const saved = localStorage.getItem(`bluefx.voiceSample.${user.id}`) || localStorage.getItem(`agentclone.voiceSample.${user.id}`);
+      if (saved) setLastVoiceSample(JSON.parse(saved));
+    } catch {
+      // no remembered sample
+    }
+  }, [user?.id]);
+
+  const switchVoice = useCallback(async (file: File | null) => {
+    const current = generatedVideoRef.current;
+    if (!current?.id || !current.video_url || !user?.id) return;
+    const videoId = current.id;
+
+    setIsSwitchingVoice(true);
+    try {
+      let sample = lastVoiceSample;
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('kind', 'target');
+        const res = await fetch('/api/upload/voice-changer', { method: 'POST', body: formData });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) throw new Error(`The voice sample could not be uploaded (${res.status}).`);
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.error || 'The voice sample could not be uploaded.');
+        sample = { url: data.url as string, name: file.name };
+        setLastVoiceSample(sample);
+        try { localStorage.setItem(`bluefx.voiceSample.${user.id}`, JSON.stringify(sample)); } catch { /* ignore */ }
+      }
+      if (!sample) throw new Error('Choose a voice sample first.');
+
+      const response = await switchAvatarVoice(videoId, sample.url);
+      if (!response.success || !response.videoUrl) throw new Error(response.error || 'The voice could not be switched.');
+
+      const voiceUrl = response.videoUrl;
+      setState(prev => ({
+        ...prev,
+        generatedVideo: prev.generatedVideo && prev.generatedVideo.id === videoId
+          ? { ...prev.generatedVideo, voice_video_url: voiceUrl }
+          : prev.generatedVideo,
+        videos: prev.videos.map(v => v.id === videoId
+          ? {
+              ...v,
+              video_settings: {
+                ...((v.video_settings && typeof v.video_settings === 'object' && !Array.isArray(v.video_settings)) ? v.video_settings as Record<string, unknown> : {}),
+                voice_video_url: voiceUrl,
+              } as TalkingAvatarVideo['video_settings'],
+            }
+          : v),
+      }));
+      toast.success('Voice switched. Your voice is on the video.');
+    } catch (err) {
+      failureToast('The voice could not be switched', err instanceof Error ? err.message : null);
+    } finally {
+      setIsSwitchingVoice(false);
+    }
+  }, [lastVoiceSample, user?.id]);
+
   // Load user's saved avatars
   const loadSavedAvatars = useCallback(async () => {
     if (!user?.id) return;
@@ -1437,6 +1515,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     setSelectedResolution,
     setScriptText,
     setQualityTier,
+    // Switch voice on the finished video
+    switchVoice,
+    isSwitchingVoice,
+    lastVoiceSample,
     // Voice cloning
     loadClonedVoices,
     cloneVoice: cloneVoiceAction,

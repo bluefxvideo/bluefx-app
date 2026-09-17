@@ -61,23 +61,29 @@ interface TalkingAvatarOutputProps {
     resetWizard?: () => void;
     goToStep?: (step: number) => void;
     checkStatusManually?: () => void;
+    /** Switch voice on the finished video; absent = the block is hidden. */
+    switchVoice?: (file: File | null) => Promise<void>;
+    isSwitchingVoice?: boolean;
+    lastVoiceSample?: { url: string; name: string } | null;
   };
 }
 
 export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
-  const { state, resetWizard, clearResults, goToStep } = avatarState;
+  const { state, resetWizard, clearResults, goToStep, switchVoice, isSwitchingVoice, lastVoiceSample } = avatarState;
 
   // Check if we're in progress mode (any step > 1 or avatar selected)
   const isInProgress = state.currentStep > 1 || state.selectedAvatarTemplate || state.customAvatarImage || state.customAvatarUrl;
   
   // Show completed video first if available (must have actual video URL, not empty placeholder)
   if (state.generatedVideo && state.generatedVideo.video_url && state.generatedVideo.video_url.trim() && !state.isGenerating) {
-    const handleDownload = async () => {
-      if (!state.generatedVideo?.video_url) return;
-      
+    // `url` is the version on screen: the user's own voice or the original
+    const handleDownload = async (url: string) => {
+      if (!state.generatedVideo?.video_url || !url) return;
+      const withOwnVoice = url !== state.generatedVideo.video_url;
+
       try {
         // Fetch the video blob
-        const response = await fetch(state.generatedVideo.video_url);
+        const response = await fetch(url);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch video: ${response.status}`);
@@ -89,7 +95,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = `avatar-video-${(state.generatedVideo.id || String(Date.now())).slice(0, 8)}.mp4`;
+        a.download = `avatar-video-${(state.generatedVideo.id || String(Date.now())).slice(0, 8)}${withOwnVoice ? '-your-voice' : ''}.mp4`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -99,7 +105,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
       } catch (error) {
         console.error('Download failed:', error);
         // Fallback to opening in new tab
-        window.open(state.generatedVideo.video_url, '_blank');
+        window.open(url, '_blank');
       }
     };
 
@@ -115,6 +121,9 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
             tier={state.qualityTier}
             portraitHint={state.qualityTier !== 'ultra' && state.selectedResolution === 'portrait'}
             onDownload={handleDownload}
+            onSwitchVoice={switchVoice ? (file) => { void switchVoice(file); } : undefined}
+            isSwitchingVoice={isSwitchingVoice}
+            lastVoiceSample={lastVoiceSample}
             onMakeAnother={canMakeAnother ? () => { clearResults?.(); goToStep?.(2); } : undefined}
             onStartOver={resetWizard}
           />

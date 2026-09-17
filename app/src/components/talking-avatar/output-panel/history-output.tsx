@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Clock, Loader2, Trash2, Video, RefreshCw } from 'lucide-react';
+import { Download, Clock, Loader2, Mic, Trash2, Video, RefreshCw } from 'lucide-react';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
-import { readAvatarTier, tierLabel } from '@/types/talking-avatar-tiers';
+import { readAvatarTier, readVoiceVideoUrl, tierLabel } from '@/types/talking-avatar-tiers';
 
 interface HistoryOutputProps {
   videos: TalkingAvatarVideo[];
@@ -74,16 +74,18 @@ function failureText(video: TalkingAvatarVideo): string {
   return 'This video could not be made.';
 }
 
-async function downloadVideo(video: TalkingAvatarVideo) {
-  if (!video.video_url) return;
+/** `url` is the version shown on the card: the user's own voice when one was made, else the original. */
+async function downloadVideo(video: TalkingAvatarVideo, url: string | null) {
+  if (!url) return;
+  const withOwnVoice = url !== video.video_url;
   try {
-    const response = await fetch(video.video_url);
+    const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch video: ${response.status}`);
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = blobUrl;
-    a.download = `avatar-video-${video.id.slice(0, 8)}.mp4`;
+    a.download = `avatar-video-${video.id.slice(0, 8)}${withOwnVoice ? '-your-voice' : ''}.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -91,7 +93,7 @@ async function downloadVideo(video: TalkingAvatarVideo) {
   } catch (error) {
     console.error('Download failed:', error);
     // Fallback: the browser's own player has a download control
-    window.open(video.video_url, '_blank');
+    window.open(url, '_blank');
   }
 }
 
@@ -110,6 +112,8 @@ export function HistoryOutput({
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
   const [checkingItems, setCheckingItems] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(HISTORY_PAGE_SIZE);
+  // Cards whose owner asked for the original instead of the copy with their own voice
+  const [showOriginal, setShowOriginal] = useState<Set<string>>(new Set());
 
   // "5 minutes ago" and the "Check this video" button depend on the clock: an idle
   // History tab would otherwise never redraw them
@@ -209,6 +213,10 @@ export function HistoryOutput({
           const ageMs = Date.now() - new Date(video.created_at || '').getTime();
           const looksStuck = isBeingMade && Number.isFinite(ageMs) && ageMs > STUCK_AFTER_MS;
           const when = timeAgo(video.created_at);
+          // "Switch voice" keeps both files: the card shows the user's voice first
+          const voiceUrl = readVoiceVideoUrl(video);
+          const showingVoice = !!voiceUrl && !showOriginal.has(video.id);
+          const shownUrl = showingVoice ? voiceUrl : video.video_url;
 
           return (
             <Card key={video.id} className="p-3 bg-secondary">
@@ -234,11 +242,31 @@ export function HistoryOutput({
                   <p className="text-sm text-muted-foreground bg-muted rounded p-3">{failureText(video)}</p>
                 ) : (
                   <div className={`bg-black rounded overflow-hidden relative ${isTall ? 'aspect-[9/16] max-h-[420px] mx-auto' : 'aspect-video'}`}>
-                    {video.video_url ? (
+                    {voiceUrl && video.video_url && (
+                      <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-0.5 rounded-md border border-white/20 bg-black/60 p-0.5 text-[11px] backdrop-blur">
+                        <button
+                          type="button"
+                          onClick={() => setShowOriginal(prev => { const next = new Set(prev); next.delete(video.id); return next; })}
+                          className={`px-2 py-0.5 rounded ${showingVoice ? 'bg-primary text-primary-foreground' : 'text-white/80'}`}
+                        >
+                          <Mic className="w-3 h-3 inline mr-1" />
+                          Your voice
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowOriginal(prev => new Set(prev).add(video.id))}
+                          className={`px-2 py-0.5 rounded ${!showingVoice ? 'bg-primary text-primary-foreground' : 'text-white/80'}`}
+                        >
+                          Original
+                        </button>
+                      </div>
+                    )}
+                    {shownUrl ? (
                       <video
+                        key={shownUrl}
                         data-avatar-history-video
                         // Without a poster, #t=0.1 makes the browser paint a first frame
-                        src={poster ? video.video_url : `${video.video_url}#t=0.1`}
+                        src={poster ? shownUrl : `${shownUrl}#t=0.1`}
                         poster={poster}
                         preload={poster ? 'none' : 'metadata'}
                         controls
@@ -273,7 +301,7 @@ export function HistoryOutput({
 
                 <div className="flex items-center gap-2 pt-1">
                   {video.video_url && !isFailed && (
-                    <Button variant="outline" size="sm" onClick={() => downloadVideo(video)}>
+                    <Button variant="outline" size="sm" onClick={() => downloadVideo(video, shownUrl)}>
                       <Download className="w-4 h-4 mr-2" />
                       Download
                     </Button>

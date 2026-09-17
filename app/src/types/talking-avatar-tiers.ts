@@ -179,6 +179,15 @@ export function readAvatarTier(video: { video_settings?: unknown; video_source?:
   return 'standard';
 }
 
+/** Flat price of "Switch voice" on a finished avatar video, the same as in Video Maker and Agent Clone. */
+export const AVATAR_VOICE_SWITCH_CREDITS = 4;
+
+/** The re-voiced copy of a video ("Switch voice"), kept next to the original in video_settings. */
+export function readVoiceVideoUrl(video: { video_settings?: unknown } | null | undefined): string | null {
+  const settings = (video?.video_settings || {}) as { voice_video_url?: unknown };
+  return typeof settings.voice_video_url === 'string' && settings.voice_video_url ? settings.voice_video_url : null;
+}
+
 /** How long a video on this tier usually takes, in words ("about a minute"). */
 export function waitLabelFor(tier: AvatarQualityTier | null | undefined): string {
   return isScriptTier(tier) ? AVATAR_TIER_CONFIG[tier].waitLabel : AVATAR_BASIC_WAIT_LABEL;

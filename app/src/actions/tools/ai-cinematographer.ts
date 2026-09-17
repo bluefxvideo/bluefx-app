@@ -22,6 +22,7 @@ import { createClient as createServerClient } from '@/app/supabase/server';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
 import { Json } from '@/types/database';
 import type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
+import { FAST_PROMPT_MAX_CHARS } from '@/types/cinematographer';
 
 // Note: Types are NOT re-exported from server actions due to Turbopack issues
 // Import types directly from @/types/cinematographer in client components
@@ -107,6 +108,18 @@ export async function executeAICinematographer(
     // Generate unique batch ID for this operation
     const batch_id = crypto.randomUUID();
     
+    // The Fast engine takes at most 5,000 characters; say so before anything is charged
+    if ((request.model || 'fast') === 'fast' && typeof request.prompt === 'string' && request.prompt.length > FAST_PROMPT_MAX_CHARS) {
+      return {
+        success: false,
+        error: `The prompt is ${request.prompt.length.toLocaleString('en-US')} characters. Fast takes up to ${FAST_PROMPT_MAX_CHARS.toLocaleString('en-US')}. Shorten the prompt and generate again. No credits were taken.`,
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
     // Calculate credit costs based on workflow
     const creditCosts = calculateCinematographerCreditCost(request);
     
@@ -1559,9 +1572,19 @@ export async function generateSingleSceneImage(params: {
   const CREDIT_COST = 2;
 
   try {
-    const creditCheck = await getUserCredits(params.userId);
+    // The signed-in user pays. The id the page sends is only checked against the
+    // session: a server action is a public endpoint, and it used to bill whatever id arrived.
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'You are signed out. Sign in again and retry.', creditsUsed: 0 };
+    if (params.userId && params.userId !== user.id) {
+      return { success: false, error: 'Your session changed. Reload the page and try again.', creditsUsed: 0 };
+    }
+    const userId = user.id;
+
+    const creditCheck = await getUserCredits(userId);
     if (!creditCheck.success || (creditCheck.credits || 0) < CREDIT_COST) {
-      return { success: false, error: 'Insufficient credits', creditsUsed: 0 };
+      return { success: false, error: `Not enough credits. Each image costs ${CREDIT_COST} credits.`, creditsUsed: 0 };
     }
 
     const imageResult = await generateImageWithPro(
@@ -1593,7 +1616,7 @@ export async function generateSingleSceneImage(params: {
     }
 
     // Deduct credits
-    await deductCredits(params.userId, CREDIT_COST, 'scene-image-generation', {
+    await deductCredits(userId, CREDIT_COST, 'scene-image-generation', {
       prompt: params.prompt.slice(0, 200),
     } as Json);
 

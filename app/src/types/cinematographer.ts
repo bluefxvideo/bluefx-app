@@ -28,6 +28,13 @@ export type VideoModel = 'fast' | 'pro' | 'ultra';
 // track (cheaper on some engines — pairs with the Music tool).
 export type VideoAudioMode = 'voice' | 'silent';
 
+/**
+ * The Fast engine (fal LTX-2.3) rejects a prompt over 5,000 characters with a bare
+ * 422. A client pasted a 6,799 character video analysis four times: charged, failed
+ * and refunded each time with "Unexpected status code: 422". Checked before any charge.
+ */
+export const FAST_PROMPT_MAX_CHARS = 5000;
+
 // Model configurations (all hosted on fal.ai)
 export const VIDEO_MODEL_CONFIG = {
   fast: {

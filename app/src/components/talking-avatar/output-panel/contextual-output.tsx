@@ -38,7 +38,10 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
       clearResults: avatarState.clearResults,
       resetWizard: avatarState.resetWizard,
       goToStep: avatarState.goToStep,
-      checkStatusManually: avatarState.checkStatusManually
+      checkStatusManually: avatarState.checkStatusManually,
+      switchVoice: avatarState.switchVoice,
+      isSwitchingVoice: avatarState.isSwitchingVoice,
+      lastVoiceSample: avatarState.lastVoiceSample,
     }} />
   );
 

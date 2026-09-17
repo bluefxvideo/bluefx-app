@@ -7,6 +7,8 @@ import { submitKlingO3ProImageToVideo } from '@/actions/models/fal-kling-video';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { probeMediaSeconds } from '@/lib/media/probe-seconds';
+import { convertVoiceInMedia } from '@/lib/voice-changer/convert';
+import type { Json } from '@/types/database';
 import {
   AVATAR_TIER_CONFIG,
   scriptFit,
@@ -14,6 +16,7 @@ import {
   isScriptTier,
   readAvatarTier,
   type AvatarQualityTier,
+  AVATAR_VOICE_SWITCH_CREDITS,
 } from '@/types/talking-avatar-tiers';
 import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
 import {
@@ -762,6 +765,99 @@ export async function pollAvatarTierGeneration(
   } catch (error) {
     console.error('pollAvatarTierGeneration error:', error);
     return { status: 'processing' };
+  }
+}
+
+// ─── Switch voice on a finished avatar video (ChatterboxHD speech-to-speech) ───
+
+/**
+ * Put the user's own voice on a finished avatar video. Same pipeline as Video
+ * Maker and Agent Clone: the picture is untouched, only the audio track is
+ * replaced (Chatterbox keeps the original timing, so the lips stay in sync).
+ * This matters most on Fast and Ultra, where the engine picks the voice and it
+ * changes from one video to the next. The re-voiced file is kept next to the
+ * original in `video_settings.voice_video_url`, so both stay available.
+ * Charged only after a video with the new voice exists.
+ */
+export async function switchAvatarVoice(
+  videoId: string,
+  targetVoiceUrl: string,
+): Promise<{ success: boolean; videoUrl?: string; creditsUsed?: number; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'You are signed out. Sign in again and retry.' };
+
+    // The sample must be a file in our own storage (the page uploads it there first)
+    const storageRoot = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
+    if (!targetVoiceUrl?.startsWith(storageRoot)) {
+      return { success: false, error: 'The voice sample is missing. Upload it again.' };
+    }
+
+    const video = await getTalkingAvatarVideo(videoId, user.id);
+    if (!video) return { success: false, error: 'This video no longer exists.' };
+    if (video.status !== 'completed' || !video.video_url) {
+      return { success: false, error: 'Wait for the video to finish, then switch the voice.' };
+    }
+
+    const creditCheck = await getUserCredits(user.id);
+    if (!creditCheck.success || (creditCheck.credits || 0) < AVATAR_VOICE_SWITCH_CREDITS) {
+      return { success: false, error: `Not enough credits. Switching the voice costs ${AVATAR_VOICE_SWITCH_CREDITS} credits.` };
+    }
+
+    const batchId = `avatar_voice_${videoId.slice(0, 8)}_${Date.now()}`;
+    console.log(`🎙️ AI Avatar: switching voice (${batchId})`);
+
+    const result = await convertVoiceInMedia({
+      batchId,
+      // Always the original: switching twice must not re-voice an already re-voiced track
+      sourceUrl: video.video_url,
+      sourceIsVideo: true,
+      sourceExt: 'mp4',
+      target: { mode: 'custom', sampleUrl: targetVoiceUrl },
+      highQuality: true,
+      output: { bucket: 'videos', folder: 'talking-avatar' },
+      // `videos` only accepts video/*; the extracted WAV needs an audio-friendly bucket
+      scratch: { bucket: 'script-videos', folder: `${user.id}/talking-avatar` },
+    });
+    if (!result.success) {
+      console.error(`AI Avatar voice switch failed (${batchId}):`, result.error);
+      return { success: false, error: 'The voice could not be switched. Try a clean recording of 10 to 30 seconds with no music. No credits were taken.' };
+    }
+    if (result.resultType !== 'video') {
+      return { success: false, error: 'The voice could not be switched. No credits were taken.' };
+    }
+
+    // Save first, charge second: a video the user cannot reach must not cost credits.
+    // The tier fields already in video_settings (tier, prompt, clip_seconds) are kept.
+    const existing = (video.video_settings && typeof video.video_settings === 'object' && !Array.isArray(video.video_settings))
+      ? (video.video_settings as Record<string, unknown>)
+      : {};
+    await updateTalkingAvatarVideoAdmin(videoId, {
+      video_settings: {
+        ...existing,
+        voice_video_url: result.videoUrl,
+        voice_swap: {
+          target_voice_url: targetVoiceUrl,
+          high_quality: true,
+          batch_id: batchId,
+          converted_at: new Date().toISOString(),
+          credits: AVATAR_VOICE_SWITCH_CREDITS,
+        },
+      } as Json,
+    });
+
+    const deduction = await deductCredits(user.id, AVATAR_VOICE_SWITCH_CREDITS, 'avatar-voice-switch', {
+      video_id: videoId,
+      batch_id: batchId,
+    } as Json);
+    if (!deduction.success) console.warn('AI Avatar voice switch: credit deduction failed:', deduction.error);
+
+    console.log(`✅ AI Avatar: voice switched (${batchId})`);
+    return { success: true, videoUrl: result.videoUrl, creditsUsed: AVATAR_VOICE_SWITCH_CREDITS };
+  } catch (error) {
+    console.error('❌ AI Avatar voice switch error:', error);
+    return { success: false, error: 'The voice could not be switched. Try again in a minute.' };
   }
 }
 

@@ -37,10 +37,10 @@ export function friendlyFalImageError(status: number, errorText: string): string
   const detailMsg = falDetailMessage(errorText);
 
   if (detailMsg.includes('flagged by a content checker') || errorText.includes('content_policy_violation')) {
-    return 'Blocked by the image safety filter: the prompt (or a reference image) was flagged as inappropriate. Remove suggestive wording — e.g. "sexy", revealing-clothing or body-focused descriptions — and generate again. Credits for this attempt were not kept.';
+    return 'Blocked by the image safety filter: the prompt (or a reference photo) was flagged. Common triggers are body-focused or suggestive wording, medical and drug themes (pills, injections, powders), weapons, and real brand names. Reword the scene and generate again. No credits were taken for this attempt.';
   }
   if (detailMsg.includes('did not generate the expected output')) {
-    return 'The image engine declined this prompt without producing an image — usually the safety checker (suggestive wording, or edits like that to photos of real people), sometimes an instruction it cannot apply to this frame. Reword the swap instruction and generate again. Credits for this attempt were not kept.';
+    return 'The image engine declined this prompt without making an image. That is usually the safety checker (suggestive wording, medical or drug themes, edits to photos of real people), sometimes an instruction it cannot apply to this picture. Reword the prompt and generate again. No credits were taken for this attempt.';
   }
   return `Image engine error (${status}): ${detailMsg.substring(0, 160) || 'no details returned'}`;
 }

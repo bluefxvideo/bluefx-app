@@ -19,7 +19,11 @@ import { pixelSizeFor } from '@/lib/image-sizes';
  * exposes no moderation level for this endpoint, so a safety refusal (422
  * content_policy_violation, not billed) reruns the same request on Nano
  * Banana 2, the engine every call site used before the switch. Only a
- * refusal by both engines reaches the user.
+ * refusal by both engines reaches the user. The same rerun covers an engine
+ * that is down or too slow (5xx, 429, timeout, network error): a client
+ * should not lose an image because one provider has a bad minute. A 4xx
+ * that is not a refusal (bad input) is NOT rerun: it would fail there too
+ * and would hide a bug on our side.
  *
  * fal prices per image, 2026-09 (high quality): 1920x1080 $0.040, 2560x1440
  * $0.055, 3840x2160 $0.100; edits run about 20% more. Nano Banana 2 was
@@ -105,16 +109,11 @@ export async function generateWithGptImage25(params: GptImage25Input): Promise<{
       console.error('🚨 fal.ai gpt-image-2.5 error:', response.status, errorText.substring(0, 200));
       if (isFalSafetyRefusal(errorText)) {
         console.log('🛟 gpt-image-2.5 refused on safety grounds; rerunning on nano-banana-2');
-        // Dynamic import: fal-nano-banana-2 imports this module for its own
-        // engine picker, so a static import would form a cycle.
-        const { generateWithFalNanaBanana2 } = await import('./fal-nano-banana-2');
-        return generateWithFalNanaBanana2({
-          prompt: params.prompt,
-          aspect_ratio: aspect,
-          resolution: params.resolution || '1K',
-          output_format: params.output_format || 'jpeg',
-          image_input: params.image_input,
-        });
+        return rerunOnNanoBanana2();
+      }
+      if (response.status >= 500 || response.status === 429) {
+        console.log(`🛟 gpt-image-2.5 is unavailable (${response.status}); rerunning on nano-banana-2`);
+        return rerunOnNanoBanana2();
       }
       return { success: false, error: friendlyFalImageError(response.status, errorText) };
     }
@@ -127,10 +126,28 @@ export async function generateWithGptImage25(params: GptImage25Input): Promise<{
     console.log('✅ fal.ai gpt-image-2.5: image generated');
     return { success: true, imageUrl: result.images[0].url };
   } catch (error) {
+    // Timeout (the 170 s abort above) or a network error: the other engine gets one try
     console.error('🚨 fal.ai gpt-image-2.5 error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate image via fal.ai',
-    };
+    console.log('🛟 gpt-image-2.5 did not answer; rerunning on nano-banana-2');
+    try {
+      return await rerunOnNanoBanana2();
+    } catch (fallbackError) {
+      console.error('🚨 nano-banana-2 rerun failed too:', fallbackError);
+      return { success: false, error: 'The image engine did not answer. Try again in a minute.' };
+    }
+  }
+
+  /** Same request on Nano Banana 2, the engine every call site used before the switch. */
+  async function rerunOnNanoBanana2() {
+    // Dynamic import: fal-nano-banana-2 imports this module for its own
+    // engine picker, so a static import would form a cycle.
+    const { generateWithFalNanaBanana2 } = await import('./fal-nano-banana-2');
+    return generateWithFalNanaBanana2({
+      prompt: params.prompt,
+      aspect_ratio: aspect,
+      resolution: params.resolution || '1K',
+      output_format: params.output_format || 'jpeg',
+      image_input: params.image_input,
+    });
   }
 }

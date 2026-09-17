@@ -27,6 +27,7 @@ import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-break
 import { motionPresetToNativeCameraMotion } from '@/lib/scene-breakdown/motion-presets';
 import { toast } from 'sonner';
 import { useCredits } from '@/hooks/useCredits';
+import { isStalePageError } from '@/lib/stale-page';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 
 type AdCreatorMode = 'select' | 'clone' | 'script';
@@ -588,6 +589,9 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
   // ===== Image Generation State =====
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [imageGenProgress, setImageGenProgress] = useState({ current: 0, total: 0 });
+  // Scenes whose image could not be made in the last run, with the reason. The page
+  // used to swallow every failure: the client saw "0 images generated" and nothing else.
+  const [imageFailures, setImageFailures] = useState<{ sceneNumber: number; reason: string; notCharged: boolean }[]>([]);
   const autoGenTriggeredRef = useRef(false);
   const [shouldAutoGenerate, setShouldAutoGenerate] = useState(false);
 
@@ -789,9 +793,17 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
   };
 
   // ===== Image generation (reused from AIRecreatePage) =====
-  const handleGenerateAllImages = async () => {
-    const enabledScenes = wizardData.scenes.filter(s => wizardData.enabledScenes.has(s.sceneNumber));
-    if (enabledScenes.length === 0) return;
+  // `onlyScenes`: make just these scene numbers and keep the frames that exist
+  // ("Try the failed scenes again"). Without it every enabled scene is made afresh.
+  const handleGenerateAllImages = async (onlyScenes?: number[]) => {
+    const retrying = Array.isArray(onlyScenes) && onlyScenes.length > 0;
+    const enabledScenes = wizardData.scenes.filter(s =>
+      wizardData.enabledScenes.has(s.sceneNumber) && (!retrying || onlyScenes!.includes(s.sceneNumber))
+    );
+    if (enabledScenes.length === 0) {
+      toast.error('No scenes are switched on. Go back one step and switch on the scenes you want.');
+      return;
+    }
 
     // Get user for credit deduction
     const supabase = createClient();
@@ -805,25 +817,37 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     }
 
     setIsGeneratingImages(true);
+    setImageFailures([]);
     setImageGenProgress({ current: 0, total: enabledScenes.length });
 
-    // Clear old frames
-    setWizardData(prev => ({ ...prev, extractedFrames: [] }));
+    // A full run starts from a clean grid; a retry keeps the frames that worked
+    if (!retrying) setWizardData(prev => ({ ...prev, extractedFrames: [] }));
 
     const allFrames: ExtractedFrame[] = [];
+    const failures: { sceneNumber: number; reason: string; notCharged: boolean }[] = [];
 
-    // Upload reference images once
-    let uploadedImageUrls: string[] = [];
+    // Upload the product / reference photos once. They used to be dropped: the upload
+    // helper this page imported never existed, so the image engine never saw the product.
+    const uploadedImageUrls: string[] = [];
     if (wizardData.referenceImages.length > 0) {
-      try {
-        // NOTE: uploadReferenceImages is not exported by the actions module; the call
-        // throws at runtime and is handled by the catch below (pre-existing behavior).
-        const { uploadReferenceImages } = (await import('@/actions/tools/ai-cinematographer')) as unknown as {
-          uploadReferenceImages: (files: File[]) => Promise<(string | null)[]>;
-        };
-        const urls = await uploadReferenceImages(wizardData.referenceImages.map(img => img.file));
-        uploadedImageUrls = urls.filter(Boolean) as string[];
-      } catch { console.warn('Failed to upload reference images'); }
+      const batchId = `adcreator-${Date.now()}`;
+      for (const img of wizardData.referenceImages) {
+        try {
+          const formData = new FormData();
+          formData.append('file', img.file);
+          formData.append('type', 'reference');
+          formData.append('batchId', batchId);
+          const res = await fetch('/api/upload/cinematographer', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (data.success && data.url) uploadedImageUrls.push(data.url as string);
+          else console.warn('Product photo upload failed:', data.error);
+        } catch (err) {
+          console.warn('Product photo upload failed:', err);
+        }
+      }
+      if (uploadedImageUrls.length < wizardData.referenceImages.length) {
+        toast.warning('A product photo could not be uploaded. The images are made without it.');
+      }
     }
 
     for (let i = 0; i < enabledScenes.length; i++) {
@@ -848,7 +872,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             ? Math.max(6, Math.min(20, Math.ceil(scene.narration.split(/\s+/).length / 2.5)))
             : 6;
 
-          allFrames.push({
+          const frame: ExtractedFrame = {
             id: `scene-${scene.sceneNumber}-${Date.now()}`,
             imageUrl: finalUrl,
             prompt: scene.visualPrompt,
@@ -857,22 +881,50 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             narration: scene.narration,
             duration,
             motionPresetId: scene.motionPresetId,
-          });
+          };
+          allFrames.push(frame);
 
-          // Update incrementally
+          // Update incrementally, scenes kept in order (a retried scene slots back into place)
           setWizardData(prev => ({
             ...prev,
-            extractedFrames: [...prev.extractedFrames, allFrames[allFrames.length - 1]],
+            extractedFrames: [...prev.extractedFrames.filter(f => f.sceneNumber !== scene.sceneNumber), frame]
+              .sort((a, b) => a.sceneNumber - b.sceneNumber),
           }));
+        } else {
+          // The server answered: credits are only taken after an image exists
+          failures.push({ sceneNumber: scene.sceneNumber, reason: result.error || 'The image engine gave no reason. Try again.', notCharged: true });
         }
       } catch (err) {
         console.error(`Scene ${scene.sceneNumber} failed:`, err);
+        const raw = err instanceof Error ? err.message : '';
+        failures.push({
+          sceneNumber: scene.sceneNumber,
+          reason: isStalePageError(raw)
+            ? 'This page is out of date. Reload the page and try again.'
+            : 'The connection to the server was lost while this image was made. Try again.',
+          // An outdated page never reached the server. A lost connection may have: no claim either way.
+          notCharged: isStalePageError(raw),
+        });
+        // Every further scene would fail the same way on an outdated page
+        if (isStalePageError(raw)) break;
       }
     }
 
     setIsGeneratingImages(false);
     setImageGenProgress({ current: 0, total: 0 });
-    toast.success(`${allFrames.length} images generated`);
+    setImageFailures(failures);
+
+    const sceneList = failures.map(f => f.sceneNumber).join(', ');
+    if (failures.length === 0) {
+      toast.success(`${allFrames.length} image${allFrames.length === 1 ? '' : 's'} generated`);
+    } else if (allFrames.length === 0) {
+      toast.error('No images could be made', { description: failures[0].reason, duration: 20000 });
+    } else {
+      toast.warning(`${allFrames.length} of ${enabledScenes.length} images made. Scene ${sceneList} failed.`, {
+        description: failures[0].reason,
+        duration: 20000,
+      });
+    }
   };
 
   const handleUpdateFrame = (frameId: string, updates: Partial<ExtractedFrame>) => {
@@ -1074,7 +1126,9 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             wizardData={wizardData}
             isGenerating={isGeneratingImages}
             progress={imageGenProgress}
-            onGenerateAll={handleGenerateAllImages}
+            onGenerateAll={() => handleGenerateAllImages()}
+            failures={imageFailures}
+            onGenerateScenes={(sceneNumbers) => handleGenerateAllImages(sceneNumbers)}
             onUpdateFrame={handleUpdateFrame}
             onRemoveFrame={handleRemoveFrame}
           />

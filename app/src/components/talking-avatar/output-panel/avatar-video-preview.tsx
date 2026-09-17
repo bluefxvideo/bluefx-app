@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Loader2, Plus, RotateCcw } from 'lucide-react';
+import { Download, Loader2, Mic, Plus, RotateCcw, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { ElapsedTimer } from '@/components/tools/elapsed-timer';
-import { isScriptTier, tierLabel, waitLabelFor, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { AVATAR_VOICE_SWITCH_CREDITS, isScriptTier, tierLabel, waitLabelFor, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 
 interface AvatarVideoPreviewProps {
   video: {
@@ -16,8 +17,11 @@ interface AvatarVideoPreviewProps {
     script_text: string;
     avatar_image_url: string;
     created_at: string;
+    /** The copy with the user's own voice ("Switch voice"), when one was made. */
+    voice_video_url?: string | null;
   };
-  onDownload?: () => void;
+  /** Downloads the version on screen (the user's voice or the original). */
+  onDownload?: (url: string) => void;
   /** Back to the script with the same avatar and tier. */
   onMakeAnother?: () => void;
   /** Clears avatar, tier choice aside, and script: the wizard's own "Start Over". */
@@ -30,10 +34,16 @@ interface AvatarVideoPreviewProps {
   accepted?: boolean;
   /** Portrait was chosen for this video (exact on Basic and Fast), so the frame does not jump after load. */
   portraitHint?: boolean;
+  /** Switch voice: null file = reuse the remembered sample. Absent = feature hidden. */
+  onSwitchVoice?: (file: File | null) => void;
+  lastVoiceSample?: { url: string; name: string } | null;
+  isSwitchingVoice?: boolean;
 }
 
 /**
  * One card for the video while it is being made and once it is ready.
+ * "Switch voice" works as in Video Maker and Agent Clone: the picture stays,
+ * only the audio track is replaced with the user's own voice.
  */
 export function AvatarVideoPreview({
   video,
@@ -44,6 +54,9 @@ export function AvatarVideoPreview({
   startedAt,
   accepted,
   portraitHint,
+  onSwitchVoice,
+  lastVoiceSample,
+  isSwitchingVoice,
 }: AvatarVideoPreviewProps) {
   // A tall video gets a tall frame; in a 16:9 box it shrank to a narrow strip.
   // The hint sets it before the file loads; the video's own size corrects it (Ultra follows the photo).
@@ -52,13 +65,53 @@ export function AvatarVideoPreview({
   const poster = video.thumbnail_url || video.avatar_image_url || undefined;
   const ready = !!video.video_url;
 
+  // Switch voice UI state
+  const [view, setView] = useState<'voice' | 'original'>('voice');
+  const [voiceFile, setVoiceFile] = useState<File | null>(null);
+  const [useLastSample, setUseLastSample] = useState(false);
+  const [isVoiceDragging, setIsVoiceDragging] = useState(false);
+  const voiceFileRef = useRef<HTMLInputElement>(null);
+  const showVoice = view === 'voice' && !!video.voice_video_url;
+  const shownVideoUrl = showVoice ? (video.voice_video_url as string) : video.video_url;
+  const canSwitchVoice = !!voiceFile || (useLastSample && !!lastVoiceSample);
+
+  const acceptVoiceFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.type.startsWith('audio/') || /\.(mp3|wav|m4a)$/i.test(file.name)) {
+      setVoiceFile(file);
+      setUseLastSample(false);
+    } else {
+      toast.error('Upload an MP3, WAV or M4A voice sample');
+    }
+  };
+
   return (
     <div className="w-full h-auto">
       <Card className="overflow-hidden h-auto">
         {ready ? (
           <div className={isPortrait ? 'relative aspect-[9/16] w-full max-w-[320px] max-h-[65vh] mx-auto bg-black' : 'relative aspect-video max-h-[60vh] w-full bg-black'}>
+            {video.voice_video_url && (
+              <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-md border border-white/20 bg-black/60 p-0.5 text-xs backdrop-blur">
+                <button
+                  type="button"
+                  onClick={() => setView('voice')}
+                  className={`px-2.5 py-1 rounded ${showVoice ? 'bg-primary text-primary-foreground' : 'text-white/80'}`}
+                >
+                  <Mic className="w-3 h-3 inline mr-1" />
+                  Your voice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('original')}
+                  className={`px-2.5 py-1 rounded ${!showVoice ? 'bg-primary text-primary-foreground' : 'text-white/80'}`}
+                >
+                  Original
+                </button>
+              </div>
+            )}
             <video
-              src={video.video_url}
+              key={shownVideoUrl}
+              src={shownVideoUrl}
               className="w-full h-full object-contain"
               controls
               playsInline
@@ -66,6 +119,12 @@ export function AvatarVideoPreview({
               poster={poster}
               onLoadedMetadata={(e) => setIsPortrait(e.currentTarget.videoHeight > e.currentTarget.videoWidth)}
             />
+            {isSwitchingVoice && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+                <span className="text-sm text-white font-medium">Switching voice...</span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="relative aspect-video bg-muted flex items-center justify-center p-4 sm:p-8">
@@ -88,6 +147,54 @@ export function AvatarVideoPreview({
           </div>
         )}
 
+        {/* Switch voice: the user's own voice on the finished video */}
+        {ready && onSwitchVoice && (
+          <div
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsVoiceDragging(true); }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsVoiceDragging(false); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsVoiceDragging(false); acceptVoiceFile(e.dataTransfer.files[0]); }}
+            className={`mx-4 mt-3 mb-1 rounded-lg border bg-muted/20 p-3 space-y-2 transition-colors ${isVoiceDragging ? 'border-primary bg-primary/5' : 'border-border/50'}`}
+          >
+            <div className="flex items-center gap-2">
+              <Mic className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-medium">
+                {video.voice_video_url ? 'Your voice is on this video' : 'Put your own voice on this video'}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Upload or drop a clean recording of your voice (10 to 30 seconds, no music). The picture and the lip movement stay exactly as they are. Only the voice changes.
+            </p>
+            <input
+              ref={voiceFileRef}
+              type="file"
+              accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (voiceFileRef.current) voiceFileRef.current.value = ''; acceptVoiceFile(f); }}
+            />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="shrink-0" disabled={isSwitchingVoice} onClick={() => voiceFileRef.current?.click()}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                {voiceFile || useLastSample ? 'Change sample' : 'Choose voice sample'}
+              </Button>
+              <span className="text-[11px] text-muted-foreground truncate">
+                {voiceFile ? `Selected: ${voiceFile.name}` : useLastSample && lastVoiceSample ? `Using last sample: ${lastVoiceSample.name}` : 'MP3, WAV or M4A, or drop it here'}
+              </span>
+            </div>
+            {lastVoiceSample && !voiceFile && !useLastSample && (
+              <button type="button" onClick={() => setUseLastSample(true)} disabled={isSwitchingVoice} className="text-[11px] text-primary hover:underline text-left">
+                Reuse the sample from last time ({lastVoiceSample.name})
+              </button>
+            )}
+            <Button onClick={() => onSwitchVoice(useLastSample ? null : voiceFile)} disabled={!canSwitchVoice || isSwitchingVoice} size="sm" className="w-full">
+              {isSwitchingVoice ? (
+                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Switching voice...</>
+              ) : (
+                <><Mic className="w-3.5 h-3.5 mr-1.5" />{video.voice_video_url ? 'Switch voice again' : 'Switch voice'} ({AVATAR_VOICE_SWITCH_CREDITS} credits)</>
+              )}
+            </Button>
+          </div>
+        )}
+
         <div className="p-4 bg-card border-t space-y-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
@@ -101,27 +208,27 @@ export function AvatarVideoPreview({
 
           {ready && (
             <>
-              {isScriptTier(tier) && (
+              {isScriptTier(tier) && !video.voice_video_url && (
                 <p className="text-xs text-muted-foreground">
-                  The voice can change from one video to the next. For the same voice every time, choose Basic.
+                  The voice can change from one video to the next. Put your own voice on this video above, or choose Basic for a voice you pick.
                 </p>
               )}
               {onDownload && (
-                <Button className="w-full" onClick={onDownload}>
+                <Button className="w-full" onClick={() => onDownload(shownVideoUrl)} disabled={isSwitchingVoice}>
                   <Download className="w-4 h-4 mr-2" />
-                  Download video
+                  {video.voice_video_url ? (showVoice ? 'Download video with your voice' : 'Download original video') : 'Download video'}
                 </Button>
               )}
               {(onMakeAnother || onStartOver) && (
                 <div className="flex flex-wrap gap-2">
                   {onMakeAnother && (
-                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onMakeAnother}>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onMakeAnother} disabled={isSwitchingVoice}>
                       <Plus className="w-4 h-4" />
                       Make another video
                     </Button>
                   )}
                   {onStartOver && (
-                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onStartOver}>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onStartOver} disabled={isSwitchingVoice}>
                       <RotateCcw className="w-4 h-4" />
                       Start over
                     </Button>

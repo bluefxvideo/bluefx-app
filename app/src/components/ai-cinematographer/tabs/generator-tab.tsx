@@ -13,7 +13,7 @@ import { StandardStep } from '@/components/tools/standard-step';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import type { CinematographerRequest, GenerationSettings } from '@/types/cinematographer';
-import { VIDEO_MODEL_CONFIG, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
+import { VIDEO_MODEL_CONFIG, FAST_PROMPT_MAX_CHARS, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
 
 // Default quality guard for the Ultra engine's negative prompt — shown in the
 // UI, fully editable, sent verbatim (never hidden)
@@ -97,6 +97,8 @@ export function GeneratorTab({
   const validUltraShots = ultraShots.filter((sh) => sh.prompt.trim());
   const ultraShotsTotal = validUltraShots.reduce((sum, sh) => sum + sh.duration, 0);
   const timedShotsActive = formData.model === 'ultra' && useTimedShots && validUltraShots.length > 0;
+  // The Fast engine rejects longer prompts with a bare 422: stop here, before any charge
+  const promptTooLong = formData.model === 'fast' && formData.prompt.length > FAST_PROMPT_MAX_CHARS;
   const [customCameraText, setCustomCameraText] = useState<string>('');
 
   // Apply tweak settings when provided (pre-fill form for retry)
@@ -451,8 +453,15 @@ export function GeneratorTab({
           )}
           <div className="flex justify-between text-sm text-muted-foreground mt-1">
             <span>Be specific for better results</span>
-            <span>{formData.prompt.length}/500</span>
+            <span className={promptTooLong ? 'text-destructive font-medium' : undefined}>
+              {formData.prompt.length.toLocaleString('en-US')}/{promptTooLong ? FAST_PROMPT_MAX_CHARS.toLocaleString('en-US') : '500'}
+            </span>
           </div>
+          {promptTooLong && (
+            <p className="text-xs text-destructive mt-1">
+              Fast takes up to {FAST_PROMPT_MAX_CHARS.toLocaleString('en-US')} characters. Shorten the prompt: one or two sentences per shot work best. A pasted video analysis is too long.
+            </p>
+          )}
 
           {/* Camera Control */}
           {formData.model === 'fast' ? (
@@ -902,7 +911,7 @@ export function GeneratorTab({
         )}
         <Button
           onClick={handleSubmit}
-          disabled={isGenerating || (!isLoadingCredits && credits < estimatedCredits) || (!formData.prompt?.trim() && !timedShotsActive) || (timedShotsActive && ultraShotsTotal > 15) || lastFrameNeedsFirst}
+          disabled={isGenerating || promptTooLong || (!isLoadingCredits && credits < estimatedCredits) || (!formData.prompt?.trim() && !timedShotsActive) || (timedShotsActive && ultraShotsTotal > 15) || lastFrameNeedsFirst}
           className="w-full h-12 bg-primary hover:bg-primary/90 hover:scale-[1.02] transition-all duration-300 font-medium"
           size="lg"
         >

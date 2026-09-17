@@ -45,8 +45,10 @@ export function describeGenerationFailure(raw: unknown, refundedCredits?: number
   } else {
     why = 'The provider could not generate this video and gave no reason. Trying again usually works.';
   }
+  // The provider's own text often has no full stop: "...status code: 422 20 credits have been returned"
+  const sentence = /[.!?]$/.test(why.trim()) ? why.trim() : `${why.trim()}.`;
   const refund = refundedCredits && refundedCredits > 0 ? ` ${refundSentence(refundedCredits)}` : '';
-  return why + refund;
+  return sentence + refund;
 }
 
 /** The one sentence every tool uses to say that credits came back. */
