@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ElapsedTimer } from '@/components/tools/elapsed-timer';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart, Zap, Gem, Check } from 'lucide-react';
-import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, AVATAR_BASIC_CREDITS_PER_SECOND, AVATAR_BASIC_WORDS_PER_SECOND, maxWordsFor, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, AVATAR_BASIC_CREDITS_PER_SECOND, AVATAR_BASIC_WORDS_PER_SECOND, maxWordsFor, waitLabelFor, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
@@ -165,9 +164,11 @@ interface GeneratorTabProps {
   /** True while the balance is still being fetched — suppresses the
       insufficient-credits warnings so they don't flash on first load. */
   creditsLoading?: boolean;
+  /** False while the History tab covers the wizard (it stays mounted to keep its state). */
+  isActive?: boolean;
 }
 
-export function GeneratorTab({ avatarState, credits, creditsLoading }: GeneratorTabProps) {
+export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = true }: GeneratorTabProps) {
   const {
     state,
     loadAvatarTemplates,
@@ -203,6 +204,14 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   useEffect(() => {
     stepTopRef.current?.scrollIntoView({ block: 'start' });
   }, [state.currentStep]);
+
+  // The wizard stays mounted behind History: stop a playing voice sample when it is covered
+  useEffect(() => {
+    if (isActive || !currentAudio) return;
+    currentAudio.pause();
+    setCurrentAudio(null);
+    setPlayingVoiceId(null);
+  }, [isActive, currentAudio]);
 
   // Avatar hover video preview
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
@@ -257,7 +266,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
       return;
     }
     if (credits < AVATAR_GENERATION_CREDIT_COST) {
-      toast.error(`Insufficient credits. You need ${AVATAR_GENERATION_CREDIT_COST} credits.`);
+      toast.error(`Not enough credits. An avatar photo costs ${AVATAR_GENERATION_CREDIT_COST} credits.`);
       return;
     }
     setIsGeneratingAvatar(true);
@@ -551,8 +560,8 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   const getButtonLabel = () => {
     if (state.isLoading || state.isGenerating) {
       if (state.currentStep === 1) return 'Uploading photo...';
-      if (state.currentStep === 2) return 'Generating Voice...';
-      if (state.currentStep === 3) return 'Generating Video...';
+      if (state.currentStep === 2) return 'Creating voice...';
+      if (state.currentStep === 3) return 'Making your video...';
       return 'Processing...';
     }
     if (state.currentStep === 1) {
@@ -560,7 +569,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
     }
     if (state.currentStep === 2) {
       if (scriptTier) return 'Continue';
-      return state.audioInputMode === 'upload' ? 'Continue to Preview' : 'Generate Voice';
+      return state.audioInputMode === 'upload' ? 'Continue' : 'Create Voice';
     }
     if (state.currentStep === 3) {
       return scriptTier
@@ -572,7 +581,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
   // Button icon for each step
   const getButtonIcon = () => {
-    if (state.currentStep === 1 && state.isLoading) return <Loader2 className="w-4 h-4 mr-2 animate-spin" />;
+    if (state.isLoading || state.isGenerating) return <Loader2 className="w-4 h-4 mr-2 animate-spin" />;
     if (state.currentStep === 2 && !scriptTier && state.audioInputMode === 'tts') return <Mic className="w-4 h-4 mr-2" />;
     if (state.currentStep === 3) return <Video className="w-4 h-4 mr-2" />;
     return null;
@@ -600,9 +609,22 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-base font-medium">Step {state.currentStep} of {state.totalSteps}</span>
-            <Button variant="outline" size="sm" onClick={resetWizard} className="text-xs">
-              Start Over
-            </Button>
+            {state.currentStep > 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                disabled={state.isLoading || state.isGenerating}
+                onClick={() => {
+                  // One slip used to wipe the avatar, the tier and a typed script
+                  const hasWork = !!localScriptText.trim() || !!state.voiceAudioUrl || !!state.uploadedAudioUrl;
+                  if (hasWork && !window.confirm('Start over? This clears the avatar, the script and the voice.')) return;
+                  resetWizard();
+                }}
+              >
+                Start Over
+              </Button>
+            )}
           </div>
           <div className="w-full bg-muted rounded-full h-2">
             <div
@@ -719,10 +741,10 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                     <Label className="text-xs">Style</Label>
                     <div className="grid grid-cols-2 gap-1.5">
                       {([
-                        { id: 'ugc_portrait', label: 'UGC Portrait', desc: 'Natural, authentic look' },
-                        { id: 'ugc_selfie', label: 'UGC Selfie', desc: 'Casual selfie style' },
+                        { id: 'ugc_portrait', label: 'Everyday Photo', desc: 'Natural light, friendly look' },
+                        { id: 'ugc_selfie', label: 'Selfie', desc: "Phone photo held at arm's length" },
                         { id: 'professional', label: 'Professional', desc: 'Studio headshot' },
-                        { id: 'custom', label: 'Custom', desc: 'Full prompt control' },
+                        { id: 'custom', label: 'Custom', desc: 'Only your description is used' },
                       ] as const).map((preset) => (
                         <button
                           key={preset.id}
@@ -747,7 +769,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                     <Textarea
                       value={avatarGenPrompt}
                       onChange={(e) => setAvatarGenPrompt(e.target.value)}
-                      placeholder="e.g. A 30 year old woman with brown hair, wearing a casual blue sweater, sitting in a cozy living room"
+                      placeholder="A 55 year old roofer in a grey work shirt, standing in front of a house"
                       className="min-h-[70px] resize-none text-sm"
                       disabled={isGeneratingAvatar}
                     />
@@ -757,7 +779,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1">
                       <ImageIcon className="w-3 h-3" />
-                      Reference Image (optional)
+                      Photo to guide the look (optional)
                     </Label>
                     {avatarGenRefImage ? (
                       <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
@@ -786,7 +808,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                             }
                           }}
                         />
-                        <p className="text-xs text-muted-foreground">Upload a reference photo to guide the style</p>
+                        <p className="text-xs text-muted-foreground">Upload a photo. The AI uses it as a guide for the new avatar.</p>
                       </label>
                     )}
                   </div>
@@ -813,7 +835,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                     </Button>
                     {!creditsLoading && credits < AVATAR_GENERATION_CREDIT_COST && (
                       <p className="text-xs text-destructive text-center">
-                        Insufficient credits. You need {AVATAR_GENERATION_CREDIT_COST} credits.
+                        Not enough credits. An avatar photo costs {AVATAR_GENERATION_CREDIT_COST} credits.
                       </p>
                     )}
                   </div>
@@ -914,7 +936,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                 {['all', 'young', 'middle_aged', 'senior'].map((a) => (
                   <Button key={a} variant={avatarAgeFilter === a ? 'default' : 'outline'} size="sm" className="text-xs h-6 px-2"
                     onClick={() => { setAvatarAgeFilter(a); setVisibleAvatarCount(AVATAR_PAGE_SIZE); }}>
-                    {a === 'all' ? 'All Ages' : a === 'middle_aged' ? 'Middle' : a.charAt(0).toUpperCase() + a.slice(1)}
+                    {a === 'all' ? 'All ages' : a === 'young' ? 'Under 30' : a === 'middle_aged' ? '30 to 45' : '46 and over'}
                   </Button>
                 ))}
               </div>
@@ -948,7 +970,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                       <video
                         ref={(el) => { videoRefs.current[template.id] = el; }}
                         src={template.preview_video_url}
-                        muted loop playsInline
+                        muted loop playsInline preload="none"
                         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
                           hoveredTemplateId === template.id ? 'opacity-100' : 'opacity-0'
                         }`}
@@ -1102,25 +1124,25 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
             <>
             {/* Audio Input Mode Toggle */}
             <div className="space-y-2">
-              <Label>Audio Input Method</Label>
+              <Label>Where does the voice come from?</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant={state.audioInputMode === 'tts' ? 'default' : 'outline'}
-                  className="w-full"
+                  className="w-full h-auto min-h-9 py-2 whitespace-normal"
                   onClick={() => setAudioInputMode('tts')}
                   disabled={state.isLoading || state.isGenerating}
                 >
-                  <Mic className="w-4 h-4 mr-2" />
-                  Generate Voice
+                  <Mic className="w-4 h-4 mr-2 shrink-0" />
+                  Pick a voice
                 </Button>
                 <Button
                   variant={state.audioInputMode === 'upload' ? 'default' : 'outline'}
-                  className="w-full"
+                  className="w-full h-auto min-h-9 py-2 whitespace-normal"
                   onClick={() => setAudioInputMode('upload')}
                   disabled={state.isLoading || state.isGenerating}
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Audio
+                  <Upload className="w-4 h-4 mr-2 shrink-0" />
+                  Upload my recording
                 </Button>
               </div>
             </div>
@@ -1131,15 +1153,15 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
             {!scriptTier && state.audioInputMode === 'tts' && (
               <>
                 <div className="space-y-2">
-                  <Label>Script Text</Label>
+                  <Label>Script</Label>
                   <Textarea
                     value={localScriptText}
                     onChange={(e) => {
                       setLocalScriptText(e.target.value);
                       setScriptText(e.target.value);
                     }}
-                    placeholder="Enter the text you want your avatar to speak..."
-                    className="min-h-[100px] resize-none"
+                    placeholder="Type what the avatar should say..."
+                    className="min-h-[140px] resize-none"
                     disabled={state.isLoading}
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
@@ -1486,7 +1508,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Voice Preview</Label>
-                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={clearVoice}>
+                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={clearVoice} disabled={state.isGenerating}>
                   <RotateCcw className="w-3 h-3 mr-1" />
                   Change Voice
                 </Button>
@@ -1496,7 +1518,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                 <Card className="p-4">
                   <audio controls className="w-full" src={state.voiceAudioUrl} />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Duration: {Math.ceil(state.audioDurationSeconds)}s
+                    Length: {Math.ceil(state.audioDurationSeconds)} seconds
                   </p>
                 </Card>
               )}
@@ -1505,7 +1527,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                 <Card className="p-4">
                   <audio controls className="w-full" src={state.uploadedAudioUrl} />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Uploaded audio • {Math.ceil(state.audioDurationSeconds)}s
+                    Your recording · {Math.ceil(state.audioDurationSeconds)} seconds
                   </p>
                 </Card>
               )}
@@ -1516,7 +1538,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-destructive">
-                      Audio too long ({Math.ceil(state.audioDurationSeconds)}s)
+                      The audio is too long ({Math.ceil(state.audioDurationSeconds)} seconds)
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Maximum duration is {MAX_AUDIO_DURATION_SECONDS} seconds. Go back to shorten your script or increase the voice speed.
@@ -1544,35 +1566,35 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
               {scriptTier && !AVATAR_TIER_CONFIG[scriptTier].aspectFromResolution ? (
                 <p className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg">
-                  {tierLabel(scriptTier)} follows the shape of your avatar photo. Gallery avatars are landscape; upload your own portrait photo in step 1 for a vertical clip.
+                  {tierLabel(scriptTier)} keeps the shape of your avatar photo. Library avatars are wide. For a tall video, upload your own tall photo in step 1.
                 </p>
               ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Card
-                  className={`p-3 cursor-pointer transition-all duration-200 ${
+                  className={`p-3 cursor-pointer transition-all duration-200 ${state.isGenerating ? 'opacity-60 pointer-events-none' : ''} ${
                     state.selectedResolution === 'landscape' ? 'border-primary bg-primary/10' : 'border-muted-foreground/20 hover:border-muted-foreground/40'
                   }`}
-                  onClick={() => setSelectedResolution('landscape')}
+                  onClick={() => !state.isGenerating && setSelectedResolution('landscape')}
                 >
                   <div className="flex items-center gap-2">
                     <Monitor className={`w-4 h-4 ${state.selectedResolution === 'landscape' ? 'text-primary' : 'text-muted-foreground'}`} />
                     <div>
                       <p className={`text-xs font-medium ${state.selectedResolution === 'landscape' ? 'text-primary' : 'text-foreground'}`}>Landscape</p>
-                      <p className="text-xs text-muted-foreground">{scriptTier ? '1920×1080' : '1024×576'}</p>
+                      <p className="text-xs text-muted-foreground">For YouTube and websites</p>
                     </div>
                   </div>
                 </Card>
                 <Card
-                  className={`p-3 cursor-pointer transition-all duration-200 ${
+                  className={`p-3 cursor-pointer transition-all duration-200 ${state.isGenerating ? 'opacity-60 pointer-events-none' : ''} ${
                     state.selectedResolution === 'portrait' ? 'border-primary bg-primary/10' : 'border-muted-foreground/20 hover:border-muted-foreground/40'
                   }`}
-                  onClick={() => setSelectedResolution('portrait')}
+                  onClick={() => !state.isGenerating && setSelectedResolution('portrait')}
                 >
                   <div className="flex items-center gap-2">
                     <Smartphone className={`w-4 h-4 ${state.selectedResolution === 'portrait' ? 'text-primary' : 'text-muted-foreground'}`} />
                     <div>
                       <p className={`text-xs font-medium ${state.selectedResolution === 'portrait' ? 'text-primary' : 'text-foreground'}`}>Portrait</p>
-                      <p className="text-xs text-muted-foreground">{scriptTier ? '1080×1920' : '576×1024'}</p>
+                      <p className="text-xs text-muted-foreground">For Reels, TikTok, Shorts</p>
                     </div>
                   </div>
                 </Card>
@@ -1581,17 +1603,18 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
               {/* Action Prompt */}
               <div className="space-y-2">
-                <Label className="text-xs">Action Prompt (optional)</Label>
+                <Label className="text-xs">How should the avatar move? (optional)</Label>
                 <Textarea
                   value={localActionPrompt}
                   onChange={(e) => {
                     setLocalActionPrompt(e.target.value);
                     setActionPrompt(e.target.value);
                   }}
-                  placeholder="Describe visual style and movements..."
+                  placeholder="Example: smiles warmly and nods while talking"
                   className="min-h-[50px] resize-none text-sm"
-                  disabled={state.isLoading}
+                  disabled={state.isLoading || state.isGenerating}
                 />
+                <p className="text-xs text-muted-foreground">Leave this empty and the avatar simply talks to the camera.</p>
               </div>
             </div>
 
@@ -1610,13 +1633,16 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
       {/* Footer: pinned to the bottom of the screen in the one column layout */}
       <TabFooter className="max-md:sticky max-md:bottom-0 max-md:z-10 max-md:bg-background max-md:pb-3">
+        {(state.currentStep === 3 || (state.currentStep === 2 && !!scriptTier)) && !creditsLoading && !state.isGenerating && estimatedCredits > 0 && credits < estimatedCredits && (
+          <InsufficientCreditsNotice needed={estimatedCredits} available={credits} className="mb-2" />
+        )}
         <div className="flex gap-2">
           {state.currentStep > 1 && (
             <Button
               variant="outline"
               onClick={() => goToStep(state.currentStep - 1)}
               disabled={state.isLoading || state.isGenerating}
-              className="flex-1 h-12"
+              className="h-12 px-4 shrink-0"
               size="lg"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -1627,7 +1653,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
           <Button
             onClick={handleStepAction}
             disabled={!canProceed() || state.isLoading || state.isGenerating}
-            className={`${state.currentStep === 1 ? 'w-full' : 'flex-1'} h-12 font-medium`}
+            className={`${state.currentStep === 1 ? 'w-full' : 'flex-1 min-w-0'} h-auto min-h-12 py-2 whitespace-normal font-medium`}
             size="lg"
           >
             {getButtonIcon()}
@@ -1640,14 +1666,8 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
         )}
         {state.currentStep === 3 && state.isGenerating && (
           <p className="text-xs text-muted-foreground text-center mt-2">
-            You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
-            <ElapsedTimer typical={scriptTier ? AVATAR_TIER_CONFIG[scriptTier].waitLabel : AVATAR_BASIC_WAIT_LABEL} className="tabular-nums" />
+            You can keep working. The finished video also lands in History. Usually ready in {waitLabelFor(state.qualityTier)}.
           </p>
-        )}
-        {state.currentStep === 3 && !creditsLoading && credits < estimatedCredits && (
-          <div className="mt-2">
-            <InsufficientCreditsNotice needed={estimatedCredits} available={credits} />
-          </div>
         )}
       </TabFooter>
 
@@ -1688,7 +1708,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   />
                   <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
                   <p className="text-sm font-medium">Drop audio or click to upload</p>
-                  <p className="text-xs text-muted-foreground">MP3, WAV, M4A • 10s-5min • Max 20MB</p>
+                  <p className="text-xs text-muted-foreground">MP3, WAV or M4A · 10 seconds to 5 minutes · up to 20 MB</p>
                 </label>
               )}
             </div>
@@ -1739,7 +1759,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
             </Button>
             {credits < 50 && cloneFile && cloneVoiceName.trim() && (
               <p className="text-xs text-destructive text-center">
-                Insufficient credits. You need 50 credits to clone a voice.
+                Not enough credits. A cloned voice costs 50 credits.
               </p>
             )}
           </div>

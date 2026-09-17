@@ -31,52 +31,30 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
     );
   }
 
-  // Default: generate tab
-  const titleWithIndicator = avatarState.state.isStateRestored ? "Avatar Results (Resumed)" : "Avatar Results";
-  
+  // Default: generate tab. TalkingAvatarOutput decides what to show for every state.
+  const output = (
+    <TalkingAvatarOutput avatarState={{
+      state: avatarState.state,
+      clearResults: avatarState.clearResults,
+      resetWizard: avatarState.resetWizard,
+      goToStep: avatarState.goToStep,
+      checkStatusManually: avatarState.checkStatusManually
+    }} />
+  );
+
   return (
     <OutputPanelShell
-      title={titleWithIndicator}
+      title="Avatar Results"
       status={avatarState.state.isGenerating ? 'loading' : avatarState.state.error ? 'error' : (avatarState.state.generatedVideo || avatarState.state.isStateRestored ? 'ready' : 'idle')}
       errorMessage={avatarState.state.error || undefined}
       onBeforeReload={() => {
         const script = avatarState.state.scriptText?.trim();
         if (script) localStorage.setItem('prefill_script', script);
       }}
-      loading={
-        // Custom loading component to show avatar processing card instead of simple spinner
-        <TalkingAvatarOutput avatarState={{
-          state: avatarState.state,
-          clearResults: avatarState.clearResults,
-          resetWizard: avatarState.resetWizard,
-          checkStatusManually: avatarState.checkStatusManually
-        }} />
-      }
-      empty={
-        // Don't show empty state if we have restored state or result data
-        (avatarState.state.isStateRestored || avatarState.state.generatedVideo) ? (
-          <TalkingAvatarOutput avatarState={{
-            state: avatarState.state,
-            clearResults: avatarState.clearResults,
-            resetWizard: avatarState.resetWizard,
-            checkStatusManually: avatarState.checkStatusManually
-          }} />
-        ) : (
-          <TalkingAvatarOutput avatarState={{
-            state: avatarState.state,
-            clearResults: avatarState.clearResults,
-            resetWizard: avatarState.resetWizard,
-            checkStatusManually: avatarState.checkStatusManually
-          }} />
-        )
-      }
+      loading={output}
+      empty={output}
     >
-      <TalkingAvatarOutput avatarState={{
-        state: avatarState.state,
-        clearResults: avatarState.clearResults,
-        resetWizard: avatarState.resetWizard,
-        checkStatusManually: avatarState.checkStatusManually
-      }} />
+      {output}
     </OutputPanelShell>
   );
 }

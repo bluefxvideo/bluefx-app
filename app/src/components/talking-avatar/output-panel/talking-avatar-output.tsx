@@ -59,22 +59,14 @@ interface TalkingAvatarOutputProps {
     state: TalkingAvatarState;
     clearResults?: () => void;
     resetWizard?: () => void;
+    goToStep?: (step: number) => void;
     checkStatusManually?: () => void;
   };
 }
 
 export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
-  const { state, resetWizard } = avatarState;
-  
-  // Debug logging to help troubleshoot
-  console.log('🎬 TalkingAvatarOutput render:', {
-    isGenerating: state.isGenerating,
-    hasGeneratedVideo: !!state.generatedVideo,
-    videoUrl: state.generatedVideo?.video_url,
-    isStateRestored: state.isStateRestored,
-    currentStep: state.currentStep
-  });
-  
+  const { state, resetWizard, clearResults, goToStep } = avatarState;
+
   // Check if we're in progress mode (any step > 1 or avatar selected)
   const isInProgress = state.currentStep > 1 || state.selectedAvatarTemplate || state.customAvatarImage || state.customAvatarUrl;
   
@@ -97,7 +89,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = `talking-avatar-${state.generatedVideo.id || Date.now()}.mp4`;
+        a.download = `avatar-video-${(state.generatedVideo.id || String(Date.now())).slice(0, 8)}.mp4`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -111,21 +103,20 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
       }
     };
 
-    const handleOpenInNewTab = () => {
-      if (state.generatedVideo) {
-        window.open(state.generatedVideo.video_url, '_blank');
-      }
-    };
+    // "Make another video" keeps the avatar and the tier and goes back to the script.
+    // A job restored after a reload may have no avatar in state, so it is not offered then.
+    const canMakeAnother = !!goToStep && !!clearResults && !!(state.selectedAvatarTemplate || state.customAvatarUrl);
 
     return (
-      <div className="h-full flex items-center justify-center overflow-auto">
-        <div className="w-full max-w-4xl">
+      <div className="h-full flex items-start justify-center overflow-auto">
+        <div className="w-full max-w-4xl my-auto">
           <AvatarVideoPreview
             video={state.generatedVideo}
             tier={state.qualityTier}
+            portraitHint={state.qualityTier !== 'ultra' && state.selectedResolution === 'portrait'}
             onDownload={handleDownload}
-            onOpenInNewTab={handleOpenInNewTab}
-            onCreateNew={resetWizard}
+            onMakeAnother={canMakeAnother ? () => { clearResults?.(); goToStep?.(2); } : undefined}
+            onStartOver={resetWizard}
           />
         </div>
       </div>
@@ -144,7 +135,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 <p className="text-sm text-blue-300 font-medium">
-                  Video generation resumed - your avatar was still processing in the background
+                  Your video is still being made. It started before you left this page.
                 </p>
               </div>
             </Card>
@@ -152,14 +143,13 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
         )}
 
         {/* Unified Avatar Video Preview - same component for processing and completed */}
-        <div className="flex-1 flex items-center justify-center overflow-auto">
-          <div className="w-full max-w-4xl">
+        <div className="flex-1 flex items-start justify-center overflow-auto">
+          <div className="w-full max-w-4xl my-auto">
             <AvatarVideoPreview
               video={state.generatedVideo}
               tier={state.qualityTier}
-              onDownload={undefined} // No download during processing
-              onOpenInNewTab={undefined} // No open during processing
-              onCreateNew={undefined} // No create new during processing
+              startedAt={state.generationStartedAt}
+              accepted={!!state.currentGenerationId}
             />
           </div>
         </div>
@@ -216,13 +206,13 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
                   muted
                   loop
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               ) : (
                 <img
                   src={avatarImageUrl}
                   alt={state.selectedAvatarTemplate?.name || 'Custom avatar'}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               )}
               {state.selectedAvatarTemplate && (

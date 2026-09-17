@@ -31,6 +31,8 @@ export interface TalkingAvatarVideo {
   resolution_height: number | null;
   audio_duration_seconds: number | null;
   action_prompt: string | null;
+  /** The photo the video was made from. Doubles as the poster: no thumbnail is ever stored. */
+  avatar_image_url?: string | null;
 }
 
 export interface AvatarTemplate {

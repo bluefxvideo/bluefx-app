@@ -5,7 +5,7 @@ import { uploadImageToStorage, uploadAudioToStorage, downloadAndUploadVideo } fr
 import { createFalLTX23Prediction } from '@/actions/models/fal-ltx-image-to-video';
 import { submitKlingO3ProImageToVideo } from '@/actions/models/fal-kling-video';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
-import { refundFailedGeneration } from '@/lib/credits/refund';
+import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { probeMediaSeconds } from '@/lib/media/probe-seconds';
 import {
   AVATAR_TIER_CONFIG,
@@ -448,7 +448,7 @@ async function handleScriptTierGeneration(
   if (!userCreditsResult.success) return fail(userCreditsResult.error || 'Failed to check credits');
   const userCredits = userCreditsResult.credits || 0;
   if (userCredits < credits) {
-    return fail(`Insufficient credits. Required: ${credits}, Available: ${userCredits}`, userCredits);
+    return fail(`Not enough credits. You need ${credits} credit${credits === 1 ? '' : 's'} but have ${userCredits}.`, userCredits);
   }
 
   // 3. Inputs for the engine
@@ -489,7 +489,7 @@ async function handleScriptTierGeneration(
   });
   if (!stored.success) {
     console.error('Database insert error:', stored.error);
-    return fail('Failed to save video generation record', userCredits);
+    return fail('The video could not be started. No credits were taken. Please try again.', userCredits);
   }
 
   // 5. Charge before submitting (the Video Swap / Clone Studio order): a debit
@@ -502,18 +502,25 @@ async function handleScriptTierGeneration(
     video_source: config.videoSource,
   });
   if (!deductResult.success) {
-    await updateTalkingAvatarVideoAdmin(batch_id, { status: 'failed', error_message: deductResult.error || 'Credit deduction failed' });
-    return fail(`Failed to deduct credits: ${deductResult.error || 'unknown error'}`, userCredits);
+    console.error('Avatar credit deduction failed:', deductResult.error);
+    const notCharged = 'The credits could not be taken, so the video was not started. Please try again.';
+    try {
+      await updateTalkingAvatarVideoAdmin(batch_id, { status: 'failed', error_message: notCharged });
+    } catch (updateError) {
+      console.error('Could not mark the avatar row failed:', updateError);
+    }
+    return fail(notCharged, userCredits);
   }
   const refundAndFail = async (message: string) => {
     const refund = await refundFailedGeneration({ userId: request.user_id, referenceIds: [batch_id], operation: 'talking avatar generation' });
-    const text = `${message}${refund.refunded ? ` — ${refund.amount} credits were refunded.` : ''}`;
+    if (!refund.refunded) console.error(`Avatar job ${batch_id} failed at submit and was not refunded:`, refund.reason);
+    const text = withRefund(message, refund.refunded ? refund.amount : 0);
     try {
       await updateTalkingAvatarVideoAdmin(batch_id, { status: 'failed', error_message: text });
     } catch (updateError) {
       console.error('Could not mark the avatar row failed:', updateError);
     }
-    return fail(`Video generation failed: ${text}`, (deductResult.remainingCredits ?? userCredits - credits) + (refund.refunded ? refund.amount || 0 : 0));
+    return fail(text, (deductResult.remainingCredits ?? userCredits - credits) + (refund.refunded ? refund.amount || 0 : 0));
   };
 
   // 6. Submit
@@ -545,9 +552,10 @@ async function handleScriptTierGeneration(
     }
     if (!requestId) throw new Error('fal.ai did not return a request_id');
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Video submit failed';
-    console.error(`Avatar ${tier} submit error:`, message);
-    return await refundAndFail(message);
+    // The engine's own text (status codes, JSON, request ids) stays in the log
+    const raw = error instanceof Error ? error.message : 'Video submit failed';
+    console.error(`Avatar ${tier} submit error:`, raw);
+    return await refundAndFail(describeSubmitFailure(raw));
   }
 
   // 7. Request id on the row: the webhook and the poller look the job up by it,
@@ -566,7 +574,8 @@ async function handleScriptTierGeneration(
     }
   }
   if (!keyed) {
-    return await refundAndFail(`The job was submitted (${requestId}) but could not be tracked`);
+    console.error(`Avatar ${tier} job ${requestId} was submitted but its id could not be stored`);
+    return await refundAndFail('The video was started but could not be saved on our side');
   }
 
   await createPredictionRecord({
@@ -649,16 +658,37 @@ export async function pollAvatarTierGeneration(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: 'processing', error: 'Not signed in' };
 
-  const video = await getTalkingAvatarVideo(videoId, user.id);
-  if (!video) return { status: 'failed', error: 'Video not found' };
+  let video: Awaited<ReturnType<typeof getTalkingAvatarVideo>>;
+  try {
+    video = await getTalkingAvatarVideo(videoId, user.id);
+  } catch (error) {
+    console.error('pollAvatarTierGeneration could not read the row:', error);
+    return { status: 'processing' };
+  }
+  if (!video) return { status: 'failed', error: 'This video no longer exists.' };
   if (video.status === 'completed') return { status: 'completed', video_url: video.video_url };
-  if (video.status === 'failed') return { status: 'failed', error: video.error_message || 'Video generation failed' };
+  if (video.status === 'failed') return { status: 'failed', error: video.error_message || 'The video could not be made' };
 
   const tier = readAvatarTier(video);
   const requestId = video.fal_request_id;
-  // Legacy Hedra rows carry no fal request id and keep their own poller
-  if (!requestId) return { status: 'processing' };
-  if (tier === 'standard' && video.video_source !== 'fal-ltx') return { status: 'processing' };
+  // Age guard: a job that cannot be finished any more (lost webhook, the engine
+  // never answers, the request id never reached the row) is closed and refunded
+  // instead of spinning until the user gives up. Every "cannot finish" exit below
+  // checks it, so a History card older than 45 minutes always gets an answer.
+  const ageMs = Date.now() - new Date(video.created_at || Date.now()).getTime();
+  const tooOld = ageMs > 45 * 60 * 1000;
+  const closeAsTimedOut = () => failAvatarTierJob(videoId, user.id, 'The video engine did not finish in time');
+  // Only these answers mean "the engine no longer knows this job". Auth errors,
+  // rate limits and 5xx are passing trouble: one of them must never cost the
+  // user a finished video, so they always leave the job open for the next check.
+  const jobIsGone = (status: number) => [400, 404, 410, 422].includes(status);
+
+  // No fal request id: a legacy Hedra row (that engine is retired, its few 2025
+  // rows can only be closed) or a row whose id never got stored
+  if (!requestId) return tooOld ? await closeAsTimedOut() : { status: 'processing' };
+  if (tier === 'standard' && video.video_source !== 'fal-ltx') {
+    return tooOld ? await closeAsTimedOut() : { status: 'processing' };
+  }
 
   // Status and result live under the base app id, not the full endpoint
   const base = tier === 'fast' ? 'fal-ai/ltx-2.3' : tier === 'ultra' ? 'fal-ai/kling-video' : 'fal-ai/ltx-2-19b';
@@ -667,19 +697,13 @@ export async function pollAvatarTierGeneration(
 
   try {
     const statusRes = await fetch(`https://queue.fal.run/${base}/requests/${requestId}/status`, { headers: { Authorization: `Key ${falKey}` } });
-    if (!statusRes.ok) return { status: 'processing' };
+    if (!statusRes.ok) return tooOld && jobIsGone(statusRes.status) ? await closeAsTimedOut() : { status: 'processing' };
     const queue = (await statusRes.json()) as { status?: string };
     if (queue.status === 'FAILED') {
       return await failAvatarTierJob(videoId, user.id, 'The video engine reported a failure');
     }
     if (queue.status !== 'COMPLETED') {
-      // Age guard: a job that never resolves (lost webhook, fal never answers)
-      // is closed and refunded instead of spinning until the user gives up.
-      const ageMs = Date.now() - new Date(video.created_at || Date.now()).getTime();
-      if (ageMs > 45 * 60 * 1000) {
-        return await failAvatarTierJob(videoId, user.id, 'The video engine did not finish in time');
-      }
-      return { status: 'processing' };
+      return tooOld ? await closeAsTimedOut() : { status: 'processing' };
     }
 
     if (!takeOver) return { status: 'processing', engineDone: true };
@@ -687,13 +711,16 @@ export async function pollAvatarTierGeneration(
     const resultRes = await fetch(`https://queue.fal.run/${base}/requests/${requestId}`, { headers: { Authorization: `Key ${falKey}` } });
     if (!resultRes.ok) {
       // 400/422 from the result endpoint is fal's way of reporting a failed job.
-      // Everything else (auth, 404, 405, 429, 5xx, network) is transient here:
-      // the webhook or the next tick decides, never a refund.
       if (resultRes.status === 400 || resultRes.status === 422) {
         const detail = (await resultRes.text()).slice(0, 300);
         return await failAvatarTierJob(videoId, user.id, describeProviderFailure(detail));
       }
-      return { status: 'processing' };
+      // 404/410 on an old job: the engine keeps a finished video only for a while.
+      // Everything else (auth, 405, 429, 5xx, network) is transient: the webhook or
+      // the next check decides, never a refund.
+      return tooOld && (resultRes.status === 404 || resultRes.status === 410)
+        ? await failAvatarTierJob(videoId, user.id, 'The video engine no longer has this video')
+        : { status: 'processing' };
     }
     const result = (await resultRes.json()) as { video?: { url?: string } };
     const providerUrl = result?.video?.url;
@@ -702,6 +729,20 @@ export async function pollAvatarTierGeneration(
     }
 
     const uploaded = await downloadAndUploadVideo(providerUrl, 'talking-avatar', `${tier}_${requestId}`);
+    if (!(uploaded.success && uploaded.url) && tooOld) {
+      // An old job must not be marked ready with a dead link. But the copy can also
+      // fail on our side (storage hiccup): only give up when the engine's file itself is gone.
+      let fileIsGone = false;
+      try {
+        const head = await fetch(providerUrl, { method: 'HEAD' });
+        fileIsGone = [403, 404, 410].includes(head.status);
+      } catch {
+        // Network trouble: keep the fallback below
+      }
+      if (fileIsGone) {
+        return await failAvatarTierJob(videoId, user.id, 'The video engine no longer has this video');
+      }
+    }
     const finalUrl = uploaded.success && uploaded.url ? uploaded.url : providerUrl;
 
     // Claim the completion: only a row still in 'processing' is ours to finish
@@ -724,6 +765,22 @@ export async function pollAvatarTierGeneration(
   }
 }
 
+/** One sentence, one period, then the shared refund sentence when credits came back. */
+function withRefund(reason: string, refundedCredits?: number): string {
+  const sentence = `${reason.trim().replace(/[.!?]+$/, '')}.`;
+  return refundedCredits && refundedCredits > 0 ? `${sentence} ${refundSentence(refundedCredits)}` : sentence;
+}
+
+/** A job the engine refused to accept, in words a client can act on. */
+function describeSubmitFailure(raw: string): string {
+  // Narrow on purpose: bare "content" or "policy" also match "Invalid content type"
+  // and Content-Security-Policy in an HTML error page
+  if (/content[_ -]?(policy|filter|moderation|violation)|safety|flagged|moderat|nsfw/i.test(raw)) {
+    return 'The video engine declined this script or photo on safety grounds.';
+  }
+  return 'The video engine did not accept the job. Try again in a minute.';
+}
+
 /** fal's 4xx result payload → one plain sentence for the user. */
 function describeProviderFailure(detail: string): string {
   try {
@@ -743,23 +800,28 @@ function describeProviderFailure(detail: string): string {
  */
 async function failAvatarTierJob(videoId: string, userId: string, reason: string) {
   const admin = createAdminClient();
-  const { data: claimed } = await admin
+  // The claim already carries a complete sentence: Realtime shows this write on the page
+  const { data: claimed, error: claimError } = await admin
     .from('avatar_videos')
-    .update({ status: 'failed', error_message: reason, updated_at: new Date().toISOString() })
+    .update({ status: 'failed', error_message: withRefund(reason), updated_at: new Date().toISOString() })
     .eq('id', videoId)
-    .eq('status', 'processing')
+    .in('status', ['processing', 'pending'])
     .select('id');
+  if (claimError) console.error('Avatar failure claim failed:', claimError);
   if (!claimed || claimed.length === 0) {
     const fresh = await getTalkingAvatarVideo(videoId, userId);
     if (fresh?.status === 'completed') return { status: 'completed' as const, video_url: fresh.video_url };
-    return { status: 'failed' as const, error: fresh?.error_message || reason };
+    if (fresh?.status === 'failed') return { status: 'failed' as const, error: fresh.error_message || withRefund(reason) };
+    // Nothing changed (the claim itself failed): say so instead of reporting a failure that is not on the row
+    return { status: 'processing' as const };
   }
   const refund = await refundFailedGeneration({
     userId,
     referenceIds: [videoId],
     operation: 'talking avatar generation',
   });
-  const message = `${reason}${refund.refunded ? ` — ${refund.amount} credits were refunded.` : ''}`;
+  if (!refund.refunded) console.error(`Avatar job ${videoId} closed without a refund:`, refund.reason);
+  const message = withRefund(reason, refund.refunded ? refund.amount : 0);
   await admin.from('avatar_videos').update({ error_message: message }).eq('id', videoId);
   return { status: 'failed' as const, error: message };
 }
@@ -875,7 +937,7 @@ async function handleVideoGeneration(
     if (userCredits < creditCosts.total) {
       return {
         success: false,
-        error: `Insufficient credits. Required: ${creditCosts.total}, Available: ${userCredits}`,
+        error: `Not enough credits. You need ${creditCosts.total} credit${creditCosts.total === 1 ? '' : 's'} but have ${userCredits}.`,
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -903,7 +965,7 @@ async function handleVideoGeneration(
       console.error('Database insert error:', storeResult.error);
       return {
         success: false,
-        error: 'Failed to save video generation record',
+        error: 'The video could not be started. No credits were taken. Please try again.',
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -916,6 +978,8 @@ async function handleVideoGeneration(
     console.log(`🎬 Starting fal.ai LTX video generation: ${width}×${height}, ${audioDurationSeconds}s`);
 
     let deductResult: { success: boolean; remainingCredits?: number; error?: string } = { success: false };
+    // The failure text may only say "No credits were taken" when the charge was never reached
+    let chargeAttempted = false;
 
     try {
       const falResult = await createFalLTXPrediction({
@@ -990,6 +1054,7 @@ async function handleVideoGeneration(
       });
 
       // Deduct credits AFTER fal.ai request is accepted
+      chargeAttempted = true;
       deductResult = await deductCredits(
         request.user_id,
         creditCosts.total,
@@ -1004,6 +1069,33 @@ async function handleVideoGeneration(
 
       if (!deductResult.success) {
         console.error('Credit deduction failed (video already submitted):', deductResult.error);
+      } else {
+        // The engine can fail a job within the few writes between "accepted" and this
+        // charge (bad input fails in under a second). Its failure webhook then closed
+        // the row and found no debit to refund, so the charge is settled here.
+        const afterCharge = await getTalkingAvatarVideo(batch_id, request.user_id).catch(() => null);
+        if (afterCharge?.status === 'failed') {
+          const lateRefund = await refundFailedGeneration({
+            userId: request.user_id,
+            referenceIds: [batch_id, falRequestId],
+            operation: 'talking avatar generation',
+          });
+          if (!lateRefund.refunded) console.error(`Avatar job ${batch_id} failed before the charge and was not refunded:`, lateRefund.reason);
+          const text = withRefund(afterCharge.error_message || 'The video could not be made', lateRefund.refunded ? lateRefund.amount : 0);
+          try {
+            await updateTalkingAvatarVideoAdmin(batch_id, { error_message: text });
+          } catch (updateError) {
+            console.error('Could not store the refund on the avatar row:', updateError);
+          }
+          return {
+            success: false,
+            error: text,
+            batch_id,
+            generation_time_ms: Date.now() - startTime,
+            credits_used: 0,
+            remaining_credits: (deductResult.remainingCredits ?? userCredits - creditCosts.total) + (lateRefund.refunded ? lateRefund.amount || 0 : 0),
+          };
+        }
       }
 
     } catch (error) {
@@ -1022,9 +1114,17 @@ async function handleVideoGeneration(
         }
       });
 
+      // Credits are taken only after the engine accepts the job, so nothing was charged
+      const basicFailure = `${describeSubmitFailure(error instanceof Error ? error.message : '')}${chargeAttempted ? '' : ' No credits were taken.'}`;
+      try {
+        await updateTalkingAvatarVideoAdmin(batch_id, { status: 'failed', error_message: basicFailure });
+      } catch (updateError) {
+        console.error('Could not store the failure reason on the avatar row:', updateError);
+      }
+
       return {
         success: false,
-        error: `Video generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: basicFailure,
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,

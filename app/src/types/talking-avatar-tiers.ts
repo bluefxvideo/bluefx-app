@@ -179,6 +179,11 @@ export function readAvatarTier(video: { video_settings?: unknown; video_source?:
   return 'standard';
 }
 
+/** How long a video on this tier usually takes, in words ("about a minute"). */
+export function waitLabelFor(tier: AvatarQualityTier | null | undefined): string {
+  return isScriptTier(tier) ? AVATAR_TIER_CONFIG[tier].waitLabel : AVATAR_BASIC_WAIT_LABEL;
+}
+
 export function tierLabel(tier: AvatarQualityTier): string {
   return tier === 'standard' ? 'Basic' : AVATAR_TIER_CONFIG[tier].label;
 }

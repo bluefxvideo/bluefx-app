@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { containerStyles } from '@/lib/container-styles';
@@ -16,15 +17,23 @@ export function TalkingAvatarPage() {
   const avatarState = useTalkingAvatar();
   const { credits: userCredits, isLoading: creditsLoading } = useCredits();
 
-  // Render appropriate tab content
-  const renderTabContent = () => {
-    switch (avatarState.activeTab) {
-      case 'history':
-        return null; // No left panel content for history
-      default:
-        return <GeneratorTab avatarState={avatarState} credits={userCredits?.available_credits || 0} creditsLoading={creditsLoading} />;
-    }
-  };
+  // In the one column layout the result sits under the whole wizard. When a render
+  // starts, finishes or fails, bring it into view; on wide screens it already is.
+  const outputRef = useRef<HTMLDivElement>(null);
+  const s = avatarState.state;
+  const isHistory = avatarState.activeTab === 'history';
+  // Only a video's own outcome counts as an error here: a failed photo upload or
+  // voice must not scroll the user away from the box they are working in
+  const revealKey = s.isGenerating
+    ? 'generating'
+    : s.generatedVideo?.video_url
+      ? 'done'
+      : s.error && s.currentStep === 3 && s.generatedVideo ? 'error' : '';
+  useEffect(() => {
+    if (isHistory || !revealKey || !window.matchMedia('(max-width: 767px)').matches) return;
+    const t = setTimeout(() => outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    return () => clearTimeout(t);
+  }, [revealKey, isHistory]);
 
   // Define tabs for StandardToolTabs
   const avatarTabs = [
@@ -60,33 +69,44 @@ export function TalkingAvatarPage() {
       toolName="Talking Avatar"
       tabs={tabsComponent}
     >
-      {avatarState.activeTab === 'history' ? (
+      {isHistory && (
         <div className={`h-full ${containerStyles.panel} p-4`}>
           <HistoryOutput
             videos={avatarState.state.videos}
             isLoading={avatarState.state.isLoadingHistory}
+            loadFailed={avatarState.state.historyLoadFailed}
             onRefresh={avatarState.loadHistory}
             onDeleteVideo={avatarState.deleteVideo}
             onCheckStatus={avatarState.checkHistoryItemStatus}
           />
         </div>
-      ) : (
+      )}
+      {/* The wizard stays mounted behind History: the voice pick, the voice sliders, the
+          avatar filters and a paid AI avatar photo live in its own state and would be
+          lost on an unmount. */}
+      <div className={isHistory ? 'hidden' : 'h-full'}>
         <StandardToolLayout>
           {[
             // Left Panel - Tab Content
             <div key="input" className="h-full">
-              {renderTabContent()}
+              <GeneratorTab
+                avatarState={avatarState}
+                credits={userCredits?.available_credits || 0}
+                creditsLoading={creditsLoading}
+                isActive={!isHistory}
+              />
             </div>,
-            
+
             // Right Panel - Output
-            <ContextualOutput
-              key="output"
-              activeTab={avatarState.activeTab}
-              avatarState={avatarState}
-            />
+            <div key="output" ref={outputRef} className="h-full">
+              <ContextualOutput
+                activeTab="generate"
+                avatarState={avatarState}
+              />
+            </div>
           ]}
         </StandardToolLayout>
-      )}
+      </div>
     </StandardToolPage>
   );
 }

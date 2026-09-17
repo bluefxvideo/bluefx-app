@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { executeTalkingAvatar, pollAvatarTierGeneration, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
-import { isScriptTier, readAvatarTier, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { isScriptTier, readAvatarTier, waitLabelFor, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { getAvatarTemplates, getTalkingAvatarVideos, deleteTalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import { getUserClonedVoices, saveClonedVoice } from '@/actions/database/cloned-voices-database';
@@ -55,7 +55,11 @@ export interface TalkingAvatarState {
 
   // History state
   videos: TalkingAvatarVideo[];
+  /** When the running render began (ms). Feeds the elapsed clock so it survives a remount or a reload. */
+  generationStartedAt: number | null;
   isLoadingHistory: boolean;
+  /** The last History load failed: an empty list then means "could not load", not "no videos". */
+  historyLoadFailed: boolean;
 
   // Generation state
   currentGenerationId: string | null; // fal.ai request_id or hedra generation_id
@@ -85,7 +89,7 @@ export interface UseTalkingAvatarReturn {
   clearResults: () => void;
   loadHistory: () => Promise<void>;
   deleteVideo: (videoId: string) => Promise<boolean>;
-  checkHistoryItemStatus: (generationId: string) => Promise<void>;
+  checkHistoryItemStatus: (video: TalkingAvatarVideo) => Promise<void>;
   /** Optional manual status check — not currently implemented by the hook (always undefined). */
   checkStatusManually?: () => void;
   // New state setters for dual audio input mode
@@ -104,6 +108,26 @@ export interface UseTalkingAvatarReturn {
   saveAvatar: (name: string, imageUrl: string) => Promise<boolean>;
   deleteSavedAvatar: (avatarId: string) => Promise<boolean>;
   renameSavedAvatar: (avatarId: string, newName: string) => Promise<boolean>;
+}
+
+/** Failure toast with the real reason under the title. */
+function failureToast(title: string, reason: string | null | undefined) {
+  if (isStalePageError(reason)) {
+    // A tab left open across an update: nothing ran, only a reload helps
+    toast.error('This page is out of date', { description: 'Reload the page and try again.', duration: 15000 });
+    return;
+  }
+  toast.error(title, reason && reason !== title ? { description: reason, duration: 15000 } : undefined);
+}
+
+/** True when the picture is taller than wide; null when it cannot be read. Reads the size only, no full decode. */
+function imageIsTall(src: string): Promise<boolean | null> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => resolve(img.naturalHeight > img.naturalWidth);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
 }
 
 export function useTalkingAvatar(): UseTalkingAvatarReturn {
@@ -160,7 +184,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     credits: 0,
     estimatedCredits: 10, // Minimum 10 credits for avatar video
     videos: [],
-    isLoadingHistory: false,
+    historyLoadFailed: false,
+    generationStartedAt: null,
+    // True from the start: a deep link to History must not flash "No videos yet" before the first load
+    isLoadingHistory: true,
     currentGenerationId: null,
     isStateRestored: false,
     // Cloned voices
@@ -174,6 +201,14 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   useEffect(() => {
     setActiveTab(getActiveTabFromPath());
   }, [pathname, getActiveTabFromPath]);
+
+  // The page stays mounted across Generate and History (talking-avatar/layout.tsx),
+  // so History is read again each time the user opens it: a video the poller
+  // finished never reached the list through Realtime.
+  const loadHistoryRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (activeTab === 'history') loadHistoryRef.current();
+  }, [activeTab]);
 
   // Update refs when state changes (to avoid subscription re-creation)
   useEffect(() => {
@@ -255,6 +290,8 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         selectedAvatarTemplate: template || null,
         customAvatarImage: null,
         customAvatarUrl: null,
+        // Library avatars are wide: undo a Portrait that a tall own photo preselected
+        selectedResolution: template ? 'landscape' : prev.selectedResolution,
       }));
       return;
     }
@@ -267,6 +304,19 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       customAvatarImage: customImage,
       customAvatarUrl: null,
     }));
+
+    // Match the video shape to the photo: a tall photo left on Landscape gets re-framed
+    // by the engine. The cards in step 3 show the result and can still be changed.
+    const objectUrl = URL.createObjectURL(customImage);
+    imageIsTall(objectUrl).then((tall) => {
+      URL.revokeObjectURL(objectUrl);
+      // Unreadable here (HEIC, broken file): the upload below reports it
+      if (tall === null) return;
+      setState(prev => prev.customAvatarImage !== customImage ? prev : {
+        ...prev,
+        selectedResolution: tall ? 'portrait' : 'landscape',
+      });
+    });
 
     try {
       const request: TalkingAvatarRequest = {
@@ -313,6 +363,8 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       selectedAvatarTemplate: null,
       customAvatarImage: null,
       customAvatarUrl: url,
+      // Saved and AI-made avatar photos are wide (the AI photo maker only makes 16:9)
+      selectedResolution: 'landscape',
     }));
   }, []);
 
@@ -378,19 +430,17 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           audio.load();
         }
 
-        toast.success('Voice generated — preview it below');
+        toast.success('Voice ready. Listen to it below.');
         return { success: true, voiceAudioUrl: voiceAudioUrl || undefined };
       } else {
         throw new Error(response.error || 'Voice generation failed');
       }
     } catch (error) {
-      // Voice generation failed silently
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'Voice generation failed',
-        isLoading: false 
-      }));
-      toast.error('Voice generation failed');
+      const raw = error instanceof Error ? error.message : 'Voice generation failed';
+      console.error('Avatar voice generation failed:', raw);
+      const reason = isStalePageError(raw) ? raw : 'The voice could not be made. Try again in a minute, or pick another voice.';
+      setState(prev => ({ ...prev, error: reason, isLoading: false }));
+      failureToast('The voice could not be made', isStalePageError(raw) ? raw : 'Try again in a minute, or pick another voice.');
       return { success: false };
     }
   }, [user, state.customAvatarUrl, state.selectedAvatarTemplate]);
@@ -414,7 +464,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       return;
     }
 
-    setState(prev => ({ ...prev, isGenerating: true, error: null }));
+    setState(prev => ({ ...prev, isGenerating: true, error: null, generationStartedAt: Date.now() }));
 
     // Uploaded recording: put the file in storage first. The blob: link made when
     // the file was picked only exists inside this browser tab, so the video engine
@@ -503,17 +553,14 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         }));
 
         // The poll effect below plus the Realtime subscription pick up completion
-        toast.success('Video generation started! This may take a few minutes.');
+        toast.success(`Video started. Usually ready in ${waitLabelFor(state.qualityTier)}.`);
       } else {
         throw new Error(response.error || 'Video generation failed');
       }
     } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Video generation failed',
-        isGenerating: false
-      }));
-      toast.error('Video generation failed');
+      const reason = error instanceof Error ? error.message : 'Video generation failed';
+      setState(prev => ({ ...prev, error: reason, isGenerating: false }));
+      failureToast('The video could not be started', reason);
     }
   }, [user, state.audioInputMode, state.voiceAudioUrl, state.uploadedAudioUrl, state.uploadedAudioFile, state.audioDurationSeconds,
       state.scriptText, state.customAvatarUrl, state.selectedAvatarTemplate, state.selectedVoiceId,
@@ -536,12 +583,15 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       uploadedAudioFile: null,
       audioDurationSeconds: 0,
       actionPrompt: '',
-      qualityTier: 'standard',
+      // The tier stays: someone making several Fast videos should not land on Basic each time
       // Video settings reset
       selectedResolution: 'landscape',
       generatedVideo: null,
       error: null,
       currentGenerationId: null,
+      // Safety net: a reset must never leave a grey "working" button behind
+      isGenerating: false,
+      isStateRestored: false,
     }));
   }, []);
 
@@ -743,11 +793,13 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     
     setState(prev => ({ ...prev, isLoadingHistory: true }));
     try {
-      const { videos: historyVideos } = await getTalkingAvatarVideos(user.id);
-      setState(prev => ({ ...prev, videos: historyVideos, isLoadingHistory: false }));
+      // The busiest account has 81 avatar videos; the default page of 50 hid the oldest
+      const { videos: historyVideos } = await getTalkingAvatarVideos(user.id, 200);
+      setState(prev => ({ ...prev, videos: historyVideos, isLoadingHistory: false, historyLoadFailed: false }));
     } catch (err) {
-      // Video history loading failed silently
-      setState(prev => ({ ...prev, isLoadingHistory: false }));
+      console.error('Avatar history could not be loaded:', err);
+      setState(prev => ({ ...prev, isLoadingHistory: false, historyLoadFailed: true }));
+      if (isStalePageError(err instanceof Error ? err.message : null)) failureToast('', err instanceof Error ? err.message : null);
     }
   }, [user?.id]);
 
@@ -771,17 +823,22 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         // Video deleted successfully
         return true;
       } else {
-        setState(prev => ({ ...prev, error: 'Failed to delete video' }));
+        // The History tab never shows state.error, so the failure is said here
+        toast.error('This video could not be deleted. Try again.');
         return false;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete video';
-      setState(prev => ({ ...prev, error: errorMessage }));
+      console.error('Avatar video delete failed:', error);
+      const raw = error instanceof Error ? error.message : null;
+      if (isStalePageError(raw)) failureToast('', raw);
+      else toast.error('This video could not be deleted. Try again.');
       return false;
     }
   }, [user?.id]);
 
-
+  useEffect(() => {
+    loadHistoryRef.current = loadHistory;
+  }, [loadHistory]);
 
   // Load initial history and restore any ongoing generations
   useEffect(() => {
@@ -847,6 +904,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                   created_at: processingVideo.created_at || new Date().toISOString()
                 },
                 currentGenerationId: generationId || null,
+                generationStartedAt: new Date(processingVideo.created_at || Date.now()).getTime() || Date.now(),
                 isStateRestored: true,
                 currentStep: 3,
                 qualityTier: readAvatarTier(processingVideo as any),
@@ -869,33 +927,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
               }
             }
           } else {
-            // No ongoing generations found
+            // No ongoing generations found. Rows that never got an engine id are left
+            // alone here: the browser used to mark them failed with no refund and no
+            // reason. "Check this video" in History closes them on the server, with the refund.
 
-            // Clean up any stuck processing records without generation ID
-            const stuckRecords = videos?.filter((v: any) => {
-              const isProcessingStatus = v.status === 'processing' || v.status === 'pending';
-              const hasNoGenerationId = (!v.fal_request_id || !v.fal_request_id.trim()) &&
-                                        (!v.hedra_generation_id || !v.hedra_generation_id.trim());
-              return isProcessingStatus && hasNoGenerationId;
-            });
-            
-            if (stuckRecords && stuckRecords.length > 0) {
-              // Found stuck processing records
-              
-              // Mark stuck records as failed in the background
-              stuckRecords.forEach(async (record) => {
-                try {
-                  await supabase
-                    .from('avatar_videos')
-                    .update({ status: 'failed' })
-                    .eq('id', record.id);
-                  // Marked stuck record as failed
-                } catch (error) {
-                  // Failed to update stuck record
-                }
-              });
-            }
-            
             // Ensure we're not in a stuck generating state
             setState(prev => {
               if (prev.isGenerating && !prev.currentGenerationId) {
@@ -999,15 +1034,25 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
               // Clear any existing error if the video succeeded
               if (updatedVideo.status === 'completed' && updatedVideo.video_url) {
                 setState(prev => ({ ...prev, error: null }));
-                toast.success('Video generation completed!');
+                toast.success('Your avatar video is ready');
               } else if (updatedVideo.status === 'failed') {
-                const reason = (updatedVideo as any).error_message || 'Video generation failed';
+                const reason = updatedVideo.error_message || 'The video could not be made';
                 setState(prev => ({ ...prev, error: reason }));
-                toast.error(reason);
+                failureToast('The video could not be made', reason);
               }
             }
           }
           
+          if (
+            !isCurrentGeneration
+            && updatedVideo?.status === 'failed'
+            && updatedVideo.error_message
+            && generatedVideoRef.current?.id === updatedVideo.id
+          ) {
+            const fullReason = updatedVideo.error_message;
+            setState(prev => (prev.error && prev.error !== fullReason ? { ...prev, error: fullReason } : prev));
+          }
+
           // Always update the videos list for history tab
           if (payload.eventType === 'UPDATE') {
             setState(prev => ({
@@ -1103,7 +1148,8 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             error: null,
           }));
 
-          toast.success('Video generation completed!');
+          toast.success('Your avatar video is ready');
+          loadHistoryRef.current();
 
           // Stop polling
           clearInterval(pollInterval);
@@ -1114,11 +1160,12 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             ...prev,
             isGenerating: false,
             isStateRestored: false,
-            error: result.error || 'Video generation failed',
+            error: result.error || 'The video could not be made',
             currentGenerationId: null,
           }));
 
-          toast.error(result.error || 'Video generation failed');
+          failureToast('The video could not be made', result.error);
+          loadHistoryRef.current();
 
           // Stop polling
           clearInterval(pollInterval);
@@ -1345,27 +1392,27 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [user?.id, loadSavedAvatars]);
 
   // Check status for a specific history item
-  const checkHistoryItemStatus = useCallback(async (generationId: string) => {
-    if (!generationId) return;
-
-    // Checking status for history item
-    
+  // "Check this video" on a History card that has been "being made" for too long.
+  // Every row goes through the same guarded poller the page uses: it finishes the
+  // job, or closes it with a refund once it is over 45 minutes old (that includes
+  // the few legacy Hedra rows, whose engine is retired).
+  const checkHistoryItemStatus = useCallback(async (video: TalkingAvatarVideo) => {
     try {
-      const response = await fetch(`/api/webhooks/hedra-ai?generation_id=${generationId}&user_id=${user?.id}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success('Status checked successfully');
-        // Refresh history to show updated status
-        await loadHistory();
-      } else {
-        toast.error(result.error || 'Failed to check status');
+      const result = await pollAvatarTierGeneration(video.id);
+      // The page's own poller and Realtime already announce the job it is watching
+      const watchedByPage = !!currentGenerationIdRef.current && generatedVideoRef.current?.id === video.id;
+      if (!watchedByPage) {
+        if (result.status === 'completed') toast.success('Your video is ready');
+        else if (result.status === 'failed') failureToast('The video could not be made', result.error);
+        else toast.info('Still being made. Check again in a few minutes.');
       }
+      await loadHistory();
     } catch (error) {
-      // Error checking history item status
-      toast.error('Failed to check status');
+      console.error('Avatar status check failed:', error);
+      const raw = error instanceof Error ? error.message : null;
+      failureToast('This video could not be checked', isStalePageError(raw) ? raw : 'Try again in a minute.');
     }
-  }, [user?.id, loadHistory]);
+  }, [loadHistory]);
 
   return {
     activeTab,

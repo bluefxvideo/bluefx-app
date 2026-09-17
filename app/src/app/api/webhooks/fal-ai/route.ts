@@ -252,14 +252,24 @@ async function handleLTXVideoCompletion(
 
     // Complete the row unless the poller already closed it as failed (a
     // refunded job must not flip back to completed and keep both)
-    const { error: completeError } = await supabase
+    const { data: completedRows, error: completeError } = await supabase
       .from('avatar_videos')
       .update({ status: 'completed', video_url: uploadResult.url, updated_at: new Date().toISOString() })
       .eq('id', videoId)
-      .neq('status', 'failed');
+      .neq('status', 'failed')
+      .select('id');
     if (completeError) {
       // Throwing answers fal with a 500 so it redelivers; the update is idempotent.
       throw new Error(`Avatar completion update failed: ${completeError.message}`);
+    }
+    if (!completedRows || completedRows.length === 0) {
+      // The poller already closed and refunded this job: no "ready" signal for a video the user was told failed
+      console.warn(`⚠️ fal.ai webhook: avatar row ${videoId} was already closed as failed, completion ignored`);
+      return NextResponse.json({
+        success: true,
+        message: `Avatar row ${videoId} already closed`,
+        processing_time_ms: Date.now() - startTime,
+      });
     }
 
     // Broadcast completion to user's real-time channel

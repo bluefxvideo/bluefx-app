@@ -45,10 +45,13 @@ export function describeGenerationFailure(raw: unknown, refundedCredits?: number
   } else {
     why = 'The provider could not generate this video and gave no reason. Trying again usually works.';
   }
-  const refund = refundedCredits && refundedCredits > 0
-    ? ` ${refundedCredits} credits have been returned to your balance.`
-    : '';
+  const refund = refundedCredits && refundedCredits > 0 ? ` ${refundSentence(refundedCredits)}` : '';
   return why + refund;
+}
+
+/** The one sentence every tool uses to say that credits came back. */
+export function refundSentence(amount: number): string {
+  return `${amount} credit${amount === 1 ? ' has' : 's have'} been returned to your balance.`;
 }
 
 export async function refundFailedGeneration(opts: {
