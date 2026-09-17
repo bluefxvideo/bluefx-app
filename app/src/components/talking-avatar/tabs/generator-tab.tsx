@@ -11,9 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, Clock, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart, Zap, Gem } from 'lucide-react';
-import { AVATAR_TIER_CONFIG, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
-import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
+import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart, Zap, Gem, Check } from 'lucide-react';
+import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, AVATAR_BASIC_CREDITS_PER_SECOND, AVATAR_BASIC_WORDS_PER_SECOND, maxWordsFor, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
@@ -25,9 +25,42 @@ import { toast } from 'sonner';
 import { generateAvatarImage, type AvatarGeneratorRequest } from '@/actions/tools/avatar-generator';
 
 const AVATAR_GENERATION_CREDIT_COST = 4;
+const AVATAR_PAGE_SIZE = 24;
 
 // Constants for LTX model limits
 const MAX_AUDIO_DURATION_SECONDS = 60;
+
+// Plain-words helpers for prices and limits (no "cr/s", no "s")
+function creditsPerSecondText(n: number): string {
+  return `${n} credit${n === 1 ? '' : 's'} per second`;
+}
+
+function wordsText(n: number): string {
+  return `${n} word${n === 1 ? '' : 's'}`;
+}
+
+function moreWordsText(n: number): string {
+  return `${n} more word${n === 1 ? '' : 's'}`;
+}
+
+function tierExplanation(tier: AvatarQualityTier): string {
+  if (tier === 'standard') {
+    return `Pick one of ${MINIMAX_VOICE_OPTIONS.length} voices, use your cloned voice, or upload a recording. Videos up to ${MAX_AUDIO_DURATION_SECONDS} seconds. ${creditsPerSecondText(AVATAR_BASIC_CREDITS_PER_SECOND)}, so a 30 second video costs 30 credits. Ready in ${AVATAR_BASIC_WAIT_LABEL}.`;
+  }
+  const c = AVATAR_TIER_CONFIG[tier];
+  const shortest = c.allowedDurations[0];
+  const opening = tier === 'ultra' ? 'Best lip sync. The avatar speaks your script.' : 'The avatar speaks your script.';
+  const shape = tier === 'ultra' ? ' The video keeps the shape of the avatar photo.' : '';
+  return `${opening} The voice is picked for you and can change from one video to the next. To choose the voice or use your cloned voice, pick Basic. Videos from ${shortest} to ${c.maxSeconds} seconds. ${creditsPerSecondText(c.creditsPerSecond)}, so the shortest video costs ${shortest * c.creditsPerSecond} credits. Ready in ${c.waitLabel}.${shape}`;
+}
+
+function tooLongText(tier: Exclude<AvatarQualityTier, 'standard'>, overBy: number, words: number): string {
+  const cut = `Cut ${wordsText(overBy)}`;
+  if (tier === 'ultra' && words <= maxWordsFor('fast')) {
+    return `${cut}, or pick Fast above (up to ${maxWordsFor('fast')} words).`;
+  }
+  return `${cut}, or pick Basic above (up to ${MAX_AUDIO_DURATION_SECONDS} seconds).`;
+}
 
 // Map raw ethnicity values to broad filter groups
 function getEthnicityGroup(ethnicity?: string): string {
@@ -139,6 +172,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
     state,
     loadAvatarTemplates,
     handleAvatarSelection,
+    selectAvatarImageUrl,
     handleVoiceGeneration,
     handleVideoGeneration,
     goToStep,
@@ -159,7 +193,6 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   const [selectedTemplate, setSelectedTemplate] = useState<AvatarTemplate | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string>('Friendly_Person');
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
-  const [customImage, setCustomImage] = useState<File | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [localActionPrompt, setLocalActionPrompt] = useState(state.actionPrompt);
@@ -179,6 +212,8 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   const [avatarGenderFilter, setAvatarGenderFilter] = useState<string>('all');
   const [avatarAgeFilter, setAvatarAgeFilter] = useState<string>('all');
   const [avatarEthnicityFilter, setAvatarEthnicityFilter] = useState<string>('all');
+  // The library shows a page at a time: 246 cards at once made step 1 a very long scroll
+  const [visibleAvatarCount, setVisibleAvatarCount] = useState(AVATAR_PAGE_SIZE);
 
   // Voice filter state
   const [voiceGenderFilter, setVoiceGenderFilter] = useState<'all' | 'male' | 'female'>('all');
@@ -300,20 +335,12 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   };
 
   // Use generated avatar as the selected avatar
-  const handleUseGeneratedAvatar = async () => {
+  const handleUseGeneratedAvatar = () => {
     if (!generatedAvatarUrl) return;
-    try {
-      const response = await fetch(generatedAvatarUrl);
-      const blob = await response.blob();
-      const file = new File([blob], `generated_avatar_${Date.now()}.png`, { type: 'image/png' });
-      setCustomImage(file);
-      setSelectedTemplate(null);
-      await handleAvatarSelection(null, file);
-      setShowAvatarGen(false);
-      toast.success('Generated avatar selected');
-    } catch {
-      toast.error('Failed to use generated avatar');
-    }
+    // The AI photo already sits in our storage, so it is used as is
+    setSelectedTemplate(null);
+    selectAvatarImageUrl(generatedAvatarUrl);
+    setShowAvatarGen(false);
   };
 
   // Load templates on mount
@@ -462,14 +489,8 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
   const handleStepAction = async () => {
     if (state.currentStep === 1) {
-      if (customImage) {
-        await handleAvatarSelection(null, customImage);
-      } else if (selectedTemplate) {
-        await handleAvatarSelection(selectedTemplate);
-      }
-      if (!state.error) {
-        goToStep(2);
-      }
+      // The pick (and a photo upload) already happened when the card was clicked
+      if (selectedTemplate || state.customAvatarUrl) goToStep(2);
     } else if (state.currentStep === 2) {
       if (scriptTier) {
         // Fast / Ultra: no voice step, the script goes straight to the preview
@@ -500,14 +521,15 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
       return Math.min(state.audioDurationSeconds, MAX_AUDIO_DURATION_SECONDS);
     }
     const wordCount = localScriptText ? localScriptText.trim().split(/\s+/).filter(w => w).length : 0;
-    return Math.min(Math.ceil(wordCount / 1.5), MAX_AUDIO_DURATION_SECONDS);
+    return Math.min(Math.ceil(wordCount / AVATAR_BASIC_WORDS_PER_SECOND), MAX_AUDIO_DURATION_SECONDS);
   };
   const estimatedDuration = getEstimatedDuration();
   const estimatedCredits = fit ? fit.credits : Math.min(60, Math.ceil(estimatedDuration));
 
   const canProceed = () => {
     if (state.currentStep === 1) {
-      return selectedTemplate || customImage;
+      // An own photo counts once its upload has finished
+      return !!selectedTemplate || !!state.customAvatarUrl;
     } else if (state.currentStep === 2) {
       if (scriptTier) return !!fit?.fits;
       if (state.audioInputMode === 'upload') {
@@ -528,13 +550,16 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   // Button label for each step
   const getButtonLabel = () => {
     if (state.isLoading || state.isGenerating) {
+      if (state.currentStep === 1) return 'Uploading photo...';
       if (state.currentStep === 2) return 'Generating Voice...';
       if (state.currentStep === 3) return 'Generating Video...';
       return 'Processing...';
     }
-    if (state.currentStep === 1) return 'Select Avatar';
+    if (state.currentStep === 1) {
+      return selectedTemplate || state.customAvatarUrl ? 'Continue' : 'Pick an avatar to continue';
+    }
     if (state.currentStep === 2) {
-      if (scriptTier) return 'Continue to Preview';
+      if (scriptTier) return 'Continue';
       return state.audioInputMode === 'upload' ? 'Continue to Preview' : 'Generate Voice';
     }
     if (state.currentStep === 3) {
@@ -547,19 +572,28 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
   // Button icon for each step
   const getButtonIcon = () => {
-    if (state.currentStep === 2) return <Mic className="w-4 h-4 mr-2" />;
+    if (state.currentStep === 1 && state.isLoading) return <Loader2 className="w-4 h-4 mr-2 animate-spin" />;
+    if (state.currentStep === 2 && !scriptTier && state.audioInputMode === 'tts') return <Mic className="w-4 h-4 mr-2" />;
     if (state.currentStep === 3) return <Video className="w-4 h-4 mr-2" />;
     return null;
   };
+  // Steps that only move the user forward get an arrow
+  const showNextArrow = !state.isLoading && !state.isGenerating && (
+    state.currentStep === 1 || (state.currentStep === 2 && (!!scriptTier || state.audioInputMode === 'upload'))
+  );
+
+  // Library avatars after the filters, shown a page at a time
+  const filteredTemplates = state.avatarTemplates.filter((template: AvatarTemplate) => {
+    if (avatarGenderFilter !== 'all' && template.gender !== avatarGenderFilter) return false;
+    if (avatarAgeFilter !== 'all' && template.age_range !== avatarAgeFilter) return false;
+    if (avatarEthnicityFilter !== 'all' && getEthnicityGroup(template.ethnicity) !== avatarEthnicityFilter) return false;
+    return true;
+  });
+  const visibleTemplates = filteredTemplates.slice(0, visibleAvatarCount);
+  const hiddenTemplateCount = Math.max(0, filteredTemplates.length - visibleTemplates.length);
 
   return (
     <TabContentWrapper>
-      <TabHeader
-        icon={Video}
-        title="Talking Avatar Generator"
-        description="Create AI-powered talking avatar videos"
-      />
-
       <TabBody>
         <div ref={stepTopRef} />
         {/* Progress Indicator */}
@@ -598,17 +632,14 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                     <Card
                       key={saved.id}
                       className={`p-1.5 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] group relative ${
-                        customImage === null && selectedTemplate === null && state.customAvatarUrl === saved.image_url
+                        !selectedTemplate && state.customAvatarUrl === saved.image_url
                           ? 'ring-2 ring-purple-500'
                           : 'bg-card hover:bg-muted/50'
                       }`}
-                      onClick={async () => {
+                      onClick={() => {
+                        // Saved avatars already sit in our storage: no download and re-upload
                         setSelectedTemplate(null);
-                        const response = await fetch(saved.image_url);
-                        const blob = await response.blob();
-                        const file = new File([blob], `${saved.name}.png`, { type: 'image/png' });
-                        setCustomImage(file);
-                        await handleAvatarSelection(null, file);
+                        selectAvatarImageUrl(saved.image_url);
                       }}
                     >
                       <div className="relative aspect-[4/3] bg-muted rounded mb-1 flex items-center justify-center overflow-hidden">
@@ -620,6 +651,11 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                           className="object-cover"
                           onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
+                        {!selectedTemplate && state.customAvatarUrl === saved.image_url && (
+                          <div className="absolute top-0.5 left-0.5 bg-purple-500 rounded-full p-0.5">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                         {/* Delete button on hover */}
                         <button
                           type="button"
@@ -640,92 +676,26 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
               </div>
             )}
 
-            {/* Avatar Filters */}
+            {/* Own photo first: close to half of all avatar videos use one */}
             <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-1">
-                {['all', 'female', 'male'].map((g) => (
-                  <Button key={g} variant={avatarGenderFilter === g ? 'default' : 'outline'} size="sm" className="text-xs h-6 px-2"
-                    onClick={() => setAvatarGenderFilter(g)}>
-                    {g === 'all' ? 'All' : g.charAt(0).toUpperCase() + g.slice(1)}
-                  </Button>
-                ))}
-                <span className="text-muted-foreground text-xs self-center px-1">|</span>
-                {['all', 'young', 'middle_aged', 'senior'].map((a) => (
-                  <Button key={a} variant={avatarAgeFilter === a ? 'default' : 'outline'} size="sm" className="text-xs h-6 px-2"
-                    onClick={() => setAvatarAgeFilter(a)}>
-                    {a === 'all' ? 'All Ages' : a === 'middle_aged' ? 'Middle' : a.charAt(0).toUpperCase() + a.slice(1)}
-                  </Button>
-                ))}
+              <div className="flex items-center gap-2">
+                <Upload className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-medium">Use your own photo</span>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {['all', 'black', 'latina/o', 'white', 'asian', 'middle eastern', 'south asian', 'mixed'].map((eth) => (
-                  <Button key={eth} variant={avatarEthnicityFilter === eth ? 'default' : 'outline'} size="sm" className="text-xs h-6 px-2"
-                    onClick={() => setAvatarEthnicityFilter(eth)}>
-                    {eth === 'all' ? 'All' : eth.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {state.avatarTemplates
-                .filter((template: AvatarTemplate) => {
-                  if (avatarGenderFilter !== 'all' && template.gender !== avatarGenderFilter) return false;
-                  if (avatarAgeFilter !== 'all' && template.age_range !== avatarAgeFilter) return false;
-                  if (avatarEthnicityFilter !== 'all' && getEthnicityGroup(template.ethnicity) !== avatarEthnicityFilter) return false;
-                  return true;
-                })
-                .map((template: AvatarTemplate) => (
-                <Card
-                  key={template.id}
-                  className={`p-1.5 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
-                    selectedTemplate?.id === template.id ? 'ring-2 ring-blue-500' : 'bg-card hover:bg-muted/50'
-                  }`}
-                  onClick={async () => {
-                    setSelectedTemplate(template);
-                    setCustomImage(null);
-                    await handleAvatarSelection(template);
-                  }}
-                  onMouseEnter={() => template.preview_video_url && handleAvatarHover(template.id, true)}
-                  onMouseLeave={() => template.preview_video_url && handleAvatarHover(template.id, false)}
-                  title={template.description || undefined}
-                >
-                  <div className="relative aspect-[4/3] bg-muted rounded mb-1 flex items-center justify-center overflow-hidden">
-                    {template.preview_video_url && (
-                      <video
-                        ref={(el) => { videoRefs.current[template.id] = el; }}
-                        src={template.preview_video_url}
-                        muted loop playsInline
-                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                          hoveredTemplateId === template.id ? 'opacity-100' : 'opacity-0'
-                        }`}
-                      />
-                    )}
-                    {template.thumbnail_url ? (
-                      <Image
-                        src={template.thumbnail_url}
-                        alt={template.name}
-                        fill priority={false} quality={60}
-                        sizes="(max-width: 768px) 33vw, 150px"
-                        placeholder="blur"
-                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
-                        className={`object-cover transition-opacity duration-300 ${
-                          hoveredTemplateId === template.id && template.preview_video_url ? 'opacity-0' : 'opacity-100'
-                        }`}
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    ) : (
-                      <User className="w-6 h-6 text-muted-foreground" />
-                    )}
-                    {template.preview_video_url && hoveredTemplateId !== template.id && (
-                      <div className="absolute bottom-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
-                        <Play className="w-2.5 h-2.5 text-white fill-white" />
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-[11px] font-medium text-center truncate leading-tight">{template.name}</p>
-                </Card>
-              ))}
+              <p className="text-xs text-muted-foreground">A clear photo, face to the camera. JPG or PNG.</p>
+              <UnifiedDragDrop
+                fileType="avatar"
+                selectedFile={state.customAvatarImage}
+                onFileSelect={(file) => {
+                  setSelectedTemplate(null);
+                  handleAvatarSelection(null, file);
+                }}
+                disabled={state.isLoading}
+                loading={state.isLoading && !!state.customAvatarImage}
+                previewSize="small"
+                title="Drop your photo or click to upload"
+                description="Use your own photo as the avatar"
+              />
             </div>
 
             {/* Create Custom Avatar with AI */}
@@ -737,7 +707,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
               >
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-purple-500" />
-                  Create Custom Avatar with AI
+                  Make an avatar photo with AI ({AVATAR_GENERATION_CREDIT_COST} credits)
                 </span>
                 {showAvatarGen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
@@ -926,19 +896,124 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
               )}
             </div>
 
-            <UnifiedDragDrop
-              fileType="avatar"
-              selectedFile={customImage}
-              onFileSelect={(file) => {
-                setCustomImage(file);
-                setSelectedTemplate(null);
-                handleAvatarSelection(null, file);
-              }}
-              disabled={state.isLoading}
-              previewSize="medium"
-              title="Drop custom avatar or click to upload"
-              description="Use your own image as avatar"
-            />
+            <div className="space-y-0.5 pt-1">
+              <span className="text-xs font-medium">Or pick an avatar from the library ({state.avatarTemplates.length})</span>
+              <p className="text-xs text-muted-foreground">Click a photo, then press Continue below.</p>
+            </div>
+
+            {/* Avatar Filters */}
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-1">
+                {['all', 'female', 'male'].map((g) => (
+                  <Button key={g} variant={avatarGenderFilter === g ? 'default' : 'outline'} size="sm" className="text-xs h-6 px-2"
+                    onClick={() => { setAvatarGenderFilter(g); setVisibleAvatarCount(AVATAR_PAGE_SIZE); }}>
+                    {g === 'all' ? 'All' : g.charAt(0).toUpperCase() + g.slice(1)}
+                  </Button>
+                ))}
+                <span className="text-muted-foreground text-xs self-center px-1">|</span>
+                {['all', 'young', 'middle_aged', 'senior'].map((a) => (
+                  <Button key={a} variant={avatarAgeFilter === a ? 'default' : 'outline'} size="sm" className="text-xs h-6 px-2"
+                    onClick={() => { setAvatarAgeFilter(a); setVisibleAvatarCount(AVATAR_PAGE_SIZE); }}>
+                    {a === 'all' ? 'All Ages' : a === 'middle_aged' ? 'Middle' : a.charAt(0).toUpperCase() + a.slice(1)}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {['all', 'black', 'latina/o', 'white', 'asian', 'middle eastern', 'south asian', 'mixed'].map((eth) => (
+                  <Button key={eth} variant={avatarEthnicityFilter === eth ? 'default' : 'outline'} size="sm" className="text-xs h-6 px-2"
+                    onClick={() => { setAvatarEthnicityFilter(eth); setVisibleAvatarCount(AVATAR_PAGE_SIZE); }}>
+                    {eth === 'all' ? 'All' : eth.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {visibleTemplates.map((template: AvatarTemplate) => (
+                <Card
+                  key={template.id}
+                  className={`p-1.5 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
+                    selectedTemplate?.id === template.id ? 'ring-2 ring-blue-500' : 'bg-card hover:bg-muted/50'
+                  }`}
+                  onClick={() => {
+                    setSelectedTemplate(template);
+                    handleAvatarSelection(template);
+                  }}
+                  onMouseEnter={() => template.preview_video_url && handleAvatarHover(template.id, true)}
+                  onMouseLeave={() => template.preview_video_url && handleAvatarHover(template.id, false)}
+                  title={template.description || undefined}
+                >
+                  <div className="relative aspect-[4/3] bg-muted rounded mb-1 flex items-center justify-center overflow-hidden">
+                    {template.preview_video_url && (
+                      <video
+                        ref={(el) => { videoRefs.current[template.id] = el; }}
+                        src={template.preview_video_url}
+                        muted loop playsInline
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                          hoveredTemplateId === template.id ? 'opacity-100' : 'opacity-0'
+                        }`}
+                      />
+                    )}
+                    {template.thumbnail_url ? (
+                      <Image
+                        src={template.thumbnail_url}
+                        alt={template.name}
+                        fill priority={false} quality={60}
+                        sizes="(max-width: 768px) 33vw, 150px"
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+                        className={`object-cover transition-opacity duration-300 ${
+                          hoveredTemplateId === template.id && template.preview_video_url ? 'opacity-0' : 'opacity-100'
+                        }`}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <User className="w-6 h-6 text-muted-foreground" />
+                    )}
+                    {selectedTemplate?.id === template.id && (
+                      <div className="absolute top-0.5 left-0.5 bg-blue-500 rounded-full p-0.5">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    {template.preview_video_url && hoveredTemplateId !== template.id && (
+                      <div className="absolute bottom-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
+                        <Play className="w-2.5 h-2.5 text-white fill-white" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-medium text-center truncate leading-tight">{template.name}</p>
+                </Card>
+              ))}
+            </div>
+
+            {hiddenTemplateCount > 0 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setVisibleAvatarCount((count) => count + AVATAR_PAGE_SIZE)}
+              >
+                Show more avatars ({hiddenTemplateCount} more)
+              </Button>
+            )}
+
+            {state.avatarTemplates.length > 0 && filteredTemplates.length === 0 && (
+              <div className="text-center space-y-2 py-4">
+                <p className="text-sm text-muted-foreground">No avatars match these filters.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setAvatarGenderFilter('all');
+                    setAvatarAgeFilter('all');
+                    setAvatarEthnicityFilter('all');
+                    setVisibleAvatarCount(AVATAR_PAGE_SIZE);
+                  }}
+                >
+                  Show all avatars
+                </Button>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -950,9 +1025,9 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
               <Label>Quality</Label>
               <div className="grid grid-cols-3 gap-2 p-1 bg-muted/50 rounded-lg">
                 {([
-                  { id: 'standard' as AvatarQualityTier, label: 'Basic', icon: Mic, blurb: 'Your voice · up to 60 s · 1 cr/s' },
-                  { id: 'fast' as AvatarQualityTier, label: 'Fast', icon: Zap, blurb: `Avatar speaks · up to ${AVATAR_TIER_CONFIG.fast.maxSeconds} s · ${AVATAR_TIER_CONFIG.fast.creditsPerSecond} cr/s` },
-                  { id: 'ultra' as AvatarQualityTier, label: 'Ultra', icon: Gem, blurb: `Avatar speaks · up to ${AVATAR_TIER_CONFIG.ultra.maxSeconds} s · ${AVATAR_TIER_CONFIG.ultra.creditsPerSecond} cr/s` },
+                  { id: 'standard' as AvatarQualityTier, label: 'Basic', icon: Mic, lines: ['Pick a voice', creditsPerSecondText(AVATAR_BASIC_CREDITS_PER_SECOND)] },
+                  { id: 'fast' as AvatarQualityTier, label: 'Fast', icon: Zap, lines: ['Avatar speaks', creditsPerSecondText(AVATAR_TIER_CONFIG.fast.creditsPerSecond)] },
+                  { id: 'ultra' as AvatarQualityTier, label: 'Ultra', icon: Gem, lines: ['Best lip sync', creditsPerSecondText(AVATAR_TIER_CONFIG.ultra.creditsPerSecond)] },
                 ]).map((option) => {
                   const Icon = option.icon;
                   const active = state.qualityTier === option.id;
@@ -969,11 +1044,16 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                         <Icon className="w-4 h-4" />
                         <span className="font-medium">{option.label}</span>
                       </span>
-                      <span className="text-[10px] opacity-70 whitespace-normal leading-tight">{option.blurb}</span>
+                      {option.lines.map((line) => (
+                        <span key={line} className="text-[10px] opacity-70 whitespace-normal leading-tight">{line}</span>
+                      ))}
                     </Button>
                   );
                 })}
               </div>
+              <p className="text-xs text-muted-foreground p-2 rounded bg-muted/30">
+                {tierExplanation(state.qualityTier)}
+              </p>
             </div>
 
             {scriptTier && fit && (
@@ -1001,31 +1081,25 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   }`}
                 >
                   <span>
-                    {fit.words} words{fit.clipSeconds ? ` · ${fit.clipSeconds} s clip` : ''}
+                    {fit.words}/{fit.maxWords} words{fit.clipSeconds ? ` · ${fit.clipSeconds} second video` : ''}
                   </span>
-                  <span>
-                    {fit.words === 0
-                      ? `Up to ${fit.maxWords} words on ${tierLabel(scriptTier)}`
-                      : fit.fits
-                        ? `Fits ${tierLabel(scriptTier)} · ${fit.credits} credits`
-                        : `Too long for ${tierLabel(scriptTier)}: cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'} or switch to Basic`}
-                  </span>
+                  <span>{fit.fits ? `${fit.credits} credits` : ''}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  The avatar speaks this text in a voice chosen by the model. It can sound different on each run.
-                </p>
+                {!fit.fits && fit.words > 0 && (
+                  <p className="text-xs text-destructive">{tooLongText(scriptTier, fit.overBy, fit.words)}</p>
+                )}
+                {fit.fits && fit.roomWords > 0 && (scriptTier === 'fast' || fit.clipSeconds === AVATAR_TIER_CONFIG[scriptTier].allowedDurations[0]) && (
+                  <p className="text-xs text-muted-foreground">
+                    {fit.clipSeconds === AVATAR_TIER_CONFIG[scriptTier].allowedDurations[0]
+                      ? `The shortest ${tierLabel(scriptTier)} video is ${fit.clipSeconds} seconds. Room for ${moreWordsText(fit.roomWords)} at the same price.`
+                      : `Room for ${moreWordsText(fit.roomWords)} in this ${fit.clipSeconds} second video at the same price.`}
+                  </p>
+                )}
               </div>
             )}
 
             {!scriptTier && (
             <>
-            <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                Maximum audio duration: <strong>60 seconds</strong>.
-              </p>
-            </div>
-
             {/* Audio Input Mode Toggle */}
             <div className="space-y-2">
               <Label>Audio Input Method</Label>
@@ -1070,12 +1144,12 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{localScriptText.trim().split(/\s+/).filter(Boolean).length} words</span>
-                    <span>~{Math.ceil(localScriptText.trim().split(/\s+/).filter(Boolean).length / 1.5)}s</span>
+                    <span>about {Math.ceil(localScriptText.trim().split(/\s+/).filter(Boolean).length / AVATAR_BASIC_WORDS_PER_SECOND)} seconds</span>
                   </div>
-                  {localScriptText.trim().split(/\s+/).filter(Boolean).length > 90 && (
+                  {localScriptText.trim().split(/\s+/).filter(Boolean).length > 110 && (
                     <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                       <AlertCircle className="w-3 h-3" />
-                      <span className="text-xs">Long script — the generated audio may exceed 60s. Consider increasing the speed or shortening the text.</span>
+                      <span className="text-xs">Long script. The voice may run past 60 seconds. Shorten the text or raise the speed.</span>
                     </div>
                   )}
                 </div>
@@ -1400,8 +1474,8 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   <p className="text-sm">{localScriptText}</p>
                   <p className="text-xs text-muted-foreground mt-2">
                     {fit.fits
-                      ? `${fit.words} words · ${fit.clipSeconds} s ${tierLabel(scriptTier)} clip · the avatar speaks it in a voice chosen by the model`
-                      : `${fit.words} words · too long for ${tierLabel(scriptTier)}, go back and cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'}`}
+                      ? `${fit.words} words · ${fit.clipSeconds} second ${tierLabel(scriptTier)} video · the voice is picked for you`
+                      : tooLongText(scriptTier, fit.overBy, fit.words)}
                   </p>
                 </div>
               </div>
@@ -1523,15 +1597,19 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
             {/* Credit Summary */}
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
-              <span>{scriptTier && fit?.clipSeconds ? `${tierLabel(scriptTier)} · ${fit.clipSeconds} s clip` : 'Estimated cost:'}</span>
+              <span>
+                {scriptTier && fit?.clipSeconds
+                  ? `${fit.clipSeconds} seconds × ${creditsPerSecondText(AVATAR_TIER_CONFIG[scriptTier].creditsPerSecond)}`
+                  : `${estimatedCredits} seconds × ${creditsPerSecondText(AVATAR_BASIC_CREDITS_PER_SECOND)}`}
+              </span>
               <span className="font-medium text-primary">{estimatedCredits} credits</span>
             </div>
           </div>
         )}
       </TabBody>
 
-      {/* Footer */}
-      <div className="mt-6">
+      {/* Footer: pinned to the bottom of the screen in the one column layout */}
+      <TabFooter className="max-md:sticky max-md:bottom-0 max-md:z-10 max-md:bg-background max-md:pb-3">
         <div className="flex gap-2">
           {state.currentStep > 1 && (
             <Button
@@ -1554,7 +1632,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
           >
             {getButtonIcon()}
             {getButtonLabel()}
-            {state.currentStep === 1 && <ArrowRight className="w-4 h-4 ml-2" />}
+            {showNextArrow && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>
         </div>
         {state.currentStep === 2 && !scriptTier && state.audioInputMode === 'tts' && !!localScriptText.trim() && !selectedVoice && (
@@ -1563,7 +1641,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
         {state.currentStep === 3 && state.isGenerating && (
           <p className="text-xs text-muted-foreground text-center mt-2">
             You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}
-            <ElapsedTimer typical={scriptTier ? AVATAR_TIER_CONFIG[scriptTier].waitLabel : '2–5 minutes'} className="tabular-nums" />
+            <ElapsedTimer typical={scriptTier ? AVATAR_TIER_CONFIG[scriptTier].waitLabel : AVATAR_BASIC_WAIT_LABEL} className="tabular-nums" />
           </p>
         )}
         {state.currentStep === 3 && !creditsLoading && credits < estimatedCredits && (
@@ -1571,7 +1649,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
             <InsufficientCreditsNotice needed={estimatedCredits} available={credits} />
           </div>
         )}
-      </div>
+      </TabFooter>
 
       {/* Clone Voice Modal */}
       <Dialog open={showCloneModal} onOpenChange={setShowCloneModal}>

@@ -21,6 +21,18 @@ export const AVATAR_WORDS_PER_SECOND = 2.5;
 /** Breathing room added to every estimate so the last word is not cut. */
 export const AVATAR_PAD_SECONDS = 1;
 
+/** Basic (internal id 'standard'): the client's own voice, lip-synced. */
+export const AVATAR_BASIC_MAX_SECONDS = 60;
+export const AVATAR_BASIC_CREDITS_PER_SECOND = 1;
+/**
+ * Pace of the ready-made and cloned voices, measured on 76 production videos:
+ * median 2.3 words per second (slowest fifth 1.9, fastest fifth 2.9). Only the
+ * on-screen guess before the voice exists; the price uses the real audio length.
+ */
+export const AVATAR_BASIC_WORDS_PER_SECOND = 2.3;
+/** Measured on production renders: median 72 s, 8 in 10 done within 150 s. */
+export const AVATAR_BASIC_WAIT_LABEL = '1 to 3 minutes';
+
 export interface AvatarTierConfig {
   id: Exclude<AvatarQualityTier, 'standard'>;
   label: string;
@@ -105,6 +117,8 @@ export interface ScriptFit {
   maxWords: number;
   /** Words to cut when it does not fit. */
   overBy: number;
+  /** Words that still fit in the same clip at the same price (0 when it does not fit). */
+  roomWords: number;
 }
 
 /** Everything the page and the server need to know about a script on a tier. */
@@ -122,6 +136,9 @@ export function scriptFit(tier: Exclude<AvatarQualityTier, 'standard'>, text: st
     fits,
     maxWords,
     overBy: Math.max(0, words - maxWords),
+    roomWords: clipSeconds
+      ? Math.max(0, Math.floor((clipSeconds - AVATAR_PAD_SECONDS) * AVATAR_WORDS_PER_SECOND) - words)
+      : 0,
   };
 }
 

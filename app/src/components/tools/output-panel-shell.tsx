@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Loader2, AlertCircle, X } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isStalePageError } from '@/lib/stale-page';
 
 interface OutputPanelShellProps {
   title?: string;
@@ -19,6 +20,8 @@ interface OutputPanelShellProps {
   className?: string;
   activeTab?: string; // Add activeTab prop for tab-specific backgrounds
   onCancelGeneration?: () => void; // Add cancel callback
+  /** Runs right before the "Reload page" button reloads (e.g. to keep a typed script). */
+  onBeforeReload?: () => void;
 }
 
 /**
@@ -41,7 +44,10 @@ export function OutputPanelShell({
   className,
   activeTab,
   onCancelGeneration,
+  onBeforeReload,
 }: OutputPanelShellProps) {
+  // A tab left open across a deploy: the action never ran, a reload fixes it
+  const isStalePage = isStalePageError(errorMessage);
   const isLoading = status === 'loading';
   const isError = status === 'error';
   const isIdle = status === 'idle';
@@ -107,12 +113,33 @@ export function OutputPanelShell({
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-red-200 max-w-md text-center">
                 <div className="flex flex-col items-center gap-3">
                   <AlertCircle className="h-8 w-8 text-red-400" />
-                  <div>
-                    <p className="font-medium text-lg">Generation failed</p>
-                    {errorMessage && (
-                      <p className="text-sm text-red-200/80 mt-2 leading-relaxed">{errorMessage}</p>
-                    )}
-                  </div>
+                  {isStalePage ? (
+                    <>
+                      <div>
+                        <p className="font-medium text-lg">This page is out of date</p>
+                        <p className="text-sm text-red-200/80 mt-2 leading-relaxed">
+                          The app was updated while this page was open. Reload the page and try again. Nothing was charged.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          try { onBeforeReload?.(); } catch { /* the reload matters more */ }
+                          window.location.reload();
+                        }}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Reload page
+                      </Button>
+                    </>
+                  ) : (
+                    <div>
+                      <p className="font-medium text-lg">Generation failed</p>
+                      {errorMessage && (
+                        <p className="text-sm text-red-200/80 mt-2 leading-relaxed">{errorMessage}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

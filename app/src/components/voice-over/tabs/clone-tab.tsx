@@ -1,5 +1,6 @@
 'use client';
 
+import { isStalePageError } from '@/lib/stale-page';
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -175,7 +176,7 @@ export function CloneTab({
       // A tab left open across a deploy calls a server-action id that no longer
       // exists; React reports it as a Server Components render error, which
       // tells the user nothing actionable. Name the actual remedy instead.
-      const isStaleBundle = /Server Components render|Failed to find Server Action|digest/i.test(detail);
+      const isStaleBundle = isStalePageError(detail) || /Server Components render|digest/i.test(detail);
       toast.error(
         isStaleBundle ? 'The page is out of date after an update' : 'Voice cloning failed',
         {

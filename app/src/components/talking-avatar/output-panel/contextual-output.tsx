@@ -39,6 +39,10 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
       title={titleWithIndicator}
       status={avatarState.state.isGenerating ? 'loading' : avatarState.state.error ? 'error' : (avatarState.state.generatedVideo || avatarState.state.isStateRestored ? 'ready' : 'idle')}
       errorMessage={avatarState.state.error || undefined}
+      onBeforeReload={() => {
+        const script = avatarState.state.scriptText?.trim();
+        if (script) localStorage.setItem('prefill_script', script);
+      }}
       loading={
         // Custom loading component to show avatar processing card instead of simple spinner
         <TalkingAvatarOutput avatarState={{

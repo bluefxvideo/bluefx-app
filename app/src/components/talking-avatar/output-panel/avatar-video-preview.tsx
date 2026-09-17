@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Loader2, ExternalLink } from 'lucide-react';
-import { AVATAR_TIER_CONFIG, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 
 interface AvatarVideoPreviewProps {
   video: {
@@ -72,7 +72,7 @@ export function AvatarVideoPreview({
                   })()}
                 </p>
                 <p className="text-xs text-yellow-500">
-                  {isScriptTier(tier) ? AVATAR_TIER_CONFIG[tier].waitLabel : '~2-3 minutes'}
+                  {isScriptTier(tier) ? AVATAR_TIER_CONFIG[tier].waitLabel : AVATAR_BASIC_WAIT_LABEL}
                 </p>
               </div>
             </Card>

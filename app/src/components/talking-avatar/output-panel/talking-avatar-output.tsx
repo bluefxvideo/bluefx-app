@@ -76,7 +76,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
   });
   
   // Check if we're in progress mode (any step > 1 or avatar selected)
-  const isInProgress = state.currentStep > 1 || state.selectedAvatarTemplate || state.customAvatarImage;
+  const isInProgress = state.currentStep > 1 || state.selectedAvatarTemplate || state.customAvatarImage || state.customAvatarUrl;
   
   // Show completed video first if available (must have actual video URL, not empty placeholder)
   if (state.generatedVideo && state.generatedVideo.video_url && state.generatedVideo.video_url.trim() && !state.isGenerating) {
@@ -256,7 +256,7 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
               title="Avatar"
               description="Select or upload"
               icon={User}
-              isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarImage)}
+              isCompleted={!!(state.selectedAvatarTemplate || state.customAvatarUrl)}
               isActive={state.currentStep === 1}
               isLoading={state.isLoading && state.currentStep === 1}
             />

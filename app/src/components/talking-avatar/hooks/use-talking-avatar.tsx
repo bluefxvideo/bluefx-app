@@ -16,6 +16,7 @@ import { pollLTXVideoGeneration } from '@/actions/models/fal-ltx-polling';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import { isStalePageError } from '@/lib/stale-page';
 
 export interface TalkingAvatarState {
   // Current step in wizard (1: Avatar Selection, 2: Voice/Audio Input, 3: Video Generation)
@@ -74,6 +75,8 @@ export interface UseTalkingAvatarReturn {
   state: TalkingAvatarState;
   loadAvatarTemplates: () => Promise<void>;
   handleAvatarSelection: (template: AvatarTemplate | null, customFile?: File) => Promise<void>;
+  /** Use a photo that already sits in our storage (saved or AI-made avatar): no upload. */
+  selectAvatarImageUrl: (url: string) => void;
   handleVoiceGeneration: (voiceId: string, scriptText: string, voiceSettings?: { speed?: number; pitch?: number; volume?: number; emotion?: string }) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
   handleVideoGeneration: () => Promise<void>;
   resetWizard: () => void;
@@ -238,52 +241,80 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [state.avatarTemplates.length]);
 
   // Step 1: Handle avatar selection
+  // A library avatar is a pure pick: no server call and no toast (the card shows
+  // the check mark). Only the client's own photo goes to the server, once, to be
+  // stored; "Continue" waits for that upload.
   const handleAvatarSelection = useCallback(async (template: AvatarTemplate | null, customImage?: File) => {
     if (!user) return;
-    
-    // Update template immediately so preview updates right away
+
+    if (template || !customImage) {
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: null,
+        selectedAvatarTemplate: template || null,
+        customAvatarImage: null,
+        customAvatarUrl: null,
+      }));
+      return;
+    }
+
     setState(prev => ({
       ...prev,
       isLoading: true,
       error: null,
-      selectedAvatarTemplate: template || null,
-      customAvatarImage: customImage || null,
+      selectedAvatarTemplate: null,
+      customAvatarImage: customImage,
+      customAvatarUrl: null,
     }));
 
     try {
       const request: TalkingAvatarRequest = {
         script_text: state.scriptText,
-        avatar_template_id: template?.id,
-        avatar_image_url: template?.thumbnail_url,
-        custom_avatar_image: customImage || null,
+        custom_avatar_image: customImage,
         workflow_step: 'avatar_select',
         user_id: user.id,
       };
 
       const response = await executeTalkingAvatar(request);
-
-      if (response.success) {
-        setState(prev => ({
-          ...prev,
-          customAvatarUrl: response.step_data?.avatar_preview_url || null,
-          credits: response.remaining_credits,
-          isLoading: false,
-        }));
-        
-        toast.success('Avatar selected successfully');
-      } else {
-        throw new Error(response.error || 'Avatar selection failed');
+      const url = response.success ? response.step_data?.avatar_preview_url : undefined;
+      if (!url) {
+        throw new Error(response.error || 'The photo could not be uploaded');
       }
+
+      // A slower upload must not replace a pick the user made after it
+      setState(prev => prev.customAvatarImage !== customImage ? prev : {
+        ...prev,
+        customAvatarUrl: url,
+        credits: response.remaining_credits,
+        isLoading: false,
+      });
     } catch (error) {
-      // Avatar selection failed silently
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'Avatar selection failed',
-        isLoading: false 
-      }));
-      toast.error('Avatar selection failed');
+      console.error('Avatar photo upload failed:', error);
+      // A page left open across a deploy keeps its own wording: the output panel
+      // turns it into "This page is out of date" with a Reload button
+      const raw = error instanceof Error ? error.message : '';
+      const stalePage = isStalePageError(raw);
+      setState(prev => prev.customAvatarImage !== customImage ? prev : {
+        ...prev,
+        customAvatarImage: null,
+        error: stalePage ? raw : 'The photo could not be uploaded',
+        isLoading: false,
+      });
+      if (!stalePage) toast.error('The photo could not be uploaded. Try a JPG or PNG under 10 MB.');
     }
   }, [user, state.scriptText]);
+
+  const selectAvatarImageUrl = useCallback((url: string) => {
+    setState(prev => ({
+      ...prev,
+      isLoading: false,
+      error: null,
+      selectedAvatarTemplate: null,
+      customAvatarImage: null,
+      customAvatarUrl: url,
+    }));
+  }, []);
 
   // Step 2: Handle voice generation
   const handleVoiceGeneration = useCallback(async (voiceId: string, scriptText: string, voiceSettings?: { speed?: number; pitch?: number; volume?: number; emotion?: string }): Promise<{ success: boolean; voiceAudioUrl?: string }> => {
@@ -1342,6 +1373,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     state,
     loadAvatarTemplates,
     handleAvatarSelection,
+    selectAvatarImageUrl,
     handleVoiceGeneration,
     handleVideoGeneration,
     resetWizard,
