@@ -10,7 +10,8 @@ import { breakdownScript } from '@/actions/tools/scene-breakdown';
 import { refineBreakdownWithAI } from '@/actions/tools/scene-breakdown';
 import { groupScenesIntoBatches } from '@/lib/scene-breakdown/types';
 import { MOTION_PRESETS } from '@/lib/scene-breakdown/motion-presets';
-import type { WizardData, ChatMessage } from '../wizard-types';
+import { isLostReferencePhoto, type WizardData, type ChatMessage } from '../wizard-types';
+import { MAX_SCENE_REFERENCE_IMAGES } from '@/types/cinematographer';
 import type { BreakdownScene, SceneBreakdownResult } from '@/lib/scene-breakdown/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -135,17 +136,23 @@ export function CustomizePlanStep({
   // ===== Reference image handling =====
   const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const newImages = files.map(file => ({
+    e.target.value = '';
+    // Each image is made from at most this many photos
+    const room = MAX_SCENE_REFERENCE_IMAGES - wizardData.referenceImages.length;
+    if (files.length > room) {
+      toast.warning(`Up to ${MAX_SCENE_REFERENCE_IMAGES} product photos. ${room > 0 ? `The first ${room} ${room === 1 ? 'was' : 'were'} added.` : 'Remove one to add another.'}`);
+    }
+    const newImages = files.slice(0, Math.max(0, room)).map(file => ({
       file,
       preview: URL.createObjectURL(file),
     }));
+    if (newImages.length === 0) return;
     onUpdateReferenceImages([...wizardData.referenceImages, ...newImages]);
-    e.target.value = '';
   };
 
   const handleRemoveImage = (index: number) => {
     const updated = [...wizardData.referenceImages];
-    URL.revokeObjectURL(updated[index].preview);
+    if (updated[index].preview.startsWith('blob:')) URL.revokeObjectURL(updated[index].preview);
     updated.splice(index, 1);
     onUpdateReferenceImages(updated);
   };
@@ -182,13 +189,23 @@ export function CustomizePlanStep({
           {/* Reference Images */}
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              Product / Reference Images
+              Product / Reference Images <span className="font-normal">(up to {MAX_SCENE_REFERENCE_IMAGES})</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {wizardData.referenceImages.map((img, i) => (
                 <div key={i} className="flex flex-col items-center gap-1">
                   <div className="relative w-14 h-14 rounded-md overflow-hidden border border-border/50">
-                    <img src={img.preview} alt="" className="w-full h-full object-cover" />
+                    {isLostReferencePhoto(img) ? (
+                      // The photo was never uploaded and the page reloaded: only a dead preview is left
+                      <div
+                        title="This photo was lost when the page reloaded. Remove it and add it again."
+                        className="w-full h-full flex items-center justify-center bg-amber-500/10 px-1 text-center text-[9px] leading-tight text-amber-600 dark:text-amber-400"
+                      >
+                        Add again
+                      </div>
+                    ) : (
+                      <img src={img.preview} alt="" className="w-full h-full object-cover" />
+                    )}
                     <button
                       onClick={() => handleRemoveImage(i)}
                       className="absolute top-0 right-0 bg-black/60 rounded-bl p-0.5"
@@ -209,12 +226,14 @@ export function CustomizePlanStep({
                   />
                 </div>
               ))}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-14 h-14 rounded-md border border-dashed border-border/50 flex items-center justify-center text-muted-foreground hover:bg-secondary/30 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              {wizardData.referenceImages.length < MAX_SCENE_REFERENCE_IMAGES && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-14 h-14 rounded-md border border-dashed border-border/50 flex items-center justify-center text-muted-foreground hover:bg-secondary/30 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"

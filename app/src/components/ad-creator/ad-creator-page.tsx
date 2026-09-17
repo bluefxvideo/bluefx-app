@@ -21,7 +21,7 @@ import { CustomizePlanStep } from '@/components/ai-recreate/steps/customize-plan
 import { ImageGenerationStep } from '@/components/ai-recreate/steps/image-generation-step';
 import { VideoGenerationStep } from '@/components/ai-recreate/steps/video-generation-step';
 import { VoiceOverStep } from '@/components/ai-recreate/steps/voice-over-step';
-import { getDefaultWizardData, type WizardData, type WizardStep, type ExtractedFrame } from '@/components/ai-recreate/wizard-types';
+import { getDefaultWizardData, needsPreviewCheck, type WizardData, type WizardStep, type ExtractedFrame } from '@/components/ai-recreate/wizard-types';
 import type { BreakdownScene, SceneBreakdownResult } from '@/lib/scene-breakdown/types';
 import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-breakdown/types';
 import { motionPresetToNativeCameraMotion } from '@/lib/scene-breakdown/motion-presets';
@@ -505,10 +505,11 @@ function saveWizardToStorage(data: {
       wizardData: {
         ...data.wizardData,
         enabledScenes: Array.from(data.wizardData.enabledScenes),
-        // Skip File objects from referenceImages, keep only previews
+        // Skip File objects from referenceImages, keep previews and the uploaded copy
         referenceImages: data.wizardData.referenceImages.map(img => ({
           preview: img.preview,
           label: img.label,
+          url: img.url,
         })),
       },
       currentStep: data.currentStep,
@@ -550,10 +551,12 @@ function loadWizardFromStorage(mode: 'clone' | 'script'): {
         ...parsed.wizardData,
         enabledScenes: new Set(parsed.wizardData.enabledScenes || []),
         // Restore reference images without File objects (preview-only)
-        referenceImages: (parsed.wizardData.referenceImages || []).map((img: { preview: string; label?: string }) => ({
-          file: null as unknown as File, // File can't be restored — user may need to re-upload
-          preview: img.preview,
+        referenceImages: (parsed.wizardData.referenceImages || []).map((img: { preview: string; label?: string; url?: string }) => ({
+          file: null as unknown as File, // File can't be restored: the uploaded copy (url) or a data-URL preview stands in
+          // A blob: preview dies with the page; the uploaded copy shows the same photo
+          preview: img.url && img.preview?.startsWith('blob:') ? img.url : img.preview,
           label: img.label,
+          url: img.url,
         })),
       },
       currentStep: parsed.currentStep as WizardStep,
@@ -600,11 +603,11 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
   const { credits: wizardCredits, hasEnoughCredits: wizardHasEnoughCredits } = useCredits();
 
   // ===== Auto-save wizard state on changes =====
+  // Also while images are made: each finished (paid) image and each uploaded photo copy
+  // is kept at once, and a reload mid-run offers to make only the scenes still missing
   useEffect(() => {
-    // Don't save during image generation (partial state)
-    if (isGeneratingImages) return;
     saveWizardToStorage({ wizardData, currentStep, completedSteps, highestStepReached, analysisComplete, mode });
-  }, [wizardData, currentStep, completedSteps, highestStepReached, analysisComplete, mode, isGeneratingImages]);
+  }, [wizardData, currentStep, completedSteps, highestStepReached, analysisComplete, mode]);
 
   // Show toast on restore
   useEffect(() => {
@@ -616,6 +619,41 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       }
       restored.current = null; // Only show once
     }
+  }, []);
+
+  // Photos restored with only a blob: preview: after moving around inside the app the
+  // preview still loads and the photo is recovered; after a reload it is gone
+  useEffect(() => {
+    const candidates = wizardData.referenceImages.filter(needsPreviewCheck);
+    if (candidates.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const found = new Map<string, File | null>();
+      for (const img of candidates) {
+        try {
+          const blob = await (await fetch(img.preview)).blob();
+          const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+          found.set(img.preview, new File([blob], `${img.label || 'product'}.${ext}`, { type: blob.type || 'image/jpeg' }));
+        } catch {
+          found.set(img.preview, null);
+        }
+      }
+      if (cancelled) return;
+      setWizardData(prev => ({
+        ...prev,
+        referenceImages: prev.referenceImages.map(img => {
+          if (!found.has(img.preview) || img.file || img.url) return img;
+          const file = found.get(img.preview);
+          return file ? { ...img, file, lost: false } : { ...img, lost: true };
+        }),
+      }));
+      if ([...found.values()].some(file => !file)) {
+        toast.warning('A product photo was lost when the page reloaded. Add it again in the Customize step before you make new images.', { duration: 15000 });
+      }
+    })();
+    return () => { cancelled = true; };
+    // Once, for what was restored
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ===== Load analysis from old AI Recreate URL params =====
@@ -795,8 +833,23 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
   // ===== Image generation (reused from AIRecreatePage) =====
   // `onlyScenes`: make just these scene numbers and keep the frames that exist
   // ("Try the failed scenes again"). Without it every enabled scene is made afresh.
+  const imageRunRef = useRef(false);
   const handleGenerateAllImages = async (onlyScenes?: number[]) => {
-    const retrying = Array.isArray(onlyScenes) && onlyScenes.length > 0;
+    if (Array.isArray(onlyScenes) && onlyScenes.length === 0) return;
+    // One run at a time: busy state arrives a render late, the ref does not
+    if (imageRunRef.current) return;
+    imageRunRef.current = true;
+    try {
+      await runSceneImages(onlyScenes);
+    } finally {
+      imageRunRef.current = false;
+      setIsGeneratingImages(false);
+      setImageGenProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const runSceneImages = async (onlyScenes?: number[]) => {
+    const retrying = Array.isArray(onlyScenes);
     const enabledScenes = wizardData.scenes.filter(s =>
       wizardData.enabledScenes.has(s.sceneNumber) && (!retrying || onlyScenes!.includes(s.sceneNumber))
     );
@@ -805,20 +858,96 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       return;
     }
 
-    // Get user for credit deduction
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { toast.error('Please sign in'); return; }
-
     const totalCost = enabledScenes.length * 2; // 2 credits per image
     if (!wizardHasEnoughCredits(totalCost)) {
-      toast.error(`Not enough credits. Need ${totalCost} for ${enabledScenes.length} images.`);
+      toast.error(`Not enough credits. ${enabledScenes.length} image${enabledScenes.length === 1 ? '' : 's'} need ${totalCost} credits.`);
       return;
     }
 
+    // Busy from here on (the caller clears it when the run ends)
     setIsGeneratingImages(true);
-    setImageFailures([]);
     setImageGenProgress({ current: 0, total: enabledScenes.length });
+
+    // Get user for credit deduction
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error('You are signed out. Sign in again and retry.'); return; }
+
+    // Product / reference photos: each one is uploaded once and its copy is kept on the
+    // wizard (a page reload drops the File). Nothing is made when a photo is missing:
+    // images without the product would cost credits and miss the point.
+    const uploadedImageUrls: string[] = [];
+    if (wizardData.referenceImages.length > 0) {
+      const batchId = `adcreator-${Date.now()}`;
+      const newUrls: (string | undefined)[] = [];
+      const lostPreviews = new Set<string>();
+      let failedUploads = 0;
+      for (const img of wizardData.referenceImages) {
+        if (img.url) {
+          newUrls.push(img.url);
+          continue;
+        }
+        let blob: Blob | null = img.file instanceof Blob ? img.file : null;
+        // A data: preview always holds the photo; a blob: preview does until a reload
+        if (!blob && !img.lost && /^(data|blob):/.test(img.preview || '')) {
+          try {
+            blob = await (await fetch(img.preview)).blob();
+          } catch {
+            blob = null;
+          }
+        }
+        if (!blob) {
+          lostPreviews.add(img.preview);
+          newUrls.push(undefined);
+          continue;
+        }
+        try {
+          const formData = new FormData();
+          const name = img.file instanceof File ? img.file.name : `${img.label || 'product'}.${(blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')}`;
+          formData.append('file', blob, name);
+          formData.append('type', 'reference');
+          formData.append('batchId', batchId);
+          const res = await fetch('/api/upload/cinematographer', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (data.success && data.url) {
+            newUrls.push(data.url as string);
+          } else {
+            console.warn('Product photo upload failed:', data.error);
+            failedUploads += 1;
+            newUrls.push(undefined);
+          }
+        } catch (err) {
+          console.warn('Product photo upload failed:', err);
+          failedUploads += 1;
+          newUrls.push(undefined);
+        }
+      }
+      // Keep the copies and mark lost photos, matched by preview (the list may have changed meanwhile)
+      const byPreview = new Map(wizardData.referenceImages.map((img, i) => [img.preview, newUrls[i]] as const));
+      setWizardData(prev => ({
+        ...prev,
+        referenceImages: prev.referenceImages.map(img => {
+          if (img.url || img.file) {
+            const url = byPreview.get(img.preview);
+            return img.url || !url ? img : { ...img, url };
+          }
+          const url = byPreview.get(img.preview);
+          if (url) return { ...img, url };
+          return lostPreviews.has(img.preview) ? { ...img, lost: true } : img;
+        }),
+      }));
+      if (lostPreviews.size > 0) {
+        toast.error('A product photo was lost when the page reloaded. Add it again in the Customize step, then make the images.');
+        return;
+      }
+      if (failedUploads > 0) {
+        toast.error('A product photo could not be uploaded. Check the connection and try again. No credits were taken.');
+        return;
+      }
+      uploadedImageUrls.push(...newUrls.filter((u): u is string => !!u));
+    }
+
+    setImageFailures([]);
 
     // A full run starts from a clean grid; a retry keeps the frames that worked
     if (!retrying) setWizardData(prev => ({ ...prev, extractedFrames: [] }));
@@ -826,29 +955,10 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     const allFrames: ExtractedFrame[] = [];
     const failures: { sceneNumber: number; reason: string; notCharged: boolean }[] = [];
 
-    // Upload the product / reference photos once. They used to be dropped: the upload
-    // helper this page imported never existed, so the image engine never saw the product.
-    const uploadedImageUrls: string[] = [];
-    if (wizardData.referenceImages.length > 0) {
-      const batchId = `adcreator-${Date.now()}`;
-      for (const img of wizardData.referenceImages) {
-        try {
-          const formData = new FormData();
-          formData.append('file', img.file);
-          formData.append('type', 'reference');
-          formData.append('batchId', batchId);
-          const res = await fetch('/api/upload/cinematographer', { method: 'POST', body: formData });
-          const data = await res.json();
-          if (data.success && data.url) uploadedImageUrls.push(data.url as string);
-          else console.warn('Product photo upload failed:', data.error);
-        } catch (err) {
-          console.warn('Product photo upload failed:', err);
-        }
-      }
-      if (uploadedImageUrls.length < wizardData.referenceImages.length) {
-        toast.warning('A product photo could not be uploaded. The images are made without it.');
-      }
-    }
+    // Batch labels follow the scene's place among all switched-on scenes, also on a retry
+    const sceneOrder = new Map(
+      wizardData.scenes.filter(sc => wizardData.enabledScenes.has(sc.sceneNumber)).map((sc, idx) => [sc.sceneNumber, idx] as const)
+    );
 
     for (let i = 0; i < enabledScenes.length; i++) {
       const scene = enabledScenes[i];
@@ -877,7 +987,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             imageUrl: finalUrl,
             prompt: scene.visualPrompt,
             sceneNumber: scene.sceneNumber,
-            batchNumber: Math.ceil((i + 1) / 4),
+            batchNumber: Math.floor((sceneOrder.get(scene.sceneNumber) ?? i) / 4) + 1,
             narration: scene.narration,
             duration,
             motionPresetId: scene.motionPresetId,
@@ -910,17 +1020,16 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       }
     }
 
-    setIsGeneratingImages(false);
-    setImageGenProgress({ current: 0, total: 0 });
     setImageFailures(failures);
 
-    const sceneList = failures.map(f => f.sceneNumber).join(', ');
+    const numbers = failures.map(f => String(f.sceneNumber));
+    const sceneList = numbers.length > 1 ? `${numbers.slice(0, -1).join(', ')} and ${numbers[numbers.length - 1]}` : numbers[0];
     if (failures.length === 0) {
       toast.success(`${allFrames.length} image${allFrames.length === 1 ? '' : 's'} generated`);
     } else if (allFrames.length === 0) {
       toast.error('No images could be made', { description: failures[0].reason, duration: 20000 });
     } else {
-      toast.warning(`${allFrames.length} of ${enabledScenes.length} images made. Scene ${sceneList} failed.`, {
+      toast.warning(`${allFrames.length} of ${enabledScenes.length} images made. ${failures.length === 1 ? 'Scene' : 'Scenes'} ${sceneList} failed.`, {
         description: failures[0].reason,
         duration: 20000,
       });

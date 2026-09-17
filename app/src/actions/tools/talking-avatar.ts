@@ -1,5 +1,6 @@
 'use server';
 
+import { after } from 'next/server';
 import { createClient, createAdminClient } from '@/app/supabase/server';
 import { uploadImageToStorage, uploadAudioToStorage, downloadAndUploadVideo } from '@/actions/supabase-storage';
 import { createFalLTX23Prediction } from '@/actions/models/fal-ltx-image-to-video';
@@ -30,6 +31,7 @@ import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 import {
   getUserCredits,
   deductCredits,
+  deductCreditsAdmin,
   storeTalkingAvatarResults,
   recordTalkingAvatarMetrics,
   getTalkingAvatarVideo,
@@ -770,19 +772,104 @@ export async function pollAvatarTierGeneration(
 
 // ─── Switch voice on a finished avatar video (ChatterboxHD speech-to-speech) ───
 
+/** No switch may be saved or charged after this long; the status call reports it as failed. */
+const VOICE_SWITCH_MAX_MS = 10 * 60 * 1000;
+/** A running job refreshes `heartbeat_at` this often... */
+const VOICE_SWITCH_HEARTBEAT_MS = 15 * 1000;
+/** ...and counts as lost (an app update or restart ended it) once the last one is older than this. */
+const VOICE_SWITCH_LOST_MS = 60 * 1000;
+
+type VoiceSwapState = {
+  status?: 'running' | 'done' | 'failed';
+  started_at?: string;
+  heartbeat_at?: string;
+  finished_at?: string;
+  batch_id?: string;
+  /** Made by the page for each click, so its poll never mistakes an earlier result for this one. */
+  request_id?: string;
+  target_voice_url?: string;
+  error?: string;
+  credits?: number;
+  high_quality?: boolean;
+  converted_at?: string;
+};
+
+function settingsObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
+}
+
+function swapOf(settings: Record<string, unknown>): VoiceSwapState {
+  return settingsObject(settings.voice_swap) as VoiceSwapState;
+}
+
+function validRequestId(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(value) ? value : undefined;
+}
+
+/** The one sentence a failed switch shows. Only a refusal of the sample blames the recording. */
+function describeVoiceSwitchFailure(raw: string | undefined): string {
+  if (raw && /ChatterboxHD API error \(4\d\d\)/.test(raw)) {
+    return 'The voice sample could not be used. Try a clean recording of 10 to 30 seconds with no music. No credits were taken.';
+  }
+  return 'The voice could not be switched. Try again in a minute. No credits were taken.';
+}
+
+/** Why a running switch can no longer finish, or null while it still can. */
+function voiceSwitchLostReason(swap: VoiceSwapState, now = Date.now()): string | null {
+  if (swap.status !== 'running') return null;
+  const startedAt = swap.started_at ? Date.parse(swap.started_at) : NaN;
+  if (!Number.isFinite(startedAt) || now - startedAt > VOICE_SWITCH_MAX_MS) {
+    return 'The voice switch took too long and was stopped. Try again. No credits were taken.';
+  }
+  const lastSign = swap.heartbeat_at ? Date.parse(swap.heartbeat_at) : startedAt;
+  if (!Number.isFinite(lastSign) || now - lastSign > VOICE_SWITCH_LOST_MS) {
+    return 'The voice switch was cut off, most likely by an app update. Try again. No credits were taken.';
+  }
+  return null;
+}
+
+/**
+ * Write `settings` only while the switch `batchId` still runs on this row. Every write
+ * of a job goes through here: a job that was declared lost, or replaced by a newer
+ * switch, can no longer save anything (and so is never charged).
+ */
+async function writeWhileSwitchRuns(
+  videoId: string,
+  userId: string,
+  batchId: string,
+  settings: Record<string, unknown>,
+): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .from('avatar_videos')
+    .update({ video_settings: settings as Json, updated_at: new Date().toISOString() })
+    .eq('id', videoId)
+    .eq('user_id', userId)
+    .eq('video_settings->voice_swap->>batch_id', batchId)
+    .eq('video_settings->voice_swap->>status', 'running')
+    .select('id');
+  if (error) throw new Error(`voice switch state write failed: ${error.message}`);
+  return !!data && data.length > 0;
+}
+
 /**
  * Put the user's own voice on a finished avatar video. Same pipeline as Video
  * Maker and Agent Clone: the picture is untouched, only the audio track is
  * replaced (Chatterbox keeps the original timing, so the lips stay in sync).
  * This matters most on Fast and Ultra, where the engine picks the voice and it
- * changes from one video to the next. The re-voiced file is kept next to the
- * original in `video_settings.voice_video_url`, so both stay available.
- * Charged only after a video with the new voice exists.
+ * changes from one video to the next.
+ *
+ * The conversion runs after this action has answered: a 60 second video takes
+ * longer than the live proxy lets a request live (about 55 s), and a cut request
+ * would still convert and charge while the page reported a failure. The page
+ * follows the job with getAvatarVoiceSwitchStatus. The state lives in
+ * `video_settings.voice_swap`, the result in `video_settings.voice_video_url`
+ * next to the original. 4 credits are taken only after the new video is saved.
  */
 export async function switchAvatarVoice(
   videoId: string,
   targetVoiceUrl: string,
-): Promise<{ success: boolean; videoUrl?: string; creditsUsed?: number; error?: string }> {
+  requestId?: string,
+): Promise<{ success: boolean; started?: boolean; error?: string }> {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -800,64 +887,241 @@ export async function switchAvatarVoice(
       return { success: false, error: 'Wait for the video to finish, then switch the voice.' };
     }
 
+    const settings = settingsObject(video.video_settings);
+    const swap = swapOf(settings);
+    // A running switch blocks a new one, unless it was lost (an app update ends it)
+    if (swap.status === 'running' && !voiceSwitchLostReason(swap)) {
+      return { success: false, error: 'A voice switch is already running for this video. The new version shows up here when it is ready.' };
+    }
+
     const creditCheck = await getUserCredits(user.id);
     if (!creditCheck.success || (creditCheck.credits || 0) < AVATAR_VOICE_SWITCH_CREDITS) {
       return { success: false, error: `Not enough credits. Switching the voice costs ${AVATAR_VOICE_SWITCH_CREDITS} credits.` };
     }
 
-    const batchId = `avatar_voice_${videoId.slice(0, 8)}_${Date.now()}`;
-    console.log(`🎙️ AI Avatar: switching voice (${batchId})`);
-
-    const result = await convertVoiceInMedia({
-      batchId,
-      // Always the original: switching twice must not re-voice an already re-voiced track
-      sourceUrl: video.video_url,
-      sourceIsVideo: true,
-      sourceExt: 'mp4',
-      target: { mode: 'custom', sampleUrl: targetVoiceUrl },
-      highQuality: true,
-      output: { bucket: 'videos', folder: 'talking-avatar' },
-      // `videos` only accepts video/*; the extracted WAV needs an audio-friendly bucket
-      scratch: { bucket: 'script-videos', folder: `${user.id}/talking-avatar` },
-    });
-    if (!result.success) {
-      console.error(`AI Avatar voice switch failed (${batchId}):`, result.error);
-      return { success: false, error: 'The voice could not be switched. Try a clean recording of 10 to 30 seconds with no music. No credits were taken.' };
-    }
-    if (result.resultType !== 'video') {
-      return { success: false, error: 'The voice could not be switched. No credits were taken.' };
-    }
-
-    // Save first, charge second: a video the user cannot reach must not cost credits.
-    // The tier fields already in video_settings (tier, prompt, clip_seconds) are kept.
-    const existing = (video.video_settings && typeof video.video_settings === 'object' && !Array.isArray(video.video_settings))
-      ? (video.video_settings as Record<string, unknown>)
-      : {};
+    const startedAtMs = Date.now();
+    const startedAt = new Date(startedAtMs).toISOString();
+    const batchId = `avatar_voice_${videoId.slice(0, 8)}_${startedAtMs}`;
+    // A fresh state: nothing from an earlier switch (its credits, its error) carries over
     await updateTalkingAvatarVideoAdmin(videoId, {
       video_settings: {
-        ...existing,
-        voice_video_url: result.videoUrl,
+        ...settings,
         voice_swap: {
-          target_voice_url: targetVoiceUrl,
-          high_quality: true,
+          status: 'running',
+          started_at: startedAt,
+          heartbeat_at: startedAt,
           batch_id: batchId,
-          converted_at: new Date().toISOString(),
-          credits: AVATAR_VOICE_SWITCH_CREDITS,
-        },
+          request_id: validRequestId(requestId),
+          target_voice_url: targetVoiceUrl,
+        } satisfies VoiceSwapState,
       } as Json,
     });
 
-    const deduction = await deductCredits(user.id, AVATAR_VOICE_SWITCH_CREDITS, 'avatar-voice-switch', {
-      video_id: videoId,
-      batch_id: batchId,
-    } as Json);
-    if (!deduction.success) console.warn('AI Avatar voice switch: credit deduction failed:', deduction.error);
+    const userId = user.id;
+    const sourceUrl = video.video_url;
+    console.log(`🎙️ AI Avatar: voice switch started (${batchId})`);
+    after(() => runAvatarVoiceSwitch({ userId, videoId, sourceUrl, targetVoiceUrl, batchId, startedAtMs }));
 
-    console.log(`✅ AI Avatar: voice switched (${batchId})`);
-    return { success: true, videoUrl: result.videoUrl, creditsUsed: AVATAR_VOICE_SWITCH_CREDITS };
+    return { success: true, started: true };
   } catch (error) {
-    console.error('❌ AI Avatar voice switch error:', error);
-    return { success: false, error: 'The voice could not be switched. Try again in a minute.' };
+    console.error('❌ AI Avatar voice switch start error:', error);
+    return { success: false, error: 'The voice switch could not be started. Try again in a minute.' };
+  }
+}
+
+/**
+ * The background half of switchAvatarVoice. Admin client only, so nothing depends on
+ * the request's cookies. Every state write is conditional (writeWhileSwitchRuns).
+ */
+async function runAvatarVoiceSwitch(job: {
+  userId: string;
+  videoId: string;
+  sourceUrl: string;
+  targetVoiceUrl: string;
+  batchId: string;
+  startedAtMs: number;
+}): Promise<void> {
+  const admin = createAdminClient();
+
+  /** The row's settings while this job still owns it; null once it does not. Throws on a failed read. */
+  const readOwnSettings = async (): Promise<Record<string, unknown> | null> => {
+    const { data, error } = await admin
+      .from('avatar_videos')
+      .select('video_settings')
+      .eq('id', job.videoId)
+      .eq('user_id', job.userId)
+      .single();
+    if (error) throw new Error(`voice switch state read failed: ${error.message}`);
+    const settings = settingsObject(data?.video_settings);
+    const swap = swapOf(settings);
+    return swap.batch_id === job.batchId && swap.status === 'running' ? settings : null;
+  };
+
+  const markFailed = async (reason: string) => {
+    try {
+      const settings = await readOwnSettings();
+      if (!settings) return;
+      await writeWhileSwitchRuns(job.videoId, job.userId, job.batchId, {
+        ...settings,
+        voice_swap: { ...swapOf(settings), status: 'failed', error: reason, finished_at: new Date().toISOString() },
+      });
+    } catch (error) {
+      console.error(`AI Avatar voice switch: could not store the failure (${job.batchId}):`, error);
+    }
+  };
+
+  // Proof of life for the status call: without it a job ended by an app update
+  // would block the video until the 10 minute limit
+  let beating = false;
+  const heartbeat = setInterval(async () => {
+    if (beating) return;
+    beating = true;
+    try {
+      const settings = await readOwnSettings();
+      if (settings) {
+        await writeWhileSwitchRuns(job.videoId, job.userId, job.batchId, {
+          ...settings,
+          voice_swap: { ...swapOf(settings), heartbeat_at: new Date().toISOString() },
+        });
+      }
+    } catch (error) {
+      console.warn(`AI Avatar voice switch heartbeat failed (${job.batchId}):`, error);
+    } finally {
+      beating = false;
+    }
+  }, VOICE_SWITCH_HEARTBEAT_MS);
+
+  try {
+    const result = await convertVoiceInMedia({
+      batchId: job.batchId,
+      // Always the original: switching twice must not re-voice an already re-voiced track
+      sourceUrl: job.sourceUrl,
+      sourceIsVideo: true,
+      sourceExt: 'mp4',
+      target: { mode: 'custom', sampleUrl: job.targetVoiceUrl },
+      highQuality: true,
+      output: { bucket: 'videos', folder: 'talking-avatar' },
+      // `videos` only accepts video/*; the extracted WAV needs an audio-friendly bucket
+      scratch: { bucket: 'script-videos', folder: `${job.userId}/talking-avatar` },
+    });
+    if (!result.success || result.resultType !== 'video') {
+      const raw = result.success ? 'Voice switch did not return a video' : result.error;
+      console.error(`AI Avatar voice switch failed (${job.batchId}):`, raw);
+      await markFailed(describeVoiceSwitchFailure(raw));
+      return;
+    }
+
+    // Past the limit the page has already been told this switch failed
+    if (Date.now() - job.startedAtMs > VOICE_SWITCH_MAX_MS) {
+      console.warn(`AI Avatar voice switch (${job.batchId}) finished after the time limit; result not used`);
+      await markFailed('The voice switch took too long and was stopped. Try again. No credits were taken.');
+      return;
+    }
+
+    // Save first, charge second: a video the user cannot reach must not cost credits.
+    // The settings are read fresh so the tier fields (tier, prompt, clip_seconds) stay.
+    const settings = await readOwnSettings();
+    const finishedAt = new Date().toISOString();
+    const saved = settings
+      ? await writeWhileSwitchRuns(job.videoId, job.userId, job.batchId, {
+          ...settings,
+          voice_video_url: result.videoUrl,
+          voice_swap: {
+            ...swapOf(settings),
+            status: 'done',
+            error: undefined,
+            high_quality: true,
+            converted_at: finishedAt,
+            finished_at: finishedAt,
+            credits: AVATAR_VOICE_SWITCH_CREDITS,
+          },
+        })
+      : false;
+    if (!saved) {
+      console.warn(`AI Avatar voice switch (${job.batchId}) no longer owns the row (declared lost or replaced); result not used, not charged`);
+      return;
+    }
+
+    const deduction = await deductCreditsAdmin(job.userId, AVATAR_VOICE_SWITCH_CREDITS, 'avatar-voice-switch', {
+      video_id: job.videoId,
+      batch_id: job.batchId,
+    } as Json);
+    if (!deduction.success) {
+      // The user keeps the video; the missed charge is noted on this switch's own state
+      console.error(`AI Avatar voice switch: credit deduction failed (${job.batchId}):`, deduction.error);
+      try {
+        const { data, error } = await admin
+          .from('avatar_videos')
+          .select('video_settings')
+          .eq('id', job.videoId)
+          .eq('user_id', job.userId)
+          .single();
+        if (error) throw error;
+        const latest = settingsObject(data?.video_settings);
+        if (swapOf(latest).batch_id === job.batchId) {
+          await admin
+            .from('avatar_videos')
+            .update({ video_settings: { ...latest, voice_swap: { ...swapOf(latest), credits: 0 } } as Json })
+            .eq('id', job.videoId)
+            .eq('video_settings->voice_swap->>batch_id', job.batchId);
+        }
+      } catch (error) {
+        console.error(`AI Avatar voice switch: could not note the missed charge (${job.batchId}):`, error);
+      }
+    }
+    console.log(`✅ AI Avatar: voice switched (${job.batchId})`);
+  } catch (error) {
+    console.error(`❌ AI Avatar voice switch error (${job.batchId}):`, error);
+    await markFailed(describeVoiceSwitchFailure(undefined));
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+/**
+ * Where the voice switch `requestId` stands; the page asks every few seconds while one
+ * runs. 'unknown' means the question could not be answered right now (sign-in or
+ * database hiccup): the page asks again instead of drawing a conclusion.
+ */
+export async function getAvatarVoiceSwitchStatus(videoId: string, requestId?: string): Promise<{
+  status: 'none' | 'running' | 'done' | 'failed' | 'unknown';
+  voiceVideoUrl?: string | null;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return { status: 'unknown' };
+    const video = await getTalkingAvatarVideo(videoId, user.id);
+    if (!video) return { status: 'failed', error: 'This video no longer exists.' };
+    const settings = settingsObject(video.video_settings);
+    const swap = swapOf(settings);
+    const voiceVideoUrl = typeof settings.voice_video_url === 'string' ? settings.voice_video_url : null;
+
+    // Only the switch this page started counts: an earlier result is not this one
+    const wanted = validRequestId(requestId);
+    if (wanted && swap.request_id !== wanted) return { status: 'none' };
+
+    if (swap.status === 'running') {
+      const lost = voiceSwitchLostReason(swap);
+      if (!lost) return { status: 'running' };
+      // Record the verdict, so a job that is somehow still alive can no longer save or charge
+      if (!swap.batch_id) return { status: 'failed', error: lost };
+      const recorded = await writeWhileSwitchRuns(videoId, user.id, swap.batch_id, {
+        ...settings,
+        voice_swap: { ...swap, status: 'failed', error: lost, finished_at: new Date().toISOString() },
+      });
+      // Not recorded: the job finished a moment ago. The next question gets its result.
+      return recorded ? { status: 'failed', error: lost } : { status: 'unknown' };
+    }
+    if (swap.status === 'failed') return { status: 'failed', error: swap.error || describeVoiceSwitchFailure(undefined) };
+    if (swap.status === 'done' && voiceVideoUrl) return { status: 'done', voiceVideoUrl };
+    // Rows switched before the state had a status only carry the file
+    if (!wanted && voiceVideoUrl) return { status: 'done', voiceVideoUrl };
+    return { status: 'none' };
+  } catch (error) {
+    console.error('getAvatarVoiceSwitchStatus error:', error);
+    return { status: 'unknown' };
   }
 }
 

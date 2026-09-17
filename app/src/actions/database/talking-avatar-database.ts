@@ -520,6 +520,42 @@ export async function recordTalkingAvatarMetrics(params: {
 }
 
 /**
+ * deductCredits for background work (after(), webhooks): the admin client, so the
+ * charge does not depend on the signed-in user's cookies still being valid.
+ */
+export async function deductCreditsAdmin(
+  user_id: string,
+  amount: number,
+  operation: string,
+  metadata?: Json
+): Promise<{ success: boolean; remainingCredits?: number; error?: string }> {
+  try {
+    const entitlement = await ensureCreditsForUsage(user_id, amount);
+    if (!entitlement.ok) {
+      return { success: false, error: entitlement.error };
+    }
+    const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
+      p_user_id: user_id,
+      p_amount: amount,
+      p_operation: operation,
+      p_metadata: metadata,
+    });
+    if (error) {
+      console.error('Credit deduction RPC error (admin):', error);
+      return { success: false, error: `Failed to deduct credits: ${error.message}` };
+    }
+    if (!data || !data.success) {
+      return { success: false, error: data?.error || 'Credit deduction failed' };
+    }
+    console.log(`💳 Deducted ${amount} credits from user ${user_id}. Remaining: ${data.remaining_credits}`);
+    return { success: true, remainingCredits: data.remaining_credits };
+  } catch (error) {
+    console.error('deductCreditsAdmin error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to deduct credits' };
+  }
+}
+
+/**
  * Update talking avatar video using admin client (for webhooks)
  * Uses admin client to bypass RLS policies
  */

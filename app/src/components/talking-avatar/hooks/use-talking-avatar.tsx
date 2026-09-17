@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { executeTalkingAvatar, pollAvatarTierGeneration, switchAvatarVoice, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
-import { isScriptTier, readAvatarTier, waitLabelFor, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { executeTalkingAvatar, pollAvatarTierGeneration, switchAvatarVoice, getAvatarVoiceSwitchStatus, TalkingAvatarRequest, AvatarTemplate, VoiceOption } from '@/actions/tools/talking-avatar';
+import { isScriptTier, readAvatarTier, readVoiceVideoUrl, waitLabelFor, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { getAvatarTemplates, getTalkingAvatarVideos, deleteTalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import type { TalkingAvatarVideo } from '@/actions/database/talking-avatar-database';
 import { getUserClonedVoices, saveClonedVoice } from '@/actions/database/cloned-voices-database';
@@ -147,6 +147,8 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const pathname = usePathname();
   const currentGenerationIdRef = useRef<string | null>(null);
   const generatedVideoRef = useRef<TalkingAvatarState['generatedVideo']>(null);
+  // Set while a voice switch is followed: asks for its status at once (the live update saw the new file)
+  const checkVoiceSwitchNowRef = useRef<(() => void) | null>(null);
   const hasAttemptedRestorationRef = useRef<boolean>(false);
   
   // Frontend polling refs for Hedra completion detection
@@ -1056,6 +1058,16 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             }
           }
           
+          const cardVideo = generatedVideoRef.current;
+          const voiceUrlFromRow = updatedVideo ? readVoiceVideoUrl(updatedVideo) : null;
+          if (cardVideo && updatedVideo?.id === cardVideo.id && voiceUrlFromRow && voiceUrlFromRow !== cardVideo.voice_video_url) {
+            setState(prev => (prev.generatedVideo && prev.generatedVideo.id === updatedVideo.id
+              ? { ...prev, generatedVideo: { ...prev.generatedVideo, voice_video_url: voiceUrlFromRow } }
+              : prev));
+            // A running switch just finished: end the wait now, not on the next poll
+            checkVoiceSwitchNowRef.current?.();
+          }
+
           if (
             !isCurrentGeneration
             && updatedVideo?.status === 'failed'
@@ -1315,7 +1327,12 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [user?.id, loadClonedVoices]);
 
   // ─── Switch voice: the user's own voice on the finished video ───
-  const [isSwitchingVoice, setIsSwitchingVoice] = useState(false);
+  // The server starts the conversion and answers at once; this hook follows the job.
+  // `startingVideoId`: the sample is uploading and the start request is out.
+  // `switchingJob`: the server has the job (or may have it); the poll follows it. The
+  // request id is made per click, so an earlier result on the same video never counts.
+  const [startingVideoId, setStartingVideoId] = useState<string | null>(null);
+  const [switchingJob, setSwitchingJob] = useState<{ videoId: string; requestId: string } | null>(null);
   const [lastVoiceSample, setLastVoiceSample] = useState<{ url: string; name: string } | null>(null);
 
   // Remembered voice sample, shared with Video Maker and Agent Clone: one upload serves all three
@@ -1329,55 +1346,175 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     }
   }, [user?.id]);
 
+  /** Put the new file on the card (when it still shows that video) and on its History row. */
+  const applyVoiceVideoUrl = useCallback((videoId: string, voiceUrl: string) => {
+    setState(prev => ({
+      ...prev,
+      generatedVideo: prev.generatedVideo && prev.generatedVideo.id === videoId
+        ? { ...prev.generatedVideo, voice_video_url: voiceUrl }
+        : prev.generatedVideo,
+      videos: prev.videos.map(v => v.id === videoId
+        ? {
+            ...v,
+            video_settings: {
+              ...((v.video_settings && typeof v.video_settings === 'object' && !Array.isArray(v.video_settings)) ? v.video_settings as Record<string, unknown> : {}),
+              voice_video_url: voiceUrl,
+            } as TalkingAvatarVideo['video_settings'],
+          }
+        : v),
+    }));
+  }, []);
+
   const switchVoice = useCallback(async (file: File | null) => {
     const current = generatedVideoRef.current;
     if (!current?.id || !current.video_url || !user?.id) return;
     const videoId = current.id;
 
-    setIsSwitchingVoice(true);
+    const requestId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+
+    setStartingVideoId(videoId);
     try {
       let sample = lastVoiceSample;
       if (file) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('kind', 'target');
-        const res = await fetch('/api/upload/voice-changer', { method: 'POST', body: formData });
+        let res: Response;
+        try {
+          res = await fetch('/api/upload/voice-changer', { method: 'POST', body: formData });
+        } catch {
+          throw new Error('The voice sample could not be uploaded. Check the connection and try again.');
+        }
         const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) throw new Error(`The voice sample could not be uploaded (${res.status}).`);
-        const data = await res.json();
-        if (!data.success || !data.url) throw new Error(data.error || 'The voice sample could not be uploaded.');
+        const data = contentType.includes('application/json') ? await res.json().catch(() => null) : null;
+        if (!data?.success || !data.url) {
+          if (data?.error) console.warn('Voice sample upload refused:', res.status, data.error);
+          throw new Error(
+            res.status === 401
+              ? 'You are signed out. Reload the page, sign in and try again.'
+              : res.status === 400 || res.status === 413
+                ? 'The voice sample could not be used. Upload an MP3, WAV or M4A file under 25 MB.'
+                : 'The voice sample could not be uploaded. Check the connection and try again.'
+          );
+        }
         sample = { url: data.url as string, name: file.name };
         setLastVoiceSample(sample);
         try { localStorage.setItem(`bluefx.voiceSample.${user.id}`, JSON.stringify(sample)); } catch { /* ignore */ }
       }
       if (!sample) throw new Error('Choose a voice sample first.');
 
-      const response = await switchAvatarVoice(videoId, sample.url);
-      if (!response.success || !response.videoUrl) throw new Error(response.error || 'The voice could not be switched.');
-
-      const voiceUrl = response.videoUrl;
-      setState(prev => ({
-        ...prev,
-        generatedVideo: prev.generatedVideo && prev.generatedVideo.id === videoId
-          ? { ...prev.generatedVideo, voice_video_url: voiceUrl }
-          : prev.generatedVideo,
-        videos: prev.videos.map(v => v.id === videoId
-          ? {
-              ...v,
-              video_settings: {
-                ...((v.video_settings && typeof v.video_settings === 'object' && !Array.isArray(v.video_settings)) ? v.video_settings as Record<string, unknown> : {}),
-                voice_video_url: voiceUrl,
-              } as TalkingAvatarVideo['video_settings'],
-            }
-          : v),
-      }));
-      toast.success('Voice switched. Your voice is on the video.');
+      let response: Awaited<ReturnType<typeof switchAvatarVoice>>;
+      try {
+        response = await switchAvatarVoice(videoId, sample.url, requestId);
+      } catch (err) {
+        if (isStalePageError(err instanceof Error ? err.message : null)) throw err;
+        // No answer: the switch may or may not have started. The status poll finds out,
+        // and only a switch carrying this click's request id counts.
+        console.error('Voice switch start: no answer from the server:', err);
+        setSwitchingJob({ videoId, requestId });
+        return;
+      }
+      if (!response.success) throw new Error(response.error || 'The voice switch could not be started.');
+      setSwitchingJob({ videoId, requestId });
+      toast.info('Switching the voice. This takes up to a minute or two.');
     } catch (err) {
       failureToast('The voice could not be switched', err instanceof Error ? err.message : null);
     } finally {
-      setIsSwitchingVoice(false);
+      setStartingVideoId(current => (current === videoId ? null : current));
     }
   }, [lastVoiceSample, user?.id]);
+
+  // Follow a running switch until it is done, failed or clearly lost. One question at a
+  // time (server actions queue up), the clock checked on every round.
+  useEffect(() => {
+    if (!switchingJob) return;
+    const { videoId, requestId } = switchingJob;
+    const startedAt = Date.now();
+    let answers = 0;
+    let seenRunning = false;
+    let stopped = false;
+    let checking = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      checkVoiceSwitchNowRef.current = null;
+      setSwitchingJob(current => (current && current.requestId === requestId ? null : current));
+    };
+
+    const check = async () => {
+      if (stopped || checking) return;
+      checking = true;
+      try {
+        // The server stops a switch after 10 minutes; past 11 the page stops asking
+        if (Date.now() - startedAt > 11 * 60 * 1000) {
+          toast.info('Still no answer about the voice switch. If it worked, the new version is in History.');
+          finish();
+          return;
+        }
+        let result: Awaited<ReturnType<typeof getAvatarVoiceSwitchStatus>>;
+        try {
+          result = await getAvatarVoiceSwitchStatus(videoId, requestId);
+        } catch (err) {
+          if (isStalePageError(err instanceof Error ? err.message : null)) {
+            failureToast('', err instanceof Error ? err.message : null);
+            finish();
+          }
+          return; // anything else: ask again next round
+        }
+        if (stopped) return;
+        if (result.status === 'done' && result.voiceVideoUrl) {
+          applyVoiceVideoUrl(videoId, result.voiceVideoUrl);
+          toast.success(generatedVideoRef.current?.id === videoId
+            ? 'Voice switched. Your voice is on the video.'
+            : 'Voice switched. The video with your voice is in History.');
+          finish();
+        } else if (result.status === 'failed') {
+          failureToast('The voice could not be switched', result.error);
+          finish();
+        } else if (result.status === 'running') {
+          seenRunning = true;
+        } else if (result.status === 'none') {
+          answers += 1;
+          if (seenRunning) {
+            // This switch was recorded, and now another one has taken its place
+            toast.info('Another voice switch on this video took over. Its result shows up in History.');
+            finish();
+          } else if (answers >= 2) {
+            // Two clear answers and this click's switch is not on the video: it never started
+            failureToast('The voice could not be switched', 'The voice switch did not start. Try again. No credits were taken.');
+            finish();
+          }
+        }
+        // 'unknown': a hiccup on the server side, ask again next round
+      } finally {
+        checking = false;
+        if (!stopped) {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => { void check(); }, 5000);
+        }
+      }
+    };
+
+    timer = setTimeout(() => { void check(); }, 5000);
+    // The live update saw the new file: ask at once instead of at the next round
+    checkVoiceSwitchNowRef.current = () => {
+      if (timer) clearTimeout(timer);
+      void check();
+    };
+
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      checkVoiceSwitchNowRef.current = null;
+    };
+  }, [switchingJob, applyVoiceVideoUrl]);
+
+  const cardVideoId = state.generatedVideo?.id;
+  const isSwitchingVoice = !!cardVideoId && (startingVideoId === cardVideoId || switchingJob?.videoId === cardVideoId);
 
   // Load user's saved avatars
   const loadSavedAvatars = useCallback(async () => {

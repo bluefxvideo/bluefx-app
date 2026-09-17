@@ -22,7 +22,8 @@ import { createClient as createServerClient } from '@/app/supabase/server';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
 import { Json } from '@/types/database';
 import type { StartingShotAspectRatio, CinematographerRequest, CinematographerResponse } from '@/types/cinematographer';
-import { FAST_PROMPT_MAX_CHARS } from '@/types/cinematographer';
+import { FAST_PROMPT_MAX_CHARS, MAX_SCENE_REFERENCE_IMAGES, fastCameraSuffix } from '@/types/cinematographer';
+import { PAGE_IMAGE_BUDGET_MS, msLeftForPage } from '@/lib/image-deadline';
 
 // Note: Types are NOT re-exported from server actions due to Turbopack issues
 // Import types directly from @/types/cinematographer in client components
@@ -108,11 +109,13 @@ export async function executeAICinematographer(
     // Generate unique batch ID for this operation
     const batch_id = crypto.randomUUID();
     
-    // The Fast engine takes at most 5,000 characters; say so before anything is charged
-    if ((request.model || 'fast') === 'fast' && typeof request.prompt === 'string' && request.prompt.length > FAST_PROMPT_MAX_CHARS) {
+    // The Fast engine takes at most 5,000 characters, the camera move included (it is
+    // appended to the prompt below); say so before anything is charged
+    const fastPromptRoom = FAST_PROMPT_MAX_CHARS - fastCameraSuffix(request.camera_motion).length;
+    if ((request.model || 'fast') === 'fast' && typeof request.prompt === 'string' && request.prompt.length > fastPromptRoom) {
       return {
         success: false,
-        error: `The prompt is ${request.prompt.length.toLocaleString('en-US')} characters. Fast takes up to ${FAST_PROMPT_MAX_CHARS.toLocaleString('en-US')}. Shorten the prompt and generate again. No credits were taken.`,
+        error: `The prompt is ${request.prompt.length.toLocaleString('en-US')} characters. Fast takes up to ${fastPromptRoom.toLocaleString('en-US')} here. Shorten the prompt and generate again. No credits were taken.`,
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -372,9 +375,7 @@ async function handleVideoGeneration(
         const fastResolution = request.resolution === '2k' ? '1440p' : request.resolution === '4k' ? '2160p' : '1080p';
 
         // Camera motion is expressed in the prompt for the fal endpoint
-        const cameraPrompt = request.camera_motion && request.camera_motion !== 'none'
-          ? `${effectivePrompt} Camera: ${request.camera_motion.replace(/_/g, ' ')}.`
-          : effectivePrompt;
+        const cameraPrompt = `${effectivePrompt}${fastCameraSuffix(request.camera_motion)}`;
 
         const queued = await createFalLTX23Prediction({
           prompt: cameraPrompt,
@@ -1571,6 +1572,13 @@ export async function generateSingleSceneImage(params: {
 }> {
   const CREDIT_COST = 2;
 
+  // The page waits for this request, and the live proxy cuts it after about 55 s
+  // while the server keeps going. The engines get a budget so the answer (or a clear
+  // "try again") arrives before the cut; a frame that finishes after it would be
+  // charged and never reach the page. The clock starts here: the checks count too.
+  const requestStartedAt = Date.now();
+  const deadlineAt = requestStartedAt + PAGE_IMAGE_BUDGET_MS;
+
   try {
     // The signed-in user pays. The id the page sends is only checked against the
     // session: a server action is a public endpoint, and it used to bill whatever id arrived.
@@ -1587,43 +1595,73 @@ export async function generateSingleSceneImage(params: {
       return { success: false, error: `Not enough credits. Each image costs ${CREDIT_COST} credits.`, creditsUsed: 0 };
     }
 
+    // Product photos: files in our own storage only. The server reads their size below,
+    // so an address sent by the page must not point anywhere else.
+    const requestedRefs = params.referenceImageUrls || [];
+    if (requestedRefs.length > MAX_SCENE_REFERENCE_IMAGES) {
+      return { success: false, error: `Use up to ${MAX_SCENE_REFERENCE_IMAGES} product photos.`, creditsUsed: 0 };
+    }
+    const storageRoot = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
+    if (requestedRefs.some((url) => typeof url !== 'string' || !url.startsWith(storageRoot))) {
+      return { success: false, error: 'A product photo could not be used. Add it again in the Customize step.', creditsUsed: 0 };
+    }
+
+    // Big phone photos are shrunk when they are uploaded; this only catches older files
+    const batchId = crypto.randomUUID();
+    const referenceImageUrls = requestedRefs.length
+      ? (await Promise.all(
+          requestedRefs.map((url, i) => ensureFalCompatibleImage(url, batchId, `scene_ref_${i + 1}`))
+        )).filter((url): url is string => !!url)
+      : undefined;
+
     const imageResult = await generateImageWithPro(
       params.prompt,
       params.aspectRatio,
-      params.referenceImageUrls,
+      referenceImageUrls,
       '2K',
-      'jpg'
+      'jpg',
+      { deadlineAt }
     );
 
     if (!imageResult.success || !imageResult.imageUrl) {
-      return { success: false, error: imageResult.error || 'Image generation failed', creditsUsed: 0 };
+      return { success: false, error: imageResult.error || 'The image could not be made. Try again.', creditsUsed: 0 };
     }
 
-    // Re-upload to Supabase for permanent storage
+    // Copy into our storage for keeps, unless the proxy cut is close: the engine's own
+    // link works too (it was always the fallback), and a late answer is a lost answer
     let permanentUrl = imageResult.imageUrl;
-    try {
-      const uploadResult = await downloadAndUploadImage(
-        imageResult.imageUrl,
-        'scene-frame',
-        crypto.randomUUID(),
-        { bucket: 'images', folder: 'scene-frames', contentType: 'image/jpeg' }
-      );
-      if (uploadResult.success && uploadResult.url) {
-        permanentUrl = uploadResult.url;
+    if (msLeftForPage(requestStartedAt) > 5_000) {
+      try {
+        const uploadResult = await downloadAndUploadImage(
+          imageResult.imageUrl,
+          'scene-frame',
+          crypto.randomUUID(),
+          { bucket: 'images', folder: 'scene-frames', contentType: 'image/jpeg' }
+        );
+        if (uploadResult.success && uploadResult.url) {
+          permanentUrl = uploadResult.url;
+        }
+      } catch {
+        console.warn('Failed to re-upload scene image, using fal.ai URL');
       }
-    } catch {
-      console.warn('Failed to re-upload scene image, using fal.ai URL');
+    } else {
+      console.warn('Scene image: little time left before the proxy cut, keeping the fal.ai URL');
     }
 
-    // Deduct credits
+    // Credits only for an image the page can still receive
+    if (msLeftForPage(requestStartedAt) <= 0) {
+      console.warn(`Scene image finished ${Math.round((Date.now() - requestStartedAt) / 1000)} s after the request started, past the proxy cut; not charged`);
+      return { success: true, imageUrl: permanentUrl, creditsUsed: 0 };
+    }
     await deductCredits(userId, CREDIT_COST, 'scene-image-generation', {
       prompt: params.prompt.slice(0, 200),
     } as Json);
 
     return { success: true, imageUrl: permanentUrl, creditsUsed: CREDIT_COST };
   } catch (error) {
+    // Nothing is charged before the last step, so a throw never cost the user credits
     console.error('Single scene image generation error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', creditsUsed: 0 };
+    return { success: false, error: 'The image could not be made. Try again in a minute.', creditsUsed: 0 };
   }
 }
 

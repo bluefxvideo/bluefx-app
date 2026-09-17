@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,9 +75,19 @@ export function AvatarVideoPreview({
   const shownVideoUrl = showVoice ? (video.voice_video_url as string) : video.video_url;
   const canSwitchVoice = !!voiceFile || (useLastSample && !!lastVoiceSample);
 
+  // A new version with the user's voice: show it, and do not keep the used file armed
+  // for another paid click
+  useEffect(() => {
+    if (!video.voice_video_url) return;
+    setView('voice');
+    setVoiceFile(null);
+    setUseLastSample(false);
+  }, [video.voice_video_url]);
+
   const acceptVoiceFile = (file: File | undefined) => {
     if (!file) return;
-    if (file.type.startsWith('audio/') || /\.(mp3|wav|m4a)$/i.test(file.name)) {
+    // The upload takes these three types only, judged by the file name
+    if (/\.(mp3|wav|m4a)$/i.test(file.name)) {
       setVoiceFile(file);
       setUseLastSample(false);
     } else {

@@ -13,6 +13,28 @@ import { uploadImageToStorage } from '@/actions/supabase-storage';
  */
 export const FAL_IMAGE_SAFE_BYTES = 5_000_000;
 
+/**
+ * Re-encode an image so fal accepts it: JPEG, at most 4K, lower quality until it
+ * fits under FAL_IMAGE_SAFE_BYTES. Null when it still does not fit or sharp fails.
+ */
+export async function compressImageForFal(input: Buffer): Promise<Buffer | null> {
+  try {
+    const sharp = (await import('sharp')).default;
+    for (const quality of [85, 75, 65]) {
+      const candidate = await sharp(input)
+        .rotate() // respect EXIF orientation before stripping metadata
+        .resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality, mozjpeg: true })
+        .toBuffer();
+      if (candidate.length <= FAL_IMAGE_SAFE_BYTES) return candidate;
+    }
+    return null;
+  } catch (error) {
+    console.warn('⚠️ Image compression for fal failed:', error);
+    return null;
+  }
+}
+
 export async function ensureFalCompatibleImage(
   imageUrl: string | undefined,
   batchId: string,
@@ -20,28 +42,16 @@ export async function ensureFalCompatibleImage(
 ): Promise<string | undefined> {
   if (!imageUrl) return imageUrl;
   try {
-    const head = await fetch(imageUrl, { method: 'HEAD' });
+    const head = await fetch(imageUrl, { method: 'HEAD', signal: AbortSignal.timeout(5_000) });
     const size = parseInt(head.headers.get('content-length') || '0', 10);
     if (!size || size <= FAL_IMAGE_SAFE_BYTES) return imageUrl;
 
     console.log(`🗜️ ${label} is ${(size / 1e6).toFixed(1)}MB — compressing for fal (limit 7MiB)`);
-    const response = await fetch(imageUrl);
+    const response = await fetch(imageUrl, { signal: AbortSignal.timeout(20_000) });
     if (!response.ok) return imageUrl;
     const input = Buffer.from(await response.arrayBuffer());
 
-    const sharp = (await import('sharp')).default;
-    let output: Buffer | null = null;
-    for (const quality of [85, 75, 65]) {
-      const candidate = await sharp(input)
-        .rotate() // respect EXIF orientation before stripping metadata
-        .resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality, mozjpeg: true })
-        .toBuffer();
-      if (candidate.length <= FAL_IMAGE_SAFE_BYTES) {
-        output = candidate;
-        break;
-      }
-    }
+    const output = await compressImageForFal(input);
     if (!output) return imageUrl;
 
     const upload = await uploadImageToStorage(new Blob([new Uint8Array(output)], { type: 'image/jpeg' }), {

@@ -1,6 +1,7 @@
 'use server';
 
 import { friendlyFalImageError } from './fal-error';
+import { msUntil } from '@/lib/image-deadline';
 import { generateWithGptImage25 } from './fal-gpt-image-25';
 import { imageEngine } from '@/lib/image-engine';
 
@@ -21,6 +22,12 @@ interface FalNanoBanana2Input {
   resolution?: '1K' | '2K' | '4K';
   output_format?: 'jpeg' | 'png' | 'webp';
   image_input?: string[];
+  /**
+   * Epoch ms by which the call must be over. Callers behind the live proxy (it cuts a
+   * request after about 55 s while the server keeps working) pass one so the answer
+   * reaches the page instead of a lost request that still costs credits.
+   */
+  deadlineAt?: number;
 }
 
 interface FalImageResult {
@@ -75,42 +82,52 @@ export async function generateWithFalNanaBanana2(params: FalNanoBanana2Input): P
     }
 
     const controller = new AbortController();
-    // 90s timeout — 4K can be slow but anything over 90s usually means stuck.
-    // Keep this below typical proxy/server timeouts so we surface a clean error.
-    const timeout = setTimeout(() => controller.abort(), 90_000);
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Key ${falKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('🚨 fal.ai error:', response.status, errorText.substring(0, 200));
-      return { success: false, error: friendlyFalImageError(response.status, errorText) };
+    // 90s timeout: 4K can be slow but anything over 90s usually means stuck.
+    // A caller's deadline shortens it.
+    const budgetMs = msUntil(params.deadlineAt, 90_000);
+    if (budgetMs < 5_000) {
+      return { success: false, error: 'The image engine took too long. Try again in a minute.' };
     }
+    // The timer runs until the answer is fully read: a body that stalls after the
+    // headers must not hold the request past the caller's deadline
+    const timeout = setTimeout(() => controller.abort(), budgetMs);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${falKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
 
-    const result: FalNanoBanana2Output = await response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🚨 fal.ai error:', response.status, errorText.substring(0, 200));
+        return { success: false, error: friendlyFalImageError(response.status, errorText) };
+      }
 
-    if (!result.images || result.images.length === 0) {
-      return { success: false, error: 'No image returned from fal.ai' };
+      const result: FalNanoBanana2Output = await response.json();
+
+      if (!result.images || result.images.length === 0) {
+        return { success: false, error: 'The image engine finished without an image. Try again.' };
+      }
+
+      console.log('✅ fal.ai nano-banana-2: image generated successfully');
+      return { success: true, imageUrl: result.images[0].url };
+    } finally {
+      clearTimeout(timeout);
     }
-
-    console.log('✅ fal.ai nano-banana-2: image generated successfully');
-    return { success: true, imageUrl: result.images[0].url };
 
   } catch (error) {
     console.error('🚨 fal.ai nano-banana-2 error:', error);
+    const aborted = error instanceof Error && error.name === 'AbortError';
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate image via fal.ai',
+      error: aborted
+        ? 'The image engine took too long. Try again in a minute.'
+        : 'The image engine could not be reached. Try again in a minute.',
     };
   }
 }
@@ -124,7 +141,8 @@ export async function generateImageWithPro(
   aspectRatio: NanoBananaAspectRatio = '16:9',
   referenceImages?: string[],
   resolution: '1K' | '2K' | '4K' = '2K',
-  outputFormat: 'jpg' | 'png' | 'webp' = 'jpg'
+  outputFormat: 'jpg' | 'png' | 'webp' = 'jpg',
+  options?: { deadlineAt?: number }
 ): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
   // Map 'jpg' to 'jpeg' for fal.ai API compatibility (same binary JPEG format)
   const falOutputFormat = outputFormat === 'jpg' ? 'jpeg' : outputFormat;
@@ -137,6 +155,7 @@ export async function generateImageWithPro(
     resolution,
     output_format: falOutputFormat as 'jpeg' | 'png' | 'webp',
     image_input: referenceImages,
+    deadlineAt: options?.deadlineAt,
   });
 }
 

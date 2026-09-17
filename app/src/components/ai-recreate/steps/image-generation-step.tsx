@@ -52,6 +52,10 @@ export function ImageGenerationStep({
     .filter(s => wizardData.enabledScenes.has(s.sceneNumber) && !frames.some(f => f.sceneNumber === s.sceneNumber))
     .map(s => s.sceneNumber);
   const knownFailures = (failures || []).filter(f => missingScenes.includes(f.sceneNumber));
+  // Missing scenes the last run never reached (it stopped early, or the scene was switched on later)
+  const untriedScenes = missingScenes.filter(n => !knownFailures.some(f => f.sceneNumber === n));
+  const sceneList = (nums: number[]) =>
+    nums.length > 1 ? `${nums.slice(0, -1).join(', ')} and ${nums[nums.length - 1]}` : String(nums[0]);
   const showMissingBox = !isGenerating && (knownFailures.length > 0 || (!!onGenerateScenes && hasFrames && missingScenes.length > 0));
 
   // Version navigation helpers
@@ -207,7 +211,7 @@ export function ImageGenerationStep({
           >
             {isGenerating ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Scene {progress.current}/{progress.total}...
+                {progress.current > 0 ? `Scene ${progress.current}/${progress.total}...` : 'Starting...'}
               </>
             ) : hasFrames ? (
               <><RefreshCw className="w-4 h-4 mr-2" /> Regenerate All ({enabledCount * 2} credits)</>
@@ -236,12 +240,12 @@ export function ImageGenerationStep({
             <div className="space-y-1.5 min-w-0">
               <p className="text-sm font-medium">
                 {knownFailures.length > 0
-                  ? (missingScenes.length === 1
-                    ? `The image for scene ${missingScenes[0]} could not be made`
-                    : `${missingScenes.length} images could not be made`)
-                  : (missingScenes.length === 1
-                    ? `Scene ${missingScenes[0]} has no image yet`
-                    : `Scenes ${missingScenes.join(', ')} have no image yet`)}
+                  ? (knownFailures.length === 1
+                    ? `The image for scene ${knownFailures[0].sceneNumber} could not be made`
+                    : `${knownFailures.length} images could not be made`)
+                  : (untriedScenes.length === 1
+                    ? `Scene ${untriedScenes[0]} has no image yet`
+                    : `Scenes ${sceneList(untriedScenes)} have no image yet`)}
               </p>
               {knownFailures.map((f) => (
                 <p key={f.sceneNumber} className="text-xs text-muted-foreground">
@@ -251,12 +255,17 @@ export function ImageGenerationStep({
               {knownFailures.length > 0 && knownFailures.every((f) => f.notCharged) && (
                 <p className="text-xs text-muted-foreground">No credits were taken for {knownFailures.length === 1 ? 'this scene' : 'these scenes'}.</p>
               )}
+              {knownFailures.length > 0 && untriedScenes.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {untriedScenes.length === 1 ? `Scene ${untriedScenes[0]} has` : `Scenes ${sceneList(untriedScenes)} have`} no image yet either.
+                </p>
+              )}
             </div>
           </div>
           {onGenerateScenes && missingScenes.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => onGenerateScenes(missingScenes)}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              {knownFailures.length > 0 ? 'Try again' : missingScenes.length === 1 ? 'Make this image' : 'Make these images'} ({missingScenes.length * 2} credits)
+              {knownFailures.length > 0 && untriedScenes.length === 0 ? 'Try again' : missingScenes.length === 1 ? 'Make this image' : 'Make these images'} ({missingScenes.length * 2} credits)
             </Button>
           )}
         </div>

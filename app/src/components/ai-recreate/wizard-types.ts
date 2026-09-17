@@ -10,7 +10,11 @@ export interface WizardData {
   scenes: BreakdownScene[];
   enabledScenes: Set<number>; // scene numbers that are checked for generation
   globalAestheticPrompt: string;
-  referenceImages: { file: File; preview: string; label?: string }[];
+  /**
+   * `url`: the uploaded copy, kept so a page reload does not lose the product photo.
+   * `lost`: restored without file or copy, and its preview no longer loads.
+   */
+  referenceImages: { file: File; preview: string; label?: string; url?: string; lost?: boolean }[];
   aspectRatio: '16:9' | '9:16';
   breakdownResult: SceneBreakdownResult | null;
   // Step 3: Image Generation
@@ -52,6 +56,17 @@ export const WIZARD_STEPS = [
 ] as const;
 
 export type WizardStep = 1 | 2 | 3 | 4 | 5;
+
+/** A product photo whose file and preview died with the last page: it was never uploaded. */
+export function isLostReferencePhoto(img: { file?: File | null; url?: string; lost?: boolean }): boolean {
+  return img.lost === true && !img.file && !img.url;
+}
+
+/** A photo restored from storage with only a blob: preview. It still loads after moving
+ * around inside the app (same page), not after a reload. */
+export function needsPreviewCheck(img: { file?: File | null; preview?: string; url?: string; lost?: boolean }): boolean {
+  return !img.file && !img.url && img.lost === undefined && !!img.preview?.startsWith('blob:');
+}
 
 export function getDefaultWizardData(): WizardData {
   return {

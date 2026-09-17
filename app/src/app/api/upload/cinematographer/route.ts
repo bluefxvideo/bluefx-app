@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/app/supabase/server';
+import { compressImageForFal, FAL_IMAGE_SAFE_BYTES } from '@/lib/fal-image-guard';
 
 /**
  * API Route for AI Cinematographer file uploads
@@ -36,28 +37,41 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // Convert File to ArrayBuffer for server-side upload
+    const arrayBuffer = await file.arrayBuffer();
+    let buffer: Buffer = Buffer.from(arrayBuffer);
+    let extension = file.name.split('.').pop() || 'jpg';
+    let contentType = file.type || 'image/jpeg';
+
+    // Every image uploaded here goes to fal, which refuses files over about 5.5 MB.
+    // A phone photo is shrunk once here instead of on every image made from it.
+    if (buffer.length > FAL_IMAGE_SAFE_BYTES) {
+      const smaller = await compressImageForFal(buffer);
+      if (smaller) {
+        console.log(`🗜️ ${type} image shrunk from ${(buffer.length / 1e6).toFixed(1)}MB to ${(smaller.length / 1e6).toFixed(1)}MB`);
+        buffer = smaller;
+        extension = 'jpg';
+        contentType = 'image/jpeg';
+      }
+    }
+
     // Determine path
     const bucket = 'images';
     const folder = 'cinematographer';
-    const extension = file.name.split('.').pop() || 'jpg';
     const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const filename = `${batchId}_${type}_${uniqueSuffix}.${extension}`;
     const filePath = `${folder}/${filename}`;
 
     console.log(`📤 Uploading ${type} image to ${bucket}/${filePath}`, {
-      size: file.size,
-      type: file.type,
+      size: buffer.length,
+      type: contentType,
     });
-
-    // Convert File to ArrayBuffer for server-side upload
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(filePath, buffer, {
-        contentType: file.type || 'image/jpeg',
+        contentType,
         upsert: true,
       });
 

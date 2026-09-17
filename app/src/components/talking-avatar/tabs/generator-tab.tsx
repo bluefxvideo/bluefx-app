@@ -1605,7 +1605,10 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                   className="min-h-[50px] resize-none text-sm"
                   disabled={state.isLoading || state.isGenerating}
                 />
-                <p className="text-xs text-muted-foreground">Leave this empty and the avatar simply talks to the camera.</p>
+                <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                  <span>Leave this empty and the avatar simply talks to the camera.</span>
+                  <span className={`shrink-0 tabular-nums ${localActionPrompt.length >= 300 ? 'text-amber-600 dark:text-amber-400' : ''}`}>{localActionPrompt.length}/300</span>
+                </div>
               </div>
             </div>
 

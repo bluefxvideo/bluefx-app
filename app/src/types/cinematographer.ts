@@ -35,6 +35,14 @@ export type VideoAudioMode = 'voice' | 'silent';
  */
 export const FAST_PROMPT_MAX_CHARS = 5000;
 
+/** Product / reference photos one scene image may use (Clone Studio sends the same 6). */
+export const MAX_SCENE_REFERENCE_IMAGES = 6;
+
+/** What the Fast engine gets appended for a camera move (it counts toward the 5,000). */
+export function fastCameraSuffix(cameraMotion: string | null | undefined): string {
+  return cameraMotion && cameraMotion !== 'none' ? ` Camera: ${cameraMotion.replace(/_/g, ' ')}.` : '';
+}
+
 // Model configurations (all hosted on fal.ai)
 export const VIDEO_MODEL_CONFIG = {
   fast: {

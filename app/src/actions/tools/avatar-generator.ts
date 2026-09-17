@@ -1,9 +1,10 @@
 'use server';
 
-import { createAdminClient } from '@/app/supabase/server';
+import { createAdminClient, createClient } from '@/app/supabase/server';
 import { generateWithFalNanaBanana2 } from '@/actions/models/fal-nano-banana-2';
 import { generateWithGptImage25 } from '@/actions/models/fal-gpt-image-25';
 import { imageEngine } from '@/lib/image-engine';
+import { PAGE_IMAGE_BUDGET_MS, msLeftForPage } from '@/lib/image-deadline';
 import { getUserCredits, deductCredits } from '@/actions/database/talking-avatar-database';
 
 /**
@@ -18,6 +19,11 @@ import { getUserCredits, deductCredits } from '@/actions/database/talking-avatar
  */
 
 const AVATAR_GENERATION_CREDIT_COST = 4;
+
+/** An engine message as one sentence, then the promise that nothing was charged. */
+function notCharged(message: string): string {
+  return `${message.trim().replace(/[.!?]+$/, '')}. No credits were taken.`;
+}
 
 export interface AvatarGeneratorRequest {
   prompt: string;
@@ -47,13 +53,26 @@ const STYLE_PRESETS: Record<string, string> = {
 export async function generateAvatarImage(
   request: AvatarGeneratorRequest
 ): Promise<AvatarGeneratorResult> {
+  // The page waits for this request and the live proxy cuts it after about 55 s
+  // (see src/lib/image-deadline.ts). The clock starts here: the checks count too.
+  const requestStartedAt = Date.now();
   try {
     if (!process.env.FAL_KEY) {
       return { success: false, error: 'FAL_KEY not configured' };
     }
 
+    // The signed-in user pays. The id the page sends is only checked against the
+    // session: a server action is a public endpoint.
+    const session = await createClient();
+    const { data: { user } } = await session.auth.getUser();
+    if (!user) return { success: false, error: 'You are signed out. Sign in again and retry.' };
+    if (request.user_id && request.user_id !== user.id) {
+      return { success: false, error: 'Your session changed. Reload the page and try again.' };
+    }
+    const userId = user.id;
+
     // Check credits
-    const creditsResult = await getUserCredits(request.user_id);
+    const creditsResult = await getUserCredits(userId);
     if (!creditsResult.success) {
       return { success: false, error: 'Failed to check credits' };
     }
@@ -61,21 +80,11 @@ export async function generateAvatarImage(
     if ((creditsResult.credits || 0) < AVATAR_GENERATION_CREDIT_COST) {
       return {
         success: false,
-        error: `Insufficient credits. You need ${AVATAR_GENERATION_CREDIT_COST} credits to generate an avatar.`,
+        error: `Not enough credits. An avatar photo costs ${AVATAR_GENERATION_CREDIT_COST} credits.`,
       };
     }
-
-    // Deduct credits before generation
-    const deductResult = await deductCredits(
-      request.user_id,
-      AVATAR_GENERATION_CREDIT_COST,
-      'avatar_generation',
-      { style_preset: request.style_preset }
-    );
-
-    if (!deductResult.success) {
-      return { success: false, error: deductResult.error || 'Failed to deduct credits' };
-    }
+    // Credits are taken only once the photo is stored (they used to go first and were
+    // kept when the image engine refused the prompt)
 
     // Build the full prompt
     const styleSuffix = STYLE_PRESETS[request.style_preset] || '';
@@ -92,19 +101,22 @@ export async function generateAvatarImage(
       resolution: '1K',
       output_format: 'png',
       image_input: request.reference_image_url ? [request.reference_image_url] : undefined,
+      deadlineAt: requestStartedAt + PAGE_IMAGE_BUDGET_MS,
     });
 
     if (!generated.success || !generated.imageUrl) {
       console.error(`Avatar generator image error: ${generated.error}`);
-      return { success: false, error: generated.error || 'Image generation failed', remaining_credits: deductResult.remainingCredits };
+      return { success: false, error: notCharged(generated.error || 'The photo could not be made') };
     }
 
     const generatedImageUrl = generated.imageUrl;
 
-    // Download and upload to Supabase Storage
-    const imageResponse = await fetch(generatedImageUrl);
+    // Download and upload to Supabase Storage, within what is left of the request
+    const imageResponse = await fetch(generatedImageUrl, {
+      signal: AbortSignal.timeout(Math.max(2_000, msLeftForPage(requestStartedAt))),
+    });
     if (!imageResponse.ok) {
-      return { success: false, error: 'Failed to download generated image', remaining_credits: deductResult.remainingCredits };
+      return { success: false, error: 'The photo could not be saved. Try again. No credits were taken.' };
     }
 
     const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
@@ -121,19 +133,37 @@ export async function generateAvatarImage(
 
     if (uploadError) {
       console.error('Avatar upload error:', uploadError);
-      return { success: false, error: 'Failed to upload image', remaining_credits: deductResult.remainingCredits };
+      return { success: false, error: 'The photo could not be saved. Try again. No credits were taken.' };
     }
 
     const { data: { publicUrl } } = supabase.storage
       .from('images')
       .getPublicUrl(storagePath);
 
+    // Credits only for a photo the page can still receive
+    if (msLeftForPage(requestStartedAt) <= 0) {
+      console.warn(`Avatar photo stored ${Math.round((Date.now() - requestStartedAt) / 1000)} s after the request started, past the proxy cut; not charged`);
+      return { success: true, image_url: publicUrl };
+    }
+
+    const deductResult = await deductCredits(
+      userId,
+      AVATAR_GENERATION_CREDIT_COST,
+      'avatar_generation',
+      { style_preset: request.style_preset, image_url: publicUrl }
+    );
+    if (!deductResult.success) {
+      // The photo exists and the user keeps it; the missed charge is only logged
+      console.error('Avatar photo made but the credit deduction failed:', deductResult.error);
+    }
+
     return { success: true, image_url: publicUrl, remaining_credits: deductResult.remainingCredits };
   } catch (error) {
+    // Credits are taken last and that step does not throw: a throw never cost credits
     console.error('generateAvatarImage error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: notCharged('The photo could not be made. Try again in a minute'),
     };
   }
 }
