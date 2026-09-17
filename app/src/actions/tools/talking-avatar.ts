@@ -6,6 +6,7 @@ import { createFalLTX23Prediction } from '@/actions/models/fal-ltx-image-to-vide
 import { submitKlingO3ProImageToVideo } from '@/actions/models/fal-kling-video';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
 import { refundFailedGeneration } from '@/lib/credits/refund';
+import { probeMediaSeconds } from '@/lib/media/probe-seconds';
 import {
   AVATAR_TIER_CONFIG,
   scriptFit,
@@ -304,13 +305,17 @@ async function handleVoiceGeneration(
       });
     }
 
+    // The video is priced by the real length of this file, so the page gets the
+    // measured figure the moment step 3 opens; the word count is only the fallback.
+    const measuredVoiceSeconds = voiceAudioUrl ? await probeMediaSeconds(voiceAudioUrl) : null;
+
     return {
       success: true,
       step_data: {
         current_step: 2,
         total_steps: 3,
         voice_audio_url: voiceAudioUrl,
-        estimated_duration: estimatedDuration,
+        estimated_duration: measuredVoiceSeconds ? Math.ceil(measuredVoiceSeconds) : estimatedDuration,
       },
       voice_options: voiceOptions,
       batch_id,
@@ -432,7 +437,7 @@ async function handleScriptTierGeneration(
   const fit = scriptFit(tier, script);
   if (!fit.fits || !fit.clipSeconds) {
     return fail(
-      `Your script is ${fit.words} words. ${config.label} carries up to ${fit.maxWords} words (${config.maxSeconds} s). Cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'}, or switch to Standard for scripts up to 60 seconds.`
+      `Your script is ${fit.words} words. ${config.label} carries up to ${fit.maxWords} words (${config.maxSeconds} s). Cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'}, or switch to Basic for scripts up to 60 seconds.`
     );
   }
   const clipSeconds = fit.clipSeconds;
@@ -616,18 +621,29 @@ async function handleScriptTierGeneration(
 }
 
 /**
- * Poll fallback for Fast / Ultra avatar jobs. The webhook is the primary
- * path; the page calls this every 10 s so a missed webhook still finishes
- * the job. fal's queue status never says FAILED: a failed job reports
+ * Poll fallback for every avatar job on fal (Basic, Fast, Ultra). The webhook
+ * is the primary path; the page calls this every 10 s so a missed webhook or a
+ * missed Realtime event (sleeping laptop, dropped wifi) still finishes the job. fal's queue status never says FAILED: a failed job reports
  * COMPLETED and the result endpoint answers 4xx with the reason, while 5xx,
  * 429 and network errors are transient. Terminal writes claim the row with
  * a status guard so the webhook and this poller cannot both refund or both
  * complete the same job.
  */
-export async function pollAvatarTierGeneration(videoId: string): Promise<{
+export async function pollAvatarTierGeneration(
+  videoId: string,
+  /**
+   * false: only report. When fal says the job is done, the answer is
+   * 'processing' with engineDone, and the webhook gets to finish it.
+   * true: this call downloads, stores and closes the job itself. The page sends
+   * true once engineDone has been seen for about 30 s, so the webhook and the
+   * poller do not both store the same video on every job.
+   */
+  takeOver = true
+): Promise<{
   status: 'processing' | 'completed' | 'failed';
   video_url?: string | null;
   error?: string;
+  engineDone?: boolean;
 }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -640,9 +656,12 @@ export async function pollAvatarTierGeneration(videoId: string): Promise<{
 
   const tier = readAvatarTier(video);
   const requestId = video.fal_request_id;
-  if (!isScriptTier(tier) || !requestId) return { status: 'processing' };
+  // Legacy Hedra rows carry no fal request id and keep their own poller
+  if (!requestId) return { status: 'processing' };
+  if (tier === 'standard' && video.video_source !== 'fal-ltx') return { status: 'processing' };
 
-  const base = tier === 'fast' ? 'fal-ai/ltx-2.3' : 'fal-ai/kling-video';
+  // Status and result live under the base app id, not the full endpoint
+  const base = tier === 'fast' ? 'fal-ai/ltx-2.3' : tier === 'ultra' ? 'fal-ai/kling-video' : 'fal-ai/ltx-2-19b';
   const falKey = process.env.FAL_KEY;
   if (!falKey) return { status: 'processing' };
 
@@ -662,6 +681,8 @@ export async function pollAvatarTierGeneration(videoId: string): Promise<{
       }
       return { status: 'processing' };
     }
+
+    if (!takeOver) return { status: 'processing', engineDone: true };
 
     const resultRes = await fetch(`https://queue.fal.run/${base}/requests/${requestId}`, { headers: { Authorization: `Key ${falKey}` } });
     if (!resultRes.ok) {
@@ -770,9 +791,41 @@ async function handleVideoGeneration(
       };
     }
 
+    // An uploaded recording must be a file in our own storage. The page once sent
+    // the browser's blob: link here, which the video engine can never open, so
+    // every uploaded recording was charged, failed and refunded.
+    const isUploadedAudio = !request.voice_audio_url && !!request.uploaded_audio_url;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const isHostedUpload = supabaseUrl
+      ? audioUrl.startsWith(`${supabaseUrl}/storage/v1/object/public/`)
+      : /^https:\/\//i.test(audioUrl);
+    if (isUploadedAudio && !isHostedUpload) {
+      return {
+        success: false,
+        error: 'The audio file did not upload. Pick the file again and retry. Nothing was charged.',
+        batch_id,
+        generation_time_ms: Date.now() - startTime,
+        credits_used: 0,
+        remaining_credits: 0,
+      };
+    }
+
     // Determine audio duration
     let audioDurationSeconds: number;
-    if (request.audio_duration_seconds) {
+    // The price is 1 credit per second, so the length is measured here for any
+    // audio that sits in our own storage (generated voice or uploaded recording).
+    // The browser's figure is the fallback when the file cannot be measured.
+    const inOwnStorage = !!supabaseUrl && audioUrl.startsWith(`${supabaseUrl}/storage/v1/object/public/`);
+    const measuredSeconds = inOwnStorage ? await probeMediaSeconds(audioUrl) : null;
+    const browserSeconds = request.audio_duration_seconds;
+    if (measuredSeconds) {
+      // Decoders differ by a few hundredths of a second on MP3 (frame padding).
+      // Within half a second the page's figure stands, so the price on the button
+      // is the price charged and a 1:00 file is not turned away after upload.
+      audioDurationSeconds = browserSeconds && Math.abs(measuredSeconds - browserSeconds) < 0.5
+        ? browserSeconds
+        : measuredSeconds;
+    } else if (request.audio_duration_seconds) {
       // Direct upload - use provided duration
       audioDurationSeconds = request.audio_duration_seconds;
     } else {

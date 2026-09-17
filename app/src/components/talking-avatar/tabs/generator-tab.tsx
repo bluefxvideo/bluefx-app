@@ -326,8 +326,11 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
     const prefillScript = localStorage.getItem('prefill_script');
     if (prefillScript) {
       setLocalScriptText(prefillScript);
+      // The hook owns the script: without this the sync effect below wipes the handoff
+      setScriptText(prefillScript);
       localStorage.removeItem('prefill_script');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update local state when wizard state changes
@@ -335,23 +338,32 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
     setLocalScriptText(state.scriptText);
     setLocalActionPrompt(state.actionPrompt);
     setSelectedTemplate(state.selectedAvatarTemplate);
-    setSelectedVoice(state.selectedVoiceId || '');
-  }, [state.scriptText, state.actionPrompt, state.selectedAvatarTemplate, state.selectedVoiceId]);
+  }, [state.scriptText, state.actionPrompt, state.selectedAvatarTemplate]);
 
-  // Auto-select matching voice when avatar template is selected
+  // The voice pick follows the hook only when the hook's voice changes. It used
+  // to ride on the effect above, so every typed letter cleared the chosen voice.
   useEffect(() => {
-    if (state.selectedAvatarTemplate?.voice_id) {
-      const matchingVoice = MINIMAX_VOICE_OPTIONS.find(v => v.id === state.selectedAvatarTemplate?.voice_id);
-      if (matchingVoice) {
-        setSelectedVoice(matchingVoice.id);
-      }
-    }
+    setSelectedVoice(state.selectedVoiceId || '');
+  }, [state.selectedVoiceId]);
+
+  // The avatar decides the voice: the matching preset, or none when the avatar has
+  // no preset (then the button goes grey with "Pick a voice to continue"). Writing
+  // only on a match left the previous avatar's voice selected and out of sight.
+  useEffect(() => {
+    const template = state.selectedAvatarTemplate;
+    const matchingVoice = template?.voice_id
+      ? MINIMAX_VOICE_OPTIONS.find(v => v.id === template.voice_id)
+      : undefined;
+    setSelectedVoice(matchingVoice ? matchingVoice.id : (state.selectedVoiceId || ''));
+    if (!template?.gender) setVoiceGenderFilter('all');
     if (state.selectedAvatarTemplate?.gender) {
       const gender = state.selectedAvatarTemplate.gender.toLowerCase();
       if (gender === 'male' || gender === 'female') {
         setVoiceGenderFilter(gender);
       }
     }
+    // state.selectedVoiceId is read, not watched: only an avatar change runs this
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.selectedAvatarTemplate]);
 
   // Avatar hover video handlers
@@ -410,8 +422,9 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
 
   // Clone modal helpers
   const validateAndSetCloneFile = (file: File) => {
-    const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
-    if (!validTypes.includes(file.type)) {
+    const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/mp4', 'audio/m4a', 'audio/x-m4a'];
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!validTypes.includes(file.type) && !['mp3', 'wav', 'm4a'].includes(ext)) {
       toast.error('Invalid file type. Please upload MP3, WAV, or M4A.');
       return;
     }
@@ -428,13 +441,12 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
   const handleCloneSubmit = async () => {
     if (!cloneFile || !cloneVoiceName.trim()) return;
     try {
-      await cloneVoice(cloneFile, cloneVoiceName.trim(), {
+      const saved = await cloneVoice(cloneFile, cloneVoiceName.trim(), {
         noiseReduction: cloneNoiseReduction,
         volumeNormalization: cloneVolumeNorm,
       });
-      if (state.clonedVoices.length > 0) {
-        setSelectedVoice(state.clonedVoices[0].minimax_voice_id);
-      }
+      // Select the voice that was just paid for (state.clonedVoices here is a stale closure)
+      if (saved) setSelectedVoice(saved.minimax_voice_id);
       setCloneFile(null);
       setCloneVoiceName('');
       setShowCloneModal(false);
@@ -938,7 +950,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
               <Label>Quality</Label>
               <div className="grid grid-cols-3 gap-2 p-1 bg-muted/50 rounded-lg">
                 {([
-                  { id: 'standard' as AvatarQualityTier, label: 'Standard', icon: Mic, blurb: 'Your voice · up to 60 s · 1 cr/s' },
+                  { id: 'standard' as AvatarQualityTier, label: 'Basic', icon: Mic, blurb: 'Your voice · up to 60 s · 1 cr/s' },
                   { id: 'fast' as AvatarQualityTier, label: 'Fast', icon: Zap, blurb: `Avatar speaks · up to ${AVATAR_TIER_CONFIG.fast.maxSeconds} s · ${AVATAR_TIER_CONFIG.fast.creditsPerSecond} cr/s` },
                   { id: 'ultra' as AvatarQualityTier, label: 'Ultra', icon: Gem, blurb: `Avatar speaks · up to ${AVATAR_TIER_CONFIG.ultra.maxSeconds} s · ${AVATAR_TIER_CONFIG.ultra.creditsPerSecond} cr/s` },
                 ]).map((option) => {
@@ -996,7 +1008,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                       ? `Up to ${fit.maxWords} words on ${tierLabel(scriptTier)}`
                       : fit.fits
                         ? `Fits ${tierLabel(scriptTier)} · ${fit.credits} credits`
-                        : `Too long for ${tierLabel(scriptTier)}: cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'} or switch to Standard`}
+                        : `Too long for ${tierLabel(scriptTier)}: cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'} or switch to Basic`}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -1022,6 +1034,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   variant={state.audioInputMode === 'tts' ? 'default' : 'outline'}
                   className="w-full"
                   onClick={() => setAudioInputMode('tts')}
+                  disabled={state.isLoading || state.isGenerating}
                 >
                   <Mic className="w-4 h-4 mr-2" />
                   Generate Voice
@@ -1030,6 +1043,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                   variant={state.audioInputMode === 'upload' ? 'default' : 'outline'}
                   className="w-full"
                   onClick={() => setAudioInputMode('upload')}
+                  disabled={state.isLoading || state.isGenerating}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Upload Audio
@@ -1293,26 +1307,52 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                     <input
                       ref={audioInputRef}
                       type="file"
-                      accept="audio/mp3,audio/wav,audio/m4a,audio/mpeg,audio/x-m4a"
+                      accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a"
                       className="hidden"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const validTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/m4a', 'audio/x-m4a'];
-                        if (!validTypes.includes(file.type)) {
+                        // Browsers report audio types inconsistently (iPhone Voice Memos arrive as
+                        // audio/mp4, some WAVs as audio/x-wav, some files with no type at all)
+                        const validTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/m4a', 'audio/x-m4a', 'audio/mp4'];
+                        const ext = (file.name.split('.').pop() || '').toLowerCase();
+                        // The upload route goes by the file extension, so a type-only match
+                        // would pass here and fail at Generate
+                        if (!['mp3', 'wav', 'm4a'].includes(ext) || (file.type && !validTypes.includes(file.type) && !file.type.startsWith('audio/'))) {
                           toast.error('Please upload MP3, WAV, or M4A audio files only');
                           return;
                         }
-                        const audio = new Audio(URL.createObjectURL(file));
+                        if (file.size > 25 * 1024 * 1024) {
+                          toast.error('This audio file is over 25 MB. Upload a shorter or smaller file.');
+                          return;
+                        }
+                        // The object link is for the two players on this page only. The file
+                        // itself is uploaded to storage when the video is generated.
+                        const url = URL.createObjectURL(file);
+                        const audio = new Audio();
+                        audio.preload = 'metadata';
                         audio.addEventListener('loadedmetadata', () => {
+                          if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+                            URL.revokeObjectURL(url);
+                            toast.error('The length of this audio file could not be read. Try an MP3.');
+                            return;
+                          }
                           if (audio.duration > MAX_AUDIO_DURATION_SECONDS) {
+                            URL.revokeObjectURL(url);
                             toast.error(`Audio must be ${MAX_AUDIO_DURATION_SECONDS} seconds or less.`);
                             return;
                           }
-                          const url = URL.createObjectURL(file);
                           setUploadedAudio(url, file, audio.duration);
-                          toast.success(`Audio uploaded: ${Math.ceil(audio.duration)} seconds`);
+                          toast.success(`Audio added: ${Math.ceil(audio.duration)} seconds`);
                         });
+                        audio.addEventListener('error', () => {
+                          URL.revokeObjectURL(url);
+                          toast.error('This audio file could not be read. Try an MP3.');
+                        });
+                        audio.src = url;
+                        audio.load();
+                        // Let the same file be picked again after an error
+                        e.target.value = '';
                       }}
                     />
                     {state.uploadedAudioFile ? (
@@ -1322,9 +1362,13 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
                         <p className="text-xs text-muted-foreground">
                           Duration: {Math.ceil(state.audioDurationSeconds)} seconds
                         </p>
-                        <audio controls className="w-full mt-2">
-                          <source src={state.uploadedAudioUrl || ''} />
-                        </audio>
+                        <audio
+                          key={state.uploadedAudioUrl || 'none'}
+                          controls
+                          className="w-full mt-2"
+                          src={state.uploadedAudioUrl || undefined}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -1513,6 +1557,9 @@ export function GeneratorTab({ avatarState, credits, creditsLoading }: Generator
             {state.currentStep === 1 && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>
         </div>
+        {state.currentStep === 2 && !scriptTier && state.audioInputMode === 'tts' && !!localScriptText.trim() && !selectedVoice && (
+          <p className="text-xs text-muted-foreground text-center mt-2">Pick a voice to continue</p>
+        )}
         {state.currentStep === 3 && state.isGenerating && (
           <p className="text-xs text-muted-foreground text-center mt-2">
             You can keep working — we&apos;ll notify you when it&apos;s ready.{' '}

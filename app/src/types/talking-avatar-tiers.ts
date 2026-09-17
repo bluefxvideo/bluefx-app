@@ -163,5 +163,5 @@ export function readAvatarTier(video: { video_settings?: unknown; video_source?:
 }
 
 export function tierLabel(tier: AvatarQualityTier): string {
-  return tier === 'standard' ? 'Standard' : AVATAR_TIER_CONFIG[tier].label;
+  return tier === 'standard' ? 'Basic' : AVATAR_TIER_CONFIG[tier].label;
 }

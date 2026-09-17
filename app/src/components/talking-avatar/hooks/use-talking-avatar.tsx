@@ -10,7 +10,7 @@ import { getUserClonedVoices, saveClonedVoice } from '@/actions/database/cloned-
 import type { ClonedVoice } from '@/actions/database/cloned-voices-database';
 import { getUserSavedAvatars, saveUserAvatar, deleteSavedAvatar as deleteSavedAvatarAction, updateSavedAvatarName } from '@/actions/database/saved-avatars-database';
 import type { SavedAvatar } from '@/actions/database/saved-avatars-database';
-import { cloneVoiceFromFile } from '@/actions/services/minimax-clone-service';
+import { prepareVoiceUpload, cloneVoiceFromStorage } from '@/actions/services/minimax-clone-service';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { pollLTXVideoGeneration } from '@/actions/models/fal-ltx-polling';
 import { createClient } from '@/app/supabase/client';
@@ -94,7 +94,8 @@ export interface UseTalkingAvatarReturn {
   setQualityTier: (tier: AvatarQualityTier) => void;
   // Voice cloning
   loadClonedVoices: () => Promise<void>;
-  cloneVoice: (file: File, name: string, options: { noiseReduction: boolean; volumeNormalization: boolean }) => Promise<void>;
+  /** Resolves with the saved voice so the page can select it. */
+  cloneVoice: (file: File, name: string, options: { noiseReduction: boolean; volumeNormalization: boolean }) => Promise<ClonedVoice | undefined>;
   // Saved avatars
   loadSavedAvatars: () => Promise<void>;
   saveAvatar: (name: string, imageUrl: string) => Promise<boolean>;
@@ -112,7 +113,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // fal.ai LTX polling ref for local development (webhooks can't reach localhost)
+  // Poll interval ref (the poll is the safety net on every tier)
   const falPollingRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalDev = typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -125,6 +126,9 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
   const supabase = createClient();
+  // Hosted copy of the picked audio file. The page keeps a blob: link for its own
+  // players; the video engine needs a link it can open from the internet.
+  const hostedAudioRef = useRef<{ file: File; url: string } | null>(null);
   
   const [state, setState] = useState<TalkingAvatarState>({
     currentStep: 1,
@@ -307,29 +311,40 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         const voiceAudioUrl = response.step_data?.voice_audio_url || null;
         const estimatedDuration = response.step_data?.estimated_duration || 0;
 
-        setState(prev => ({
-          ...prev,
-          scriptText,
-          selectedVoiceId: voiceId,
-          voiceOptions: response.voice_options || prev.voiceOptions,
-          voiceAudioUrl,
-          audioDurationSeconds: estimatedDuration,
-          currentStep: 3,
-          credits: response.remaining_credits,
-          isLoading: false,
-        }));
+        setState(prev => {
+          // The user switched to "Upload Audio" while the voice was being made:
+          // drop the late voice, or step 3 would play it while the video uses
+          // (and charges for) the uploaded recording.
+          if (prev.audioInputMode !== 'tts') {
+            return { ...prev, credits: response.remaining_credits, isLoading: false };
+          }
+          return {
+            ...prev,
+            scriptText,
+            selectedVoiceId: voiceId,
+            voiceOptions: response.voice_options || prev.voiceOptions,
+            voiceAudioUrl,
+            audioDurationSeconds: estimatedDuration,
+            currentStep: 3,
+            credits: response.remaining_credits,
+            isLoading: false,
+          };
+        });
 
-        // Measure actual audio duration from the file (server estimate can be inaccurate)
+        // The server already measured the file; this browser reading only corrects
+        // the figure if the two disagree, and only for the voice it belongs to.
         if (voiceAudioUrl) {
-          const audio = new Audio(voiceAudioUrl);
+          const audio = new Audio();
+          audio.preload = 'metadata';
           audio.addEventListener('loadedmetadata', () => {
             if (audio.duration && isFinite(audio.duration)) {
-              setState(prev => ({
-                ...prev,
-                audioDurationSeconds: Math.ceil(audio.duration),
-              }));
+              setState(prev => prev.voiceAudioUrl === voiceAudioUrl
+                ? { ...prev, audioDurationSeconds: Math.ceil(audio.duration) }
+                : prev);
             }
           });
+          audio.src = voiceAudioUrl;
+          audio.load();
         }
 
         toast.success('Voice generated — preview it below');
@@ -370,6 +385,37 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
 
     setState(prev => ({ ...prev, isGenerating: true, error: null }));
 
+    // Uploaded recording: put the file in storage first. The blob: link made when
+    // the file was picked only exists inside this browser tab, so the video engine
+    // could never open it and every uploaded recording ended in a failed video.
+    let hostedAudioUrl: string | undefined;
+    if (!scriptTier && state.audioInputMode === 'upload') {
+      try {
+        const file = state.uploadedAudioFile;
+        if (!file) throw new Error('Pick the audio file again.');
+        if (hostedAudioRef.current?.file === file) {
+          hostedAudioUrl = hostedAudioRef.current.url;
+        } else {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('kind', 'target');
+          const res = await fetch('/api/upload/voice-changer', { method: 'POST', body: formData });
+          const contentType = res.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) throw new Error(`Upload failed (${res.status})`);
+          const data = await res.json();
+          if (!data.success || !data.url) throw new Error(data.error || 'The audio file could not be uploaded');
+          hostedAudioUrl = data.url as string;
+          hostedAudioRef.current = { file, url: hostedAudioUrl };
+        }
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : 'The audio file could not be uploaded';
+        const message = /[.!?]$/.test(raw.trim()) ? raw.trim() : `${raw.trim()}.`;
+        setState(prev => ({ ...prev, isGenerating: false, error: message }));
+        toast.error(`${message} Nothing was charged.`);
+        return;
+      }
+    }
+
     // Create immediate placeholder result to show video preview
     const batch_id = crypto.randomUUID();
     const placeholderVideo = {
@@ -398,7 +444,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         // Audio input mode specific fields (Standard only)
         audio_input_mode: state.audioInputMode,
         voice_audio_url: !scriptTier && state.audioInputMode === 'tts' ? state.voiceAudioUrl ?? undefined : undefined,
-        uploaded_audio_url: !scriptTier && state.audioInputMode === 'upload' ? state.uploadedAudioUrl ?? undefined : undefined,
+        uploaded_audio_url: hostedAudioUrl,
         audio_duration_seconds: scriptTier ? undefined : state.audioDurationSeconds,
         voice_id: scriptTier ? undefined : state.selectedVoiceId ?? undefined,
         // Video settings
@@ -425,8 +471,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           currentGenerationId: response.prediction_id || null,
         }));
 
-        // fal.ai uses webhooks - no polling needed
-        // Real-time subscription will handle completion updates
+        // The poll effect below plus the Realtime subscription pick up completion
         toast.success('Video generation started! This may take a few minutes.');
       } else {
         throw new Error(response.error || 'Video generation failed');
@@ -439,7 +484,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       }));
       toast.error('Video generation failed');
     }
-  }, [user, state.audioInputMode, state.voiceAudioUrl, state.uploadedAudioUrl, state.audioDurationSeconds,
+  }, [user, state.audioInputMode, state.voiceAudioUrl, state.uploadedAudioUrl, state.uploadedAudioFile, state.audioDurationSeconds,
       state.scriptText, state.customAvatarUrl, state.selectedAvatarTemplate, state.selectedVoiceId,
       state.selectedResolution, state.actionPrompt, state.qualityTier]);
 
@@ -487,8 +532,22 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, []);
 
   // Set audio input mode
+  // One audio source at a time: switching between "generate a voice" and "upload a
+  // recording" drops the other one, so the step 3 player, the length on screen, the
+  // price on the button and the file sent to the server always agree.
   const setAudioInputMode = useCallback((mode: 'tts' | 'upload') => {
-    setState(prev => ({ ...prev, audioInputMode: mode }));
+    setState(prev => {
+      if (prev.audioInputMode === mode) return prev;
+      if (prev.uploadedAudioUrl?.startsWith('blob:')) URL.revokeObjectURL(prev.uploadedAudioUrl);
+      return {
+        ...prev,
+        audioInputMode: mode,
+        voiceAudioUrl: null,
+        uploadedAudioUrl: null,
+        uploadedAudioFile: null,
+        audioDurationSeconds: 0,
+      };
+    });
   }, []);
 
   // Quality tier. Leaving Standard drops any generated or uploaded audio so a
@@ -508,12 +567,18 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
 
   // Set uploaded audio
   const setUploadedAudio = useCallback((url: string | null, file: File | null, duration: number) => {
-    setState(prev => ({
-      ...prev,
-      uploadedAudioUrl: url,
-      uploadedAudioFile: file,
-      audioDurationSeconds: duration,
-    }));
+    setState(prev => {
+      // Release the previous recording's browser link
+      if (prev.uploadedAudioUrl && prev.uploadedAudioUrl !== url && prev.uploadedAudioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(prev.uploadedAudioUrl);
+      }
+      return {
+        ...prev,
+        uploadedAudioUrl: url,
+        uploadedAudioFile: file,
+        audioDurationSeconds: duration,
+      };
+    });
   }, []);
 
   // Set action prompt
@@ -686,7 +751,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
   }, [user?.id]);
 
 
-  // Pure real-time architecture - no polling needed
 
   // Load initial history and restore any ongoing generations
   useEffect(() => {
@@ -718,14 +782,14 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
 
           // Retrieved videos from database
 
-          // Only consider recent videos: 2 minutes for Standard, 20 minutes for
-          // Fast / Ultra (Ultra alone takes 3 to 6 minutes and the poller settles them)
+          // Only consider recent videos: 20 minutes on every tier. Basic takes 2 to 5
+          // minutes and Ultra 3 to 6; a 2 minute window made a reload at minute 3 hide
+          // the paid job and invite a second paid run. The poller settles restored jobs.
           // Check for both fal_request_id (new) and hedra_generation_id (legacy)
           const now = Date.now();
           const processingVideo = videos?.find((v: any) => {
             const isProcessingStatus = v.status === 'processing' || v.status === 'pending';
-            const windowMs = isScriptTier(readAvatarTier(v)) ? 20 * 60 * 1000 : 2 * 60 * 1000;
-            const isRecent = new Date(v.created_at || '').getTime() > now - windowMs;
+            const isRecent = new Date(v.created_at || '').getTime() > now - 20 * 60 * 1000;
             const hasValidGenerationId = (v.fal_request_id && v.fal_request_id.trim()) ||
                                          (v.hedra_generation_id && v.hedra_generation_id.trim());
 
@@ -757,16 +821,20 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
                 qualityTier: readAvatarTier(processingVideo as any),
                 scriptText: processingVideo.script_text || prev.scriptText,
                 actionPrompt: (processingVideo as any).action_prompt || prev.actionPrompt,
+                // Bring the photo back too, so "generate again" after the restored job works
+                customAvatarUrl: (prev.customAvatarUrl || prev.selectedAvatarTemplate)
+                  ? prev.customAvatarUrl
+                  : ((processingVideo as any).avatar_image_url || null),
               }));
 
-              // Resume polling for legacy Hedra generations (fal.ai uses webhooks)
+              // Resume polling for legacy Hedra generations
               if (videoSource === 'hedra' && generationId) {
                 console.log('🔄 Resuming Hedra polling for restored generation:', generationId);
                 setTimeout(() => {
                   startHedraPolling(generationId);
                 }, 2000);
               } else {
-                console.log('🔄 Restored fal.ai generation - waiting for webhook:', generationId);
+                console.log('🔄 Restored fal.ai generation - the poll effect picks it up:', generationId);
               }
             }
           } else {
@@ -948,15 +1016,13 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     };
   }, [stopHedraPolling]);
 
-  // fal.ai LTX polling for local development (webhooks can't reach localhost)
-  // In production, webhooks handle completion - no polling needed
+  // Every tier polls while a video renders: never let the spinner wait on Realtime
+  // alone. A sleeping laptop or a dropped wifi misses the one Realtime event and
+  // the finished video never showed. In production the poll asks our own server
+  // (pollAvatarTierGeneration). On localhost the webhook cannot reach us, so the
+  // Basic tier asks fal directly there.
   useEffect(() => {
-    // Standard polls only in local development (production relies on the webhook).
-    // Fast / Ultra poll everywhere: never let the spinner wait on Realtime alone.
     const scriptTier = isScriptTier(state.qualityTier);
-    if (!isLocalDev && !scriptTier) {
-      return;
-    }
 
     // Only poll if we're generating and have a request ID
     // New generations use fal.ai, legacy ones use Hedra (which has its own polling)
@@ -971,15 +1037,18 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       return;
     }
 
-    console.log(`🔄 [DEV] Starting fal.ai LTX polling for: ${requestId}`);
-
-    // Poll every 5 seconds
+    // Poll every 5 s on localhost, 10 s in production. In production the webhook
+    // normally finishes the job; the poll only takes over once the engine has been
+    // done for three ticks (about 30 s) and the row is still open.
+    let engineDoneTicks = 0;
     const pollInterval = setInterval(async () => {
       try {
-        const result = scriptTier && videoId
-          ? await pollAvatarTierGeneration(videoId)
+        // The fal-direct poller below is for localhost only
+        if (!videoId && !isLocalDev) return;
+        const result = (scriptTier || !isLocalDev) && videoId
+          ? await pollAvatarTierGeneration(videoId, isLocalDev || engineDoneTicks >= 3)
           : await pollLTXVideoGeneration(requestId);
-        console.log(`🔄 [DEV] fal.ai poll result for ${requestId}:`, result.status);
+        if ('engineDone' in result && result.engineDone) engineDoneTicks += 1;
 
         // A Realtime update may have finished this job while the request was in
         // flight; then the id ref is already cleared and this tick must stay quiet.
@@ -990,8 +1059,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         }
 
         if (result.status === 'completed' && result.video_url) {
-          console.log(`✅ [DEV] fal.ai LTX completed! ${result.video_url}`);
-
           // Update state with completed video
           setState(prev => ({
             ...prev,
@@ -1012,8 +1079,6 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
           falPollingRef.current = null;
 
         } else if (result.status === 'failed') {
-          console.error(`❌ [DEV] fal.ai LTX failed:`, result.error);
-
           setState(prev => ({
             ...prev,
             isGenerating: false,
@@ -1030,10 +1095,10 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
         }
         // For 'pending' or 'processing', continue polling
       } catch (error) {
-        console.error('[DEV] fal.ai polling error:', error);
+        console.error('Avatar poll error:', error);
         // Don't stop polling on network errors - they might be temporary
       }
-    }, scriptTier && !isLocalDev ? 10000 : 5000);
+    }, isLocalDev ? 5000 : 10000);
 
     falPollingRef.current = pollInterval;
 
@@ -1068,19 +1133,25 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     setState(prev => ({ ...prev, isCloning: true }));
 
     try {
-      // Convert file to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = '';
-      for (let i = 0; i < uint8Array.length; i++) {
-        binary += String.fromCharCode(uint8Array[i]);
+      // The browser uploads straight to storage, the same path Voice Over uses.
+      // File bytes sent through a server action die above about 750 KB.
+      const prep = await prepareVoiceUpload(user.id, file.name);
+      if (!prep.success || !prep.path || !prep.token) {
+        throw new Error(prep.error || 'Could not prepare the upload');
       }
-      const base64Data = btoa(binary);
 
-      const result = await cloneVoiceFromFile(
-        base64Data,
+      const { error: uploadError } = await supabase.storage
+        .from('script-videos')
+        .uploadToSignedUrl(prep.path, prep.token, file, {
+          contentType: file.type || 'audio/mpeg',
+        });
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      const result = await cloneVoiceFromStorage(
         user.id,
-        file.name,
+        prep.path,
         {
           noise_reduction: options.noiseReduction,
           volume_normalization: options.volumeNormalization,
@@ -1130,6 +1201,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
             isCloning: false,
           }));
           toast.success('Voice cloned successfully!');
+          return saveResult.data;
         } else {
           throw new Error(saveResult.error || 'Failed to save cloned voice');
         }
@@ -1142,7 +1214,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       toast.error(error instanceof Error ? error.message : 'Voice cloning failed');
       throw error;
     }
-  }, [user]);
+  }, [user, supabase]);
 
   // Load cloned voices on mount when user is available
   useEffect(() => {
