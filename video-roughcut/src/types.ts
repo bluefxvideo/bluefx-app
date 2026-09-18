@@ -12,6 +12,16 @@ export interface VideoMetadata {
   frameRate: number;
   width: number;
   height: number;
+  /** False for audio-only uploads (MP3, WAV): the XML then has no video track. Defaults to true. */
+  hasVideo?: boolean;
+  /**
+   * Channel count of each audio stream in the source file, as ffmpeg reported it in the
+   * browser, e.g. [2] for a stereo recording. Premiere will not relink a file whose
+   * channels differ from the XML. Defaults to [2].
+   */
+  audioStreams?: number[];
+  /** Source audio sample rate in Hz. Defaults to 48000. */
+  audioSampleRate?: number;
 }
 
 export interface WordTiming {

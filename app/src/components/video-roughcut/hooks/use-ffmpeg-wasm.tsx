@@ -42,7 +42,19 @@ export interface ProbedMetadata {
   width?: number;
   height?: number;
   frameRate?: number;
+  /** False for audio-only files (cover art does not count as video). */
+  hasVideo?: boolean;
+  /** Channel count of each audio stream, in file order, e.g. [2] for one stereo stream. */
+  audioStreams?: number[];
+  audioSampleRate?: number;
 }
+
+/** ffmpeg prints a layout name for standard layouts and "N channels" for the rest. */
+const CHANNELS_BY_LAYOUT: Record<string, number> = {
+  mono: 1, stereo: 2, downmix: 2, '2.1': 3, '3.0': 3, '3.0(back)': 3, '3.1': 4, '4.0': 4, quad: 4,
+  'quad(side)': 4, '4.1': 5, '5.0': 5, '5.0(side)': 5, '5.1': 6, '5.1(side)': 6, '6.0': 6,
+  '6.1': 7, '7.0': 7, '7.1': 8, '7.1(wide)': 8,
+};
 
 export interface ExtractAudioResult {
   blob: Blob;
@@ -112,16 +124,32 @@ function snapFrameRate(fps: number): number {
   return Math.abs(nearest - fps) / nearest < 0.01 ? nearest : Math.round(fps * 1000) / 1000;
 }
 
-/** Parse ffmpeg's input report ("Duration: 00:24:24.22", "1920x1080", "30 fps", "rotation of -90.00"). */
+/**
+ * Parse ffmpeg's input report ("Duration: 00:24:24.22", "1920x1080", "30 fps",
+ * "rotation of -90.00", "Audio: aac, 48000 Hz, stereo"). The audio layout matters:
+ * Premiere will not relink a file whose channels differ from what the XML describes.
+ */
 export function parseFfmpegReport(lines: string[]): ProbedMetadata {
   const out: ProbedMetadata = {};
   let rotation = 0;
   let sawVideo = false;
+  const audioStreams: number[] = [];
   for (const line of lines) {
+    // Everything after this describes the MP3 we are writing, not the source.
+    if (/^\s*Output #\d/.test(line)) break;
+
+    const audio = line.match(/Stream #\d+:\d+.*Audio:.*?(\d+) Hz,\s*([^,]+)/);
+    if (audio) {
+      const layout = audio[2].trim();
+      const counted = layout.match(/^(\d+) channels/);
+      audioStreams.push(counted ? +counted[1] : (CHANNELS_BY_LAYOUT[layout] ?? 2));
+      out.audioSampleRate ??= +audio[1];
+    }
+
     const d = line.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
     if (d && out.duration === undefined) out.duration = +d[1] * 3600 + +d[2] * 60 + +d[3];
 
-    if (!sawVideo && /Stream #\d+:\d+.*Video:/.test(line)) {
+    if (!sawVideo && /Stream #\d+:\d+.*Video:/.test(line) && !/attached pic/.test(line)) {
       sawVideo = true;
       const size = line.match(/\b(\d{2,5})x(\d{2,5})\b/);
       if (size) {
@@ -137,6 +165,8 @@ export function parseFfmpegReport(lines: string[]): ProbedMetadata {
   if (Math.abs(rotation) % 180 === 90 && out.width && out.height) {
     [out.width, out.height] = [out.height, out.width];
   }
+  if (out.duration !== undefined) out.hasVideo = sawVideo;
+  if (audioStreams.length > 0) out.audioStreams = audioStreams;
   return out;
 }
 

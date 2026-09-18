@@ -165,6 +165,12 @@ export function useVideoRoughcut() {
         const startRes = await startRoughcutJob({
           jobId: reqRes.jobId,
           uploadPath: reqRes.uploadPath,
+          // The XML must describe the source's real audio, or Premiere refuses to relink it.
+          media: {
+            hasVideo: probed.hasVideo,
+            audioStreams: probed.audioStreams,
+            audioSampleRate: probed.audioSampleRate,
+          },
         });
         if (!startRes.success) {
           throw new Error(startRes.error || 'Could not start job');

@@ -9,7 +9,7 @@
  *   3. The browser PUTs the MP3 straight to Supabase Storage (bypasses Next.js body limits).
  *   4. startRoughcutJob() validates the upload, charges credits and dispatches the worker.
  *   5. The worker (video-roughcut-worker) transcribes, asks Claude for the cuts, writes the XML,
- *      and reports back to /api/webhooks/video-roughcut. Supabase realtime pushes status to the UI.
+ *      and reports back to /api/webhooks/video-roughcut. The page polls getRoughcutJobStatus().
  *   6. getRoughcutDownloadUrl() hands the user a short-lived signed link to the XML.
  */
 
@@ -123,6 +123,26 @@ export async function requestRoughcutUpload(input: RequestUploadInput): Promise<
 export interface StartJobInput {
   jobId: string;
   uploadPath: string;
+  /** The source's media layout as ffmpeg read it in the browser. Goes into the XML only. */
+  media?: {
+    hasVideo?: boolean;
+    audioStreams?: number[];
+    audioSampleRate?: number;
+  };
+}
+
+/** Client-supplied values: keep only what is plausible, so the XML stays valid. */
+function sanitizeMedia(media: StartJobInput['media']) {
+  const audioStreams = (Array.isArray(media?.audioStreams) ? media.audioStreams : [])
+    .map((c) => Math.round(Number(c)))
+    .filter((c) => c >= 1 && c <= 64)
+    .slice(0, 16);
+  const rate = Math.round(Number(media?.audioSampleRate));
+  return {
+    hasVideo: media?.hasVideo !== false,
+    audioStreams: audioStreams.length > 0 ? audioStreams : undefined,
+    audioSampleRate: rate >= 8000 && rate <= 384000 ? rate : undefined,
+  };
 }
 
 export interface StartJobResult {
@@ -231,6 +251,7 @@ export async function startRoughcutJob(input: StartJobInput): Promise<StartJobRe
           height: job.video_height,
           duration: job.video_duration_seconds,
           frameRate: job.video_frame_rate,
+          ...sanitizeMedia(input.media),
         },
         callbackUrl: `${callbackBase}/api/webhooks/video-roughcut`,
       }),
