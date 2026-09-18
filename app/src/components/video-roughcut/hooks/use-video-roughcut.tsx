@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createClient } from '@/app/supabase/client';
 import {
+  getRoughcutJobStatus,
+  listMyRoughcutJobs,
   requestRoughcutUpload,
   startRoughcutJob,
 } from '@/actions/tools/video-roughcut';
+import { isStalePageError } from '@/lib/stale-page';
 import type {
   RoughcutJob,
 } from '@/actions/database/video-roughcut-database';
@@ -22,8 +24,16 @@ export type RoughcutStage =
 /**
  * Orchestrates the full Rough-Cut flow:
  *   readVideoMetadata → extractAudio → requestRoughcutUpload → PUT signed URL
- *   → startRoughcutJob → subscribe to realtime job row updates
+ *   → startRoughcutJob → poll the job row until it is done or failed
+ *
+ * Status comes from polling, not Supabase realtime: polling needs no database
+ * publication setup and keeps working through dropped websocket connections.
  */
+const POLL_MS = 3000;
+const IN_FLIGHT = ['queued', 'transcribing', 'analyzing', 'generating'];
+/** A reload picks a running job back up if it started within this window. */
+const RESUME_WINDOW_MS = 30 * 60 * 1000;
+
 export function useVideoRoughcut() {
   const { extractAudio, readVideoMetadata, progress: ffmpegProgress } =
     useFfmpegWasm();
@@ -33,9 +43,7 @@ export function useVideoRoughcut() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const channelRef = useRef<ReturnType<
-    ReturnType<typeof createClient>['channel']
-  > | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isProcessing = stage !== 'idle' && stage !== 'processing'
     ? true
@@ -55,53 +63,54 @@ export function useVideoRoughcut() {
     }
   }, [currentJob, stage]);
 
-  const teardownChannel = useCallback(() => {
-    if (channelRef.current) {
-      const supabase = createClient();
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
+  const stopWatching = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
     }
   }, []);
 
-  const subscribeToJob = useCallback(
+  const watchJob = useCallback(
     (jobId: string) => {
-      teardownChannel();
-      const supabase = createClient();
-      const channel = supabase
-        .channel(`roughcut_${jobId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'video_roughcut_jobs',
-            filter: `id=eq.${jobId}`,
-          },
-          (payload) => {
-            const updated = payload.new as RoughcutJob;
-            setCurrentJob(updated);
-            if (updated.status === 'done' || updated.status === 'failed') {
-              setStage('idle');
-              if (updated.status === 'failed') {
-                setError(updated.status_reason || 'Job failed');
-              }
-            }
-          },
-        )
-        .subscribe();
-
-      channelRef.current = channel;
+      stopWatching();
+      let busy = false;
+      const tick = async () => {
+        if (busy) return;
+        busy = true;
+        try {
+          const job = await getRoughcutJobStatus(jobId);
+          if (!job) return;
+          setCurrentJob(job);
+          if (job.status === 'done' || job.status === 'failed') {
+            stopWatching();
+            setStage('idle');
+            if (job.status === 'failed') setError(job.status_reason || 'Job failed');
+          }
+        } catch (err) {
+          // A deploy while the job runs: this tab can no longer ask, but the job goes on.
+          if (isStalePageError(err instanceof Error ? err.message : '')) {
+            stopWatching();
+            setStage('idle');
+            setError('The app was updated while your video was processing. Reload the page and open History to get your XML.');
+          }
+          // Anything else is a network blip: the next tick tries again.
+        } finally {
+          busy = false;
+        }
+      };
+      pollRef.current = setInterval(tick, POLL_MS);
+      void tick();
     },
-    [teardownChannel],
+    [stopWatching],
   );
 
   const reset = useCallback(() => {
-    teardownChannel();
+    stopWatching();
     setCurrentJob(null);
     setStage('idle');
     setProgress(0);
     setError(null);
-  }, [teardownChannel]);
+  }, [stopWatching]);
 
   const startJob = useCallback(
     async (file: File) => {
@@ -150,10 +159,7 @@ export function useVideoRoughcut() {
         }
         setProgress(100);
 
-        // 5. Subscribe to the job row before starting, so no update is missed.
-        subscribeToJob(reqRes.jobId);
-
-        // 6. Charge credits and hand the job to the worker.
+        // 5. Charge credits and hand the job to the worker.
         setStage('processing');
         setProgress(0);
         const startRes = await startRoughcutJob({
@@ -163,19 +169,41 @@ export function useVideoRoughcut() {
         if (!startRes.success) {
           throw new Error(startRes.error || 'Could not start job');
         }
+
+        // 6. Follow the job until it is done or failed.
+        watchJob(reqRes.jobId);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Unknown error');
         setStage('idle');
       }
     },
-    [extractAudio, readVideoMetadata, reset, subscribeToJob],
+    [extractAudio, readVideoMetadata, reset, watchJob],
   );
 
+  // After a reload, pick a job that is still running back up.
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const jobs = await listMyRoughcutJobs();
+        const running = jobs.find(
+          (j) =>
+            IN_FLIGHT.includes(j.status) &&
+            Date.now() - new Date(j.created_at ?? 0).getTime() < RESUME_WINDOW_MS,
+        );
+        if (!running || cancelled || pollRef.current) return;
+        setCurrentJob(running);
+        setStage('processing');
+        watchJob(running.id);
+      } catch {
+        // History still lists the job; nothing to resume here.
+      }
+    })();
     return () => {
-      teardownChannel();
+      cancelled = true;
+      stopWatching();
     };
-  }, [teardownChannel]);
+  }, [watchJob, stopWatching]);
 
   return {
     currentJob,

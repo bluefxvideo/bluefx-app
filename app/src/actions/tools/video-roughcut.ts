@@ -259,10 +259,14 @@ export async function startRoughcutJob(input: StartJobInput): Promise<StartJobRe
   }
 }
 
-/** One job, scoped to the current user. */
+/**
+ * One job, scoped to the current user. The page polls this while a job runs, so a job
+ * whose worker died is failed and refunded here too, and the page stops waiting.
+ */
 export async function getRoughcutJobStatus(jobId: string): Promise<RoughcutJob | null> {
   const userId = await currentUserId();
   if (!userId) return null;
+  await failStaleRoughcutJobs(userId).catch((err) => console.warn('⚠️ stale job sweep failed:', err));
   return getRoughcutJob(jobId, userId);
 }
 
