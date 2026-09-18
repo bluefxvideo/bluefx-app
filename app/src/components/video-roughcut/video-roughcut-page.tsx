@@ -28,7 +28,10 @@ export function VideoRoughcutPage() {
     stage,
     progress,
     error,
-    startJob,
+    pending,
+    availableCredits,
+    prepareFile,
+    confirmJob,
     reset,
   } = useVideoRoughcut();
 
@@ -80,7 +83,10 @@ export function VideoRoughcutPage() {
               progress={progress}
               error={error}
               isProcessing={isProcessing}
-              onStart={startJob}
+              pending={pending}
+              availableCredits={availableCredits}
+              onStart={prepareFile}
+              onConfirm={confirmJob}
               onReset={reset}
             />
             <div>

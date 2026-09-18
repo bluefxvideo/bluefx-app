@@ -24,20 +24,23 @@ import {
   type RoughcutJob,
 } from '@/actions/database/video-roughcut-database';
 import { refundSentence } from '@/lib/credits/refund';
+import { roughcutCredits } from '@/lib/video-roughcut/pricing';
 
 const BUCKET = 'video-roughcut';
 const MIN_DURATION_SECONDS = 30;
 const MAX_DURATION_SECONDS = 60 * 60;
-/** 1 credit per started minute, 10 minimum. A 20-minute video costs 20 credits. */
-const CREDITS_PER_MINUTE = 1;
-const MIN_CREDITS_PER_JOB = 10;
-/** Re-running the same audio skips transcription. */
-const CREDITS_PER_CACHED_JOB = 5;
 /** The browser encodes 64 kbps MP3: 8,000 bytes per second of audio. */
 const MP3_BYTES_PER_SECOND = 8000;
 
-function creditsForDuration(seconds: number): number {
-  return Math.max(MIN_CREDITS_PER_JOB, Math.ceil(seconds / 60) * CREDITS_PER_MINUTE);
+/** Why a video of this length can't be processed, or null when it can. */
+function durationError(duration: number): string | null {
+  if (duration < MIN_DURATION_SECONDS) {
+    return `The video must be at least ${MIN_DURATION_SECONDS} seconds long. This one is ${Math.round(duration)} seconds.`;
+  }
+  if (duration > MAX_DURATION_SECONDS) {
+    return `The video must be under ${MAX_DURATION_SECONDS / 60} minutes. This one is ${Math.round(duration / 60)} minutes.`;
+  }
+  return null;
 }
 
 async function currentUserId(): Promise<string | null> {
@@ -45,6 +48,33 @@ async function currentUserId(): Promise<string | null> {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) return null;
   return data.user.id;
+}
+
+export interface RoughcutQuote {
+  success: boolean;
+  error?: string;
+  credits?: number;
+  /** The same audio was transcribed before, so the job is half price. */
+  rerun?: boolean;
+}
+
+/**
+ * Step 0: the price, shown before anything is uploaded or charged. Uses the same
+ * pricing function and cache check as startRoughcutJob.
+ */
+export async function quoteRoughcutJob(input: { durationSeconds: number; audioHash: string }): Promise<RoughcutQuote> {
+  try {
+    const userId = await currentUserId();
+    if (!userId) return { success: false, error: 'Not authenticated' };
+    const duration = Number(input.durationSeconds) || 0;
+    const tooLongOrShort = durationError(duration);
+    if (tooLongOrShort) return { success: false, error: tooLongOrShort };
+    const rerun = /^[a-f0-9]{64}$/.test(input.audioHash) && (await isTranscriptionCached(input.audioHash));
+    return { success: true, credits: roughcutCredits(duration, rerun), rerun };
+  } catch (err: unknown) {
+    console.error('❌ quoteRoughcutJob error:', err);
+    return { success: false, error: 'Could not work out the price. Please try again.' };
+  }
 }
 
 export interface RequestUploadInput {
@@ -76,18 +106,8 @@ export async function requestRoughcutUpload(input: RequestUploadInput): Promise<
     if (!userId) return { success: false, error: 'Not authenticated' };
 
     const duration = input.videoMetadata?.duration || 0;
-    if (duration < MIN_DURATION_SECONDS) {
-      return {
-        success: false,
-        error: `The video must be at least ${MIN_DURATION_SECONDS} seconds long. This one is ${Math.round(duration)} seconds.`,
-      };
-    }
-    if (duration > MAX_DURATION_SECONDS) {
-      return {
-        success: false,
-        error: `The video must be under ${MAX_DURATION_SECONDS / 60} minutes. This one is ${Math.round(duration / 60)} minutes.`,
-      };
-    }
+    const tooLongOrShort = durationError(duration);
+    if (tooLongOrShort) return { success: false, error: tooLongOrShort };
 
     const job = await createRoughcutJob({
       userId,
@@ -203,7 +223,7 @@ export async function startRoughcutJob(input: StartJobInput): Promise<StartJobRe
     }
 
     const cacheHit = job.audio_hash ? await isTranscriptionCached(job.audio_hash) : false;
-    const creditsToCharge = cacheHit ? CREDITS_PER_CACHED_JOB : creditsForDuration(billableSeconds);
+    const creditsToCharge = roughcutCredits(billableSeconds, cacheHit);
 
     const { deductCredits } = await import('@/actions/database/cinematographer-database');
     // job_id is how refundFailedGeneration finds this debit if the job fails.

@@ -114,6 +114,7 @@ export function JobOutput({ job, onDismiss, onRetry }: JobOutputProps) {
               <CardTitle>Rough cut ready</CardTitle>
               <CardDescription className="truncate">
                 {job.video_filename}
+                {job.credits_used > 0 ? ` · ${job.credits_used} credits` : ''}
               </CardDescription>
             </div>
             <Badge>Done</Badge>

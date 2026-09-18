@@ -55,6 +55,8 @@ function JobRow({ job }: { job: RoughcutJob }) {
           <p className="truncate font-medium text-sm">{job.video_filename}</p>
           <p className="text-xs text-muted-foreground">
             {formatDate(job.created_at)}
+            {job.status === 'done' && job.credits_used > 0 ? ` · ${job.credits_used} credits` : ''}
+            {job.status === 'failed' && job.credits_used > 0 ? ' · credits returned' : ''}
           </p>
         </div>
       </div>

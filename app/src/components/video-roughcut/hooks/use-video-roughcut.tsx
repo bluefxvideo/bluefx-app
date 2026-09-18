@@ -4,14 +4,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getRoughcutJobStatus,
   listMyRoughcutJobs,
+  quoteRoughcutJob,
   requestRoughcutUpload,
   startRoughcutJob,
 } from '@/actions/tools/video-roughcut';
 import { isStalePageError } from '@/lib/stale-page';
+import { useCredits } from '@/hooks/useCredits';
 import type {
   RoughcutJob,
 } from '@/actions/database/video-roughcut-database';
-import { useFfmpegWasm } from './use-ffmpeg-wasm';
+import { useFfmpegWasm, type ProbedMetadata } from './use-ffmpeg-wasm';
 
 export type RoughcutStage =
   | 'idle'
@@ -20,11 +22,24 @@ export type RoughcutStage =
   | 'uploading'
   | 'processing';
 
+/** A video whose audio is extracted and priced, waiting for the user to confirm. */
+export interface PendingRoughcut {
+  fileName: string;
+  durationSeconds: number;
+  credits: number;
+  rerun: boolean;
+  audioBlob: Blob;
+  audioHash: string;
+  probed: ProbedMetadata;
+  videoMetadata: { width: number; height: number; duration: number; frameRate: number };
+}
 
 /**
  * Orchestrates the full Rough-Cut flow:
- *   readVideoMetadata → extractAudio → requestRoughcutUpload → PUT signed URL
- *   → startRoughcutJob → poll the job row until it is done or failed
+ *   prepareFile: readVideoMetadata → extractAudio → quoteRoughcutJob (shows the price)
+ *   confirmJob:  requestRoughcutUpload → PUT signed URL → startRoughcutJob (charges)
+ *                → poll the job row until it is done or failed
+ * Nothing is uploaded or charged until the user confirms the price.
  *
  * Status comes from polling, not Supabase realtime: polling needs no database
  * publication setup and keeps working through dropped websocket connections.
@@ -42,6 +57,8 @@ export function useVideoRoughcut() {
   const [stage, setStage] = useState<RoughcutStage>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingRoughcut | null>(null);
+  const { credits, refetch: refetchCredits } = useCredits();
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -84,7 +101,10 @@ export function useVideoRoughcut() {
           if (job.status === 'done' || job.status === 'failed') {
             stopWatching();
             setStage('idle');
-            if (job.status === 'failed') setError(job.status_reason || 'Job failed');
+            if (job.status === 'failed') {
+              setError(job.status_reason || 'Job failed');
+              void refetchCredits(); // failed jobs are refunded
+            }
           }
         } catch (err) {
           // A deploy while the job runs: this tab can no longer ask, but the job goes on.
@@ -101,22 +121,22 @@ export function useVideoRoughcut() {
       pollRef.current = setInterval(tick, POLL_MS);
       void tick();
     },
-    [stopWatching],
+    [stopWatching, refetchCredits],
   );
 
   const reset = useCallback(() => {
     stopWatching();
     setCurrentJob(null);
+    setPending(null);
     setStage('idle');
     setProgress(0);
     setError(null);
   }, [stopWatching]);
 
-  const startJob = useCallback(
+  /** Read the video on the user's computer and work out its price. Free: nothing is uploaded. */
+  const prepareFile = useCallback(
     async (file: File) => {
       reset();
-      setError(null);
-
       try {
         // 1. Load ffmpeg.wasm (first run downloads ~30 MB, then it's cached).
         setStage('reading');
@@ -136,55 +156,86 @@ export function useVideoRoughcut() {
           frameRate: probed.frameRate ?? 29.97,
         };
 
-        // 3. Reserve the job and get a signed upload URL.
-        setStage('uploading');
-        setProgress(0);
-        const reqRes = await requestRoughcutUpload({
-          videoFilename: file.name,
+        // 3. Ask the server for the price. The same function charges it later.
+        const quote = await quoteRoughcutJob({ durationSeconds: videoMetadata.duration, audioHash });
+        if (!quote.success || quote.credits === undefined) {
+          throw new Error(quote.error || 'Could not work out the price');
+        }
+        setPending({
+          fileName: file.name,
+          durationSeconds: videoMetadata.duration,
+          credits: quote.credits,
+          rerun: Boolean(quote.rerun),
+          audioBlob,
           audioHash,
+          probed,
           videoMetadata,
         });
-        if (!reqRes.success || !reqRes.uploadUrl || !reqRes.jobId || !reqRes.uploadPath) {
-          throw new Error(reqRes.error || 'Could not request upload URL');
-        }
-
-        // 4. PUT the MP3 straight to Supabase Storage.
-        const putRes = await fetch(reqRes.uploadUrl, {
-          method: 'PUT',
-          body: audioBlob,
-          headers: { 'Content-Type': 'audio/mpeg' },
-        });
-        if (!putRes.ok) {
-          throw new Error(`Upload failed: HTTP ${putRes.status}`);
-        }
-        setProgress(100);
-
-        // 5. Charge credits and hand the job to the worker.
-        setStage('processing');
-        setProgress(0);
-        const startRes = await startRoughcutJob({
-          jobId: reqRes.jobId,
-          uploadPath: reqRes.uploadPath,
-          // The XML must describe the source's real audio, or Premiere refuses to relink it.
-          media: {
-            hasVideo: probed.hasVideo,
-            audioStreams: probed.audioStreams,
-            audioSampleRate: probed.audioSampleRate,
-          },
-        });
-        if (!startRes.success) {
-          throw new Error(startRes.error || 'Could not start job');
-        }
-
-        // 6. Follow the job until it is done or failed.
-        watchJob(reqRes.jobId);
+        setStage('idle');
+        void refetchCredits();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Unknown error');
         setStage('idle');
       }
     },
-    [extractAudio, readVideoMetadata, reset, watchJob],
+    [extractAudio, readVideoMetadata, reset, refetchCredits],
   );
+
+  /** The user accepted the price: upload the audio, charge the credits, start the job. */
+  const confirmJob = useCallback(async () => {
+    const job = pending;
+    if (!job) return;
+    setError(null);
+    try {
+      // 1. Reserve the job and get a signed upload URL.
+      setStage('uploading');
+      setProgress(0);
+      const reqRes = await requestRoughcutUpload({
+        videoFilename: job.fileName,
+        audioHash: job.audioHash,
+        videoMetadata: job.videoMetadata,
+      });
+      if (!reqRes.success || !reqRes.uploadUrl || !reqRes.jobId || !reqRes.uploadPath) {
+        throw new Error(reqRes.error || 'Could not request upload URL');
+      }
+
+      // 2. PUT the MP3 straight to Supabase Storage.
+      const putRes = await fetch(reqRes.uploadUrl, {
+        method: 'PUT',
+        body: job.audioBlob,
+        headers: { 'Content-Type': 'audio/mpeg' },
+      });
+      if (!putRes.ok) {
+        throw new Error(`Upload failed: HTTP ${putRes.status}`);
+      }
+      setProgress(100);
+
+      // 3. Charge credits and hand the job to the worker.
+      setStage('processing');
+      setProgress(0);
+      const startRes = await startRoughcutJob({
+        jobId: reqRes.jobId,
+        uploadPath: reqRes.uploadPath,
+        // The XML must describe the source's real audio, or Premiere refuses to relink it.
+        media: {
+          hasVideo: job.probed.hasVideo,
+          audioStreams: job.probed.audioStreams,
+          audioSampleRate: job.probed.audioSampleRate,
+        },
+      });
+      void refetchCredits();
+      if (!startRes.success) {
+        throw new Error(startRes.error || 'Could not start job');
+      }
+      setPending(null);
+
+      // 4. Follow the job until it is done or failed.
+      watchJob(reqRes.jobId);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setStage('idle');
+    }
+  }, [pending, refetchCredits, watchJob]);
 
   // After a reload, pick a job that is still running back up.
   useEffect(() => {
@@ -217,7 +268,10 @@ export function useVideoRoughcut() {
     stage,
     progress,
     error,
-    startJob,
+    pending,
+    availableCredits: credits?.available_credits,
+    prepareFile,
+    confirmJob,
     reset,
   };
 }

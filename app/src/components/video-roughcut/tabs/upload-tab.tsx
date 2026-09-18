@@ -22,16 +22,22 @@ import {
   FileVideo,
   RefreshCw,
   RotateCcw,
+  Scissors,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isStalePageError } from '@/lib/stale-page';
-import type { RoughcutStage } from '../hooks/use-video-roughcut';
+import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
+import {
+  ROUGHCUT_PRICE_TEXT,
+  roughcutPriceBreakdown,
+} from '@/lib/video-roughcut/pricing';
+import type { PendingRoughcut, RoughcutStage } from '../hooks/use-video-roughcut';
 
 const STAGE_LABEL: Record<RoughcutStage, string> = {
   idle: '',
   reading: 'Reading video…',
-  extracting: 'Extracting audio…',
+  extracting: 'Reading the audio…',
   uploading: 'Uploading…',
   processing: 'Processing…',
 };
@@ -39,12 +45,23 @@ const STAGE_LABEL: Record<RoughcutStage, string> = {
 const LARGE_FILE_BYTES = 2 * 1024 * 1024 * 1024;
 const TEN_GB = 10 * 1024 * 1024 * 1024;
 
+/** "24 min 29 s" */
+function formatLength(seconds: number): string {
+  const total = Math.round(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m === 0 ? `${s} s` : s === 0 ? `${m} min` : `${m} min ${s} s`;
+}
+
 interface UploadTabProps {
   stage: RoughcutStage;
   progress: number;
   error: string | null;
   isProcessing: boolean;
+  pending: PendingRoughcut | null;
+  availableCredits?: number;
   onStart: (file: File) => void;
+  onConfirm: () => void;
   onReset: () => void;
 }
 
@@ -53,9 +70,14 @@ export function UploadTab({
   progress,
   error,
   isProcessing,
+  pending,
+  availableCredits,
   onStart,
+  onConfirm,
   onReset,
 }: UploadTabProps) {
+  const notEnoughCredits =
+    pending !== null && availableCredits !== undefined && availableCredits < pending.credits;
   const [sizeWarning, setSizeWarning] = useState<string | null>(null);
   // A tab left open across a deploy: the action never ran, only a reload helps
   const stalePage = isStalePageError(error);
@@ -102,8 +124,8 @@ export function UploadTab({
           <CardTitle>Drop your video</CardTitle>
           <CardDescription>
             We&apos;ll cut the false starts, repeated takes and stumbles, then
-            give you an XML to open in Premiere. 1 credit per minute of video,
-            10 credits minimum.
+            give you an XML to open in Premiere. {ROUGHCUT_PRICE_TEXT}. You see
+            the exact price before anything is charged.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -144,6 +166,43 @@ export function UploadTab({
                 <span className="text-muted-foreground">{progress}%</span>
               </div>
               <Progress value={progress} />
+            </div>
+          )}
+
+          {pending && !isProcessing && (
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <FileVideo className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">{pending.fileName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatLength(pending.durationSeconds)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-2xl font-semibold">{pending.credits} credits</p>
+                  <p className="text-xs text-muted-foreground">
+                    {roughcutPriceBreakdown(pending.durationSeconds, pending.rerun)}
+                  </p>
+                </div>
+                {availableCredits !== undefined && (
+                  <p className="text-xs text-muted-foreground text-right">
+                    You have {availableCredits} credits
+                  </p>
+                )}
+              </div>
+              {notEnoughCredits && (
+                <InsufficientCreditsNotice needed={pending.credits} available={availableCredits} />
+              )}
+              <Button className="w-full" size="lg" onClick={onConfirm} disabled={notEnoughCredits}>
+                <Scissors className="w-4 h-4 mr-2" />
+                Create rough cut · {pending.credits} credits
+              </Button>
+              <Button variant="ghost" size="sm" className="w-full" onClick={onReset}>
+                Choose a different video
+              </Button>
             </div>
           )}
 
