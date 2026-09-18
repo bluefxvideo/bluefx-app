@@ -1,0 +1,25 @@
+{
+  "name": "video-roughcut-worker",
+  "version": "1.0.0",
+  "description": "Worker service for video rough-cut pipeline: Deepgram transcription, Claude analysis, FCP XML generation",
+  "type": "module",
+  "main": "src/server.ts",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@deepgram/sdk": "^5.0.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

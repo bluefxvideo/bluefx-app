@@ -95,9 +95,14 @@ services:
 
       # Internal API Key (for server-to-server calls)
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+
+      # Rough Cut worker (internal network only)
+      - VIDEO_ROUGHCUT_WORKER_URL=http://video-roughcut-worker:3003
+      - VIDEO_ROUGHCUT_CALLBACK_BASE_URL=http://bluefx-app:3000
     depends_on:
       - remotion
       - react-video-editor
+      - video-roughcut-worker
     restart: unless-stopped
     mem_limit: 6g
     cpus: '3.0'
@@ -174,6 +179,24 @@ services:
     #   timeout: 10s
     #   retries: 3
     #   start_period: 40s
+
+  # Rough Cut worker: Deepgram transcription + Claude cut decisions + Premiere XML.
+  # No public port; only bluefx-app talks to it.
+  video-roughcut-worker:
+    build:
+      context: ./video-roughcut
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DEEPGRAM_API_KEY=${ROUGHCUT_DEEPGRAM_API_KEY}
+      - FAL_KEY=${FAL_KEY}
+      - SUPABASE_URL=${APP_NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${APP_SUPABASE_SERVICE_ROLE_KEY}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: '1.0'
 
 volumes:
   remotion_output:

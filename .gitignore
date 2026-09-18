@@ -47,6 +47,7 @@ Thumbs.db
 !/app/
 !/remotion/
 !/react-video-editor/
+!/video-roughcut/
 !/.gitignore
 !/.dockerignore
 !/Dockerfile
@@ -65,6 +66,7 @@ Score*.csv
 !app/docs/*.md
 !remotion/README.md
 !react-video-editor/README.md
+!video-roughcut/README.md
 
 # Exclude bluefx-ai directory from git
 bluefx-ai/

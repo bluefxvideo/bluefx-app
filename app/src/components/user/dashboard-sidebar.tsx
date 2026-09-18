@@ -43,6 +43,7 @@ import {
   ImagePlus,
   ChevronDown,
   Star,
+  Scissors,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -114,6 +115,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         icon: UserRound,
         gradient: "bg-primary",
         description: "Create talking avatar videos",
+      },
+      {
+        name: "Rough Cut",
+        route: "/dashboard/video-roughcut",
+        icon: Scissors,
+        gradient: "bg-primary",
+        description: "Cut bad takes, get a Premiere XML",
       },
     ],
   },
