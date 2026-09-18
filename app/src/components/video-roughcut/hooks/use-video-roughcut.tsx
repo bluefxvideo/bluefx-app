@@ -221,6 +221,7 @@ export function useVideoRoughcut() {
           hasVideo: job.probed.hasVideo,
           audioStreams: job.probed.audioStreams,
           audioSampleRate: job.probed.audioSampleRate,
+          nominalFrameRate: job.probed.nominalFrameRate,
         },
       });
       void refetchCredits();

@@ -148,6 +148,7 @@ export interface StartJobInput {
     hasVideo?: boolean;
     audioStreams?: number[];
     audioSampleRate?: number;
+    nominalFrameRate?: number;
   };
 }
 
@@ -158,7 +159,9 @@ function sanitizeMedia(media: StartJobInput['media']) {
     .filter((c) => c >= 1 && c <= 64)
     .slice(0, 16);
   const rate = Math.round(Number(media?.audioSampleRate));
+  const nominal = Number(media?.nominalFrameRate);
   return {
+    nominalFrameRate: nominal >= 1 && nominal <= 240 ? nominal : undefined,
     hasVideo: media?.hasVideo !== false,
     audioStreams: audioStreams.length > 0 ? audioStreams : undefined,
     audioSampleRate: rate >= 8000 && rate <= 384000 ? rate : undefined,
@@ -319,6 +322,8 @@ export async function listMyRoughcutJobs(): Promise<RoughcutJob[]> {
   return listRoughcutJobs(userId);
 }
 
+export type RoughcutEditor = 'premiere' | 'resolve';
+
 export interface DownloadUrlResult {
   success: boolean;
   url?: string;
@@ -329,7 +334,10 @@ export interface DownloadUrlResult {
  * A 5-minute signed link that downloads the XML with a readable filename,
  * e.g. "My Video - Roughcut.xml".
  */
-export async function getRoughcutDownloadUrl(jobId: string): Promise<DownloadUrlResult> {
+export async function getRoughcutDownloadUrl(
+  jobId: string,
+  editor: RoughcutEditor = 'premiere',
+): Promise<DownloadUrlResult> {
   try {
     const userId = await currentUserId();
     if (!userId) return { success: false, error: 'Not authenticated' };
@@ -338,13 +346,21 @@ export async function getRoughcutDownloadUrl(jobId: string): Promise<DownloadUrl
       return { success: false, error: 'This rough cut is not ready yet' };
     }
 
-    // xml_url holds the storage path of the XML in the private bucket.
+    // xml_url holds the storage path of the Premiere XML in the private bucket.
+    // The worker writes the DaVinci Resolve variant next to it.
     const baseName = job.video_filename.replace(/\.[^.]+$/, '') || 'video';
+    const resolve = editor === 'resolve';
+    const path = resolve ? job.xml_url.replace(/roughcut\.xml$/, 'roughcut-resolve.xml') : job.xml_url;
     const { data, error } = await createAdminClient()
       .storage.from(BUCKET)
-      .createSignedUrl(job.xml_url, 300, { download: `${baseName} - Roughcut.xml` });
+      .createSignedUrl(path, 300, { download: `${baseName} - Roughcut${resolve ? ' (Resolve)' : ''}.xml` });
     if (error || !data?.signedUrl) {
-      return { success: false, error: 'Could not create the download link' };
+      return {
+        success: false,
+        error: resolve
+          ? 'This rough cut was made before DaVinci Resolve was supported. Run the video again to get a Resolve XML (it costs half, because it is already transcribed).'
+          : 'Could not create the download link',
+      };
     }
     return { success: true, url: data.signedUrl };
   } catch (err: unknown) {

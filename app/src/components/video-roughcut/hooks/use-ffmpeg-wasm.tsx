@@ -42,6 +42,11 @@ export interface ProbedMetadata {
   width?: number;
   height?: number;
   frameRate?: number;
+  /**
+   * The rate the file is built on (ffmpeg's "tbr"). A 30.00 fps recording can measure
+   * 29.98 on average; DaVinci Resolve needs the exact 30, or picture and sound drift apart.
+   */
+  nominalFrameRate?: number;
   /** False for audio-only files (cover art does not count as video). */
   hasVideo?: boolean;
   /** Channel count of each audio stream, in file order, e.g. [2] for one stereo stream. */
@@ -158,6 +163,16 @@ export function parseFfmpegReport(lines: string[]): ProbedMetadata {
       }
       const fps = line.match(/(\d+(?:\.\d+)?)\s*fps/);
       if (fps) out.frameRate = snapFrameRate(+fps[1]);
+      // Trust tbr only when it is a standard rate close to the measured one
+      // (phones report e.g. "29.98 fps, 60 tbr").
+      const tbr = line.match(/(\d+(?:\.\d+)?)k?\s*tbr/);
+      if (tbr && !/k\s*tbr/.test(tbr[0])) {
+        const nominal = snapFrameRate(+tbr[1]);
+        const measured = fps ? +fps[1] : nominal;
+        if (STANDARD_RATES.includes(nominal) && Math.abs(nominal - measured) / measured < 0.01) {
+          out.nominalFrameRate = nominal;
+        }
+      }
     }
     const rot = line.match(/rotation of (-?\d+(?:\.\d+)?)/);
     if (rot) rotation = Math.round(+rot[1]);

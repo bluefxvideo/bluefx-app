@@ -41,6 +41,11 @@ export function uploadXML(userId: string, jobId: string, xmlContent: string): Pr
   return uploadText(`outputs/${userId}/${jobId}/roughcut.xml`, xmlContent, 'application/xml');
 }
 
+/** The DaVinci Resolve variant sits next to the Premiere XML; the app derives its path from that. */
+export function uploadResolveXML(userId: string, jobId: string, xmlContent: string): Promise<string> {
+  return uploadText(`outputs/${userId}/${jobId}/roughcut-resolve.xml`, xmlContent, 'application/xml');
+}
+
 /** Upload the full transcript, kept for a later "review and adjust cuts" feature. */
 export function uploadTranscriptJson(userId: string, jobId: string, transcript: Transcript): Promise<string> {
   return uploadText(`outputs/${userId}/${jobId}/transcript.json`, JSON.stringify(transcript), 'application/json');

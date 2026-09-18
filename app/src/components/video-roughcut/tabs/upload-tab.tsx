@@ -124,7 +124,7 @@ export function UploadTab({
           <CardTitle>Drop your video</CardTitle>
           <CardDescription>
             We&apos;ll cut the false starts, repeated takes and stumbles, then
-            give you an XML to open in Premiere. {ROUGHCUT_PRICE_TEXT}. You see
+            give you an XML to open in Premiere Pro or DaVinci Resolve. {ROUGHCUT_PRICE_TEXT}. You see
             the exact price before anything is charged.
           </CardDescription>
         </CardHeader>

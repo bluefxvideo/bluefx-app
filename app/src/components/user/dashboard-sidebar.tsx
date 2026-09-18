@@ -121,7 +121,7 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
         route: "/dashboard/video-roughcut",
         icon: Scissors,
         gradient: "bg-primary",
-        description: "Cut bad takes, get a Premiere XML · 2 credits/min",
+        description: "Cut bad takes, get an XML for Premiere or Resolve · 2 credits/min",
       },
     ],
   },

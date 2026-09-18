@@ -121,7 +121,19 @@ export function JobOutput({ job, onDismiss, onRetry }: JobOutputProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {job.xml_url && <DownloadXmlButton jobId={job.id} size="lg" className="w-full" />}
+          {job.xml_url && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <DownloadXmlButton jobId={job.id} size="lg" className="w-full" label="Download for Premiere Pro" />
+              <DownloadXmlButton
+                jobId={job.id}
+                editor="resolve"
+                size="lg"
+                variant="outline"
+                className="w-full"
+                label="Download for DaVinci Resolve"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-md border bg-muted/30 p-3">
@@ -152,10 +164,18 @@ export function JobOutput({ job, onDismiss, onRetry }: JobOutputProps) {
 
           <div className="rounded-md border border-primary/20 bg-primary/5 p-3 flex gap-2 text-sm">
             <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-            <div>
-              In Premiere, use <b>File → Import</b> and pick the XML. When it asks
-              to <b>locate media</b>, point it at your original video file and the
-              whole timeline reconnects.
+            <div className="space-y-1.5">
+              <p>
+                <b>Premiere Pro:</b> use <b>File → Import</b> and pick the XML. When it
+                asks to <b>locate media</b>, point it at your original video and the
+                whole timeline reconnects.
+              </p>
+              <p>
+                <b>DaVinci Resolve:</b> add your original video to the Media Pool first,
+                then use <b>File → Import → Timeline</b> and pick the Resolve XML. If
+                clips show as offline, right-click the video in the Media Pool and
+                choose <b>Relink Selected Clips</b>.
+              </p>
             </div>
           </div>
         </CardContent>

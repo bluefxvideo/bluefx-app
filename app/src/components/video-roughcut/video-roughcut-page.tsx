@@ -39,7 +39,7 @@ export function VideoRoughcutPage() {
   useEffect(() => {
     if (!currentJob) return;
     if (currentJob.status === 'done') {
-      toast.success('Rough cut ready. Download the XML to open in Premiere.');
+      toast.success('Rough cut ready. Download the XML for Premiere Pro or DaVinci Resolve.');
     } else if (currentJob.status === 'failed') {
       toast.error(currentJob.status_reason || 'Job failed');
     }
@@ -54,8 +54,8 @@ export function VideoRoughcutPage() {
         <div>
           <h1 className="text-xl font-semibold">Rough-Cut Editor</h1>
           <p className="text-sm text-muted-foreground">
-            Drop a talking-head video. Get back a Premiere XML with all the
-            umms, false starts, and bad takes already cut.
+            Drop a talking-head video. Get back an XML for Premiere Pro or DaVinci
+            Resolve with the umms, false starts and bad takes already cut.
           </p>
         </div>
       </div>

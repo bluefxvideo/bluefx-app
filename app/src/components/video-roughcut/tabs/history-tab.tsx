@@ -68,7 +68,10 @@ function JobRow({ job }: { job: RoughcutJob }) {
           {job.status}
         </Badge>
         {job.status === 'done' && job.xml_url && (
-          <DownloadXmlButton jobId={job.id} label="XML" size="sm" variant="outline" />
+          <>
+            <DownloadXmlButton jobId={job.id} label="Premiere" size="sm" variant="outline" />
+            <DownloadXmlButton jobId={job.id} editor="resolve" label="Resolve" size="sm" variant="outline" />
+          </>
         )}
       </div>
     </div>
@@ -85,7 +88,7 @@ export function HistoryTab() {
           <div>
             <CardTitle>History</CardTitle>
             <CardDescription>
-              Your past rough-cut jobs. Click to re-download the XML.
+              Your past rough cuts. Download the XML again for Premiere Pro or DaVinci Resolve.
             </CardDescription>
           </div>
           <Button

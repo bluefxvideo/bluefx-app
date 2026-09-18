@@ -13,7 +13,7 @@ export function LoadingSkeleton() {
         <Film className="w-12 h-12 mx-auto mb-4 opacity-40" />
         <p className="font-medium">Drop a video to get started</p>
         <p className="text-sm mt-2 max-w-sm mx-auto">
-          We&apos;ll cut the umms, false starts, and bad takes — then hand you an XML to open in Premiere.
+          We&apos;ll cut the umms, false starts and bad takes, then hand you an XML to open in Premiere Pro or DaVinci Resolve.
         </p>
       </CardContent>
     </Card>

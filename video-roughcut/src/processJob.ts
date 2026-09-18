@@ -10,6 +10,7 @@ import { resolveSequenceRate } from './timecode.js';
 import {
   downloadAudio,
   uploadXML,
+  uploadResolveXML,
   uploadTranscriptJson,
   readTranscriptionCache,
   writeTranscriptionCache,
@@ -74,21 +75,16 @@ export async function processJob(job: JobRequest): Promise<void> {
 
     // 5. Generate XML
     await emitProgress('generating', 85);
-    const xmlContent = generateFCPXML(
-      {
-        fileName: job.videoFilename,
-        duration: job.videoMetadata.duration,
-        frameRate: job.videoMetadata.frameRate,
-        width: job.videoMetadata.width,
-        height: job.videoMetadata.height,
-      },
-      editDecision,
-    );
+    // One XML per editor: Premiere and DaVinci Resolve read frame rates and stereo differently.
+    const xmlMetadata = { ...job.videoMetadata, fileName: job.videoFilename };
+    const xmlContent = generateFCPXML(xmlMetadata, editDecision, 'premiere');
+    const resolveXmlContent = generateFCPXML(xmlMetadata, editDecision, 'resolve');
 
     // 6. Upload outputs
     const [xmlPath, transcriptPath] = await Promise.all([
       uploadXML(job.userId, job.jobId, xmlContent),
       uploadTranscriptJson(job.userId, job.jobId, transcript),
+      uploadResolveXML(job.userId, job.jobId, resolveXmlContent),
     ]);
 
     // 7. Final callback

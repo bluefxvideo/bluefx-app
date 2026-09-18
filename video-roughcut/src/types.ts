@@ -22,6 +22,11 @@ export interface VideoMetadata {
   audioStreams?: number[];
   /** Source audio sample rate in Hz. Defaults to 48000. */
   audioSampleRate?: number;
+  /**
+   * The rate the file is built on (ffmpeg's "tbr"), e.g. exactly 30 for a recording whose
+   * measured average reads 29.98. The DaVinci Resolve XML uses it. Defaults to frameRate.
+   */
+  nominalFrameRate?: number;
 }
 
 export interface WordTiming {

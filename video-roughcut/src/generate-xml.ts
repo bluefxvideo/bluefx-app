@@ -1,4 +1,4 @@
-import { secondsToFrames, resolveSequenceRate, type SequenceRate } from './timecode.js';
+import { secondsToFrames, resolveSequenceRate, nativeSequenceRate, type SequenceRate } from './timecode.js';
 import type { VideoMetadata, EditDecision, KeepSegment } from './types.js';
 
 /**
@@ -17,16 +17,41 @@ import type { VideoMetadata, EditDecision, KeepSegment } from './types.js';
  * carries the source's real channel count, and the audio tracks use the same
  * "exploded" layout Premiere writes itself: a linked pair of Stereo tracks for a
  * stereo source, one Mono track for a mono source.
+ *
+ * DaVinci Resolve gets its own variant (target 'resolve'): the source's true frame rate
+ * (Resolve drifts out of sync when a 30.00 fps file is described as 29.97), one plain
+ * audio track instead of the exploded pair, id-only links and an empty file duration,
+ * which is the layout Resolve conforms reliably.
  */
-export function generateFCPXML(metadata: VideoMetadata, editDecision: EditDecision): string {
-  const rate = resolveSequenceRate(metadata.frameRate);
+export type XmlTarget = 'premiere' | 'resolve';
+
+export function generateFCPXML(
+  metadata: VideoMetadata,
+  editDecision: EditDecision,
+  target: XmlTarget = 'premiere',
+): string {
+  const rate =
+    target === 'resolve'
+      ? nativeSequenceRate(metadata.nominalFrameRate ?? metadata.frameRate)
+      : resolveSequenceRate(metadata.frameRate);
   const pathUrl = `file://localhost/${encodeURIComponent(metadata.fileName)}`;
-  const totalOutputFrames = secondsToFrames(editDecision.totalOutputDuration, rate.fps);
   const totalSourceFrames = secondsToFrames(metadata.duration, rate.fps);
   const rateXml = rateBlock(rate);
 
-  const layout = audioLayout(metadata);
-  const ctx: ClipContext = { metadata, rate, pathUrl, totalSourceFrames, layout };
+  const layout = audioLayout(metadata, target);
+
+  // Timeline positions are running totals of the clip lengths, so clips always butt
+  // together, at any frame rate, without a 1-frame gap or overlap from rounding.
+  const frames = new Map<number, ClipFrames>();
+  let cursor = 0;
+  for (const seg of editDecision.segments) {
+    const inFrame = secondsToFrames(seg.sourceInPremiere, rate.fps);
+    const outFrame = Math.max(inFrame + 1, secondsToFrames(seg.sourceOut, rate.fps));
+    frames.set(seg.id, { inFrame, outFrame, startFrame: cursor, endFrame: cursor + (outFrame - inFrame) });
+    cursor += outFrame - inFrame;
+  }
+  const totalOutputFrames = cursor;
+  const ctx: ClipContext = { metadata, rate, pathUrl, totalSourceFrames, layout, target, frames };
 
   // The first clip in the file carries the full <file> definition; the rest refer to it.
   const videoClips = layout.hasVideo
@@ -38,8 +63,12 @@ export function generateFCPXML(metadata: VideoMetadata, editDecision: EditDecisi
         .map((seg, i) => clipItem(seg, i, key, ctx, !layout.hasVideo && k === 0 && i === 0))
         .join('\n');
       const stereo = layout.trackKeys.length === 2;
-      return `        <track currentExplodedTrackIndex="${k}" totalExplodedTrackCount="${layout.trackKeys.length}" premiereTrackType="${stereo ? 'Stereo' : 'Mono'}">
-${stereo && layout.hasVideo ? `          <outputchannelindex>${k + 1}</outputchannelindex>\n` : ''}${clips}
+      const trackOpen =
+        target === 'resolve'
+          ? '<track>'
+          : `<track currentExplodedTrackIndex="${k}" totalExplodedTrackCount="${layout.trackKeys.length}" premiereTrackType="${stereo ? 'Stereo' : 'Mono'}">`;
+      return `        ${trackOpen}
+${target === 'premiere' && stereo && layout.hasVideo ? `          <outputchannelindex>${k + 1}</outputchannelindex>\n` : ''}${clips}
           <enabled>TRUE</enabled>
           <locked>FALSE</locked>
         </track>`;
@@ -49,7 +78,7 @@ ${stereo && layout.hasVideo ? `          <outputchannelindex>${k + 1}</outputcha
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
 <xmeml version="4">
-  <sequence explodedTracks="true">
+  <sequence${target === 'premiere' ? ' explodedTracks="true"' : ''}>
     <name>Rough Cut - ${escapeXml(metadata.fileName)}</name>
     <duration>${totalOutputFrames}</duration>
     ${rateXml}
@@ -110,16 +139,25 @@ interface AudioLayout {
   trackKeys: TrackKey[];
 }
 
+interface ClipFrames {
+  inFrame: number;
+  outFrame: number;
+  startFrame: number;
+  endFrame: number;
+}
+
 interface ClipContext {
   metadata: VideoMetadata;
   rate: SequenceRate;
   pathUrl: string;
   totalSourceFrames: number;
   layout: AudioLayout;
+  target: XmlTarget;
+  frames: Map<number, ClipFrames>;
 }
 
 /** Stereo at 48 kHz is the fallback when the browser could not read the audio layout. */
-function audioLayout(metadata: VideoMetadata): AudioLayout {
+function audioLayout(metadata: VideoMetadata, target: XmlTarget): AudioLayout {
   const streams = (metadata.audioStreams ?? [])
     .map((c) => Math.round(c))
     .filter((c) => c >= 1 && c <= 64);
@@ -128,7 +166,8 @@ function audioLayout(metadata: VideoMetadata): AudioLayout {
     hasVideo: metadata.hasVideo !== false,
     streams,
     sampleRate: metadata.audioSampleRate && metadata.audioSampleRate > 0 ? Math.round(metadata.audioSampleRate) : 48000,
-    trackKeys: streams[0] >= 2 ? ['a1', 'a2'] : ['a1'],
+    // Resolve takes a whole stereo stream on one track; Premiere wants one track per channel.
+    trackKeys: target === 'premiere' && streams[0] >= 2 ? ['a1', 'a2'] : ['a1'],
   };
 }
 
@@ -143,12 +182,8 @@ function clipItem(
   ctx: ClipContext,
   includeFileDefinition: boolean,
 ): string {
-  const { metadata, rate, pathUrl, totalSourceFrames, layout } = ctx;
-  const inFrame = secondsToFrames(seg.sourceInPremiere, rate.fps);
-  const outFrame = secondsToFrames(seg.sourceOut, rate.fps);
-  const startFrame = secondsToFrames(seg.recordIn, rate.fps);
-  // End = start + source length, so rounding never opens a 1-frame gap between clips.
-  const endFrame = startFrame + (outFrame - inFrame);
+  const { metadata, rate, pathUrl, totalSourceFrames, layout, target } = ctx;
+  const { inFrame, outFrame, startFrame, endFrame } = ctx.frames.get(seg.id)!;
   const rateXml = rateBlock(rate);
   const stereo = layout.trackKeys.length === 2;
 
@@ -177,7 +212,7 @@ function clipItem(
     ? `            <file id="file-1">
               <name>${escapeXml(metadata.fileName)}</name>
               <pathurl>${escapeXml(pathUrl)}</pathurl>
-              <duration>${totalSourceFrames}</duration>
+              <duration>${target === 'resolve' ? '' : totalSourceFrames}</duration>
               ${rateXml}
               <timecode>
                 ${rateXml}
@@ -196,10 +231,13 @@ ${fileVideo}${fileAudio}
   // audio clips, so picture and sound move together on the timeline.
   let tail = '';
   if (key === 'v') {
-    const links = [
-      link(clipId('v', seg), 'video', 1, index + 1),
-      ...layout.trackKeys.map((k, t) => link(clipId(k, seg), 'audio', t + 1, index + 1)),
-    ];
+    const links =
+      target === 'resolve'
+        ? [idLink(clipId('v', seg)), ...layout.trackKeys.map((k) => idLink(clipId(k, seg)))]
+        : [
+            link(clipId('v', seg), 'video', 1, index + 1),
+            ...layout.trackKeys.map((k, t) => link(clipId(k, seg), 'audio', t + 1, index + 1)),
+          ];
     tail = `\n            <compositemode>normal</compositemode>\n${links.join('\n')}`;
   } else {
     tail = `
@@ -207,8 +245,12 @@ ${fileVideo}${fileAudio}
               <mediatype>audio</mediatype>
               <trackindex>${key === 'a2' ? 2 : 1}</trackindex>
             </sourcetrack>`;
+    if (target === 'resolve' && layout.hasVideo) {
+      tail += `\n${idLink(clipId('v', seg), 'video')}\n${idLink(clipId(key, seg))}`;
+    }
   }
-  const channelType = key === 'v' ? '' : ` premiereChannelType="${stereo ? 'stereo' : 'mono'}"`;
+  const channelType =
+    key === 'v' || target === 'resolve' ? '' : ` premiereChannelType="${stereo ? 'stereo' : 'mono'}"`;
 
   return `          <clipitem id="${clipId(key, seg)}"${channelType}>
             <name>${escapeXml(metadata.fileName)}</name>
@@ -221,6 +263,13 @@ ${fileVideo}${fileAudio}
             <out>${outFrame}</out>
 ${fileBlock}${tail}
           </clipitem>`;
+}
+
+/** Resolve's link form: the clip id, plus the media type when pointing at the video clip. */
+function idLink(ref: string, mediatype?: 'video'): string {
+  return `            <link>
+              <linkclipref>${ref}</linkclipref>${mediatype ? `\n              <mediatype>${mediatype}</mediatype>` : ''}
+            </link>`;
 }
 
 function link(ref: string, mediatype: 'video' | 'audio', trackIndex: number, clipIndex: number): string {

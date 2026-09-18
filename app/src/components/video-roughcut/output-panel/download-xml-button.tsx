@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { getRoughcutDownloadUrl } from '@/actions/tools/video-roughcut';
+import { getRoughcutDownloadUrl, type RoughcutEditor } from '@/actions/tools/video-roughcut';
 import { isStalePageError } from '@/lib/stale-page';
 
 interface DownloadXmlButtonProps {
   jobId: string;
+  /** Premiere and DaVinci Resolve each get their own XML. */
+  editor?: RoughcutEditor;
   label?: string;
   size?: 'default' | 'sm' | 'lg';
   variant?: 'default' | 'outline';
@@ -22,6 +24,7 @@ interface DownloadXmlButtonProps {
  */
 export function DownloadXmlButton({
   jobId,
+  editor = 'premiere',
   label = 'Download Premiere XML',
   size = 'default',
   variant = 'default',
@@ -32,9 +35,9 @@ export function DownloadXmlButton({
   const handleClick = async () => {
     setBusy(true);
     try {
-      const res = await getRoughcutDownloadUrl(jobId);
+      const res = await getRoughcutDownloadUrl(jobId, editor);
       if (!res.success || !res.url) {
-        toast.error(res.error || 'Could not create the download link');
+        toast.error(res.error || 'Could not create the download link', { duration: 12000 });
         return;
       }
       window.location.assign(res.url);

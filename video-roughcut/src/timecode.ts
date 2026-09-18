@@ -102,6 +102,21 @@ export interface SequenceRate {
 }
 
 /**
+ * The source's own rate, for DaVinci Resolve. Resolve reads picture by frame number and
+ * sound by time, so a 30.00 fps file described as 29.97 drifts out of sync (about 1.5 s
+ * over 24 minutes). Unlike resolveSequenceRate(), 30 stays 30 and 60 stays 60.
+ */
+export function nativeSequenceRate(sourceFps: number | null | undefined): SequenceRate {
+  const f = sourceFps && Number.isFinite(sourceFps) && sourceFps > 0 ? sourceFps : 30;
+  const near = (target: number) => Math.abs(f - target) < 0.012;
+  if (near(23.976)) return { timebase: 24, ntsc: true, fps: 24000 / 1001, dropFrame: false };
+  if (near(29.97)) return { timebase: 30, ntsc: true, fps: 30000 / 1001, dropFrame: true };
+  if (near(59.94)) return { timebase: 60, ntsc: true, fps: 60000 / 1001, dropFrame: true };
+  const rounded = Math.max(1, Math.round(f));
+  return { timebase: rounded, ntsc: false, fps: rounded, dropFrame: false };
+}
+
+/**
  * Map a source frame rate to the sequence rate we write into the XML.
  *
  * 30 fps sources (Ecamm, OBS, most phones) must be written as 29.97: Premiere builds
