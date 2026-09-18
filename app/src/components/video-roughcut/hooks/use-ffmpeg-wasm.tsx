@@ -16,6 +16,10 @@ import { useCallback, useRef, useState } from 'react';
  * Uses the single-thread core: it needs no cross-origin isolation headers, which
  * would break images and embeds elsewhere in the dashboard. MP3 encoding is
  * single-threaded anyway.
+ *
+ * ffmpeg.wasm is loaded from its prebuilt files in /public/ffmpeg (@ffmpeg/ffmpeg 0.12.15,
+ * MIT) with a script tag, not imported from npm: its worker loads the core with a dynamic
+ * import() that both Next.js bundlers rewrite and break ("expression is too dynamic").
  */
 
 type LogEvent = { type: string; message: string };
@@ -46,7 +50,58 @@ export interface ExtractAudioResult {
   probed: ProbedMetadata;
 }
 
-const CORE_BASE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
+const FFMPEG_SCRIPT_URL = '/ffmpeg/ffmpeg.js';
+/** The 32 MB core comes from a CDN; the second is the fallback when the first is down. */
+const CORE_BASE_URLS = [
+  'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd',
+  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd',
+];
+
+type FFmpegGlobal = { FFmpegWASM?: { FFmpeg: new () => FFmpegInstance } };
+
+let scriptPromise: Promise<void> | null = null;
+function loadFfmpegScript(): Promise<void> {
+  if ((window as unknown as FFmpegGlobal).FFmpegWASM) return Promise.resolve();
+  scriptPromise ??= new Promise<void>((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = FFMPEG_SCRIPT_URL;
+    el.async = true;
+    el.onload = () => resolve();
+    el.onerror = () => {
+      scriptPromise = null;
+      el.remove();
+      reject(new Error('Could not load the audio extractor. Check your connection and try again.'));
+    };
+    document.head.appendChild(el);
+  });
+  return scriptPromise;
+}
+
+/** Download a file and hand it to the worker as a same-origin blob URL. */
+async function toBlobURL(url: string, mimeType: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  return URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: mimeType }));
+}
+
+async function fetchCore(): Promise<{ coreURL: string; wasmURL: string }> {
+  let lastError: unknown;
+  for (const base of CORE_BASE_URLS) {
+    try {
+      const [coreURL, wasmURL] = await Promise.all([
+        toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+        toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+      ]);
+      return { coreURL, wasmURL };
+    } catch (err) {
+      lastError = err;
+      console.warn(`ffmpeg core not available from ${base}:`, err);
+    }
+  }
+  throw new Error(
+    `Could not download the audio extractor. Check your connection and try again. (${lastError instanceof Error ? lastError.message : 'network error'})`,
+  );
+}
 const MOUNT_POINT = '/input';
 const OUTPUT_PATH = '/output.mp3';
 
@@ -97,13 +152,11 @@ export function useFfmpegWasm() {
     setLoading(true);
     setError(null);
     try {
-      const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-      const { toBlobURL } = await import('@ffmpeg/util');
-      const ffmpeg = new FFmpeg() as unknown as FFmpegInstance;
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
+      await loadFfmpegScript();
+      const FFmpeg = (window as unknown as FFmpegGlobal).FFmpegWASM?.FFmpeg;
+      if (!FFmpeg) throw new Error('The audio extractor did not start. Reload the page and try again.');
+      const ffmpeg = new FFmpeg();
+      await ffmpeg.load(await fetchCore());
       ffmpeg.on('progress', (evt) => {
         setProgress(Math.round(Math.max(0, Math.min(1, evt.progress)) * 100));
       });
