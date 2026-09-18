@@ -115,13 +115,25 @@ export async function processJob(job: JobRequest): Promise<void> {
       jobId: job.jobId,
       status: 'failed',
       progress: 0,
-      error: err?.message || 'Unknown error',
+      error: userFacingError(err),
     };
     await postCallback(job.callbackUrl, payload).catch(() => {});
   } finally {
     // Always clean up temp audio
     await unlink(tmpAudioPath).catch(() => {});
   }
+}
+
+/**
+ * What the user sees when a job fails. Raw errors name the providers (fal, Deepgram,
+ * the model) and carry API details, so they stay in the worker log only.
+ */
+function userFacingError(err: unknown): string {
+  const message = err instanceof Error ? err.message : '';
+  if (message.startsWith('The AI response was cut off')) {
+    return 'This video is too long to analyze in one go. Try a shorter video.';
+  }
+  return 'Something went wrong while making your rough cut. Please try again.';
 }
 
 async function postCallback(callbackUrl: string, payload: CallbackPayload): Promise<void> {

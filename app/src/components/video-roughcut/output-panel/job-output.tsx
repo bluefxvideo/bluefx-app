@@ -29,8 +29,8 @@ const STAGE_LABEL: Record<RoughcutJobStatus, string> = {
   uploading: 'Uploading audio…',
   validating: 'Validating audio…',
   queued: 'Queued for processing…',
-  transcribing: 'Transcribing with Deepgram…',
-  analyzing: 'Claude is finding mistakes to cut…',
+  transcribing: 'Transcribing the audio…',
+  analyzing: 'AI is finding the mistakes to cut…',
   generating: 'Generating Premiere XML…',
   done: 'Done',
   failed: 'Failed',
@@ -164,7 +164,7 @@ export function JobOutput({ job, onDismiss, onRetry }: JobOutputProps) {
         <CardHeader>
           <CardTitle className="text-base">What was cut</CardTitle>
           <CardDescription>
-            Every removal, with Claude&apos;s reasoning.
+            Every removal, and why the AI cut it.
           </CardDescription>
         </CardHeader>
         <CardContent>
