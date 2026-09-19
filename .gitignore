@@ -73,3 +73,6 @@ bluefx-ai/
 bluefx/
 
 # Deployment focus: app/, remotion/, and react-video-editor/ only
+# Smart Video: client test files and renders stay local
+remotion/public/smart-video/_test/
+remotion/test-plans/

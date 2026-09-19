@@ -4,6 +4,7 @@ import { MyVideo } from './MyVideo.js';
 import { ScriptToVideo } from './ScriptToVideo.js';
 import { VideoEditor } from './VideoEditor.js';
 import { ReelEstateVideo } from './ReelEstateVideo.jsx';
+import { SmartVideo, smartVideoMetadata } from './SmartVideo.jsx';
 
 /**
  * Remotion Root - Register all compositions here
@@ -79,6 +80,18 @@ export const RemotionRoot = () => {
             height: isPortrait ? 1920 : 1080,
           };
         }}
+      />
+
+      {/* Smart Video — plan-driven motion-graphics ad (voice-timed text, scenes, SFX) */}
+      <Composition
+        id="SmartVideo"
+        component={SmartVideo}
+        durationInFrames={300}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{ scenes: [], assets: {}, audio: {}, duration: 10 }}
+        calculateMetadata={smartVideoMetadata}
       />
 
       {/* Video Editor composition - handles editor data */}
