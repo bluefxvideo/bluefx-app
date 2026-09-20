@@ -322,11 +322,23 @@ function titlePaint(look, theme, tone, size, textColor) {
       inset: Math.round(size * 0.44),
     };
   }
-  const fill = tone === 'accent' || tone === 'brand' ? theme.accent : textColor;
+  // Over a photo a dark or saturated accent disappears: there it is lifted toward white until it reads.
+  const accent = textColor === LIGHT_TEXT ? readableOnPhoto(theme.accent) : theme.accent;
+  const fill = tone === 'accent' || tone === 'brand' ? accent : textColor;
   if (kind === 'serif') {
     return { outer: { color: fill, lineHeight: 1.16, letterSpacing: '0.005em', fontStyle: tone === 'accent' ? 'italic' : 'normal', textShadow: '0 6px 30px rgba(0,0,0,0.35)' } };
   }
   return { outer: { color: fill, lineHeight: 1.12, letterSpacing: '-0.02em', textShadow: textColor === LIGHT_TEXT ? '0 4px 24px rgba(0,0,0,0.55)' : 'none' } };
+}
+
+function readableOnPhoto(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return hex;
+  const rgb = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+  if (luminance >= 0.6) return hex;
+  const lift = Math.min(0.8, (0.72 - luminance) / (1 - luminance));
+  return `#${rgb.map((c) => Math.round(c + (255 - c) * lift).toString(16).padStart(2, '0')).join('')}`;
 }
 
 function Title({ block }) {

@@ -115,7 +115,8 @@ export async function directVideo(brief: string, assets: SmartAsset[], length: V
     '{{LENGTH}}',
     `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
   ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '');
-  const parts: unknown[] = [{ text: instructions }, { text: `\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
+  const today = `\n\nTODAY: ${new Date().toISOString().slice(0, 10)}. Leave out any deadline, sale or event date in the material that has already passed.`;
+  const parts: unknown[] = [{ text: instructions }, { text: `${today}\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
   for (const asset of assets) {
     parts.push({ text: describe(asset) });
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
@@ -129,7 +130,8 @@ async function askDirector(parts: unknown[], check: (plan: DirectorPlan) => stri
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
   let feedback = '';
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // Two corrections: a fix for one rule sometimes breaks another, and a second correction costs far less than a failed job.
+  for (let attempt = 1; attempt <= 3; attempt++) {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${DIRECTOR_MODEL}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },

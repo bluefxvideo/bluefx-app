@@ -389,10 +389,11 @@ async function recordVoice(narration: string[], languageName: string, plan: Dire
         console.log(`🎤 Generating voice (part ${p + 1}/${parts.length}, take ${take})...`);
         const voice = await generateVoice(lines, languageName, plan.voice);
         const words = await transcribeWords(pcmToWav(voice.pcm, voice.rate), plan.language);
-        const worst = Math.min(...alignScript(lines, words).sceneCoverage);
+        const coverage = alignScript(lines, words).sceneCoverage;
+        const worst = Math.min(...coverage);
         if (!best || worst > best.worst) best = { ...voice, words, worst };
         if (worst >= MIN_SCENE_COVERAGE) break;
-        console.warn(`⚠️ Voice part ${p + 1}, take ${take} dropped part of the script (worst scene ${(worst * 100).toFixed(0)}% heard)`);
+        console.warn(`⚠️ Voice part ${p + 1}, take ${take} dropped part of the script (worst scene ${(worst * 100).toFixed(0)}% heard): "${lines[coverage.indexOf(worst)]}"`);
       }
       if (!best || best.worst < MIN_SCENE_COVERAGE) throw new Error('The voice-over kept skipping part of the script');
       return best;

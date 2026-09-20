@@ -97,7 +97,7 @@ export async function fromRealtor(url: string): Promise<LinkSource> {
     (home.property_type || home.type) && `Type: ${String(home.property_type || home.type).replace(/_/g, ' ')}`,
     home.description_text && `\nDescription:\n${home.description_text}`,
     home.primary_agent_name
-      ? `\nListed by (shown on the page): ${[home.primary_agent_name, home.primary_office_name, phone(home.primary_agent_phone || home.contactPhone)].filter(Boolean).join(', ')}. A contact in the client's note replaces this one.`
+      ? `\nListed by (shown on the page): ${[home.primary_agent_name, home.primary_office_name, phone(home.primary_agent_phone || home.contactPhone)].filter(Boolean).join(', ')}. Use this contact unless the client's note gives another one.`
       : '\nAgent contact: use only a contact the client gives in their note.',
   ]);
   const imageUrls = (Array.isArray(home.photo_urls) ? home.photo_urls : [])
