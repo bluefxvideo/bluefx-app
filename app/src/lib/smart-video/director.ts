@@ -1,4 +1,4 @@
-import { DirectorPlanSchema, type DirectorPlan, type SmartAsset } from './types';
+import { DirectorPlanSchema, type DirectorPlan, type SmartAsset, type VideoLength } from './types';
 import { usage } from './usage';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
@@ -30,7 +30,7 @@ STEP 3 — Decide the look. Pick the style that fits the BUSINESS and its audien
 - clean: clinics, dentists, professional services, B2B, tech, education, faith and community organisations. Light, modern, trustworthy.
 theme.bg and theme.accent are hex colours. Use the client's OWN brand colours, taken ONLY from a logo or designed artwork (files that list measured colours), never from photos: a logo's flat background colour is usually the brand background and its dominant colour the accent. With no logo or artwork, omit theme and the style's own colours are used. playful needs a BRIGHT, SATURATED bg (yellow, orange, sky blue... never white, cream or grey); clean needs a very light bg; elegant and bold need a very DARK bg. accent must contrast strongly with bg and must carry white text. Omit a colour only when the material gives no usable one.
 
-STEP 4 — Write the narration, in the language of the client's text. announcement and tour: 40 to 55 seconds, 95 to 125 words, 6 to 8 scenes. product: 25 to 40 seconds, 65 to 95 words, 6 to 8 short scenes. 1 to 2 sentences per scene:
+STEP 4 — Write the narration, in the language of the client's text. {{LENGTH}} 1 to 2 sentences per scene (up to 3 when narrating the client's own script):
 1. a hook that speaks to the viewer (a question or a bold promise), 2. who and what, 3-6. the substance in the order a viewer cares about (what you get, what it costs or pays, what is required, when and where), last. one clear call to action.
 Cover every fact a viewer needs to decide (offer, price or pay, benefits, requirements, schedule, place, how to respond); drop only trivia and repetition.
 Spoken style: short sentences, warm and concrete, no filler. Write numbers, prices, times and abbreviations as spoken words in the narration language ("five thousand five hundred", never "5500"). Never read out an email address, URL or phone number: say "at the address on screen" / "the number on screen" and SHOW it in a highlight block. Leave out low-value details rather than rushing.
@@ -59,12 +59,13 @@ Blocks:
 - tiles {items:[{top,big,icon,color,cue}]}: 2-5 equal tiles for schedules, steps or packages. big is under 6 characters. color blue/green/orange/purple/accent.
 - highlight {text}: THE contact detail (email, phone or URL), exactly as given by the client. It must be in the last scene.
 On-screen text is a punchy summary of the narration, never a transcript. Every fact on screen must also be spoken, except contact details.
-Use the client's real photos and clips in at least half of the scenes; show different parts of a clip with startFrom. Show the logo early and in the last scene if there is one.
+Use the client's real photos and clips in at least half of the scenes; show different parts of a clip with startFrom. The client chose every file for a reason: list EVERY file in "assets" with its role, and spread the usable ones across the scenes. Never show the same photo or clip in more than two scenes while other usable files go unseen; sweep leftovers into a gallery block. Show the logo early and in the last scene if there is one.
 
 The first title of every scene is on screen from the scene's first frame, so it must make sense immediately.
 cue = the exact consecutive words copied from THIS scene's narration at which the element should appear (2 to 4 words, e.g. the first words of the sentence that mentions it). Elements appear in reading order, top to bottom, so cues must follow the narration order. Use null for what is visible from the scene's first frame (usually the media card and the first title).
 
 STEP 6 — Sound. voice.gender and voice.direction (one sentence of delivery direction for the voice actor, in English). musicPrompt: an instrumental bed that fits the style, in this format: explicit BPM, individually named instruments, attitude words, "steady energy, no build-ups, no drops", "no vocals", "sits under a voice-over", "about 60 seconds".
+warnings: short notes for the client, in English, about things that weaken the video and only they can fix: no phone, email, website or address to respond to; files that were unusable (too small, blurry, irrelevant); facts that contradict each other. Empty when all is well.
 signatureSound (optional): ONE short real-world sound that belongs to this business (a toy train whistle, a doorbell, a camera shutter, a champagne pop), played right after scene afterScene. Omit it when nothing natural fits.
 
 EXAMPLE of the expected quality and density (a different client; do not copy its wording or structure blindly):
@@ -78,7 +79,7 @@ EXAMPLE of the expected quality and density (a different client; do not copy its
 {"narration":"We are open Monday to Saturday, nine to six. Call the number on screen and book your spot. Your dog will thank you!","background":{"type":"brand","asset":null,"focus":null},"blocks":[{"type":"logo","asset":"a1","cue":null},{"type":"title","text":"BOOK TODAY","tone":"light","cue":null},{"type":"rows","items":[{"icon":"🗓️","text":"Monday to Saturday","cue":"Monday to Saturday"},{"icon":"🕘","text":"9:00 to 18:00","cue":"nine to six"}]},{"type":"caption","text":"call:","cue":"Call the number"},{"type":"highlight","text":"555-0134","cue":"Call the number"},{"type":"title","text":"SEE YOU SOON!","tone":"accent","cue":"Your dog will"}]}]}
 
 Return ONLY JSON:
-{"language":"xx","format":"announcement","captions":false,"style":"...","styleReason":"...","theme":{"bg":"#...","accent":"#..."},"voice":{"gender":"female","direction":"..."},"musicPrompt":"...","lifestyleShots":null,"animate":[{"asset":"a1","prompt":"..."}],"signatureSound":{"prompt":"...","afterScene":0},
+{"language":"xx","format":"announcement","captions":false,"style":"...","styleReason":"...","theme":{"bg":"#...","accent":"#..."},"voice":{"gender":"female","direction":"..."},"musicPrompt":"...","lifestyleShots":null,"animate":[{"asset":"a1","prompt":"..."}],"warnings":[],"signatureSound":{"prompt":"...","afterScene":0},
 "assets":[{"id":"a1","role":"...","description":"...","factsFound":["..."],"logoOnSolidBackground":false}],
 "scenes":[{"narration":"...","background":{"type":"brand","asset":null,"focus":null},"blocks":[{"type":"title","text":"...","tone":"light","cue":null}]}]}`;
 
@@ -93,11 +94,22 @@ function describe(asset: SmartAsset): string {
 }
 
 /** One multimodal call: the director sees the brief and every file, and returns the whole plan. */
-export async function directVideo(brief: string, assets: SmartAsset[]): Promise<DirectorPlan> {
+const LENGTH_RULES: Record<VideoLength, string> = {
+  auto:
+    "The client's text is RAW MATERIAL, not a script, even when it is written like one. Rewrite it into the strongest ad you can: find the hook, lead with what the viewer gains, reorder, cut repetition and trivia, turn specs into results. You decide the length: as short as the content allows, as long as it needs. Typical: product 25 to 40 seconds; announcement or tour 40 to 60 seconds; up to 90 seconds only when the viewer truly needs that much to decide. Never pad. About 2.3 words per second, 5 to 10 scenes.",
+  script:
+    "The client's text IS the script and they want all of it. Narrate it faithfully and in order, in their wording: do not cut, summarise or reorder content. Adapt only what speech needs: numbers, units and symbols as spoken words, list items turned into flowing sentences, headings dropped or folded into the next sentence, contact details shown on screen instead of read out. Ignore stage directions such as \"(3 minutes)\". Use as many scenes as the script needs (up to 28): one idea per scene and at most about 30 words (12 seconds) each, so the picture changes often; split a long list over two scenes with different files. The format recipes still guide what each scene shows.",
+};
+
+export async function directVideo(brief: string, assets: SmartAsset[], length: VideoLength = 'auto'): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
 
-  const parts: unknown[] = [{ text: BRIEF }, { text: `\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
+  const instructions = BRIEF.replace(
+    '{{LENGTH}}',
+    `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
+  );
+  const parts: unknown[] = [{ text: instructions }, { text: `\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
   for (const asset of assets) {
     parts.push({ text: describe(asset) });
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
@@ -112,7 +124,7 @@ export async function directVideo(brief: string, assets: SmartAsset[]): Promise<
         contents: [{ parts: feedback ? [...parts, { text: feedback }] : parts }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0.6 },
       }),
-      signal: AbortSignal.timeout(280_000),
+      signal: AbortSignal.timeout(length === 'script' ? 480_000 : 280_000),
     });
     if (!res.ok) throw new Error(`Director call failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
     const json = await res.json();
@@ -121,7 +133,7 @@ export async function directVideo(brief: string, assets: SmartAsset[]): Promise<
 
     try {
       const plan = DirectorPlanSchema.parse(JSON.parse(text));
-      const problem = checkPlan(plan, assets);
+      const problem = checkPlan(plan, assets, brief, length);
       if (!problem) return plan;
       feedback = `\n\nYour previous plan had a problem: ${problem}\nReturn the corrected full JSON.`;
     } catch (error) {
@@ -133,7 +145,7 @@ export async function directVideo(brief: string, assets: SmartAsset[]): Promise<
 }
 
 // Things the renderer cannot fix by construction.
-function checkPlan(plan: DirectorPlan, assets: SmartAsset[]): string | null {
+function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, length: VideoLength): string | null {
   const ids = new Set([...assets.map((a) => a.id), ...(plan.lifestyleShots || []).map((shot) => shot.id)]);
   const badShot = (plan.lifestyleShots || []).find((shot) => !assets.some((a) => a.id === shot.fromAsset && a.kind === 'image'));
   const badMotion = (plan.animate || []).find((m) => !ids.has(m.asset));
@@ -149,8 +161,28 @@ function checkPlan(plan: DirectorPlan, assets: SmartAsset[]): string | null {
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
   const words = plan.scenes.reduce((n, scene) => n + scene.narration.split(/\s+/).length, 0);
-  const minimum = plan.format === 'product' ? 55 : 85;
-  if (words < minimum) return `the narration is only ${words} words; a ${plan.format} video needs at least ${minimum + 10}.`;
+  const briefWords = brief.split(/\s+/).filter(Boolean).length;
+  // A thin brief must not be padded, so the floor follows what the client gave.
+  const minimum = length === 'script' ? Math.round(briefWords * 0.7) : Math.min(plan.format === 'product' ? 55 : 80, Math.max(40, briefWords));
+  if (words < minimum) {
+    return length === 'script'
+      ? `the narration has ${words} words but the client's script has about ${briefWords}; narrate the whole script, do not shorten it.`
+      : `the narration is only ${words} words; this video needs at least ${minimum + 10}.`;
+  }
+
+  // Every upload is accounted for, and no file is worn out while good ones go unseen.
+  const unlisted = assets.filter((a) => !plan.assets.some((listed) => listed.id === a.id)).map((a) => a.id);
+  if (unlisted.length) return `"assets" must list every file with its role; missing: ${unlisted.join(', ')}.`;
+  const uses = new Map<string, number>();
+  for (const scene of plan.scenes) {
+    const shown = [scene.background.asset, ...scene.blocks.flatMap((b) => ('asset' in b ? [b.asset] : 'assets' in b ? b.assets : []))];
+    for (const id of new Set(shown.filter(Boolean) as string[])) uses.set(id, (uses.get(id) || 0) + 1);
+  }
+  const unseen = plan.assets.filter((a) => ['photo', 'clip', 'product'].includes(a.role) && !uses.has(a.id)).map((a) => a.id);
+  const overused = [...uses].filter(([, count]) => count > 2).map(([id]) => id);
+  if (unseen.length && overused.length) {
+    return `${overused.join(', ')} appear in more than two scenes while ${unseen.join(', ')} are never shown. Spread the client's files across the scenes (or mark a file "skip" with the reason in its description).`;
+  }
   const last = plan.scenes[plan.scenes.length - 1];
   if (!last.blocks.some((b) => b.type === 'highlight')) return 'the last scene needs a highlight block (the contact, shop, code or URL).';
   if (plan.format === 'tour' && plan.scenes.filter((scene) => scene.background.type === 'mediaFull').length < 3) return 'a tour needs at least 3 scenes with a mediaFull background, each showing a different photo.';

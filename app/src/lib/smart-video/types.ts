@@ -7,6 +7,10 @@ import { z } from 'zod';
  * appears on (`cue`). Timings come from the generated voice.
  */
 
+/** auto = the director rewrites freely and decides the length (the default); script = narrate the client's own words in full. */
+export const VIDEO_LENGTHS = ['auto', 'script'] as const;
+export type VideoLength = (typeof VIDEO_LENGTHS)[number];
+
 export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean'] as const;
 
 const cue = z.string().nullish().describe('Exact words from this scene\'s narration on which the element appears; null = scene start');
@@ -83,7 +87,8 @@ export const DirectorPlanSchema = z.object({
       logoOnSolidBackground: z.boolean().nullish(),
     })
   ),
-  scenes: z.array(SceneSchema).min(5).max(10),
+  warnings: z.array(z.string()).nullish().describe('What the client should know: missing contact, unusable files, facts that conflict'),
+  scenes: z.array(SceneSchema).min(4).max(28),
 });
 
 export type DirectorPlan = z.infer<typeof DirectorPlanSchema>;

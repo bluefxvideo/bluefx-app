@@ -1,7 +1,7 @@
 /**
  * Smart Video end-to-end test: a folder of client files + a brief → finished MP4.
  *
- * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | zillow/amazon link> <brief.txt>
+ * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | zillow/amazon link> <brief.txt> [auto|script]
  *                  With a link, the brief file is the client's own note (offer, contact) added to the scraped facts.
  * Output:         remotion/out/smart-<job-name>.mp4 (+ the plan in remotion/test-plans/)
  */
@@ -13,11 +13,11 @@ import path from 'node:path';
 import { createSmartVideo } from '../lib/smart-video/pipeline';
 import { prepareAssets } from '../lib/smart-video/prepare-assets';
 import { fromLink } from '../lib/smart-video/sources';
-import type { SmartAsset } from '../lib/smart-video/types';
+import type { SmartAsset, VideoLength } from '../lib/smart-video/types';
 
 config({ path: path.resolve(__dirname, '../../.env.local') });
 
-const [job, source, briefFile] = process.argv.slice(2);
+const [job, source, briefFile, length = 'auto'] = process.argv.slice(2);
 let folder = source;
 if (!job || !source || !briefFile) throw new Error('Usage: smart-video-test.ts <job-name> <files-folder> <brief.txt>');
 
@@ -52,7 +52,14 @@ async function main() {
     console.log(`✅ Link read: ${link.imageUrls.length} photos, ${link.brief.length} characters of facts`);
   }
   const assets = await prepareFolder();
-  const { props, plan, usage } = await createSmartVideo(brief, assets, storeLocal, async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))));
+  const { props, plan, usage, warnings } = await createSmartVideo(
+    brief,
+    assets,
+    storeLocal,
+    async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))),
+    { length: length as VideoLength }
+  );
+  for (const warning of warnings) console.log(`⚠️ For the client: ${warning}`);
 
   fs.mkdirSync(path.join(REMOTION, 'test-plans'), { recursive: true });
   const propsFile = path.join(REMOTION, 'test-plans', `${job}.json`);

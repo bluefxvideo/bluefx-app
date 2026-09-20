@@ -1,24 +1,33 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Check, Download, FileImage, FileVideo, Loader2, RotateCcw, Sparkles, Upload, X } from 'lucide-react';
+import { Check, Download, FileImage, FileVideo, Ghost, Loader2, RotateCcw, ScrollText, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
 import { useSmartVideo } from './hooks/use-smart-video';
+import { PhantomMark } from './phantom-mark';
+
+// The tool's persona: an unseen genius who does the work and leaves you the credit.
+const NAME = 'The Phantom';
+const PHANTOM = 'the Phantom';
 
 const STAGES: { status: SmartVideoJobStatus; label: string }[] = [
-  { status: 'reading', label: 'Reading your text and files' },
-  { status: 'directing', label: 'Planning the video: script, look, scenes' },
-  { status: 'producing', label: 'Recording the voice, making the music' },
-  { status: 'rendering', label: 'Rendering the video' },
-  { status: 'finishing', label: 'Levelling the sound' },
+  { status: 'reading', label: `${NAME} is going through your files` },
+  { status: 'directing', label: `${NAME} is writing the script. Don't look.` },
+  {
+    status: 'producing',
+    label: `${NAME} is in the booth: voice, music, sound`,
+  },
+  { status: 'rendering', label: `${NAME} is cutting the film` },
+  { status: 'finishing', label: `${NAME} is covering its tracks` },
 ];
 
 /**
@@ -37,22 +46,20 @@ export function SmartVideoPage() {
     if (running) watched.current = job.id;
     else if (watched.current === job.id) {
       watched.current = null;
-      if (job.status === 'done') toast.success('Your video is ready');
-      else toast.error(job.error || 'The video failed');
+      if (job.status === 'done') toast.success(`${NAME} was here. Your video is ready.`);
+      else toast.error(`${NAME} vanished mid-job: ${job.error || 'unknown reason'}`);
     }
   }, [job]);
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1400px] mx-auto">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
-          <Sparkles className="w-5 h-5" />
-        </div>
+        <PhantomMark className="w-12 h-12 flex-shrink-0" active={smart.isBusy} />
         <div>
-          <h1 className="text-xl font-semibold">Smart Video</h1>
+          <h1 className="text-xl font-semibold">{NAME}</h1>
           <p className="text-sm text-muted-foreground">
-            Paste what the video is about and add your photos or clips. The script, voice, music, look and
-            editing are done for you. Admin-only test.
+            Hand {PHANTOM} your text and your files. It writes the script, picks the look, records the voice, scores the music and cuts the
+            film, unseen. You take the credit. Admin-only test.
           </p>
         </div>
       </div>
@@ -64,7 +71,7 @@ export function SmartVideoPage() {
 
       {smart.history.length > 0 && (
         <Card className="p-4 space-y-2">
-          <h2 className="text-sm font-medium">Earlier videos</h2>
+          <h2 className="text-sm font-medium">Sightings</h2>
           <div className="divide-y">
             {smart.history.map((past) => (
               <button
@@ -91,15 +98,27 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
   return (
     <Card className="p-4 space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="smart-brief">What is the video about?</Label>
+        <Label htmlFor="smart-brief">What should {PHANTOM} make?</Label>
         <Textarea
           id="smart-brief"
           value={smart.brief}
           onChange={(e) => smart.setBrief(e.target.value)}
-          placeholder="Paste the job ad, the offer, the event details, the listing... Any language. Include the contact details people should use."
+          placeholder={`Paste anything: the job ad, the offer, the listing, your messy notes. Any language. ${NAME} figures out the rest. Include the phone, email or website people should use.`}
           className="min-h-[220px]"
           disabled={smart.isBusy}
         />
+      </div>
+
+      <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+        <div className="space-y-1">
+          <Label htmlFor="smart-exact">Say exactly what I wrote</Label>
+          <p className="text-xs text-muted-foreground">
+            {smart.exactWords
+              ? `${NAME} narrates your words as written, nothing cut. Long scripts make long videos: 3 minutes of text takes 15 to 25 minutes to render.`
+              : `Off: ${NAME} rewrites your text into the strongest ad it can and decides how long it should be. Recommended.`}
+          </p>
+        </div>
+        <Switch id="smart-exact" checked={smart.exactWords} onCheckedChange={smart.setExactWords} disabled={smart.isBusy} />
       </div>
 
       <div className="space-y-2">
@@ -112,8 +131,8 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
           disabled={smart.isBusy}
         />
         <p className="text-xs text-muted-foreground">
-          With a link, the photos and facts come from the page. Use the text box for what the page does not know:
-          your contact, your price or discount code, who the ad is for.
+          With a link, the photos and facts come from the page. Use the text box for what the page does not know: your contact, your price
+          or discount code, who the ad is for.
         </p>
       </div>
 
@@ -161,8 +180,8 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
       </div>
 
       <Button onClick={smart.start} disabled={smart.isBusy} className="w-full">
-        {smart.isBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-        Make my video
+        {smart.isBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ghost className="w-4 h-4 mr-2" />}
+        Summon {PHANTOM}
       </Button>
     </Card>
   );
@@ -180,15 +199,20 @@ function OutputPanel({
   if (uploading) {
     return (
       <Card className="p-4 space-y-3">
-        <p className="text-sm">Uploading {uploading.done} of {uploading.total} files...</p>
+        <p className="text-sm">
+          Uploading {uploading.done} of {uploading.total} files...
+        </p>
         <Progress value={uploading.total ? (uploading.done / uploading.total) * 100 : 100} />
       </Card>
     );
   }
   if (!job) {
     return (
-      <Card className="p-8 flex items-center justify-center text-sm text-muted-foreground text-center">
-        Your video appears here. It takes 2 to 4 minutes.
+      <Card className="p-8 flex flex-col items-center justify-center gap-5 text-sm text-muted-foreground text-center">
+        <PhantomMark className="w-40 h-40" />
+        <p>
+          {NAME}&apos;s work appears here in about 3 minutes. {NAME} works alone.
+        </p>
       </Card>
     );
   }
@@ -210,43 +234,60 @@ function OutputPanel({
             </Button>
             <Button variant="outline" onClick={onReset}>
               <RotateCcw className="w-4 h-4 mr-2" />
-              New video
+              Summon again
             </Button>
           </div>
         </>
       ) : job.status === 'failed' ? (
         <div className="space-y-3">
-          <p className="text-sm text-destructive">{job.error || 'The video failed.'}</p>
+          <p className="text-sm text-destructive">
+            {NAME} vanished mid-job: {job.error || 'unknown reason'}
+          </p>
           <Button variant="outline" onClick={onReset}>
             <RotateCcw className="w-4 h-4 mr-2" />
             Start over
           </Button>
         </div>
       ) : (
-        <ul className="space-y-3">
-          {STAGES.map((stage, i) => (
-            <li key={stage.status} className={cn('flex items-center gap-3 text-sm', i > current && 'text-muted-foreground')}>
-              {i < current ? (
-                <Check className="w-4 h-4 text-green-600" />
-              ) : i === current ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <span className="w-4 h-4 rounded-full border" />
-              )}
-              <span className="flex-1">{stage.label}</span>
-              {stage.status === 'rendering' && i === current && (
-                <span className="text-xs text-muted-foreground">{job.renderProgress ?? 0}%</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <>
+          <PhantomMark className="w-28 h-28 mx-auto" active />
+          <ul className="space-y-3">
+            {STAGES.map((stage, i) => (
+              <li key={stage.status} className={cn('flex items-center gap-3 text-sm', i > current && 'text-muted-foreground')}>
+                {i < current ? (
+                  <Check className="w-4 h-4 text-green-600" />
+                ) : i === current ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full border" />
+                )}
+                <span className="flex-1">{stage.label}</span>
+                {stage.status === 'rendering' && i === current && (
+                  <span className="text-xs text-muted-foreground">{job.renderProgress ?? 0}%</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {job.warnings && job.warnings.length > 0 && (
+        <div className="flex gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <ScrollText className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
+          <ul className="space-y-1">
+            <li className="font-medium">{NAME} left a note:</li>
+            {job.warnings.map((warning, i) => (
+              <li key={i}>{warning}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {job.summary && (
         <div className="text-sm space-y-1 border-t pt-3">
           <p>
-            <span className="font-medium capitalize">{job.summary.format}</span> · {job.summary.style} look ·{' '}
-            {job.summary.scenes} scenes · {Math.round(job.durationSeconds || 0)} s · {job.summary.language.toUpperCase()}
+            <span className="font-medium capitalize">{job.summary.format}</span> · {job.summary.style} look · {job.summary.scenes} scenes ·{' '}
+            {Math.round(job.durationSeconds || 0)} s · {job.summary.language.toUpperCase()}
             {job.summary.captions ? ' · captions' : ''}
           </p>
           <p className="text-muted-foreground">{job.summary.styleReason}</p>
@@ -259,7 +300,9 @@ function OutputPanel({
           <ul className="mt-2 space-y-1 text-muted-foreground">
             {job.usage.map((entry, i) => (
               <li key={i} className="flex justify-between gap-3">
-                <span>{entry.step} ({entry.detail})</span>
+                <span>
+                  {entry.step} ({entry.detail})
+                </span>
                 <span>${entry.usd.toFixed(3)}</span>
               </li>
             ))}

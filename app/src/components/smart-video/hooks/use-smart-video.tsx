@@ -13,6 +13,7 @@ export function useSmartVideo() {
   const queryClient = useQueryClient();
   const [brief, setBrief] = useState('');
   const [link, setLink] = useState('');
+  const [exactWords, setExactWords] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -66,6 +67,7 @@ export function useSmartVideo() {
       const started = await startSmartVideo({
         jobId: requested.data.jobId,
         brief,
+        length: exactWords ? 'script' : 'auto',
         link: link.trim(),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -77,7 +79,7 @@ export function useSmartVideo() {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, files, queryClient]);
+  }, [brief, link, exactWords, files, queryClient]);
 
   const reset = useCallback(() => {
     setJobId(null);
@@ -88,7 +90,7 @@ export function useSmartVideo() {
   }, [queryClient]);
 
   return {
-    brief, setBrief, link, setLink, files, addFiles, removeFile,
+    brief, setBrief, link, setLink, exactWords, setExactWords, files, addFiles, removeFile,
     job: job ?? null, history, uploading,
     isBusy: Boolean(uploading) || isRunning(job) || (Boolean(jobId) && !job),
     start, reset, openJob: setJobId,

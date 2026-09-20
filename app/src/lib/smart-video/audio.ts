@@ -36,7 +36,7 @@ function inlineAudio(json: any): { data: Buffer; mimeType: string } {
   throw new Error('No audio in the response');
 }
 
-function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
+export function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
   const header = Buffer.alloc(44);
   header.write('RIFF', 0);
   header.writeUInt32LE(36 + pcm.length, 4);
@@ -57,7 +57,7 @@ export async function generateVoice(
   narration: string[],
   languageName: string,
   voice: { gender: 'female' | 'male'; direction: string }
-): Promise<{ wav: Buffer; durationSeconds: number }> {
+): Promise<{ pcm: Buffer; rate: number; durationSeconds: number }> {
   const prompt =
     `Read the transcript below aloud in ${languageName}, as a native speaker. ` +
     `Delivery: ${voice.direction} Natural pace, clear diction, a short breath between paragraphs. ` +
@@ -77,7 +77,7 @@ export async function generateVoice(
   const rate = Number(/rate=(\d+)/.exec(mimeType)?.[1] || 24000);
   const durationSeconds = data.length / 2 / rate;
   usage.voice(json.usageMetadata, durationSeconds);
-  return { wav: pcmToWav(data, rate), durationSeconds };
+  return { pcm: data, rate, durationSeconds };
 }
 
 // Beds the music model never refuses, used when the director's prompt is blocked.

@@ -1,8 +1,19 @@
 import { directVideo } from './director';
-import { MOTION_CLIP_SECONDS, animatePhoto, cutOutProduct, generateLifestyleShot, generateMusic, generateSound, generateVoice, transcribeWords } from './audio';
+import {
+  MOTION_CLIP_SECONDS,
+  animatePhoto,
+  cutOutProduct,
+  generateLifestyleShot,
+  generateMusic,
+  generateSound,
+  generateVoice,
+  pcmToWav,
+  transcribeWords,
+  type SpokenWord,
+} from './audio';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropVertical, cutOutLogo } from './brand';
-import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile } from './types';
+import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
 
 /**
@@ -18,6 +29,8 @@ const TAIL = 4.2; // music-only ending that holds the contact card
 const VOICE_TAKES = 3;
 // Spoken numbers come back as digits, so a faithful take still misses some words.
 const MIN_SCENE_COVERAGE = 0.5;
+const VOICE_PART_WORDS = 130; // a long script is recorded in parts: shorter takes skip less and retake cheaply
+const VOICE_PART_GAP = 0.35; // breath between parts
 
 const LANGUAGE_NAMES = new Intl.DisplayNames(['en'], { type: 'language' });
 
@@ -29,6 +42,13 @@ export interface SmartVideoResult {
   durationSeconds: number;
   /** API spend of this video, step by step (USD). */
   usage: UsageEntry[];
+  /** Notes for the client about things only they can fix (e.g. no contact detail). */
+  warnings: string[];
+}
+
+export interface SmartVideoOptions {
+  length?: VideoLength;
+  onStage?: (stage: SmartVideoStage) => void;
 }
 
 export async function createSmartVideo(
@@ -36,9 +56,9 @@ export async function createSmartVideo(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  onStage: (stage: SmartVideoStage) => void = () => {}
+  options: SmartVideoOptions = {}
 ): Promise<SmartVideoResult> {
-  const { result, usage } = await trackUsage(() => produce(brief, assets, store, loadStored, onStage));
+  const { result, usage } = await trackUsage(() => produce(brief, assets, store, loadStored, options));
   return { ...result, usage };
 }
 
@@ -47,11 +67,11 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  onStage: (stage: SmartVideoStage) => void
+  { length = 'auto', onStage = () => {} }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   onStage('directing');
   console.log(`🎬 Smart Video: directing (${assets.length} files)...`);
-  const plan = await directVideo(brief, assets);
+  const plan = await directVideo(brief, assets, length);
   console.log(`✅ Plan: ${plan.scenes.length} scenes, style "${plan.style}" (${plan.styleReason}), language ${plan.language}`);
 
   onStage('producing');
@@ -91,8 +111,12 @@ async function produce(
   // Stills the director wants moving. The clip is made from the vertical crop the
   // background would show anyway; on failure the still simply stays.
   const focusOf = (id: string) => plan.scenes.find((scene) => scene.background.asset === id)?.background.focus;
+  // Real footage already gives the video motion; animating stills on top only adds cost.
+  const showsClip = plan.scenes.some((scene) =>
+    [scene.background.asset, ...scene.blocks.map((b) => ('asset' in b ? b.asset : null))].some((id) => assets.find((a) => a.id === id)?.kind === 'video')
+  );
   const motion = Promise.all(
-    (plan.animate || []).map(async (shot) => {
+    (showsClip ? [] : plan.animate || []).map(async (shot) => {
       try {
         const original = assets.find((a) => a.id === shot.asset && a.kind === 'image');
         const generated = original ? null : (await lifestyle).find(([id]) => id === shot.asset);
@@ -108,24 +132,7 @@ async function produce(
   ).then((pairs) => new Map(pairs.filter((pair): pair is readonly [string, string] => pair !== null)));
 
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls] = await Promise.all([
-    (async () => {
-      // The voice model sometimes skips or merges sentences. Every take is
-      // transcribed and checked scene by scene; a take with a missing scene is redone.
-      let best: { wav: Buffer; words: Awaited<ReturnType<typeof transcribeWords>>; durationSeconds: number; worst: number } | null = null;
-      for (let take = 1; take <= VOICE_TAKES; take++) {
-        console.log(`🎤 Generating voice (take ${take})...`);
-        const { wav, durationSeconds } = await generateVoice(narration, languageName, plan.voice);
-        const words = await transcribeWords(wav, plan.language);
-        const worst = Math.min(...alignScript(narration, words).sceneCoverage);
-        if (!best || worst > best.worst) best = { wav, words, durationSeconds, worst };
-        if (worst >= MIN_SCENE_COVERAGE) break;
-        console.warn(`⚠️ Voice take ${take} dropped part of the script (worst scene ${(worst * 100).toFixed(0)}% heard)`);
-      }
-      if (!best || best.worst < MIN_SCENE_COVERAGE) throw new Error('The voice-over kept skipping part of the script');
-      const url = await store(best.wav, 'voice.wav', 'audio/wav');
-      console.log(`✅ Voice: ${best.durationSeconds.toFixed(1)} s, ${best.words.length} words timed, worst scene ${(best.worst * 100).toFixed(0)}% heard`);
-      return { url, words: best.words, durationSeconds: best.durationSeconds };
-    })(),
+    recordVoice(narration, languageName, plan, store),
     generateMusic(plan.musicPrompt, plan.style)
       .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
       .catch((error) => {
@@ -197,7 +204,68 @@ async function produce(
     captions: plan.captions ? { words: captionWords(sceneTokens, onTimeline, lastWordEnd) } : undefined,
     scenes,
   };
-  return { props, plan, durationSeconds: duration };
+  return { props, plan, durationSeconds: duration, warnings: clientWarnings(plan) };
+}
+
+function clientWarnings(plan: DirectorPlan): string[] {
+  const warnings = [...(plan.warnings || [])];
+  const contact = plan.scenes[plan.scenes.length - 1].blocks.find((b) => b.type === 'highlight');
+  const reachable = contact && 'text' in contact && /[@\d]|\.[a-z]{2,}/i.test(contact.text);
+  if (!reachable && !warnings.some((w) => /contact|phone|email|website/i.test(w))) {
+    warnings.unshift('Your text has no phone, email or website, so the last screen cannot tell viewers how to reach you.');
+  }
+  return warnings;
+}
+
+/**
+ * Records the narration and times every word. The voice model sometimes skips
+ * or merges sentences, so each take is transcribed and checked scene by scene,
+ * and a take with a missing scene is redone. Long scripts are recorded in parts.
+ */
+async function recordVoice(narration: string[], languageName: string, plan: DirectorPlan, store: StoreFile) {
+  const parts: string[][] = [[]];
+  let count = 0;
+  for (const line of narration) {
+    const words = line.split(/\s+/).length;
+    if (count && count + words > VOICE_PART_WORDS) {
+      parts.push([]);
+      count = 0;
+    }
+    parts[parts.length - 1].push(line);
+    count += words;
+  }
+
+  const recorded = await Promise.all(
+    parts.map(async (lines, p) => {
+      let best: { pcm: Buffer; rate: number; words: SpokenWord[]; durationSeconds: number; worst: number } | null = null;
+      for (let take = 1; take <= VOICE_TAKES; take++) {
+        console.log(`🎤 Generating voice (part ${p + 1}/${parts.length}, take ${take})...`);
+        const voice = await generateVoice(lines, languageName, plan.voice);
+        const words = await transcribeWords(pcmToWav(voice.pcm, voice.rate), plan.language);
+        const worst = Math.min(...alignScript(lines, words).sceneCoverage);
+        if (!best || worst > best.worst) best = { ...voice, words, worst };
+        if (worst >= MIN_SCENE_COVERAGE) break;
+        console.warn(`⚠️ Voice part ${p + 1}, take ${take} dropped part of the script (worst scene ${(worst * 100).toFixed(0)}% heard)`);
+      }
+      if (!best || best.worst < MIN_SCENE_COVERAGE) throw new Error('The voice-over kept skipping part of the script');
+      return best;
+    })
+  );
+
+  const rate = recorded[0].rate;
+  const gap = Buffer.alloc(Math.round(VOICE_PART_GAP * rate) * 2);
+  const words: SpokenWord[] = [];
+  const audio: Buffer[] = [];
+  let offset = 0;
+  for (const [i, part] of recorded.entries()) {
+    words.push(...part.words.map((w) => ({ ...w, start: w.start + offset, end: w.end + offset })));
+    audio.push(part.pcm, ...(i + 1 < recorded.length ? [gap] : []));
+    offset += part.durationSeconds + VOICE_PART_GAP;
+  }
+  const durationSeconds = offset - VOICE_PART_GAP;
+  const url = await store(pcmToWav(Buffer.concat(audio), rate), 'voice.wav', 'audio/wav');
+  console.log(`✅ Voice: ${durationSeconds.toFixed(1)} s in ${parts.length} part(s), ${words.length} words timed`);
+  return { url, words, durationSeconds };
 }
 
 // A background whose photo was animated plays the clip instead, slowed so it spans the scene.

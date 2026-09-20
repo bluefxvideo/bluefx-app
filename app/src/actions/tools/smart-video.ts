@@ -111,6 +111,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       status: 'reading',
       brief: parsed.brief,
       link: parsed.link || undefined,
+      length: parsed.length,
       createdAt: now,
       updatedAt: now,
     });
@@ -146,14 +147,17 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
 
     const store = (data: Buffer, name: string, contentType: string) => upload(`${dir}/${name}`, data, contentType);
     const assets = await prepareAssets(files, store);
-    const { props, plan, durationSeconds, usage } = await createSmartVideo(
+    const { props, plan, durationSeconds, usage, warnings } = await createSmartVideo(
       brief,
       assets,
       store,
       (url) => download(`${dir}/${path.basename(new URL(url).pathname)}`),
-      (stage) => {
-        job = { ...job, status: stage };
-        writeJob(job).catch(() => undefined);
+      {
+        length: job.length === 'script' ? 'script' : 'auto',
+        onStage: (stage) => {
+          job = { ...job, status: stage };
+          writeJob(job).catch(() => undefined);
+        },
       }
     );
     await upload(`${dir}/plan.json`, Buffer.from(JSON.stringify({ plan, props }, null, 2)), 'application/json');
@@ -163,6 +167,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
       renderProgress: 0,
       durationSeconds,
       usage,
+      warnings,
       summary: {
         format: plan.format,
         style: plan.style,
@@ -183,7 +188,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
 
     job = await writeJob(job, { status: 'finishing' });
     const videoUrl = await upload(`${dir}/video.mp4`, await levelLoudness(renderedUrl), 'video/mp4');
-    job = await writeJob(job, { status: 'done', videoUrl });
+    job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100 });
     console.log(`✅ Smart Video job ${job.id} done: ${videoUrl}`);
   } catch (error) {
     console.error(`❌ Smart Video job ${job.id} failed:`, error);
@@ -196,7 +201,8 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
 async function render(props: Record<string, unknown>, onProgress: (percent: number) => void): Promise<string> {
   const started = await startRemotionRender({ compositionId: 'SmartVideo', inputProps: props });
   if (!started.success || !started.renderId) throw new Error(started.error || 'The render did not start');
-  for (let waited = 0; waited < 15 * 60; waited += 3) {
+  // A 3-minute script is ~5,000 frames; the production server renders two at a time.
+  for (let waited = 0; waited < 60 * 60; waited += 3) {
     await new Promise((resolve) => setTimeout(resolve, 3000));
     const progress = await checkRemotionProgress(started.renderId);
     if (progress.status === 'completed' && progress.videoUrl) return progress.videoUrl;

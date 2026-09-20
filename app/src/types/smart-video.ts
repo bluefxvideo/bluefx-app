@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { VIDEO_LENGTHS, type VideoLength } from '@/lib/smart-video/types';
 
 export const SMART_VIDEO_MAX_FILES = 15;
 export const SMART_VIDEO_MAX_FILE_MB = 100;
@@ -12,11 +13,12 @@ export const SmartVideoUploadRequestSchema = z.object({
 export const SmartVideoStartSchema = z.object({
   jobId: z.string().uuid(),
   brief: z.string().max(8000),
+  length: z.enum(VIDEO_LENGTHS).default('auto'),
   link: z.string().url().max(500).optional().or(z.literal('')),
   uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_FILES),
 });
 
-export type SmartVideoStartInput = z.infer<typeof SmartVideoStartSchema>;
+export type SmartVideoStartInput = z.input<typeof SmartVideoStartSchema>;
 
 export type SmartVideoJobStatus = 'reading' | 'directing' | 'producing' | 'rendering' | 'finishing' | 'done' | 'failed';
 
@@ -29,12 +31,15 @@ export interface SmartVideoJob {
   renderProgress?: number;
   brief: string;
   link?: string;
+  length?: VideoLength;
   createdAt: string;
   updatedAt: string;
   videoUrl?: string;
   durationSeconds?: number;
   summary?: { format: string; style: string; styleReason: string; language: string; scenes: number; captions: boolean };
   usage?: { step: string; usd: number; detail: string }[];
+  /** Notes for the client about things only they can fix. */
+  warnings?: string[];
   error?: string;
 }
 
