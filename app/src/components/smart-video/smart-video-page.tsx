@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { VideoFormat } from '@/lib/smart-video/types';
 import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
-import { cleanLink } from '@/lib/smart-video/link';
+import { cleanLink, describeLink } from '@/lib/smart-video/link';
 import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
@@ -52,7 +52,7 @@ const FORMATS: { value: VideoFormat; label: string; hint: string; Icon: typeof R
 ];
 
 /**
- * Smart Video (admin-only trial): text + files, or a Zillow/Amazon link, in;
+ * Smart Video (admin-only trial): text + files, or a link, in;
  * a finished vertical ad out. Input on the left, progress and result on the right.
  */
 export function SmartVideoPage() {
@@ -184,18 +184,19 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="smart-link">Zillow or Amazon link (optional)</Label>
+        <Label htmlFor="smart-link">Link (optional)</Label>
         <Input
           id="smart-link"
           value={smart.link}
           onChange={(e) => smart.setLink(e.target.value)}
           onBlur={(e) => smart.setLink(cleanLink(e.target.value))}
-          placeholder="https://www.zillow.com/homedetails/... or https://www.amazon.com/dp/..."
+          placeholder="https://..."
           disabled={smart.isBusy}
         />
         <p className="text-xs text-muted-foreground">
-          With a link, the photos and facts come from the page. Use the text box for what the page does not know: your contact, your price
-          or discount code, who the ad is for.
+          Works with a website or sales page, a blog post, a Google Maps business, a Shopify, Amazon or TikTok Shop product, a Zillow or
+          Realtor.com listing. The photos and facts come from the page. Use the text box for what the page does not know: your contact,
+          your price or discount code, who the ad is for.
         </p>
       </div>
 
@@ -482,7 +483,7 @@ function groupVersions(jobs: SmartVideoJob[]): VideoGroup[] {
 function videoTitle(job: SmartVideoJob): string {
   const firstLine = job.brief.trim().split('\n')[0];
   if (firstLine) return firstLine;
-  if (job.link) return /zillow/i.test(job.link) ? 'Zillow listing' : /amazon|amzn/i.test(job.link) ? 'Amazon product' : job.link;
+  if (job.link) return describeLink(job.link);
   return 'Untitled video';
 }
 

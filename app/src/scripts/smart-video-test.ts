@@ -1,7 +1,7 @@
 /**
  * Smart Video end-to-end test: a folder of client files + a brief → finished MP4.
  *
- * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | zillow/amazon link> <brief.txt> [auto|script] [vertical|horizontal]
+ * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal]
  *                  With a link, the brief file is the client's own note (offer, contact) added to the scraped facts.
  * Output:         remotion/out/smart-<job-name>.mp4 (+ the plan in remotion/test-plans/)
  */
@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createSmartVideo } from '../lib/smart-video/pipeline';
 import { prepareAssets } from '../lib/smart-video/prepare-assets';
-import { fromLink } from '../lib/smart-video/sources';
+import { downloadLinkPhotos, fromLink } from '../lib/smart-video/sources';
 import type { SmartAsset, VideoFormat, VideoLength } from '../lib/smart-video/types';
 
 config({ path: path.resolve(__dirname, '../../.env.local') });
@@ -44,12 +44,10 @@ async function main() {
     console.log('🔗 Reading the link...');
     const link = await fromLink(source);
     folder = fs.mkdtempSync(path.join(os.tmpdir(), 'smart-video-'));
-    for (const [i, url] of link.imageUrls.entries()) {
-      const res = await fetch(url);
-      fs.writeFileSync(path.join(folder, `${String(i + 1).padStart(2, '0')}.jpg`), Buffer.from(await res.arrayBuffer()));
-    }
+    const photos = await downloadLinkPhotos(link.imageUrls);
+    for (const photo of photos) fs.writeFileSync(path.join(folder, photo.filename), photo.data);
     brief = `${link.brief}\n\nNOTE FROM THE CLIENT:\n${brief}`;
-    console.log(`✅ Link read: ${link.imageUrls.length} photos, ${link.brief.length} characters of facts`);
+    console.log(`✅ Link read: ${photos.length} usable photos of ${link.imageUrls.length} found, ${link.brief.length} characters of facts`);
   }
   const assets = await prepareFolder();
   const { props, plan, usage, warnings } = await createSmartVideo(

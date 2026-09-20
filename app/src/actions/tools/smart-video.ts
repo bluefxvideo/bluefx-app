@@ -16,7 +16,7 @@ import { createSmartVideo, reviseSmartVideo, type SmartVideoMedia, type SmartVid
 import { PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import type { DirectorPlan } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
-import { fromLink } from '@/lib/smart-video/sources';
+import { downloadLinkPhotos, fromLink } from '@/lib/smart-video/sources';
 import { checkRemotionProgress, startRemotionRender } from '@/actions/services/remotion-render-service';
 import { createApiError, createApiSuccess, type ApiResponse } from '@/types/validation';
 import {
@@ -30,7 +30,7 @@ import {
 } from '@/types/smart-video';
 
 /**
- * Smart Video (admin-only trial): text + files (or a Zillow/Amazon link) in,
+ * Smart Video (admin-only trial): text + files (or a link) in,
  * finished vertical ad out. The job runs after the response is sent (the proxy
  * cuts requests at ~55 s) and the page polls job.json for its state.
  */
@@ -163,7 +163,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     const userId = await adminUserId();
     if (!userId) return createApiError('Smart Video is in admin-only testing');
     const parsed = SmartVideoStartSchema.parse(input);
-    if (!parsed.brief.trim() && !parsed.link) return createApiError('Write what the video is about, or paste a Zillow or Amazon link');
+    if (!parsed.brief.trim() && !parsed.link) return createApiError('Write what the video is about, or paste a link');
     if (parsed.uploads.some((u) => !u.path.startsWith(`${jobDir(userId, parsed.jobId)}/src/`))) return createApiError('Invalid upload path');
 
     const credits = phantomCredits(parsed.brief, parsed.length === 'script');
@@ -203,19 +203,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
     let brief = job.brief;
     if (job.link) {
       const link = await fromLink(job.link);
-      // One photo that will not download is skipped; the rest still make the video.
-      const photos = await Promise.all(
-        link.imageUrls.map(async (url, i): Promise<ClientFile | null> => {
-          try {
-            const res = await fetch(url);
-            if (!res.ok || !(res.headers.get('content-type') || '').startsWith('image/')) return null;
-            return { filename: `link-${String(i + 1).padStart(2, '0')}.jpg`, data: Buffer.from(await res.arrayBuffer()) };
-          } catch {
-            return null;
-          }
-        })
-      );
-      for (const photo of photos) if (photo) files.push(photo);
+      files.push(...(await downloadLinkPhotos(link.imageUrls)));
       brief = job.brief.trim() ? `${link.brief}\n\nNOTE FROM THE CLIENT:\n${job.brief}` : link.brief;
     }
 
