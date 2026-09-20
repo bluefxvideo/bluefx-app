@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Download, FileImage, FileVideo, Ghost, Loader2, RotateCcw, ScrollText, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
+import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
 
@@ -66,7 +67,14 @@ export function SmartVideoPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <InputPanel smart={smart} />
-        <OutputPanel job={job} uploading={smart.uploading} onReset={smart.reset} />
+        <OutputPanel
+          job={job}
+          uploading={smart.uploading}
+          onReset={smart.reset}
+          onRevise={smart.revise}
+          revising={smart.revising}
+          onOpen={smart.openJob}
+        />
       </div>
 
       {smart.history.length > 0 && (
@@ -80,7 +88,9 @@ export function SmartVideoPage() {
                 onClick={() => smart.openJob(past.id)}
                 className="w-full flex items-center justify-between gap-3 py-2 text-left text-sm hover:bg-muted/50 rounded px-2"
               >
-                <span className="truncate">{past.brief.trim().split('\n')[0] || past.link || 'Untitled'}</span>
+                <span className="truncate">
+                  {past.note ? `↳ ${past.note}` : past.brief.trim().split('\n')[0] || past.link || 'Untitled'}
+                </span>
                 <span className="flex-shrink-0 text-xs text-muted-foreground">
                   {past.status} · {new Date(past.createdAt).toLocaleString()}
                 </span>
@@ -181,7 +191,7 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
 
       <Button onClick={smart.start} disabled={smart.isBusy} className="w-full">
         {smart.isBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ghost className="w-4 h-4 mr-2" />}
-        Summon {PHANTOM}
+        Summon {PHANTOM} · {smart.credits} credits
       </Button>
     </Card>
   );
@@ -191,11 +201,18 @@ function OutputPanel({
   job,
   uploading,
   onReset,
+  onRevise,
+  revising,
+  onOpen,
 }: {
   job: SmartVideoJob | null;
   uploading: { done: number; total: number } | null;
   onReset: () => void;
+  onRevise: (note: string) => Promise<boolean>;
+  revising: boolean;
+  onOpen: (jobId: string) => void;
 }) {
+  const [note, setNote] = useState('');
   if (uploading) {
     return (
       <Card className="p-4 space-y-3">
@@ -218,7 +235,6 @@ function OutputPanel({
   }
 
   const current = STAGES.findIndex((stage) => stage.status === job.status);
-  const total = job.usage?.reduce((sum, entry) => sum + entry.usd, 0) ?? 0;
 
   return (
     <Card className="p-4 space-y-4">
@@ -236,6 +252,36 @@ function OutputPanel({
               <RotateCcw className="w-4 h-4 mr-2" />
               Summon again
             </Button>
+          </div>
+
+          <div className="space-y-2 rounded-lg border p-3">
+            <Label htmlFor="smart-note">Leave a note for {PHANTOM}</Label>
+            <Textarea
+              id="smart-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={
+                'Say what to change, in your own words: "Open with the price." "Use the photo of the torch in the second scene." "The phone number is 555-0199." "Shorter and more serious."'
+              }
+              className="min-h-[90px]"
+              disabled={revising}
+            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                {NAME} changes only what you ask and keeps the rest. This version stays in your sightings.
+              </p>
+              <Button
+                size="sm"
+                className="flex-shrink-0"
+                disabled={revising || note.trim().length < 3}
+                onClick={async () => {
+                  if (await onRevise(note)) setNote('');
+                }}
+              >
+                {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ScrollText className="w-4 h-4 mr-2" />}
+                Leave the note · {PHANTOM_REVISION_CREDITS} credits
+              </Button>
+            </div>
           </div>
         </>
       ) : job.status === 'failed' ? (
@@ -271,6 +317,15 @@ function OutputPanel({
         </>
       )}
 
+      {job.parentId && (
+        <p className="text-sm text-muted-foreground border-t pt-3">
+          Changed after your note: &ldquo;{job.note}&rdquo;{' '}
+          <button type="button" className="underline" onClick={() => onOpen(job.parentId as string)}>
+            See the version before
+          </button>
+        </p>
+      )}
+
       {job.warnings && job.warnings.length > 0 && (
         <div className="flex gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <ScrollText className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
@@ -292,22 +347,6 @@ function OutputPanel({
           </p>
           <p className="text-muted-foreground">{job.summary.styleReason}</p>
         </div>
-      )}
-
-      {job.usage && job.usage.length > 0 && (
-        <details className="text-sm border-t pt-3">
-          <summary className="cursor-pointer">API cost: ${total.toFixed(2)}</summary>
-          <ul className="mt-2 space-y-1 text-muted-foreground">
-            {job.usage.map((entry, i) => (
-              <li key={i} className="flex justify-between gap-3">
-                <span>
-                  {entry.step} ({entry.detail})
-                </span>
-                <span>${entry.usd.toFixed(3)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
       )}
     </Card>
   );

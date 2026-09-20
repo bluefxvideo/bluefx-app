@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { getSmartVideoJob, listSmartVideoJobs, requestSmartVideoUploads, startSmartVideo } from '@/actions/tools/smart-video';
+import {
+  getSmartVideoJob,
+  listSmartVideoJobs,
+  requestSmartVideoUploads,
+  reviseSmartVideoJob,
+  startSmartVideo,
+} from '@/actions/tools/smart-video';
+import { phantomCredits } from '@/lib/smart-video/pricing';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
 
 const POLL_MS = 4000;
@@ -23,6 +30,8 @@ export function useSmartVideo() {
     queryFn: () => getSmartVideoJob(jobId as string),
     enabled: Boolean(jobId),
     refetchInterval: (query) => (isRunning(query.state.data) || !query.state.data ? POLL_MS : false),
+    // People switch tabs while they wait; the job should still be followed to its end.
+    refetchIntervalInBackground: true,
   });
 
   const { data: history = [] } = useQuery({
@@ -74,12 +83,36 @@ export function useSmartVideo() {
       if (!started.success) throw new Error(started.error);
       setJobId(started.data.jobId);
       queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['user-credits'] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not start the video');
     } finally {
       setUploading(null);
     }
   }, [brief, link, exactWords, files, queryClient]);
+
+  // "Leave a note": the change becomes a new job that reuses the finished video's files.
+  const [revising, setRevising] = useState(false);
+  const revise = useCallback(
+    async (note: string) => {
+      if (!jobId) return false;
+      setRevising(true);
+      try {
+        const revised = await reviseSmartVideoJob({ jobId, note });
+        if (!revised.success) throw new Error(revised.error);
+        setJobId(revised.data.jobId);
+        queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+        queryClient.invalidateQueries({ queryKey: ['user-credits'] });
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not send the note');
+        return false;
+      } finally {
+        setRevising(false);
+      }
+    },
+    [jobId, queryClient],
+  );
 
   const reset = useCallback(() => {
     setJobId(null);
@@ -90,9 +123,24 @@ export function useSmartVideo() {
   }, [queryClient]);
 
   return {
-    brief, setBrief, link, setLink, exactWords, setExactWords, files, addFiles, removeFile,
-    job: job ?? null, history, uploading,
-    isBusy: Boolean(uploading) || isRunning(job) || (Boolean(jobId) && !job),
-    start, reset, openJob: setJobId,
+    brief,
+    setBrief,
+    link,
+    setLink,
+    exactWords,
+    setExactWords,
+    files,
+    addFiles,
+    removeFile,
+    job: job ?? null,
+    history,
+    uploading,
+    credits: phantomCredits(brief, exactWords),
+    revise,
+    revising,
+    isBusy: Boolean(uploading) || revising || isRunning(job) || (Boolean(jobId) && !job),
+    start,
+    reset,
+    openJob: setJobId,
   };
 }

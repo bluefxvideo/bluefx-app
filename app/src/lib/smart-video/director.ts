@@ -19,8 +19,8 @@ STEP 2 — Decide the format. The format sets the structure; never force one kin
 - "announcement": job ads, events, openings, offers, services. Information-led: hook → who/what → the facts in lists and numbers → contact. Mostly brand backgrounds with media cards.
 - "tour": real estate, hotels, venues, restaurants, travel: anything sold by LOOKING at it. Photo-led: almost every scene is background mediaFull with a different photo, walking through the place in a natural order (outside → living → kitchen → bedrooms → garden/views). Text is light: one short title and 2-3 chips per scene. Put the price and the key figures (beds, baths, size) early, after the first look. One gallery scene can sweep up the remaining photos.
 - "product": a physical or digital product sold online (Amazon, TikTok Shop, Shopify). Desire-led and fast: 1. hook on the problem or the wish, 2. product reveal: packshot with cutout:true on the brand background + the product name, 3-5. one benefit per scene on a mediaFull background showing the product IN USE by the target customer, with a short title and at most 2 chips; speak in results ("smoothies anywhere"), not specs ("22000 rpm"), 6. proof: stars block ONLY if the rating is 4.2 or higher, a quote block only with a real review text; otherwise skip proof, 7. price: number with "was" for a real discount + badge for the deal, 8. call to action that matches where it is sold ("Tap the link", "Get yours on Amazon"); the highlight shows the code, the shop name or the URL. 25 to 40 seconds.
-lifestyleShots (product format only): marketplace images are mostly packshots and infographics, which make dull scenes. Order up to 4 NEW photos of the real product in use: {id:"g1", fromAsset: the packshot's id, prompt: one sentence describing a vertical candid photo: who (the target customer), doing what with the product, where, light and mood}. Use the ids (g1, g2...) as mediaFull background assets in the benefit scenes and the hook. Do not show infographic images in media cards when a lifestyle shot can carry the scene.
-animate (any format): a still photo is lifeless next to real footage. Pick up to 3 photos that are used as mediaFull backgrounds, the hook first (so make the hook a mediaFull scene when you animate it), and they become 6-second moving clips: {asset, prompt}. prompt = one sentence with the camera move and what subtly moves: "Slow push-in toward the front door, leaves swaying, clouds drifting." / "Slow orbit around the kitchen island, light shimmering on the marble." Places, products, food and wide shots animate well; avoid photos with readable text and close-up faces. lifestyleShots ids can be animated too. Skip photos of scenes where the client already gave a clip.
+lifestyleShots (product format only): marketplace images are mostly packshots and infographics, which make dull scenes. Order up to 3 NEW photos of the real product in use: {id:"g1", fromAsset: the packshot's id, prompt: one sentence describing a vertical candid photo: who (the target customer), doing what with the product, where, light and mood}. Use the ids (g1, g2...) as mediaFull background assets in the benefit scenes and the hook. Do not show infographic images in media cards when a lifestyle shot can carry the scene.
+animate (any format): a still photo is lifeless next to real footage. Pick up to 2 photos that are used as mediaFull backgrounds, the hook first (so make the hook a mediaFull scene when you animate it), and they become 6-second moving clips: {asset, prompt}. prompt = one sentence with the camera move and what subtly moves: "Slow push-in toward the front door, leaves swaying, clouds drifting." / "Slow orbit around the kitchen island, light shimmering on the marble." Places, products, food and wide shots animate well; avoid photos with readable text and close-up faces. lifestyleShots ids can be animated too. Skip photos of scenes where the client already gave a clip.
 captions: true adds word-by-word captions in the lower third, in step with the voice (the TikTok/Reels look, and most people watch muted). Use true for product and for playful or bold videos; false for elegant, and for clean unless the audience is young.
 
 STEP 3 — Decide the look. Pick the style that fits the BUSINESS and its audience, not your taste:
@@ -57,7 +57,7 @@ Blocks:
 - chips {items:[{icon,text,cue}]}: a list of benefits or requirements, 2-4 items, each under 28 characters, icon = one emoji.
 - rows {items}: plain checklist, e.g. what to send. number {value,was,prefix,suffix}: one key figure that counts up (price, salary, discount). Put its label in a title above and the unit in suffix; was = the old price, shown struck through.
 - tiles {items:[{top,big,icon,color,cue}]}: 2-5 equal tiles for schedules, steps or packages. big is under 6 characters. color blue/green/orange/purple/accent.
-- highlight {text}: THE contact detail (email, phone or URL), exactly as given by the client. It must be in the last scene.
+- highlight {text}: THE contact detail (email, phone or URL), exactly as given by the client. It must be in the last scene. When the client gave none, never invent one and never use a stray name: highlight the most useful thing a viewer can act on (a listing's street address, the shop or product name, the event's date and place) and say so in warnings.
 On-screen text is a punchy summary of the narration, never a transcript. Every fact on screen must also be spoken, except contact details.
 Use the client's real photos and clips in at least half of the scenes; show different parts of a clip with startFrom. The client chose every file for a reason: list EVERY file in "assets" with its role, and spread the usable ones across the scenes. Never show the same photo or clip in more than two scenes while other usable files go unseen; sweep leftovers into a gallery block. Show the logo early and in the last scene if there is one.
 
@@ -115,6 +115,13 @@ export async function directVideo(brief: string, assets: SmartAsset[], length: V
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
 
+  return askDirector(parts, (plan) => checkPlan(plan, assets, brief, length, false), length === 'script' ? 480_000 : 280_000);
+}
+
+/** One director call with validation; a rejected plan goes back once with the reason. */
+async function askDirector(parts: unknown[], check: (plan: DirectorPlan) => string | null, timeoutMs: number): Promise<DirectorPlan> {
+  const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!key) throw new Error('Google AI key not configured');
   let feedback = '';
   for (let attempt = 1; attempt <= 2; attempt++) {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${DIRECTOR_MODEL}:generateContent`, {
@@ -124,7 +131,7 @@ export async function directVideo(brief: string, assets: SmartAsset[], length: V
         contents: [{ parts: feedback ? [...parts, { text: feedback }] : parts }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0.6 },
       }),
-      signal: AbortSignal.timeout(length === 'script' ? 480_000 : 280_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) throw new Error(`Director call failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
     const json = await res.json();
@@ -133,7 +140,7 @@ export async function directVideo(brief: string, assets: SmartAsset[], length: V
 
     try {
       const plan = DirectorPlanSchema.parse(JSON.parse(text));
-      const problem = checkPlan(plan, assets, brief, length);
+      const problem = check(plan);
       if (!problem) return plan;
       feedback = `\n\nYour previous plan had a problem: ${problem}\nReturn the corrected full JSON.`;
     } catch (error) {
@@ -144,8 +151,42 @@ export async function directVideo(brief: string, assets: SmartAsset[], length: V
   throw new Error('The director could not produce a valid plan');
 }
 
+/**
+ * A revision: the saved plan plus the client's note. Text only (no files are
+ * re-sent), and the director may only work with what already exists.
+ */
+export async function reviseVideo(
+  plan: DirectorPlan,
+  note: string,
+  brief: string,
+  existing: Record<string, { kind: 'image' | 'video'; cutoutUrl?: string }>
+): Promise<DirectorPlan> {
+  const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion'));
+  const cutouts = ids.filter((id) => existing[id].cutoutUrl);
+  const instructions = BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.');
+  const task = [
+    '',
+    'YOU ALREADY MADE THIS VIDEO. The client watched it and left a note. Return the full plan again with ONLY the changes the note asks for.',
+    '- Keep every narration sentence word for word unless the note requires different spoken words: unchanged narration keeps the recorded voice.',
+    '- Keep musicPrompt and signatureSound exactly as they are unless the note is about music or sound.',
+    `- You can only use these files: ${ids.join(', ')}. Do not add lifestyleShots or animate entries that are not already in the plan. cutout:true is only possible for: ${cutouts.join(', ') || 'none'}.`,
+    '- If the note gives a fact (a phone number, a price, a name), use it exactly. Update "warnings" to match the new state.',
+    '',
+    "CLIENT'S ORIGINAL TEXT:",
+    brief,
+    '',
+    'CURRENT PLAN:',
+    JSON.stringify(plan),
+    '',
+    "CLIENT'S NOTE:",
+    note,
+  ].join('\n');
+  const assets = ids.map((id) => ({ id, kind: existing[id].kind })) as SmartAsset[];
+  return askDirector([{ text: `${instructions}\n${task}` }], (candidate) => checkPlan(candidate, assets, brief, 'auto', true), 280_000);
+}
+
 // Things the renderer cannot fix by construction.
-function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, length: VideoLength): string | null {
+function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, length: VideoLength, revision: boolean): string | null {
   const ids = new Set([...assets.map((a) => a.id), ...(plan.lifestyleShots || []).map((shot) => shot.id)]);
   const badShot = (plan.lifestyleShots || []).find((shot) => !assets.some((a) => a.id === shot.fromAsset && a.kind === 'image'));
   const badMotion = (plan.animate || []).find((m) => !ids.has(m.asset));
@@ -160,6 +201,7 @@ function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, leng
     const minimum = scene.background.type === 'mediaFull' ? 2 : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
+  if (revision) return null; // the client's note outranks the word-count and file-spread rules
   const words = plan.scenes.reduce((n, scene) => n + scene.narration.split(/\s+/).length, 0);
   const briefWords = brief.split(/\s+/).filter(Boolean).length;
   // A thin brief must not be padded, so the floor follows what the client gave.

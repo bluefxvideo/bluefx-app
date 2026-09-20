@@ -40,8 +40,9 @@ export async function fromZillow(url: string): Promise<LinkSource> {
     home.lotArea?.formatted && `Lot: ${home.lotArea.formatted}`,
     home.yearBuilt && `Year built: ${home.yearBuilt}`,
     home.homeType && `Type: ${String(home.homeType).replace(/_/g, ' ').toLowerCase()}`,
-    home.mls?.name && `Listed by: ${home.mls.name}`,
     home.description && `\nDescription:\n${home.description}`,
+    // Zillow's data carries no agent contact (mls.name is the MLS board, e.g. "MIAMI", not a person).
+    '\nAgent contact: not on the page. Use only a contact the client gives in their note.',
   ]);
   const imageUrls = (home.listingPhotos || []).map((p: { url?: string }) => p.url).filter(Boolean).slice(0, MAX_PHOTOS);
   return { brief, imageUrls };

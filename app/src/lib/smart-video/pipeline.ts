@@ -1,4 +1,4 @@
-import { directVideo } from './director';
+import { directVideo, reviseVideo } from './director';
 import {
   MOTION_CLIP_SECONDS,
   animatePhoto,
@@ -36,9 +36,19 @@ const LANGUAGE_NAMES = new Intl.DisplayNames(['en'], { type: 'language' });
 
 export type SmartVideoStage = 'directing' | 'producing';
 
+/** Everything generated for a video. Saved with the plan, so a revision can reuse it. */
+export interface SmartVideoMedia {
+  voice: { url: string; words: SpokenWord[]; durationSeconds: number };
+  musicUrl: string | null;
+  soundUrl: string | null;
+  /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips. */
+  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string }>;
+}
+
 export interface SmartVideoResult {
   props: Record<string, unknown>;
   plan: DirectorPlan;
+  media: SmartVideoMedia;
   durationSeconds: number;
   /** API spend of this video, step by step (USD). */
   usage: UsageEntry[];
@@ -150,7 +160,66 @@ async function produce(
     motion,
   ]);
 
-  // ---- timeline ----
+  const media: SmartVideoMedia = {
+    voice,
+    musicUrl,
+    soundUrl,
+    assets: Object.fromEntries([
+      ...[...motionUrls].map(([id, url]) => [`${id}-motion`, { url, kind: 'video' as const }] as const),
+      ...lifestyleAssets,
+      ...assets.map((a) => [a.id, { url: logoUrl && a.id === logoAsset?.id ? logoUrl : a.url, kind: a.kind, cutoutUrl: cutoutUrls.get(a.id) || undefined }] as const),
+    ]),
+  };
+  const props = buildProps(plan, media);
+  return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
+}
+
+/**
+ * Changes a finished video from a note in plain words. Only what the note
+ * touches is redone: the voice when the spoken words change, the music or the
+ * signature sound when their prompts change. Everything else is reused.
+ */
+export async function reviseSmartVideo(
+  previous: { plan: DirectorPlan; media: SmartVideoMedia },
+  note: string,
+  brief: string,
+  store: StoreFile,
+  onStage: (stage: SmartVideoStage) => void = () => {}
+): Promise<SmartVideoResult> {
+  const { result, usage } = await trackUsage(async () => {
+    onStage('directing');
+    const plan = await reviseVideo(previous.plan, note, brief, previous.media.assets);
+    onStage('producing');
+    const media = { ...previous.media };
+    const spoken = (p: DirectorPlan) => p.scenes.map((scene) => scene.narration);
+    if (JSON.stringify(spoken(plan)) !== JSON.stringify(spoken(previous.plan)) || plan.voice.gender !== previous.plan.voice.gender) {
+      media.voice = await recordVoice(spoken(plan), LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store);
+    }
+    if (plan.musicPrompt !== previous.plan.musicPrompt) {
+      media.musicUrl = await generateMusic(plan.musicPrompt, plan.style)
+        .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
+        .catch(() => previous.media.musicUrl);
+    }
+    if (plan.signatureSound?.prompt !== previous.plan.signatureSound?.prompt) {
+      media.soundUrl = plan.signatureSound
+        ? await generateSound(plan.signatureSound.prompt)
+            .then((mp3) => store(mp3, 'signature.mp3', 'audio/mpeg'))
+            .catch(() => null)
+        : null;
+    }
+    const props = buildProps(plan, media);
+    return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
+  });
+  return { ...result, usage };
+}
+
+/** Pins a plan to its recorded voice: scene times, text cues, captions, soundtrack. Pure. */
+export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
+  const { voice, musicUrl, soundUrl } = media;
+  const narration = plan.scenes.map((scene) => scene.narration);
+  const motionUrls = new Map(
+    Object.entries(media.assets).flatMap(([id, asset]) => (id.endsWith('-motion') ? [[id.slice(0, -'-motion'.length), asset.url] as const] : []))
+  );
   const { sceneTokens, lastWordEnd } = alignScript(narration, voice.words);
   const soundAfter = soundUrl && plan.signatureSound ? Math.min(plan.signatureSound.afterScene, plan.scenes.length - 2) : -1;
   const cutAt = soundAfter >= 0 ? (sceneTokens[soundAfter + 1][0]?.time ?? 0) - 0.15 : Infinity;
@@ -176,17 +245,11 @@ async function produce(
     };
   });
 
-  const rendererAssets = Object.fromEntries([
-    ...[...motionUrls].map(([id, url]) => [`${id}-motion`, { url, kind: 'video' as const }] as const),
-    ...lifestyleAssets,
-    ...assets.map((a) => [a.id, { url: logoUrl && a.id === logoAsset?.id ? logoUrl : a.url, kind: a.kind, cutoutUrl: cutoutUrls.get(a.id) || undefined }] as const),
-  ]);
-
   const props = {
     duration,
     style: plan.style,
     theme: buildTheme(plan.style, plan.theme),
-    assets: rendererAssets,
+    assets: media.assets,
     audio: {
       voice: {
         url: voice.url,
@@ -204,7 +267,7 @@ async function produce(
     captions: plan.captions ? { words: captionWords(sceneTokens, onTimeline, lastWordEnd) } : undefined,
     scenes,
   };
-  return { props, plan, durationSeconds: duration, warnings: clientWarnings(plan) };
+  return props;
 }
 
 function clientWarnings(plan: DirectorPlan): string[] {

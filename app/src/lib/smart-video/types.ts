@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_ANIMATED_PHOTOS, MAX_LIFESTYLE_PHOTOS } from './pricing';
 
 /**
  * Smart Video — the director's plan.
@@ -69,12 +70,12 @@ export const DirectorPlanSchema = z.object({
   musicPrompt: z.string(),
   lifestyleShots: z
     .array(z.object({ id: z.string(), fromAsset: z.string(), prompt: z.string() }))
-    .max(4)
+    .max(MAX_LIFESTYLE_PHOTOS)
     .nullish()
     .describe('Product format only: photos to generate of the real product in use'),
   animate: z
     .array(z.object({ asset: z.string(), prompt: z.string() }))
-    .max(3)
+    .max(MAX_ANIMATED_PHOTOS)
     .nullish()
     .describe('Photos used as full-frame backgrounds that should become moving clips'),
   signatureSound: z.object({ prompt: z.string(), afterScene: z.number().int().min(0) }).nullish(),

@@ -9,12 +9,17 @@ import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
 import { createAdminClient } from '@/app/supabase/server';
 import { checkAdminAuth } from '@/lib/admin-auth';
-import { createSmartVideo } from '@/lib/smart-video/pipeline';
+import { transcribeWords } from '@/lib/smart-video/audio';
+import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
+import { createSmartVideo, reviseSmartVideo, type SmartVideoMedia, type SmartVideoResult } from '@/lib/smart-video/pipeline';
+import { PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import type { DirectorPlan } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { fromLink } from '@/lib/smart-video/sources';
 import { checkRemotionProgress, startRemotionRender } from '@/actions/services/remotion-render-service';
 import { createApiError, createApiSuccess, type ApiResponse } from '@/types/validation';
 import {
+  SmartVideoReviseSchema,
   SmartVideoStartSchema,
   SmartVideoUploadRequestSchema,
   type SmartVideoJob,
@@ -70,6 +75,15 @@ async function writeJob(job: SmartVideoJob, patch: Partial<SmartVideoJob> = {}):
   return next;
 }
 
+/**
+ * What the page may see. API costs stay on the server for everyone, admins included
+ * (the owner records his screen): they are kept in job.json for analysis only.
+ */
+function forViewer(job: SmartVideoJob): SmartVideoJob {
+  const { usage: _usage, ...visible } = job;
+  return visible;
+}
+
 /** Step 1: a job id and one signed upload URL per file (files never travel through a server action). */
 export async function requestSmartVideoUploads(input: {
   files: { name: string; size: number }[];
@@ -95,6 +109,21 @@ export async function requestSmartVideoUploads(input: {
   }
 }
 
+/** Charges before the work starts; job_id is how a failed job's refund finds this debit. */
+async function charge(userId: string, jobId: string, credits: number): Promise<string | null> {
+  const { deductCredits } = await import('@/actions/database/cinematographer-database');
+  const result = await deductCredits(userId, credits, 'smart-video', { job_id: jobId });
+  return result.success ? null : result.error || 'Credit deduction failed';
+}
+
+async function failAndRefund(job: SmartVideoJob, reason: string): Promise<SmartVideoJob> {
+  const refund = job.creditsUsed
+    ? await refundFailedGeneration({ userId: job.userId, referenceIds: [job.id], operation: 'Phantom video' })
+    : { refunded: false as const };
+  const error = refund.refunded && refund.amount ? `${reason} ${refundSentence(refund.amount)}` : reason;
+  return writeJob(job, { status: 'failed', error });
+}
+
 /** Step 2: start the job. Returns at once; the work happens in after(). */
 export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiResponse<{ jobId: string }>> {
   try {
@@ -104,6 +133,10 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     if (!parsed.brief.trim() && !parsed.link) return createApiError('Write what the video is about, or paste a Zillow or Amazon link');
     if (parsed.uploads.some((u) => !u.path.startsWith(`${jobDir(userId, parsed.jobId)}/src/`))) return createApiError('Invalid upload path');
 
+    const credits = phantomCredits(parsed.brief, parsed.length === 'script');
+    const chargeError = await charge(userId, parsed.jobId, credits);
+    if (chargeError) return createApiError(chargeError);
+
     const now = new Date().toISOString();
     const job = await writeJob({
       id: parsed.jobId,
@@ -112,6 +145,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       brief: parsed.brief,
       link: parsed.link || undefined,
       length: parsed.length,
+      creditsUsed: credits,
       createdAt: now,
       updatedAt: now,
     });
@@ -147,7 +181,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
 
     const store = (data: Buffer, name: string, contentType: string) => upload(`${dir}/${name}`, data, contentType);
     const assets = await prepareAssets(files, store);
-    const { props, plan, durationSeconds, usage, warnings } = await createSmartVideo(
+    const result = await createSmartVideo(
       brief,
       assets,
       store,
@@ -160,42 +194,140 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
         },
       }
     );
-    await upload(`${dir}/plan.json`, Buffer.from(JSON.stringify({ plan, props }, null, 2)), 'application/json');
-
-    job = await writeJob(job, {
-      status: 'rendering',
-      renderProgress: 0,
-      durationSeconds,
-      usage,
-      warnings,
-      summary: {
-        format: plan.format,
-        style: plan.style,
-        styleReason: plan.styleReason,
-        language: plan.language,
-        scenes: plan.scenes.length,
-        captions: plan.captions,
-      },
+    await finish(job, result, brief, (next) => {
+      job = next;
     });
-    let reported = 0;
-    const renderedUrl = await render(props, (progress) => {
-      job = { ...job, renderProgress: progress };
-      if (progress - reported >= 10) {
-        reported = progress;
-        writeJob(job).catch(() => undefined);
-      }
-    });
-
-    job = await writeJob(job, { status: 'finishing' });
-    const videoUrl = await upload(`${dir}/video.mp4`, await levelLoudness(renderedUrl), 'video/mp4');
-    job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100 });
-    console.log(`✅ Smart Video job ${job.id} done: ${videoUrl}`);
   } catch (error) {
     console.error(`❌ Smart Video job ${job.id} failed:`, error);
-    await writeJob(job, { status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' }).catch(() => undefined);
+    await failAndRefund(job, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
   } finally {
     clearInterval(heartbeat);
   }
+}
+
+/** Shared ending of a new video and a revision: save the plan, render, level the sound. */
+async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: string, track: (job: SmartVideoJob) => void): Promise<void> {
+  let job = start;
+  const dir = jobDir(job.userId, job.id);
+  const { props, plan, media, durationSeconds, usage, warnings } = result;
+  // plan + media are what a later revision starts from
+  await upload(`${dir}/plan.json`, Buffer.from(JSON.stringify({ plan, props, media, brief }, null, 2)), 'application/json');
+
+  job = await writeJob(job, {
+    status: 'rendering',
+    renderProgress: 0,
+    durationSeconds,
+    usage,
+    warnings,
+    summary: {
+      format: plan.format,
+      style: plan.style,
+      styleReason: plan.styleReason,
+      language: plan.language,
+      scenes: plan.scenes.length,
+      captions: plan.captions,
+    },
+  });
+  let reported = 0;
+  track(job);
+  const renderedUrl = await render(props, (progress) => {
+    job = { ...job, renderProgress: progress };
+    track(job);
+    if (progress - reported >= 10) {
+      reported = progress;
+      writeJob(job).catch(() => undefined);
+    }
+  });
+
+  job = await writeJob(job, { status: 'finishing' });
+  const videoUrl = await upload(`${dir}/video.mp4`, await levelLoudness(renderedUrl), 'video/mp4');
+  job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100 });
+  track(job);
+  console.log(`✅ Smart Video job ${job.id} done: ${videoUrl}`);
+}
+
+/**
+ * "Leave a note": changes a finished video. The revision is a new job that
+ * reuses the original's files, voice and music; the original stays untouched.
+ */
+export async function reviseSmartVideoJob(input: { jobId: string; note: string }): Promise<ApiResponse<{ jobId: string }>> {
+  try {
+    const userId = await adminUserId();
+    if (!userId) return createApiError('Smart Video is in admin-only testing');
+    const parsed = SmartVideoReviseSchema.parse(input);
+    const parent = await readJob(userId, parsed.jobId);
+    if (!parent || parent.status !== 'done') return createApiError('Only a finished video can be changed');
+
+    const jobId = randomUUID();
+    const chargeError = await charge(userId, jobId, PHANTOM_REVISION_CREDITS);
+    if (chargeError) return createApiError(chargeError);
+
+    const now = new Date().toISOString();
+    const job = await writeJob({
+      id: jobId,
+      userId,
+      status: 'directing',
+      brief: parent.brief,
+      link: parent.link,
+      length: parent.length,
+      parentId: parent.id,
+      note: parsed.note,
+      creditsUsed: PHANTOM_REVISION_CREDITS,
+      createdAt: now,
+      updatedAt: now,
+    });
+    after(() => runRevision(job, parent));
+    return createApiSuccess({ jobId });
+  } catch (error) {
+    console.error('❌ reviseSmartVideoJob error:', error);
+    return createApiError(error instanceof Error ? error.message : 'Could not start the change');
+  }
+}
+
+async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob): Promise<void> {
+  let job = initial;
+  const heartbeat = setInterval(() => writeJob(job).catch(() => undefined), 45_000);
+  try {
+    const parentDir = jobDir(parent.userId, parent.id);
+    const saved = JSON.parse((await download(`${parentDir}/plan.json`)).toString('utf-8')) as {
+      plan: DirectorPlan;
+      props: Record<string, unknown>;
+      media?: SmartVideoMedia;
+      brief?: string;
+    };
+    const media = saved.media ?? (await mediaFromProps(saved.props, parentDir, saved.plan.language));
+    const dir = jobDir(job.userId, job.id);
+    const result = await reviseSmartVideo(
+      { plan: saved.plan, media },
+      job.note || '',
+      saved.brief || parent.brief,
+      (data, name, contentType) => upload(`${dir}/${name}`, data, contentType),
+      (stage) => {
+        job = { ...job, status: stage };
+        writeJob(job).catch(() => undefined);
+      }
+    );
+    await finish(job, result, saved.brief || parent.brief, (next) => {
+      job = next;
+    });
+  } catch (error) {
+    console.error(`❌ Smart Video revision ${job.id} failed:`, error);
+    await failAndRefund(job, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+// Videos made before media was saved with the plan: rebuild it from the render props.
+async function mediaFromProps(props: Record<string, unknown>, dir: string, language: string): Promise<SmartVideoMedia> {
+  const audio = props.audio as { voice: { url: string; cuts: { srcEnd: number }[] }; music?: { url: string }; sfx?: { url?: string }[] };
+  const voiceFile = await download(`${dir}/${path.basename(new URL(audio.voice.url).pathname)}`);
+  return {
+    voice: { url: audio.voice.url, words: await transcribeWords(voiceFile, language), durationSeconds: Math.max(...audio.voice.cuts.map((c) => c.srcEnd)) },
+    musicUrl: audio.music?.url ?? null,
+    soundUrl: audio.sfx?.find((s) => s.url)?.url ?? null,
+    assets: props.assets as SmartVideoMedia['assets'],
+  };
 }
 
 async function render(props: Record<string, unknown>, onProgress: (percent: number) => void): Promise<string> {
@@ -236,9 +368,9 @@ export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | n
   if (!job) return null;
   const running = job.status !== 'done' && job.status !== 'failed';
   if (running && Date.now() - Date.parse(job.updatedAt) > STALE_AFTER_MS) {
-    return writeJob(job, { status: 'failed', error: 'The job stopped unexpectedly (the server may have restarted). Please run it again.' });
+    return forViewer(await failAndRefund(job, 'The job stopped unexpectedly (the server may have restarted). Please run it again.'));
   }
-  return job;
+  return forViewer(job);
 }
 
 export async function listSmartVideoJobs(): Promise<SmartVideoJob[]> {
@@ -248,5 +380,8 @@ export async function listSmartVideoJobs(): Promise<SmartVideoJob[]> {
     .storage.from(BUCKET)
     .list(`smart-video/${userId}`, { limit: 30, sortBy: { column: 'created_at', order: 'desc' } });
   const jobs = await Promise.all((data || []).map((entry) => readJob(userId, entry.name)));
-  return jobs.filter((job): job is SmartVideoJob => job !== null).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return jobs
+    .filter((job): job is SmartVideoJob => job !== null)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(forViewer);
 }

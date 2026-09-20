@@ -18,6 +18,11 @@ export const SmartVideoStartSchema = z.object({
   uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_FILES),
 });
 
+export const SmartVideoReviseSchema = z.object({
+  jobId: z.string().uuid(),
+  note: z.string().trim().min(3).max(1500),
+});
+
 export type SmartVideoStartInput = z.input<typeof SmartVideoStartSchema>;
 
 export type SmartVideoJobStatus = 'reading' | 'directing' | 'producing' | 'rendering' | 'finishing' | 'done' | 'failed';
@@ -32,11 +37,16 @@ export interface SmartVideoJob {
   brief: string;
   link?: string;
   length?: VideoLength;
+  /** A revision: the job it changes and the client's note. */
+  parentId?: string;
+  note?: string;
+  creditsUsed?: number;
   createdAt: string;
   updatedAt: string;
   videoUrl?: string;
   durationSeconds?: number;
   summary?: { format: string; style: string; styleReason: string; language: string; scenes: number; captions: boolean };
+  /** API spend per step. Saved for analysis; the server never sends it to the page. */
   usage?: { step: string; usd: number; detail: string }[];
   /** Notes for the client about things only they can fix. */
   warnings?: string[];

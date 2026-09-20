@@ -190,7 +190,7 @@ function autoBreak(text, maxChars) {
   return out.join('\n');
 }
 
-function Stack({ top, bottom, gap, align = 'center', children }) {
+function Stack({ top, bottom, gap, align = 'center', scrim = false, children }) {
   const ref = useRef(null);
   const [scale, setScale] = useState(1);
   const available = H - top - bottom;
@@ -208,8 +208,26 @@ function Stack({ top, bottom, gap, align = 'center', children }) {
     >
       <div
         ref={ref}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap, flexShrink: 0, transform: `scale(${scale})`, transformOrigin: align === 'flex-end' ? 'center bottom' : align === 'flex-start' ? 'center top' : 'center' }}
+        style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap, flexShrink: 0, transform: `scale(${scale})`, transformOrigin: align === 'flex-end' ? 'center bottom' : align === 'flex-start' ? 'center top' : 'center' }}
       >
+        {/* Over a photo, the darkness follows the text: it starts just above the stack (or ends just below it)
+            and leaves the rest of the picture alone. */}
+        {scrim && (
+          <div
+            style={{
+              position: 'absolute',
+              zIndex: -1,
+              left: -2000,
+              right: -2000,
+              top: align === 'flex-start' ? -2000 : -170,
+              bottom: align === 'flex-start' ? -170 : -2000,
+              background:
+                align === 'flex-start'
+                  ? 'linear-gradient(to top, rgba(0,0,0,0) 0px, rgba(0,0,0,0.62) 190px, rgba(0,0,0,0.74) 100%)'
+                  : 'linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0.62) 190px, rgba(0,0,0,0.74) 100%)',
+            }}
+          />
+        )}
         {children}
       </div>
     </div>
@@ -900,8 +918,8 @@ function MediaFullBg({ background, duration }) {
       <AbsoluteFill
         style={{
           background: captions
-            ? 'linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 20%, rgba(0,0,0,0) 36%, rgba(0,0,0,0) 58%, rgba(0,0,0,0.7) 78%, rgba(0,0,0,0.85) 100%)'
-            : 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 38%, rgba(0,0,0,0.72) 62%, rgba(0,0,0,0.9) 100%)',
+            ? 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.6) 78%, rgba(0,0,0,0.8) 100%)'
+            : 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 100%)',
         }}
       />
     </AbsoluteFill>
@@ -947,7 +965,7 @@ function Scene({ scene, first }) {
           {type === 'imageTop' && <ImageTopBg background={scene.background} duration={duration} />}
           {(type === 'brand' || type === 'burst') && <BrandBg />}
           {/* Over a full-frame photo the blocks sit low, on the dark end of the gradient. */}
-          <Stack top={safe.top} bottom={safe.bottom} gap={scene.gap ?? 30} align={type === 'mediaFull' ? (captions ? 'flex-start' : 'flex-end') : 'center'}>
+          <Stack top={safe.top} bottom={safe.bottom} gap={scene.gap ?? 30} align={type === 'mediaFull' ? (captions ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull'}>
             {scene.blocks.map((block, i) => (
               <Block key={i} block={block} duration={duration} />
             ))}
