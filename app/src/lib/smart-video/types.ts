@@ -12,6 +12,10 @@ import { MAX_ANIMATED_PHOTOS, MAX_LIFESTYLE_PHOTOS } from './pricing';
 export const VIDEO_LENGTHS = ['auto', 'script'] as const;
 export type VideoLength = (typeof VIDEO_LENGTHS)[number];
 
+/** vertical = 9:16 for TikTok, Reels and Shorts; horizontal = 16:9 for YouTube and websites. */
+export const VIDEO_FORMATS = ['vertical', 'horizontal'] as const;
+export type VideoFormat = (typeof VIDEO_FORMATS)[number];
+
 export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean'] as const;
 
 const cue = z.string().nullish().describe('Exact words from this scene\'s narration on which the element appears; null = scene start');

@@ -1,4 +1,4 @@
-import { DirectorPlanSchema, type DirectorPlan, type SmartAsset, type VideoLength } from './types';
+import { DirectorPlanSchema, type DirectorPlan, type SmartAsset, type VideoFormat, type VideoLength } from './types';
 import { usage } from './usage';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
@@ -102,14 +102,18 @@ const LENGTH_RULES: Record<VideoLength, string> = {
     "The client's text IS the script and they want all of it. Narrate it faithfully and in order, in their wording: do not cut, summarise or reorder content. Adapt only what speech needs: numbers, units and symbols as spoken words, list items turned into flowing sentences, headings dropped or folded into the next sentence, contact details shown on screen instead of read out. Ignore stage directions such as \"(3 minutes)\". Use as many scenes as the script needs (up to 28): one idea per scene and at most about 30 words (12 seconds) each, so the picture changes often; split a long list over two scenes with different files. The format recipes still guide what each scene shows.",
 };
 
-export async function directVideo(brief: string, assets: SmartAsset[], length: VideoLength = 'auto'): Promise<DirectorPlan> {
+const HORIZONTAL_NOTE = `
+
+THIS VIDEO IS HORIZONTAL (16:9, for YouTube and websites), not vertical. Everything above still applies, with these differences: a scene with a media block is laid out with the picture on one side and the text on the other, so every brand-background scene should have a media (or gallery) block; landscape photos and clips fill a mediaFull scene best, while a tall photo or clip is shown whole on the right with the text beside it; lifestyleShots and animated photos are made in 16:9; an "imageTop" background shows the artwork on the left.`;
+
+export async function directVideo(brief: string, assets: SmartAsset[], length: VideoLength = 'auto', format: VideoFormat = 'vertical'): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
 
   const instructions = BRIEF.replace(
     '{{LENGTH}}',
     `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
-  );
+  ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '');
   const parts: unknown[] = [{ text: instructions }, { text: `\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
   for (const asset of assets) {
     parts.push({ text: describe(asset) });
@@ -160,11 +164,12 @@ export async function reviseVideo(
   plan: DirectorPlan,
   note: string,
   brief: string,
-  existing: Record<string, { kind: 'image' | 'video'; cutoutUrl?: string }>
+  existing: Record<string, { kind: 'image' | 'video'; cutoutUrl?: string }>,
+  format: VideoFormat = 'vertical'
 ): Promise<DirectorPlan> {
   const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion'));
   const cutouts = ids.filter((id) => existing[id].cutoutUrl);
-  const instructions = BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.');
+  const instructions = BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.') + (format === 'horizontal' ? HORIZONTAL_NOTE : '');
   const task = [
     '',
     'YOU ALREADY MADE THIS VIDEO. The client watched it and left a note. Return the full plan again with ONLY the changes the note asks for.',

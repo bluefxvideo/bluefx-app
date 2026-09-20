@@ -167,12 +167,12 @@ export async function cutOutProduct(image: Buffer, mimeType: string): Promise<Bu
   return Buffer.from(await (await fetch(json.image.url)).arrayBuffer());
 }
 
-/** A new vertical photo of the client's real product in use, generated from its packshot. */
-export async function generateLifestyleShot(packshot: Buffer, mimeType: string, prompt: string): Promise<Buffer> {
+/** A new frame-filling photo of the client's real product in use, generated from its packshot. */
+export async function generateLifestyleShot(packshot: Buffer, mimeType: string, prompt: string, horizontal = false): Promise<Buffer> {
   const json = await fal('fal-ai/nano-banana-2/edit', {
     prompt: `${prompt} The product must be exactly the one in the reference image: same shape, colours, proportions and details. Natural candid photo, no text, no logos, no watermarks.`,
     image_urls: [`data:${mimeType};base64,${packshot.toString('base64')}`],
-    aspect_ratio: '9:16',
+    aspect_ratio: horizontal ? '16:9' : '9:16',
     resolution: '1K',
     output_format: 'jpeg',
   });
@@ -182,8 +182,8 @@ export async function generateLifestyleShot(packshot: Buffer, mimeType: string, 
 
 export const MOTION_CLIP_SECONDS = 6; // the model's shortest clip
 
-/** Turns a vertical still into a short moving clip (fal LTX 2.3 Fast, queue API). Returns the MP4. */
-export async function animatePhoto(image: Buffer, prompt: string): Promise<Buffer> {
+/** Turns a frame-sized still into a short moving clip (fal LTX 2.3 Fast, queue API). Returns the MP4. */
+export async function animatePhoto(image: Buffer, prompt: string, horizontal = false): Promise<Buffer> {
   const headers = { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` };
   const submit = await fetch('https://queue.fal.run/fal-ai/ltx-2.3/image-to-video/fast', {
     method: 'POST',
@@ -193,7 +193,7 @@ export async function animatePhoto(image: Buffer, prompt: string): Promise<Buffe
       prompt: `${prompt} Smooth, slow, steady cinematic camera movement. Photorealistic, the scene stays exactly as in the image, no new objects, no text.`,
       duration: MOTION_CLIP_SECONDS,
       resolution: '1080p',
-      aspect_ratio: '9:16',
+      aspect_ratio: horizontal ? '16:9' : '9:16',
       fps: 25,
       generate_audio: false,
     }),

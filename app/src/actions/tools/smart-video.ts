@@ -23,6 +23,7 @@ import {
   SmartVideoStartSchema,
   SmartVideoUploadRequestSchema,
   type SmartVideoJob,
+  type SmartVideoScriptScene,
   type SmartVideoStartInput,
   type SmartVideoUploadSlot,
 } from '@/types/smart-video';
@@ -145,6 +146,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       brief: parsed.brief,
       link: parsed.link || undefined,
       length: parsed.length,
+      format: parsed.format,
       creditsUsed: credits,
       createdAt: now,
       updatedAt: now,
@@ -188,6 +190,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
       (url) => download(`${dir}/${path.basename(new URL(url).pathname)}`),
       {
         length: job.length === 'script' ? 'script' : 'auto',
+        format: job.format,
         onStage: (stage) => {
           job = { ...job, status: stage };
           writeJob(job).catch(() => undefined);
@@ -205,6 +208,19 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
   }
 }
 
+// The words a block puts on screen, for the script shown under the video.
+function scriptOf(plan: DirectorPlan): SmartVideoScriptScene[] {
+  return plan.scenes.map((scene) => ({
+    say: scene.narration,
+    speaker: Boolean(scene.speaker),
+    show: scene.blocks.flatMap((block) => {
+      if ('items' in block) return block.items.map((item) => ('text' in item ? item.text : `${item.top} ${item.big}`));
+      if (block.type === 'number') return [`${block.prefix || ''}${block.value}${block.suffix || ''}`];
+      return 'text' in block && block.text ? [block.text.replace(/\s*\n\s*/g, ' ')] : [];
+    }),
+  }));
+}
+
 /** Shared ending of a new video and a revision: save the plan, render, level the sound. */
 async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: string, track: (job: SmartVideoJob) => void): Promise<void> {
   let job = start;
@@ -219,6 +235,7 @@ async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: str
     durationSeconds,
     usage,
     warnings,
+    script: scriptOf(plan),
     summary: {
       format: plan.format,
       style: plan.style,
@@ -270,6 +287,7 @@ export async function reviseSmartVideoJob(input: { jobId: string; note: string }
       brief: parent.brief,
       link: parent.link,
       length: parent.length,
+      format: parent.format,
       parentId: parent.id,
       note: parsed.note,
       creditsUsed: PHANTOM_REVISION_CREDITS,
@@ -370,6 +388,15 @@ export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | n
   const running = job.status !== 'done' && job.status !== 'failed';
   if (running && Date.now() - Date.parse(job.updatedAt) > STALE_AFTER_MS) {
     return forViewer(await failAndRefund(job, 'The job stopped unexpectedly (the server may have restarted). Please run it again.'));
+  }
+  // Videos finished before the script was saved with the job: read it from their plan once.
+  if (job.status === 'done' && !job.script) {
+    try {
+      const saved = JSON.parse((await download(`${jobDir(userId, jobId)}/plan.json`)).toString('utf-8')) as { plan: DirectorPlan };
+      return forViewer(await writeJob(job, { script: scriptOf(saved.plan) }));
+    } catch {
+      return forViewer(job);
+    }
   }
   return forViewer(job);
 }

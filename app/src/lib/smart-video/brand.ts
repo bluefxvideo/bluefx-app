@@ -56,10 +56,10 @@ export async function analyzeColors(image: Buffer): Promise<{ flatBackground?: s
   return { flatBackground: flat ? toHex(corners[0]) : undefined, palette };
 }
 
-/** Crops a photo to a full vertical frame around its subject (`focus` is a CSS object-position like "60% 40%"). */
-export async function cropVertical(image: Buffer, focus?: string | null): Promise<Buffer> {
-  const W = 1080;
-  const H = 1920;
+/** Crops a photo to the full video frame around its subject (`focus` is a CSS object-position like "60% 40%"). */
+export async function cropToFrame(image: Buffer, focus: string | null | undefined, horizontal: boolean): Promise<Buffer> {
+  const W = horizontal ? 1920 : 1080;
+  const H = horizontal ? 1080 : 1920;
   const [fx, fy] = (focus || '50% 50%').split(/\s+/).map((v) => Math.min(1, Math.max(0, parseFloat(v) / 100 || 0.5)));
   const meta = await sharp(image).metadata();
   const scale = Math.max(W / (meta.width || W), H / (meta.height || H));

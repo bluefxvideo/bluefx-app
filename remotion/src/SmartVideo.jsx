@@ -33,8 +33,13 @@ import {
  */
 
 const FPS = 30;
-const W = 1080;
-const H = 1920;
+const FRAMES = { vertical: { W: 1080, H: 1920, landscape: false }, horizontal: { W: 1920, H: 1080, landscape: true } };
+// The frame of this video, and the width of the column the current blocks sit in
+// (the whole frame when vertical; one side of a split scene when horizontal).
+const Frame = createContext(FRAMES.vertical);
+const useFrame = () => useContext(Frame);
+const Column = createContext(1080);
+const useColumn = () => useContext(Column);
 const SIDE = 50;
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' };
 const EMOJI = '"Noto Color Emoji", "Apple Color Emoji", sans-serif';
@@ -190,7 +195,9 @@ function autoBreak(text, maxChars) {
   return out.join('\n');
 }
 
-function Stack({ top, bottom, gap, align = 'center', scrim = false, children }) {
+function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = false, scrimFrom = 'vertical', children }) {
+  const { W, H } = useFrame();
+  const columnWidth = width ?? W;
   const ref = useRef(null);
   const [scale, setScale] = useState(1);
   const available = H - top - bottom;
@@ -198,39 +205,52 @@ function Stack({ top, bottom, gap, align = 'center', scrim = false, children }) 
     const h = ref.current?.offsetHeight;
     const w = ref.current?.offsetWidth;
     if (!h || !w) return;
-    // Shrinks a stack that is too tall; grows a small one (up to 22%) so it fills a phone screen.
-    const target = Math.min(1.22, (available * 0.94) / h, (W - 2 * 34) / w);
+    // Shrinks a stack that is too big; grows a small one (up to 22%) so it fills its column.
+    const target = Math.min(1.22, (available * 0.94) / h, (columnWidth - 2 * 34) / w);
     if (Math.abs(target - scale) > 0.005) setScale(target);
   });
+  const down = align !== 'flex-start';
   return (
-    <div
-      style={{ position: 'absolute', top, left: 0, width: W, height: available, display: 'flex', alignItems: align, justifyContent: 'center' }}
-    >
+    <Column.Provider value={columnWidth}>
       <div
-        ref={ref}
-        style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap, flexShrink: 0, transform: `scale(${scale})`, transformOrigin: align === 'flex-end' ? 'center bottom' : align === 'flex-start' ? 'center top' : 'center' }}
+        style={{ position: 'absolute', top, left, width: columnWidth, height: available, display: 'flex', alignItems: align, justifyContent: 'center' }}
       >
-        {/* Over a photo, the darkness follows the text: it starts just above the stack (or ends just below it)
-            and leaves the rest of the picture alone. */}
-        {scrim && (
-          <div
-            style={{
-              position: 'absolute',
-              zIndex: -1,
-              left: -2000,
-              right: -2000,
-              top: align === 'flex-start' ? -2000 : -170,
-              bottom: align === 'flex-start' ? -170 : -2000,
-              background:
-                align === 'flex-start'
-                  ? 'linear-gradient(to top, rgba(0,0,0,0) 0px, rgba(0,0,0,0.62) 190px, rgba(0,0,0,0.74) 100%)'
-                  : 'linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0.62) 190px, rgba(0,0,0,0.74) 100%)',
-            }}
-          />
-        )}
-        {children}
+        <div
+          ref={ref}
+          style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap, flexShrink: 0, transform: `scale(${scale})`, transformOrigin: align === 'flex-end' ? 'center bottom' : align === 'flex-start' ? 'center top' : 'center' }}
+        >
+          {/* Over a photo, the darkness follows the text and leaves the rest of the picture alone:
+              from just above (or below) the stack when vertical, from the side when horizontal. */}
+          {scrim && scrimFrom === 'vertical' && (
+            <div
+              style={{
+                position: 'absolute',
+                zIndex: -1,
+                left: -3000,
+                right: -3000,
+                top: down ? -170 : -3000,
+                bottom: down ? -3000 : -170,
+                background: `linear-gradient(to ${down ? 'bottom' : 'top'}, rgba(0,0,0,0) 0px, rgba(0,0,0,0.62) 190px, rgba(0,0,0,0.74) 100%)`,
+              }}
+            />
+          )}
+          {scrim && scrimFrom === 'side' && (
+            <div
+              style={{
+                position: 'absolute',
+                zIndex: -1,
+                top: -3000,
+                bottom: -3000,
+                left: -3000,
+                right: -260,
+                background: 'linear-gradient(to left, rgba(0,0,0,0) 0px, rgba(0,0,0,0.6) 260px, rgba(0,0,0,0.72) 100%)',
+              }}
+            />
+          )}
+          {children}
+        </div>
       </div>
-    </div>
+    </Column.Provider>
   );
 }
 
@@ -314,7 +334,7 @@ function Title({ block }) {
   const textColor = useTextColor();
   const base = Math.round((TITLE_SIZE[block.size] || TITLE_SIZE.l) * look.title.scale);
   const probe = titlePaint(look, theme, block.tone, base, textColor);
-  const [ref, size] = useFit(base, W - 2 * SIDE - Math.round(base * 0.22) - (probe.inset || 0));
+  const [ref, size] = useFit(base, useColumn() - 2 * SIDE - Math.round(base * 0.22) - (probe.inset || 0));
   const paint = titlePaint(look, theme, block.tone, size, textColor);
   const chars = Math.round((TITLE_CHARS[block.size] || TITLE_CHARS.l) * look.title.chars);
   const text = autoBreak(block.text, chars);
@@ -373,7 +393,7 @@ function WasPrice({ text }) {
 function Pill({ block }) {
   const { theme, look } = usePlan();
   const base = block.size === 'l' ? 50 : 42;
-  const [ref, size] = useFit(base, W - 2 * SIDE - 90);
+  const [ref, size] = useFit(base, useColumn() - 2 * SIDE - 90);
   const tones = {
     accent: { background: theme.accent, color: '#FFFFFF' },
     dark: { background: look.surface === 'dark' ? '#FFFFFF' : theme.ink, color: look.surface === 'dark' ? theme.ink : '#FFFFFF' },
@@ -403,7 +423,7 @@ function Pill({ block }) {
 
 function Badge({ block }) {
   const { theme, look } = usePlan();
-  const [ref, size] = useFit(Math.round(80 * look.title.scale), W - 2 * SIDE - 130);
+  const [ref, size] = useFit(Math.round(80 * look.title.scale), useColumn() - 2 * SIDE - 130);
   const playful = look.title.kind === 'sticker';
   return (
     <div
@@ -430,7 +450,7 @@ function Highlight({ block }) {
   const { theme, look } = usePlan();
   const frame = useCurrentFrame();
   const from = useLocalFrame(block.at);
-  const [ref, size] = useFit(60, W - 2 * SIDE - 120);
+  const [ref, size] = useFit(60, useColumn() - 2 * SIDE - 120);
   const pulse = 1 + 0.025 * Math.sin(Math.max(0, frame - from - 18) / 7);
   return (
     <div
@@ -457,7 +477,7 @@ const CHIP_COLORS = ['accent', 'blue', 'green', 'orange', 'purple'];
 function Chip({ item, index }) {
   const { theme, look } = usePlan();
   const textColor = useTextColor();
-  const [ref, size] = useFit(50, W - 2 * SIDE - 190);
+  const [ref, size] = useFit(50, useColumn() - 2 * SIDE - 190);
   const chip = look.chip;
   const iconBg = {
     cycle: color(theme, item.color, color(theme, CHIP_COLORS[index % CHIP_COLORS.length])),
@@ -529,7 +549,7 @@ function Tiles({ block }) {
   const { theme, look } = usePlan();
   const n = block.items.length;
   const gap = 18;
-  const w = Math.min(260, Math.floor((W - 2 * SIDE - gap * (n - 1)) / n));
+  const w = Math.min(260, Math.floor((useColumn() - 2 * SIDE - gap * (n - 1)) / n));
   const k = w / 212;
   return (
     <div style={{ display: 'flex', gap }}>
@@ -820,6 +840,7 @@ function Block({ block, duration }) {
 
 // ---------- backgrounds ----------
 function Confetti({ colors }) {
+  const { W, H } = useFrame();
   const frame = useCurrentFrame();
   const span = H + 200;
   return new Array(16).fill(0).map((_, i) => {
@@ -837,6 +858,7 @@ function Confetti({ colors }) {
 }
 
 function BrandBg() {
+  const { W, H } = useFrame();
   const { theme, styleName } = usePlan();
   const frame = useCurrentFrame();
   const base = { overflow: 'hidden', background: `radial-gradient(circle at 50% 40%, ${theme.bgLight} 0%, ${theme.bg} 42%, ${theme.bgDeep} 100%)` };
@@ -909,11 +931,27 @@ function MediaBlurBg({ background }) {
 
 // Full-frame photo or clip under a dark gradient; blocks sit on top.
 function MediaFullBg({ background, duration }) {
+  const { landscape } = useFrame();
   const { assets, captions } = usePlan();
   const asset = assets[background.asset];
+  const block = { zoom: [1.02, 1.1], focus: background.focus, startFrom: background.startFrom, playbackRate: background.playbackRate };
+  // A tall photo or clip cannot fill a wide frame without losing the subject:
+  // it stands whole on the right, over a blurred copy of itself.
+  if (landscape && asset?.portrait) {
+    return (
+      <AbsoluteFill style={{ background: '#0d0d12', overflow: 'hidden' }}>
+        <AbsoluteFill style={{ transform: 'scale(1.2)', filter: 'blur(36px) brightness(0.4)' }}>
+          <MediaFill asset={asset} block={{ ...block, zoom: [1, 1] }} duration={duration} />
+        </AbsoluteFill>
+        <div style={{ position: 'absolute', top: 50, bottom: captions ? 225 : 50, right: 150, aspectRatio: '9 / 16', borderRadius: 28, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
+          <MediaFill asset={asset} block={{ ...block, zoom: [1, 1.04] }} duration={duration} />
+        </div>
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill style={{ background: '#0d0d12', overflow: 'hidden' }}>
-      {asset && <MediaFill asset={asset} block={{ zoom: [1.02, 1.1], focus: background.focus, startFrom: background.startFrom, playbackRate: background.playbackRate }} duration={duration} />}
+      {asset && <MediaFill asset={asset} block={block} duration={duration} />}
       {/* With captions the headline sits at the top and the subject stays clear in the middle. */}
       <AbsoluteFill
         style={{
@@ -928,18 +966,25 @@ function MediaFullBg({ background, duration }) {
 
 // Artwork across the top, fading into a panel that carries the blocks.
 const PANEL_TOP = 705;
+const SIDE_ART = 860; // horizontal: the artwork's share of the width
 
 function ImageTopBg({ background, duration }) {
+  const { W, H, landscape } = useFrame();
   const { assets, theme, look } = usePlan();
   const asset = assets[background.asset];
   const panel = look.panel || theme.bg;
+  const art = asset && <MediaFill asset={asset} block={{ zoom: [1, 1.04], focus: background.focus || '50% 20%' }} duration={duration} />;
+  if (landscape) {
+    return (
+      <AbsoluteFill style={{ background: panel, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: SIDE_ART, height: H, overflow: 'hidden' }}>{art}</div>
+        <div style={{ position: 'absolute', top: 0, left: SIDE_ART - 140, width: 150, height: H, background: `linear-gradient(to right, ${panel}00 0%, ${panel} 80%)` }} />
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill style={{ background: panel, overflow: 'hidden' }}>
-      {asset && (
-        <AbsoluteFill>
-          <MediaFill asset={asset} block={{ zoom: [1, 1.04], focus: background.focus || '50% 20%' }} duration={duration} />
-        </AbsoluteFill>
-      )}
+      {asset && <AbsoluteFill>{art}</AbsoluteFill>}
       <div
         style={{ position: 'absolute', top: PANEL_TOP - 105, left: 0, width: W, height: 110, background: `linear-gradient(to bottom, ${panel}00 0%, ${panel} 72%)` }}
       />
@@ -948,16 +993,71 @@ function ImageTopBg({ background, duration }) {
   );
 }
 
-function Scene({ scene, first }) {
-  const { look, captions } = usePlan();
+function Scene({ scene, index, first }) {
+  const { W, landscape } = useFrame();
+  const { look, captions, assets } = usePlan();
   const duration = Math.round((scene.end - scene.start) * FPS);
   const type = scene.background?.type || 'brand';
-  // Captions own the lower third, so the blocks end above them.
-  const safe = { top: type === 'imageTop' ? PANEL_TOP - 75 : 190, bottom: captions ? 610 : 300, ...scene.safe };
-  // A person talking keeps their face clear: the name tag and line sit as low as the captions allow.
-  if (scene.speaker) safe.bottom = captions ? 600 : 330;
   const surface =
     type === 'mediaBlur' || type === 'mediaFull' ? 'dark' : type === 'imageTop' ? (look.panel ? 'light' : 'dark') : look.surface;
+  const gap = scene.gap ?? 30;
+  const render = (blocks) => blocks.map((block, i) => <Block key={i} block={block} duration={duration} />);
+
+  let layout;
+  if (!landscape) {
+    // Captions own the lower third, so the blocks end above them.
+    const safe = { top: type === 'imageTop' ? PANEL_TOP - 75 : 190, bottom: captions ? 610 : 300, ...scene.safe };
+    // A person talking keeps their face clear: the name tag and line sit as low as the captions allow.
+    if (scene.speaker) safe.bottom = captions ? 600 : 330;
+    layout = (
+      // Over a full-frame photo the blocks sit low, on the dark end of the gradient.
+      <Stack top={safe.top} bottom={safe.bottom} gap={gap} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker}>
+        {render(scene.blocks)}
+      </Stack>
+    );
+  } else {
+    // Horizontal: no social buttons to avoid, only the caption strip at the bottom.
+    const top = 70;
+    const bottom = captions ? 215 : 70;
+    const pictures = scene.blocks.filter((b) => b.type === 'media' || b.type === 'gallery');
+    const words = scene.blocks.filter((b) => b.type !== 'media' && b.type !== 'gallery');
+    if (type === 'mediaFull') {
+      // The text stands in the lower left; a tall clip shown on the right leaves the left half free.
+      const tall = assets[scene.background.asset]?.portrait;
+      layout = (
+        <Stack top={top} bottom={bottom + 20} left={tall ? 120 : 90} width={tall ? 1000 : 900} gap={gap} align={tall ? 'center' : 'flex-end'} scrim={!tall} scrimFrom="side">
+          {render(scene.blocks)}
+        </Stack>
+      );
+    } else if (type === 'imageTop') {
+      layout = (
+        <Stack top={top} bottom={bottom} left={SIDE_ART} width={W - SIDE_ART - 40} gap={gap}>
+          {render(scene.blocks)}
+        </Stack>
+      );
+    } else if (pictures.length && words.length) {
+      // Picture on one side, words on the other; the sides alternate from scene to scene.
+      const pictureLeft = index % 2 === 0;
+      const half = W / 2;
+      layout = (
+        <>
+          <Stack top={top} bottom={bottom} left={pictureLeft ? 30 : half} width={half - 30} gap={gap}>
+            {render(pictures)}
+          </Stack>
+          <Stack top={top} bottom={bottom} left={pictureLeft ? half : 30} width={half - 30} gap={gap}>
+            {render(words)}
+          </Stack>
+        </>
+      );
+    } else {
+      layout = (
+        <Stack top={top} bottom={bottom} left={(W - 1300) / 2} width={1300} gap={gap}>
+          {render(scene.blocks)}
+        </Stack>
+      );
+    }
+  }
+
   return (
     <SceneTime.Provider value={{ start: scene.start, first }}>
       <Surface.Provider value={surface}>
@@ -966,12 +1066,7 @@ function Scene({ scene, first }) {
           {type === 'mediaFull' && <MediaFullBg background={scene.background} duration={duration} />}
           {type === 'imageTop' && <ImageTopBg background={scene.background} duration={duration} />}
           {(type === 'brand' || type === 'burst') && <BrandBg />}
-          {/* Over a full-frame photo the blocks sit low, on the dark end of the gradient. */}
-          <Stack top={safe.top} bottom={safe.bottom} gap={scene.gap ?? 30} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker}>
-            {scene.blocks.map((block, i) => (
-              <Block key={i} block={block} duration={duration} />
-            ))}
-          </Stack>
+          {layout}
         </AbsoluteFill>
       </Surface.Provider>
     </SceneTime.Provider>
@@ -980,6 +1075,7 @@ function Scene({ scene, first }) {
 
 // The cut happens while the transition covers the frame.
 function Transition({ at }) {
+  const { W, H } = useFrame();
   const { theme, look } = usePlan();
   const frame = useCurrentFrame();
   const kind = look.transition;
@@ -1025,6 +1121,7 @@ function chunkWords(words) {
 }
 
 function Captions({ words }) {
+  const { W, H, landscape } = useFrame();
   const { theme, look, styleName } = usePlan();
   const frame = useCurrentFrame();
   const t = frame / FPS;
@@ -1039,7 +1136,7 @@ function Captions({ words }) {
   const lit = styleName === 'playful' ? theme.bg : styleName === 'elegant' ? theme.accent : styleName === 'bold' ? theme.accent : '#FFD84D';
   const size = { playful: 84, bold: 98, clean: 72, elegant: 62 }[styleName];
   return (
-    <div style={{ position: 'absolute', left: 0, width: W, top: 1335, height: 250, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'absolute', left: 0, width: W, top: landscape ? H - 200 : 1335, height: landscape ? 160 : 250, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
         style={{
           display: 'flex',
@@ -1122,7 +1219,8 @@ function Soundtrack({ audio = {}, scenes, duration }) {
 }
 
 // ---------- composition ----------
-export const SmartVideo = ({ scenes = [], style = 'playful', theme, assets = {}, audio, captions, duration }) => {
+export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful', theme, assets = {}, audio, captions, duration }) => {
+  const frameSize = FRAMES[format] || FRAMES.vertical;
   const styleName = STYLES[style] ? style : 'playful';
   const look = STYLES[styleName];
   const ready = useFonts(look);
@@ -1137,12 +1235,13 @@ export const SmartVideo = ({ scenes = [], style = 'playful', theme, assets = {},
     theme: { ...merged, wipe: merged.wipe || [merged.accent, NAMED.orange, '#FFD21F', NAMED.green, NAMED.blue, NAMED.purple] },
   };
   return (
+    <Frame.Provider value={frameSize}>
     <Plan.Provider value={plan}>
       <AbsoluteFill style={{ background: plan.theme.bg }}>
         {ready &&
           scenes.map((scene, i) => (
             <Sequence key={i} from={Math.round(scene.start * FPS)} durationInFrames={Math.max(1, Math.round((scene.end - scene.start) * FPS))}>
-              <Scene scene={scene} first={i === 0} />
+              <Scene scene={scene} index={i} first={i === 0} />
             </Sequence>
           ))}
         {scenes.slice(1).map((scene, i) => (
@@ -1152,12 +1251,13 @@ export const SmartVideo = ({ scenes = [], style = 'playful', theme, assets = {},
         <Soundtrack audio={audio} scenes={scenes} duration={total} />
       </AbsoluteFill>
     </Plan.Provider>
+    </Frame.Provider>
   );
 };
 
 export const smartVideoMetadata = ({ props }) => ({
   durationInFrames: Math.max(1, Math.ceil((props.duration || 10) * FPS)),
   fps: FPS,
-  width: W,
-  height: H,
+  width: (FRAMES[props.format] || FRAMES.vertical).W,
+  height: (FRAMES[props.format] || FRAMES.vertical).H,
 });

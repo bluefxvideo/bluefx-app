@@ -11,6 +11,7 @@ import {
   startSmartVideo,
 } from '@/actions/tools/smart-video';
 import { phantomCredits } from '@/lib/smart-video/pricing';
+import type { VideoFormat } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
 
 const POLL_MS = 4000;
@@ -21,6 +22,7 @@ export function useSmartVideo() {
   const [brief, setBrief] = useState('');
   const [link, setLink] = useState('');
   const [exactWords, setExactWords] = useState(false);
+  const [format, setFormat] = useState<VideoFormat>('vertical');
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -77,6 +79,7 @@ export function useSmartVideo() {
         jobId: requested.data.jobId,
         brief,
         length: exactWords ? 'script' : 'auto',
+        format,
         link: link.trim(),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -89,7 +92,7 @@ export function useSmartVideo() {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, files, queryClient]);
+  }, [brief, link, exactWords, format, files, queryClient]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
@@ -129,6 +132,8 @@ export function useSmartVideo() {
     setLink,
     exactWords,
     setExactWords,
+    format,
+    setFormat,
     files,
     addFiles,
     removeFile,

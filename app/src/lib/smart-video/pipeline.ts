@@ -12,9 +12,9 @@ import {
   type SpokenWord,
 } from './audio';
 import { alignScript, cueTime } from './timing';
-import { buildTheme, cropVertical, cutOutLogo } from './brand';
+import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { extractAudio } from './prepare-assets';
-import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, VideoLength } from './types';
+import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, VideoFormat, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
 
 /**
@@ -40,6 +40,8 @@ export type SmartVideoStage = 'directing' | 'producing';
 
 /** Everything generated for a video. Saved with the plan, so a revision can reuse it. */
 export interface SmartVideoMedia {
+  /** The shape of the video; a revision keeps it. Absent on older videos = vertical. */
+  format?: VideoFormat;
   /** The narrator's recording; null when people in the client's clips say everything. */
   voice: { url: string; words: SpokenWord[]; durationSeconds: number } | null;
   /** Word timings of what is said in each talking clip, by asset id. */
@@ -47,7 +49,7 @@ export interface SmartVideoMedia {
   musicUrl: string | null;
   soundUrl: string | null;
   /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips. */
-  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string }>;
+  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean }>;
 }
 
 export interface SmartVideoResult {
@@ -63,6 +65,7 @@ export interface SmartVideoResult {
 
 export interface SmartVideoOptions {
   length?: VideoLength;
+  format?: VideoFormat;
   onStage?: (stage: SmartVideoStage) => void;
 }
 
@@ -82,11 +85,12 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', onStage = () => {} }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', onStage = () => {} }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   onStage('directing');
   console.log(`🎬 Smart Video: directing (${assets.length} files)...`);
-  const plan = await directVideo(brief, assets, length);
+  const horizontal = format === 'horizontal';
+  const plan = await directVideo(brief, assets, length, format);
   console.log(`✅ Plan: ${plan.scenes.length} scenes, style "${plan.style}" (${plan.styleReason}), language ${plan.language}`);
 
   onStage('producing');
@@ -115,13 +119,13 @@ async function produce(
   const lifestyle = Promise.all(
     (plan.lifestyleShots || []).map(async (shot) => {
       const from = assets.find((a) => a.id === shot.fromAsset) as SmartAsset;
-      const url = await generateLifestyleShot(from.data, from.mimeType, shot.prompt)
+      const url = await generateLifestyleShot(from.data, from.mimeType, shot.prompt, horizontal)
         .then((jpg) => store(jpg, `${shot.id}.jpg`, 'image/jpeg'))
         .catch((error) => {
           console.warn(`⚠️ Lifestyle photo ${shot.id} failed:`, String(error).slice(0, 160));
           return from.url; // the packshot still beats a blank scene
         });
-      return [shot.id, { url, kind: 'image' as const }] as const;
+      return [shot.id, { url, kind: 'image' as const, portrait: !horizontal }] as const;
     })
   );
 
@@ -139,7 +143,7 @@ async function produce(
         const generated = original ? null : (await lifestyle).find(([id]) => id === shot.asset);
         const image = original ? original.data : generated ? await loadStored(generated[1].url) : null;
         if (!image) return null;
-        const clip = await animatePhoto(await cropVertical(image, focusOf(shot.asset)), shot.prompt);
+        const clip = await animatePhoto(await cropToFrame(image, focusOf(shot.asset), horizontal), shot.prompt, horizontal);
         return [shot.asset, await store(clip, `${shot.asset}-motion.mp4`, 'video/mp4')] as const;
       } catch (error) {
         console.warn(`⚠️ Animating ${shot.asset} failed:`, String(error).slice(0, 160));
@@ -176,14 +180,27 @@ async function produce(
   ]);
 
   const media: SmartVideoMedia = {
+    format,
     voice,
     clipWords: heardInClips,
     musicUrl,
     soundUrl,
     assets: Object.fromEntries([
-      ...[...motionUrls].map(([id, url]) => [`${id}-motion`, { url, kind: 'video' as const }] as const),
+      ...[...motionUrls].map(([id, url]) => [`${id}-motion`, { url, kind: 'video' as const, portrait: !horizontal }] as const),
       ...lifestyleAssets,
-      ...assets.map((a) => [a.id, { url: logoUrl && a.id === logoAsset?.id ? logoUrl : a.url, kind: a.kind, cutoutUrl: cutoutUrls.get(a.id) || undefined }] as const),
+      ...assets.map(
+        (a) =>
+          [
+            a.id,
+            {
+              url: logoUrl && a.id === logoAsset?.id ? logoUrl : a.url,
+              kind: a.kind,
+              cutoutUrl: cutoutUrls.get(a.id) || undefined,
+              // A tall picture cannot fill a wide frame; the renderer shows it whole instead.
+              portrait: Boolean(a.width && a.height && a.height > a.width * 1.15),
+            },
+          ] as const
+      ),
     ]),
   };
   const props = buildProps(plan, media);
@@ -204,7 +221,7 @@ export async function reviseSmartVideo(
 ): Promise<SmartVideoResult> {
   const { result, usage } = await trackUsage(async () => {
     onStage('directing');
-    const plan = await reviseVideo(previous.plan, note, brief, previous.media.assets);
+    const plan = await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format);
     onStage('producing');
     const media = { ...previous.media };
     // Only the narrator's lines are recorded; a speaker scene needs the clip's saved word timings.
@@ -312,6 +329,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
   const spoken = timed.flatMap((t) => t.tokens);
   const props = {
     duration,
+    format: media.format || 'vertical',
     style: plan.style,
     theme: buildTheme(plan.style, plan.theme),
     assets: media.assets,

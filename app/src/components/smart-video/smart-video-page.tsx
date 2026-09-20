@@ -1,7 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, Download, FileImage, FileVideo, Ghost, Loader2, Pencil, RotateCcw, ScrollText, Upload, X } from 'lucide-react';
+import {
+  Check,
+  Download,
+  FileVideo,
+  Ghost,
+  Loader2,
+  Pencil,
+  RectangleHorizontal,
+  RectangleVertical,
+  RotateCcw,
+  ScrollText,
+  Upload,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,6 +24,7 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import type { VideoFormat } from '@/lib/smart-video/types';
 import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
 import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
@@ -31,6 +45,11 @@ const STAGES: { status: SmartVideoJobStatus; label: string }[] = [
   { status: 'finishing', label: `${NAME} is covering its tracks` },
 ];
 
+const FORMATS: { value: VideoFormat; label: string; hint: string; Icon: typeof RectangleVertical }[] = [
+  { value: 'vertical', label: 'Vertical', hint: 'TikTok, Reels, Shorts', Icon: RectangleVertical },
+  { value: 'horizontal', label: 'Horizontal', hint: 'YouTube, websites', Icon: RectangleHorizontal },
+];
+
 /**
  * Smart Video (admin-only trial): text + files, or a Zillow/Amazon link, in;
  * a finished vertical ad out. Input on the left, progress and result on the right.
@@ -40,6 +59,29 @@ export function SmartVideoPage() {
   const { job } = smart;
   const groups = groupVersions(smart.history);
   const versions = job ? (groups.find((group) => group.versions.some((v) => v.id === job.id))?.versions ?? []) : [];
+
+  // On narrow windows the result sits under the form: bring it into view when a job starts or a video is opened.
+  const resultRef = useRef<HTMLDivElement>(null);
+  const shownJob = job?.id;
+  const uploadingNow = Boolean(smart.uploading);
+  useEffect(() => {
+    if (shownJob || uploadingNow) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [shownJob, uploadingNow]);
+
+  // The browser tab tells the news when the user is somewhere else.
+  useEffect(() => {
+    const base = 'The Phantom';
+    document.title = !job
+      ? base
+      : job.status === 'done'
+        ? `Your video is ready · ${base}`
+        : job.status === 'failed'
+          ? `Video failed · ${base}`
+          : `Working… · ${base}`;
+    return () => {
+      document.title = base;
+    };
+  }, [job]);
 
   // Toast only when a job finishes while it is being watched, not when an old one is reopened.
   const watched = useRef<string | null>(null);
@@ -69,15 +111,17 @@ export function SmartVideoPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <InputPanel smart={smart} />
-        <OutputPanel
-          job={job}
-          uploading={smart.uploading}
-          onReset={smart.reset}
-          onRevise={smart.revise}
-          revising={smart.revising}
-          onOpen={smart.openJob}
-          versions={versions}
-        />
+        <div ref={resultRef} className="scroll-mt-4">
+          <OutputPanel
+            job={job}
+            uploading={smart.uploading}
+            onReset={smart.reset}
+            onRevise={smart.revise}
+            revising={smart.revising}
+            onOpen={smart.openJob}
+            versions={versions}
+          />
+        </div>
       </div>
 
       <VideoLibrary groups={groups} currentId={job?.id} onOpen={smart.openJob} />
@@ -87,6 +131,7 @@ export function SmartVideoPage() {
 
 function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
   const picker = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   return (
     <Card className="p-4 space-y-4">
       <div className="space-y-2">
@@ -99,6 +144,30 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
           className="min-h-[220px]"
           disabled={smart.isBusy}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Shape</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {FORMATS.map(({ value, label, hint, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => smart.setFormat(value)}
+              disabled={smart.isBusy}
+              className={cn(
+                'flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-50',
+                smart.format === value ? 'border-primary bg-primary/10' : 'hover:bg-muted/50',
+              )}
+            >
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <span>
+                <span className="block font-medium">{label}</span>
+                <span className="block text-xs text-muted-foreground">{hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
@@ -133,13 +202,21 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
         <button
           type="button"
           onClick={() => picker.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
             e.preventDefault();
+            setDragging(false);
             smart.addFiles(Array.from(e.dataTransfer.files));
           }}
           disabled={smart.isBusy}
-          className="w-full rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+          className={cn(
+            'w-full rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground hover:bg-muted/50 disabled:opacity-50',
+            dragging && 'border-primary bg-primary/10 text-foreground',
+          )}
         >
           <Upload className="w-5 h-5 mx-auto mb-2" />
           Drop files here or click to choose. Images and videos, up to 15.
@@ -156,18 +233,11 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
           }}
         />
         {smart.files.length > 0 && (
-          <ul className="space-y-1">
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
             {smart.files.map((file, i) => (
-              <li key={`${file.name}-${i}`} className="flex items-center gap-2 text-sm rounded bg-muted/50 px-2 py-1">
-                {file.type.startsWith('video') ? <FileVideo className="w-4 h-4" /> : <FileImage className="w-4 h-4" />}
-                <span className="truncate flex-1">{file.name}</span>
-                <span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-                <button type="button" onClick={() => smart.removeFile(i)} disabled={smart.isBusy} aria-label={`Remove ${file.name}`}>
-                  <X className="w-4 h-4" />
-                </button>
-              </li>
+              <FileThumb key={`${file.name}-${file.size}-${i}`} file={file} disabled={smart.isBusy} onRemove={() => smart.removeFile(i)} />
             ))}
-          </ul>
+          </div>
         )}
       </div>
 
@@ -224,7 +294,15 @@ function OutputPanel({
     <Card className="p-4 space-y-4">
       {job.status === 'done' && job.videoUrl ? (
         <>
-          <video src={job.videoUrl} controls playsInline className="mx-auto rounded-lg bg-black max-h-[640px] aspect-[9/16]" />
+          <video
+            src={job.videoUrl}
+            controls
+            playsInline
+            className={cn(
+              'mx-auto rounded-lg bg-black',
+              job.format === 'horizontal' ? 'w-full aspect-video' : 'max-h-[640px] aspect-[9/16]',
+            )}
+          />
           <div className="flex gap-2">
             <Button asChild className="flex-1">
               <a href={job.videoUrl} download="smart-video.mp4" target="_blank" rel="noreferrer">
@@ -279,6 +357,7 @@ function OutputPanel({
       ) : (
         <>
           <PhantomMark className="w-28 h-28 mx-auto" active />
+          <WaitNote since={job.createdAt} />
           <ul className="space-y-3">
             {STAGES.map((stage, i) => (
               <li key={stage.status} className={cn('flex items-center gap-3 text-sm', i > current && 'text-muted-foreground')}>
@@ -297,6 +376,30 @@ function OutputPanel({
             ))}
           </ul>
         </>
+      )}
+
+      {job.status === 'done' && job.script && job.script.length > 0 && (
+        <details className="border-t pt-3 text-sm" open>
+          <summary className="cursor-pointer font-medium">What it says, scene by scene</summary>
+          <ol className="mt-3 space-y-3">
+            {job.script.map((scene, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium">
+                  {i + 1}
+                </span>
+                <div className="space-y-1">
+                  <p>
+                    {scene.speaker && (
+                      <span className="mr-1 rounded bg-primary/15 px-1.5 py-0.5 text-[11px] text-primary">their own voice</span>
+                    )}
+                    {scene.say}
+                  </p>
+                  {scene.show.length > 0 && <p className="text-xs text-muted-foreground">On screen: {scene.show.join(' · ')}</p>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </details>
       )}
 
       {versions.length > 1 && (
@@ -404,7 +507,13 @@ function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; cur
               <div className="relative aspect-[9/16] bg-black">
                 {shown?.videoUrl ? (
                   // The first second of the video is its thumbnail; only the file's header is fetched.
-                  <video src={`${shown.videoUrl}#t=1`} preload="metadata" muted playsInline className="h-full w-full object-cover" />
+                  <video
+                    src={`${shown.videoUrl}#t=1`}
+                    preload="metadata"
+                    muted
+                    playsInline
+                    className={cn('h-full w-full', shown.format === 'horizontal' ? 'object-contain' : 'object-cover')}
+                  />
                 ) : (
                   <div className="flex h-full items-center justify-center">
                     <PhantomMark className="w-16 h-16" active={running} />
@@ -438,5 +547,54 @@ function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; cur
         })}
       </div>
     </div>
+  );
+}
+
+// A picked file as a picture, so a wrong upload is caught before it costs credits.
+function FileThumb({ file, disabled, onRemove }: { file: File; disabled: boolean; onRemove: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+  const isVideo = file.type.startsWith('video');
+  return (
+    <div className="relative aspect-square overflow-hidden rounded-md border bg-muted" title={file.name}>
+      {url && isVideo && <video src={`${url}#t=0.5`} preload="metadata" muted playsInline className="h-full w-full object-cover" />}
+      {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, nothing for next/image to optimise */}
+      {url && !isVideo && <img src={url} alt={file.name} className="h-full w-full object-cover" />}
+      {isVideo && (
+        <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/70 px-1 py-0.5 text-[10px] text-white">
+          <FileVideo className="h-3 w-3" />
+          clip
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled}
+        aria-label={`Remove ${file.name}`}
+        className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-black disabled:opacity-50"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+// The wait is 2 to 7 minutes: show that time is passing, and that the page can be left.
+function WaitNote({ since }: { since: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const seconds = Math.max(0, Math.floor((now - Date.parse(since)) / 1000));
+  return (
+    <p className="text-center text-xs text-muted-foreground">
+      {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} · Most videos take 2 to 4 minutes. You can leave this page, {NAME}{' '}
+      keeps working; the video will be in Your videos.
+    </p>
   );
 }
