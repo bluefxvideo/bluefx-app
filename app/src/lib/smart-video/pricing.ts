@@ -5,7 +5,7 @@
  * One flat price covers whatever the director decides to do; the caps below
  * keep the worst-case API cost of a video (about $1) well under that price.
  */
-export const PHANTOM_CREDITS = 40;
+export const PHANTOM_CREDITS = 50;
 /** "Say exactly what I wrote": each started minute of script after the first. */
 export const PHANTOM_EXTRA_MINUTE_CREDITS = 20;
 /** A change to a finished video from a note. */
