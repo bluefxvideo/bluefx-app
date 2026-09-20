@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, Download, FileImage, FileVideo, Ghost, Loader2, RotateCcw, ScrollText, Upload, X } from 'lucide-react';
+import { Check, Download, FileImage, FileVideo, Ghost, Loader2, Pencil, RotateCcw, ScrollText, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -38,6 +38,8 @@ const STAGES: { status: SmartVideoJobStatus; label: string }[] = [
 export function SmartVideoPage() {
   const smart = useSmartVideo();
   const { job } = smart;
+  const groups = groupVersions(smart.history);
+  const versions = job ? (groups.find((group) => group.versions.some((v) => v.id === job.id))?.versions ?? []) : [];
 
   // Toast only when a job finishes while it is being watched, not when an old one is reopened.
   const watched = useRef<string | null>(null);
@@ -74,31 +76,11 @@ export function SmartVideoPage() {
           onRevise={smart.revise}
           revising={smart.revising}
           onOpen={smart.openJob}
+          versions={versions}
         />
       </div>
 
-      {smart.history.length > 0 && (
-        <Card className="p-4 space-y-2">
-          <h2 className="text-sm font-medium">Sightings</h2>
-          <div className="divide-y">
-            {smart.history.map((past) => (
-              <button
-                key={past.id}
-                type="button"
-                onClick={() => smart.openJob(past.id)}
-                className="w-full flex items-center justify-between gap-3 py-2 text-left text-sm hover:bg-muted/50 rounded px-2"
-              >
-                <span className="truncate">
-                  {past.note ? `↳ ${past.note}` : past.brief.trim().split('\n')[0] || past.link || 'Untitled'}
-                </span>
-                <span className="flex-shrink-0 text-xs text-muted-foreground">
-                  {past.status} · {new Date(past.createdAt).toLocaleString()}
-                </span>
-              </button>
-            ))}
-          </div>
-        </Card>
-      )}
+      <VideoLibrary groups={groups} currentId={job?.id} onOpen={smart.openJob} />
     </div>
   );
 }
@@ -204,6 +186,7 @@ function OutputPanel({
   onRevise,
   revising,
   onOpen,
+  versions,
 }: {
   job: SmartVideoJob | null;
   uploading: { done: number; total: number } | null;
@@ -211,6 +194,7 @@ function OutputPanel({
   onRevise: (note: string) => Promise<boolean>;
   revising: boolean;
   onOpen: (jobId: string) => void;
+  versions: SmartVideoJob[];
 }) {
   const [note, setNote] = useState('');
   if (uploading) {
@@ -255,21 +239,19 @@ function OutputPanel({
           </div>
 
           <div className="space-y-2 rounded-lg border p-3">
-            <Label htmlFor="smart-note">Leave a note for {PHANTOM}</Label>
+            <Label htmlFor="smart-note">Edit this video</Label>
             <Textarea
               id="smart-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={
-                'Say what to change, in your own words: "Open with the price." "Use the photo of the torch in the second scene." "The phone number is 555-0199." "Shorter and more serious."'
+                'Tell the Phantom what to change, in your own words: "Open with the price." "Use the photo of the torch in the second scene." "The phone number is 555-0199." "Shorter and more serious."'
               }
               className="min-h-[90px]"
               disabled={revising}
             />
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground">
-                {NAME} changes only what you ask and keeps the rest. This version stays in your sightings.
-              </p>
+              <p className="text-xs text-muted-foreground">Only what you ask for changes; the rest stays. The current version is kept.</p>
               <Button
                 size="sm"
                 className="flex-shrink-0"
@@ -278,8 +260,8 @@ function OutputPanel({
                   if (await onRevise(note)) setNote('');
                 }}
               >
-                {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ScrollText className="w-4 h-4 mr-2" />}
-                Leave the note · {PHANTOM_REVISION_CREDITS} credits
+                {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
+                Make the edit · {PHANTOM_REVISION_CREDITS} credits
               </Button>
             </div>
           </div>
@@ -317,13 +299,25 @@ function OutputPanel({
         </>
       )}
 
-      {job.parentId && (
-        <p className="text-sm text-muted-foreground border-t pt-3">
-          Changed after your note: &ldquo;{job.note}&rdquo;{' '}
-          <button type="button" className="underline" onClick={() => onOpen(job.parentId as string)}>
-            See the version before
-          </button>
-        </p>
+      {versions.length > 1 && (
+        <div className="space-y-2 border-t pt-3">
+          <div className="flex flex-wrap gap-2">
+            {versions.map((version, i) => (
+              <button
+                key={version.id}
+                type="button"
+                onClick={() => onOpen(version.id)}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs',
+                  version.id === job.id ? 'border-primary bg-primary/10 font-medium' : 'text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                {i === 0 ? 'Original' : `Edit ${i}`}
+              </button>
+            ))}
+          </div>
+          {job.note && <p className="text-sm text-muted-foreground">Your edit: &ldquo;{job.note}&rdquo;</p>}
+        </div>
       )}
 
       {job.warnings && job.warnings.length > 0 && (
@@ -349,5 +343,100 @@ function OutputPanel({
         </div>
       )}
     </Card>
+  );
+}
+
+interface VideoGroup {
+  /** The first version: its text names the video. */
+  root: SmartVideoJob;
+  /** Original first, then every change in the order it was made. */
+  versions: SmartVideoJob[];
+}
+
+// A change is its own job that points at the video it changed; the library shows one card per video.
+function groupVersions(jobs: SmartVideoJob[]): VideoGroup[] {
+  const byId = new Map(jobs.map((job) => [job.id, job]));
+  const rootOf = (job: SmartVideoJob): SmartVideoJob => {
+    let current = job;
+    while (current.parentId && byId.has(current.parentId)) current = byId.get(current.parentId) as SmartVideoJob;
+    return current;
+  };
+  const groups = new Map<string, VideoGroup>();
+  for (const job of jobs) {
+    const root = rootOf(job);
+    const group = groups.get(root.id) ?? { root, versions: [] };
+    group.versions.push(job);
+    groups.set(root.id, group);
+  }
+  const newest = (group: VideoGroup) => group.versions[group.versions.length - 1].createdAt;
+  return [...groups.values()]
+    .map((group) => ({ ...group, versions: group.versions.sort((a, b) => a.createdAt.localeCompare(b.createdAt)) }))
+    .sort((a, b) => newest(b).localeCompare(newest(a)));
+}
+
+function videoTitle(job: SmartVideoJob): string {
+  const firstLine = job.brief.trim().split('\n')[0];
+  if (firstLine) return firstLine;
+  if (job.link) return /zillow/i.test(job.link) ? 'Zillow listing' : /amazon|amzn/i.test(job.link) ? 'Amazon product' : job.link;
+  return 'Untitled video';
+}
+
+function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; currentId?: string; onOpen: (jobId: string) => void }) {
+  if (!groups.length) return null;
+  return (
+    <div className="space-y-3">
+      <h2 className="text-sm font-medium">Your videos</h2>
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+        {groups.map(({ root, versions }) => {
+          const latest = versions[versions.length - 1];
+          const shown = [...versions].reverse().find((v) => v.status === 'done' && v.videoUrl);
+          const running = latest.status !== 'done' && latest.status !== 'failed';
+          return (
+            <button
+              key={root.id}
+              type="button"
+              onClick={() => onOpen(latest.id)}
+              className={cn(
+                'overflow-hidden rounded-lg border bg-card text-left transition hover:border-primary/60',
+                versions.some((v) => v.id === currentId) && 'border-primary',
+              )}
+            >
+              <div className="relative aspect-[9/16] bg-black">
+                {shown?.videoUrl ? (
+                  // The first second of the video is its thumbnail; only the file's header is fetched.
+                  <video src={`${shown.videoUrl}#t=1`} preload="metadata" muted playsInline className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <PhantomMark className="w-16 h-16" active={running} />
+                  </div>
+                )}
+                {running && (
+                  <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[11px] text-primary-foreground">
+                    Working
+                  </span>
+                )}
+                {latest.status === 'failed' && (
+                  <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[11px] text-destructive-foreground">
+                    Failed
+                  </span>
+                )}
+                {versions.length > 1 && (
+                  <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] text-white">
+                    {versions.length} versions
+                  </span>
+                )}
+              </div>
+              <div className="space-y-0.5 p-2">
+                <p className="truncate text-sm font-medium">{videoTitle(root)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(latest.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {shown?.durationSeconds ? ` · ${Math.round(shown.durationSeconds)} s` : ''}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

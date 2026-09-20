@@ -324,6 +324,7 @@ async function mediaFromProps(props: Record<string, unknown>, dir: string, langu
   const voiceFile = await download(`${dir}/${path.basename(new URL(audio.voice.url).pathname)}`);
   return {
     voice: { url: audio.voice.url, words: await transcribeWords(voiceFile, language), durationSeconds: Math.max(...audio.voice.cuts.map((c) => c.srcEnd)) },
+    clipWords: {},
     musicUrl: audio.music?.url ?? null,
     soundUrl: audio.sfx?.find((s) => s.url)?.url ?? null,
     assets: props.assets as SmartVideoMedia['assets'],

@@ -954,6 +954,8 @@ function Scene({ scene, first }) {
   const type = scene.background?.type || 'brand';
   // Captions own the lower third, so the blocks end above them.
   const safe = { top: type === 'imageTop' ? PANEL_TOP - 75 : 190, bottom: captions ? 610 : 300, ...scene.safe };
+  // A person talking keeps their face clear: the name tag and line sit as low as the captions allow.
+  if (scene.speaker) safe.bottom = captions ? 600 : 330;
   const surface =
     type === 'mediaBlur' || type === 'mediaFull' ? 'dark' : type === 'imageTop' ? (look.panel ? 'light' : 'dark') : look.surface;
   return (
@@ -965,7 +967,7 @@ function Scene({ scene, first }) {
           {type === 'imageTop' && <ImageTopBg background={scene.background} duration={duration} />}
           {(type === 'brand' || type === 'burst') && <BrandBg />}
           {/* Over a full-frame photo the blocks sit low, on the dark end of the gradient. */}
-          <Stack top={safe.top} bottom={safe.bottom} gap={scene.gap ?? 30} align={type === 'mediaFull' ? (captions ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull'}>
+          <Stack top={safe.top} bottom={safe.bottom} gap={scene.gap ?? 30} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker}>
             {scene.blocks.map((block, i) => (
               <Block key={i} block={block} duration={duration} />
             ))}
@@ -1077,7 +1079,7 @@ function autoSfx(scenes) {
       if (['chips', 'tiles', 'rows'].includes(block.type)) block.items.forEach((item) => out.push({ name: 'pop', at: item.at ?? block.at ?? scene.start }));
       if (block.type === 'number') out.push({ name: 'chaching', at: (block.at ?? scene.start) + 0.55 });
       if (block.type === 'badge' || block.type === 'highlight') out.push({ name: 'ding', at: block.at ?? scene.start });
-      if (block.footerPill) out.push({ name: 'pop', at: block.footerPill.at });
+      if (block.footerPill) out.push({ name: 'pop', at: block.footerPill.at ?? block.at ?? scene.start });
     });
   });
   return out;
@@ -1088,7 +1090,7 @@ function Soundtrack({ audio = {}, scenes, duration }) {
   const { voice, music } = audio;
   const cuts = voice?.cuts || (voice ? [{ at: 0, srcStart: 0, srcEnd: duration }] : []);
   const auto = audio.autoSfx === false ? [] : autoSfx(scenes).map((s) => ({ ...s, volume: SFX_VOLUME[s.name] * (look.sfx[s.name] ?? 1) }));
-  const sfx = [...auto, ...(audio.sfx || [])].filter((s) => s.volume === undefined || s.volume > 0);
+  const sfx = [...auto, ...(audio.sfx || [])].filter((s) => Number.isFinite(s.at) && (s.volume === undefined || s.volume > 0));
   const bed = music?.volume ?? 0.14;
   const tail = music?.tailVolume ?? 0.4;
   const end = duration * FPS;
@@ -1100,7 +1102,13 @@ function Soundtrack({ audio = {}, scenes, duration }) {
     <>
       {cuts.map((cut, i) => (
         <Sequence key={`v${i}`} from={Math.round(cut.at * FPS)} durationInFrames={Math.max(1, Math.round((cut.srcEnd - cut.srcStart) * FPS))}>
-          <Audio src={src(voice.url)} volume={voice.volume ?? 1.12} startFrom={Math.round(cut.srcStart * FPS)} endAt={Math.round(cut.srcEnd * FPS)} />
+          {/* A cut can come from the narrator's recording or from a clip in which a person talks. */}
+          <Audio
+            src={src(cut.url || voice.url)}
+            volume={cut.volume ?? voice.volume ?? 1.12}
+            startFrom={Math.round(cut.srcStart * FPS)}
+            endAt={Math.round(cut.srcEnd * FPS)}
+          />
         </Sequence>
       ))}
       {music?.url && <Audio src={src(music.url)} volume={envelope} loop />}

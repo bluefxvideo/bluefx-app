@@ -13,6 +13,7 @@ import {
 } from './audio';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropVertical, cutOutLogo } from './brand';
+import { extractAudio } from './prepare-assets';
 import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
 
@@ -25,6 +26,7 @@ const VOICE_LEAD = 0.25; // silence before the first word
 const TEXT_LEAD = 0.12; // text lands just before its word
 const SCENE_LEAD = 0.3; // a scene opens just before its first word
 const SOUND_GAP = 0.9; // room made in the voice for the signature sound
+const HANDOVER_PAUSE = 0.45; // a breath between a person talking and the narrator
 const TAIL = 4.2; // music-only ending that holds the contact card
 const VOICE_TAKES = 3;
 // Spoken numbers come back as digits, so a faithful take still misses some words.
@@ -38,7 +40,10 @@ export type SmartVideoStage = 'directing' | 'producing';
 
 /** Everything generated for a video. Saved with the plan, so a revision can reuse it. */
 export interface SmartVideoMedia {
-  voice: { url: string; words: SpokenWord[]; durationSeconds: number };
+  /** The narrator's recording; null when people in the client's clips say everything. */
+  voice: { url: string; words: SpokenWord[]; durationSeconds: number } | null;
+  /** Word timings of what is said in each talking clip, by asset id. */
+  clipWords: Record<string, SpokenWord[]>;
   musicUrl: string | null;
   soundUrl: string | null;
   /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips. */
@@ -85,7 +90,9 @@ async function produce(
   console.log(`✅ Plan: ${plan.scenes.length} scenes, style "${plan.style}" (${plan.styleReason}), language ${plan.language}`);
 
   onStage('producing');
-  const narration = plan.scenes.map((s) => s.narration);
+  // People talking in the client's clips carry their own scenes; the narrator records the rest.
+  const speakerClips = [...new Set(plan.scenes.flatMap((scene) => (scene.speaker ? [scene.speaker.asset] : [])))];
+  const narration = plan.scenes.filter((scene) => !scene.speaker).map((scene) => scene.narration);
   const languageName = LANGUAGE_NAMES.of(plan.language) || plan.language;
   const logoRole = plan.assets.find((a) => a.role === 'logo' && a.logoOnSolidBackground);
   const logoAsset = logoRole && assets.find((a) => a.id === logoRole.id && a.kind === 'image');
@@ -141,8 +148,15 @@ async function produce(
     })
   ).then((pairs) => new Map(pairs.filter((pair): pair is readonly [string, string] => pair !== null)));
 
-  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls] = await Promise.all([
-    recordVoice(narration, languageName, plan, store),
+  const clipWords = Promise.all(
+    speakerClips.map(async (id) => {
+      const clip = assets.find((a) => a.id === id) as SmartAsset;
+      return [id, await transcribeWords(await extractAudio(clip.data), plan.language)] as const;
+    })
+  ).then((pairs) => Object.fromEntries(pairs));
+
+  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips] = await Promise.all([
+    narration.length ? recordVoice(narration, languageName, plan, store) : null,
     generateMusic(plan.musicPrompt, plan.style)
       .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
       .catch((error) => {
@@ -158,10 +172,12 @@ async function produce(
     cutouts,
     lifestyle,
     motion,
+    clipWords,
   ]);
 
   const media: SmartVideoMedia = {
     voice,
+    clipWords: heardInClips,
     musicUrl,
     soundUrl,
     assets: Object.fromEntries([
@@ -191,9 +207,11 @@ export async function reviseSmartVideo(
     const plan = await reviseVideo(previous.plan, note, brief, previous.media.assets);
     onStage('producing');
     const media = { ...previous.media };
-    const spoken = (p: DirectorPlan) => p.scenes.map((scene) => scene.narration);
+    // Only the narrator's lines are recorded; a speaker scene needs the clip's saved word timings.
+    const clipWordsSaved = media.clipWords || {};
+    const spoken = (p: DirectorPlan) => p.scenes.filter((scene) => !(scene.speaker && clipWordsSaved[scene.speaker.asset])).map((scene) => scene.narration);
     if (JSON.stringify(spoken(plan)) !== JSON.stringify(spoken(previous.plan)) || plan.voice.gender !== previous.plan.voice.gender) {
-      media.voice = await recordVoice(spoken(plan), LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store);
+      media.voice = spoken(plan).length ? await recordVoice(spoken(plan), LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store) : null;
     }
     if (plan.musicPrompt !== previous.plan.musicPrompt) {
       media.musicUrl = await generateMusic(plan.musicPrompt, plan.style)
@@ -216,55 +234,102 @@ export async function reviseSmartVideo(
 /** Pins a plan to its recorded voice: scene times, text cues, captions, soundtrack. Pure. */
 export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
   const { voice, musicUrl, soundUrl } = media;
-  const narration = plan.scenes.map((scene) => scene.narration);
   const motionUrls = new Map(
     Object.entries(media.assets).flatMap(([id, asset]) => (id.endsWith('-motion') ? [[id.slice(0, -'-motion'.length), asset.url] as const] : []))
   );
-  const { sceneTokens, lastWordEnd } = alignScript(narration, voice.words);
+  // A scene is carried either by the narrator's recording or by a person talking in a clip.
+  const speakerOf = (i: number) => {
+    const speaker = plan.scenes[i].speaker;
+    return speaker && media.clipWords?.[speaker.asset] ? speaker : null;
+  };
+  const narrated = plan.scenes.map((_, i) => i).filter((i) => !speakerOf(i));
+  const narratorTokens = voice ? alignScript(narrated.map((i) => plan.scenes[i].narration), voice.words).sceneTokens : [];
   const soundAfter = soundUrl && plan.signatureSound ? Math.min(plan.signatureSound.afterScene, plan.scenes.length - 2) : -1;
-  const cutAt = soundAfter >= 0 ? (sceneTokens[soundAfter + 1][0]?.time ?? 0) - 0.15 : Infinity;
-  const onTimeline = (t: number) => t + VOICE_LEAD + (t >= cutAt ? SOUND_GAP : 0);
 
-  const starts = plan.scenes.map((_, i) => (i === 0 ? 0 : Math.max(0, onTimeline(sceneTokens[i][0]?.time ?? 0) - SCENE_LEAD)));
-  const duration = Math.ceil((onTimeline(lastWordEnd) + TAIL) * 10) / 10;
+  // Walk the scenes in order, laying each one's audio on the timeline right after the last.
+  const cuts: { url?: string; at: number; srcStart: number; srcEnd: number; volume?: number }[] = [];
+  const sfx: { url: string; at: number; volume: number }[] = [];
+  const timed: { start: number; tokens: { token: string; raw: string; time: number }[]; startFrom?: number }[] = [];
+  let cursor = 0;
+  let lastWordEnd = 0;
+  plan.scenes.forEach((scene, i) => {
+    const speaker = speakerOf(i);
+    if (speaker) {
+      const heard = media.clipWords[speaker.asset].filter((w) => w.end > speaker.from - 0.25 && w.start < speaker.to + 0.25);
+      const srcStart = Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
+      const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + 0.4;
+      const tokens = alignScript([scene.narration], heard).sceneTokens[0].map((t) => ({ ...t, time: t.time - srcStart + cursor }));
+      cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: 1 });
+      timed.push({ start: cursor, tokens, startFrom: srcStart });
+      lastWordEnd = (heard[heard.length - 1]?.end ?? speaker.to) - srcStart + cursor;
+      cursor += srcEnd - srcStart;
+      // The narrator never starts on the speaker's heels.
+      if (i + 1 < plan.scenes.length && !speakerOf(i + 1)) cursor += HANDOVER_PAUSE;
+    } else if (voice) {
+      const k = narrated.indexOf(i);
+      const srcStart = k === 0 ? 0 : Math.max(0, (narratorTokens[k][0]?.time ?? 0) - 0.15);
+      const srcEnd = k + 1 < narrated.length ? Math.max(srcStart + 0.2, (narratorTokens[k + 1][0]?.time ?? voice.durationSeconds) - 0.15) : voice.durationSeconds;
+      const at = cursor + (i === 0 ? VOICE_LEAD : 0);
+      const tokens = narratorTokens[k].map((t) => ({ ...t, time: t.time - srcStart + at }));
+      cuts.push({ at, srcStart, srcEnd });
+      // The picture changes just before the first word of the scene.
+      timed.push({ start: i === 0 ? 0 : Math.max(0, (tokens[0]?.time ?? at) - SCENE_LEAD), tokens });
+      const lastHeard = k + 1 < narrated.length ? srcEnd : (voice.words[voice.words.length - 1]?.end ?? srcEnd);
+      lastWordEnd = lastHeard - srcStart + at;
+      cursor = at + (srcEnd - srcStart);
+    } else {
+      timed.push({ start: cursor, tokens: [] });
+    }
+    if (i === soundAfter && soundUrl) {
+      sfx.push({ url: soundUrl, at: cursor + 0.05, volume: 0.55 });
+      cursor += SOUND_GAP;
+    }
+  });
+  const duration = Math.ceil((lastWordEnd + TAIL) * 10) / 10;
 
   const scenes = plan.scenes.map((scene, i) => {
+    const { start, tokens, startFrom } = timed[i];
+    const end = i + 1 < timed.length ? timed[i + 1].start : duration;
     const at = (cue: string | null | undefined) => {
-      const time = cueTime(sceneTokens[i], cue);
-      return time === null ? undefined : Math.max(starts[i], onTimeline(time) - TEXT_LEAD);
+      const time = cueTime(tokens, cue);
+      return time === null ? undefined : Math.max(start, time - TEXT_LEAD);
     };
     return {
-      start: starts[i],
-      end: i + 1 < starts.length ? starts[i + 1] : duration,
-      background: motionBackground(scene.background, motionUrls, (i + 1 < starts.length ? starts[i + 1] : duration) - starts[i]),
-      blocks: scene.blocks.map((block, k) => {
+      start,
+      end,
+      // A speaker's clip plays in step with its own sound; other photos may have been animated.
+      speaker: startFrom !== undefined || undefined,
+      background: startFrom !== undefined ? { ...scene.background, startFrom, playbackRate: 1 } : motionBackground(scene.background, motionUrls, end - start),
+      blocks: (startFrom !== undefined ? speakerBlocks(scene.blocks) : scene.blocks).map((block, k, shown) => {
         // The first headline of a scene is on screen from its first frame: no empty openings.
-        const opening = k === scene.blocks.findIndex((b) => b.type === 'title' || b.type === 'badge');
-        return stageBlock(block, k, opening ? () => undefined : at, plan.language, i === 0);
+        const opening = k === shown.findIndex((b) => b.type === 'title' || b.type === 'badge');
+        const staged = stageBlock(block, k, opening ? () => undefined : at, plan.language, i === 0);
+        return startFrom !== undefined && staged.type === 'title' ? { ...staged, size: 's', rotate: 0, anim: undefined } : staged;
       }),
     };
   });
 
+  const spoken = timed.flatMap((t) => t.tokens);
   const props = {
     duration,
     style: plan.style,
     theme: buildTheme(plan.style, plan.theme),
     assets: media.assets,
     audio: {
-      voice: {
-        url: voice.url,
-        cuts:
-          cutAt === Infinity
-            ? [{ at: VOICE_LEAD, srcStart: 0, srcEnd: voice.durationSeconds }]
-            : [
-                { at: VOICE_LEAD, srcStart: 0, srcEnd: cutAt },
-                { at: cutAt + VOICE_LEAD + SOUND_GAP, srcStart: cutAt, srcEnd: voice.durationSeconds },
-              ],
-      },
-      music: musicUrl ? { url: musicUrl, liftAt: onTimeline(lastWordEnd) + 0.6 } : undefined,
-      sfx: soundUrl && cutAt !== Infinity ? [{ url: soundUrl, at: cutAt + VOICE_LEAD + 0.05, volume: 0.55 }] : [],
+      voice: { url: voice?.url, cuts },
+      music: musicUrl ? { url: musicUrl, liftAt: lastWordEnd + 0.6 } : undefined,
+      sfx,
     },
-    captions: plan.captions ? { words: captionWords(sceneTokens, onTimeline, lastWordEnd) } : undefined,
+    captions: plan.captions
+      ? {
+          // A word ends where the next begins (or after a beat).
+          words: spoken.map((word, n) => ({
+            text: word.raw,
+            start: word.time,
+            end: Math.max(word.time + 0.12, Math.min(spoken[n + 1]?.time ?? lastWordEnd, word.time + 0.9)),
+          })),
+        }
+      : undefined,
     scenes,
   };
   return props;
@@ -338,14 +403,14 @@ function motionBackground<T extends { asset?: string | null }>(background: T, mo
   return { ...background, asset: `${background.asset}-motion`, playbackRate };
 }
 
-// The script's own words on the video timeline; a word ends where the next begins (or after a beat).
-function captionWords(sceneTokens: { raw: string; time: number }[][], onTimeline: (t: number) => number, lastWordEnd: number) {
-  const flat = sceneTokens.flat();
-  return flat.map((word, i) => {
-    const start = onTimeline(word.time);
-    const next = i + 1 < flat.length ? onTimeline(flat[i + 1].time) : onTimeline(lastWordEnd);
-    return { text: word.raw, start, end: Math.max(start + 0.12, Math.min(next, start + 0.9)) };
-  });
+// A person talking is the picture: their scene keeps a name tag and one short line, never a wall of text.
+function speakerBlocks(blocks: DirectorBlock[]): DirectorBlock[] {
+  const kept: DirectorBlock[] = [];
+  const pill = blocks.find((b) => b.type === 'pill');
+  const title = blocks.find((b) => b.type === 'title');
+  if (pill) kept.push(pill);
+  if (title?.type === 'title') kept.push({ ...title, text: title.text.replace(/\s*\n\s*/g, ' ') });
+  return kept;
 }
 
 // Director block → renderer block: cues become times; small decorative

@@ -77,6 +77,16 @@ async function prepareVideo(id: string, file: ClientFile, store: StoreFile): Pro
   };
 }
 
+/** The sound of a clip as 24 kHz mono WAV, for transcription. */
+export const extractAudio = (video: Buffer) =>
+  withTempFile({ filename: 'clip.mp4', data: video }, async (source) => {
+    const { stdout } = await run('ffmpeg', ['-v', 'error', '-i', source, '-vn', '-ac', '1', '-ar', '24000', '-f', 'wav', '-'], {
+      encoding: 'buffer',
+      maxBuffer: 1 << 30,
+    });
+    return stdout;
+  });
+
 const viaFfmpeg = (file: ClientFile) =>
   withTempFile(file, async (source) => {
     const { stdout } = await run('ffmpeg', ['-v', 'error', '-i', source, '-frames:v', '1', '-f', 'image2pipe', '-c:v', 'png', '-'], {

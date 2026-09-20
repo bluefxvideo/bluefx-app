@@ -21,6 +21,7 @@ STEP 2 — Decide the format. The format sets the structure; never force one kin
 - "product": a physical or digital product sold online (Amazon, TikTok Shop, Shopify). Desire-led and fast: 1. hook on the problem or the wish, 2. product reveal: packshot with cutout:true on the brand background + the product name, 3-5. one benefit per scene on a mediaFull background showing the product IN USE by the target customer, with a short title and at most 2 chips; speak in results ("smoothies anywhere"), not specs ("22000 rpm"), 6. proof: stars block ONLY if the rating is 4.2 or higher, a quote block only with a real review text; otherwise skip proof, 7. price: number with "was" for a real discount + badge for the deal, 8. call to action that matches where it is sold ("Tap the link", "Get yours on Amazon"); the highlight shows the code, the shop name or the URL. 25 to 40 seconds.
 lifestyleShots (product format only): marketplace images are mostly packshots and infographics, which make dull scenes. Order up to 3 NEW photos of the real product in use: {id:"g1", fromAsset: the packshot's id, prompt: one sentence describing a vertical candid photo: who (the target customer), doing what with the product, where, light and mood}. Use the ids (g1, g2...) as mediaFull background assets in the benefit scenes and the hook. Do not show infographic images in media cards when a lifestyle shot can carry the scene.
 animate (any format): a still photo is lifeless next to real footage. Pick up to 2 photos that are used as mediaFull backgrounds, the hook first (so make the hook a mediaFull scene when you animate it), and they become 6-second moving clips: {asset, prompt}. prompt = one sentence with the camera move and what subtly moves: "Slow push-in toward the front door, leaves swaying, clouds drifting." / "Slow orbit around the kitchen island, light shimmering on the marble." Places, products, food and wide shots animate well; avoid photos with readable text and close-up faces. lifestyleShots ids can be animated too. Skip photos of scenes where the client already gave a clip.
+TALKING CLIPS: when a clip shows a person speaking to the camera (listen to it), their own voice beats any narrator. Make it a speaker scene: "speaker": {asset, from, to} = the seconds of the clip in which they say it; "narration" = exactly the words they say in that span, nothing added; background mediaFull with the same clip. Keep the blocks light and low (a pill with their name or role, at most one short title): never cover the face. Open the video with the speaker when what they say works as a hook. The narrator takes over in the other scenes and must not repeat what the speaker already said; make the narrator clearly a different person from the speaker (the other gender, an upbeat announcer), so the change of voice sounds intended. A clip of a person who is not speaking to camera is ordinary footage.
 captions: true adds word-by-word captions in the lower third, in step with the voice (the TikTok/Reels look, and most people watch muted). Use true for product and for playful or bold videos; false for elegant, and for clean unless the audience is young.
 
 STEP 3 — Decide the look. Pick the style that fits the BUSINESS and its audience, not your taste:
@@ -81,7 +82,7 @@ EXAMPLE of the expected quality and density (a different client; do not copy its
 Return ONLY JSON:
 {"language":"xx","format":"announcement","captions":false,"style":"...","styleReason":"...","theme":{"bg":"#...","accent":"#..."},"voice":{"gender":"female","direction":"..."},"musicPrompt":"...","lifestyleShots":null,"animate":[{"asset":"a1","prompt":"..."}],"warnings":[],"signatureSound":{"prompt":"...","afterScene":0},
 "assets":[{"id":"a1","role":"...","description":"...","factsFound":["..."],"logoOnSolidBackground":false}],
-"scenes":[{"narration":"...","background":{"type":"brand","asset":null,"focus":null},"blocks":[{"type":"title","text":"...","tone":"light","cue":null}]}]}`;
+"scenes":[{"narration":"...","speaker":null,"background":{"type":"brand","asset":null,"focus":null},"blocks":[{"type":"title","text":"...","tone":"light","cue":null}]}]}`;
 
 function describe(asset: SmartAsset): string {
   const size = asset.width && asset.height ? `, ${asset.width}x${asset.height}` : '';
@@ -197,6 +198,12 @@ function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, leng
     const unknown = used.find((id) => !ids.has(id));
     if (unknown) return `scene ${i + 1} uses asset "${unknown}", which does not exist. Valid ids: ${[...ids].join(', ')}.`;
     if (scene.background.type !== 'brand' && !scene.background.asset) return `scene ${i + 1} background "${scene.background.type}" needs an asset.`;
+    if (scene.speaker) {
+      const clip = assets.find((a) => a.id === scene.speaker?.asset);
+      if (!clip || clip.kind !== 'video') return `scene ${i + 1}: speaker.asset must be one of the client's video clips.`;
+      if (scene.background.type !== 'mediaFull' || scene.background.asset !== clip.id) return `scene ${i + 1} is a speaker scene: its background must be mediaFull with asset "${clip.id}".`;
+      if (scene.speaker.to <= scene.speaker.from) return `scene ${i + 1}: speaker.to must be after speaker.from.`;
+    }
     // A full-frame photo carries the scene; elsewhere a thin stack looks empty.
     const minimum = scene.background.type === 'mediaFull' ? 2 : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;

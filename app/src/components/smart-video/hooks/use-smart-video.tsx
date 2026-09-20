@@ -105,7 +105,7 @@ export function useSmartVideo() {
         queryClient.invalidateQueries({ queryKey: ['user-credits'] });
         return true;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Could not send the note');
+        toast.error(error instanceof Error ? error.message : 'Could not start the edit');
         return false;
       } finally {
         setRevising(false);

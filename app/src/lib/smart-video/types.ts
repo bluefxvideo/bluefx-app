@@ -51,6 +51,10 @@ export const BlockSchema = z.discriminatedUnion('type', [
 
 export const SceneSchema = z.object({
   narration: z.string().min(1),
+  speaker: z
+    .object({ asset: z.string(), from: z.number().min(0), to: z.number().positive() })
+    .nullish()
+    .describe('The narration of this scene is spoken by a person in this clip, between these seconds: their own voice is used'),
   background: z.object({
     type: z.enum(['brand', 'mediaBlur', 'mediaFull', 'imageTop']),
     asset: z.string().nullish(),
