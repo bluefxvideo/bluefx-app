@@ -57,21 +57,46 @@ function publicUrl(storagePath: string): string {
   return createAdminClient().storage.from(BUCKET).getPublicUrl(storagePath).data.publicUrl;
 }
 
-async function upload(storagePath: string, data: Buffer, contentType: string): Promise<string> {
-  const { error } = await createAdminClient().storage.from(BUCKET).upload(storagePath, data, { contentType, upsert: true });
-  if (error) throw new Error(`Upload failed (${storagePath}): ${error.message}`);
-  return publicUrl(storagePath);
+/**
+ * Storage now and then answers with a gateway error page instead of JSON; the
+ * client library then throws a bare SyntaxError. One hiccup must not kill a
+ * job that saves thirty files, so every storage call gets three tries.
+ */
+async function withRetry<T>(what: string, call: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await call();
+    } catch (error) {
+      lastError = error;
+      console.warn(`⚠️ ${what} failed (attempt ${attempt}/3):`, String(error).slice(0, 160));
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 800));
+    }
+  }
+  throw new Error(`${what} failed after 3 tries: ${lastError instanceof Error ? lastError.message : String(lastError)}`.slice(0, 300));
 }
 
-async function download(storagePath: string): Promise<Buffer> {
-  const { data, error } = await createAdminClient().storage.from(BUCKET).download(storagePath);
-  if (error || !data) throw new Error(`Download failed (${storagePath}): ${error?.message || 'no data'}`);
-  return Buffer.from(await data.arrayBuffer());
+function upload(storagePath: string, data: Buffer, contentType: string): Promise<string> {
+  return withRetry(`Saving ${path.basename(storagePath)}`, async () => {
+    const { error } = await createAdminClient().storage.from(BUCKET).upload(storagePath, data, { contentType, upsert: true });
+    if (error) throw new Error(error.message);
+    return publicUrl(storagePath);
+  });
+}
+
+function download(storagePath: string): Promise<Buffer> {
+  return withRetry(`Loading ${path.basename(storagePath)}`, async () => {
+    const { data, error } = await createAdminClient().storage.from(BUCKET).download(storagePath);
+    if (error || !data) throw new Error(error?.message || 'no data');
+    return Buffer.from(await data.arrayBuffer());
+  });
 }
 
 async function readJob(userId: string, jobId: string): Promise<SmartVideoJob | null> {
   try {
-    return JSON.parse((await download(`${jobDir(userId, jobId)}/job.json`)).toString('utf-8'));
+    // No retries here: a folder without a job.json is normal (an upload that never started).
+    const { data } = await createAdminClient().storage.from(BUCKET).download(`${jobDir(userId, jobId)}/job.json`);
+    return data ? JSON.parse(Buffer.from(await data.arrayBuffer()).toString('utf-8')) : null;
   } catch {
     return null;
   }
@@ -178,13 +203,19 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
     let brief = job.brief;
     if (job.link) {
       const link = await fromLink(job.link);
+      // One photo that will not download is skipped; the rest still make the video.
       const photos = await Promise.all(
-        link.imageUrls.map(async (url, i) => ({
-          filename: `link-${String(i + 1).padStart(2, '0')}.jpg`,
-          data: Buffer.from(await (await fetch(url)).arrayBuffer()),
-        }))
+        link.imageUrls.map(async (url, i): Promise<ClientFile | null> => {
+          try {
+            const res = await fetch(url);
+            if (!res.ok || !(res.headers.get('content-type') || '').startsWith('image/')) return null;
+            return { filename: `link-${String(i + 1).padStart(2, '0')}.jpg`, data: Buffer.from(await res.arrayBuffer()) };
+          } catch {
+            return null;
+          }
+        })
       );
-      files.push(...photos);
+      for (const photo of photos) if (photo) files.push(photo);
       brief = job.brief.trim() ? `${link.brief}\n\nNOTE FROM THE CLIENT:\n${job.brief}` : link.brief;
     }
 
