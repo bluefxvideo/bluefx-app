@@ -54,7 +54,7 @@ Blocks:
 - pill {text,tone}: small label, e.g. location or category. badge {text}: a short win with a check mark, e.g. "NO EXPERIENCE NEEDED".
 - media {asset,shape,focus,startFrom,cutout}: a photo or clip in a card (cutout:true only for role "product" assets, and only on a brand background). shape wide 16:9, photo 4:3, square, small, tall. focus = where the subject is. footerPill adds a label on the card.
 - logo {asset}. emoji {text}: one large emoji. caption {text}: small grey helper line.
-- gallery {assets:[2-3 ids]}: a collage of photos that did not get their own scene. stars {rating,text}: star rating with a line such as "2,140 reviews". quote {text,author}: one short real customer review, under 90 characters.
+- gallery {assets:[2-3 ids]}: a collage of photos that did not get their own scene. stars {rating,text}: star rating with a line such as "2,140 reviews". quote {text,author}: one short customer review, under 90 characters, ONLY when the client's material contains that review word for word with who said it. Never write a review yourself, never turn a summary of reviews into a quotation, never invent an author such as "Verified Buyer". What customers like can always go in a title or chips in your own words ("Buyers love how quiet it is").
 - chips {items:[{icon,text,cue}]}: a list of benefits or requirements, 2-4 items, each under 28 characters, icon = one emoji.
 - rows {items}: plain checklist, e.g. what to send. number {value,was,prefix,suffix}: one key figure that counts up (price, salary, discount). Put its label in a title above and the unit in suffix; was = the old price, shown struck through.
 - tiles {items:[{top,big,icon,color,cue}]}: 2-5 equal tiles for schedules, steps or packages. big is under 6 characters. color blue/green/orange/purple/accent.
@@ -210,7 +210,8 @@ function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, leng
       if (scene.speaker.to <= scene.speaker.from) return `scene ${i + 1}: speaker.to must be after speaker.from.`;
     }
     // A full-frame photo carries the scene; elsewhere a thin stack looks empty.
-    const minimum = scene.background.type === 'mediaFull' ? 2 : 3;
+    // With captions on, a full-frame scene is told to carry just a title: that must pass.
+    const minimum = scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
   if (revision) return null; // the client's note outranks the word-count and file-spread rules

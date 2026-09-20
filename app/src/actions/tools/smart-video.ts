@@ -7,6 +7,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
+import { ZodError } from 'zod';
 import { createAdminClient } from '@/app/supabase/server';
 import { checkAdminAuth } from '@/lib/admin-auth';
 import { transcribeWords } from '@/lib/smart-video/audio';
@@ -40,6 +41,12 @@ const STALE_AFTER_MS = 12 * 60 * 1000;
 
 const jobDir = (userId: string, jobId: string) => `smart-video/${userId}/${jobId}`;
 const safeName = (name: string) => name.replace(/[^\w.-]+/g, '_').slice(-80);
+
+// People see the first problem in plain words, never a validation dump.
+function readable(error: unknown, fallback: string): string {
+  if (error instanceof ZodError) return error.issues[0]?.message || fallback;
+  return error instanceof Error ? error.message : fallback;
+}
 
 async function adminUserId(): Promise<string | null> {
   const admin = await checkAdminAuth();
@@ -106,7 +113,7 @@ export async function requestSmartVideoUploads(input: {
     return createApiSuccess({ jobId, slots });
   } catch (error) {
     console.error('❌ requestSmartVideoUploads error:', error);
-    return createApiError(error instanceof Error ? error.message : 'Could not prepare the uploads');
+    return createApiError(readable(error, 'Could not prepare the uploads'));
   }
 }
 
@@ -155,7 +162,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     return createApiSuccess({ jobId: job.id });
   } catch (error) {
     console.error('❌ startSmartVideo error:', error);
-    return createApiError(error instanceof Error ? error.message : 'Could not start the video');
+    return createApiError(readable(error, 'Could not start the video'));
   }
 }
 
@@ -298,7 +305,7 @@ export async function reviseSmartVideoJob(input: { jobId: string; note: string }
     return createApiSuccess({ jobId });
   } catch (error) {
     console.error('❌ reviseSmartVideoJob error:', error);
-    return createApiError(error instanceof Error ? error.message : 'Could not start the change');
+    return createApiError(readable(error, 'Could not start the change'));
   }
 }
 

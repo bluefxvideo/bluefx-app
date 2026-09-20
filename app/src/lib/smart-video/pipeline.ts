@@ -357,7 +357,8 @@ function clientWarnings(plan: DirectorPlan): string[] {
   const warnings = [...(plan.warnings || [])];
   const contact = plan.scenes[plan.scenes.length - 1].blocks.find((b) => b.type === 'highlight');
   const reachable = contact && 'text' in contact && /[@\d]|\.[a-z]{2,}/i.test(contact.text);
-  if (!reachable && !warnings.some((w) => /contact|phone|email|website/i.test(w))) {
+  // A product ad sends people to the shop ("Get it on Amazon"), not to a phone number.
+  if (!reachable && plan.format !== 'product' && !warnings.some((w) => /contact|phone|email|website/i.test(w))) {
     warnings.unshift('Your text has no phone, email or website, so the last screen cannot tell viewers how to reach you.');
   }
   return warnings;

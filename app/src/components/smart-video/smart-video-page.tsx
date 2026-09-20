@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { VideoFormat } from '@/lib/smart-video/types';
 import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
+import { cleanLink } from '@/lib/smart-video/link';
 import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
@@ -188,6 +189,7 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
           id="smart-link"
           value={smart.link}
           onChange={(e) => smart.setLink(e.target.value)}
+          onBlur={(e) => smart.setLink(cleanLink(e.target.value))}
           placeholder="https://www.zillow.com/homedetails/... or https://www.amazon.com/dp/..."
           disabled={smart.isBusy}
         />

@@ -10,6 +10,7 @@ import {
   reviseSmartVideoJob,
   startSmartVideo,
 } from '@/actions/tools/smart-video';
+import { cleanLink } from '@/lib/smart-video/link';
 import { phantomCredits } from '@/lib/smart-video/pricing';
 import type { VideoFormat } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
@@ -80,7 +81,7 @@ export function useSmartVideo() {
         brief,
         length: exactWords ? 'script' : 'auto',
         format,
-        link: link.trim(),
+        link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
       if (!started.success) throw new Error(started.error);

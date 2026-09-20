@@ -65,7 +65,7 @@ export async function fromAmazon(url: string): Promise<LinkSource> {
     product.stars && `Rating: ${product.stars} stars from ${product.reviewsCount} reviews`,
     product.monthlyPurchaseVolume && `Sales: ${product.monthlyPurchaseVolume}`,
     product.features?.length && `\nFeatures:\n- ${product.features.join('\n- ')}`,
-    product.aiReviewsSummary?.text && `\nWhat customers say: ${product.aiReviewsSummary.text}`,
+    product.aiReviewsSummary?.text && `\nSummary of customer reviews (a summary, NOT a quotation from anyone): ${product.aiReviewsSummary.text}`,
     `\nSold on Amazon: ${product.url}`,
   ]);
   return { brief, imageUrls: (product.highResolutionImages || []).slice(0, MAX_PHOTOS) };

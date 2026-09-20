@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cleanLink } from '@/lib/smart-video/link';
 import { VIDEO_FORMATS, VIDEO_LENGTHS, type VideoFormat, type VideoLength } from '@/lib/smart-video/types';
 
 export const SMART_VIDEO_MAX_FILES = 15;
@@ -15,7 +16,8 @@ export const SmartVideoStartSchema = z.object({
   brief: z.string().max(8000),
   length: z.enum(VIDEO_LENGTHS).default('auto'),
   format: z.enum(VIDEO_FORMATS).default('vertical'),
-  link: z.string().url().max(500).optional().or(z.literal('')),
+  // Cleaned first: tracking parameters are dropped, so length limits apply to the real link.
+  link: z.preprocess((value) => (typeof value === 'string' ? cleanLink(value) : value), z.string().url('That link does not look right').max(500, 'That link is too long').optional().or(z.literal(''))),
   uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_FILES),
 });
 
