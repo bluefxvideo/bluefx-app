@@ -16,6 +16,9 @@ const normalize = (text: string): string[] =>
     .split(/\s+/)
     .filter(Boolean);
 
+/** The most script words one transcript number may stand for ("one thousand two hundred forty-nine dollars and fifty cents"). */
+const SPELLED_NUMBER_WORDS = 10;
+
 export interface ScriptTimeline {
   /** Every spoken word of the script, per scene: as written (`raw`), normalised (`token`) and when it starts. */
   sceneTokens: { token: string; raw: string; time: number }[][];
@@ -41,16 +44,32 @@ export function alignScript(narration: string[], words: SpokenWord[]): ScriptTim
     }
   }
   const times: (number | null)[] = new Array(n).fill(null);
-  for (let i = 0, j = 0; i < n && j < m; ) {
+  // Where in the script the transcript wrote a number in digits ("$23.99", "20%", "4,000") that matched nothing.
+  const digitsAt: number[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
     if (flat[i] === heard[j]) {
       times[i] = words[j].start;
       i++;
       j++;
     } else if (table[i + 1][j] >= table[i][j + 1]) i++;
-    else j++;
+    else {
+      if (/\p{N}/u.test(heard[j])) digitsAt.push(i);
+      j++;
+    }
   }
+  for (; j < m; j++) if (/\p{N}/u.test(heard[j])) digitsAt.push(i);
 
+  // The script spells numbers out ("twenty-three dollars and ninety-nine cents") and the transcript writes
+  // them as digits, in every language. Those words were spoken: the unmatched script words around an
+  // unmatched transcript number count as heard, or every price line would look like a skipped sentence.
   const heardFlags = times.map((t) => t !== null);
+  for (const at of digitsAt) {
+    let budget = SPELLED_NUMBER_WORDS;
+    for (let k = at - 1; k >= 0 && times[k] === null && budget > 0; k--, budget--) heardFlags[k] = true;
+    for (let k = at; k < n && times[k] === null && budget > 0; k++, budget--) heardFlags[k] = true;
+  }
 
   // Interpolate the unmatched tokens between matched neighbours.
   const lastWordEnd = words.length ? words[words.length - 1].end : 0;

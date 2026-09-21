@@ -31,6 +31,7 @@ const TAIL = 4.2; // music-only ending that holds the contact card
 const VOICE_TAKES = 3;
 // Spoken numbers come back as digits, so a faithful take still misses some words.
 const MIN_SCENE_COVERAGE = 0.5;
+const MISSING_SCENE_COVERAGE = 0.3;
 const VOICE_PART_WORDS = 130; // a long script is recorded in parts: shorter takes skip less and retake cheaply
 const VOICE_PART_GAP = 0.35; // breath between parts
 
@@ -421,7 +422,10 @@ async function recordVoice(narration: string[], languageName: string, plan: Dire
         if (worst >= MIN_SCENE_COVERAGE) break;
         console.warn(`⚠️ Voice part ${p + 1}, take ${take} dropped part of the script (worst scene ${(worst * 100).toFixed(0)}% heard): "${lines[coverage.indexOf(worst)]}"`);
       }
-      if (!best || best.worst < MIN_SCENE_COVERAGE) throw new Error('The voice-over kept skipping part of the script');
+      // A retake is worth it below MIN_SCENE_COVERAGE, but brand names and foreign words also transcribe oddly.
+      // Only a line that is truly missing (a skipped sentence scores near zero) is worth failing the video for.
+      if (!best || best.worst < MISSING_SCENE_COVERAGE) throw new Error('The voice-over kept skipping part of the script');
+      if (best.worst < MIN_SCENE_COVERAGE) console.warn(`⚠️ Voice part ${p + 1}: kept the best take (worst scene ${(best.worst * 100).toFixed(0)}% matched)`);
       return best;
     })
   );
