@@ -122,16 +122,23 @@ export async function directVideo(brief: string, assets: SmartAsset[], length: V
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
 
-  return askDirector(parts, (plan) => checkPlan(plan, assets, brief, length, false), length === 'script' ? 480_000 : 280_000);
+  return askDirector(parts, (plan, lastChance) => checkPlan(plan, assets, brief, length, false, lastChance), length === 'script' ? 480_000 : 280_000);
 }
 
 /** One director call with validation; a rejected plan goes back once with the reason. */
-async function askDirector(parts: unknown[], check: (plan: DirectorPlan) => string | null, timeoutMs: number): Promise<DirectorPlan> {
+const ATTEMPTS = 3;
+
+/**
+ * `check` gets `lastChance` on the final attempt: there it only enforces what the renderer cannot
+ * survive. A plan that is merely shorter or less varied than we like still makes a good video;
+ * a failed job makes none.
+ */
+async function askDirector(parts: unknown[], check: (plan: DirectorPlan, lastChance: boolean) => string | null, timeoutMs: number): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
   let feedback = '';
   // Two corrections: a fix for one rule sometimes breaks another, and a second correction costs far less than a failed job.
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${DIRECTOR_MODEL}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
@@ -148,7 +155,7 @@ async function askDirector(parts: unknown[], check: (plan: DirectorPlan) => stri
 
     try {
       const plan = DirectorPlanSchema.parse(JSON.parse(text));
-      const problem = check(plan);
+      const problem = check(plan, attempt === ATTEMPTS);
       if (!problem) return plan;
       feedback = `\n\nYour previous plan had a problem: ${problem}\nReturn the corrected full JSON.`;
     } catch (error) {
@@ -160,15 +167,17 @@ async function askDirector(parts: unknown[], check: (plan: DirectorPlan) => stri
 }
 
 /**
- * A revision: the saved plan plus the client's note. Text only (no files are
- * re-sent), and the director may only work with what already exists.
+ * A revision: the saved plan plus the client's note. The video's own files are
+ * not re-sent (the plan already says what each one is); files the client adds
+ * with the note are shown to the director, who may use them.
  */
 export async function reviseVideo(
   plan: DirectorPlan,
   note: string,
   brief: string,
   existing: Record<string, { kind: 'image' | 'video'; cutoutUrl?: string }>,
-  format: VideoFormat = 'vertical'
+  format: VideoFormat = 'vertical',
+  added: SmartAsset[] = []
 ): Promise<DirectorPlan> {
   const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion'));
   const cutouts = ids.filter((id) => existing[id].cutoutUrl);
@@ -178,7 +187,12 @@ export async function reviseVideo(
     'YOU ALREADY MADE THIS VIDEO. The client watched it and left a note. Return the full plan again with ONLY the changes the note asks for.',
     '- Keep every narration sentence word for word unless the note requires different spoken words: unchanged narration keeps the recorded voice.',
     '- Keep musicPrompt and signatureSound exactly as they are unless the note is about music or sound.',
-    `- You can only use these files: ${ids.join(', ')}. Do not add lifestyleShots or animate entries that are not already in the plan. cutout:true is only possible for: ${cutouts.join(', ') || 'none'}.`,
+    `- You can only use these files: ${[...ids, ...added.map((a) => a.id)].join(', ')}. Do not add lifestyleShots or animate entries that are not already in the plan. cutout:true is only possible for: ${[...cutouts, ...added.filter((a) => a.kind === 'image').map((a) => a.id)].join(', ') || 'none'}.`,
+    ...(added.length
+      ? [
+          `- NEW FILES came with the note (shown after this text): ${added.map((a) => a.id).join(', ')}. Look at each one, add it to "assets" with its role, and use it the way the note asks. When the note does not say where, put it where it helps most: a new logo replaces the old logo everywhere, a new photo replaces the weakest or most repeated picture, a new talking clip becomes a speaker scene. A new file the note clearly does not want shown gets role "skip".`,
+        ]
+      : []),
     '- If the note gives a fact (a phone number, a price, a name), use it exactly. Update "warnings" to match the new state.',
     '',
     "CLIENT'S ORIGINAL TEXT:",
@@ -190,12 +204,18 @@ export async function reviseVideo(
     "CLIENT'S NOTE:",
     note,
   ].join('\n');
-  const assets = ids.map((id) => ({ id, kind: existing[id].kind })) as SmartAsset[];
-  return askDirector([{ text: `${instructions}\n${task}` }], (candidate) => checkPlan(candidate, assets, brief, 'auto', true), 280_000);
+  const assets = [...(ids.map((id) => ({ id, kind: existing[id].kind })) as SmartAsset[]), ...added];
+  const parts: unknown[] = [{ text: `${instructions}\n${task}` }];
+  if (added.length) parts.push({ text: '\n\nNEW FILES:' });
+  for (const asset of added) {
+    parts.push({ text: describe(asset) });
+    parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
+  }
+  return askDirector(parts, (candidate) => checkPlan(candidate, assets, brief, 'auto', true), 280_000);
 }
 
 // Things the renderer cannot fix by construction.
-function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, length: VideoLength, revision: boolean): string | null {
+function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, length: VideoLength, revision: boolean, lastChance = false): string | null {
   const ids = new Set([...assets.map((a) => a.id), ...(plan.lifestyleShots || []).map((shot) => shot.id)]);
   const badShot = (plan.lifestyleShots || []).find((shot) => !assets.some((a) => a.id === shot.fromAsset && a.kind === 'image'));
   const badMotion = (plan.animate || []).find((m) => !ids.has(m.asset));
@@ -217,11 +237,15 @@ function checkPlan(plan: DirectorPlan, assets: SmartAsset[], brief: string, leng
     const minimum = scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
-  if (revision) return null; // the client's note outranks the word-count and file-spread rules
+  // Everything above would break or blank a scene. Everything below is taste: worth one or two corrections, never worth a failed job.
+  // In a revision the client's note outranks the word-count and file-spread rules.
+  if (revision) return null;
   const words = plan.scenes.reduce((n, scene) => n + scene.narration.split(/\s+/).length, 0);
   const briefWords = brief.split(/\s+/).filter(Boolean).length;
+  // "Say exactly what I wrote" is a promise, not taste: a plan that drops the script is refused even on the last attempt.
+  if (lastChance && !(length === 'script' && words < Math.round(briefWords * 0.7))) return null;
   // A thin brief must not be padded, so the floor follows what the client gave.
-  const minimum = length === 'script' ? Math.round(briefWords * 0.7) : Math.min(plan.format === 'product' ? 55 : 80, Math.max(40, briefWords));
+  const minimum = length === 'script' ? Math.round(briefWords * 0.7) : Math.min(plan.format === 'product' ? 50 : 65, Math.max(40, briefWords));
   if (words < minimum) {
     return length === 'script'
       ? `the narration has ${words} words but the client's script has about ${briefWords}; narrate the whole script, do not shorten it.`
