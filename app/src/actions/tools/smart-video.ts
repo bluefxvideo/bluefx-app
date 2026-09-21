@@ -8,8 +8,7 @@ import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
 import { ZodError } from 'zod';
-import { createAdminClient } from '@/app/supabase/server';
-import { checkAdminAuth } from '@/lib/admin-auth';
+import { createAdminClient, createClient } from '@/app/supabase/server';
 import { transcribeWords } from '@/lib/smart-video/audio';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { createSmartVideo, reviseSmartVideo, type SmartVideoMedia, type SmartVideoResult } from '@/lib/smart-video/pipeline';
@@ -30,14 +29,19 @@ import {
 } from '@/types/smart-video';
 
 /**
- * Smart Video (admin-only trial): text + files (or a link) in,
- * finished vertical ad out. The job runs after the response is sent (the proxy
- * cuts requests at ~55 s) and the page polls job.json for its state.
+ * The Phantom (Smart Video): text + files (or a link) in, finished ad out.
+ * The job runs after the response is sent (the proxy cuts requests at ~55 s)
+ * and the page polls its row in smart_video_jobs. Files live in the public
+ * bucket under an unguessable job folder (the render server fetches them by
+ * URL); everything written about the job (brief, script, plan, API usage)
+ * lives in the table, which only the server can read.
  */
 
 const run = promisify(execFile);
 const BUCKET = 'script-videos';
 const STALE_AFTER_MS = 12 * 60 * 1000;
+// One video costs up to about $1 in API fees before it can fail; nobody needs more than two at once.
+const MAX_RUNNING_JOBS = 2;
 
 const jobDir = (userId: string, jobId: string) => `smart-video/${userId}/${jobId}`;
 const safeName = (name: string) => name.replace(/[^\w.-]+/g, '_').slice(-80);
@@ -48,10 +52,16 @@ function readable(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-async function adminUserId(): Promise<string | null> {
-  const admin = await checkAdminAuth();
-  return admin?.user.id ?? null;
+async function currentUserId(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
 }
+
+// smart_video_jobs is newer than the generated database types.
+const jobsTable = () => (createAdminClient() as any).from('smart_video_jobs');
 
 function publicUrl(storagePath: string): string {
   return createAdminClient().storage.from(BUCKET).getPublicUrl(storagePath).data.publicUrl;
@@ -93,24 +103,57 @@ function download(storagePath: string): Promise<Buffer> {
 }
 
 async function readJob(userId: string, jobId: string): Promise<SmartVideoJob | null> {
-  try {
-    // No retries here: a folder without a job.json is normal (an upload that never started).
-    const { data } = await createAdminClient().storage.from(BUCKET).download(`${jobDir(userId, jobId)}/job.json`);
-    return data ? JSON.parse(Buffer.from(await data.arrayBuffer()).toString('utf-8')) : null;
-  } catch {
-    return null;
-  }
+  const { data, error } = await jobsTable().select('job').eq('id', jobId).eq('user_id', userId).maybeSingle();
+  if (error) throw new Error(`Could not read the job: ${error.message}`);
+  return (data?.job as SmartVideoJob) ?? null;
 }
 
-async function writeJob(job: SmartVideoJob, patch: Partial<SmartVideoJob> = {}): Promise<SmartVideoJob> {
+function writeJob(job: SmartVideoJob, patch: Partial<SmartVideoJob> = {}): Promise<SmartVideoJob> {
   const next = { ...job, ...patch, updatedAt: new Date().toISOString() };
-  await upload(`${jobDir(job.userId, job.id)}/job.json`, Buffer.from(JSON.stringify(next)), 'application/json');
-  return next;
+  return withRetry('Saving the job', async () => {
+    const { error } = await jobsTable().upsert({
+      id: next.id,
+      user_id: next.userId,
+      parent_id: next.parentId ?? null,
+      status: next.status,
+      job: next,
+      created_at: next.createdAt,
+      updated_at: next.updatedAt,
+    });
+    if (error) throw new Error(error.message);
+    return next;
+  });
 }
+
+interface SavedPlan {
+  plan: DirectorPlan;
+  props: Record<string, unknown>;
+  media?: SmartVideoMedia;
+  brief?: string;
+}
+
+async function readPlan(userId: string, jobId: string): Promise<SavedPlan> {
+  const { data, error } = await jobsTable().select('plan').eq('id', jobId).eq('user_id', userId).maybeSingle();
+  if (error || !data?.plan) throw new Error(error?.message || 'This video has no saved plan');
+  return data.plan as SavedPlan;
+}
+
+/** Jobs of this user that are still working (a job with a stale heartbeat is dead, not running). */
+async function runningJobs(userId: string): Promise<number> {
+  const alive = new Date(Date.now() - STALE_AFTER_MS).toISOString();
+  const { count } = await jobsTable()
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .not('status', 'in', '(done,failed)')
+    .gt('updated_at', alive);
+  return count ?? 0;
+}
+
+const TOO_MANY = `Two of your videos are still being made. Start the next one when one of them is finished.`;
 
 /**
  * What the page may see. API costs stay on the server for everyone, admins included
- * (the owner records his screen): they are kept in job.json for analysis only.
+ * (the owner records his screen): they are kept with the job for analysis only.
  */
 function forViewer(job: SmartVideoJob): SmartVideoJob {
   const { usage: _usage, ...visible } = job;
@@ -122,8 +165,8 @@ export async function requestSmartVideoUploads(input: {
   files: { name: string; size: number }[];
 }): Promise<ApiResponse<{ jobId: string; slots: SmartVideoUploadSlot[] }>> {
   try {
-    const userId = await adminUserId();
-    if (!userId) return createApiError('Smart Video is in admin-only testing');
+    const userId = await currentUserId();
+    if (!userId) return createApiError('Please sign in again');
     const { files } = SmartVideoUploadRequestSchema.parse(input);
 
     const jobId = randomUUID();
@@ -160,11 +203,13 @@ async function failAndRefund(job: SmartVideoJob, reason: string): Promise<SmartV
 /** Step 2: start the job. Returns at once; the work happens in after(). */
 export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiResponse<{ jobId: string }>> {
   try {
-    const userId = await adminUserId();
-    if (!userId) return createApiError('Smart Video is in admin-only testing');
+    const userId = await currentUserId();
+    if (!userId) return createApiError('Please sign in again');
     const parsed = SmartVideoStartSchema.parse(input);
     if (!parsed.brief.trim() && !parsed.link) return createApiError('Write what the video is about, or paste a link');
     if (parsed.uploads.some((u) => !u.path.startsWith(`${jobDir(userId, parsed.jobId)}/src/`))) return createApiError('Invalid upload path');
+    if (await readJob(userId, parsed.jobId)) return createApiError('This video was already started');
+    if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
 
     const credits = phantomCredits(parsed.brief, parsed.length === 'script');
     const chargeError = await charge(userId, parsed.jobId, credits);
@@ -253,7 +298,9 @@ async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: str
   const dir = jobDir(job.userId, job.id);
   const { props, plan, media, durationSeconds, usage, warnings } = result;
   // plan + media are what a later revision starts from
-  await upload(`${dir}/plan.json`, Buffer.from(JSON.stringify({ plan, props, media, brief }, null, 2)), 'application/json');
+  const saved: SavedPlan = { plan, props, media, brief };
+  const { error: planError } = await jobsTable().update({ plan: saved }).eq('id', job.id);
+  if (planError) throw new Error(`Could not save the plan: ${planError.message}`);
 
   job = await writeJob(job, {
     status: 'rendering',
@@ -295,11 +342,12 @@ async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: str
  */
 export async function reviseSmartVideoJob(input: { jobId: string; note: string }): Promise<ApiResponse<{ jobId: string }>> {
   try {
-    const userId = await adminUserId();
-    if (!userId) return createApiError('Smart Video is in admin-only testing');
+    const userId = await currentUserId();
+    if (!userId) return createApiError('Please sign in again');
     const parsed = SmartVideoReviseSchema.parse(input);
     const parent = await readJob(userId, parsed.jobId);
     if (!parent || parent.status !== 'done') return createApiError('Only a finished video can be changed');
+    if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
 
     const jobId = randomUUID();
     const chargeError = await charge(userId, jobId, PHANTOM_REVISION_CREDITS);
@@ -333,12 +381,7 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob): Promi
   const heartbeat = setInterval(() => writeJob(job).catch(() => undefined), 45_000);
   try {
     const parentDir = jobDir(parent.userId, parent.id);
-    const saved = JSON.parse((await download(`${parentDir}/plan.json`)).toString('utf-8')) as {
-      plan: DirectorPlan;
-      props: Record<string, unknown>;
-      media?: SmartVideoMedia;
-      brief?: string;
-    };
+    const saved = await readPlan(parent.userId, parent.id);
     const media = saved.media ?? (await mediaFromProps(saved.props, parentDir, saved.plan.language));
     const dir = jobDir(job.userId, job.id);
     const result = await reviseSmartVideo(
@@ -407,7 +450,7 @@ async function levelLoudness(videoUrl: string): Promise<Buffer> {
 
 /** The page polls this. A job whose process died (deploy, crash) is reported as failed. */
 export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | null> {
-  const userId = await adminUserId();
+  const userId = await currentUserId();
   if (!userId || !/^[0-9a-f-]{36}$/.test(jobId)) return null;
   const job = await readJob(userId, jobId);
   if (!job) return null;
@@ -418,7 +461,7 @@ export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | n
   // Videos finished before the script was saved with the job: read it from their plan once.
   if (job.status === 'done' && !job.script) {
     try {
-      const saved = JSON.parse((await download(`${jobDir(userId, jobId)}/plan.json`)).toString('utf-8')) as { plan: DirectorPlan };
+      const saved = await readPlan(userId, jobId);
       return forViewer(await writeJob(job, { script: scriptOf(saved.plan) }));
     } catch {
       return forViewer(job);
@@ -428,14 +471,8 @@ export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | n
 }
 
 export async function listSmartVideoJobs(): Promise<SmartVideoJob[]> {
-  const userId = await adminUserId();
+  const userId = await currentUserId();
   if (!userId) return [];
-  const { data } = await createAdminClient()
-    .storage.from(BUCKET)
-    .list(`smart-video/${userId}`, { limit: 30, sortBy: { column: 'created_at', order: 'desc' } });
-  const jobs = await Promise.all((data || []).map((entry) => readJob(userId, entry.name)));
-  return jobs
-    .filter((job): job is SmartVideoJob => job !== null)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map(forViewer);
+  const { data } = await jobsTable().select('job').eq('user_id', userId).order('created_at', { ascending: false }).limit(60);
+  return ((data || []) as { job: SmartVideoJob }[]).map((row) => forViewer(row.job));
 }

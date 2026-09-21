@@ -52,7 +52,7 @@ const FORMATS: { value: VideoFormat; label: string; hint: string; Icon: typeof R
 ];
 
 /**
- * Smart Video (admin-only trial): text + files, or a link, in;
+ * The Phantom (Smart Video): text + files, or a link, in;
  * a finished vertical ad out. Input on the left, progress and result on the right.
  */
 export function SmartVideoPage() {
@@ -105,7 +105,7 @@ export function SmartVideoPage() {
           <h1 className="text-xl font-semibold">{NAME}</h1>
           <p className="text-sm text-muted-foreground">
             Hand {PHANTOM} your text and your files. It writes the script, picks the look, records the voice, scores the music and cuts the
-            film, unseen. You take the credit. Admin-only test.
+            film, unseen. You take the credit.
           </p>
         </div>
       </div>
