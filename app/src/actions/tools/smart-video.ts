@@ -103,26 +103,67 @@ function download(storagePath: string): Promise<Buffer> {
   });
 }
 
+type JobRow = { job: SmartVideoJob; updated_at: string };
+// The column is the truth for "when did this job last show life": the heartbeat only touches the column.
+const fromRow = (row: JobRow): SmartVideoJob => ({ ...row.job, updatedAt: row.updated_at });
+const FINAL = '(done,failed)';
+
 async function readJob(userId: string, jobId: string): Promise<SmartVideoJob | null> {
-  const { data, error } = await jobsTable().select('job').eq('id', jobId).eq('user_id', userId).maybeSingle();
+  const { data, error } = await jobsTable().select('job, updated_at').eq('id', jobId).eq('user_id', userId).maybeSingle();
   if (error) throw new Error(`Could not read the job: ${error.message}`);
-  return (data?.job as SmartVideoJob) ?? null;
+  return data ? fromRow(data as JobRow) : null;
 }
 
+/**
+ * Saves of one job land in the order they were made. Without this, a background save that stalled on
+ * the network arrived after the final "done" save and put the job back to "rendering 94%" for good
+ * (2026-09-21: the video was finished and stored, the page never learned).
+ */
+const saveQueue = new Map<string, Promise<unknown>>();
+function inOrder<T>(jobId: string, save: () => Promise<T>): Promise<T> {
+  const next = (saveQueue.get(jobId) || Promise.resolve()).catch(() => undefined).then(save);
+  saveQueue.set(jobId, next);
+  next.finally(() => saveQueue.get(jobId) === next && saveQueue.delete(jobId)).catch(() => undefined);
+  return next;
+}
+
+/** The first save of a job. */
+function createJob(job: SmartVideoJob): Promise<SmartVideoJob> {
+  return inOrder(job.id, () =>
+    withRetry('Saving the job', async () => {
+      const { error } = await jobsTable().insert({
+        id: job.id,
+        user_id: job.userId,
+        parent_id: job.parentId ?? null,
+        status: job.status,
+        job,
+        created_at: job.createdAt,
+        updated_at: job.updatedAt,
+      });
+      if (error) throw new Error(error.message);
+      return job;
+    })
+  );
+}
+
+/** Every later save. A progress save can never undo a finished or failed job, whenever it arrives. */
 function writeJob(job: SmartVideoJob, patch: Partial<SmartVideoJob> = {}): Promise<SmartVideoJob> {
   const next = { ...job, ...patch, updatedAt: new Date().toISOString() };
-  return withRetry('Saving the job', async () => {
-    const { error } = await jobsTable().upsert({
-      id: next.id,
-      user_id: next.userId,
-      parent_id: next.parentId ?? null,
-      status: next.status,
-      job: next,
-      created_at: next.createdAt,
-      updated_at: next.updatedAt,
-    });
-    if (error) throw new Error(error.message);
-    return next;
+  const final = next.status === 'done' || next.status === 'failed';
+  return inOrder(next.id, () =>
+    withRetry('Saving the job', async () => {
+      const update = jobsTable().update({ status: next.status, job: next, updated_at: next.updatedAt }).eq('id', next.id);
+      const { error } = await (final ? update : update.not('status', 'in', FINAL));
+      if (error) throw new Error(error.message);
+      return next;
+    })
+  );
+}
+
+/** The heartbeat: "still alive", nothing else. It carries no job data, so it has nothing stale to write. */
+function touchJob(jobId: string): Promise<void> {
+  return inOrder(jobId, async () => {
+    await jobsTable().update({ updated_at: new Date().toISOString() }).eq('id', jobId).not('status', 'in', FINAL);
   });
 }
 
@@ -217,7 +258,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     if (chargeError) return createApiError(chargeError);
 
     const now = new Date().toISOString();
-    const job = await writeJob({
+    const job = await createJob({
       id: parsed.jobId,
       userId,
       status: 'reading',
@@ -241,7 +282,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
   let job = initial;
   const dir = jobDir(job.userId, job.id);
   // A heartbeat keeps updatedAt fresh, so the page can tell a slow job from a dead one.
-  const heartbeat = setInterval(() => writeJob(job).catch(() => undefined), 45_000);
+  const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
   try {
     console.log(`🎬 Smart Video job ${job.id}: ${uploads.length} files${job.link ? ' + link' : ''}`);
     const files: ClientFile[] = await Promise.all(uploads.map(async (u) => ({ filename: u.name, data: await download(u.path) })));
@@ -358,7 +399,7 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
     if (chargeError) return createApiError(chargeError);
 
     const now = new Date().toISOString();
-    const job = await writeJob({
+    const job = await createJob({
       id: jobId,
       userId,
       status: 'directing',
@@ -382,7 +423,7 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
 
 async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, uploads: { name: string; path: string }[]): Promise<void> {
   let job = initial;
-  const heartbeat = setInterval(() => writeJob(job).catch(() => undefined), 45_000);
+  const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
   try {
     const parentDir = jobDir(parent.userId, parent.id);
     const saved = await readPlan(parent.userId, parent.id);
@@ -486,11 +527,11 @@ export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | n
 export async function listSmartVideoJobs(): Promise<SmartVideoJob[]> {
   const userId = await currentUserId();
   if (!userId) return [];
-  const { data } = await jobsTable().select('job').eq('user_id', userId).order('created_at', { ascending: false }).limit(60);
+  const { data } = await jobsTable().select('job, updated_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(60);
   // The library settles dead jobs too: a job that died while nobody watched it would otherwise
   // stay "Working" forever, keep its credits, and count against the two-at-once limit.
   const jobs = await Promise.all(
-    ((data || []) as { job: SmartVideoJob }[]).map((row) => (isDead(row.job) ? failAndRefund(row.job, DEAD_JOB).catch(() => row.job) : row.job))
+    ((data || []) as JobRow[]).map(fromRow).map((job) => (isDead(job) ? failAndRefund(job, DEAD_JOB).catch(() => job) : job))
   );
   return jobs.map(forViewer);
 }
