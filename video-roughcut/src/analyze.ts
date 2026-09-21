@@ -384,8 +384,23 @@ function resolveTrim(
   if (startIdx > endIdx) return null;
   const entry: TrimEntry = { id: seg.id, reason };
   if (startIdx > 0) entry.startTime = seg.words[startIdx].start;
-  if (endIdx < seg.words.length - 1) entry.endTime = seg.words[endIdx].end;
+  if (endIdx < seg.words.length - 1) entry.endTime = trimEndTime(seg.words[endIdx], seg.words[endIdx + 1]);
   return entry.startTime !== undefined || entry.endTime !== undefined ? entry : null;
+}
+
+/** buildKeepSegments pads every OUT point by this much. */
+const OUT_PAD = 0.05;
+
+/**
+ * Where a trimmed segment stops. Deepgram sometimes stretches the last word before a
+ * restart across the words that follow ("this" ending after "to to put" had started),
+ * so the cut goes just before the next word starts, never after it.
+ */
+function trimEndTime(last: { start: number; end: number }, next: { start: number }): number {
+  if (next.start > last.start && next.start < last.end + OUT_PAD) {
+    return Math.max(last.start + 0.1, next.start - OUT_PAD);
+  }
+  return last.end;
 }
 
 const LEADING_FILLERS = new Set(['and', 'so', 'but', 'now', 'then', 'okay', 'ok', 'well', 'um', 'uh', 'like', 'yeah', 'or', 'because']);

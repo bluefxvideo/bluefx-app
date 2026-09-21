@@ -112,5 +112,26 @@ check(
   ['First line is clean.', 'the second line.'],
 );
 
+// Deepgram sometimes stretches the last word before a restart across the next words.
+// The cut must still land before "to to put" starts.
+{
+  const words = [
+    { word: 'a', start: 10.0, end: 10.1 },
+    { word: 'video', start: 10.1, end: 10.4 },
+    { word: 'like', start: 10.4, end: 10.6 },
+    { word: 'this', start: 10.6, end: 12.1 },
+    { word: 'to', start: 11.0, end: 11.3 },
+    { word: 'to', start: 11.3, end: 11.6 },
+    { word: 'put', start: 11.6, end: 11.9 },
+  ];
+  const s: TranscriptSegment = { id: 1, text: words.map((w) => w.word).join(' '), start: 10, end: 12.1, words };
+  const t: Transcript = { fullText: '', segments: [s], words, duration: 14, language: 'en' };
+  const ed = buildEditDecision(t, { remove: [], trim: [{ id: 1, keepFrom: '', keepUntil: 'a video like this', reason: 'test' }] }, 29.97, []);
+  const out = ed.segments[0]?.sourceOut ?? 0;
+  const ok = out > 10.6 && out <= 11.0 + 1 / 29.97;
+  if (!ok) failures++;
+  console.log(`${ok ? '✅' : '❌'} ${'stretched word ends before next'.padEnd(36)} OUT at ${out.toFixed(3)}s (next word starts 11.000s)`);
+}
+
 console.log(failures === 0 ? '\nAll trim checks passed.' : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);
