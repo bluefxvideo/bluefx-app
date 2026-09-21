@@ -110,6 +110,18 @@ export function SmartVideoPage() {
         </div>
       </div>
 
+      {smart.stalePage && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <p>
+            <span className="font-medium">This page is out of date.</span> The app was updated while it was open, so it can no longer follow your
+            video. Reload the page: a video that was still being made is in Your videos, and a video that was interrupted is refunded.
+          </p>
+          <Button size="sm" onClick={() => window.location.reload()}>
+            Reload
+          </Button>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <InputPanel smart={smart} />
         <div ref={resultRef} className="scroll-mt-4">
@@ -586,7 +598,7 @@ function FileThumb({ file, disabled, onRemove }: { file: File; disabled: boolean
   );
 }
 
-// The wait is 2 to 7 minutes: show that time is passing, and that the page can be left.
+// The wait is 3 to 7 minutes: show that time is passing, and that the page can be left.
 function WaitNote({ since }: { since: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -596,7 +608,7 @@ function WaitNote({ since }: { since: string }) {
   const seconds = Math.max(0, Math.floor((now - Date.parse(since)) / 1000));
   return (
     <p className="text-center text-xs text-muted-foreground">
-      {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} · Most videos take 2 to 4 minutes. You can leave this page, {NAME}{' '}
+      {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} · Most videos take 3 to 7 minutes. You can leave this page, {NAME}{' '}
       keeps working; the video will be in Your videos.
     </p>
   );

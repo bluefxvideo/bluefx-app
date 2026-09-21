@@ -11,6 +11,7 @@ import {
   startSmartVideo,
 } from '@/actions/tools/smart-video';
 import { cleanLink } from '@/lib/smart-video/link';
+import { isStalePageError } from '@/lib/stale-page';
 import { phantomCredits } from '@/lib/smart-video/pricing';
 import type { VideoFormat } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
@@ -28,7 +29,7 @@ export function useSmartVideo() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
 
-  const { data: job } = useQuery({
+  const { data: job, error: jobError } = useQuery({
     queryKey: ['smart-video-job', jobId],
     queryFn: () => getSmartVideoJob(jobId as string),
     enabled: Boolean(jobId),
@@ -37,7 +38,7 @@ export function useSmartVideo() {
     refetchIntervalInBackground: true,
   });
 
-  const { data: history = [] } = useQuery({
+  const { data: history = [], error: historyError } = useQuery({
     queryKey: ['smart-video-jobs'],
     queryFn: () => listSmartVideoJobs(),
   });
@@ -140,6 +141,8 @@ export function useSmartVideo() {
     removeFile,
     job: job ?? null,
     history,
+    // The app was updated while this tab was open: its requests no longer reach the server until a reload.
+    stalePage: isStalePageError(jobError?.message) || isStalePageError(historyError?.message),
     uploading,
     credits: phantomCredits(brief, exactWords),
     revise,

@@ -448,16 +448,19 @@ async function levelLoudness(videoUrl: string): Promise<Buffer> {
   }
 }
 
+const DEAD_JOB = 'The job stopped unexpectedly (the server restarted during an update). Please run it again.';
+
+/** A running job keeps its updatedAt fresh with a heartbeat; one that has gone quiet died with its process (deploy, crash). */
+const isDead = (job: SmartVideoJob) =>
+  job.status !== 'done' && job.status !== 'failed' && Date.now() - Date.parse(job.updatedAt) > STALE_AFTER_MS;
+
 /** The page polls this. A job whose process died (deploy, crash) is reported as failed. */
 export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | null> {
   const userId = await currentUserId();
   if (!userId || !/^[0-9a-f-]{36}$/.test(jobId)) return null;
   const job = await readJob(userId, jobId);
   if (!job) return null;
-  const running = job.status !== 'done' && job.status !== 'failed';
-  if (running && Date.now() - Date.parse(job.updatedAt) > STALE_AFTER_MS) {
-    return forViewer(await failAndRefund(job, 'The job stopped unexpectedly (the server may have restarted). Please run it again.'));
-  }
+  if (isDead(job)) return forViewer(await failAndRefund(job, DEAD_JOB));
   // Videos finished before the script was saved with the job: read it from their plan once.
   if (job.status === 'done' && !job.script) {
     try {
@@ -474,5 +477,10 @@ export async function listSmartVideoJobs(): Promise<SmartVideoJob[]> {
   const userId = await currentUserId();
   if (!userId) return [];
   const { data } = await jobsTable().select('job').eq('user_id', userId).order('created_at', { ascending: false }).limit(60);
-  return ((data || []) as { job: SmartVideoJob }[]).map((row) => forViewer(row.job));
+  // The library settles dead jobs too: a job that died while nobody watched it would otherwise
+  // stay "Working" forever, keep its credits, and count against the two-at-once limit.
+  const jobs = await Promise.all(
+    ((data || []) as { job: SmartVideoJob }[]).map((row) => (isDead(row.job) ? failAndRefund(row.job, DEAD_JOB).catch(() => row.job) : row.job))
+  );
+  return jobs.map(forViewer);
 }
