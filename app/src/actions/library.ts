@@ -6,7 +6,7 @@
  * single feed (no new tables/migrations needed).
  */
 
-import { createClient } from '@/app/supabase/server';
+import { createAdminClient, createClient } from '@/app/supabase/server';
 
 export type LibraryItemType = 'video' | 'image' | 'logo' | 'thumbnail' | 'music' | 'voice' | 'avatar';
 
@@ -40,6 +40,7 @@ export async function getCreationMilestones(): Promise<{
   hasImage?: boolean;
   hasVideo?: boolean;
   hasAudio?: boolean;
+  hasPhantom?: boolean;
 }> {
   try {
     const supabase = await createClient();
@@ -62,8 +63,17 @@ export async function getCreationMilestones(): Promise<{
       count('generated_voices', 'audio_url'),
     ]);
 
+    // smart_video_jobs is server-only (RLS without policies) and newer than the generated types.
+    const phantom = await (createAdminClient() as any)
+      .from('smart_video_jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'done')
+      .limit(1);
+
     return {
       success: true,
+      hasPhantom: (phantom.count || 0) > 0,
       hasImage: (imgs.count || 0) > 0,
       hasVideo: (vids.count || 0) > 0 || (s2v.count || 0) > 0,
       hasAudio: (music.count || 0) > 0 || (voice.count || 0) > 0,

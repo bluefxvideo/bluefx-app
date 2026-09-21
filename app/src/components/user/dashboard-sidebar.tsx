@@ -44,6 +44,7 @@ import {
   ChevronDown,
   Star,
   Scissors,
+  Eye,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -74,6 +75,13 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
     id: "video",
     name: "Video Tools",
     tools: [
+      {
+        name: "The Phantom",
+        route: "/dashboard/smart-video",
+        icon: Eye,
+        gradient: "bg-primary",
+        description: "Paste a Zillow, Amazon or Google Maps link. Get a finished video ad.",
+      },
       {
         name: "Video Maker",
         route: "/dashboard/ai-cinematographer",

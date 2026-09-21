@@ -83,6 +83,7 @@ export default function DashboardPage() {
     enabled: showGettingStarted,
   });
   const milestoneSteps = [
+    { done: !!milestones?.hasPhantom, label: 'Get your first video ad from one link (7 minutes)', route: '/dashboard/smart-video' },
     { done: !!milestones?.hasImage, label: 'Create your first image', route: '/dashboard/image-maker' },
     { done: !!milestones?.hasVideo, label: 'Create your first video', route: '/dashboard/ai-cinematographer' },
     { done: !!milestones?.hasAudio, label: 'Add music or a voice over', route: '/dashboard/music-maker' },
@@ -360,11 +361,18 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Get started with BlueFX</CardTitle>
             <CardDescription>
-              {milestoneSteps.filter((s) => s.done).length} of {milestoneSteps.length} done — each takes a couple of minutes.
+              {milestoneSteps.filter((s) => s.done).length} of {milestoneSteps.length} done. Each takes a few minutes.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-sm">
+            {!milestones?.hasPhantom && (
+              <p className="mb-4 text-sm text-zinc-300">
+                Start with The Phantom: paste a link to a listing, a product or a business (Zillow, Amazon, Google Maps, any website), or type a
+                few lines and drop in photos. The Phantom writes the script, records the voice-over, adds music and captions, and hands back a
+                finished video.
+              </p>
+            )}
+            <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 text-sm">
               {milestoneSteps.map((step) => (
                 <li key={step.label}>
                   <button
