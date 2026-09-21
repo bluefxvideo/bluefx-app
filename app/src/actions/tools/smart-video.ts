@@ -23,6 +23,7 @@ import {
   SmartVideoStartSchema,
   SmartVideoUploadRequestSchema,
   type SmartVideoJob,
+  type SmartVideoReviseInput,
   type SmartVideoScriptScene,
   type SmartVideoStartInput,
   type SmartVideoUploadSlot,
@@ -340,7 +341,7 @@ async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: str
  * "Leave a note": changes a finished video. The revision is a new job that
  * reuses the original's files, voice and music; the original stays untouched.
  */
-export async function reviseSmartVideoJob(input: { jobId: string; note: string }): Promise<ApiResponse<{ jobId: string }>> {
+export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise<ApiResponse<{ jobId: string }>> {
   try {
     const userId = await currentUserId();
     if (!userId) return createApiError('Please sign in again');
@@ -349,7 +350,10 @@ export async function reviseSmartVideoJob(input: { jobId: string; note: string }
     if (!parent || parent.status !== 'done') return createApiError('Only a finished video can be changed');
     if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
 
-    const jobId = randomUUID();
+    // With new files the edit takes the id its files were uploaded under.
+    const jobId = parsed.uploads.length && parsed.uploadJobId ? parsed.uploadJobId : randomUUID();
+    if (parsed.uploads.some((u) => !u.path.startsWith(`${jobDir(userId, jobId)}/src/`))) return createApiError('Invalid upload path');
+    if (parsed.uploads.length && (await readJob(userId, jobId))) return createApiError('This edit was already started');
     const chargeError = await charge(userId, jobId, PHANTOM_REVISION_CREDITS);
     if (chargeError) return createApiError(chargeError);
 
@@ -368,7 +372,7 @@ export async function reviseSmartVideoJob(input: { jobId: string; note: string }
       createdAt: now,
       updatedAt: now,
     });
-    after(() => runRevision(job, parent));
+    after(() => runRevision(job, parent, parsed.uploads));
     return createApiSuccess({ jobId });
   } catch (error) {
     console.error('❌ reviseSmartVideoJob error:', error);
@@ -376,7 +380,7 @@ export async function reviseSmartVideoJob(input: { jobId: string; note: string }
   }
 }
 
-async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob): Promise<void> {
+async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, uploads: { name: string; path: string }[]): Promise<void> {
   let job = initial;
   const heartbeat = setInterval(() => writeJob(job).catch(() => undefined), 45_000);
   try {
@@ -384,15 +388,21 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob): Promi
     const saved = await readPlan(parent.userId, parent.id);
     const media = saved.media ?? (await mediaFromProps(saved.props, parentDir, saved.plan.language));
     const dir = jobDir(job.userId, job.id);
+    const store = (data: Buffer, name: string, contentType: string) => upload(`${dir}/${name}`, data, contentType);
+    // New files continue the numbering of the video's own files (a1, a2, ... then a7, a8).
+    const taken = Object.keys(media.assets).map((id) => Number(/^a(\d+)/.exec(id)?.[1] || 0));
+    const files: ClientFile[] = await Promise.all(uploads.map(async (u) => ({ filename: u.name, data: await download(u.path) })));
+    const added = files.length ? await prepareAssets(files, store, Math.max(0, ...taken) + 1) : [];
     const result = await reviseSmartVideo(
       { plan: saved.plan, media },
       job.note || '',
       saved.brief || parent.brief,
-      (data, name, contentType) => upload(`${dir}/${name}`, data, contentType),
+      store,
       (stage) => {
         job = { ...job, status: stage };
         writeJob(job).catch(() => undefined);
-      }
+      },
+      added
     );
     await finish(job, result, saved.brief || parent.brief, (next) => {
       job = next;

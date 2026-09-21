@@ -21,10 +21,18 @@ export const SmartVideoStartSchema = z.object({
   uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_FILES),
 });
 
+/** An edit may bring a few new files (a new photo, the updated logo, a new clip). */
+export const SMART_VIDEO_MAX_EDIT_FILES = 5;
+
 export const SmartVideoReviseSchema = z.object({
   jobId: z.string().uuid(),
   note: z.string().trim().min(3).max(1500),
+  // Files added with the note were uploaded under their own job id; the edit then takes that id.
+  uploadJobId: z.string().uuid().optional(),
+  uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_EDIT_FILES).default([]),
 });
+
+export type SmartVideoReviseInput = z.input<typeof SmartVideoReviseSchema>;
 
 export type SmartVideoStartInput = z.input<typeof SmartVideoStartSchema>;
 

@@ -217,13 +217,15 @@ export async function reviseSmartVideo(
   note: string,
   brief: string,
   store: StoreFile,
-  onStage: (stage: SmartVideoStage) => void = () => {}
+  onStage: (stage: SmartVideoStage) => void = () => {},
+  added: SmartAsset[] = []
 ): Promise<SmartVideoResult> {
   const { result, usage } = await trackUsage(async () => {
     onStage('directing');
-    const plan = await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format);
+    const plan = await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added);
     onStage('producing');
-    const media = { ...previous.media };
+    const media = { ...previous.media, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
+    await addFiles(plan, media, added, store);
     // Only the narrator's lines are recorded; a speaker scene needs the clip's saved word timings.
     const clipWordsSaved = media.clipWords || {};
     const spoken = (p: DirectorPlan) => p.scenes.filter((scene) => !(scene.speaker && clipWordsSaved[scene.speaker.asset])).map((scene) => scene.narration);
@@ -246,6 +248,30 @@ export async function reviseSmartVideo(
     return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
   });
   return { ...result, usage };
+}
+
+/** Files that came with an edit: whatever the new plan does with them (float, logo, talking clip) is prepared here. */
+async function addFiles(plan: DirectorPlan, media: SmartVideoMedia, added: SmartAsset[], store: StoreFile): Promise<void> {
+  const cutoutIds = new Set(plan.scenes.flatMap((scene) => scene.blocks.flatMap((b) => (b.type === 'media' && b.cutout ? [b.asset] : []))));
+  const speakerIds = new Set(plan.scenes.flatMap((scene) => (scene.speaker ? [scene.speaker.asset] : [])));
+  await Promise.all(
+    added.map(async (a) => {
+      const role = plan.assets.find((entry) => entry.id === a.id);
+      const isLogo = a.kind === 'image' && role?.role === 'logo' && role.logoOnSolidBackground;
+      const [logoUrl, cutoutUrl, heard] = await Promise.all([
+        isLogo ? cutOutLogo(a.data).then((png) => store(png, `${a.id}-logo-cutout.png`, 'image/png')).catch(() => null) : null,
+        a.kind === 'image' && cutoutIds.has(a.id) ? cutOutProduct(a.data, a.mimeType).then((png) => store(png, `${a.id}-cutout.png`, 'image/png')).catch(() => null) : null,
+        a.kind === 'video' && speakerIds.has(a.id) ? transcribeWords(await extractAudio(a.data), plan.language) : null,
+      ]);
+      media.assets[a.id] = {
+        url: logoUrl || a.url,
+        kind: a.kind,
+        cutoutUrl: cutoutUrl || undefined,
+        portrait: Boolean(a.width && a.height && a.height > a.width * 1.15),
+      };
+      if (heard) media.clipWords[a.id] = heard;
+    })
+  );
 }
 
 /** Pins a plan to its recorded voice: scene times, text cues, captions, soundtrack. Pure. */

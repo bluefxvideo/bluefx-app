@@ -58,7 +58,7 @@ export function useSmartVideo() {
 
   const start = useCallback(async () => {
     if (!brief.trim() && !link.trim()) {
-      toast.error('Write what the video is about, or paste a Zillow or Amazon link');
+      toast.error('Write what the video is about, or paste a link');
       return;
     }
     try {
@@ -99,11 +99,23 @@ export function useSmartVideo() {
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
   const revise = useCallback(
-    async (note: string) => {
+    async (note: string, added: File[] = []) => {
       if (!jobId) return false;
       setRevising(true);
       try {
-        const revised = await reviseSmartVideoJob({ jobId, note });
+        let uploadJobId: string | undefined;
+        let uploads: { name: string; path: string }[] = [];
+        if (added.length) {
+          const requested = await requestSmartVideoUploads({ files: added.map((f) => ({ name: f.name, size: f.size })) });
+          if (!requested.success) throw new Error(requested.error);
+          for (const [i, slot] of requested.data.slots.entries()) {
+            const res = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': added[i].type || 'application/octet-stream' }, body: added[i] });
+            if (!res.ok) throw new Error(`Uploading ${added[i].name} failed`);
+          }
+          uploadJobId = requested.data.jobId;
+          uploads = requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path }));
+        }
+        const revised = await reviseSmartVideoJob({ jobId, note, uploadJobId, uploads });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);
         queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });

@@ -21,11 +21,12 @@ export interface ClientFile {
  * Client uploads → assets the director can look at and the renderer can load.
  * Images become JPEG/PNG of at most 1920 px; videos are stored as they are.
  */
-export async function prepareAssets(files: ClientFile[], store: StoreFile): Promise<SmartAsset[]> {
+export async function prepareAssets(files: ClientFile[], store: StoreFile, firstNumber = 1): Promise<SmartAsset[]> {
   const usable = files.filter((f) => IMAGE_FILE.test(f.filename) || VIDEO_FILE.test(f.filename));
   const assets: SmartAsset[] = [];
   for (const [i, file] of usable.entries()) {
-    const id = `a${i + 1}`;
+    // Files added in an edit continue the numbering of the video's own files.
+    const id = `a${firstNumber + i}`;
     assets.push(VIDEO_FILE.test(file.filename) ? await prepareVideo(id, file, store) : await prepareImage(id, file, store));
   }
   return assets;

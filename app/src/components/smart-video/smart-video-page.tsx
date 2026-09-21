@@ -25,7 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { VideoFormat } from '@/lib/smart-video/types';
-import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
+import { SMART_VIDEO_MAX_EDIT_FILES, SMART_VIDEO_MAX_FILE_MB, type SmartVideoJob, type SmartVideoJobStatus } from '@/types/smart-video';
 import { cleanLink, describeLink } from '@/lib/smart-video/link';
 import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
@@ -276,12 +276,19 @@ function OutputPanel({
   job: SmartVideoJob | null;
   uploading: { done: number; total: number } | null;
   onReset: () => void;
-  onRevise: (note: string) => Promise<boolean>;
+  onRevise: (note: string, added: File[]) => Promise<boolean>;
   revising: boolean;
   onOpen: (jobId: string) => void;
   versions: SmartVideoJob[];
 }) {
   const [note, setNote] = useState('');
+  const [added, setAdded] = useState<File[]>([]);
+  const addInput = useRef<HTMLInputElement>(null);
+  const addFiles = (picked: File[]) => {
+    const tooBig = picked.filter((f) => f.size > SMART_VIDEO_MAX_FILE_MB * 1024 * 1024);
+    if (tooBig.length) toast.error(`${tooBig.map((f) => f.name).join(', ')}: over ${SMART_VIDEO_MAX_FILE_MB} MB`);
+    setAdded((current) => [...current, ...picked.filter((f) => !tooBig.includes(f))].slice(0, SMART_VIDEO_MAX_EDIT_FILES));
+  };
   if (uploading) {
     return (
       <Card className="p-4 space-y-3">
@@ -338,11 +345,39 @@ function OutputPanel({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={
-                'Tell the Phantom what to change, in your own words: "Open with the price." "Use the photo of the torch in the second scene." "The phone number is 555-0199." "Shorter and more serious."'
+                'Tell the Phantom what to change, in your own words: "The sale now ends October 12." "The phone number is 555-0199." "Use this new photo at the start." "Here is our new logo." "Shorter and more serious."'
               }
               className="min-h-[90px]"
               disabled={revising}
             />
+            <input
+              ref={addInput}
+              type="file"
+              multiple
+              hidden
+              accept="image/*,video/mp4,video/quicktime,video/webm,.tif,.tiff,.heic"
+              onChange={(e) => {
+                addFiles(Array.from(e.target.files || []));
+                e.target.value = '';
+              }}
+            />
+            {added.length > 0 && (
+              <div className="grid grid-cols-5 gap-2">
+                {added.map((file, i) => (
+                  <FileThumb key={`${file.name}-${i}`} file={file} disabled={revising} onRemove={() => setAdded((current) => current.filter((_, k) => k !== i))} />
+                ))}
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={revising || added.length >= SMART_VIDEO_MAX_EDIT_FILES}
+              onClick={() => addInput.current?.click()}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Add a new photo, logo or clip
+            </Button>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">Only what you ask for changes; the rest stays. The current version is kept.</p>
               <Button
@@ -350,7 +385,10 @@ function OutputPanel({
                 className="flex-shrink-0"
                 disabled={revising || note.trim().length < 3}
                 onClick={async () => {
-                  if (await onRevise(note)) setNote('');
+                  if (await onRevise(note, added)) {
+                    setNote('');
+                    setAdded([]);
+                  }
                 }}
               >
                 {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
