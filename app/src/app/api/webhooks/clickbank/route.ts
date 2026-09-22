@@ -281,35 +281,46 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       })
     }
 
-    // Check for existing subscription to decide upgrade vs new subscription
+    // One subscription row per user (unique on user_id), whatever its status. A
+    // returning customer whose row is cancelled or expired is reactivated on that
+    // row. Inserting a second row fails, and that failure deleted the sale's own
+    // event record and answered Zapier with a 500, so the purchase left no trace:
+    // that is how a $297 lifetime purchase of 2026-09-20 was lost.
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
       .select('id, plan_type, status')
       .eq('user_id', userId)
-      .in('status', ['active', 'trial'])
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    if (existingSubscription && (isLifetime || isYearly)) {
-      const upgradeType = isLifetime ? 'lifetime' : 'yearly'
-      console.log(`Upgrading existing ${existingSubscription.status} subscription to ${upgradeType} for user ${userId}`)
-
-      // Update existing subscription to new terms
-      const currentPeriodStart = new Date()
-      const periodDays = isLifetime ? 50 * 365 : 365 // 50 years for lifetime, 365 days for yearly
-      const currentPeriodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
+    if (existingSubscription) {
+      if (existingSubscription.plan_type === 'lifetime' && !isLifetime) {
+        // A lifetime owner is never moved to a lesser plan by a later purchase
+        console.log(`♾️ ${email} already owns lifetime; ${subscriptionType} sale leaves the plan as is`)
+        return
+      }
+      const reactivating = !['active', 'trial'].includes(existingSubscription.status)
+      const periodStart = new Date()
+      const periodDays = isLifetime ? 50 * 365 : (isYearly ? 365 : 30)
+      const periodEnd = new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000)
+      console.log(`${reactivating ? 'Reactivating' : 'Upgrading'} ${existingSubscription.status} ${existingSubscription.plan_type} subscription to ${subscriptionType} for user ${userId}`)
 
       const { error: subscriptionUpdateError } = await supabase
         .from('user_subscriptions')
         .update({
-          status: 'active',  // Upgrade trial to active
-          current_period_start: currentPeriodStart.toISOString(),
-          current_period_end: currentPeriodEnd.toISOString(),
-          credits_per_month: creditsAllocation,
+          plan_type: planType,
+          status: isTrial ? 'trial' : 'active',
+          current_period_start: periodStart.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          credits_per_month: FULL_CREDITS,  // Always 600 for future renewals (like FastSpring)
           max_concurrent_jobs: 5, // Pro plan gets 5 jobs
-          // Lifetime is terminal: mark the plan so isLifetimeOwner() and the
-          // reconcile exclusions protect it, and drop the FastSpring billing
-          // anchor so no processor state can ever cancel a paid-in-full plan.
-          ...(isLifetime ? { plan_type: 'lifetime', fastspring_subscription_id: null } : {}),
+          cancel_at_period_end: false,
+          // ClickBank is the billing anchor from here on. A lifetime row carries no
+          // FastSpring id (nothing may ever cancel a paid-in-full plan), and a
+          // reactivated row drops its old one: the reconcile cron would otherwise
+          // read the dead FastSpring subscription and cancel the row again.
+          ...(isLifetime || reactivating ? { fastspring_subscription_id: null } : {}),
           updated_at: new Date().toISOString()
         })
         .eq('id', existingSubscription.id)
@@ -319,25 +330,10 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
         throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
       }
 
-      // Update existing credits with new period
-      const { error: creditsUpdateError } = await supabase
-        .from('user_credits')
-        .update({
-          total_credits: creditsAllocation,
-          used_credits: 0,  // Reset usage for fresh start
-          period_start: currentPeriodStart.toISOString(),
-          period_end: currentPeriodEnd.toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
+      await grantCredits(supabase, userId, creditsAllocation)
 
-      if (creditsUpdateError) {
-        console.error('ClickBank credits update error:', creditsUpdateError)
-        throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
-      }
-
-      console.log(`✅ Upgraded subscription to ${upgradeType} for user ${email} - valid until ${currentPeriodEnd.toISOString().split('T')[0]}`)
-      return // Exit early - upgrade complete
+      console.log(`✅ ${email} now on ${subscriptionType} via ClickBank - valid until ${periodEnd.toISOString().split('T')[0]}`)
+      return // Exit early - the existing row carries the new plan
     }
   } else {
     // Create new user account using admin client
@@ -420,27 +416,42 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
     console.log(`✅ Created ClickBank subscription for user ${email}`)
   }
 
-  // Create credits (following admin pattern)
-  const { error: creditsError } = await supabase
-    .from('user_credits')
-    .insert({
-      user_id: userId,
-      total_credits: creditsAllocation,
-      used_credits: 0,
-      period_start: currentPeriodStart.toISOString(),
-      period_end: currentPeriodEnd.toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-
-  if (creditsError) {
-    console.error('ClickBank credits creation error:', creditsError)
-    throw new Error(`Failed to create credits: ${creditsError.message}`)
-  } else {
-    console.log(`✅ Created ${creditsAllocation} credits for user ${email}`)
-  }
+  await grantCredits(supabase, userId, creditsAllocation)
 
   console.log(`ClickBank subscription processed successfully for ${email}`)
+}
+
+/**
+ * Puts `credits` on the account for a fresh 30-day credit period, keeping any
+ * purchased bonus credits, on the existing credits row or a new one. The credit
+ * period is monthly for every plan, lifetime included: the daily renewal job and
+ * the renewal at point of use both key on it, so the 50-year period lifetime
+ * rows used to get meant 600 credits once and never again. Never writes
+ * available_credits (a generated column).
+ */
+async function grantCredits(supabase: ReturnType<typeof createAdminClient>, userId: string, credits: number) {
+  const periodStart = new Date()
+  const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  const fields = {
+    total_credits: credits,
+    used_credits: 0,
+    period_start: periodStart.toISOString(),
+    period_end: periodEnd.toISOString(),
+    updated_at: new Date().toISOString()
+  }
+  const { data: existing } = await supabase
+    .from('user_credits')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle()
+  const { error } = existing
+    ? await supabase.from('user_credits').update(fields).eq('user_id', userId)
+    : await supabase.from('user_credits').insert({ user_id: userId, ...fields, created_at: new Date().toISOString() })
+  if (error) {
+    console.error('ClickBank credits grant error:', error)
+    throw new Error(`Failed to grant credits: ${error.message}`)
+  }
+  console.log(`✅ Granted ${credits} credits to user ${userId} for 30 days`)
 }
 
 async function handleClickBankRefund(customer: { email?: string }) {

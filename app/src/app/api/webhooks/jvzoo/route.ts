@@ -232,6 +232,9 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
 
     const currentPeriodStart = new Date()
     const currentPeriodEnd = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000)
+    // Credits renew monthly (the renewal job keys on this period); a 50-year credit
+    // period meant 600 credits once and never again
+    const creditsPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
@@ -269,7 +272,7 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
           total_credits: FULL_CREDITS,
           used_credits: 0,
           period_start: currentPeriodStart.toISOString(),
-          period_end: currentPeriodEnd.toISOString(),
+          period_end: creditsPeriodEnd.toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId)
@@ -338,6 +341,7 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
 async function insertSubscriptionAndCredits(supabase: ReturnType<typeof createAdminClient>, userId: string, email: string) {
   const currentPeriodStart = new Date()
   const currentPeriodEnd = new Date(Date.now() + 50 * 365 * 24 * 60 * 60 * 1000)
+  const creditsPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // monthly renewal
 
   const { error: subscriptionError } = await supabase.from('user_subscriptions').insert({
     user_id: userId,
@@ -359,7 +363,7 @@ async function insertSubscriptionAndCredits(supabase: ReturnType<typeof createAd
     total_credits: FULL_CREDITS,
     used_credits: 0,
     period_start: currentPeriodStart.toISOString(),
-    period_end: currentPeriodEnd.toISOString(),
+    period_end: creditsPeriodEnd.toISOString(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   })
