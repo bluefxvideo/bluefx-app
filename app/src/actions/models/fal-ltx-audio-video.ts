@@ -4,7 +4,9 @@
  *
  * Generates talking avatar videos from audio input
  * - Uses match_audio_length to auto-calculate frames from audio duration
- * - Max duration: 60 seconds
+ * - Max duration: 20 seconds. fal caps this endpoint (and the 2.3 22B one) at
+ *   481 frames; at 24 fps that is 20.04 s. Found 2026-09-23 when every render
+ *   over 20 s failed with a bare "Unexpected status code: 422" after the charge.
  * - Pricing: $0.0008 per megapixel
  *
  * Supported resolutions:
@@ -51,7 +53,10 @@ export const LTX_RESOLUTIONS = {
 export type LTXResolution = keyof typeof LTX_RESOLUTIONS;
 
 // Constants
-export const LTX_MAX_DURATION_SECONDS = 60;
+/** fal's 481-frame cap at LTX_FPS. Audio longer than this is refused before any charge. */
+export const LTX_MAX_DURATION_SECONDS = 20;
+/** The endpoint defaults to 25 fps, which would stop the cap at 19.2 s; 24 fps fits 20 s. */
+export const LTX_FPS = 24;
 export const LTX_COST_PER_MEGAPIXEL = 0.0008;
 
 // Default negative prompt for quality control
@@ -67,7 +72,7 @@ export function calculateLTXCost(
   const { width, height } = LTX_RESOLUTIONS[resolution];
   const cappedDuration = Math.min(durationSeconds, LTX_MAX_DURATION_SECONDS);
   // Estimate megapixels for cost (fal.ai calculates actual frames internally)
-  const estimatedFrames = cappedDuration * 25;
+  const estimatedFrames = cappedDuration * LTX_FPS;
   const totalPixels = width * height * estimatedFrames;
   const megapixels = totalPixels / 1_000_000;
   const costUSD = megapixels * LTX_COST_PER_MEGAPIXEL;
@@ -88,7 +93,7 @@ export function validateAudioDuration(durationSeconds: number): { valid: boolean
   if (durationSeconds > LTX_MAX_DURATION_SECONDS) {
     return {
       valid: false,
-      error: `Audio must be ${LTX_MAX_DURATION_SECONDS} seconds or less. Your audio is ${Math.ceil(durationSeconds)} seconds.`
+      error: `The avatar engine takes up to ${LTX_MAX_DURATION_SECONDS} seconds of audio. This audio is ${Math.ceil(durationSeconds)} seconds. Shorten the script or the recording. No credits were taken.`
     };
   }
   return { valid: true };
@@ -116,6 +121,7 @@ export async function createFalLTXPrediction(
       prompt: params.prompt || 'A person speaking naturally to camera with professional lighting',
       negative_prompt: params.negative_prompt || LTX_DEFAULT_NEGATIVE_PROMPT,
       match_audio_length: true,
+      fps: LTX_FPS,
       enable_safety_checker: params.enable_safety_checker ?? true,
     };
 
@@ -219,7 +225,7 @@ export function getFalLTXModelInfo() {
       'Landscape (1024×576) and Portrait (576×1024) formats',
     ],
     limitations: [
-      'Maximum 60 seconds duration',
+      `Maximum ${LTX_MAX_DURATION_SECONDS} seconds duration`,
       '1000 megapixel limit per generation',
       'Frame count auto-calculated via match_audio_length',
     ],

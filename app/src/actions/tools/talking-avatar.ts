@@ -18,6 +18,7 @@ import {
   readAvatarTier,
   type AvatarQualityTier,
   AVATAR_VOICE_SWITCH_CREDITS,
+  AVATAR_BASIC_MAX_SECONDS
 } from '@/types/talking-avatar-tiers';
 import { generateTalkingAvatarVideo } from '@/actions/models/hedra-api';
 import {
@@ -364,12 +365,12 @@ async function handleAudioUpload(
       };
     }
 
-    // Validate audio duration (max 60 seconds)
+    // Validate audio duration against the engine's cap, before anything is charged
     const durationValidation = validateAudioDuration(request.audio_duration_seconds);
     if (!durationValidation.valid) {
       return {
         success: false,
-        error: durationValidation.error || 'Audio duration exceeds 60 second limit',
+        error: durationValidation.error || 'The recording is longer than the avatar engine takes.',
         batch_id,
         generation_time_ms: Date.now() - startTime,
         credits_used: 0,
@@ -442,7 +443,7 @@ async function handleScriptTierGeneration(
   const fit = scriptFit(tier, script);
   if (!fit.fits || !fit.clipSeconds) {
     return fail(
-      `Your script is ${fit.words} words. ${config.label} carries up to ${fit.maxWords} words (${config.maxSeconds} s). Cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'}, or switch to Basic for scripts up to 60 seconds.`
+      `Your script is ${fit.words} words. ${config.label} carries up to ${fit.maxWords} words (${config.maxSeconds} s). Cut ${fit.overBy} word${fit.overBy === 1 ? '' : 's'}, or switch to Basic for scripts up to ${AVATAR_BASIC_MAX_SECONDS} seconds.`
     );
   }
   const clipSeconds = fit.clipSeconds;
@@ -1256,7 +1257,7 @@ async function handleVideoGeneration(
       audioDurationSeconds = Math.max(3, Math.ceil(wordCount / 1.5));
     }
 
-    // Validate audio duration (max 60 seconds for fal.ai LTX)
+    // Validate audio duration against the engine's cap (fal refuses longer audio after the charge)
     const durationValidation = validateAudioDuration(audioDurationSeconds);
     if (!durationValidation.valid) {
       return {

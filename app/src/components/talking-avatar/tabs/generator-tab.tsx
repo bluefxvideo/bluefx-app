@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart, Zap, Gem, Check } from 'lucide-react';
-import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, AVATAR_BASIC_CREDITS_PER_SECOND, AVATAR_BASIC_WORDS_PER_SECOND, maxWordsFor, waitLabelFor, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, AVATAR_BASIC_CREDITS_PER_SECOND, AVATAR_BASIC_MAX_SECONDS, AVATAR_BASIC_WORDS_PER_SECOND, maxWordsFor, waitLabelFor, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
@@ -27,7 +27,7 @@ const AVATAR_GENERATION_CREDIT_COST = 4;
 const AVATAR_PAGE_SIZE = 24;
 
 // Constants for LTX model limits
-const MAX_AUDIO_DURATION_SECONDS = 60;
+const MAX_AUDIO_DURATION_SECONDS = AVATAR_BASIC_MAX_SECONDS;
 
 // Plain-words helpers for prices and limits (no "cr/s", no "s")
 function creditsPerSecondText(n: number): string {
@@ -44,7 +44,7 @@ function moreWordsText(n: number): string {
 
 function tierExplanation(tier: AvatarQualityTier): string {
   if (tier === 'standard') {
-    return `Pick one of ${MINIMAX_VOICE_OPTIONS.length} voices, use your cloned voice, or upload a recording. Videos up to ${MAX_AUDIO_DURATION_SECONDS} seconds. ${creditsPerSecondText(AVATAR_BASIC_CREDITS_PER_SECOND)}, so a 30 second video costs 30 credits. Ready in ${AVATAR_BASIC_WAIT_LABEL}.`;
+    return `Pick one of ${MINIMAX_VOICE_OPTIONS.length} voices, use your cloned voice, or upload a recording. Videos up to ${MAX_AUDIO_DURATION_SECONDS} seconds. ${creditsPerSecondText(AVATAR_BASIC_CREDITS_PER_SECOND)}, so a 15 second video costs 15 credits. Ready in ${AVATAR_BASIC_WAIT_LABEL}.`;
   }
   const c = AVATAR_TIER_CONFIG[tier];
   const shortest = c.allowedDurations[0];
@@ -532,7 +532,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
     return Math.min(Math.ceil(wordCount / AVATAR_BASIC_WORDS_PER_SECOND), MAX_AUDIO_DURATION_SECONDS);
   };
   const estimatedDuration = getEstimatedDuration();
-  const estimatedCredits = fit ? fit.credits : Math.min(60, Math.ceil(estimatedDuration));
+  const estimatedCredits = fit ? fit.credits : Math.min(MAX_AUDIO_DURATION_SECONDS, Math.ceil(estimatedDuration));
 
   const canProceed = () => {
     if (state.currentStep === 1) {
@@ -1161,10 +1161,10 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                     <span>{localScriptText.trim().split(/\s+/).filter(Boolean).length} words</span>
                     <span>about {Math.ceil(localScriptText.trim().split(/\s+/).filter(Boolean).length / AVATAR_BASIC_WORDS_PER_SECOND)} seconds</span>
                   </div>
-                  {localScriptText.trim().split(/\s+/).filter(Boolean).length > 110 && (
+                  {localScriptText.trim().split(/\s+/).filter(Boolean).length > Math.floor(MAX_AUDIO_DURATION_SECONDS * AVATAR_BASIC_WORDS_PER_SECOND) && (
                     <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                       <AlertCircle className="w-3 h-3" />
-                      <span className="text-xs">Long script. The voice may run past 60 seconds. Shorten the text or raise the speed.</span>
+                      <span className="text-xs">Long script. The voice may run past {MAX_AUDIO_DURATION_SECONDS} seconds. Shorten the text or raise the speed.</span>
                     </div>
                   )}
                 </div>
@@ -1463,7 +1463,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                       <div className="space-y-2">
                         <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
                         <p className="text-sm font-medium">Click to upload audio</p>
-                        <p className="text-xs text-muted-foreground">MP3, WAV, or M4A • Max 60 seconds</p>
+                        <p className="text-xs text-muted-foreground">MP3, WAV, or M4A • Max {MAX_AUDIO_DURATION_SECONDS} seconds</p>
                       </div>
                     )}
                   </div>
