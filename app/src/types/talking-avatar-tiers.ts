@@ -31,6 +31,8 @@ export const AVATAR_BASIC_CREDITS_PER_SECOND = 1;
  * on-screen guess before the voice exists; the price uses the real audio length.
  */
 export const AVATAR_BASIC_WORDS_PER_SECOND = 2.3;
+/** Pace of the quickest fifth of those voices: a script too long even at this pace fits no voice. */
+export const AVATAR_BASIC_FAST_WORDS_PER_SECOND = 2.9;
 /** Measured on production renders: median 72 s, 8 in 10 done within 150 s. */
 export const AVATAR_BASIC_WAIT_LABEL = '1 to 3 minutes';
 
@@ -140,6 +142,45 @@ export function scriptFit(tier: Exclude<AvatarQualityTier, 'standard'>, text: st
     roomWords: clipSeconds
       ? Math.max(0, Math.floor((clipSeconds - AVATAR_PAD_SECONDS) * AVATAR_WORDS_PER_SECOND) - words)
       : 0,
+  };
+}
+
+export interface BasicScriptFit {
+  words: number;
+  /** Seconds the voice typically needs at the chosen speed. */
+  seconds: number;
+  /** Most words that typically fit one Basic video at the chosen speed. */
+  maxWords: number;
+  /**
+   * 'fits': a typical voice fits. 'maybe': only a quick voice fits; the real length
+   * is shown after the voice is made, before anything is paid. 'over': no voice fits.
+   */
+  status: 'empty' | 'fits' | 'maybe' | 'over';
+  /** Basic videos the script needs at the typical pace. */
+  parts: number;
+  /** Price guess; the real audio length sets the charge. */
+  credits: number;
+}
+
+/**
+ * A typed Basic script against the 20-second engine limit. The voice is made
+ * first and costs nothing, so only a script no voice can fit is stopped here;
+ * the measured audio is checked again before the charge.
+ */
+export function basicScriptFit(text: string | null | undefined, speed = 1): BasicScriptFit {
+  const words = countWords(text);
+  const pace = AVATAR_BASIC_WORDS_PER_SECOND * (speed > 0 ? speed : 1);
+  const seconds = words > 0 ? Math.ceil(words / pace) : 0;
+  const maxWords = Math.floor(AVATAR_BASIC_MAX_SECONDS * pace);
+  const fastMaxWords = Math.floor(AVATAR_BASIC_MAX_SECONDS * AVATAR_BASIC_FAST_WORDS_PER_SECOND * (speed > 0 ? speed : 1));
+  const status = words === 0 ? 'empty' : words <= maxWords ? 'fits' : words <= fastMaxWords ? 'maybe' : 'over';
+  return {
+    words,
+    seconds,
+    maxWords,
+    status,
+    parts: Math.max(1, Math.ceil(seconds / AVATAR_BASIC_MAX_SECONDS)),
+    credits: Math.min(AVATAR_BASIC_MAX_SECONDS, seconds) * AVATAR_BASIC_CREDITS_PER_SECOND,
   };
 }
 

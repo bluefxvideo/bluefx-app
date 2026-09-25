@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Video, User, Mic, Mic2, Play, Square, ArrowRight, ArrowLeft, Monitor, Smartphone, Upload, AlertCircle, Plus, Trash2, RotateCcw, Sparkles, ChevronDown, ChevronUp, ImageIcon, Loader2, Download, Save, Heart, Zap, Gem, Check } from 'lucide-react';
-import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, AVATAR_BASIC_CREDITS_PER_SECOND, AVATAR_BASIC_MAX_SECONDS, AVATAR_BASIC_WORDS_PER_SECOND, maxWordsFor, waitLabelFor, scriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
+import { AVATAR_TIER_CONFIG, AVATAR_BASIC_WAIT_LABEL, AVATAR_BASIC_CREDITS_PER_SECOND, AVATAR_BASIC_MAX_SECONDS, AVATAR_BASIC_WORDS_PER_SECOND, maxWordsFor, waitLabelFor, scriptFit, basicScriptFit, isScriptTier, tierLabel, type AvatarQualityTier } from '@/types/talking-avatar-tiers';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
@@ -494,6 +494,8 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
   // Fast / Ultra: the script alone decides the clip length and the price.
   const scriptTier = isScriptTier(state.qualityTier) ? state.qualityTier : null;
   const fit = scriptTier ? scriptFit(scriptTier, localScriptText) : null;
+  // Basic with a typed script: length estimated from the words and the chosen voice speed
+  const basicFit = !scriptTier && state.audioInputMode === 'tts' ? basicScriptFit(localScriptText, voiceSettings.speed) : null;
 
   const handleStepAction = async () => {
     if (state.currentStep === 1) {
@@ -528,6 +530,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
     if (state.audioInputMode === 'upload' && state.audioDurationSeconds > 0) {
       return Math.min(state.audioDurationSeconds, MAX_AUDIO_DURATION_SECONDS);
     }
+    if (basicFit) return Math.min(basicFit.seconds, MAX_AUDIO_DURATION_SECONDS);
     const wordCount = localScriptText ? localScriptText.trim().split(/\s+/).filter(w => w).length : 0;
     return Math.min(Math.ceil(wordCount / AVATAR_BASIC_WORDS_PER_SECOND), MAX_AUDIO_DURATION_SECONDS);
   };
@@ -543,8 +546,9 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
       if (state.audioInputMode === 'upload') {
         return state.uploadedAudioUrl && state.audioDurationSeconds > 0 && state.audioDurationSeconds <= MAX_AUDIO_DURATION_SECONDS;
       }
-      // TTS: need script + selected voice (duration is validated in step 3 with actual audio)
-      return selectedVoice && localScriptText.trim();
+      // TTS: need script + selected voice. A script no voice can fit is stopped here;
+      // the measured audio is checked again in step 3, before the charge.
+      return selectedVoice && localScriptText.trim() && basicFit?.status !== 'over';
     } else if (state.currentStep === 3) {
       if (scriptTier) return !!fit?.fits && (creditsLoading || credits >= estimatedCredits);
       const hasAudio = state.voiceAudioUrl || state.uploadedAudioUrl;
@@ -1157,15 +1161,33 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                     className="min-h-[140px] resize-none"
                     disabled={state.isLoading}
                   />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{localScriptText.trim().split(/\s+/).filter(Boolean).length} words</span>
-                    <span>about {Math.ceil(localScriptText.trim().split(/\s+/).filter(Boolean).length / AVATAR_BASIC_WORDS_PER_SECOND)} seconds</span>
-                  </div>
-                  {localScriptText.trim().split(/\s+/).filter(Boolean).length > Math.floor(MAX_AUDIO_DURATION_SECONDS * AVATAR_BASIC_WORDS_PER_SECOND) && (
-                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                      <AlertCircle className="w-3 h-3" />
-                      <span className="text-xs">Long script. The voice may run past {MAX_AUDIO_DURATION_SECONDS} seconds. Shorten the text or raise the speed.</span>
-                    </div>
+                  {basicFit && (
+                    <>
+                      <div
+                        className={`flex items-center justify-between text-xs ${
+                          basicFit.status === 'empty'
+                            ? 'text-muted-foreground'
+                            : basicFit.status === 'over'
+                              ? 'text-destructive'
+                              : basicFit.status === 'maybe' || basicFit.words > basicFit.maxWords * 0.85
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                        }`}
+                      >
+                        <span>{basicFit.words}/{basicFit.maxWords} words · about {basicFit.seconds} seconds</span>
+                        <span>{basicFit.status === 'fits' || basicFit.status === 'maybe' ? `about ${basicFit.credits} credits` : ''}</span>
+                      </div>
+                      {basicFit.status === 'maybe' && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Close to the {MAX_AUDIO_DURATION_SECONDS} second limit: some voices fit, some run over. You see the exact length before you pay.
+                        </p>
+                      )}
+                      {basicFit.status === 'over' && (
+                        <p className="text-xs text-destructive">
+                          About {basicFit.seconds} seconds. A Basic video takes up to {MAX_AUDIO_DURATION_SECONDS} seconds, about {basicFit.maxWords} words at this speed. Shorten the script, raise the voice speed below, or split the script into {basicFit.parts} videos.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -1428,7 +1450,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                           }
                           if (audio.duration > MAX_AUDIO_DURATION_SECONDS) {
                             URL.revokeObjectURL(url);
-                            toast.error(`Audio must be ${MAX_AUDIO_DURATION_SECONDS} seconds or less.`);
+                            toast.error(`This recording is ${Math.ceil(audio.duration)} seconds. A Basic video takes up to ${MAX_AUDIO_DURATION_SECONDS} seconds of audio. Trim the recording or split it into parts.`);
                             return;
                           }
                           setUploadedAudio(url, file, audio.duration);
@@ -1534,7 +1556,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                       The audio is too long ({Math.ceil(state.audioDurationSeconds)} seconds)
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Maximum duration is {MAX_AUDIO_DURATION_SECONDS} seconds. Go back to shorten your script or increase the voice speed.
+                      A Basic video takes up to {MAX_AUDIO_DURATION_SECONDS} seconds. Go back to shorten the script, raise the voice speed, or split the script into {Math.ceil(state.audioDurationSeconds / MAX_AUDIO_DURATION_SECONDS)} videos. No credits were taken.
                     </p>
                     <Button variant="outline" size="sm" className="mt-1 h-7 text-xs" onClick={clearVoice}>
                       <ArrowLeft className="w-3 h-3 mr-1" />
