@@ -3,6 +3,7 @@ import {
   MOTION_CLIP_SECONDS,
   animatePhoto,
   cutOutProduct,
+  generateDrawing,
   generateLifestyleShot,
   generateMusic,
   generateSound,
@@ -14,7 +15,7 @@ import {
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { extractAudio } from './prepare-assets';
-import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, VideoFormat, VideoLength } from './types';
+import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, StyleName, VideoFormat, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
 
 /**
@@ -50,7 +51,7 @@ export interface SmartVideoMedia {
   musicUrl: string | null;
   soundUrl: string | null;
   /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips. */
-  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean }>;
+  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number }>;
 }
 
 export interface SmartVideoResult {
@@ -67,6 +68,8 @@ export interface SmartVideoResult {
 export interface SmartVideoOptions {
   length?: VideoLength;
   format?: VideoFormat;
+  /** A look the client picked; null lets the director choose. */
+  look?: StyleName | null;
   onStage?: (stage: SmartVideoStage) => void;
 }
 
@@ -86,12 +89,12 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', onStage = () => {} }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, onStage = () => {} }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   onStage('directing');
   console.log(`🎬 Smart Video: directing (${assets.length} files)...`);
   const horizontal = format === 'horizontal';
-  const plan = await directVideo(brief, assets, length, format);
+  const plan = await directVideo(brief, assets, length, format, look);
   console.log(`✅ Plan: ${plan.scenes.length} scenes, style "${plan.style}" (${plan.styleReason}), language ${plan.language}`);
 
   onStage('producing');
@@ -160,7 +163,9 @@ async function produce(
     })
   ).then((pairs) => Object.fromEntries(pairs));
 
-  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips] = await Promise.all([
+  const drawings = makeDrawings(plan.drawings || [], store);
+
+  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store) : null,
     generateMusic(plan.musicPrompt, plan.style)
       .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
@@ -178,6 +183,7 @@ async function produce(
     lifestyle,
     motion,
     clipWords,
+    drawings,
   ]);
 
   const media: SmartVideoMedia = {
@@ -189,6 +195,7 @@ async function produce(
     assets: Object.fromEntries([
       ...[...motionUrls].map(([id, url]) => [`${id}-motion`, { url, kind: 'video' as const, portrait: !horizontal }] as const),
       ...lifestyleAssets,
+      ...drawingAssets,
       ...assets.map(
         (a) =>
           [
@@ -227,6 +234,10 @@ export async function reviseSmartVideo(
     onStage('producing');
     const media = { ...previous.media, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
     await addFiles(plan, media, added, store);
+    // Whiteboard: a drawing that is new, or whose description changed, is drawn again; the others are kept.
+    const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
+    const redraw = (plan.drawings || []).filter((d) => !media.assets[d.id] || before.get(d.id) !== d.prompt);
+    for (const [id, asset] of await makeDrawings(redraw, store)) media.assets[id] = asset;
     // Only the narrator's lines are recorded; a speaker scene needs the clip's saved word timings.
     const clipWordsSaved = media.clipWords || {};
     const spoken = (p: DirectorPlan) => p.scenes.filter((scene) => !(scene.speaker && clipWordsSaved[scene.speaker.asset])).map((scene) => scene.narration);
@@ -249,6 +260,23 @@ export async function reviseSmartVideo(
     return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
   });
   return { ...result, usage };
+}
+
+/** Whiteboard drawings, in parallel. One that fails leaves its scene on the plain board rather than failing the video. */
+async function makeDrawings(list: { id: string; prompt: string }[], store: StoreFile) {
+  const made = await Promise.all(
+    list.map(async (d) => {
+      try {
+        const { png, width, height } = await generateDrawing(d.prompt);
+        const url = await store(png, `${d.id}-${Date.now().toString(36)}.png`, 'image/png');
+        return [d.id, { url, kind: 'image' as const, width, height }] as const;
+      } catch (error) {
+        console.warn(`⚠️ Drawing ${d.id} failed:`, String(error).slice(0, 160));
+        return null;
+      }
+    })
+  );
+  return made.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 }
 
 /** Files that came with an edit: whatever the new plan does with them (float, logo, talking clip) is prepared here. */

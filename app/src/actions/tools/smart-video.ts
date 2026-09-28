@@ -266,6 +266,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       link: parsed.link || undefined,
       length: parsed.length,
       format: parsed.format,
+      look: parsed.look,
       creditsUsed: credits,
       createdAt: now,
       updatedAt: now,
@@ -304,6 +305,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
       {
         length: job.length === 'script' ? 'script' : 'auto',
         format: job.format,
+        look: job.look && job.look !== 'auto' ? job.look : null,
         onStage: (stage) => {
           job = { ...job, status: stage };
           writeJob(job).catch(() => undefined);
@@ -407,6 +409,7 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
       link: parent.link,
       length: parent.length,
       format: parent.format,
+      look: parent.look,
       parentId: parent.id,
       note: parsed.note,
       creditsUsed: PHANTOM_REVISION_CREDITS,

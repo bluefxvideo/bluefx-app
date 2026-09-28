@@ -13,6 +13,7 @@ const PRICES = {
   transcriptPerMinute: 0.03, // fal elevenlabs scribe
   soundPerSecond: 0.002, // fal elevenlabs sound effects
   lifestyleShotPerImage: 0.08, // fal nano-banana-2 edit, 1K
+  drawingPerImage: 0.04, // fal gpt-image-2.5 flare text-to-image, 1024x1024 high
   motionPerSecond: 0.04, // fal ltx-2.3 image-to-video fast, 1080p
   cutoutPerImage: 0.005, // fal birefnet, compute-second billed; rounded up
 };
@@ -46,6 +47,7 @@ export const usage = {
   transcript: (seconds: number) => add('word timings', (seconds / 60) * PRICES.transcriptPerMinute, `${seconds.toFixed(0)} s`),
   sound: (seconds: number) => add('signature sound', seconds * PRICES.soundPerSecond, `${seconds} s`),
   lifestyleShot: () => add('lifestyle photo', PRICES.lifestyleShotPerImage, '1 image'),
+  drawing: () => add('whiteboard drawing', PRICES.drawingPerImage, '1 image'),
   motion: (seconds: number) => add('animated photo', seconds * PRICES.motionPerSecond, `${seconds} s clip`),
   cutout: () => add('product cut-out', PRICES.cutoutPerImage, '1 image'),
 };

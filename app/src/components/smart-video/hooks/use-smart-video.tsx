@@ -13,7 +13,7 @@ import {
 import { cleanLink } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
 import { phantomCredits } from '@/lib/smart-video/pricing';
-import type { VideoFormat } from '@/lib/smart-video/types';
+import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
 
 const POLL_MS = 4000;
@@ -25,6 +25,7 @@ export function useSmartVideo() {
   const [link, setLink] = useState('');
   const [exactWords, setExactWords] = useState(false);
   const [format, setFormat] = useState<VideoFormat>('vertical');
+  const [look, setLook] = useState<VideoLook>('auto');
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -82,6 +83,7 @@ export function useSmartVideo() {
         brief,
         length: exactWords ? 'script' : 'auto',
         format,
+        look,
         link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -94,7 +96,7 @@ export function useSmartVideo() {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, files, queryClient]);
+  }, [brief, link, exactWords, format, look, files, queryClient]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
@@ -148,6 +150,8 @@ export function useSmartVideo() {
     setExactWords,
     format,
     setFormat,
+    look,
+    setLook,
     files,
     addFiles,
     removeFile,

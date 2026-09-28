@@ -23,9 +23,10 @@ import {
  * The plan is a list of scenes; each scene is a background plus a vertical
  * stack of blocks (titles, media cards, chips, a big number, tiles, rows...).
  * Every block carries `at`: the second its spoken word starts, so the text
- * lands with the voice. `style` picks one of four looks (playful, elegant,
- * bold, clean) that change fonts, title treatment, backgrounds, cards, motion,
- * transitions and sounds; `theme` carries the brand colours.
+ * lands with the voice. `style` picks one of five looks (playful, elegant,
+ * bold, clean, whiteboard) that change fonts, title treatment, backgrounds, cards,
+ * motion, transitions and sounds; `theme` carries the brand colours. The
+ * whiteboard look adds a `drawing` background: a hand draws the scene's line art.
  *
  * Layout is by construction: text shrinks to fit the frame width and a stack
  * taller than the safe area is scaled down, so a plan can never produce
@@ -125,8 +126,27 @@ const STYLES = {
     transition: 'fade',
     sfx: { pop: 0.5, whoosh: 0.6, ding: 0.6, chaching: 0.6 },
   },
+  // The hand-drawn explainer: a hand draws each scene's picture in marker, the words are written by hand.
+  whiteboard: {
+    theme: { bg: '#FAF9F5', bgLight: '#FFFFFF', bgDeep: '#ECEAE3', accent: '#2563EB', accentDark: '#1E40AF', ink: '#1F2430' },
+    fonts: { title: ['Caveat', 'Caveat.ttf', '400 700'], body: ['Caveat', 'Caveat.ttf', '400 700'], extra: [['Marker', 'PermanentMarker.ttf', '400']] },
+    title: { kind: 'hand', weight: 700, scale: 1.12, chars: 1.25, upper: false },
+    bodyWeight: 700,
+    surface: 'light',
+    panel: '#FAF9F5',
+    card: { radius: 3, pad: 14, padColor: '#FFFFFF', shadow: '0 12px 28px rgba(0,0,0,0.18)', tape: true },
+    chip: { radius: 0, bg: 'transparent', shadow: 'none', icon: 'check', iconRadius: 0 },
+    pill: { radius: 20, border: 'none', shadow: 'none', marker: true },
+    tile: { radius: 22, border: 'none', drawn: true },
+    spring: { damping: 200, stiffness: 120, mass: 0.8 },
+    motion: 'write',
+    rotate: true,
+    transition: 'erase',
+    sfx: { pop: 0, whoosh: 0, ding: 0.35, chaching: 0.35, marker: 1 },
+  },
 };
-const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55 };
+const MARKER = '"Marker", "Caveat", cursive';
+const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.32 };
 
 const Plan = createContext(null);
 const usePlan = () => useContext(Plan);
@@ -150,7 +170,7 @@ function useFonts(look) {
   const [ready, setReady] = useState(false);
   const [handle] = useState(() => delayRender('SmartVideo fonts'));
   useEffect(() => {
-    const wanted = [look.fonts.title, look.fonts.body].filter((f, i, all) => all.findIndex((g) => g[0] === f[0]) === i);
+    const wanted = [look.fonts.title, look.fonts.body, ...(look.fonts.extra || [])].filter((f, i, all) => all.findIndex((g) => g[0] === f[0]) === i);
     Promise.all(
       wanted.map(([family, file, weight]) =>
         new FontFace(family, `url('${staticFile(`smart-video/fonts/${file}`)}')`, { weight }).load()
@@ -255,15 +275,16 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
 }
 
 // ---------- motion ----------
-const SceneTime = createContext({ start: 0, first: false });
+// `holdFrames`: in a drawing scene the words wait until the picture is mostly drawn.
+const SceneTime = createContext({ start: 0, first: false, holdFrames: 0 });
 
 // Scene-local frame for an absolute time. Blocks due at the very start of the
 // first scene are already settled on frame 0 (it doubles as the thumbnail).
 function useLocalFrame(at) {
-  const { start, first } = useContext(SceneTime);
+  const { start, first, holdFrames = 0 } = useContext(SceneTime);
   const local = Math.round(((at ?? start) - start) * FPS);
-  if (local <= 0) return first ? -40 : 0;
-  return local;
+  if (local <= 0 && first && !holdFrames) return -40;
+  return Math.max(local, holdFrames, 0);
 }
 
 function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
@@ -280,6 +301,15 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
     up: `translateY(${interpolate(s, [0, 1], [120, 0])}px)`,
     rise: `translateY(${interpolate(s, [0, 1], [46, 0])}px)`,
   };
+  if (look.motion === 'write') {
+    // Photos are taped on with a little drop; everything else is written on from left to right.
+    if (anim === 'up') {
+      const drop = interpolate(frame - from, [0, 9], [1.07, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+      return <div style={{ opacity: interpolate(frame - from, [0, 4], [0, 1], clamp), transform: `scale(${drop}) rotate(${rotate}deg)`, ...style }}>{children}</div>;
+    }
+    const shown = interpolate(frame - from, [0, 12], [0, 100], clamp);
+    return <div style={{ clipPath: `inset(-40% ${100 - shown}% -40% -40%)`, transform: `rotate(${rotate}deg)`, ...style }}>{children}</div>;
+  }
   const move = calm ? moves.rise : moves[anim] || moves.pop;
   return <div style={{ opacity, transform: `${move} rotate(${look.rotate ? rotate : 0}deg)`, ...style }}>{children}</div>;
 }
@@ -287,6 +317,7 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
 // ---------- blocks ----------
 const TITLE_SIZE = { xl: 150, l: 110, m: 92, s: 72 };
 const TITLE_CHARS = { xl: 11, l: 15, m: 18, s: 24 };
+const HAND_FRAMES_PER_CHAR = 1.4;
 
 function titlePaint(look, theme, tone, size, textColor) {
   const kind = look.title.kind;
@@ -325,6 +356,9 @@ function titlePaint(look, theme, tone, size, textColor) {
   // Over a photo a dark or saturated accent disappears: there it is lifted toward white until it reads.
   const accent = textColor === LIGHT_TEXT ? readableOnPhoto(theme.accent) : theme.accent;
   const fill = tone === 'accent' || tone === 'brand' ? accent : textColor;
+  if (kind === 'hand') {
+    return { outer: { color: fill, lineHeight: 1.02, letterSpacing: '0.005em', textShadow: textColor === LIGHT_TEXT ? '0 4px 24px rgba(0,0,0,0.55)' : 'none' } };
+  }
   if (kind === 'serif') {
     return { outer: { color: fill, lineHeight: 1.16, letterSpacing: '0.005em', fontStyle: tone === 'accent' ? 'italic' : 'normal', textShadow: '0 6px 30px rgba(0,0,0,0.35)' } };
   }
@@ -351,6 +385,13 @@ function Title({ block }) {
   const chars = Math.round((TITLE_CHARS[block.size] || TITLE_CHARS.l) * look.title.chars);
   const text = autoBreak(block.text, chars);
   const line = (content) => (paint.inner ? <span style={paint.inner}>{content}</span> : content);
+  // Handwriting: the words appear letter by letter, at the size fitted for the whole line.
+  const frame = useCurrentFrame();
+  const from = useLocalFrame(block.at);
+  if (look.title.kind === 'hand' && block.display === undefined) {
+    const written = Math.max(0, Math.floor((frame - from) / HAND_FRAMES_PER_CHAR));
+    if (written < text.length) block = { ...block, display: text.slice(0, written) };
+  }
   // `display` shows different text (a counting number) at the size fitted for `text`.
   return (
     <div
@@ -406,6 +447,14 @@ function Pill({ block }) {
   const { theme, look } = usePlan();
   const base = block.size === 'l' ? 50 : 42;
   const [ref, size] = useFit(base, useColumn() - 2 * SIDE - 90);
+  if (look.pill.marker) {
+    const ink = block.tone === 'dark' ? theme.ink : theme.accent;
+    return (
+      <div style={{ fontFamily: MARKER, fontSize: size, lineHeight: 1.2, color: ink, padding: `${Math.round(size * 0.3)}px ${Math.round(size * 0.7)}px`, border: `5px solid ${ink}`, borderRadius: '26px 14px 28px 12px / 14px 26px 12px 28px' }}>
+        <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
+      </div>
+    );
+  }
   const tones = {
     accent: { background: theme.accent, color: '#FFFFFF' },
     dark: { background: look.surface === 'dark' ? '#FFFFFF' : theme.ink, color: look.surface === 'dark' ? theme.ink : '#FFFFFF' },
@@ -437,6 +486,14 @@ function Badge({ block }) {
   const { theme, look } = usePlan();
   const [ref, size] = useFit(Math.round(80 * look.title.scale), useColumn() - 2 * SIDE - 130);
   const playful = look.title.kind === 'sticker';
+  if (look.pill.marker) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, fontFamily: MARKER, fontSize: size * 0.8, color: theme.ink }}>
+        <span style={{ color: theme.accent, fontSize: size * 1.1 }}>✓</span>
+        <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
+      </div>
+    );
+  }
   return (
     <div
       style={{
@@ -462,8 +519,31 @@ function Highlight({ block }) {
   const { theme, look } = usePlan();
   const frame = useCurrentFrame();
   const from = useLocalFrame(block.at);
-  const [ref, size] = useFit(60, useColumn() - 2 * SIDE - 120);
+  const [ref, size] = useFit(look.pill.marker ? 76 : 60, useColumn() - 2 * SIDE - (look.pill.marker ? 200 : 120));
   const pulse = 1 + 0.025 * Math.sin(Math.max(0, frame - from - 18) / 7);
+  if (look.pill.marker) {
+    // The ellipse is drawn round the words once they are written.
+    const drawn = interpolate(frame - from, [10, 26], [0, 1], clamp);
+    return (
+      <div style={{ position: 'relative', padding: `${Math.round(size * 0.55)}px ${Math.round(size * 0.9)}px`, fontFamily: MARKER, fontSize: size, color: theme.ink }}>
+        <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+          <path
+            d="M 8 22 C 6 8, 40 3, 62 4 C 88 5, 99 13, 96 24 C 93 35, 58 39, 33 37 C 12 35, 2 28, 9 17 C 13 11, 22 8, 30 7"
+            fill="none"
+            stroke={theme.accent}
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+            pathLength="1"
+            strokeDasharray="1"
+            strokeDashoffset={1 - drawn}
+            style={{ strokeWidth: 7 }}
+          />
+        </svg>
+      </div>
+    );
+  }
   return (
     <div
       style={{
@@ -489,8 +569,18 @@ const CHIP_COLORS = ['accent', 'blue', 'green', 'orange', 'purple'];
 function Chip({ item, index }) {
   const { theme, look } = usePlan();
   const textColor = useTextColor();
-  const [ref, size] = useFit(50, useColumn() - 2 * SIDE - 190);
+  const [ref, size] = useFit(look.chip.icon === 'check' ? 66 : 50, useColumn() - 2 * SIDE - 190);
   const chip = look.chip;
+  if (chip.icon === 'check') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 22, minWidth: 620 }}>
+        <span style={{ fontFamily: MARKER, fontSize: size * 0.95, color: theme.accent, width: 60, textAlign: 'center', flexShrink: 0 }}>✓</span>
+        <div ref={ref} style={{ fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, lineHeight: 1.05, color: textColor, whiteSpace: 'nowrap' }}>
+          {item.text}
+        </div>
+      </div>
+    );
+  }
   const iconBg = {
     cycle: color(theme, item.color, color(theme, CHIP_COLORS[index % CHIP_COLORS.length])),
     accent: theme.accent,
@@ -567,6 +657,30 @@ function Tiles({ block }) {
     <div style={{ display: 'flex', gap }}>
       {block.items.map((item, i) => {
         const fill = color(theme, item.color, theme.accent);
+        if (look.tile.drawn) {
+          return (
+            <PopIn key={i} at={item.at ?? block.at}>
+              <div
+                style={{
+                  width: w,
+                  height: Math.round(250 * k),
+                  border: `5px solid ${theme.ink}`,
+                  borderRadius: '22px 12px 26px 10px / 12px 24px 10px 26px',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6 * k,
+                  color: theme.ink,
+                }}
+              >
+                <div style={{ fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: 40 * k }}>{item.top}</div>
+                <div style={{ fontFamily: MARKER, fontSize: (item.big.length > 3 ? 56 : 84) * k, lineHeight: 1.05, color: theme.accent }}>{item.big}</div>
+              </div>
+            </PopIn>
+          );
+        }
         return (
           <PopIn key={i} at={item.at ?? block.at} anim="up">
             <div
@@ -608,9 +722,18 @@ function Tiles({ block }) {
 }
 
 function Row({ item }) {
-  const { look } = usePlan();
+  const { look, theme } = usePlan();
   const textColor = useTextColor();
-  const [ref, size] = useFit(50, 820 - 80);
+  const hand = look.chip.icon === 'check';
+  const [ref, size] = useFit(hand ? 64 : 50, 820 - 80);
+  if (hand) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 22, fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, color: textColor }}>
+        <span style={{ fontFamily: MARKER, fontSize: size * 0.9, color: theme.accent, width: 58, textAlign: 'center', flexShrink: 0 }}>✓</span>
+        <span ref={ref} style={{ whiteSpace: 'nowrap' }}>{item.text}</span>
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 22, fontFamily: `${look.fonts.body[0]}, ${EMOJI}`, fontWeight: look.bodyWeight, fontSize: size, color: textColor }}>
       <span style={{ fontSize: 52, width: 58, textAlign: 'center', flexShrink: 0, fontFamily: EMOJI }}>{item.icon}</span>
@@ -673,7 +796,7 @@ function Quote({ block }) {
       }}
     >
       <div style={{ position: 'absolute', top: -46, left: 40, fontFamily: 'Georgia, serif', fontSize: 200, lineHeight: 1, color: theme.accent }}>“</div>
-      <div style={{ fontFamily: look.fonts.body[0], fontWeight: 600, fontSize: 46, lineHeight: 1.3, color: '#1C1B22' }}>{block.text}</div>
+      <div style={{ fontFamily: look.fonts.body[0], fontWeight: look.pill.marker ? 700 : 600, fontSize: look.pill.marker ? 58 : 46, lineHeight: look.pill.marker ? 1.1 : 1.3, color: '#1C1B22' }}>{block.text}</div>
       {block.author && <div style={{ marginTop: 18, fontFamily: look.fonts.body[0], fontWeight: 800, fontSize: 36, color: theme.accent }}>{block.author}</div>}
     </div>
   );
@@ -697,10 +820,11 @@ function Gallery({ block, duration }) {
   });
   const photo = (item, i) => (
     <PopIn key={i} at={(block.at ?? undefined) === undefined ? undefined : block.at + i * 0.28} anim="up">
-      <div style={frameStyle(i)}>
+      <div style={{ ...frameStyle(i), position: 'relative' }}>
         <div style={{ width: '100%', height: '100%', borderRadius: Math.max(0, look.card.radius - look.card.pad), overflow: 'hidden' }}>
           <MediaFill asset={item} block={{ zoom: [1.02, 1.1] }} duration={duration} />
         </div>
+        {look.card.tape && <Tape />}
       </div>
     </PopIn>
   );
@@ -731,6 +855,18 @@ function Cutout({ asset, block }) {
 }
 
 const CARD = { wide: [1000, 563], photo: [860, 620], square: [760, 760], small: [900, 500], tall: [720, 900] };
+
+// Two strips of paper tape hold a photo to the board.
+function Tape() {
+  const strip = { position: 'absolute', top: -22, width: 150, height: 46, background: 'rgba(238,228,196,0.82)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)' };
+  return (
+    <>
+      <div style={{ ...strip, left: -38, transform: 'rotate(-32deg)' }} />
+      <div style={{ ...strip, right: -38, transform: 'rotate(30deg)' }} />
+    </>
+  );
+}
+const tilt = (id = '') => ([...id].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 ? 1.8 : -1.8);
 
 function MediaFill({ asset, block, duration }) {
   const frame = useCurrentFrame();
@@ -783,6 +919,7 @@ function Media({ block, duration }) {
         <div style={{ width: '100%', height: '100%', borderRadius: Math.max(0, card.radius - card.pad), overflow: 'hidden' }}>
           <MediaFill asset={asset} block={block} duration={duration} />
         </div>
+        {card.tape && <Tape />}
       </div>
       {block.cornerTag && (
         <div style={{ position: 'absolute', top: -42, right: -10 }}>
@@ -813,7 +950,7 @@ function Caption({ block }) {
   const { look } = usePlan();
   const dark = useContext(Surface) === 'dark';
   return (
-    <div style={{ fontFamily: look.fonts.body[0], fontWeight: Math.min(look.bodyWeight, 800), fontSize: 46, color: dark ? 'rgba(247,243,234,0.7)' : '#5B5866' }}>
+    <div style={{ fontFamily: look.fonts.body[0], fontWeight: Math.min(look.bodyWeight, 800), fontSize: look.pill.marker ? 58 : 46, color: dark ? 'rgba(247,243,234,0.7)' : '#5B5866' }}>
       {block.text}
     </div>
   );
@@ -839,12 +976,14 @@ const BLOCKS = {
 };
 
 function Block({ block, duration }) {
+  const { look } = usePlan();
   const def = BLOCKS[block.type];
   if (!def) return null;
   const body = <def.Component block={block} duration={duration} />;
   if (def.group) return body;
+  const crooked = look.card.tape && block.type === 'media' && !block.cutout ? tilt(block.asset) : 0;
   return (
-    <PopIn at={block.at} anim={block.anim || def.anim} rotate={block.rotate ?? def.rotate ?? 0}>
+    <PopIn at={block.at} anim={block.anim || def.anim} rotate={block.rotate ?? (crooked || def.rotate || 0)}>
       {body}
     </PopIn>
   );
@@ -869,11 +1008,96 @@ function Confetti({ colors }) {
   });
 }
 
+// A whiteboard: off-white, a paper grain, a soft vignette.
+function Board({ children }) {
+  const { theme } = usePlan();
+  return (
+    <AbsoluteFill style={{ background: theme.bg, overflow: 'hidden' }}>
+      {children}
+      <AbsoluteFill style={{ backgroundImage: `url(${staticFile('smart-video/whiteboard/paper.png')})`, opacity: 0.35, mixBlendMode: 'multiply' }} />
+      <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.10) 100%)' }} />
+    </AbsoluteFill>
+  );
+}
+
+// Where a scene's drawing sits: across the top when vertical, on the left when horizontal.
+function drawingBox({ W, H, landscape }, captions) {
+  if (landscape) {
+    const top = 70;
+    const bottom = captions ? 215 : 70;
+    const size = Math.min(900, H - top - bottom);
+    return { x: 100, y: top + (H - top - bottom - size) / 2, w: size, h: size };
+  }
+  const size = captions ? 800 : 900;
+  return { x: (W - size) / 2, y: 150, w: size, h: size };
+}
+
+// How long the hand draws: under half the scene, so the words that follow stay up long enough to read.
+const drawSeconds = (sceneSeconds) => Math.min(3, Math.max(1.5, sceneSeconds * 0.4));
+const DRAW_ROWS = 8;
+const HAND_W = { vertical: 330, horizontal: 300 };
+const NIB = { x: 3 / 500, y: 33 / 500 }; // the marker tip in hand.png, as a share of its width
+
+function DrawingBg({ background, duration, first }) {
+  const frameSize = useFrame();
+  const { assets, captions } = usePlan();
+  const frame = useCurrentFrame();
+  const asset = assets[background.asset];
+  const box = drawingBox(frameSize, captions);
+  // The picture fills its box by its own shape, so the hand never draws over empty board.
+  const ratio = asset?.width && asset?.height ? asset.width / asset.height : 1;
+  const w = ratio >= 1 ? box.w : box.h * ratio;
+  const h = ratio >= 1 ? box.w / ratio : box.h;
+  const x = box.x + (box.w - w) / 2;
+  const y = box.y + (box.h - h) / 2;
+  const drawFrames = Math.round(drawSeconds(duration / FPS) * FPS);
+  // The first scene opens with part of the picture already there (it doubles as the thumbnail).
+  const p = interpolate(frame, [4, 4 + drawFrames], [first ? DRAW_ROWS * 0.35 : 0, DRAW_ROWS], clamp);
+  const bandH = h / DRAW_ROWS;
+  const row = Math.min(DRAW_ROWS - 1, Math.floor(p));
+  const frac = p >= DRAW_ROWS ? 1 : p - row;
+  const leftToRight = row % 2 === 0;
+  const handW = HAND_W[frameSize.landscape ? 'horizontal' : 'vertical'];
+  const tipX = x + (leftToRight ? frac : 1 - frac) * w;
+  const tipY = y + row * bandH + bandH * (0.5 + 0.28 * Math.sin(frame * 1.9));
+  // Once the picture is done the hand leaves downwards.
+  const away = interpolate(frame, [4 + drawFrames, 4 + drawFrames + 12], [0, frameSize.H], { ...clamp, easing: Easing.in(Easing.cubic) });
+  return (
+    <Board>
+      {asset &&
+        Array.from({ length: DRAW_ROWS }, (_, i) => {
+          const shown = i < row ? 1 : i === row ? frac : 0;
+          if (shown <= 0) return null;
+          const fromLeft = i % 2 === 0;
+          return (
+            <div key={i} style={{ position: 'absolute', top: y + i * bandH, height: bandH + 1, left: x + (fromLeft ? 0 : w * (1 - shown)), width: w * shown, overflow: 'hidden' }}>
+              <Img src={src(asset.url)} style={{ position: 'absolute', top: -i * bandH, left: fromLeft ? 0 : -w * (1 - shown), width: w, height: h }} />
+            </div>
+          );
+        })}
+      {asset && away < frameSize.H && (
+        <Img
+          src={staticFile('smart-video/whiteboard/hand.png')}
+          style={{
+            position: 'absolute',
+            left: tipX - NIB.x * handW,
+            top: tipY - NIB.y * handW + away,
+            width: handW,
+            transformOrigin: `${NIB.x * 100}% ${(NIB.y * 100 * 500) / 3600}%`,
+            transform: `rotate(${leftToRight ? -6 : 4}deg)`,
+          }}
+        />
+      )}
+    </Board>
+  );
+}
+
 function BrandBg() {
   const { W, H } = useFrame();
   const { theme, styleName } = usePlan();
   const frame = useCurrentFrame();
   const base = { overflow: 'hidden', background: `radial-gradient(circle at 50% 40%, ${theme.bgLight} 0%, ${theme.bg} 42%, ${theme.bgDeep} 100%)` };
+  if (styleName === 'whiteboard') return <Board />;
   if (styleName === 'playful') {
     return (
       <AbsoluteFill style={base}>
@@ -1006,17 +1230,31 @@ function ImageTopBg({ background, duration }) {
 }
 
 function Scene({ scene, index, first }) {
-  const { W, landscape } = useFrame();
+  const frameSize = useFrame();
+  const { W, landscape } = frameSize;
   const { look, captions, assets } = usePlan();
   const duration = Math.round((scene.end - scene.start) * FPS);
   const type = scene.background?.type || 'brand';
   const surface =
-    type === 'mediaBlur' || type === 'mediaFull' ? 'dark' : type === 'imageTop' ? (look.panel ? 'light' : 'dark') : look.surface;
+    type === 'mediaBlur' || type === 'mediaFull' ? 'dark' : type === 'imageTop' ? (look.panel ? 'light' : 'dark') : type === 'drawing' ? 'light' : look.surface;
+  // The words of a drawing scene wait until the picture is drawn and the hand has left (except on the opening frame).
+  const holdFrames = type === 'drawing' && !first ? Math.round(drawSeconds(duration / FPS) * FPS) + 10 : 0;
   const gap = scene.gap ?? 30;
   const render = (blocks) => blocks.map((block, i) => <Block key={i} block={block} duration={duration} />);
 
   let layout;
-  if (!landscape) {
+  if (type === 'drawing') {
+    const box = drawingBox(frameSize, captions);
+    layout = landscape ? (
+      <Stack top={70} bottom={captions ? 215 : 70} left={box.x + box.w + 50} width={W - box.x - box.w - 50 - 60} gap={gap}>
+        {render(scene.blocks)}
+      </Stack>
+    ) : (
+      <Stack top={box.y + box.h + 30} bottom={captions ? 610 : 250} gap={gap}>
+        {render(scene.blocks)}
+      </Stack>
+    );
+  } else if (!landscape) {
     // Captions own the lower third, so the blocks end above them.
     const safe = { top: type === 'imageTop' ? PANEL_TOP - 75 : 190, bottom: captions ? 610 : 300, ...scene.safe };
     // A person talking keeps their face clear: the name tag and line sit as low as the captions allow.
@@ -1071,12 +1309,13 @@ function Scene({ scene, index, first }) {
   }
 
   return (
-    <SceneTime.Provider value={{ start: scene.start, first }}>
+    <SceneTime.Provider value={{ start: scene.start, first, holdFrames }}>
       <Surface.Provider value={surface}>
         <AbsoluteFill>
           {type === 'mediaBlur' && <MediaBlurBg background={scene.background} />}
           {type === 'mediaFull' && <MediaFullBg background={scene.background} duration={duration} />}
           {type === 'imageTop' && <ImageTopBg background={scene.background} duration={duration} />}
+          {type === 'drawing' && <DrawingBg background={scene.background} duration={duration} first={first} />}
           {(type === 'brand' || type === 'burst') && <BrandBg />}
           {layout}
         </AbsoluteFill>
@@ -1091,9 +1330,18 @@ function Transition({ at }) {
   const { theme, look } = usePlan();
   const frame = useCurrentFrame();
   const kind = look.transition;
-  const D = kind === 'dip' ? 26 : kind === 'fade' ? 18 : 16;
+  const D = kind === 'dip' ? 26 : kind === 'fade' ? 18 : kind === 'erase' ? 20 : 16;
   const p = (frame - (at - D / 2)) / D;
   if (p <= 0 || p >= 1) return null;
+  if (kind === 'erase') {
+    // A clean board sweeps in from the left, then the next scene is uncovered the same way.
+    const left = interpolate(Easing.inOut(Easing.quad)(p), [0, 0.5, 1], [-W - 120, 0, W + 120]);
+    return (
+      <AbsoluteFill style={{ zIndex: 100, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, left, width: W, height: H, background: theme.bg, boxShadow: `0 0 90px 70px ${theme.bg}` }} />
+      </AbsoluteFill>
+    );
+  }
   if (kind === 'dip' || kind === 'fade') {
     const opacity = interpolate(p, [0, 0.5, 1], [0, 1, 0]);
     return <AbsoluteFill style={{ zIndex: 100, background: kind === 'dip' ? theme.bgDeep : '#FFFFFF', opacity }} />;
@@ -1146,7 +1394,8 @@ function Captions({ words }) {
   const chunk = chunks[index];
   const pop = spring({ frame: frame - Math.round(chunk[0].start * FPS), fps: FPS, config: { damping: 14, stiffness: 240, mass: 0.5 } });
   const lit = styleName === 'playful' ? theme.bg : styleName === 'elegant' ? theme.accent : styleName === 'bold' ? theme.accent : '#FFD84D';
-  const size = { playful: 84, bold: 98, clean: 72, elegant: 62 }[styleName];
+  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 76 }[styleName];
+  const strip = styleName === 'whiteboard';
   return (
     <div style={{ position: 'absolute', left: 0, width: W, top: landscape ? H - 200 : 1335, height: landscape ? 160 : 250, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
@@ -1160,10 +1409,11 @@ function Captions({ words }) {
           fontSize: size,
           lineHeight: 1.1,
           textTransform: look.title.upper ? 'uppercase' : 'none',
-          WebkitTextStroke: styleName === 'elegant' ? '0' : `${Math.round(size * 0.16)}px rgba(10,10,14,0.92)`,
+          WebkitTextStroke: styleName === 'elegant' || strip ? '0' : `${Math.round(size * 0.16)}px rgba(10,10,14,0.92)`,
           paintOrder: 'stroke fill',
-          textShadow: '0 6px 22px rgba(0,0,0,0.55)',
+          textShadow: strip ? 'none' : '0 6px 22px rgba(0,0,0,0.55)',
           whiteSpace: 'nowrap',
+          ...(strip ? { background: 'rgba(31,36,48,0.92)', padding: '6px 30px 10px', borderRadius: 18 } : {}),
         }}
       >
         {chunk.map((word, i) => (
@@ -1184,6 +1434,10 @@ function autoSfx(scenes) {
   const out = [];
   scenes.forEach((scene, i) => {
     if (i > 0) out.push({ name: 'whoosh', at: scene.start - 0.3 });
+    if (scene.background?.type === 'drawing') {
+      const seconds = drawSeconds(scene.end - scene.start);
+      for (let t = 0.1; t < seconds - 0.4; t += 1.45) out.push({ name: 'marker', at: scene.start + t });
+    }
     scene.blocks.forEach((block) => {
       if (['chips', 'tiles', 'rows'].includes(block.type)) block.items.forEach((item) => out.push({ name: 'pop', at: item.at ?? block.at ?? scene.start }));
       if (block.type === 'number') out.push({ name: 'chaching', at: (block.at ?? scene.start) + 0.55 });
@@ -1198,7 +1452,7 @@ function Soundtrack({ audio = {}, scenes, duration }) {
   const { look } = usePlan();
   const { voice, music } = audio;
   const cuts = voice?.cuts || (voice ? [{ at: 0, srcStart: 0, srcEnd: duration }] : []);
-  const auto = audio.autoSfx === false ? [] : autoSfx(scenes).map((s) => ({ ...s, volume: SFX_VOLUME[s.name] * (look.sfx[s.name] ?? 1) }));
+  const auto = audio.autoSfx === false ? [] : autoSfx(scenes).map((s) => ({ ...s, volume: SFX_VOLUME[s.name] * (look.sfx[s.name] ?? (s.name === 'marker' ? 0 : 1)) }));
   const sfx = [...auto, ...(audio.sfx || [])].filter((s) => Number.isFinite(s.at) && (s.volume === undefined || s.volume > 0));
   const bed = music?.volume ?? 0.14;
   const tail = music?.tailVolume ?? 0.4;

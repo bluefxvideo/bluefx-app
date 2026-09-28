@@ -13,6 +13,8 @@ export const PHANTOM_REVISION_CREDITS = 10;
 
 export const MAX_LIFESTYLE_PHOTOS = 3;
 export const MAX_ANIMATED_PHOTOS = 2;
+/** Whiteboard videos: one line drawing per scene, about $0.04 each. */
+export const MAX_DRAWINGS = 8;
 
 const WORDS_PER_MINUTE = 140;
 

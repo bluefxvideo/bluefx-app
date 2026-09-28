@@ -24,7 +24,7 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import type { VideoFormat } from '@/lib/smart-video/types';
+import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_EDIT_FILES, SMART_VIDEO_MAX_FILE_MB, type SmartVideoJob, type SmartVideoJobStatus } from '@/types/smart-video';
 import { cleanLink, describeLink } from '@/lib/smart-video/link';
 import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
@@ -44,6 +44,16 @@ const STAGES: { status: SmartVideoJobStatus; label: string }[] = [
   },
   { status: 'rendering', label: `${NAME} is cutting the film` },
   { status: 'finishing', label: `${NAME} is covering its tracks` },
+];
+
+// The looks a client can pick, each with a frame from a real Phantom video (public/smart-video/looks/).
+const LOOKS: { value: VideoLook; label: string; hint: string }[] = [
+  { value: 'auto', label: 'Phantom picks', hint: 'The best match for your business' },
+  { value: 'playful', label: 'Playful', hint: 'Kids, parties, casual food' },
+  { value: 'elegant', label: 'Elegant', hint: 'Luxury, real estate, spas' },
+  { value: 'bold', label: 'Bold', hint: 'Gyms, sales, events' },
+  { value: 'clean', label: 'Clean', hint: 'Clinics, services, B2B' },
+  { value: 'whiteboard', label: 'Whiteboard', hint: 'A hand draws your explainer' },
 ];
 
 const FORMATS: { value: VideoFormat; label: string; hint: string; Icon: typeof RectangleVertical }[] = [
@@ -178,6 +188,40 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
                 <span className="block font-medium">{label}</span>
                 <span className="block text-xs text-muted-foreground">{hint}</span>
               </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Look</Label>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {LOOKS.map(({ value, label, hint }) => (
+            <button
+              key={value}
+              type="button"
+              title={hint}
+              onClick={() => smart.setLook(value)}
+              disabled={smart.isBusy}
+              className={cn(
+                'group overflow-hidden rounded-lg border text-left disabled:opacity-50',
+                smart.look === value ? 'border-primary ring-2 ring-primary/40' : 'hover:border-muted-foreground/40',
+              )}
+            >
+              <div className="aspect-[3/4] w-full overflow-hidden bg-muted">
+                {value === 'auto' ? (
+                  <div className="flex h-full w-full items-center justify-center bg-[#0F1116]">
+                    <PhantomMark className="w-3/4" />
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- a small static example frame
+                  <img src={`/smart-video/looks/${value}.jpg`} alt={`${label} look`} className="h-full w-full object-cover object-top transition-transform group-hover:scale-105" />
+                )}
+              </div>
+              <div className="px-2 py-1.5">
+                <span className="block text-xs font-medium leading-tight">{label}</span>
+                <span className="block text-[10px] leading-tight text-muted-foreground">{hint}</span>
+              </div>
             </button>
           ))}
         </div>

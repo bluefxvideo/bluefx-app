@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAX_ANIMATED_PHOTOS, MAX_LIFESTYLE_PHOTOS } from './pricing';
+import { MAX_ANIMATED_PHOTOS, MAX_DRAWINGS, MAX_LIFESTYLE_PHOTOS } from './pricing';
 
 /**
  * Smart Video — the director's plan.
@@ -16,7 +16,11 @@ export type VideoLength = (typeof VIDEO_LENGTHS)[number];
 export const VIDEO_FORMATS = ['vertical', 'horizontal'] as const;
 export type VideoFormat = (typeof VIDEO_FORMATS)[number];
 
-export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean'] as const;
+export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean', 'whiteboard'] as const;
+export type StyleName = (typeof STYLE_NAMES)[number];
+/** What the client can pick on the page: 'auto' lets The Phantom choose. */
+export const VIDEO_LOOKS = ['auto', ...STYLE_NAMES] as const;
+export type VideoLook = (typeof VIDEO_LOOKS)[number];
 
 const cue = z.string().nullish().describe('Exact words from this scene\'s narration on which the element appears; null = scene start');
 const tone = z.enum(['light', 'brand', 'accent']).nullish();
@@ -60,7 +64,7 @@ export const SceneSchema = z.object({
     .nullish()
     .describe('The narration of this scene is spoken by a person in this clip, between these seconds: their own voice is used'),
   background: z.object({
-    type: z.enum(['brand', 'mediaBlur', 'mediaFull', 'imageTop']),
+    type: z.enum(['brand', 'mediaBlur', 'mediaFull', 'imageTop', 'drawing']),
     asset: z.string().nullish(),
     focus: z.string().nullish(),
   }),
@@ -86,6 +90,11 @@ export const DirectorPlanSchema = z.object({
     .max(MAX_ANIMATED_PHOTOS)
     .nullish()
     .describe('Photos used as full-frame backgrounds that should become moving clips'),
+  drawings: z
+    .array(z.object({ id: z.string(), prompt: z.string() }))
+    .max(MAX_DRAWINGS)
+    .nullish()
+    .describe('Whiteboard style only: the line drawings a hand draws, one per drawing scene'),
   signatureSound: z.object({ prompt: z.string(), afterScene: z.number().int().min(0) }).nullish(),
   assets: z.array(
     z.object({

@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { usage } from './usage';
 
 /**
@@ -178,6 +179,51 @@ export async function generateLifestyleShot(packshot: Buffer, mimeType: string, 
   });
   usage.lifestyleShot();
   return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
+}
+
+const DRAWING_INK = [31, 36, 48]; // the whiteboard look's ink colour (#1F2430)
+
+/**
+ * A whiteboard drawing: black marker line art (GPT Image 2.5), turned into ink on a transparent
+ * background and cropped to the drawing, so the renderer's hand draws exactly the lines and
+ * never sweeps over empty board. Returns the PNG and its size.
+ */
+export async function generateDrawing(prompt: string): Promise<{ png: Buffer; width: number; height: number }> {
+  const res = await fetch('https://fal.run/openai/gpt-image-2.5/flare/text-to-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
+    body: JSON.stringify({
+      prompt: `Whiteboard drawing, black dry-erase marker line art on a pure white background, hand-drawn look, clean confident lines, no shading, no grey fills, no colour, no words, no letters, no numbers, no logos: ${prompt}`,
+      quality: 'high',
+      output_format: 'png',
+      num_images: 1,
+      image_size: { width: 1024, height: 1024 },
+    }),
+    signal: AbortSignal.timeout(150_000),
+  });
+  if (!res.ok) throw new Error(`Drawing failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  usage.drawing();
+  const image = Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
+
+  // Grey levels → ink: dark lines opaque, the white board transparent.
+  const { data, info } = await sharp(image).flatten({ background: '#ffffff' }).grayscale().trim({ background: '#ffffff', threshold: 40 }).raw().toBuffer({ resolveWithObject: true });
+  const pad = 12;
+  const width = info.width + pad * 2;
+  const height = info.height + pad * 2;
+  const rgba = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      const grey = data[y * info.width + x];
+      const o = ((y + pad) * width + (x + pad)) * 4;
+      rgba[o] = DRAWING_INK[0];
+      rgba[o + 1] = DRAWING_INK[1];
+      rgba[o + 2] = DRAWING_INK[2];
+      rgba[o + 3] = Math.max(0, Math.min(255, Math.round(((235 - grey) / 175) * 255)));
+    }
+  }
+  const png = await sharp(rgba, { raw: { width, height, channels: 4 } }).png().toBuffer();
+  return { png, width, height };
 }
 
 export const MOTION_CLIP_SECONDS = 6; // the model's shortest clip

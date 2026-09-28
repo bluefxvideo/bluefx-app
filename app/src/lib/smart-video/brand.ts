@@ -93,6 +93,14 @@ const mix = (hex: string, target: number, amount: number) => toHex(parse(hex).ma
  */
 export function buildTheme(style: string, proposed?: { bg?: string | null; accent?: string | null } | null) {
   const theme: Record<string, string> = {};
+  // A whiteboard is always the white board; only the marker colour can be the brand's.
+  if (style === 'whiteboard') {
+    if (isHex(proposed?.accent) && luminance(proposed.accent) < 0.55) {
+      theme.accent = proposed.accent;
+      theme.accentDark = mix(proposed.accent, 0, 0.35);
+    }
+    return theme;
+  }
   const darkStyle = style === 'elegant' || style === 'bold';
   // playful lives on a bright, colourful background: a white or cream one looks empty.
   const colourful = style !== 'playful' || (isHex(proposed?.bg) && saturation(proposed.bg) > 0.4);

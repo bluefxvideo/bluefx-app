@@ -1,7 +1,7 @@
 /**
  * Smart Video end-to-end test: a folder of client files + a brief → finished MP4.
  *
- * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal]
+ * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal] [auto|playful|elegant|bold|clean|whiteboard]
  *                  With a link, the brief file is the client's own note (offer, contact) added to the scraped facts.
  * Output:         remotion/out/smart-<job-name>.mp4 (+ the plan in remotion/test-plans/)
  */
@@ -13,11 +13,11 @@ import path from 'node:path';
 import { createSmartVideo } from '../lib/smart-video/pipeline';
 import { prepareAssets } from '../lib/smart-video/prepare-assets';
 import { downloadLinkPhotos, fromLink } from '../lib/smart-video/sources';
-import type { SmartAsset, VideoFormat, VideoLength } from '../lib/smart-video/types';
+import type { SmartAsset, StyleName, VideoFormat, VideoLength } from '../lib/smart-video/types';
 
 config({ path: path.resolve(__dirname, '../../.env.local') });
 
-const [job, source, briefFile, length = 'auto', format = 'vertical'] = process.argv.slice(2);
+const [job, source, briefFile, length = 'auto', format = 'vertical', look = 'auto'] = process.argv.slice(2);
 let folder = source;
 if (!job || !source || !briefFile) throw new Error('Usage: smart-video-test.ts <job-name> <files-folder> <brief.txt>');
 
@@ -55,7 +55,7 @@ async function main() {
     assets,
     storeLocal,
     async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))),
-    { length: length as VideoLength, format: format as VideoFormat }
+    { length: length as VideoLength, format: format as VideoFormat, look: look === 'auto' ? null : (look as StyleName) }
   );
   for (const warning of warnings) console.log(`⚠️ For the client: ${warning}`);
 
