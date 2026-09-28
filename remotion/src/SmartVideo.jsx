@@ -1038,7 +1038,8 @@ const DRAW_ROWS = 8;
 const HAND_W = { vertical: 330, horizontal: 300 };
 const NIB = { x: 3 / 500, y: 33 / 500 }; // the marker tip in hand.png, as a share of its width
 
-function DrawingBg({ background, duration, first }) {
+// Where the marker is on this frame of a drawing scene, and how much of the picture is drawn.
+function useDrawing(background, duration, first) {
   const frameSize = useFrame();
   const { assets, captions } = usePlan();
   const frame = useCurrentFrame();
@@ -1056,12 +1057,13 @@ function DrawingBg({ background, duration, first }) {
   const bandH = h / DRAW_ROWS;
   const row = Math.min(DRAW_ROWS - 1, Math.floor(p));
   const frac = p >= DRAW_ROWS ? 1 : p - row;
-  const leftToRight = row % 2 === 0;
-  const handW = HAND_W[frameSize.landscape ? 'horizontal' : 'vertical'];
-  const tipX = x + (leftToRight ? frac : 1 - frac) * w;
+  const tipX = x + (row % 2 === 0 ? frac : 1 - frac) * w;
   const tipY = y + row * bandH + bandH * (0.5 + 0.28 * Math.sin(frame * 1.9));
-  // Once the picture is done the hand leaves downwards.
-  const away = interpolate(frame, [4 + drawFrames, 4 + drawFrames + 12], [0, frameSize.H], { ...clamp, easing: Easing.in(Easing.cubic) });
+  return { asset, x, y, w, h, bandH, row, frac, tipX, tipY, frame, drawFrames, frameSize };
+}
+
+function DrawingBg({ background, duration, first }) {
+  const { asset, x, y, w, h, bandH, row, frac } = useDrawing(background, duration, first);
   return (
     <Board>
       {asset &&
@@ -1075,20 +1077,41 @@ function DrawingBg({ background, duration, first }) {
             </div>
           );
         })}
-      {asset && away < frameSize.H && (
-        <Img
-          src={staticFile('smart-video/whiteboard/hand.png')}
-          style={{
-            position: 'absolute',
-            left: tipX - NIB.x * handW,
-            top: tipY - NIB.y * handW + away,
-            width: handW,
-            transformOrigin: `${NIB.x * 100}% ${(NIB.y * 100 * 500) / 3600}%`,
-            transform: `rotate(${leftToRight ? -6 : 4}deg)`,
-          }}
-        />
-      )}
     </Board>
+  );
+}
+
+/**
+ * The drawing hand, above everything in the scene (a real hand passes over the words too).
+ * A right hand reaches in from the nearest edge: from the right in a tall frame, so the arm
+ * leaves the picture quickly instead of hanging down the whole screen; from below in a wide
+ * frame, where the words stand on the right.
+ */
+function DrawingHand({ background, duration, first }) {
+  const { asset, tipX, tipY, frame, drawFrames, frameSize } = useDrawing(background, duration, first);
+  if (!asset) return null;
+  const { W, H, landscape } = frameSize;
+  const target = landscape ? { x: tipX + 260, y: H + 600 } : { x: W + 520, y: tipY + 1000 };
+  const angle = Math.max(5, Math.min(62, (Math.atan2(target.x - tipX, target.y - tipY) * 180) / Math.PI));
+  // Once the picture is done the hand pulls back along its arm and out of the frame.
+  const away = interpolate(frame, [4 + drawFrames, 4 + drawFrames + 12], [0, 1.6 * Math.max(W, H)], { ...clamp, easing: Easing.in(Easing.cubic) });
+  if (away >= 1.6 * Math.max(W, H)) return null;
+  const rad = (angle * Math.PI) / 180;
+  const handW = HAND_W[landscape ? 'horizontal' : 'vertical'];
+  return (
+    <AbsoluteFill style={{ zIndex: 20, pointerEvents: 'none', overflow: 'hidden' }}>
+      <Img
+        src={staticFile('smart-video/whiteboard/hand.png')}
+        style={{
+          position: 'absolute',
+          left: tipX - NIB.x * handW + Math.sin(rad) * away,
+          top: tipY - NIB.y * handW + Math.cos(rad) * away,
+          width: handW,
+          transformOrigin: `${NIB.x * 100}% ${(NIB.y * 100 * 500) / 3600}%`,
+          transform: `rotate(${-angle}deg)`,
+        }}
+      />
+    </AbsoluteFill>
   );
 }
 
@@ -1318,6 +1341,7 @@ function Scene({ scene, index, first }) {
           {type === 'drawing' && <DrawingBg background={scene.background} duration={duration} first={first} />}
           {(type === 'brand' || type === 'burst') && <BrandBg />}
           {layout}
+          {type === 'drawing' && <DrawingHand background={scene.background} duration={duration} first={first} />}
         </AbsoluteFill>
       </Surface.Provider>
     </SceneTime.Provider>
