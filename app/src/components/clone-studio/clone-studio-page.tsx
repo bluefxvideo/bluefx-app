@@ -16,9 +16,12 @@ import {
   listCloneProjects,
   deleteCloneProject,
   uploadCloneSource,
+  copyCloneExample,
 } from '@/actions/tools/clone-studio';
 import { CLONE_INGEST_CREDITS, type CloneProject } from '@/types/clone-studio';
+import type { CloneStudioExample } from '@/lib/clone-studio/examples';
 import { SceneBoard } from './scene-board';
+import { CloneStudioExamples, CloneStudioTips } from './clone-studio-examples';
 
 const PROCESSING_STATUSES = ['pending', 'downloading', 'segmenting', 'analyzing'];
 
@@ -43,6 +46,24 @@ export function CloneStudioPage() {
     const handedOver = searchParams.get('url');
     if (handedOver) setSourceUrl(handedOver);
   }, [searchParams]);
+
+  // "Try this example": the example's board is copied into the user's projects and opened
+  const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
+  const tryExample = async (example: CloneStudioExample) => {
+    setLoadingExampleId(example.id);
+    try {
+      const result = await copyCloneExample(example.id);
+      if (result.success && result.project) {
+        setActiveProject(result.project);
+        void refreshList();
+        toast.success('Example opened as your own project. Generate the pictures scene by scene, then animate.');
+      } else {
+        toast.error(result.error || 'The example could not be loaded');
+      }
+    } finally {
+      setLoadingExampleId(null);
+    }
+  };
 
   const refreshList = useCallback(async () => {
     const result = await listCloneProjects();
@@ -147,6 +168,8 @@ export function CloneStudioPage() {
       <div className="h-full overflow-y-auto p-4 lg:p-6">
         {!activeProject && (
           <div className="max-w-4xl mx-auto space-y-6">
+            <CloneStudioTips />
+
             <Card className="p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold text-white">Clone an ad</h3>
@@ -197,6 +220,8 @@ export function CloneStudioPage() {
                 <span className="ml-3 text-xs text-zinc-500">Up to 3 minutes</span>
               </div>
             </Card>
+
+            <CloneStudioExamples onTry={tryExample} loadingId={loadingExampleId} />
 
             {projects.length > 0 && (
               <div className="space-y-3">

@@ -24,6 +24,7 @@ import { assembleClips } from '@/lib/clone-studio/assembly';
 import { detectTempo } from '@/lib/clone-studio/tempo';
 import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
 import { ingestSourceVideo } from '@/lib/clone-studio/ingest';
+import { CLONE_STUDIO_EXAMPLES } from '@/lib/clone-studio/examples';
 import {
   makeWorkDir,
   cleanupWorkDir,
@@ -317,6 +318,67 @@ export async function listCloneProjects(): Promise<{
     return { success: false, error: error.message };
   }
   return { success: true, projects: (data || []) as unknown as CloneProject[] };
+}
+
+/**
+ * "Try this example": copy an example's saved board into the caller's own
+ * projects as a fresh board_ready project — the breakdown, the photos and each
+ * scene's instruction and motion prompt, with no pictures, clips or final video.
+ * Free: it skips the paid breakdown. Only the examples listed in code can be
+ * copied, from their fixed board.json; an earlier copy is opened again.
+ */
+export async function copyCloneExample(exampleId: string): Promise<CloneProjectResponse> {
+  const example = CLONE_STUDIO_EXAMPLES.find((e) => e.id === exampleId);
+  if (!example) return { success: false, error: 'Example not found' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Authentication required' };
+
+  const admin = createAdminClient();
+  const { data: earlier } = await admin
+    .from('ad_clone_projects')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('title', example.copyTitle)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (earlier?.[0]) return { success: true, project: earlier[0] as unknown as CloneProject };
+
+  let board: Record<string, unknown>;
+  try {
+    const res = await fetch(example.boardUrl, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`board ${res.status}`);
+    board = await res.json();
+  } catch (err) {
+    console.error('Clone Studio: example board could not be loaded:', err);
+    return { success: false, error: 'The example could not be loaded. Please try again.' };
+  }
+
+  const { data: copy, error } = await admin
+    .from('ad_clone_projects')
+    .insert({
+      user_id: user.id,
+      title: example.copyTitle,
+      status: 'board_ready',
+      credits_spent: 0,
+      source_url: board.source_url ?? null,
+      source_platform: board.source_platform ?? null,
+      source_video_url: board.source_video_url ?? null,
+      video_duration_seconds: board.video_duration_seconds ?? null,
+      video_width: board.video_width ?? null,
+      video_height: board.video_height ?? null,
+      aspect_ratio: board.aspect_ratio ?? null,
+      analysis_summary: board.analysis_summary ?? null,
+      scenes: board.scenes ?? [],
+    })
+    .select()
+    .single();
+  if (error || !copy) {
+    console.error('Clone Studio: example copy failed:', error);
+    return { success: false, error: 'The example could not be loaded. Please try again.' };
+  }
+  return { success: true, project: copy as unknown as CloneProject };
 }
 
 // ---------------------------------------------------------------------------
