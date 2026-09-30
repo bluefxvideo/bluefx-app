@@ -124,9 +124,10 @@ function estimateMinDuration(dialogue: string | undefined): number | null {
   return FAST_DURATIONS.find(d => d >= rawSeconds) || FAST_DURATIONS[FAST_DURATIONS.length - 1];
 }
 
-// Calculate credits for an item
+// Credits for an item: the per-second rates the server charges for these 1080p
+// clips (calculateCinematographerCreditCost): Fast 2/sec, Pro 4/sec
 const calculateItemCredits = (item: QueueItem): number => {
-  return item.duration;  // Fast: 1 credit/sec (1080p)
+  return item.duration * (item.model === 'pro' ? 4 : 2);
 };
 
 export function BatchAnimationQueue({
