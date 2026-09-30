@@ -14,6 +14,7 @@ import { cleanLink } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
 import { phantomCredits } from '@/lib/smart-video/pricing';
 import type { PhantomExample } from '@/lib/smart-video/examples';
+import { urlToFile } from '@/lib/url-to-file';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
 
@@ -147,12 +148,7 @@ export function useSmartVideo() {
     setFiles([]);
     try {
       const loaded = await Promise.all(
-        example.files.map(async (file) => {
-          const res = await fetch(file.url);
-          if (!res.ok) throw new Error(file.name);
-          const blob = await res.blob();
-          return new File([blob], file.name, { type: blob.type || (file.kind === 'clip' ? 'video/mp4' : 'image/jpeg') });
-        }),
+        example.files.map((file) => urlToFile(file.url, file.name, file.kind === 'clip' ? 'video/mp4' : 'image/jpeg')),
       );
       setFiles(loaded.slice(0, SMART_VIDEO_MAX_FILES));
       toast.success('Example loaded. Swap in your own text and photos, then summon the Phantom.');

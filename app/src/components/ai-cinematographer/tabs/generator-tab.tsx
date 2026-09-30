@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,9 @@ import { UnifiedDragDrop } from '@/components/ui/unified-drag-drop';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import type { CinematographerRequest, GenerationSettings } from '@/types/cinematographer';
 import { VIDEO_MODEL_CONFIG, FAST_PROMPT_MAX_CHARS, fastCameraSuffix, VideoModel, ProAspectRatio, FastCameraMotion } from '@/types/cinematographer';
+import { urlToFile } from '@/lib/url-to-file';
+import type { VideoMakerExample } from '../examples';
+import { VideoMakerTips } from '../video-maker-examples';
 
 // Default quality guard for the Ultra engine's negative prompt — shown in the
 // UI, fully editable, sent verbatim (never hidden)
@@ -47,6 +51,8 @@ interface GeneratorTabProps {
   }>;
   tweakSettings?: { prompt: string; settings: GenerationSettings } | null; // Pre-fill form for tweak & retry
   onClearTweakSettings?: () => void;
+  example?: VideoMakerExample | null; // "Try this example" from the result panel
+  onExampleDone?: () => void;
 }
 
 /**
@@ -67,7 +73,10 @@ export function GeneratorTab({
   analyzerShots,
   tweakSettings,
   onClearTweakSettings,
+  example,
+  onExampleDone,
 }: GeneratorTabProps) {
+  const topRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     prompt: '',
     reference_image: null as File | null,
@@ -122,6 +131,43 @@ export function GeneratorTab({
       onClearTweakSettings?.();
     }
   }, [tweakSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "Try this example": the form gets exactly what made the example video, frames
+  // included, with every other control back at its default
+  useEffect(() => {
+    if (!example) return;
+    setFormData({
+      prompt: example.prompt,
+      reference_image: null,
+      last_frame_image: null,
+      model: example.model,
+      duration: example.duration,
+      resolution: example.resolution,
+      aspect_ratio: example.aspect_ratio,
+      generate_audio: example.generate_audio,
+      seed: '',
+      camera_fixed: false,
+      camera_motion: example.camera_motion,
+    });
+    setCameraStyle('none');
+    setCustomCameraText('');
+    setUltraNegative(ULTRA_NEGATIVE_DEFAULT);
+    setUltraCfg(0.5);
+    setUltraShotType('customize');
+    setUseTimedShots(false);
+    onClearPendingImage?.();
+    onAspectRatioChange?.(example.aspect_ratio);
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const load = (frame?: { name: string; url: string }) => (frame ? urlToFile(frame.url, frame.name, 'image/jpeg') : Promise.resolve(null));
+    Promise.all([load(example.firstFrame), load(example.lastFrame)])
+      .then(([first, last]) => {
+        setFormData((prev) => ({ ...prev, reference_image: first, last_frame_image: last }));
+        toast.success('Example loaded. Swap in your own photo and words, then click Generate.');
+      })
+      .catch(() => toast.error('The example photos could not be loaded. The prompt and settings are filled in, so add your own photo.'))
+      .finally(() => onExampleDone?.());
+  }, [example]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const config = VIDEO_MODEL_CONFIG[formData.model];
 
@@ -290,6 +336,10 @@ export function GeneratorTab({
     <TabContentWrapper>
       {/* Form Sections */}
       <TabBody>
+        <div ref={topRef} className="scroll-mt-4 mb-4">
+          <VideoMakerTips />
+        </div>
+
         {/* Model Selector — equal thirds so all three tiers stay visible at any panel width */}
         <div className="grid grid-cols-3 gap-2 p-1 bg-muted/50 rounded-lg mb-4">
           <Button

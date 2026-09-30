@@ -23,6 +23,7 @@ import { StoryboardOutputV2 } from './output-panel/storyboard-output-v2';
 import { BatchAnimationQueue } from './batch-animation-queue';
 import { breakdownScript, type SavedBreakdown } from '@/actions/tools/scene-breakdown';
 import type { GenerationSettings } from '@/types/cinematographer';
+import type { VideoMakerExample } from './examples';
 import type { SceneBreakdownResult, BreakdownScene } from '@/lib/scene-breakdown/types';
 import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-breakdown/types';
 import { executeStoryboardGeneration } from '@/actions/tools/ai-cinematographer';
@@ -353,6 +354,8 @@ export function AICinematographerPage() {
       analyzerShots={analyzerShots}
       tweakSettings={tweakSettings}
       onClearTweakSettings={() => setTweakSettings(null)}
+      example={exampleToLoad}
+      onExampleDone={() => setExampleToLoad(null)}
     />
   );
 
@@ -579,6 +582,9 @@ Maintain visual consistency across all frames.`;
 
   // ============ Regenerate / Tweak Video ============
   const [tweakSettings, setTweakSettings] = useState<{ prompt: string; settings: GenerationSettings } | null>(null);
+
+  // "Try this example" in the result panel fills the form: set here, loaded by GeneratorTab
+  const [exampleToLoad, setExampleToLoad] = useState<VideoMakerExample | null>(null);
 
   const handleRegenerate = () => {
     if (!result?.generation_settings || !result?.video?.prompt) return;
@@ -818,6 +824,8 @@ Maintain visual consistency across all frames.`;
             onSwitchVoice={switchVoice}
             lastVoiceSample={lastVoiceSample}
             isSwitchingVoice={isSwitchingVoice}
+            onTryExample={setExampleToLoad}
+            loadingExampleId={exampleToLoad?.id ?? null}
           />
         </StandardToolLayout>
       )}

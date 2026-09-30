@@ -5,6 +5,8 @@ import { CinematographerOutput } from './cinematographer-output';
 import { HistoryOutput } from './history-output';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import type { CinematographerVideo } from '@/actions/database/cinematographer-database';
+import type { VideoMakerExample } from '../examples';
+import { VideoMakerExamples } from '../video-maker-examples';
 
 interface ContextualOutputProps {
   activeTab: string;
@@ -23,6 +25,8 @@ interface ContextualOutputProps {
   onSwitchVoice?: (file: File | null) => void;
   lastVoiceSample?: { url: string; name: string } | null;
   isSwitchingVoice?: boolean;
+  onTryExample?: (example: VideoMakerExample) => void;
+  loadingExampleId?: string | null;
 }
 
 /**
@@ -46,6 +50,8 @@ export function ContextualOutput({
   onSwitchVoice,
   lastVoiceSample,
   isSwitchingVoice,
+  onTryExample,
+  loadingExampleId = null,
 }: ContextualOutputProps) {
   // History tab
   if (activeTab === 'history') {
@@ -107,6 +113,8 @@ export function ContextualOutput({
           lastVoiceSample={lastVoiceSample}
           isSwitchingVoice={isSwitchingVoice}
           />
+        ) : onTryExample ? (
+          <VideoMakerExamples onTry={onTryExample} loadingId={loadingExampleId} busy={isGenerating} />
         ) : (
           <CinematographerOutput
             result={undefined}
