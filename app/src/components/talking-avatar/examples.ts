@@ -62,17 +62,6 @@ export const AVATAR_EXAMPLES: AvatarExample[] = [
     action: '',
     resolution: 'landscape',
   }),
-  example({
-    id: 'basic',
-    label: 'Basic',
-    title: 'A realtor with the voice you pick',
-    shows: 'Susan from the avatar library, 32 words, the voice "Grace (Graceful)" and a note on how she moves. Basic runs up to 20 seconds at 1 credit a second.',
-    tier: 'standard',
-    photo: 'susan-whitaker.jpg',
-    script:
-      "Hi, I'm Susan with Oak Lane Realty. Thinking about selling this spring? Text me your address and I'll send you a free price estimate within 24 hours. No pressure, just real numbers.",
-    voice: { id: 'English_Graceful_Lady', name: 'Grace (Graceful)' },
-    action: 'Smiles warmly and nods now and then while talking.',
-    resolution: 'landscape',
-  }),
+  // A Basic example returns once Basic's lip sync is fixed: its mouth runs ~0.2 s
+  // ahead of the voice, and the first one (Susan, realtor) showed it.
 ];
