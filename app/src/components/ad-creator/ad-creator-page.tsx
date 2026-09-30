@@ -29,6 +29,9 @@ import { toast } from 'sonner';
 import { useCredits } from '@/hooks/useCredits';
 import { isStalePageError } from '@/lib/stale-page';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
+import { urlToFile } from '@/lib/url-to-file';
+import type { CloneAdExample } from './examples';
+import { CloneAdExamples, CloneAdTips } from './clone-ad-examples';
 
 type AdCreatorMode = 'select' | 'clone' | 'script';
 
@@ -144,8 +147,12 @@ interface SavedAnalysis {
 
 function CloneAnalyzeStep({
   onAnalysisComplete,
+  onTryExample,
+  loadingExampleId,
 }: {
   onAnalysisComplete: (analysisText: string, sourceUrl: string) => void;
+  onTryExample: (example: CloneAdExample) => void;
+  loadingExampleId: string | null;
 }) {
   const [inputMode, setInputMode] = useState<'url' | 'file'>('url');
   const [videoUrl, setVideoUrl] = useState('');
@@ -287,6 +294,8 @@ function CloneAnalyzeStep({
           Paste a video URL, upload a file, or pick from a previous analysis.
         </p>
       </div>
+
+      <CloneAdTips />
 
       {/* Previous Analyses */}
       {!analysisResult && savedAnalyses && savedAnalyses.length > 0 && (
@@ -449,6 +458,8 @@ function CloneAnalyzeStep({
       )}
 
       <BuyCreditsDialog open={showBuyCredits} onOpenChange={setShowBuyCredits} />
+
+      {!analysisResult && !isAnalyzing && <CloneAdExamples onTry={onTryExample} loadingId={loadingExampleId} />}
 
       {/* Analysis Result */}
       {analysisResult && (
@@ -715,6 +726,47 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     }
   }, [searchParams]);
 
+  // ===== "Try this example" =====
+  // The saved analysis, the photos and the settings go in, and the wizard opens on
+  // Customize with the example's AI Assistant instruction typed, ready to send
+  const [assistantDraft, setAssistantDraft] = useState('');
+  const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
+  const handleLoadExample = async (example: CloneAdExample) => {
+    const hasExistingWork = wizardData.scenes.length > 0 || wizardData.extractedFrames.length > 0;
+    if (hasExistingWork && !window.confirm('Loading an example will reset your current shot plan, images, and videos. Continue?')) return;
+    setLoadingExampleId(example.id);
+    try {
+      const [analysisText, photos] = await Promise.all([
+        fetch(example.analysisUrl).then((res) => {
+          if (!res.ok) throw new Error(`analysis: ${res.status}`);
+          return res.text();
+        }),
+        Promise.all(example.photos.map((photo) => urlToFile(photo.url, photo.name, 'image/jpeg'))),
+      ]);
+      setWizardData({
+        ...getDefaultWizardData(),
+        analysisText,
+        sourceVideoUrl: example.source.videoUrl,
+        // The photos are already public: `url` skips the upload before the images
+        referenceImages: photos.map((file, i) => ({ file, preview: URL.createObjectURL(file), url: example.photos[i].url })),
+        aspectRatio: example.aspectRatio,
+        selectedVoice: example.voice.id,
+      });
+      cinematographer.setLastUsedAspectRatio(example.aspectRatio);
+      setAssistantDraft(example.instruction);
+      setAnalysisComplete(true);
+      setCompletedSteps(new Set([1 as WizardStep]));
+      setCurrentStep(2);
+      setHighestStepReached(2);
+      toast.success('Example loaded. Click Generate Shot Plan, then send the instruction already typed in the AI Assistant.');
+    } catch (err) {
+      console.error('Example could not be loaded:', err);
+      toast.error('The example could not be loaded. Check the connection and try again.');
+    } finally {
+      setLoadingExampleId(null);
+    }
+  };
+
   // ===== Handlers (same as AI Recreate) =====
   const handleAnalysisComplete = (analysisText: string, sourceUrl: string) => {
     const hasExistingWork = wizardData.scenes.length > 0 || wizardData.extractedFrames.length > 0;
@@ -740,6 +792,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       analysisText,
       sourceVideoUrl: sourceUrl,
     });
+    setAssistantDraft('');
     setAnalysisComplete(true);
     setCompletedSteps(new Set([1 as WizardStep]));
     setCurrentStep(2);
@@ -1214,7 +1267,11 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       {/* Step Content */}
       <div className="flex-1 overflow-y-auto">
         {currentStep === 1 && mode === 'clone' && (
-          <CloneAnalyzeStep onAnalysisComplete={handleAnalysisComplete} />
+          <CloneAnalyzeStep
+            onAnalysisComplete={handleAnalysisComplete}
+            onTryExample={handleLoadExample}
+            loadingExampleId={loadingExampleId}
+          />
         )}
 
         {currentStep === 2 && (
@@ -1227,6 +1284,7 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             onUpdateReferenceImages={handleUpdateReferenceImages}
             onUpdateAspectRatio={handleUpdateAspectRatio}
             onToggleScene={handleToggleScene}
+            initialInstruction={assistantDraft}
           />
         )}
 

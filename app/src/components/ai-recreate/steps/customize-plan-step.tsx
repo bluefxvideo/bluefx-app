@@ -25,6 +25,8 @@ interface CustomizePlanStepProps {
   onUpdateReferenceImages: (images: { file: File; preview: string }[]) => void;
   onUpdateAspectRatio: (ratio: '16:9' | '9:16') => void;
   onToggleScene?: (sceneNumber: number) => void;
+  /** Typed into the AI Assistant box on arrival ("Try this example"), not sent. */
+  initialInstruction?: string;
 }
 
 export function CustomizePlanStep({
@@ -36,10 +38,11 @@ export function CustomizePlanStep({
   onUpdateReferenceImages,
   onUpdateAspectRatio,
   onToggleScene,
+  initialInstruction,
 }: CustomizePlanStepProps) {
   const [isBreakingDown, setIsBreakingDown] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
+  const [chatInput, setChatInput] = useState(initialInstruction ?? '');
   const [isRefining, setIsRefining] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
