@@ -4,13 +4,15 @@ import { TalkingAvatarOutput } from './talking-avatar-output';
 import { HistoryOutput } from './history-output';
 import { OutputPanelShell } from '@/components/tools/output-panel-shell';
 import { UseTalkingAvatarReturn } from '../hooks/use-talking-avatar';
+import type { AvatarExample } from '../examples';
 
 interface ContextualOutputProps {
   activeTab: string;
   avatarState: UseTalkingAvatarReturn;
+  onTryExample?: (example: AvatarExample) => void;
 }
 
-export function ContextualOutput({ activeTab, avatarState }: ContextualOutputProps) {
+export function ContextualOutput({ activeTab, avatarState, onTryExample }: ContextualOutputProps) {
   // History tab
   if (activeTab === 'history') {
     return (
@@ -42,7 +44,7 @@ export function ContextualOutput({ activeTab, avatarState }: ContextualOutputPro
       switchVoice: avatarState.switchVoice,
       isSwitchingVoice: avatarState.isSwitchingVoice,
       lastVoiceSample: avatarState.lastVoiceSample,
-    }} />
+    }} onTryExample={onTryExample} />
   );
 
   return (

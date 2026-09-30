@@ -22,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createClient } from '@/app/supabase/client';
 import { toast } from 'sonner';
 import { generateAvatarImage, type AvatarGeneratorRequest } from '@/actions/tools/avatar-generator';
+import type { AvatarExample } from '../examples';
+import { AvatarTips } from '../avatar-examples';
 
 const AVATAR_GENERATION_CREDIT_COST = 4;
 const AVATAR_PAGE_SIZE = 24;
@@ -166,9 +168,12 @@ interface GeneratorTabProps {
   creditsLoading?: boolean;
   /** False while the History tab covers the wizard (it stays mounted to keep its state). */
   isActive?: boolean;
+  /** "Try this example" from the result panel. */
+  example?: AvatarExample | null;
+  onExampleDone?: () => void;
 }
 
-export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = true }: GeneratorTabProps) {
+export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = true, example, onExampleDone }: GeneratorTabProps) {
   const {
     state,
     loadAvatarTemplates,
@@ -185,6 +190,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
     setSelectedResolution,
     setScriptText,
     setQualityTier,
+    loadExample,
     cloneVoice,
     saveAvatar,
     deleteSavedAvatar,
@@ -207,6 +213,21 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
   useEffect(() => {
     stepTopRef.current?.scrollIntoView({ block: 'start' });
   }, [state.currentStep]);
+
+  // "Try this example": the hook fills the wizard; the voice controls kept here go
+  // back to their defaults, since the example was made with them
+  useEffect(() => {
+    if (!example) return;
+    loadExample(example);
+    setVoiceSettings(DEFAULT_VOICE_SETTINGS);
+    setVoiceGenderFilter('all');
+    currentAudio?.pause();
+    setCurrentAudio(null);
+    setPlayingVoiceId(null);
+    stepTopRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    toast.success('Example loaded. Swap in your own avatar and words, then continue.');
+    onExampleDone?.();
+  }, [example]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The wizard stays mounted behind History: stop a playing voice sample when it is covered
   useEffect(() => {
@@ -607,7 +628,10 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
   return (
     <TabContentWrapper>
       <TabBody>
-        <div ref={stepTopRef} />
+        <div ref={stepTopRef} className="scroll-mt-4" />
+        <div className="mb-4">
+          <AvatarTips />
+        </div>
         {/* Progress Indicator */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">

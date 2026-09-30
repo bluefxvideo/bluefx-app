@@ -8,6 +8,8 @@ import { TalkingAvatarState } from '../hooks/use-talking-avatar';
 import { AvatarExample } from './avatar-example';
 import { AvatarVideoPreview } from './avatar-video-preview';
 import { isScriptTier } from '@/types/talking-avatar-tiers';
+import type { AvatarExample as AvatarExampleInput } from '../examples';
+import { AvatarExamples } from '../avatar-examples';
 
 interface StepIndicatorProps {
   stepNumber: number;
@@ -66,9 +68,11 @@ interface TalkingAvatarOutputProps {
     isSwitchingVoice?: boolean;
     lastVoiceSample?: { url: string; name: string } | null;
   };
+  /** "Try this example": shown with the examples while nothing is picked yet. */
+  onTryExample?: (example: AvatarExampleInput) => void;
 }
 
-export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
+export function TalkingAvatarOutput({ avatarState, onTryExample }: TalkingAvatarOutputProps) {
   const { state, resetWizard, clearResults, goToStep, switchVoice, isSwitchingVoice, lastVoiceSample } = avatarState;
 
   // Check if we're in progress mode (any step > 1 or avatar selected)
@@ -289,7 +293,11 @@ export function TalkingAvatarOutput({ avatarState }: TalkingAvatarOutputProps) {
 
   // Duplicate check removed - video display is now at the top of the component
 
-  // Default: Welcome state with example
+  // Default: real examples, each with what went in and "Try this example"
+  if (onTryExample) {
+    return <AvatarExamples onTry={onTryExample} />;
+  }
+
   return (
     <div className="h-full flex flex-col relative overflow-hidden">
       <div className="relative z-10 flex-1 flex flex-col">

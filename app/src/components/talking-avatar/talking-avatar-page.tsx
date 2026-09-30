@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { containerStyles } from '@/lib/container-styles';
@@ -12,10 +12,13 @@ import { useTalkingAvatar } from './hooks/use-talking-avatar';
 import { useCredits } from '@/hooks/useCredits';
 import { Video, History } from 'lucide-react';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
+import type { AvatarExample } from './examples';
 
 export function TalkingAvatarPage() {
   const avatarState = useTalkingAvatar();
   const { credits: userCredits, isLoading: creditsLoading } = useCredits();
+  // "Try this example" in the result panel fills the wizard: set here, loaded by GeneratorTab
+  const [exampleToLoad, setExampleToLoad] = useState<AvatarExample | null>(null);
 
   // In the one column layout the result sits under the whole wizard. When a render
   // starts, finishes or fails, bring it into view; on wide screens it already is.
@@ -94,6 +97,8 @@ export function TalkingAvatarPage() {
                 credits={userCredits?.available_credits || 0}
                 creditsLoading={creditsLoading}
                 isActive={!isHistory}
+                example={exampleToLoad}
+                onExampleDone={() => setExampleToLoad(null)}
               />
             </div>,
 
@@ -102,6 +107,7 @@ export function TalkingAvatarPage() {
               <ContextualOutput
                 activeTab="generate"
                 avatarState={avatarState}
+                onTryExample={setExampleToLoad}
               />
             </div>
           ]}

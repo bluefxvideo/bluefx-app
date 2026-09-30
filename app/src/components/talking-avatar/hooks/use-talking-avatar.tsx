@@ -17,6 +17,7 @@ import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { isStalePageError } from '@/lib/stale-page';
+import type { AvatarExample } from '../examples';
 
 export interface TalkingAvatarState {
   // Current step in wizard (1: Avatar Selection, 2: Voice/Audio Input, 3: Video Generation)
@@ -93,6 +94,8 @@ export interface UseTalkingAvatarReturn {
   handleVoiceGeneration: (voiceId: string, scriptText: string, voiceSettings?: { speed?: number; pitch?: number; volume?: number; emotion?: string }) => Promise<{ success: boolean; voiceAudioUrl?: string }>;
   handleVideoGeneration: () => Promise<void>;
   resetWizard: () => void;
+  /** "Try this example": the wizard gets the example's photo, script, voice and settings, on the script step. */
+  loadExample: (example: AvatarExample) => void;
   goToStep: (step: number) => void;
   clearVoice: () => void;
   clearResults: () => void;
@@ -608,6 +611,36 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
       isGenerating: false,
       isStateRestored: false,
     }));
+  }, []);
+
+  // "Try this example": one update, so the photo, the voice, the tier and the script
+  // never disagree for a render. It lands on the script step: Basic still makes its
+  // voice there, Fast and Ultra continue to the settings.
+  const loadExample = useCallback((example: AvatarExample) => {
+    setState(prev => {
+      if (prev.uploadedAudioUrl?.startsWith('blob:')) URL.revokeObjectURL(prev.uploadedAudioUrl);
+      return {
+        ...prev,
+        currentStep: 2,
+        selectedAvatarTemplate: null,
+        customAvatarImage: null,
+        customAvatarUrl: example.photo.url,
+        audioInputMode: 'tts',
+        scriptText: example.script,
+        selectedVoiceId: example.voice?.id ?? null,
+        voiceAudioUrl: null,
+        uploadedAudioUrl: null,
+        uploadedAudioFile: null,
+        audioDurationSeconds: 0,
+        actionPrompt: example.action,
+        qualityTier: example.tier,
+        selectedResolution: example.resolution,
+        generatedVideo: null,
+        error: null,
+        currentGenerationId: null,
+        isStateRestored: false,
+      };
+    });
   }, []);
 
   // Navigate between steps
@@ -1639,6 +1672,7 @@ export function useTalkingAvatar(): UseTalkingAvatarReturn {
     handleVoiceGeneration,
     handleVideoGeneration,
     resetWizard,
+    loadExample,
     goToStep,
     clearVoice,
     clearResults,
