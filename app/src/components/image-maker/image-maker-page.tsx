@@ -12,9 +12,12 @@ import { useCredits } from '@/hooks/useCredits';
 import { generateImage, getImageHistory, type ImageHistoryItem } from '@/actions/tools/image-maker';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
+import { toast } from 'sonner';
+import type { ImageMakerExample } from './examples';
+import { ImageMakerExamples, ImageMakerTips } from './image-maker-examples';
 
-type AspectRatio = 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9';
-type Resolution = '1K' | '2K' | '4K';
+export type AspectRatio = 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9';
+export type Resolution = '1K' | '2K' | '4K';
 
 const ASPECTS: AspectRatio[] = ['auto', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'];
 const RESOLUTIONS: Resolution[] = ['1K', '2K', '4K'];
@@ -126,6 +129,20 @@ export function ImageMakerPage() {
   const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // "Try this example": the form gets exactly what made the example image. The
+  // reference photos are already public, so their URLs go in as they are.
+  const inputRef = useRef<HTMLDivElement>(null);
+  const loadExample = (example: ImageMakerExample) => {
+    setPrompt(example.prompt);
+    setReferenceImages(example.references.map((ref) => ref.url));
+    setAspect(example.aspect);
+    setResolution(example.resolution);
+    setCount(example.count);
+    setError(null);
+    inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast.success('Example loaded. Swap in your own photos and words, then click Generate.');
+  };
+
   const cost = COST[resolution] * count;
   const hasRefs = referenceImages.length > 0;
 
@@ -199,7 +216,9 @@ export function ImageMakerPage() {
   };
 
   const inputPanel = (
-    <div className="h-full flex flex-col gap-5 overflow-y-auto pr-1">
+    <div ref={inputRef} className="h-full flex flex-col gap-5 overflow-y-auto pr-1 scroll-mt-4">
+      <ImageMakerTips />
+
       <div>
         <label className="block text-sm font-medium mb-2">Prompt</label>
         <textarea
@@ -343,9 +362,8 @@ export function ImageMakerPage() {
           ))}
         </div>
       ) : (
-        <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
-          <ImagePlus className="w-10 h-10" />
-          <p className="text-sm">Your generated images will appear here</p>
+        <div className="h-full overflow-y-auto">
+          <ImageMakerExamples onTry={loadExample} busy={isUploadingRef} />
         </div>
       )}
     </div>

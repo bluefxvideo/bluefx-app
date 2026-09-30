@@ -1,6 +1,6 @@
 'use client';
 
-import { ExampleChip, ExampleFile, ExampleText, ToolExamples } from '@/components/tools/tool-examples';
+import { ExampleChip, ExampleFile, ExampleText, ExampleVideo, ToolExamples } from '@/components/tools/tool-examples';
 import { ToolTips } from '@/components/tools/tool-tips';
 import { PHANTOM_EXAMPLES, type PhantomExample } from '@/lib/smart-video/examples';
 import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
@@ -29,7 +29,7 @@ export function PhantomExamples({
       heading="What the Phantom makes"
       intro="Real Phantom videos for made-up businesses. Under each one: exactly what went in. Your video appears here once you summon the Phantom."
       examples={PHANTOM_EXAMPLES}
-      landscape={(example) => example.format === 'horizontal'}
+      media={(example) => <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.format === 'horizontal'} />}
       renderInputs={(example) => (
         <>
           <ExampleText>{example.brief}</ExampleText>

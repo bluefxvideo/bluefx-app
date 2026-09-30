@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Clapperboard, Loader2, Wand2 } from 'lucide-react';
+import { Clapperboard, Loader2, Wand2, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -13,8 +13,6 @@ export interface ToolExample {
   title: string;
   /** One line on what the example teaches about structuring the input. */
   shows: string;
-  videoUrl: string;
-  posterUrl: string;
 }
 
 /**
@@ -25,9 +23,9 @@ export interface ToolExample {
 export function ToolExamples<T extends ToolExample>({
   heading,
   intro,
+  icon: Icon = Clapperboard,
   examples,
-  landscape,
-  loop = false,
+  media,
   renderInputs,
   onTry,
   loadingId,
@@ -36,12 +34,11 @@ export function ToolExamples<T extends ToolExample>({
 }: {
   heading: string;
   intro: string;
+  icon?: LucideIcon;
   examples: T[];
-  /** Whether an example's video is wider than tall. */
-  landscape: (example: T) => boolean;
-  /** Short clips play muted on a loop; long ads wait for a click. */
-  loop?: boolean;
-  /** The "What went in" contents: the text, files and settings behind the video. */
+  /** The result itself: an ExampleVideo or ExampleImages. */
+  media: (example: T) => ReactNode;
+  /** The "What went in" contents: the text, files and settings behind the result. */
   renderInputs: (example: T) => ReactNode;
   onTry: (example: T) => void;
   loadingId: string | null;
@@ -56,7 +53,7 @@ export function ToolExamples<T extends ToolExample>({
     <Card className="p-4 space-y-4">
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-sm font-medium">
-          <Clapperboard className="w-4 h-4" />
+          <Icon className="w-4 h-4" />
           {heading}
         </h2>
         <p className="text-xs text-muted-foreground">{intro}</p>
@@ -78,18 +75,7 @@ export function ToolExamples<T extends ToolExample>({
         ))}
       </div>
 
-      <video
-        key={example.id}
-        src={example.videoUrl}
-        poster={example.posterUrl}
-        controls
-        playsInline
-        autoPlay={loop}
-        muted={loop}
-        loop={loop}
-        preload="metadata"
-        className={cn('mx-auto rounded-lg bg-black', landscape(example) ? 'w-full aspect-video' : 'max-h-[520px] aspect-[9/16]')}
-      />
+      <div key={example.id}>{media(example)}</div>
 
       <div className="space-y-1">
         <p className="text-sm font-medium">{example.title}</p>
@@ -109,6 +95,35 @@ export function ToolExamples<T extends ToolExample>({
         <p className="text-center text-[11px] text-muted-foreground">{tryNote}</p>
       </div>
     </Card>
+  );
+}
+
+/** An example's video. Short clips play muted on a loop; long ads wait for a click. */
+export function ExampleVideo({ src, poster, landscape, loop = false }: { src: string; poster: string; landscape: boolean; loop?: boolean }) {
+  return (
+    <video
+      src={src}
+      poster={poster}
+      controls
+      playsInline
+      autoPlay={loop}
+      muted={loop}
+      loop={loop}
+      preload="metadata"
+      className={cn('mx-auto rounded-lg bg-black', landscape ? 'w-full aspect-video' : 'max-h-[520px] aspect-[9/16]')}
+    />
+  );
+}
+
+/** An example's images, side by side when there is more than one. */
+export function ExampleImages({ urls, alt }: { urls: string[]; alt: string }) {
+  return (
+    <div className={cn('grid gap-2', urls.length > 1 && 'grid-cols-2')}>
+      {urls.map((url, i) => (
+        // eslint-disable-next-line @next/next/no-img-element -- example result image from the public bucket
+        <img key={url} src={url} alt={urls.length > 1 ? `${alt} (${i + 1})` : alt} className="mx-auto max-h-[520px] rounded-lg object-contain" />
+      ))}
+    </div>
   );
 }
 

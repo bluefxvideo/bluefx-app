@@ -1,6 +1,6 @@
 'use client';
 
-import { ExampleChip, ExampleFile, ExampleText, ToolExamples } from '@/components/tools/tool-examples';
+import { ExampleChip, ExampleFile, ExampleText, ExampleVideo, ToolExamples } from '@/components/tools/tool-examples';
 import { ToolTips } from '@/components/tools/tool-tips';
 import type { VideoModel } from '@/types/cinematographer';
 import { VIDEO_MAKER_EXAMPLES, type VideoMakerExample } from './examples';
@@ -32,8 +32,7 @@ export function VideoMakerExamples({
       heading="What Video Maker makes"
       intro="Real Video Maker clips with made-up people and businesses. Under each one: exactly what went in. Your video appears here once you click Generate."
       examples={VIDEO_MAKER_EXAMPLES}
-      landscape={(example) => example.aspect_ratio === '16:9'}
-      loop
+      media={(example) => <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.aspect_ratio === '16:9'} loop />}
       renderInputs={(example) => (
         <>
           <ExampleText>{example.prompt}</ExampleText>
