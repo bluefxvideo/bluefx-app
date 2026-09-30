@@ -30,6 +30,8 @@ import { cleanLink, describeLink } from '@/lib/smart-video/link';
 import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
+import { PhantomExamples, PhantomTips } from './phantom-examples';
+import type { PhantomExample } from '@/lib/smart-video/examples';
 
 // The tool's persona: an unseen genius who does the work and leaves you the credit.
 const NAME = 'The Phantom';
@@ -61,6 +63,9 @@ const FORMATS: { value: VideoFormat; label: string; hint: string; Icon: typeof R
   { value: 'horizontal', label: 'Horizontal', hint: 'YouTube, websites', Icon: RectangleHorizontal },
 ];
 
+const formatLabel = (format: VideoFormat) => FORMATS.find((f) => f.value === format)?.label ?? format;
+const lookLabel = (look: VideoLook) => LOOKS.find((l) => l.value === look)?.label ?? look;
+
 /**
  * The Phantom (Smart Video): text + files, or a link, in;
  * a finished vertical ad out. Input on the left, progress and result on the right.
@@ -73,6 +78,12 @@ export function SmartVideoPage() {
 
   // On narrow windows the result sits under the form: bring it into view when a job starts or a video is opened.
   const resultRef = useRef<HTMLDivElement>(null);
+  // ...and "Try this example" sends the user back up to the form it just filled.
+  const inputRef = useRef<HTMLDivElement>(null);
+  const tryExample = (example: PhantomExample) => {
+    inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    void smart.loadExample(example);
+  };
   const shownJob = job?.id;
   const uploadingNow = Boolean(smart.uploading);
   useEffect(() => {
@@ -133,7 +144,9 @@ export function SmartVideoPage() {
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <InputPanel smart={smart} />
+        <div ref={inputRef} className="scroll-mt-4">
+          <InputPanel smart={smart} />
+        </div>
         <div ref={resultRef} className="scroll-mt-4">
           <OutputPanel
             job={job}
@@ -143,6 +156,9 @@ export function SmartVideoPage() {
             revising={smart.revising}
             onOpen={smart.openJob}
             versions={versions}
+            onTryExample={tryExample}
+            loadingExample={smart.loadingExample}
+            busy={smart.isBusy}
           />
         </div>
       </div>
@@ -157,6 +173,7 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
   const [dragging, setDragging] = useState(false);
   return (
     <Card className="p-4 space-y-4">
+      <PhantomTips />
       <div className="space-y-2">
         <Label htmlFor="smart-brief">What should {PHANTOM} make?</Label>
         <Textarea
@@ -316,6 +333,9 @@ function OutputPanel({
   revising,
   onOpen,
   versions,
+  onTryExample,
+  loadingExample,
+  busy,
 }: {
   job: SmartVideoJob | null;
   uploading: { done: number; total: number } | null;
@@ -324,6 +344,9 @@ function OutputPanel({
   revising: boolean;
   onOpen: (jobId: string) => void;
   versions: SmartVideoJob[];
+  onTryExample: (example: PhantomExample) => void;
+  loadingExample: string | null;
+  busy: boolean;
 }) {
   const [note, setNote] = useState('');
   const [added, setAdded] = useState<File[]>([]);
@@ -344,13 +367,15 @@ function OutputPanel({
     );
   }
   if (!job) {
+    // Nothing is being made: show what the Phantom makes, and what went into it
     return (
-      <Card className="p-8 flex flex-col items-center justify-center gap-5 text-sm text-muted-foreground text-center">
-        <PhantomMark className="w-40 h-40" />
-        <p>
-          {NAME}&apos;s work appears here in about 3 minutes. {NAME} works alone.
-        </p>
-      </Card>
+      <PhantomExamples
+        onTry={onTryExample}
+        loadingId={loadingExample}
+        busy={busy}
+        formatLabel={formatLabel}
+        lookLabel={lookLabel}
+      />
     );
   }
 

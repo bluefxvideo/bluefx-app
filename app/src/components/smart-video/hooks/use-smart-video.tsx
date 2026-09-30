@@ -13,6 +13,7 @@ import {
 import { cleanLink } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
 import { phantomCredits } from '@/lib/smart-video/pricing';
+import type { PhantomExample } from '@/lib/smart-video/examples';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
 
@@ -133,6 +134,35 @@ export function useSmartVideo() {
     [jobId, queryClient],
   );
 
+  // "Try this example": the form gets exactly what made the example video, photos and clip included,
+  // so the structure is there to copy before the user swaps in their own business.
+  const [loadingExample, setLoadingExample] = useState<string | null>(null);
+  const loadExample = useCallback(async (example: PhantomExample) => {
+    setLoadingExample(example.id);
+    setBrief(example.brief);
+    setLink(example.link ?? '');
+    setFormat(example.format);
+    setLook(example.look);
+    setExactWords(false);
+    setFiles([]);
+    try {
+      const loaded = await Promise.all(
+        example.files.map(async (file) => {
+          const res = await fetch(file.url);
+          if (!res.ok) throw new Error(file.name);
+          const blob = await res.blob();
+          return new File([blob], file.name, { type: blob.type || (file.kind === 'clip' ? 'video/mp4' : 'image/jpeg') });
+        }),
+      );
+      setFiles(loaded.slice(0, SMART_VIDEO_MAX_FILES));
+      toast.success('Example loaded. Swap in your own text and photos, then summon the Phantom.');
+    } catch {
+      toast.error('The example photos could not be loaded. The text is filled in, so add your own photos.');
+    } finally {
+      setLoadingExample(null);
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setJobId(null);
     setBrief('');
@@ -167,5 +197,7 @@ export function useSmartVideo() {
     start,
     reset,
     openJob: setJobId,
+    loadExample,
+    loadingExample,
   };
 }
