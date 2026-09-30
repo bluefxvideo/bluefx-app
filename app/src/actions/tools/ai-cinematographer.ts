@@ -360,8 +360,15 @@ async function handleVideoGeneration(
     const silent = request.audio_mode === 'silent';
     const generateAudio = !silent && request.generate_audio !== false;
     const wantsMusic = /\b(music|soundtrack|song|melody)\b/i.test(request.prompt);
+    // Only words in quotes mean someone speaks. Naming "the person's voice" in a
+    // shot with nobody talking made the engines invent a narrator (Seedance even
+    // spoke Chinese over a product shot), so other prompts get natural sound only.
+    const hasDialogue = /["“”][^"“”]{2,}["“”]/.test(request.prompt);
+    const audioDirective = hasDialogue
+      ? "Audio: only the person's voice with natural room ambience — no background music, no soundtrack, no melody."
+      : 'Audio: natural sound only, no background music, no soundtrack, no melody.';
     const effectivePrompt = (model !== 'fast' && generateAudio && !wantsMusic)
-      ? `${request.prompt.trim()} Audio: only the person's voice with natural room ambience — no background music, no soundtrack, no melody.`
+      ? `${request.prompt.trim()} ${audioDirective}`
       : request.prompt;
 
     // Create video generation prediction based on model selection (all fal.ai)
