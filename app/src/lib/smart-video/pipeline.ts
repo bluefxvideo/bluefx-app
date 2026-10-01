@@ -16,6 +16,7 @@ import {
 import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
+import { tracePng } from './drawing-path';
 import { extractAudio } from './prepare-assets';
 import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, StyleName, VideoFormat, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
@@ -71,7 +72,8 @@ export interface SmartVideoMedia {
   /** The numbers the captions show as digits ("ten eggs" → "10 eggs"), by narration line. Absent on older videos. */
   digits?: Record<string, NumberSpan[]>;
   /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips. */
-  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number }>;
+  /** `path`: a whiteboard drawing's lines as x0, y0, x1, y1, ... (0 to 1), in the order the hand draws them. */
+  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number; path?: number[] }>;
 }
 
 export interface SmartVideoResult {
@@ -269,6 +271,7 @@ export async function reviseSmartVideo(
     const media = { ...previous.media, sound, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
     await addFiles(plan, media, added, store);
     await measurePhotos(media);
+    await traceDrawings(plan, media);
     // Whiteboard: a drawing that is new, or whose description changed, is drawn again; the others are kept.
     const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
     const redraw = (plan.drawings || []).filter((d) => !media.assets[d.id] || before.get(d.id) !== d.prompt);
@@ -315,6 +318,22 @@ function softPhotoWarnings(plan: DirectorPlan, assets: SmartAsset[]): string[] {
     .map((a) => `The photo "${a.filename}" is small (${a.width} x ${a.height} pixels) and looks soft in the video. A larger version of it will look sharper.`);
 }
 
+/** Drawings made before their lines were traced: trace them once, so an edit's hand follows the lines too. */
+async function traceDrawings(plan: DirectorPlan, media: SmartVideoMedia): Promise<void> {
+  await Promise.all(
+    (plan.drawings || []).map(async ({ id }) => {
+      const asset = media.assets[id];
+      if (!asset || asset.path?.length || !/^https?:/.test(asset.url)) return;
+      try {
+        const png = Buffer.from(await (await fetch(asset.url, { signal: AbortSignal.timeout(20_000) })).arrayBuffer());
+        media.assets[id] = { ...asset, path: await tracePng(png) };
+      } catch {
+        // an untraced drawing is revealed row by row, as before
+      }
+    })
+  );
+}
+
 /** Videos made before sizes were saved: measure their photos once, so an edit shows them in their own shape. */
 async function measurePhotos(media: SmartVideoMedia): Promise<void> {
   await Promise.all(
@@ -335,9 +354,9 @@ async function makeDrawings(list: { id: string; prompt: string }[], store: Store
   const made = await Promise.all(
     list.map(async (d) => {
       try {
-        const { png, width, height } = await generateDrawing(d.prompt);
+        const { png, width, height, path } = await generateDrawing(d.prompt);
         const url = await store(png, `${d.id}-${Date.now().toString(36)}.png`, 'image/png');
-        return [d.id, { url, kind: 'image' as const, width, height }] as const;
+        return [d.id, { url, kind: 'image' as const, width, height, path }] as const;
       } catch (error) {
         console.warn(`⚠️ Drawing ${d.id} failed:`, String(error).slice(0, 160));
         return null;

@@ -150,7 +150,7 @@ const STYLES = {
   },
 };
 const MARKER = '"Marker", "Caveat", cursive';
-const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.32, underline: 0.3, push: 0.28 };
+const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.19, underline: 0.18, push: 0.28 };
 // Sounds that reuse another sound's file, and the ones only the whiteboard look plays.
 const SFX_FILE = { underline: 'marker', push: 'whoosh' };
 const WHITEBOARD_ONLY = ['marker', 'underline', 'push'];
@@ -1161,9 +1161,31 @@ function drawingBox({ W, H, landscape }, captions, ratio = 1) {
 }
 const ratioOf = (asset) => (asset?.width && asset?.height ? asset.width / asset.height : 1);
 
-// How long the hand draws: under half the scene, so the words that follow stay up long enough to read.
-const drawSeconds = (sceneSeconds) => Math.min(3, Math.max(1.5, sceneSeconds * 0.4));
+// How long the hand draws. Tall frame: under half the scene, because the words wait for it. Wide frame: the
+// words are written meanwhile, so the hand can take its time and be followed by the eye.
+const drawSeconds = (sceneSeconds, landscape = false) =>
+  landscape ? Math.min(4.6, Math.max(2, sceneSeconds * 0.55)) : Math.min(3, Math.max(1.5, sceneSeconds * 0.4));
 const DRAW_ROWS = 8;
+const HAND_SMOOTH = 6; // cells on each side of the tip that the hand's position is averaged over
+
+// A traced drawing: its line cells in drawing order, and how long the hand takes to reach each one.
+// A step to the next cell of the same line costs 1; lifting the marker to another line costs a little more,
+// but never as much as the distance (the hand must not crawl across empty board).
+function usePath(asset) {
+  return React.useMemo(() => {
+    const flat = asset?.path;
+    if (!flat || flat.length < 8) return null;
+    const points = [];
+    for (let i = 0; i + 1 < flat.length; i += 2) points.push([flat[i], flat[i + 1]]);
+    const cell = 1 / 46;
+    const cost = [0];
+    for (let i = 1; i < points.length; i++) {
+      const steps = Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]) / cell;
+      cost.push(cost[i - 1] + (steps <= 1.6 ? 1 : Math.min(4, 1 + steps * 0.25)));
+    }
+    return { points, cost, total: cost[cost.length - 1], cell };
+  }, [asset]);
+}
 
 // Where the marker is on this frame of a drawing scene, and how much of the picture is drawn.
 function useDrawing(background, duration, first) {
@@ -1171,21 +1193,73 @@ function useDrawing(background, duration, first) {
   const { assets, captions } = usePlan();
   const frame = useCurrentFrame();
   const asset = assets[background.asset];
+  const path = usePath(asset);
   // The box is the picture itself, so the hand never draws over empty board.
   const { x, y, w, h } = drawingBox(frameSize, captions, ratioOf(asset));
-  const drawFrames = Math.round(drawSeconds(duration / FPS) * FPS);
+  const drawFrames = Math.round(drawSeconds(duration / FPS, frameSize.landscape) * FPS);
   // The first scene opens with part of the picture already there (it doubles as the thumbnail).
-  const p = interpolate(frame, [4, 4 + drawFrames], [first ? DRAW_ROWS * 0.35 : 0, DRAW_ROWS], clamp);
+  const share = interpolate(frame, [4, 4 + drawFrames], [first ? 0.35 : 0, 1], clamp);
+  if (path) {
+    // The hand follows the drawing's own lines.
+    const at = share * path.total;
+    let i = 0;
+    while (i + 1 < path.cost.length && path.cost[i + 1] <= at) i++;
+    const next = Math.min(i + 1, path.points.length - 1);
+    const span = path.cost[next] - path.cost[i];
+    const f = span > 0 ? (at - path.cost[i]) / span : 0;
+    // The ink follows the path cell by cell; the hand glides along it (the mean of the cells around the tip),
+    // or it would jitter through every corner faster than the eye can follow.
+    const near = (centre) => {
+      let sx = 0;
+      let sy = 0;
+      for (let k = centre - HAND_SMOOTH; k <= centre + HAND_SMOOTH; k++) {
+        const q = path.points[Math.max(0, Math.min(path.points.length - 1, k))];
+        sx += q[0];
+        sy += q[1];
+      }
+      return [sx / (2 * HAND_SMOOTH + 1), sy / (2 * HAND_SMOOTH + 1)];
+    };
+    const a = near(i);
+    const b = near(next);
+    const px = a[0] + (b[0] - a[0]) * f;
+    const py = a[1] + (b[1] - a[1]) * f;
+    return { asset, path, drawn: i + 1, done: share >= 1, x, y, w, h, tipX: x + px * w, tipY: y + py * h, frame, drawFrames, frameSize };
+  }
+  // A drawing without a traced path (made before 2026-10): revealed in rows, the hand at the edge of the reveal.
+  const p = share * DRAW_ROWS;
   const bandH = h / DRAW_ROWS;
   const row = Math.min(DRAW_ROWS - 1, Math.floor(p));
   const frac = p >= DRAW_ROWS ? 1 : p - row;
   const tipX = x + (row % 2 === 0 ? frac : 1 - frac) * w;
   const tipY = y + row * bandH + bandH * (0.5 + 0.28 * Math.sin(frame * 1.9));
-  return { asset, x, y, w, h, bandH, row, frac, tipX, tipY, frame, drawFrames, frameSize };
+  return { asset, path: null, x, y, w, h, bandH, row, frac, tipX, tipY, frame, drawFrames, frameSize };
 }
 
 function DrawingBg({ background, duration, first }) {
-  const { asset, x, y, w, h, bandH, row, frac } = useDrawing(background, duration, first);
+  const { asset, path, drawn, done, x, y, w, h, bandH, row, frac } = useDrawing(background, duration, first);
+  const { start } = useContext(SceneTime);
+  if (asset && path) {
+    // The ink appears under the marker: everything within a marker's reach of the path walked so far.
+    const clipId = `ink-${background.asset}-${Math.round(start * 100)}`;
+    const rx = path.cell * 1.15 * (w >= h ? 1 : h / w);
+    const ry = path.cell * 1.15 * (w >= h ? w / h : 1);
+    return (
+      <Board>
+        {!done && (
+          <svg width="0" height="0" style={{ position: 'absolute' }}>
+            <defs>
+              <clipPath id={clipId} clipPathUnits="objectBoundingBox">
+                {path.points.slice(0, drawn).map(([cx, cy], i) => (
+                  <ellipse key={i} cx={cx} cy={cy} rx={rx} ry={ry} />
+                ))}
+              </clipPath>
+            </defs>
+          </svg>
+        )}
+        <Img src={src(asset.url)} style={{ position: 'absolute', left: x, top: y, width: w, height: h, clipPath: done ? 'none' : `url(#${clipId})` }} />
+      </Board>
+    );
+  }
   return (
     <Board>
       {asset &&
@@ -1396,7 +1470,7 @@ function Scene({ scene, index, first }) {
   // Until then the hand is drawing. In a tall frame the words stand under the drawing and the arm passes over
   // them, so they wait for it (except on the opening frame); in a wide frame they stand beside the drawing and
   // are written while the hand draws: half an empty board for three seconds looks unfinished.
-  const handBusy = type === 'drawing' ? Math.round(drawSeconds(duration / FPS) * FPS) + 10 : 0;
+  const handBusy = type === 'drawing' ? Math.round(drawSeconds(duration / FPS, landscape) * FPS) + 10 : 0;
   const holdFrames = type === 'drawing' && !first && !landscape ? handBusy : 0;
   const contact = scene.blocks.some((block) => block.type === 'highlight');
   const gap = scene.gap ?? 30;
@@ -1596,16 +1670,16 @@ function Captions({ words, cuts = [] }) {
 // Sound effects follow the visuals by construction: a pop per list item, a
 // whoosh per transition, a cha-ching when a number lands, a ding on badges
 // and highlights. The plan only adds the one-off sounds (e.g. a whistle).
-function autoSfx(scenes) {
+function autoSfx(scenes, landscape) {
   const out = [];
   scenes.forEach((scene, i) => {
     if (i > 0 && !scene.cut) out.push({ name: 'whoosh', at: scene.start - 0.3 });
     if (scene.background?.type === 'drawing') {
-      const seconds = drawSeconds(scene.end - scene.start);
+      const seconds = drawSeconds(scene.end - scene.start, landscape);
       for (let t = 0.1; t < seconds - 0.4; t += 1.45) out.push({ name: 'marker', at: scene.start + t });
     }
     // What the hand does after drawing (a push, an underline) waits until the drawing is done, and so does its sound.
-    const held = scene.background?.type === 'drawing' ? scene.start + drawSeconds(scene.end - scene.start) + 10 / FPS : scene.start;
+    const held = scene.background?.type === 'drawing' ? scene.start + drawSeconds(scene.end - scene.start, landscape) + 10 / FPS : scene.start;
     scene.blocks.forEach((block) => {
       if (block.underlineAt !== undefined) out.push({ name: 'underline', at: Math.max(block.underlineAt, held) });
       if (block.push) out.push({ name: 'push', at: Math.max(block.at ?? scene.start, held) });
@@ -1620,9 +1694,10 @@ function autoSfx(scenes) {
 
 function Soundtrack({ audio = {}, scenes, duration }) {
   const { look } = usePlan();
+  const { landscape } = useFrame();
   const { voice, music } = audio;
   const cuts = voice?.cuts || (voice ? [{ at: 0, srcStart: 0, srcEnd: duration }] : []);
-  const auto = audio.autoSfx === false ? [] : autoSfx(scenes).map((s) => ({ ...s, volume: SFX_VOLUME[s.name] * (look.sfx[s.name] ?? (WHITEBOARD_ONLY.includes(s.name) ? 0 : 1)) }));
+  const auto = audio.autoSfx === false ? [] : autoSfx(scenes, landscape).map((s) => ({ ...s, volume: SFX_VOLUME[s.name] * (look.sfx[s.name] ?? (WHITEBOARD_ONLY.includes(s.name) ? 0 : 1)) }));
   const sfx = [...auto, ...(audio.sfx || [])].filter((s) => Number.isFinite(s.at) && (s.volume === undefined || s.volume > 0));
   const bed = music?.volume ?? 0.14;
   const tail = music?.tailVolume ?? 0.4;

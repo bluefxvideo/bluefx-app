@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { tracePath } from './drawing-path';
 import { usage } from './usage';
 
 /**
@@ -188,7 +189,7 @@ const DRAWING_INK = [31, 36, 48]; // the whiteboard look's ink colour (#1F2430)
  * background and cropped to the drawing, so the renderer's hand draws exactly the lines and
  * never sweeps over empty board. Returns the PNG and its size.
  */
-export async function generateDrawing(prompt: string): Promise<{ png: Buffer; width: number; height: number }> {
+export async function generateDrawing(prompt: string): Promise<{ png: Buffer; width: number; height: number; path: number[] }> {
   const res = await fetch('https://fal.run/openai/gpt-image-2.5/flare/text-to-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
@@ -223,7 +224,10 @@ export async function generateDrawing(prompt: string): Promise<{ png: Buffer; wi
     }
   }
   const png = await sharp(rgba, { raw: { width, height, channels: 4 } }).png().toBuffer();
-  return { png, width, height };
+  // Where the lines are, so the renderer's hand can follow them.
+  const alpha = Buffer.alloc(width * height);
+  for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3];
+  return { png, width, height, path: tracePath(alpha, width, height) };
 }
 
 export const MOTION_CLIP_SECONDS = 6; // the model's shortest clip
