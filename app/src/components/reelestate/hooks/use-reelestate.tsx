@@ -16,7 +16,6 @@ import {
   checkListingRenderProgress,
 } from '@/actions/tools/reelestate/orchestrator';
 import { generateListingClip, pollClipStatus } from '@/actions/tools/reelestate/clip-generator';
-import { cleanupPhoto } from '@/actions/tools/reelestate/photo-cleanup';
 import { getUserListings, updateListing, deleteSavedComposition } from '@/actions/database/reelestate-database';
 import { createClient } from '@/app/supabase/client';
 import type {
@@ -32,6 +31,7 @@ import type {
   ReelEstateListingRow,
 } from '@/types/reelestate';
 import { issueToPreset } from '@/types/reelestate';
+import { retimeSegments } from '@/lib/reelestate-voice-pace';
 
 const INITIAL_PROJECT: ReelEstateProject = {
   name: null,
@@ -191,6 +191,58 @@ export function useReelEstate() {
     toast.success(`Loaded ${result.photos?.length || 0} photos`);
   }, [updateProject, refreshCredits]);
 
+  // ─── "Try this example": a project with an example's photos and settings ───
+  // Free: the first charge is Analyze Photos, which the user clicks.
+  const startExampleProject = useCallback(async (example: {
+    name: string;
+    photos: string[];
+    aspectRatio: '16:9' | '9:16';
+    targetDuration: TargetDuration;
+    introText: string;
+    voiceId: string;
+    musicTrackId: string;
+    musicUrl: string;
+  }) => {
+    updateProject({ status: 'scraping', error: null });
+
+    // An open project without photos takes the example; otherwise a new project is made
+    let listingId = project.id && project.photos.length === 0 ? project.id : undefined;
+    if (!listingId) {
+      const result = await startListingProject({ manual_photos: example.photos });
+      if (!result.success || !result.listing_id) {
+        updateProject({ status: 'idle', error: result.error || 'Failed to start project' });
+        toast.error(result.error || 'Failed to start project');
+        return;
+      }
+      listingId = result.listing_id;
+    }
+
+    await updateListing(listingId, {
+      name: example.name,
+      photo_urls: example.photos,
+      aspect_ratio: example.aspectRatio,
+      target_duration: example.targetDuration,
+      intro_text: example.introText,
+      voice_id: example.voiceId,
+      music_url: example.musicUrl,
+    });
+
+    setProject({
+      ...INITIAL_PROJECT,
+      id: listingId,
+      name: example.name,
+      photos: example.photos,
+      aspectRatio: example.aspectRatio,
+      targetDuration: example.targetDuration,
+      introText: example.introText,
+      voiceId: example.voiceId,
+      musicTrackId: example.musicTrackId,
+      musicUrl: example.musicUrl,
+      status: 'idle',
+    });
+    toast.success(`Example loaded: ${example.photos.length} photos. Click Analyze Photos to continue.`);
+  }, [project.id, project.photos.length, updateProject]);
+
   // ─── Append more photos to existing project ───
   const addPhotos = useCallback(async (newPhotoUrls: string[]) => {
     if (!project.id) {
@@ -249,7 +301,7 @@ export function useReelEstate() {
     });
 
     await refreshCredits();
-    toast.success(`Analyzed ${result.analyses.length} photos — ${usableIndices.length} selected`);
+    toast.success(`Analyzed ${result.analyses.length} photos: ${usableIndices.length} selected`);
   }, [project.id, project.photos, project.listing, updateProject, refreshCredits]);
 
   // ─── Step 3: Generate Script ───────────────────
@@ -267,6 +319,7 @@ export function useReelEstate() {
       selectedAnalyses,
       project.listing,
       project.targetDuration,
+      project.voiceId,
     );
 
     if (!result.success || !result.script) {
@@ -284,8 +337,8 @@ export function useReelEstate() {
     });
 
     await refreshCredits();
-    toast.success(`Script generated — ${result.script.segments.length} segments`);
-  }, [project.id, project.selectedIndices, project.listing, project.analyses, project.targetDuration, updateProject, refreshCredits]);
+    toast.success(`Script generated: ${result.script.segments.length} segments, about ${result.script.total_duration_seconds} seconds`);
+  }, [project.id, project.selectedIndices, project.listing, project.analyses, project.targetDuration, project.voiceId, updateProject, refreshCredits]);
 
   // ─── Step 4: Generate Voiceover ────────────────
   const generateVoiceover = useCallback(async () => {
@@ -300,7 +353,14 @@ export function useReelEstate() {
 
     const fullScript = selectedSegments.map(s => s.voiceover.trim()).join('... ');
 
-    const result = await generateListingVoiceover(project.id!, fullScript, project.voiceId, project.voiceSpeed);
+    // The script goes along so the saved script is the one the voice reads (edits included)
+    const result = await generateListingVoiceover(
+      project.id!,
+      fullScript,
+      project.voiceId,
+      project.voiceSpeed,
+      retimeSegments(project.script.segments, project.voiceId).segments,
+    );
 
     if (!result.success || !result.audio_url) {
       updateProject({ status: 'script_ready', error: result.error || 'Voiceover generation failed' });
@@ -315,7 +375,7 @@ export function useReelEstate() {
       error: null,
     });
     await refreshCredits();
-    toast.success('Voiceover generated');
+    toast.success(result.duration ? `Voiceover generated: ${Math.round(result.duration)} seconds` : 'Voiceover generated');
   }, [project.id, project.script, project.selectedIndices, project.voiceId, project.voiceSpeed, updateProject, refreshCredits]);
 
   // ─── Regenerate Script / Voiceover ────────────────
@@ -333,7 +393,7 @@ export function useReelEstate() {
   const openInEditor = useCallback(async () => {
     if (!project.id || !userId || project.selectedIndices.length === 0) {
       console.warn('⚠️ openInEditor guard failed:', { id: project.id, userId, selected: project.selectedIndices.length });
-      if (!userId) toast.error('Not signed in — please refresh the page');
+      if (!userId) toast.error('Not signed in. Please refresh the page.');
       return;
     }
 
@@ -352,6 +412,7 @@ export function useReelEstate() {
           selectedAnalyses,
           project.listing,
           project.targetDuration,
+          project.voiceId,
         );
 
         if (!scriptResult.success || !scriptResult.script) {
@@ -401,7 +462,13 @@ export function useReelEstate() {
         );
         const fullScript = selectedSegments.map(s => s.voiceover.trim()).join('... ');
 
-        const voiceResult = await generateListingVoiceover(project.id, fullScript, project.voiceId, project.voiceSpeed);
+        const voiceResult = await generateListingVoiceover(
+          project.id,
+          fullScript,
+          project.voiceId,
+          project.voiceSpeed,
+          retimeSegments(project.script.segments, project.voiceId).segments,
+        );
 
         if (!voiceResult.success || !voiceResult.audio_url) {
           updateProject({ status: 'script_ready', error: voiceResult.error || 'Voiceover generation failed' });
@@ -597,10 +664,11 @@ export function useReelEstate() {
       s.index === index ? { ...s, voiceover } : s
     );
     updateProject({
-      script: { ...project.script, segments },
+      // Every line's length is measured again from the edited text
+      script: retimeSegments(segments, project.voiceId),
       voiceoverStale: project.voiceover ? true : false, // mark audio stale, don't clear
     });
-  }, [project.script, project.voiceover, updateProject]);
+  }, [project.script, project.voiceover, project.voiceId, updateProject]);
 
   const deleteScriptSegment = useCallback((index: number) => {
     if (!project.script) return;
@@ -645,9 +713,14 @@ export function useReelEstate() {
   const setVoiceId = useCallback((voiceId: string) => {
     updateProject({
       voiceId,
+      // Voices read at different speeds: the same script gets a new length
+      ...(project.script ? { script: retimeSegments(project.script.segments, voiceId) } : {}),
       voiceoverStale: project.voiceover ? true : false, // audio is stale, script is fine
     });
-  }, [updateProject, project.voiceover]);
+    if (project.id) {
+      updateListing(project.id, { voice_id: voiceId });
+    }
+  }, [updateProject, project.voiceover, project.script, project.id]);
 
   const setVoiceSpeed = useCallback((voiceSpeed: number) => {
     updateProject({ voiceSpeed });
@@ -834,8 +907,9 @@ export function useReelEstate() {
 
     setIsCleaningUp(true);
 
+    // Each photo is cleaned and charged by the server (2 credits per cleaned photo)
     const settled = await Promise.allSettled(
-      items.map(item => cleanupPhoto(item.url, item.preset, item.customPrompt))
+      items.map(item => cleanupListingPhoto(undefined, item.url, item.preset, undefined, item.customPrompt))
     );
 
     const results = settled.map((result, i) => {
@@ -921,13 +995,9 @@ export function useReelEstate() {
       photos: listing.photo_urls || [],
       analyses: (listing.image_analysis as ImageAnalysis[]) || [],
       selectedIndices: listing.selected_indices || [],
+      // Lengths are measured from the text: older projects stored the model's guess
       script: listing.script_segments
-        ? {
-            segments: listing.script_segments as ScriptSegment[],
-            total_duration_seconds: (listing.script_segments as ScriptSegment[]).reduce(
-              (acc, s) => acc + s.duration_seconds, 0
-            ),
-          }
+        ? retimeSegments(listing.script_segments as ScriptSegment[], listing.voice_id || 'Friendly_Person')
         : null,
       scriptGeneratedAt: listing.script_segments ? Date.parse(listing.updated_at || listing.created_at || new Date().toISOString()) : null,
       scriptStale: false,
@@ -970,6 +1040,7 @@ export function useReelEstate() {
     createProject,
     renameProject,
     startProject,
+    startExampleProject,
     addPhotos,
     analyzePhotos,
     generateScript,

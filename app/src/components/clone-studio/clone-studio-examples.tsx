@@ -1,6 +1,6 @@
 'use client';
 
-import { ExampleChip, ExampleFile, ExampleText, ExampleVideo, ToolExamples } from '@/components/tools/tool-examples';
+import { ExampleFile, ExampleText, ExampleVideo, ToolExamples } from '@/components/tools/tool-examples';
 import { ToolTips } from '@/components/tools/tool-tips';
 import { CLONE_STUDIO_EXAMPLES, type CloneStudioExample } from '@/lib/clone-studio/examples';
 
@@ -33,6 +33,7 @@ export function CloneStudioExamples({
           </div>
         </div>
       )}
+      cost={(example) => `Cost: ${example.credits} credits in total · the breakdown, the pictures, the clips and the music`}
       renderInputs={(example) => (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -40,7 +41,6 @@ export function CloneStudioExamples({
             {example.photos.map((photo) => (
               <ExampleFile key={photo.name} name={photo.name} url={photo.url} kind="photo" caption="Photo" />
             ))}
-            <ExampleChip>{example.credits} credits in total</ExampleChip>
           </div>
           <ExampleText>Apply to all scenes: {example.instruction}</ExampleText>
           <ExampleText>Then, card by card: {example.edits}</ExampleText>

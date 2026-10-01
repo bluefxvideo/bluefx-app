@@ -15,6 +15,7 @@ import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-
 import { toast } from 'sonner';
 import type { ImageMakerExample } from './examples';
 import { ImageMakerExamples, ImageMakerTips } from './image-maker-examples';
+import { IMAGE_MAKER_CREDITS } from './pricing';
 
 export type AspectRatio = 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9';
 export type Resolution = '1K' | '2K' | '4K';
@@ -22,7 +23,6 @@ export type Resolution = '1K' | '2K' | '4K';
 const ASPECTS: AspectRatio[] = ['auto', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'];
 const RESOLUTIONS: Resolution[] = ['1K', '2K', '4K'];
 const COUNTS = [1, 2, 3, 4];
-const COST: Record<Resolution, number> = { '1K': 2, '2K': 3, '4K': 6 };
 const MAX_REFS = 14;
 
 function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -143,7 +143,7 @@ export function ImageMakerPage() {
     toast.success('Example loaded. Swap in your own photos and words, then click Generate.');
   };
 
-  const cost = COST[resolution] * count;
+  const cost = IMAGE_MAKER_CREDITS[resolution] * count;
   const hasRefs = referenceImages.length > 0;
 
   const imageTabs = [

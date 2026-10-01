@@ -18,6 +18,8 @@ import type { ReelEstateProject, TargetDuration } from '@/types/reelestate';
 import { TARGET_DURATIONS } from '@/types/reelestate';
 import { useRef, useState } from 'react';
 import { NewProjectModal } from '../components/new-project-modal';
+import { MIN_SECONDS_PER_PHOTO, SCRIPT_OVERRUN_TOLERANCE, spokenScriptSeconds } from '@/lib/reelestate-voice-pace';
+import { ListingVideoTips } from '../reelestate-examples';
 
 // Valid Minimax voices with preview URLs matching shared/voice-constants.ts
 const VOICE_OPTIONS = [
@@ -119,6 +121,15 @@ export function VideoMakerTab({
 
   const isPreparing = ['scripting', 'generating_voiceover'].includes(project.status);
 
+  // How long the chosen voice needs for the script as it stands now
+  const scriptSeconds = project.script
+    ? Math.round(spokenScriptSeconds(project.script.segments, project.selectedIndices, project.voiceId))
+    : 0;
+  const scriptRunsLong = scriptSeconds > project.targetDuration * SCRIPT_OVERRUN_TOLERANCE;
+  // A listing import brings 30 to 48 photos: too many for a short narrated video
+  const secondsPerPhoto = project.selectedIndices.length > 0 ? project.targetDuration / project.selectedIndices.length : Infinity;
+  const tooManyPhotos = project.voiceoverEnabled && secondsPerPhoto < MIN_SECONDS_PER_PHOTO;
+
   const [newProjectOpen, setNewProjectOpen] = useState(false);
 
   // ─── Empty state — no project loaded yet ──────
@@ -126,7 +137,8 @@ export function VideoMakerTab({
     return (
       <TabContentWrapper>
         <TabBody>
-          <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 px-6 text-center">
+          <ListingVideoTips />
+          <div className="flex flex-col items-center justify-center min-h-[320px] gap-6 px-6 text-center">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
               <FolderPlus className="w-8 h-8 text-primary" />
             </div>
@@ -156,6 +168,10 @@ export function VideoMakerTab({
   return (
     <TabContentWrapper>
       <TabBody>
+        <div className="mb-4">
+          <ListingVideoTips />
+        </div>
+
         {/* Project header — always visible when project exists */}
         <div className="flex items-center justify-between gap-2 pb-3 mb-2 border-b border-border/40">
           <ProjectNameEditor
@@ -292,6 +308,11 @@ export function VideoMakerTab({
                     ))}
                   </SelectContent>
                 </Select>
+                {tooManyPhotos && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    {project.selectedIndices.length} photos in {project.targetDuration} seconds leaves {secondsPerPhoto.toFixed(1)} seconds a photo: too short for a spoken line. Select fewer photos or choose a longer duration, or the video runs longer than {project.targetDuration} seconds.
+                  </p>
+                )}
               </div>
 
               {/* Intro text */}
@@ -326,7 +347,7 @@ export function VideoMakerTab({
                 <p className="text-xs text-muted-foreground">
                   {project.voiceoverEnabled
                     ? 'AI writes a script and narrates your video (3 credits)'
-                    : 'Music-only mode — no narration'}
+                    : 'Music only, without narration'}
                 </p>
 
                 {project.voiceoverEnabled && (
@@ -366,7 +387,7 @@ export function VideoMakerTab({
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
-                            <span className="text-xs font-medium">Script ({project.script.segments.length} segments · {project.script.total_duration_seconds}s)</span>
+                            <span className="text-xs font-medium">Script ({project.script.segments.length} segments · about {scriptSeconds}s with this voice)</span>
                             {project.scriptGeneratedAt && (
                               <span className="text-[10px] text-muted-foreground">Generated {formatTimeAgo(project.scriptGeneratedAt)}</span>
                             )}
@@ -387,7 +408,17 @@ export function VideoMakerTab({
                         {project.scriptStale && (
                           <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                            <span>Photos or duration changed — regenerate to refresh the script.</span>
+                            <span>Photos or duration changed. Regenerate to refresh the script.</span>
+                          </div>
+                        )}
+
+                        {/* The video is as long as the voiceover: say so before the voiceover is paid for */}
+                        {scriptRunsLong && (
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
+                            <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                            <span>
+                              This voice needs about {scriptSeconds} seconds for this script. You chose {project.targetDuration} seconds, and the video runs as long as the voiceover. For a shorter video: select fewer photos, shorten the lines, or click Regenerate to fit the script to this voice.
+                            </span>
                           </div>
                         )}
 
@@ -443,7 +474,11 @@ export function VideoMakerTab({
                         <div className="flex items-center justify-between">
                           <div className={`flex items-center gap-1.5 text-xs ${project.voiceoverStale ? 'text-amber-400' : 'text-emerald-400'}`}>
                             <div className={`w-2 h-2 rounded-full ${project.voiceoverStale ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-                            {project.voiceoverStale ? 'Voiceover out of date' : 'Voiceover ready'}
+                            {project.voiceoverStale
+                              ? 'Voiceover out of date'
+                              : project.voiceover.duration > 0
+                                ? `Voiceover ready · ${Math.round(project.voiceover.duration)} seconds`
+                                : 'Voiceover ready'}
                           </div>
                           <Button
                             size="sm"
@@ -461,7 +496,7 @@ export function VideoMakerTab({
                         {project.voiceoverStale && (
                           <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                            <span>Script text or voice changed — regenerate voiceover to update the audio.</span>
+                            <span>Script text or voice changed. Regenerate the voiceover to update the audio.</span>
                           </div>
                         )}
 

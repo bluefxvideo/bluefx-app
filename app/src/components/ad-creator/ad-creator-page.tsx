@@ -24,14 +24,15 @@ import { VoiceOverStep } from '@/components/ai-recreate/steps/voice-over-step';
 import { getDefaultWizardData, needsPreviewCheck, type WizardData, type WizardStep, type ExtractedFrame } from '@/components/ai-recreate/wizard-types';
 import type { BreakdownScene, SceneBreakdownResult } from '@/lib/scene-breakdown/types';
 import { groupScenesIntoBatches, scenesToAnalyzerShots } from '@/lib/scene-breakdown/types';
-import { motionPresetToNativeCameraMotion } from '@/lib/scene-breakdown/motion-presets';
+import { STATIC_MOTION_PRESET_ID, motionPresetToNativeCameraMotion } from '@/lib/scene-breakdown/motion-presets';
 import { toast } from 'sonner';
 import { useCredits } from '@/hooks/useCredits';
 import { isStalePageError } from '@/lib/stale-page';
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog';
 import { urlToFile } from '@/lib/url-to-file';
-import type { CloneAdExample } from './examples';
+import type { CloneAdExample, ScriptAdExample } from './examples';
 import { CloneAdExamples, CloneAdTips } from './clone-ad-examples';
+import { ScriptAdExamples, ScriptAdTips } from './script-ad-examples';
 
 type AdCreatorMode = 'select' | 'clone' | 'script';
 
@@ -767,6 +768,38 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     }
   };
 
+  // Video Ad From Script: the script, the photos and the voice go in, and the
+  // Customize step shows them, ready for Break Down Script
+  const handleLoadScriptExample = async (example: ScriptAdExample) => {
+    const hasExistingWork = wizardData.scenes.length > 0 || wizardData.extractedFrames.length > 0;
+    if (hasExistingWork && !window.confirm('Loading an example will reset your current shot plan, images, and videos. Continue?')) return;
+    setLoadingExampleId(example.id);
+    try {
+      const photos = await Promise.all(example.photos.map((photo) => urlToFile(photo.url, photo.name, 'image/jpeg')));
+      setWizardData({
+        ...getDefaultWizardData(),
+        narrationScript: example.script,
+        // The photos are already public: `url` skips the upload before the images
+        referenceImages: photos.map((file, i) => ({ file, preview: URL.createObjectURL(file), url: example.photos[i].url })),
+        aspectRatio: example.aspectRatio,
+        selectedVoice: example.voice.id,
+      });
+      cinematographer.setLastUsedAspectRatio(example.aspectRatio);
+      setAssistantDraft('');
+      setCompletedSteps(new Set());
+      setCurrentStep(2);
+      setHighestStepReached(2);
+      // After the form has re-rendered: a scroll started before that is dropped
+      setTimeout(() => document.getElementById('narration-script')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+      toast.success('Example loaded. Click Break Down Script to see the scenes. Nothing is charged until you make the pictures.');
+    } catch (err) {
+      console.error('Example could not be loaded:', err);
+      toast.error('The example could not be loaded. Check the connection and try again.');
+    } finally {
+      setLoadingExampleId(null);
+    }
+  };
+
   // ===== Handlers (same as AI Recreate) =====
   const handleAnalysisComplete = (analysisText: string, sourceUrl: string) => {
     const hasExistingWork = wizardData.scenes.length > 0 || wizardData.extractedFrames.length > 0;
@@ -799,17 +832,27 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
     setHighestStepReached(2);
   };
 
-  const handleBreakdownComplete = (result: SceneBreakdownResult) => {
+  // The Fast engine jumps to a different shot mid-clip when it is asked for a camera
+  // move (11 of 11 test clips on 2026-10-01; 9 of 9 were clean with a still camera).
+  // So the AI's camera picks never reach the clips: a new plan starts Static, the AI
+  // Assistant leaves each scene's camera alone, and a move is only what the user picked.
+  const handleBreakdownComplete = (result: SceneBreakdownResult, source: 'breakdown' | 'assistant' = 'breakdown') => {
     const allSceneNumbers = new Set(result.scenes.map(s => s.sceneNumber));
-    setWizardData(prev => ({
-      ...prev,
-      scenes: result.scenes,
-      globalAestheticPrompt: result.globalAestheticPrompt,
-      breakdownResult: result,
-      narrationScript: result.scenes.map(s => s.narration).join(' '),
-      enabledScenes: allSceneNumbers,
-    }));
-    toast.success(`Script broken down into ${result.scenes.length} scenes`);
+    setWizardData(prev => {
+      const picked = new Map(prev.scenes.map(s => [s.sceneNumber, s.motionPresetId] as const));
+      const scenes = result.scenes.map(scene => {
+        const kept = picked.get(scene.sceneNumber);
+        return { ...scene, motionPresetId: source === 'assistant' && kept !== undefined ? kept : STATIC_MOTION_PRESET_ID };
+      });
+      return {
+        ...prev,
+        scenes,
+        globalAestheticPrompt: result.globalAestheticPrompt,
+        breakdownResult: { ...result, scenes },
+        narrationScript: scenes.map(s => s.narration).join(' '),
+        enabledScenes: allSceneNumbers,
+      };
+    });
   };
 
   const handleUpdateScene = (sceneNumber: number, updates: Partial<BreakdownScene>) => {
@@ -1013,12 +1056,18 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
       wizardData.scenes.filter(sc => wizardData.enabledScenes.has(sc.sceneNumber)).map((sc, idx) => [sc.sceneNumber, idx] as const)
     );
 
+    // Captions and overlays are never wanted. With product photos the words printed on
+    // the product stay: "no text whatsoever" erased the brand name from every label.
+    const textRule = uploadedImageUrls.length > 0
+      ? 'IMPORTANT: Do NOT add captions, titles, subtitles, watermarks or any other text overlay to the image. A product from the reference photos keeps its own label and packaging exactly as photographed, including the words printed on it.'
+      : 'IMPORTANT: Do NOT add any text, words, letters, watermarks, or overlays on the image. The image must be completely clean with no text whatsoever.';
+
     for (let i = 0; i < enabledScenes.length; i++) {
       const scene = enabledScenes[i];
       setImageGenProgress({ current: i + 1, total: enabledScenes.length });
 
       try {
-        const imagePrompt = `${wizardData.globalAestheticPrompt}\n\n${scene.visualPrompt}\n\nIMPORTANT: Do NOT add any text, words, letters, watermarks, or overlays on the image. The image must be completely clean with no text whatsoever.`;
+        const imagePrompt = `${wizardData.globalAestheticPrompt}\n\n${scene.visualPrompt}\n\n${textRule}`;
 
         const { generateSingleSceneImage } = await import('@/actions/tools/ai-cinematographer');
         const result = await generateSingleSceneImage({
@@ -1285,6 +1334,8 @@ function AdCreatorWizard({ mode, onBack }: { mode: 'clone' | 'script'; onBack: (
             onUpdateAspectRatio={handleUpdateAspectRatio}
             onToggleScene={handleToggleScene}
             initialInstruction={assistantDraft}
+            tips={mode === 'script' ? <ScriptAdTips /> : undefined}
+            examples={mode === 'script' ? <ScriptAdExamples onTry={handleLoadScriptExample} loadingId={loadingExampleId} /> : undefined}
           />
         )}
 

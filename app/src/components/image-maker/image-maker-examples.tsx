@@ -4,6 +4,7 @@ import { ImagePlus } from 'lucide-react';
 import { ExampleChip, ExampleFile, ExampleImages, ExampleText, ToolExamples } from '@/components/tools/tool-examples';
 import { ToolTips } from '@/components/tools/tool-tips';
 import { IMAGE_MAKER_EXAMPLES, type ImageMakerExample } from './examples';
+import { IMAGE_MAKER_CREDITS } from './pricing';
 
 /**
  * Shown where the result appears while nothing is being made: real Image Maker
@@ -17,6 +18,12 @@ export function ImageMakerExamples({ onTry, busy }: { onTry: (example: ImageMake
       icon={ImagePlus}
       examples={IMAGE_MAKER_EXAMPLES}
       media={(example) => <ExampleImages urls={example.images} alt={example.title} />}
+      cost={(example) => {
+        const each = IMAGE_MAKER_CREDITS[example.resolution];
+        return example.count > 1
+          ? `Cost: ${each * example.count} credits · ${example.count} images at ${each} credits each (${example.resolution})`
+          : `Cost: ${each} credits · one ${example.resolution} image`;
+      }}
       renderInputs={(example) => (
         <>
           <ExampleText>{example.prompt}</ExampleText>

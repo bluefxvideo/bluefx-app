@@ -21,6 +21,7 @@ import type {
   CleanupResult,
   TargetDuration,
   ScriptGenerationResult,
+  ScriptSegment,
   ImageAnalysisResult,
 } from '@/types/reelestate';
 import { cameraMotionToKenBurns } from '@/types/reelestate';
@@ -256,6 +257,7 @@ export async function generateScript(
   selectedAnalyses: ImageAnalysis[],
   listingData: ZillowListingData | null,
   targetDuration: TargetDuration = 30,
+  voiceId?: string,
 ): Promise<ScriptGenerationResult> {
   try {
     const supabase = await createClient();
@@ -269,7 +271,8 @@ export async function generateScript(
 
     await updateListing(listingId, { status: 'scripting' });
 
-    const result = await generateListingScript(selectedAnalyses, listingData, targetDuration);
+    // The script is sized for the chosen length AND the chosen voice: voices read at different speeds
+    const result = await generateListingScript(selectedAnalyses, listingData, targetDuration, voiceId);
 
     if (!result.success || !result.script) {
       await updateListing(listingId, { status: 'analyzed', error_message: result.error });
@@ -278,6 +281,8 @@ export async function generateScript(
 
     await updateListing(listingId, {
       script_segments: result.script.segments as unknown as Record<string, unknown>[],
+      target_duration: targetDuration,
+      ...(voiceId ? { voice_id: voiceId } : {}),
       status: 'script_ready',
     } as Record<string, unknown>);
 
@@ -347,6 +352,8 @@ export async function generateListingVoiceover(
   scriptText: string,
   voiceId: string,
   speed: number = 1.0,
+  /** The script as the user edited it, so the saved script is the one the voice reads. */
+  scriptSegments?: ScriptSegment[],
 ): Promise<{ success: boolean; audio_url?: string; duration?: number; error?: string }> {
   try {
     const supabase = await createClient();
@@ -371,10 +378,12 @@ export async function generateListingVoiceover(
       return { success: false, error: result.error || 'Voiceover generation failed' };
     }
 
-    // Save voiceover to listing
+    // Save voiceover to listing, with the voice and the script the voice read
     await updateListing(listingId, {
       voiceover_url: result.audio_url,
       voiceover_duration_seconds: result.duration || null,
+      voice_id: voiceId,
+      ...(scriptSegments?.length ? { script_segments: scriptSegments as unknown as Record<string, unknown>[] } : {}),
       status: 'script_ready',
     } as Record<string, unknown>);
 
@@ -650,14 +659,20 @@ export async function checkListingRenderProgress(
 }
 
 // ═══════════════════════════════════════════
-// Photo Cleanup (inline from video pipeline)
+// Photo Cleanup (Photo Cleanup tab + inline from video pipeline)
 // ═══════════════════════════════════════════
 
+/**
+ * Clean one photo and charge for it. Every cleanup goes through here: the
+ * Photo Cleanup tab used to call the image model directly, with no sign-in
+ * check and no charge, while its button said "2 credits".
+ */
 export async function cleanupListingPhoto(
   listingId: string | undefined,
   imageUrl: string,
   preset: CleanupPreset,
   photoIndex?: number,
+  customPrompt?: string,
 ): Promise<CleanupResult> {
   try {
     const supabase = await createClient();
@@ -669,7 +684,7 @@ export async function cleanupListingPhoto(
       return { success: false, original_url: imageUrl, preset, error: 'Insufficient credits' };
     }
 
-    const result = await cleanupPhoto(imageUrl, preset);
+    const result = await cleanupPhoto(imageUrl, preset, preset === 'custom' ? customPrompt : undefined);
 
     if (result.success && result.cleaned_url) {
       await deductCredits(user.id, CREDITS.CLEANUP, 'reelestate-cleanup', {

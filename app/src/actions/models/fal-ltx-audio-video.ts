@@ -4,9 +4,10 @@
  *
  * Generates talking avatar videos from audio input
  * - Uses match_audio_length to auto-calculate frames from audio duration
- * - Max duration: 20 seconds. fal caps this endpoint (and the 2.3 22B one) at
- *   481 frames; at 24 fps that is 20.04 s. Found 2026-09-23 when every render
- *   over 20 s failed with a bare "Unexpected status code: 422" after the charge.
+ * - Max duration: 19 seconds. fal caps this endpoint (and the 2.3 22B one) at
+ *   481 frames; at the engine's own 25 fps that is 19.24 s. Found 2026-09-23 when
+ *   every render over 20 s failed with a bare "Unexpected status code: 422" after
+ *   the charge.
  * - Pricing: $0.0008 per megapixel
  *
  * Supported resolutions:
@@ -53,10 +54,16 @@ export const LTX_RESOLUTIONS = {
 export type LTXResolution = keyof typeof LTX_RESOLUTIONS;
 
 // Constants
-/** fal's 481-frame cap at LTX_FPS. Audio longer than this is refused before any charge. */
-export const LTX_MAX_DURATION_SECONDS = 20;
-/** The endpoint defaults to 25 fps, which would stop the cap at 19.2 s; 24 fps fits 20 s. */
-export const LTX_FPS = 24;
+/** fal's 481-frame cap at LTX_FPS (19.24 s). Audio longer than this is refused before any charge. */
+export const LTX_MAX_DURATION_SECONDS = 19;
+/**
+ * The engine lip-syncs at 25 frames per second, whatever rate is asked for. Sent 24
+ * (to fit 20 s, September 25 to October 1, 2026) every frame still followed the voice
+ * at 25 per second, so the mouth fell 40 ms further behind with each second of video:
+ * 0.4 s late at 10 s, 0.6 s at 15 s. Measured with one spoken word every 1.6 s; at 25
+ * the offset stays flat from the first word to the last. Keep 25.
+ */
+export const LTX_FPS = 25;
 export const LTX_COST_PER_MEGAPIXEL = 0.0008;
 
 // Default negative prompt for quality control

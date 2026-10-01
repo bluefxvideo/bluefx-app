@@ -44,6 +44,20 @@ function corsHeaders(request: NextRequest) {
 
 // ─── Shared formatting logic ───────────────────────────────────────────
 
+/** Make the photos follow one another without a pause between them. */
+function closeGaps<T extends { start_time: number; end_time: number; duration: number }>(
+  segments: T[],
+  voiceoverDuration: number,
+): T[] {
+  return segments.map((segment, i) => {
+    const start = i === 0 ? 0 : segment.start_time;
+    const end = i < segments.length - 1
+      ? Math.max(segments[i + 1].start_time, start)
+      : Math.max(segment.end_time, voiceoverDuration);
+    return { ...segment, start_time: start, end_time: end, duration: end - start };
+  });
+}
+
 async function formatListingForEditor(listing: any, userId: string, selectedOverride?: number[]) {
   const segments = listing.script_segments || [];
   const analyses = listing.image_analysis || [];
@@ -192,6 +206,13 @@ async function formatListingForEditor(listing: any, userId: string, selectedOver
         };
       });
     console.log(`📐 Auto-segments: ${editorSegments!.length} photos × ${perPhoto.toFixed(1)}s = ${targetDuration}s`);
+  }
+
+  // The voice pauses between two lines. Each photo stays on screen until the
+  // next line starts and the last photo stays until the voice ends: the pauses
+  // used to leave black frames between the photos.
+  if (usedWhisper) {
+    editorSegments = closeGaps(editorSegments!, voiceoverDuration);
   }
 
   // Build image URLs and video clips matching segment order

@@ -7,6 +7,8 @@ import { HistoryOutput } from './history-output';
 import { CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
+import type { ThumbnailExample } from '../examples';
+import { ThumbnailExamples } from '../thumbnail-examples';
 
 interface ContextualOutputProps {
   activeTab: string;
@@ -20,6 +22,8 @@ interface ContextualOutputProps {
   historyFilters?: HistoryFilters;
   prompt?: string;
   hasReferenceImage?: boolean;
+  /** "Try this example" in the examples shown while nothing is generated. */
+  onTryExample?: (example: ThumbnailExample) => void;
 }
 
 /**
@@ -37,7 +41,8 @@ export function ContextualOutput({
   onFocusPrompt,
   historyFilters,
   prompt,
-  hasReferenceImage
+  hasReferenceImage,
+  onTryExample
 }: ContextualOutputProps) {
 
   // Clean up error messages for better UX
@@ -225,7 +230,7 @@ export function ContextualOutput({
       }
       errorMessage={getCleanErrorMessage(error)}
       actions={getActions()}
-      activeTab={activeTab}
+      activeTab={onTryExample ? undefined : activeTab}
       onCancelGeneration={onCancelGeneration}
       loading={
         // Custom loading component to show our processing card instead of simple spinner
@@ -242,7 +247,10 @@ export function ContextualOutput({
           hasReferenceImage={hasReferenceImage}
         />
       }
-      empty={
+      empty={onTryExample ? (
+        // Examples with what went in replace the shell's single sample picture
+        <ThumbnailExamples onTry={onTryExample} busy={isGenerating} />
+      ) : (
         <ThumbnailMachineOutput
           result={result}
           isGenerating={isGenerating}
@@ -255,7 +263,7 @@ export function ContextualOutput({
           prompt={prompt}
           hasReferenceImage={hasReferenceImage}
         />
-      }
+      )}
     >
       <ThumbnailMachineOutput
         result={result}

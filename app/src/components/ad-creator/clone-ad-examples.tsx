@@ -32,6 +32,7 @@ export function CloneAdExamples({
           </div>
         </div>
       )}
+      cost={(example) => `Cost: ${example.credits} credits in total · the analysis, the pictures, the clips and the voice`}
       renderInputs={(example) => (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -41,7 +42,6 @@ export function CloneAdExamples({
             ))}
             <ExampleChip>{example.aspectRatio}</ExampleChip>
             <ExampleChip>Voice: {example.voice.name}</ExampleChip>
-            <ExampleChip>{example.credits} credits in total</ExampleChip>
           </div>
           <ExampleText>AI Assistant: {example.instruction}</ExampleText>
         </>

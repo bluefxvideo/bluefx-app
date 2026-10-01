@@ -246,6 +246,14 @@ interface AnalyzeVideoResponse {
   error?: string;
 }
 
+/**
+ * The model sometimes opens with a line of small talk ("Sure, here is the
+ * breakdown of the ad:"). The page shows the analysis only, so that line goes.
+ */
+function stripChattyOpening(text: string): string {
+  return text.replace(/^\s*(?:(?:sure|certainly|of course|absolutely|okay|ok)[,!.]|here(?:'s| is| are)\b)[^\n]{0,200}:[ \t]*\n+/i, '');
+}
+
 function buildPrompt(analysisType: AnalysisType, customPrompt?: string): string {
   if (analysisType === 'custom_only') {
     if (!customPrompt) {
@@ -305,7 +313,7 @@ export async function analyzeVideo(request: AnalyzeVideoRequest): Promise<Analyz
     ]);
 
     const response = await result.response;
-    const analysisText = response.text();
+    const analysisText = stripChattyOpening(response.text());
 
     if (!analysisText) {
       return {
@@ -413,7 +421,7 @@ export async function analyzeYouTubeVideo(request: AnalyzeYouTubeRequest): Promi
     if (!result) throw lastError;
 
     const response = await result.response;
-    const analysisText = response.text();
+    const analysisText = stripChattyOpening(response.text());
 
     if (!analysisText) {
       return {
@@ -593,7 +601,7 @@ export async function analyzeSocialMediaVideo(request: AnalyzeSocialVideoRequest
     // structured reason so failures are diagnosable from container logs.
     let analysisText = '';
     try {
-      analysisText = response.text();
+      analysisText = stripChattyOpening(response.text());
     } catch (textErr) {
       const msg = textErr instanceof Error ? textErr.message : String(textErr);
       console.error(`❌ response.text() threw — finishReason=${finishReason}, safetyRatings=`, candidate?.safetyRatings);

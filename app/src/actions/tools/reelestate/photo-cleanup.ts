@@ -1,5 +1,6 @@
-'use server';
-
+// Server-only helpers, deliberately NOT a 'use server' file: a browser must not
+// be able to call the image model directly. The charged entry point is
+// cleanupListingPhoto in ./orchestrator.
 import { generateWithSeedreamEdit } from '@/actions/models/fal-seedream-edit';
 import { CLEANUP_PRESET_CONFIG } from '@/types/reelestate';
 import type { CleanupPreset, CleanupResult } from '@/types/reelestate';

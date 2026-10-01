@@ -5,33 +5,33 @@ import { ClipProgress } from '../components/clip-progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Video, ImageIcon, FileText, Loader2, Download, Film } from 'lucide-react';
+import { ImageIcon, FileText, Loader2, Download, Film } from 'lucide-react';
 import type { ReelEstateProject } from '@/types/reelestate';
+import { spokenScriptSeconds } from '@/lib/reelestate-voice-pace';
+import type { ListingVideoExample } from '../examples';
+import { ListingVideoExamples } from '../reelestate-examples';
 
 interface VideoMakerOutputProps {
   project: ReelEstateProject;
   isWorking: boolean;
   onPollClips: () => void;
   onRegenerateClip?: (clipIndex: number) => void;
+  /** "Try this example" in the examples shown while no photos are loaded. */
+  onTryExample: (example: ListingVideoExample) => void;
+  loadingExampleId: string | null;
 }
 
-export function VideoMakerOutput({ project, isWorking, onRegenerateClip }: VideoMakerOutputProps) {
+export function VideoMakerOutput({ project, isWorking, onRegenerateClip, onTryExample, loadingExampleId }: VideoMakerOutputProps) {
   const hasClips = project.clips.length > 0;
   const hasPhotos = project.photos.length > 0;
   const hasAnalyses = project.analyses.length > 0;
   const isRendering = project.status === 'rendering';
 
-  // Empty state
+  // No photos yet: a real listing video from this tool, with what went into it
   if (!hasPhotos && !hasClips) {
     return (
-      <div className={`h-full flex flex-col items-center justify-center text-center ${containerStyles.panel} p-8`}>
-        <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-          <Video className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-medium mb-2">Your Listing Video</h3>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Paste a Zillow URL or upload photos to get started. The AI will analyze your photos, write a voiceover script, and render a listing video.
-        </p>
+      <div className={`h-full overflow-y-auto ${containerStyles.panel} p-4`}>
+        <ListingVideoExamples onTry={onTryExample} loadingId={loadingExampleId} busy={isWorking} />
       </div>
     );
   }
@@ -52,7 +52,7 @@ export function VideoMakerOutput({ project, isWorking, onRegenerateClip }: Video
         {project.script && (
           <Badge variant="outline">
             <FileText className="w-3 h-3 mr-1" />
-            {project.script.segments.length} segments · {project.script.total_duration_seconds}s
+            {project.script.segments.length} segments · about {Math.round(spokenScriptSeconds(project.script.segments, project.selectedIndices, project.voiceId))}s
           </Badge>
         )}
         {isWorking && (

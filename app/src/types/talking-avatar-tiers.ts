@@ -2,8 +2,8 @@
  * Quality tiers for the AI Avatar tool.
  *
  * Standard is today's path: the user's voice (MiniMax or a clone) is rendered
- * to audio first and LTX-2 19B audio-to-video lip-syncs it, up to 20 s (fal caps
- * the engine at 481 frames since September 2026; it used to take 60 s).
+ * to audio first and LTX-2 19B audio-to-video lip-syncs it, up to 19 s (fal caps
+ * the engine at 481 frames since September 2026, at its 25 fps; it used to take 60 s).
  *
  * Fast and Ultra reuse the Video Maker engines, which SPEAK the typed script
  * themselves from a quoted line in the prompt. No voice step, no voice upload,
@@ -23,7 +23,7 @@ export const AVATAR_WORDS_PER_SECOND = 2.5;
 export const AVATAR_PAD_SECONDS = 1;
 
 /** Basic (internal id 'standard'): the client's own voice, lip-synced. Same cap as LTX_MAX_DURATION_SECONDS. */
-export const AVATAR_BASIC_MAX_SECONDS = 20;
+export const AVATAR_BASIC_MAX_SECONDS = 19;
 export const AVATAR_BASIC_CREDITS_PER_SECOND = 1;
 /**
  * Pace of the ready-made and cloned voices, measured on 76 production videos:
@@ -163,7 +163,7 @@ export interface BasicScriptFit {
 }
 
 /**
- * A typed Basic script against the 20-second engine limit. The voice is made
+ * A typed Basic script against the engine's length limit. The voice is made
  * first and costs nothing, so only a script no voice can fit is stopped here;
  * the measured audio is checked again before the charge.
  */
