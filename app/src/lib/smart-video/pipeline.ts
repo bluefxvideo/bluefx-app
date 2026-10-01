@@ -36,16 +36,32 @@ const MIN_SCENE_COVERAGE = 0.5;
 const MISSING_SCENE_COVERAGE = 0.3;
 const VOICE_PART_WORDS = 130; // a long script is recorded in parts: shorter takes skip less and retake cheaply
 const VOICE_PART_GAP = 0.35; // breath between parts
+const MUSIC_ALONE = 0.4; // music level when nobody speaks over it (the level it lifts to after the last word)
 
 const LANGUAGE_NAMES = new Intl.DisplayNames(['en'], { type: 'language' });
 
 export type SmartVideoStage = 'directing' | 'producing';
 
+/** What the client wants to hear. Both are on unless the client switches one off. */
+export interface SmartVideoSound {
+  /** The narrator reading the script. Off: the words are shown as captions and nobody reads them. */
+  voiceOver: boolean;
+  music: boolean;
+}
+const FULL_SOUND: SmartVideoSound = { voiceOver: true, music: true };
+/** Without the narrator the words have to be read: captions are on whatever the plan says. */
+const showsCaptions = (plan: DirectorPlan, sound: SmartVideoSound) => plan.captions || !sound.voiceOver;
+
 /** Everything generated for a video. Saved with the plan, so a revision can reuse it. */
 export interface SmartVideoMedia {
   /** The shape of the video; a revision keeps it. Absent on older videos = vertical. */
   format?: VideoFormat;
-  /** The narrator's recording; null when people in the client's clips say everything. */
+  /** Voice-over and music on or off; a revision keeps the choice or changes it. Absent on older videos = both on. */
+  sound?: SmartVideoSound;
+  /**
+   * The narrator's recording; null when people in the client's clips say everything.
+   * Recorded even with the voice-over off: every picture, text and caption is timed to it.
+   */
   voice: { url: string; words: SpokenWord[]; durationSeconds: number } | null;
   /** Word timings of what is said in each talking clip, by asset id. */
   clipWords: Record<string, SpokenWord[]>;
@@ -73,6 +89,7 @@ export interface SmartVideoOptions {
   format?: VideoFormat;
   /** A look the client picked; null lets the director choose. */
   look?: StyleName | null;
+  sound?: SmartVideoSound;
   onStage?: (stage: SmartVideoStage) => void;
 }
 
@@ -92,7 +109,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, onStage = () => {} }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, onStage = () => {} }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   onStage('directing');
   console.log(`🎬 Smart Video: directing (${assets.length} files)...`);
@@ -170,13 +187,16 @@ async function produce(
 
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store) : null,
-    generateMusic(plan.musicPrompt, plan.style)
-      .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
-      .catch((error) => {
-        console.warn('⚠️ Music failed, rendering without it:', String(error).slice(0, 200));
-        return null;
-      }),
-    plan.signatureSound
+    sound.music
+      ? generateMusic(plan.musicPrompt, plan.style)
+          .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
+          .catch((error) => {
+            console.warn('⚠️ Music failed, rendering without it:', String(error).slice(0, 200));
+            return null;
+          })
+      : null,
+    // A video without voice-over and without music is silent: no signature sound either.
+    plan.signatureSound && (sound.voiceOver || sound.music)
       ? generateSound(plan.signatureSound.prompt)
           .then((mp3) => store(mp3, 'signature.mp3', 'audio/mpeg'))
           .catch(() => null)
@@ -187,11 +207,12 @@ async function produce(
     motion,
     clipWords,
     drawings,
-    plan.captions ? captionDigits(plan.scenes.map((scene) => scene.narration), languageName) : {},
+    showsCaptions(plan, sound) ? captionDigits(plan.scenes.map((scene) => scene.narration), languageName) : {},
   ]);
 
   const media: SmartVideoMedia = {
     format,
+    sound,
     voice,
     clipWords: heardInClips,
     musicUrl,
@@ -231,13 +252,17 @@ export async function reviseSmartVideo(
   brief: string,
   store: StoreFile,
   onStage: (stage: SmartVideoStage) => void = () => {},
-  added: SmartAsset[] = []
+  added: SmartAsset[] = [],
+  /** Voice-over and music as the client wants them now; absent = as they were. */
+  soundNow?: SmartVideoSound
 ): Promise<SmartVideoResult> {
   const { result, usage } = await trackUsage(async () => {
+    const sound = soundNow ?? previous.media.sound ?? FULL_SOUND;
     onStage('directing');
-    const plan = await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added);
+    // A change of the sound alone needs no new plan: the same video is rendered with another soundtrack.
+    const plan = note.trim() ? await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added) : previous.plan;
     onStage('producing');
-    const media = { ...previous.media, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
+    const media = { ...previous.media, sound, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
     await addFiles(plan, media, added, store);
     // Whiteboard: a drawing that is new, or whose description changed, is drawn again; the others are kept.
     const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
@@ -249,20 +274,22 @@ export async function reviseSmartVideo(
     if (JSON.stringify(spoken(plan)) !== JSON.stringify(spoken(previous.plan)) || plan.voice.gender !== previous.plan.voice.gender) {
       media.voice = spoken(plan).length ? await recordVoice(spoken(plan), LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store) : null;
     }
-    if (plan.musicPrompt !== previous.plan.musicPrompt) {
+    // Music is made when the plan asks for other music, or when it is switched on for a video made without.
+    if (sound.music && (plan.musicPrompt !== previous.plan.musicPrompt || !media.musicUrl)) {
       media.musicUrl = await generateMusic(plan.musicPrompt, plan.style)
         .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
         .catch(() => previous.media.musicUrl);
     }
-    if (plan.signatureSound?.prompt !== previous.plan.signatureSound?.prompt) {
-      media.soundUrl = plan.signatureSound
+    const wantsSignature = Boolean(plan.signatureSound) && (sound.voiceOver || sound.music);
+    if (plan.signatureSound?.prompt !== previous.plan.signatureSound?.prompt || (wantsSignature && !media.soundUrl)) {
+      media.soundUrl = wantsSignature && plan.signatureSound
         ? await generateSound(plan.signatureSound.prompt)
             .then((mp3) => store(mp3, 'signature.mp3', 'audio/mpeg'))
             .catch(() => null)
         : null;
     }
     // Lines that are new in this edit (or a video made before captions showed digits) are read for numbers.
-    const unread = plan.captions ? plan.scenes.map((scene) => scene.narration).filter((line) => !(line.trim() in (media.digits || {}))) : [];
+    const unread = showsCaptions(plan, sound) ? plan.scenes.map((scene) => scene.narration).filter((line) => !(line.trim() in (media.digits || {}))) : [];
     if (unread.length) media.digits = { ...media.digits, ...(await captionDigits(unread, LANGUAGE_NAMES.of(plan.language) || plan.language)) };
     const props = buildProps(plan, media);
     return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
@@ -314,6 +341,7 @@ async function addFiles(plan: DirectorPlan, media: SmartVideoMedia, added: Smart
 /** Pins a plan to its recorded voice: scene times, text cues, captions, soundtrack. Pure. */
 export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
   const { voice, musicUrl, soundUrl } = media;
+  const sound = media.sound ?? FULL_SOUND;
   const motionUrls = new Map(
     Object.entries(media.assets).flatMap(([id, asset]) => (id.endsWith('-motion') ? [[id.slice(0, -'-motion'.length), asset.url] as const] : []))
   );
@@ -391,6 +419,10 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
 
   // The captions show a number as digits ("10 eggs"); the voice was given it in words.
   const spoken = timed.flatMap((t, i) => withDigits(t.tokens, media.digits?.[plan.scenes[i].narration.trim()]));
+  // Voice-over off: the narrator's recording still sets every time above, and stays out of the soundtrack.
+  // A person talking in the client's own clip is the picture, not a voice-over, and keeps their sound.
+  const heard = sound.voiceOver ? cuts : cuts.filter((cut) => cut.url);
+  const silent = !sound.voiceOver && !sound.music;
   const props = {
     duration,
     format: media.format || 'vertical',
@@ -398,11 +430,17 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
     theme: buildTheme(plan.style, plan.theme),
     assets: media.assets,
     audio: {
-      voice: { url: voice?.url, cuts },
-      music: musicUrl ? { url: musicUrl, liftAt: lastWordEnd + 0.6 } : undefined,
-      sfx,
+      voice: { url: voice?.url, cuts: heard },
+      music:
+        sound.music && musicUrl
+          ? // Music that nobody speaks over plays at its full level from the start.
+            { url: musicUrl, liftAt: lastWordEnd + 0.6, ...(heard.length ? {} : { volume: MUSIC_ALONE }) }
+          : undefined,
+      // No voice-over and no music means no sound at all: the pops and whooshes go too.
+      sfx: silent ? [] : sfx,
+      ...(silent ? { autoSfx: false } : {}),
     },
-    captions: plan.captions
+    captions: showsCaptions(plan, sound)
       ? {
           // A word ends where the next begins (or after a beat).
           words: spoken.map((word, n) => ({

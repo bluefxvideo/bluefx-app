@@ -524,6 +524,7 @@ export function VideoMakerTab({
           >
             <MusicSelector
               selectedTrackId={project.musicTrackId}
+              selectedUrl={project.musicUrl}
               volume={project.musicVolume}
               onSelectTrack={onSetMusicTrack}
               onVolumeChange={onSetMusicVolume}

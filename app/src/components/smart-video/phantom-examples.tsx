@@ -62,7 +62,7 @@ export function PhantomTips() {
         'Add your own photos or a short phone clip. Real photos of your work beat stock, and a clip of you talking keeps your own voice.',
         'Vertical for TikTok, Reels and Shorts. Horizontal for YouTube and websites.',
         'Leave "Say exactly what I wrote" off unless the words must be exact. The Phantom writes the stronger ad.',
-        `Not quite right? Edit the finished video with a note for ${PHANTOM_REVISION_CREDITS} credits instead of starting over.`,
+        `Not quite right? Edit the finished video with a note for ${PHANTOM_REVISION_CREDITS} credits instead of starting over. The same edit switches the voice-over or the music off or on.`,
       ]}
     />
   );

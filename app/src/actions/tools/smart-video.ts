@@ -262,6 +262,8 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       length: parsed.length,
       format: parsed.format,
       look: parsed.look,
+      voiceOver: parsed.voiceOver,
+      music: parsed.music,
       creditsUsed: credits,
       createdAt: now,
       updatedAt: now,
@@ -301,6 +303,7 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
         length: job.length === 'script' ? 'script' : 'auto',
         format: job.format,
         look: job.look && job.look !== 'auto' ? job.look : null,
+        sound: soundOf(job),
         onStage: (stage) => {
           job = { ...job, status: stage };
           writeJob(job).catch(() => undefined);
@@ -317,6 +320,9 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
     clearInterval(heartbeat);
   }
 }
+
+/** Voice-over and music of a job; a job made before the switches existed has both. */
+const soundOf = (job: SmartVideoJob) => ({ voiceOver: job.voiceOver !== false, music: job.music !== false });
 
 // The words a block puts on screen, for the script shown under the video.
 function scriptOf(plan: DirectorPlan): SmartVideoScriptScene[] {
@@ -386,6 +392,9 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
     const parsed = SmartVideoReviseSchema.parse(input);
     const parent = await readJob(userId, parsed.jobId);
     if (!parent || parent.status !== 'done') return createApiError('Only a finished video can be changed');
+    const sound = { voiceOver: parsed.voiceOver ?? soundOf(parent).voiceOver, music: parsed.music ?? soundOf(parent).music };
+    const sameSound = sound.voiceOver === soundOf(parent).voiceOver && sound.music === soundOf(parent).music;
+    if (!parsed.note && sameSound && !parsed.uploads.length) return createApiError('Write what to change, or switch the voice-over or the music');
     if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
 
     // With new files the edit takes the id its files were uploaded under.
@@ -405,6 +414,9 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
       length: parent.length,
       format: parent.format,
       look: parent.look,
+      // The new version keeps the sound of the video it changes, unless the edit switches it.
+      voiceOver: sound.voiceOver,
+      music: sound.music,
       parentId: parent.id,
       note: parsed.note,
       creditsUsed: PHANTOM_REVISION_CREDITS,
@@ -441,7 +453,8 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, upload
         job = { ...job, status: stage };
         writeJob(job).catch(() => undefined);
       },
-      added
+      added,
+      soundOf(job)
     );
     await finish(job, result, saved.brief || parent.brief, (next) => {
       job = next;

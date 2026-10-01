@@ -18,6 +18,9 @@ export const SmartVideoStartSchema = z.object({
   format: z.enum(VIDEO_FORMATS).default('vertical'),
   // 'auto' = The Phantom picks the look (the default); otherwise the client's pick.
   look: z.enum(VIDEO_LOOKS).default('auto'),
+  // The soundtrack: a narrator reading the script, and music. Both on unless the client switches one off.
+  voiceOver: z.boolean().default(true),
+  music: z.boolean().default(true),
   // Cleaned first: tracking parameters are dropped, so length limits apply to the real link.
   link: z.preprocess((value) => (typeof value === 'string' ? cleanLink(value) : value), z.string().url('That link does not look right').max(1200, 'That link is too long').optional().or(z.literal(''))),
   uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_FILES),
@@ -26,13 +29,22 @@ export const SmartVideoStartSchema = z.object({
 /** An edit may bring a few new files (a new photo, the updated logo, a new clip). */
 export const SMART_VIDEO_MAX_EDIT_FILES = 5;
 
-export const SmartVideoReviseSchema = z.object({
-  jobId: z.string().uuid(),
-  note: z.string().trim().min(3).max(1500),
-  // Files added with the note were uploaded under their own job id; the edit then takes that id.
-  uploadJobId: z.string().uuid().optional(),
-  uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_EDIT_FILES).default([]),
-});
+export const SmartVideoReviseSchema = z
+  .object({
+    jobId: z.string().uuid(),
+    note: z.string().trim().max(1500),
+    // Voice-over and music as the client wants them in the new version; absent = as they are.
+    voiceOver: z.boolean().optional(),
+    music: z.boolean().optional(),
+    // Files added with the note were uploaded under their own job id; the edit then takes that id.
+    uploadJobId: z.string().uuid().optional(),
+    uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_EDIT_FILES).default([]),
+  })
+  // An edit is a note, a switch of the sound, or both.
+  .refine((edit) => edit.note.length >= 3 || edit.voiceOver !== undefined || edit.music !== undefined, {
+    message: 'Write what to change',
+    path: ['note'],
+  });
 
 export type SmartVideoReviseInput = z.input<typeof SmartVideoReviseSchema>;
 
@@ -52,6 +64,9 @@ export interface SmartVideoJob {
   length?: VideoLength;
   format?: VideoFormat;
   look?: VideoLook;
+  /** The soundtrack the client chose. Absent on older videos = on. */
+  voiceOver?: boolean;
+  music?: boolean;
   /** A revision: the job it changes and the client's note. */
   parentId?: string;
   note?: string;

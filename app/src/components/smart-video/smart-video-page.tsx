@@ -257,6 +257,18 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
       </div>
 
       <div className="space-y-2">
+        <Label>Sound</Label>
+        <SoundSwitches
+          id="smart-sound"
+          voiceOver={smart.voiceOver}
+          music={smart.music}
+          onVoiceOver={smart.setVoiceOver}
+          onMusic={smart.setMusic}
+          disabled={smart.isBusy}
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="smart-link">Link (optional)</Label>
         <Input
           id="smart-link"
@@ -340,7 +352,7 @@ function OutputPanel({
   job: SmartVideoJob | null;
   uploading: { done: number; total: number } | null;
   onReset: () => void;
-  onRevise: (note: string, added: File[]) => Promise<boolean>;
+  onRevise: (note: string, added: File[], sound?: { voiceOver: boolean; music: boolean }) => Promise<boolean>;
   revising: boolean;
   onOpen: (jobId: string) => void;
   versions: SmartVideoJob[];
@@ -350,6 +362,15 @@ function OutputPanel({
 }) {
   const [note, setNote] = useState('');
   const [added, setAdded] = useState<File[]>([]);
+  // The sound of the next version starts as the sound of the video on screen
+  const has = { voiceOver: job?.voiceOver !== false, music: job?.music !== false };
+  const [sound, setSound] = useState(has);
+  const shownJobId = job?.id;
+  useEffect(() => {
+    setSound({ voiceOver: has.voiceOver, music: has.music });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when another video is opened
+  }, [shownJobId]);
+  const soundChanged = sound.voiceOver !== has.voiceOver || sound.music !== has.music;
   const addInput = useRef<HTMLInputElement>(null);
   const addFiles = (picked: File[]) => {
     const tooBig = picked.filter((f) => f.size > SMART_VIDEO_MAX_FILE_MB * 1024 * 1024);
@@ -447,14 +468,22 @@ function OutputPanel({
               <Upload className="w-4 h-4 mr-2" />
               Add a new photo, logo or clip
             </Button>
+            <SoundSwitches
+              id="smart-edit-sound"
+              voiceOver={sound.voiceOver}
+              music={sound.music}
+              onVoiceOver={(voiceOver) => setSound((current) => ({ ...current, voiceOver }))}
+              onMusic={(music) => setSound((current) => ({ ...current, music }))}
+              disabled={revising}
+            />
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">Only what you ask for changes; the rest stays. The current version is kept.</p>
               <Button
                 size="sm"
                 className="flex-shrink-0"
-                disabled={revising || note.trim().length < 3}
+                disabled={revising || (note.trim().length < 3 && !soundChanged)}
                 onClick={async () => {
-                  if (await onRevise(note, added)) {
+                  if (await onRevise(note, added, soundChanged ? sound : undefined)) {
                     setNote('');
                     setAdded([]);
                   }
@@ -541,7 +570,11 @@ function OutputPanel({
               </button>
             ))}
           </div>
-          {job.note && <p className="text-sm text-muted-foreground">Your edit: &ldquo;{job.note}&rdquo;</p>}
+          {job.note ? (
+            <p className="text-sm text-muted-foreground">Your edit: &ldquo;{job.note}&rdquo;</p>
+          ) : (
+            job.parentId && <p className="text-sm text-muted-foreground">Your edit: the sound ({soundLabel(job)})</p>
+          )}
         </div>
       )}
 
@@ -562,12 +595,67 @@ function OutputPanel({
           <p>
             <span className="font-medium capitalize">{job.summary.format}</span> · {job.summary.style} look · {job.summary.scenes} scenes ·{' '}
             {Math.round(job.durationSeconds || 0)} s · {job.summary.language.toUpperCase()}
-            {job.summary.captions ? ' · captions' : ''}
+            {job.summary.captions || job.voiceOver === false ? ' · captions' : ''}
+            {job.voiceOver === false || job.music === false ? ` · ${soundLabel(job)}` : ''}
           </p>
           <p className="text-muted-foreground">{job.summary.styleReason}</p>
         </div>
       )}
     </Card>
+  );
+}
+
+/** The soundtrack of a video in words, e.g. "music only". */
+function soundLabel(job: SmartVideoJob): string {
+  const voiceOver = job.voiceOver !== false;
+  const music = job.music !== false;
+  if (voiceOver && music) return 'voice-over and music';
+  if (voiceOver) return 'voice-over only';
+  if (music) return 'music only';
+  return 'no sound';
+}
+
+/** Voice-over on or off, music on or off: on the form for a new video, and under a finished one for the next version. */
+function SoundSwitches({
+  id,
+  voiceOver,
+  music,
+  onVoiceOver,
+  onMusic,
+  disabled,
+}: {
+  id: string;
+  voiceOver: boolean;
+  music: boolean;
+  onVoiceOver: (on: boolean) => void;
+  onMusic: (on: boolean) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="divide-y rounded-lg border">
+      <div className="flex items-start justify-between gap-4 p-3">
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-voice`}>Voice-over</Label>
+          <p className="text-xs text-muted-foreground">
+            {voiceOver ? 'A narrator reads the script.' : 'Off: nobody reads the script. The words appear as captions, in the same rhythm.'}
+          </p>
+        </div>
+        <Switch id={`${id}-voice`} checked={voiceOver} onCheckedChange={onVoiceOver} disabled={disabled} />
+      </div>
+      <div className="flex items-start justify-between gap-4 p-3">
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-music`}>Music</Label>
+          <p className="text-xs text-muted-foreground">
+            {music
+              ? 'Music made for this video.'
+              : voiceOver
+                ? 'Off: the voice plays without music.'
+                : 'Off: the video has no sound. Add your own track where you post it.'}
+          </p>
+        </div>
+        <Switch id={`${id}-music`} checked={music} onCheckedChange={onMusic} disabled={disabled} />
+      </div>
+    </div>
   );
 }
 

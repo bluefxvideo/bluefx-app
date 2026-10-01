@@ -28,6 +28,9 @@ export function useSmartVideo() {
   const [exactWords, setExactWords] = useState(false);
   const [format, setFormat] = useState<VideoFormat>('vertical');
   const [look, setLook] = useState<VideoLook>('auto');
+  // The soundtrack: a narrator and music, each of which the client can switch off
+  const [voiceOver, setVoiceOver] = useState(true);
+  const [music, setMusic] = useState(true);
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -86,6 +89,8 @@ export function useSmartVideo() {
         length: exactWords ? 'script' : 'auto',
         format,
         look,
+        voiceOver,
+        music,
         link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -98,12 +103,12 @@ export function useSmartVideo() {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, look, files, queryClient]);
+  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
   const revise = useCallback(
-    async (note: string, added: File[] = []) => {
+    async (note: string, added: File[] = [], sound?: { voiceOver: boolean; music: boolean }) => {
       if (!jobId) return false;
       setRevising(true);
       try {
@@ -119,7 +124,7 @@ export function useSmartVideo() {
           uploadJobId = requested.data.jobId;
           uploads = requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path }));
         }
-        const revised = await reviseSmartVideoJob({ jobId, note, uploadJobId, uploads });
+        const revised = await reviseSmartVideoJob({ jobId, note, ...sound, uploadJobId, uploads });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);
         queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
@@ -145,6 +150,8 @@ export function useSmartVideo() {
     setFormat(example.format);
     setLook(example.look);
     setExactWords(false);
+    setVoiceOver(true);
+    setMusic(true);
     setFiles([]);
     try {
       const loaded = await Promise.all(
@@ -178,6 +185,10 @@ export function useSmartVideo() {
     setFormat,
     look,
     setLook,
+    voiceOver,
+    setVoiceOver,
+    music,
+    setMusic,
     files,
     addFiles,
     removeFile,
