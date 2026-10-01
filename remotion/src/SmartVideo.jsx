@@ -150,7 +150,7 @@ const STYLES = {
   },
 };
 const MARKER = '"Marker", "Caveat", cursive';
-const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.19, underline: 0.18, push: 0.28 };
+const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.26, underline: 0.26, push: 0.22 };
 // Sounds that reuse another sound's file, and the ones only the whiteboard look plays.
 const SFX_FILE = { underline: 'marker', push: 'whoosh' };
 const WHITEBOARD_ONLY = ['marker', 'underline', 'push'];
@@ -1166,6 +1166,37 @@ const ratioOf = (asset) => (asset?.width && asset?.height ? asset.width / asset.
 // words are written meanwhile, so the hand can take its time and be followed by the eye.
 const drawSeconds = (sceneSeconds, landscape = false) =>
   landscape ? Math.min(4.6, Math.max(2, sceneSeconds * 0.55)) : Math.min(3, Math.max(1.5, sceneSeconds * 0.4));
+// How loud sfx/marker.mp3 is in each of its 159 frames (5.3 s at 30 fps; 1 = its loudest frame). The hand draws in
+// this rhythm: it moves while a stroke sounds and waits in the gaps, so what is heard is what is seen.
+// The file is a real marker recording played at three quarters of its speed: at full speed it is a hurried,
+// squeaky scribble, and anything computed instead of recorded sounds like static. Its silences are cut down to
+// 4 frames: with longer ones the hand stood still in the middle of a picture.
+// Regenerate this list whenever marker.mp3 is replaced (the loudness of each 1/30 s, divided by the largest).
+const MARKER_ENV = [
+  0.01, 0.01, 0.37, 0.44, 0.49, 0.49, 0.37, 0.08, 0.54, 0.52, 0.2, 0.14, 0.08, 0.05, 0.06, 0.23, 0.24, 0.12, 0.22, 0.45, 0.24, 0.23, 0.29, 0.16, 0.14,
+  0.17, 0.48, 0.25, 0.08, 0.03, 0.02, 0.03, 0.21, 0.17, 0.1, 0.15, 0.38, 0.31, 0.1, 0.22, 0.27, 0.18, 0.13, 0.13, 0.2, 0.44, 0.25, 0.13, 0.31, 0.29,
+  0.21, 0.13, 0.33, 0.3, 0.17, 0.09, 0.05, 0.03, 0.2, 0.19, 0.08, 0.19, 0.18, 0.18, 0.36, 0.35, 0.19, 0.07, 0.19, 0.95, 0.62, 0.23, 0.17, 0.59, 0.37,
+  0.13, 0.1, 0.05, 0.05, 0.27, 0.24, 0.07, 0.08, 0.03, 0.04, 0.41, 0.98, 0.67, 0.43, 0.2, 0.38, 0.4, 0.12, 0.07, 0.03, 0.02, 0.26, 0.54, 0.38, 0.17,
+  0.03, 0.05, 0.07, 0.11, 0.69, 0.43, 0.36, 0.35, 0.22, 0.38, 0.54, 0.31, 0.08, 0.04, 0.07, 0.41, 0.71, 0.41, 0.19, 0.1, 0.05, 0.25, 0.31, 0.22, 0.08,
+  0.04, 0.02, 0.0, 0.52, 1.0, 0.87, 0.58, 0.37, 0.14, 0.06, 0.05, 0.06, 0.18, 0.35, 0.22, 0.75, 0.79, 0.51, 0.44, 0.32, 0.18, 0.5, 0.61, 0.35, 0.16,
+  0.51, 0.74, 0.58, 0.3, 0.2, 0.07, 0.06, 0.0, 0.0,
+];
+// The share of a drawing done after `f` of `total` frames, following the marker's strokes.
+function drawnShare(f, total) {
+  if (f <= 0) return 0;
+  if (f >= total) return 1;
+  let done = 0;
+  let all = 0;
+  for (let k = 0; k < total; k++) {
+    // Between strokes the hand slows down, it does not freeze.
+    const stroke = Math.max(0.12, Math.pow(MARKER_ENV[Math.min(k, MARKER_ENV.length - 1)], 0.6));
+    all += stroke;
+    if (k < f) done += stroke;
+  }
+  return done / all;
+}
+const DRAW_START = 4; // frames into the scene at which the hand (and its sound) starts
+const UNDERLINE_STROKE = 104; // the frame of marker.mp3 at which one long, even stroke begins
 const DRAW_ROWS = 8;
 const HAND_SMOOTH = 6; // cells on each side of the tip that the hand's position is averaged over
 
@@ -1199,7 +1230,8 @@ function useDrawing(background, duration, first) {
   const { x, y, w, h } = drawingBox(frameSize, captions, ratioOf(asset));
   const drawFrames = Math.round(drawSeconds(duration / FPS, frameSize.landscape) * FPS);
   // The first scene opens with part of the picture already there (it doubles as the thumbnail).
-  const share = interpolate(frame, [4, 4 + drawFrames], [first ? 0.35 : 0, 1], clamp);
+  const stroked = drawnShare(frame - DRAW_START, drawFrames);
+  const share = first ? 0.35 + 0.65 * stroked : stroked;
   if (path) {
     // The hand follows the drawing's own lines.
     const at = share * path.total;
@@ -1677,12 +1709,13 @@ function autoSfx(scenes, landscape) {
     if (i > 0 && !scene.cut) out.push({ name: 'whoosh', at: scene.start - 0.3 });
     if (scene.background?.type === 'drawing') {
       const seconds = drawSeconds(scene.end - scene.start, landscape);
-      for (let t = 0.1; t < seconds - 0.4; t += 1.45) out.push({ name: 'marker', at: scene.start + t });
+      // The marker's strokes, for as long as the hand draws; the hand moves in their rhythm (see MARKER_ENV).
+      out.push({ name: 'marker', at: scene.start + DRAW_START / FPS, frames: Math.round(seconds * FPS) });
     }
     // What the hand does after drawing (a push, an underline) waits until the drawing is done, and so does its sound.
     const held = scene.background?.type === 'drawing' ? scene.start + drawSeconds(scene.end - scene.start, landscape) + 10 / FPS : scene.start;
     scene.blocks.forEach((block) => {
-      if (block.underlineAt !== undefined) out.push({ name: 'underline', at: Math.max(block.underlineAt, held) });
+      if (block.underlineAt !== undefined) out.push({ name: 'underline', at: Math.max(block.underlineAt, held), frames: 10, startFrom: UNDERLINE_STROKE });
       if (block.push) out.push({ name: 'push', at: Math.max(block.at ?? scene.start, held) });
       if (['chips', 'tiles', 'rows'].includes(block.type)) block.items.forEach((item) => out.push({ name: 'pop', at: item.at ?? block.at ?? scene.start }));
       if (block.type === 'number') out.push({ name: 'chaching', at: (block.at ?? scene.start) + 0.55 });
@@ -1722,8 +1755,13 @@ function Soundtrack({ audio = {}, scenes, duration }) {
       ))}
       {music?.url && <Audio src={src(music.url)} volume={envelope} loop />}
       {sfx.map((s, i) => (
-        <Sequence key={`s${i}`} from={Math.max(0, Math.round(s.at * FPS))} durationInFrames={60}>
-          <Audio src={src(s.url || `smart-video/sfx/${SFX_FILE[s.name] || s.name}.mp3`)} volume={s.volume ?? SFX_VOLUME[s.name] ?? 0.3} />
+        <Sequence key={`s${i}`} from={Math.max(0, Math.round(s.at * FPS))} durationInFrames={s.frames || 60}>
+          <Audio
+            src={src(s.url || `smart-video/sfx/${SFX_FILE[s.name] || s.name}.mp3`)}
+            startFrom={s.startFrom || 0}
+            // A sound with a set length (the marker while the hand draws) comes in and goes out softly.
+            volume={s.frames ? (f) => interpolate(f, [0, Math.min(4, s.frames / 4), s.frames - Math.min(8, s.frames / 3), s.frames], [0, 1, 1, 0], clamp) * (s.volume ?? SFX_VOLUME[s.name] ?? 0.3) : (s.volume ?? SFX_VOLUME[s.name] ?? 0.3)}
+          />
         </Sequence>
       ))}
     </>
