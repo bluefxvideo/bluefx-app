@@ -177,8 +177,8 @@ export function CloneStudioPage() {
               </div>
               <p className="text-sm text-zinc-400">
                 Paste a TikTok, Instagram, Facebook, or YouTube link to the ad you want to clone.
-                We break it into scenes, analyze each one, and let you swap in your own person and
-                product — scene by scene.
+                We break it into scenes. Then the director remakes the ad for your business, or you swap in
+                your own person and product scene by scene.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">

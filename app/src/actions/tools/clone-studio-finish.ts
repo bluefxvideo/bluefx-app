@@ -4,15 +4,14 @@ import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
 import { createAdminClient, createClient } from '@/app/supabase/server';
 import { deductCredits } from '@/actions/database/cinematographer-database';
-import { uploadVideoToStorage } from '@/actions/supabase-storage';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
-import { buildCloneFinish, proposeFinish } from '@/lib/clone-studio/finish';
+import { proposeFinish } from '@/lib/clone-studio/finish';
+import { finishCloneAd, logCloneRun } from '@/lib/clone-studio/render';
 import { mutateProject } from '@/lib/clone-studio/store';
-import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
 import { trackUsage, type UsageEntry } from '@/lib/smart-video/usage';
 import {
-  CLONE_FINISH_CREDITS,
   CLONE_FINISH_STALE_MS,
+  cloneFinishCredits,
   DEFAULT_FINISH_SETTINGS,
   FINISH_LOOKS,
   finishIsCurrent,
@@ -39,7 +38,6 @@ import {
  * there: they go to clone_finish_runs, which only the server can read.
  */
 
-const FILES_BUCKET = 'script-videos';
 const EMPTY_SUMMARY: CloneAnalysisSummary = { summary: '', characters: [], products: [], visual_style: '', music_brief: '' };
 const PICTURES = ['clip', 'still', 'card', 'skip'] as const;
 const SOUNDS = ['clip', 'narrator', 'none'] as const;
@@ -152,6 +150,7 @@ export async function startCloneFinish(projectId: string): Promise<CloneProjectR
   const { userId, project } = loaded;
 
   if (project.status === 'finishing' && !isDead(project)) return { success: false, error: 'This ad is already being finished' };
+  if (project.status === 'directing') return { success: false, error: 'The director is working on this ad. Please wait until it is done.' };
   if (project.aspect_ratio !== '9:16' && project.aspect_ratio !== '16:9') {
     return { success: false, error: 'Only vertical and horizontal ads can be finished here for now. Use "Assemble video" for this one.' };
   }
@@ -168,18 +167,22 @@ export async function startCloneFinish(projectId: string): Promise<CloneProjectR
   const runId = randomUUID();
   const run: FinishRun = { id: runId, stage: 'clips', progress: 0, started_at: new Date().toISOString() };
   const claimed = await mutateProject(projectId, (fresh) =>
-    fresh.status === 'finishing' ? null : { status: 'finishing', error_message: null, analysis_summary: withFinish(fresh, { ...finishOf(fresh.analysis_summary), run }) }
+    fresh.status === 'finishing' || fresh.status === 'directing' ? null : { status: 'finishing', error_message: null, analysis_summary: withFinish(fresh, { ...finishOf(fresh.analysis_summary), run }) }
   );
   if (!claimed) return { success: false, error: 'Project not found' };
   if (claimed.analysis_summary?.finish?.run?.id !== runId) return { success: false, error: 'This ad is already being finished' };
 
-  const charge = await deductCredits(userId, CLONE_FINISH_CREDITS, 'clone_studio_finish', { batch_id: runId, project_id: projectId });
-  if (!charge.success) {
-    const error = charge.error || 'Insufficient credits';
-    await writeRun(projectId, runId, { stage: 'failed', error }, restingStatus);
-    return { success: false, error };
+  // A run that was paid for and ended without its ad left this finishing owed: nothing is charged for it.
+  const credits = cloneFinishCredits(claimed.analysis_summary);
+  if (credits > 0) {
+    const charge = await deductCredits(userId, credits, 'clone_studio_finish', { batch_id: runId, project_id: projectId });
+    if (!charge.success) {
+      const error = charge.error || 'Insufficient credits';
+      await writeRun(projectId, runId, { stage: 'failed', error }, restingStatus);
+      return { success: false, error };
+    }
   }
-  const started = await mutateProject(projectId, (fresh) => ({ credits_spent: (fresh.credits_spent || 0) + CLONE_FINISH_CREDITS }));
+  const started = await mutateProject(projectId, (fresh) => ({ credits_spent: (fresh.credits_spent || 0) + credits }));
   after(() => runFinish(userId, projectId, runId));
   return { success: true, project: started || claimed };
 }
@@ -221,64 +224,31 @@ async function runFinish(userId: string, projectId: string, runId: string): Prom
   const heartbeat = setInterval(() => {
     admin.from('ad_clone_projects').update({ updated_at: new Date().toISOString() } as never).eq('id', projectId).eq('status', 'finishing').then(() => undefined, () => undefined);
   }, 45_000);
-  const stage = (next: FinishStage, progress = 0) => writeRun(projectId, runId, { stage: next, progress }).catch(() => null);
+  const stage = (next: FinishStage, progress = 0) => void writeRun(projectId, runId, { stage: next, progress }).catch(() => null);
   let usage: UsageEntry[] = [];
   try {
-    const { data } = await admin.from('ad_clone_projects').select('*').eq('id', projectId).single();
-    const project = data as unknown as CloneProject;
-    const finish = finishOf(project.analysis_summary);
-    const dir = `clone-finish/${userId}/${runId}`;
-    const store = async (file: Buffer, name: string, contentType: string) => {
-      const { error } = await admin.storage.from(FILES_BUCKET).upload(`${dir}/${name}`, file, { contentType, upsert: true });
-      if (error) throw new Error(`Could not save ${name}: ${error.message}`);
-      return admin.storage.from(FILES_BUCKET).getPublicUrl(`${dir}/${name}`).data.publicUrl;
-    };
-
     console.log(`🎬 Clone Studio: finishing project ${projectId} (run ${runId})`);
-    const built = await trackUsage(() => buildCloneFinish({ project, settings: finish.settings, language: finish.language, store, onStage: (next) => void stage(next) }));
+    const built = await trackUsage(() => finishCloneAd({ userId, projectId, runId, onStage: stage }));
     usage = built.usage;
-    const props = built.result;
+    const ad = built.result;
 
-    await stage('rendering');
-    let reported = 0;
-    const rendered = await renderSmartVideo(props as unknown as Record<string, unknown>, (percent) => {
-      if (percent - reported >= 10) {
-        reported = percent;
-        void stage('rendering', percent);
-      }
+    await mutateProject(projectId, (fresh) => {
+      const finish = finishOf(fresh.analysis_summary);
+      if (finish.run?.id !== runId) return null;
+      return {
+        status: 'completed',
+        final_video_url: ad.url,
+        analysis_summary: withFinish(fresh, { ...finish, made: (finish.made || 0) + 1, owed: false, run: { ...finish.run, stage: 'done', progress: 100 } }),
+      };
     });
-
-    await stage('levelling', 100);
-    const video = await levelLoudness(rendered);
-    const upload = await uploadVideoToStorage(new Blob([new Uint8Array(video)], { type: 'video/mp4' }), {
-      bucket: 'videos',
-      folder: `clone-studio/${projectId}`,
-      filename: `finished-${Date.now()}.mp4`,
-      contentType: 'video/mp4',
-    });
-    if (!upload.success || !upload.url) throw new Error(`Could not store the finished ad: ${upload.error}`);
-
-    const finished = upload.url;
-    await writeRun(projectId, runId, { stage: 'done', progress: 100 }, () => ({ status: 'completed', final_video_url: finished }));
-    await logRun({ id: runId, project_id: projectId, user_id: userId, status: 'done', duration_seconds: props.duration, usage, props });
-    console.log(`✅ Clone Studio: project ${projectId} finished, ${props.duration} s`);
+    await logCloneRun({ id: runId, project_id: projectId, user_id: userId, status: 'done', duration_seconds: ad.seconds, usage, props: ad.props });
+    console.log(`✅ Clone Studio: project ${projectId} finished, ${ad.seconds} s`);
   } catch (error) {
     console.error(`❌ Clone Studio: finishing project ${projectId} failed:`, error);
     const reason = error instanceof Error ? error.message : 'Unknown error';
     await failRun(userId, projectId, runId, reason).catch(() => null);
-    await logRun({ id: runId, project_id: projectId, user_id: userId, status: 'failed', duration_seconds: null, usage, props: null, error: reason });
+    await logCloneRun({ id: runId, project_id: projectId, user_id: userId, status: 'failed', duration_seconds: null, usage, props: null, error: reason });
   } finally {
     clearInterval(heartbeat);
-  }
-}
-
-/** What a run cost in API calls, kept where only the server can read it. The log never fails a run. */
-async function logRun(row: Record<string, unknown>): Promise<void> {
-  try {
-    // clone_finish_runs is newer than the generated database types.
-    const { error } = await (createAdminClient() as any).from('clone_finish_runs').insert(row);
-    if (error) console.warn('Clone Studio: the run was not logged:', error.message, JSON.stringify(row.usage));
-  } catch (error) {
-    console.warn('Clone Studio: the run was not logged:', String(error).slice(0, 160));
   }
 }

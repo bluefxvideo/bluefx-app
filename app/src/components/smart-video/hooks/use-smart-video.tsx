@@ -172,6 +172,36 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     [jobId, queryClient],
   );
 
+  // A failed edit is run again as it was asked: same video, same note, same sound choices.
+  // (Files that came with the failed edit are not sent again; the note box is the place for those.)
+  const retryEdit = useCallback(
+    async (failed: SmartVideoJob) => {
+      if (!failed.parentId) return false;
+      setRevising(true);
+      try {
+        const revised = await reviseSmartVideoJob({ jobId: failed.parentId, note: failed.note || '', voiceOver: failed.voiceOver, music: failed.music, uploads: [] });
+        if (!revised.success) throw new Error(revised.error);
+        setJobId(revised.data.jobId);
+        queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+        queryClient.invalidateQueries({ queryKey: ['user-credits'] });
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not start the edit');
+        return false;
+      } finally {
+        setRevising(false);
+      }
+    },
+    [queryClient],
+  );
+
+  // A failed new video: back to the form, with the text it was made from (the files have to be added again).
+  const tryAgain = useCallback((failed: SmartVideoJob) => {
+    setBrief((current) => current || failed.brief || '');
+    setLink((current) => current || failed.link || '');
+    setJobId(null);
+  }, []);
+
   // "Try this example": the form gets exactly what made the example video, photos and clip included,
   // so the structure is there to copy before the user swaps in their own business.
   const [loadingExample, setLoadingExample] = useState<string | null>(null);
@@ -247,8 +277,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     isBusy: Boolean(uploading) || revising || isRunning(job) || (Boolean(jobId) && !job),
     start,
     reset,
-    // Closes the video on screen and keeps the form as it is (after a failure: fix the input, try again).
-    dismiss: () => setJobId(null),
+    retryEdit,
+    tryAgain,
     openJob: setJobId,
     loadExample,
     loadingExample,

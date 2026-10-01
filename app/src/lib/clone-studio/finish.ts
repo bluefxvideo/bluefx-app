@@ -12,6 +12,7 @@ import { usage } from '@/lib/smart-video/usage';
 import type { CloneProject, CloneScene, FinishSettings, FinishStage, SceneFinish } from '@/types/clone-studio';
 import { sceneClip, spokenLineOf } from '@/types/clone-studio';
 import { NARRATOR_WORDS_PER_SECOND, levelFilter, levelGain, measureLoudness, paceFactor, speakingRate } from './edit';
+import { ownFile } from './files';
 import { cleanupWorkDir, downloadToFile, makeWorkDir } from './segmentation';
 import { buildCloneTimeline, type CloneTimeline, type CutScene } from './timeline';
 
@@ -46,25 +47,8 @@ const MIN_VOICE_SAMPLE_SECONDS = 2.5; // shorter than this and a talking clip is
 // Listening and looking
 // ---------------------------------------------------------------------------
 
-/**
- * The addresses of clips and pictures come from the project row, and a signed-in user can
- * write their own row through the database API. The server and the render server fetch
- * these addresses, so only files in our own storage, or on the video engine's delivery
- * host (where a clip stays when storing it failed), are ever fetched.
- */
-function ownFile(url: string): string {
-  try {
-    const { protocol, hostname } = new URL(url);
-    const ours = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || '').hostname;
-    if (protocol === 'https:' && (hostname === ours || hostname === 'fal.media' || hostname.endsWith('.fal.media'))) return url;
-  } catch {
-    // not an address at all
-  }
-  throw new Error('A scene points to a file that is not part of this project');
-}
-
 /** The sound of a clip as 24 kHz mono WAV, read straight from its address or file. Empty when it has none. */
-async function soundOf(source: string): Promise<Buffer> {
+export async function soundOf(source: string): Promise<Buffer> {
   try {
     const { stdout } = await run('ffmpeg', ['-v', 'error', '-i', source, '-vn', '-ac', '1', '-ar', '24000', '-f', 'wav', '-'], { ...BIG, encoding: 'buffer', timeout: 120_000 });
     return stdout;

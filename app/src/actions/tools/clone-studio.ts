@@ -6,14 +6,10 @@ import { createClient, createAdminClient } from '@/app/supabase/server';
 import {
   uploadVideoToStorage,
   uploadImageToStorage,
-  downloadAndUploadImage,
 } from '@/actions/supabase-storage';
 import { deductCredits } from '@/actions/database/cinematographer-database';
 import { refundFailedGeneration } from '@/lib/credits/refund';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
-import { generateWithFalNanaBanana2, type NanoBananaAspectRatio } from '@/actions/models/fal-nano-banana-2';
-import { editWithGptImage2 } from '@/actions/models/fal-gpt-image-2';
-import { imageEngine } from '@/lib/image-engine';
 import {
   submitKlingO3ProImageToVideo,
   getKlingQueueStatus,
@@ -21,6 +17,7 @@ import {
 } from '@/actions/models/fal-kling-video';
 import { finalizeCloneAnimation, failCloneAnimation } from '@/lib/clone-studio/animation';
 import { mutateProject, type ProjectPatch } from '@/lib/clone-studio/store';
+import { makeScenePicture, withPicture } from '@/lib/clone-studio/picture';
 import { assembleClips } from '@/lib/clone-studio/assembly';
 import { detectTempo } from '@/lib/clone-studio/tempo';
 import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
@@ -43,6 +40,7 @@ import {
   CLONE_IMAGE_CREDITS,
   CLONE_INGEST_CREDITS,
   CLONE_MAX_IMAGE_VERSIONS,
+  CLONE_MAX_PROJECT_REFS,
   CLONE_MAX_SOURCE_SECONDS,
   CLONE_MUSIC_CREDITS,
   composeMotionPrompt,
@@ -501,40 +499,6 @@ export async function uploadCloneReference(
 }
 
 /**
- * The edit prompt intentionally does NOT restate the original character
- * description (it would fight the user's swap instruction) and does NOT
- * carry the scene's action-arc invariants — those describe the whole scene's
- * motion and can reference objects that aren't in this frame, which makes the
- * edit model ADD them (a "the can never comes off" rule conjured a can into
- * an untouched hand). The frame itself is the only ground truth; invariants
- * stay in the animation prompt where they belong.
- */
-function buildSceneEditPrompt(scene: CloneScene, refCount: number): string {
-  const parts: string[] = [];
-  parts.push('Edit the first image — a single frame from a video ad.');
-  if (scene.user_instruction?.trim()) {
-    parts.push(`Apply these changes: ${scene.user_instruction.trim()}.`);
-  } else {
-    parts.push('Recreate this frame faithfully with no content changes.');
-  }
-  if (refCount > 0) {
-    parts.push(
-      refCount === 1
-        ? 'Use the additional reference image for the exact identity and appearance of the replacement person or product.'
-        : `Use the ${refCount} additional reference images for the exact identity and appearance of the replacement people or products.`
-    );
-  }
-  parts.push(
-    "Preserve everything else from the first image EXACTLY: framing, camera angle, perspective, lens look, lighting, color grade, background, setting, all other people and objects, and the subject's pose and expression."
-  );
-  parts.push(
-    'Do NOT add, remove, or relocate any object beyond what the requested changes require. If the frame shows a physically impossible or comedic state, that state must remain true in the edited frame.'
-  );
-  parts.push('Photorealistic, seamless edit. No borders, no added text, no watermark.');
-  return parts.join(' ');
-}
-
-/**
  * Generate/regenerate the swapped keyframe for one scene. Always edits from
  * the ORIGINAL keyframe (fresh edits don't compound artifacts); the previous
  * result is kept in image_versions for one-click restore.
@@ -562,74 +526,14 @@ export async function generateSceneImage(
   }
 
   try {
-    // FAL rejects images over ~5MB after base64 inflation — compress if needed
-    const keyframe = (await ensureFalCompatibleImage(scene.keyframe_url, attemptId, `scene${sceneN}-key`))!;
-    // Project-level refs (same person/product in every scene) come first,
-    // then scene-specific ones; dedup, cap 6 total. Refs the user removed
-    // from this scene's card are skipped.
-    const excluded = new Set(scene.excluded_project_ref_urls || []);
-    const projectRefs = (project.analysis_summary?.project_ref_urls || []).filter(
-      (url) => !excluded.has(url)
-    );
-    const combinedRefs = [...new Set([...projectRefs, ...(scene.user_ref_urls || [])])].slice(0, 6);
-    const refs: string[] = [];
-    for (const [i, url] of combinedRefs.entries()) {
-      const guarded = await ensureFalCompatibleImage(url, attemptId, `scene${sceneN}-ref${i + 1}`);
-      if (guarded) refs.push(guarded);
-    }
-
-    const prompt = buildSceneEditPrompt(scene, refs.length);
-    // GPT Image 2.5 edits by default (see src/lib/image-engine.ts); nb2 stays
-    // available per scene and as the IMAGE_ENGINE=nb2 rollback.
-    const engine: CloneImageEngine = options.engine || (imageEngine() === 'gpt25' ? 'gpt2' : 'nb2');
-
-    const result =
-      engine === 'gpt2'
-        ? await editWithGptImage2({ prompt, image_urls: [keyframe, ...refs] })
-        : await generateWithFalNanaBanana2({
-            prompt,
-            image_input: [keyframe, ...refs],
-            aspect_ratio: (project.aspect_ratio || 'auto') as NanoBananaAspectRatio,
-            output_format: 'jpeg',
-          });
-
-    if (!result.success || !result.imageUrl) {
-      throw new Error(result.error || 'Image generation failed');
-    }
-
-    // Persist to our storage — fal URLs are temporary
-    const stored = await downloadAndUploadImage(result.imageUrl, 'clone-studio', undefined, {
-      bucket: 'images',
-      folder: `clone-studio/${projectId}`,
-      filename: `scene-${String(sceneN).padStart(2, '0')}-edit-${Date.now()}.jpg`,
-      contentType: 'image/jpeg',
-    });
-    if (!stored.success || !stored.url) {
-      throw new Error(`Could not store the generated image: ${stored.error}`);
-    }
+    const url = await makeScenePicture(project, scene, attemptId, options.engine);
 
     // Parallel generations on other scenes write the same jsonb column: the
     // picture goes into the board as it is now, not as it was 30 seconds ago
-    const url = stored.url;
     return await changeScene(
       projectId,
       sceneN,
-      (s) => {
-        // image_versions is the FULL history (newest first) INCLUDING the
-        // current image; edited_image_url is just the selected pointer. Stable
-        // order means the version strip never reshuffles on restore. Legacy
-        // rows (current not in the list) converge here.
-        const history = s.image_versions || [];
-        const withCurrent = s.edited_image_url && !history.includes(s.edited_image_url)
-          ? [s.edited_image_url, ...history]
-          : history;
-        return {
-          ...s,
-          edited_image_url: url,
-          image_versions: [url, ...withCurrent].slice(0, CLONE_MAX_IMAGE_VERSIONS),
-          credits_spent: (s.credits_spent || 0) + CLONE_IMAGE_CREDITS,
-        };
-      },
+      (s) => ({ ...withPicture(s, url), credits_spent: (s.credits_spent || 0) + CLONE_IMAGE_CREDITS }),
       (fresh) => ({ credits_spent: (fresh.credits_spent || 0) + CLONE_IMAGE_CREDITS })
     );
   } catch (error) {
@@ -961,7 +865,7 @@ export async function updateProjectReferences(
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
 
-  return changeSummary(projectId, (summary) => ({ ...summary, project_ref_urls: urls.slice(0, 6) }));
+  return changeSummary(projectId, (summary) => ({ ...summary, project_ref_urls: urls.slice(0, CLONE_MAX_PROJECT_REFS) }));
 }
 
 /**

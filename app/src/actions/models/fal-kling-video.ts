@@ -15,6 +15,9 @@
  */
 
 const KLING_I2V_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/pro/image-to-video';
+// The standard tier of the same engine: 720p, takes the same inputs. Measured 2026-10-01:
+// 0.6 billable units a second without sound ($0.084), 0.8 with sound.
+const KLING_STANDARD_I2V_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/standard/image-to-video';
 const KLING_T2V_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/pro/text-to-video';
 const KLING_BASE = 'fal-ai/kling-video';
 
@@ -38,6 +41,8 @@ export interface KlingO3ProSubmitParams {
   multi_prompt?: Array<{ prompt: string; duration: number }>;
   generate_audio?: boolean;
   webhook_url?: string;
+  /** Image-to-video only: 'standard' orders the 720p tier. Absent = pro. */
+  tier?: 'pro' | 'standard';
 }
 
 async function submitKlingO3Pro(
@@ -47,7 +52,7 @@ async function submitKlingO3Pro(
   if (!falKey) return { success: false, error: 'FAL_KEY not configured' };
 
   try {
-    let url = params.image_url ? KLING_I2V_SUBMIT_URL : KLING_T2V_SUBMIT_URL;
+    let url = params.image_url ? (params.tier === 'standard' ? KLING_STANDARD_I2V_SUBMIT_URL : KLING_I2V_SUBMIT_URL) : KLING_T2V_SUBMIT_URL;
     if (params.webhook_url) {
       url += `?fal_webhook=${encodeURIComponent(params.webhook_url)}`;
     }
@@ -93,7 +98,7 @@ async function submitKlingO3Pro(
       return { success: false, error: 'Video submit returned no request_id' };
     }
 
-    console.log(`🎬 Kling O3 Pro submitted: ${result.request_id} (${duration}s, ${params.image_url ? 'i2v' : 't2v'}, audio ${params.generate_audio !== false ? 'on' : 'off'})`);
+    console.log(`🎬 Kling O3 ${params.image_url && params.tier === 'standard' ? 'Standard' : 'Pro'} submitted: ${result.request_id} (${duration}s, ${params.image_url ? 'i2v' : 't2v'}, audio ${params.generate_audio !== false ? 'on' : 'off'})`);
     return { success: true, request_id: result.request_id };
   } catch (error) {
     console.error('🚨 Kling O3 Pro submit error:', error);

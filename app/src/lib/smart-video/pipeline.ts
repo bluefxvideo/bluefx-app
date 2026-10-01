@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { directVideo, reviseVideo } from './director';
 import {
   MOTION_CLIP_SECONDS,
@@ -16,6 +17,7 @@ import {
 import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
+import { tracePng } from './drawing-path';
 import {
   LISTING_MAX_PAUSE,
   LISTING_MIN_PHOTOS,
@@ -83,8 +85,15 @@ export interface SmartVideoMedia {
   digits?: Record<string, NumberSpan[]>;
   /** The video is an automatic listing video; a revision keeps its recipe and its plain cuts. */
   listing?: ListingOptions;
-  /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips (`seconds` = a clip's length). */
-  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number; seconds?: number }>;
+  /**
+   * What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips.
+   * `seconds`: an animated clip's length.
+   * `path`: a whiteboard drawing's lines as x0, y0, x1, y1, ... (0 to 1), in the order the hand draws them.
+   */
+  assets: Record<
+    string,
+    { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number; seconds?: number; path?: number[] }
+  >;
 }
 
 export interface SmartVideoResult {
@@ -261,6 +270,9 @@ async function produce(
               cutoutUrl: cutoutUrls.get(a.id) || undefined,
               // A tall picture cannot fill a wide frame; the renderer shows it whole instead.
               portrait: Boolean(a.width && a.height && a.height > a.width * 1.15),
+              // The picture's own shape: a card that crops a square or tall photo to a wide one cuts faces.
+              width: a.width,
+              height: a.height,
             },
           ] as const
       ),
@@ -268,7 +280,7 @@ async function produce(
   };
   if (listing?.animate) await animateListingPhotos(plan, media, assets, store, clips);
   const props = buildProps(plan, media);
-  return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
+  return { props, plan, media, durationSeconds: props.duration, warnings: [...clientWarnings(plan), ...softPhotoWarnings(plan, assets)] };
 }
 
 /**
@@ -333,6 +345,8 @@ export async function reviseSmartVideo(
     onStage('producing');
     const media = { ...previous.media, sound, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
     await addFiles(plan, media, added, store);
+    await measurePhotos(media);
+    await traceDrawings(plan, media);
     // Whiteboard: a drawing that is new, or whose description changed, is drawn again; the others are kept.
     const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
     const redraw = (plan.drawings || []).filter((d) => !media.assets[d.id] || before.get(d.id) !== d.prompt);
@@ -367,14 +381,58 @@ export async function reviseSmartVideo(
   return { ...result, usage };
 }
 
+/**
+ * A photo much smaller than the card it is shown in comes out soft. The engine cannot sharpen it,
+ * but the client can upload a larger one, so they are told which photo it is.
+ */
+const SOFT_PHOTO_PX = 500;
+function softPhotoWarnings(plan: DirectorPlan, assets: SmartAsset[]): string[] {
+  const shown = new Set(plan.scenes.flatMap((scene) => [scene.background.asset, ...scene.blocks.flatMap((b) => ('asset' in b ? [b.asset] : 'assets' in b ? b.assets : []))]));
+  const logos = new Set(plan.assets.filter((a) => a.role === 'logo').map((a) => a.id));
+  return assets
+    .filter((a) => a.kind === 'image' && shown.has(a.id) && !logos.has(a.id) && a.width && a.height && Math.max(a.width, a.height) < SOFT_PHOTO_PX)
+    .map((a) => `The photo "${a.filename}" is small (${a.width} x ${a.height} pixels) and looks soft in the video. A larger version of it will look sharper.`);
+}
+
+/** Drawings made before their lines were traced: trace them once, so an edit's hand follows the lines too. */
+async function traceDrawings(plan: DirectorPlan, media: SmartVideoMedia): Promise<void> {
+  await Promise.all(
+    (plan.drawings || []).map(async ({ id }) => {
+      const asset = media.assets[id];
+      if (!asset || asset.path?.length || !/^https?:/.test(asset.url)) return;
+      try {
+        const png = Buffer.from(await (await fetch(asset.url, { signal: AbortSignal.timeout(20_000) })).arrayBuffer());
+        media.assets[id] = { ...asset, path: await tracePng(png) };
+      } catch {
+        // an untraced drawing is revealed row by row, as before
+      }
+    })
+  );
+}
+
+/** Videos made before sizes were saved: measure their photos once, so an edit shows them in their own shape. */
+async function measurePhotos(media: SmartVideoMedia): Promise<void> {
+  await Promise.all(
+    Object.entries(media.assets).map(async ([id, asset]) => {
+      if (asset.kind !== 'image' || asset.width || !/^https?:/.test(asset.url)) return;
+      try {
+        const { width, height } = await sharp(Buffer.from(await (await fetch(asset.url, { signal: AbortSignal.timeout(20_000) })).arrayBuffer())).metadata();
+        if (width && height) media.assets[id] = { ...asset, width, height };
+      } catch {
+        // an unmeasured photo keeps the card the director chose
+      }
+    })
+  );
+}
+
 /** Whiteboard drawings, in parallel. One that fails leaves its scene on the plain board rather than failing the video. */
 async function makeDrawings(list: { id: string; prompt: string }[], store: StoreFile) {
   const made = await Promise.all(
     list.map(async (d) => {
       try {
-        const { png, width, height } = await generateDrawing(d.prompt);
+        const { png, width, height, path } = await generateDrawing(d.prompt);
         const url = await store(png, `${d.id}-${Date.now().toString(36)}.png`, 'image/png');
-        return [d.id, { url, kind: 'image' as const, width, height }] as const;
+        return [d.id, { url, kind: 'image' as const, width, height, path }] as const;
       } catch (error) {
         console.warn(`⚠️ Drawing ${d.id} failed:`, String(error).slice(0, 160));
         return null;
@@ -402,6 +460,8 @@ async function addFiles(plan: DirectorPlan, media: SmartVideoMedia, added: Smart
         kind: a.kind,
         cutoutUrl: cutoutUrl || undefined,
         portrait: Boolean(a.width && a.height && a.height > a.width * 1.15),
+        width: a.width,
+        height: a.height,
       };
       if (heard) media.clipWords[a.id] = heard;
     })
@@ -498,7 +558,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       blocks: (startFrom !== undefined ? speakerBlocks(scene.blocks) : scene.blocks).map((block, k, shown) => {
         // The first headline of a scene is on screen from its first frame: no empty openings.
         const opening = k === shown.findIndex((b) => b.type === 'title' || b.type === 'badge');
-        const staged = stageBlock(block, k, opening ? () => undefined : at, plan.language, i === 0);
+        const staged = stageBlock(block, k, opening ? () => undefined : at, plan.language, i === 0, at);
         // A listing's asking price does not count up: every number on the way would be a wrong price.
         if (media.listing && staged.type === 'number') return { ...staged, still: true };
         // The figures of a home read as figures: "3,225", not "3225".
@@ -654,7 +714,15 @@ function speakerBlocks(blocks: DirectorBlock[]): DirectorBlock[] {
 
 // Director block → renderer block: cues become times; small decorative
 // rotations are added here so the director never deals with them.
-function stageBlock(block: DirectorBlock, index: number, at: (cue?: string | null) => number | undefined, language: string, hook: boolean) {
+function stageBlock(
+  block: DirectorBlock,
+  index: number,
+  at: (cue?: string | null) => number | undefined,
+  language: string,
+  hook: boolean,
+  // The opening title has no cue of its own (`at` answers nothing for it), but its underline still follows the voice.
+  underline: (cue?: string | null) => number | undefined = at
+) {
   switch (block.type) {
     case 'chips':
     case 'rows':
@@ -678,12 +746,14 @@ function stageBlock(block: DirectorBlock, index: number, at: (cue?: string | nul
       return { ...number, prefix, suffix, locale: language, at: at(cue) };
     }
     case 'title': {
-      const { cue, ...title } = block;
+      const { cue, underlineCue, ...title } = block;
       // Size follows the longest line, so short punchy lines come out huge.
       const longest = Math.max(...title.text.split('\n').map((line) => line.length));
       const size = longest <= 10 ? 'xl' : longest <= (hook ? 16 : 14) ? 'l' : longest <= 19 ? 'm' : 's';
       const stamp = title.tone === 'accent' && size === 'xl';
-      return { ...title, size, anim: stamp ? 'stamp' : undefined, rotate: stamp ? -4 : size === 'm' ? -2 : 0, at: at(cue) };
+      // The line under a title is drawn when the narrator says the words; a cue that is not in the narration draws none.
+      const underlineAt = underlineCue ? underline(underlineCue) : undefined;
+      return { ...title, size, anim: stamp ? 'stamp' : undefined, rotate: stamp ? -4 : size === 'm' ? -2 : 0, at: at(cue), underlineAt };
     }
     default: {
       const { cue, ...rest } = block;

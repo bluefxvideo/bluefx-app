@@ -21,6 +21,16 @@ export function soundLabel(job: SmartVideoJob): string {
   return 'no sound';
 }
 
+/** What went wrong, in words a client can use. Older failures were saved with the raw answer of the AI service. */
+export function plainError(error?: string): string {
+  if (!error) return 'unknown reason';
+  const refund = /\d+ credits have been returned to your balance\./.exec(error)?.[0] ?? '';
+  if (/\(503\)|\(429\)|high demand|UNAVAILABLE|overloaded/i.test(error)) {
+    return `the AI model that plans the video was overloaded for a moment. Nothing is wrong with your video or your note. ${refund}`.trim();
+  }
+  return error;
+}
+
 /** Voice-over on or off, music on or off: on the form for a new video, and under a finished one for the next version. */
 export function SoundSwitches({
   id,

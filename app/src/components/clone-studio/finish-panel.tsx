@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { checkCloneFinish, prepareCloneFinish, saveCloneFinish, startCloneFinish } from '@/actions/tools/clone-studio-finish';
 import {
-  CLONE_FINISH_CREDITS,
+  cloneFinishCredits,
   DEFAULT_FINISH_SETTINGS,
   FINISH_LOOKS,
   finishIsCurrent,
@@ -60,6 +60,8 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
   useEffect(() => setSettings(JSON.parse(savedKey)), [savedKey]);
   const run = finish?.run;
   const running = project.status === 'finishing';
+  const directing = project.status === 'directing';
+  const credits = cloneFinishCredits(project.analysis_summary);
   const supported = project.aspect_ratio === '9:16' || project.aspect_ratio === '16:9';
   const unchecked = project.scenes.filter((scene) => !finishIsCurrent(scene)).length;
   const usable = project.scenes.some((scene) => sceneClip(scene) || scene.edited_image_url);
@@ -138,9 +140,10 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
               setOpen(true);
               if (unchecked > 0) void check();
             }}
-            disabled={!supported}
+            disabled={!supported || directing}
+            variant={project.analysis_summary?.auto?.planned ? 'outline' : 'default'}
           >
-            Set up the finish
+            {project.analysis_summary?.auto?.planned ? 'Change words, text or music' : 'Set up the finish'}
           </Button>
         )}
       </div>
@@ -168,7 +171,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
 
       {!running && run?.stage === 'failed' && run.error && <p className="text-xs text-red-400">{run.error}</p>}
 
-      {open && !running && supported && (
+      {open && !running && !directing && supported && (
         <>
           {checking ? (
             <p className="text-xs text-zinc-400 flex items-center gap-2">
@@ -253,7 +256,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
             </p>
             <Button onClick={start} disabled={starting || checking || unchecked > 0} size="lg" className="h-11 px-6 font-medium">
               {starting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Clapperboard className="w-4 h-4 mr-2" />}
-              {project.final_video_url ? 'Finish again' : 'Finish the ad'} · {CLONE_FINISH_CREDITS} credits
+              {project.final_video_url ? 'Finish again' : 'Finish the ad'} · {credits > 0 ? `${credits} credits` : 'free this time'}
             </Button>
           </div>
         </>

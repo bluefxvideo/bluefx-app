@@ -11,7 +11,7 @@ import { containerStyles } from '@/lib/container-styles';
 import { cn } from '@/lib/utils';
 import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import type { useSmartVideo } from '@/components/smart-video/hooks/use-smart-video';
-import { SoundSwitches, soundLabel } from '@/components/smart-video/shared';
+import { SoundSwitches, plainError, soundLabel } from '@/components/smart-video/shared';
 import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
 import type { AutomaticVideoExample } from '../examples';
 import { AutomaticVideoExamples } from '../reelestate-examples';
@@ -68,7 +68,7 @@ export function AutomaticOutput({
     else if (watched.current === job.id) {
       watched.current = null;
       if (job.status === 'done') toast.success('Your listing video is ready.');
-      else toast.error(`The video could not be made: ${job.error || 'unknown reason'}`);
+      else toast.error(`${job.parentId ? 'The change could not be made' : 'The video could not be made'}: ${plainError(job.error)}`);
     }
   }, [job]);
 
@@ -147,12 +147,29 @@ export function AutomaticOutput({
         </>
       ) : job.status === 'failed' ? (
         <div className="space-y-3">
-          <p className="text-sm text-destructive">The video could not be made: {job.error || 'unknown reason'}</p>
-          <p className="text-xs text-muted-foreground">Your link, photos and facts are still in the form.</p>
-          <Button variant="outline" onClick={video.dismiss}>
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Try again
-          </Button>
+          <p className="text-sm text-destructive">
+            {job.parentId ? 'The change could not be made' : 'The video could not be made'}: {plainError(job.error)}
+          </p>
+          {job.parentId ? (
+            // A failed change: the video is untouched. Run the same change again, or go back to the video.
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={video.revising} onClick={() => video.retryEdit(job)}>
+                {video.revising ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                Try the change again · {PHANTOM_REVISION_CREDITS} credits
+              </Button>
+              <Button variant="outline" onClick={() => video.openJob(job.parentId as string)}>
+                Back to the video
+              </Button>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">Your link, photos and facts are still in the form.</p>
+              <Button variant="outline" onClick={() => video.tryAgain(job)}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Try again
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <>

@@ -29,7 +29,7 @@ import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
 import { PhantomExamples, PhantomTips } from './phantom-examples';
-import { FileThumb, SoundSwitches, soundLabel } from './shared';
+import { FileThumb, SoundSwitches, plainError, soundLabel } from './shared';
 import type { PhantomExample } from '@/lib/smart-video/examples';
 
 // The tool's persona: an unseen genius who does the work and leaves you the credit.
@@ -151,6 +151,8 @@ export function SmartVideoPage() {
             job={job}
             uploading={smart.uploading}
             onReset={smart.reset}
+            onRetryEdit={smart.retryEdit}
+            onTryAgain={smart.tryAgain}
             onRevise={smart.revise}
             revising={smart.revising}
             onOpen={smart.openJob}
@@ -340,6 +342,8 @@ function OutputPanel({
   job,
   uploading,
   onReset,
+  onRetryEdit,
+  onTryAgain,
   onRevise,
   revising,
   onOpen,
@@ -351,6 +355,8 @@ function OutputPanel({
   job: SmartVideoJob | null;
   uploading: { done: number; total: number } | null;
   onReset: () => void;
+  onRetryEdit: (failed: SmartVideoJob) => Promise<boolean>;
+  onTryAgain: (failed: SmartVideoJob) => void;
   onRevise: (note: string, added: File[], sound?: { voiceOver: boolean; music: boolean }) => Promise<boolean>;
   revising: boolean;
   onOpen: (jobId: string) => void;
@@ -497,12 +503,28 @@ function OutputPanel({
       ) : job.status === 'failed' ? (
         <div className="space-y-3">
           <p className="text-sm text-destructive">
-            {NAME} vanished mid-job: {job.error || 'unknown reason'}
+            {job.parentId ? 'This edit did not go through' : `${NAME} vanished mid-job`}: {plainError(job.error)}
           </p>
-          <Button variant="outline" onClick={onReset}>
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Start over
-          </Button>
+          {job.parentId ? (
+            // A failed edit: the video is untouched. Run the same edit again, or go back to the video.
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={revising} onClick={() => onRetryEdit(job)}>
+                {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                Try the edit again · {PHANTOM_REVISION_CREDITS} credits
+              </Button>
+              <Button variant="outline" onClick={() => onOpen(job.parentId as string)}>
+                Back to the video
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Button variant="outline" onClick={() => onTryAgain(job)}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Try again
+              </Button>
+              <p className="text-xs text-muted-foreground">Your text goes back into the form. Add your files again, then summon {PHANTOM}.</p>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -566,6 +588,7 @@ function OutputPanel({
                 )}
               >
                 {i === 0 ? 'Original' : `Edit ${i}`}
+                {version.status === 'failed' && ' (failed)'}
               </button>
             ))}
           </div>
@@ -653,7 +676,8 @@ function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; cur
             <button
               key={root.id}
               type="button"
-              onClick={() => onOpen(latest.id)}
+              // A failed edit leaves the video as it was: the card opens the last good version, not the failure.
+              onClick={() => onOpen((latest.status === 'failed' && shown ? shown : latest).id)}
               className={cn(
                 'overflow-hidden rounded-lg border bg-card text-left transition hover:border-primary/60',
                 versions.some((v) => v.id === currentId) && 'border-primary',
@@ -679,11 +703,14 @@ function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; cur
                     Working
                   </span>
                 )}
-                {latest.status === 'failed' && (
-                  <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[11px] text-destructive-foreground">
-                    Failed
-                  </span>
-                )}
+                {latest.status === 'failed' &&
+                  (shown ? (
+                    <span className="absolute left-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] text-black">Last edit failed</span>
+                  ) : (
+                    <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[11px] text-destructive-foreground">
+                      Failed
+                    </span>
+                  ))}
                 {versions.length > 1 && (
                   <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] text-white">
                     {versions.length} versions
