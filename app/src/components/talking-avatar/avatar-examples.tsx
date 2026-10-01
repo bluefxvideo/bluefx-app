@@ -18,6 +18,10 @@ export function AvatarExamples({ onTry }: { onTry: (example: AvatarExample) => v
       media={(example) => (
         <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.resolution === 'landscape'} />
       )}
+      cost={(example) => {
+        const rate = example.credits / example.seconds;
+        return `Cost: ${example.credits} credits · ${example.seconds} seconds at ${rate} ${rate === 1 ? 'credit' : 'credits'} a second`;
+      }}
       renderInputs={(example) => (
         <>
           <ExampleText>{example.script}</ExampleText>

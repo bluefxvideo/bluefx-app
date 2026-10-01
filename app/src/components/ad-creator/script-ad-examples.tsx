@@ -23,6 +23,7 @@ export function ScriptAdExamples({
       media={(example) => (
         <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.aspectRatio === '16:9'} />
       )}
+      cost={(example) => `Cost: ${example.credits} credits in total · ${example.scenes} pictures, ${example.scenes} clips and the voice`}
       renderInputs={(example) => (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -32,7 +33,6 @@ export function ScriptAdExamples({
             <ExampleChip>{example.aspectRatio}</ExampleChip>
             <ExampleChip>{example.scenes} scenes</ExampleChip>
             <ExampleChip>Voice: {example.voice.name}</ExampleChip>
-            <ExampleChip>{example.credits} credits in total</ExampleChip>
           </div>
           <ExampleText>Script: {example.script}</ExampleText>
         </>

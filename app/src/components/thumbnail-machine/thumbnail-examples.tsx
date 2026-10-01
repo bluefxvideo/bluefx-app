@@ -23,6 +23,7 @@ export function ThumbnailExamples({
       icon={ImageIcon}
       examples={THUMBNAIL_EXAMPLES}
       media={(example) => <ExampleImages urls={[example.image]} alt={example.title} />}
+      cost={(example) => `Cost: ${example.credits} credits for one thumbnail`}
       renderInputs={(example) => (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -31,7 +32,6 @@ export function ThumbnailExamples({
             ))}
             {example.references.length === 0 && <ExampleChip>No reference photo</ExampleChip>}
             <ExampleChip>Text Overlay: {example.textOverlay}</ExampleChip>
-            <ExampleChip>{example.credits} credits</ExampleChip>
           </div>
           <ExampleText>{example.prompt}</ExampleText>
         </>

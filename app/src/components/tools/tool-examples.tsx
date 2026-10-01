@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Clapperboard, Loader2, Wand2, type LucideIcon } from 'lucide-react';
+import { Clapperboard, Coins, Loader2, Wand2, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,7 @@ export function ToolExamples<T extends ToolExample>({
   icon: Icon = Clapperboard,
   examples,
   media,
+  cost,
   renderInputs,
   onTry,
   loadingId,
@@ -38,6 +39,8 @@ export function ToolExamples<T extends ToolExample>({
   examples: T[];
   /** The result itself: an ExampleVideo or ExampleImages. */
   media: (example: T) => ReactNode;
+  /** What this example cost to make, in credits, with how the price adds up. */
+  cost: (example: T) => string;
   /** The "What went in" contents: the text, files and settings behind the result. */
   renderInputs: (example: T) => ReactNode;
   onTry: (example: T) => void;
@@ -77,9 +80,13 @@ export function ToolExamples<T extends ToolExample>({
 
       <div key={example.id}>{media(example)}</div>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <p className="text-sm font-medium">{example.title}</p>
         <p className="text-xs text-muted-foreground">{example.shows}</p>
+        <p className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-medium">
+          <Coins className="w-3.5 h-3.5 shrink-0 text-primary" />
+          {cost(example)}
+        </p>
       </div>
 
       <div className="space-y-3 rounded-lg border bg-muted/30 p-3">

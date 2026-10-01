@@ -9,7 +9,7 @@ import type { AvatarQualityTier } from '@/types/talking-avatar-tiers';
  */
 export interface AvatarExample {
   id: string;
-  /** Short chip label: the quality tier it shows. */
+  /** Short chip label: the quality tier it shows and its price. */
   label: string;
   title: string;
   /** One line on what the example teaches about structuring the input. */
@@ -25,6 +25,10 @@ export interface AvatarExample {
   /** "How should the avatar move?", empty when left blank. */
   action: string;
   resolution: 'landscape' | 'portrait';
+  /** Length of the finished video, the length that was charged. */
+  seconds: number;
+  /** What the video cost: seconds times the tier's price per second. */
+  credits: number;
 }
 
 const EXAMPLES_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/script-videos/examples/ai-avatar`;
@@ -42,7 +46,7 @@ function example({ photo, ...e }: Omit<AvatarExample, 'videoUrl' | 'posterUrl' |
 export const AVATAR_EXAMPLES: AvatarExample[] = [
   example({
     id: 'ultra',
-    label: 'Ultra',
+    label: 'Ultra · 8 credits a second',
     title: 'The most realistic lip sync, kept short',
     shows: 'Dwayne from the avatar library and 18 words. Ultra has the most lifelike face and mouth at 8 credits a second, so short scripts pay off.',
     tier: 'ultra',
@@ -50,10 +54,12 @@ export const AVATAR_EXAMPLES: AvatarExample[] = [
     script: "Hi, I'm Dwayne from Carter Heating and Air. AC quit on you? We come out the same day.",
     action: '',
     resolution: 'landscape',
+    seconds: 9,
+    credits: 72,
   }),
   example({
     id: 'fast',
-    label: 'Fast',
+    label: 'Fast · 2 credits a second',
     title: 'A roofer who speaks the script himself',
     shows: 'Frank from the avatar library and 29 words. On Fast the avatar speaks the script with a voice chosen for him, 2 credits a second.',
     tier: 'fast',
@@ -61,10 +67,12 @@ export const AVATAR_EXAMPLES: AvatarExample[] = [
     script: "Hi, I'm Frank. I've fixed roofs in this town for thirty years. After a storm, call me first. The inspection is free, and I come out the same day.",
     action: '',
     resolution: 'landscape',
+    seconds: 14,
+    credits: 28,
   }),
   example({
     id: 'basic',
-    label: 'Basic',
+    label: 'Basic · 1 credit a second',
     title: 'A voice you pick, at the lowest price',
     shows: 'Marcus from the avatar library, 35 words and a voice picked from the list. Basic lip-syncs the voice you choose or upload, 1 credit a second.',
     tier: 'standard',
@@ -73,5 +81,7 @@ export const AVATAR_EXAMPLES: AvatarExample[] = [
     voice: { id: 'English_DecentYoungMan', name: 'Lucas (Decent)' },
     action: '',
     resolution: 'landscape',
+    seconds: 10,
+    credits: 10,
   }),
 ];

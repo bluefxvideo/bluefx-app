@@ -71,12 +71,12 @@ export function AnalyzeVideoExamples({
           <SavedAnalysis url={example.analysisUrl} />
         </div>
       )}
+      cost={(example) => `Cost: ${example.credits} credits · an uploaded video under one minute`}
       renderInputs={(example) => (
         <>
           <div className="flex flex-wrap items-center gap-2">
             <ExampleFile name={example.video.name} url={example.video.url} kind="clip" caption="Video file" />
             <ExampleChip>Analysis type: {example.analysisTypeLabel}</ExampleChip>
-            <ExampleChip>{example.credits} credits</ExampleChip>
           </div>
           {example.instructions && <ExampleText>Instructions: {example.instructions}</ExampleText>}
         </>

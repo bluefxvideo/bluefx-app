@@ -6,6 +6,8 @@ import type { VideoModel } from '@/types/cinematographer';
 import { VIDEO_MAKER_EXAMPLES, type VideoMakerExample } from './examples';
 
 const MODEL_LABEL: Record<VideoModel, string> = { fast: 'Fast', pro: 'Pro', ultra: 'Ultra' };
+// Credits per second up to 1080p, as the server charges them (calculateCinematographerCreditCost)
+const CREDITS_PER_SECOND: Record<VideoModel, number> = { fast: 2, pro: 4, ultra: 8 };
 
 // 'dolly_out' → 'Dolly Out', as in the Camera Movement menu
 const cameraLabel = (motion: string) =>
@@ -33,6 +35,10 @@ export function VideoMakerExamples({
       intro="Real Video Maker clips with made-up people and businesses. Under each one: exactly what went in. Your video appears here once you click Generate."
       examples={VIDEO_MAKER_EXAMPLES}
       media={(example) => <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.aspect_ratio === '16:9'} loop />}
+      cost={(example) => {
+        const rate = CREDITS_PER_SECOND[example.model];
+        return `Cost: ${example.duration * rate} credits · ${example.duration} seconds on ${MODEL_LABEL[example.model]} at ${rate} credits a second`;
+      }}
       renderInputs={(example) => (
         <>
           <ExampleText>{example.prompt}</ExampleText>
