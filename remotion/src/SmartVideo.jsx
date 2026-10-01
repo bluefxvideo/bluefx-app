@@ -150,7 +150,7 @@ const STYLES = {
   },
 };
 const MARKER = '"Marker", "Caveat", cursive';
-const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.19, underline: 0.18, push: 0.28 };
+const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.5, underline: 0.45, push: 0.22 };
 // Sounds that reuse another sound's file, and the ones only the whiteboard look plays.
 const SFX_FILE = { underline: 'marker', push: 'whoosh' };
 const WHITEBOARD_ONLY = ['marker', 'underline', 'push'];
@@ -1676,12 +1676,13 @@ function autoSfx(scenes, landscape) {
     if (i > 0 && !scene.cut) out.push({ name: 'whoosh', at: scene.start - 0.3 });
     if (scene.background?.type === 'drawing') {
       const seconds = drawSeconds(scene.end - scene.start, landscape);
-      for (let t = 0.1; t < seconds - 0.4; t += 1.45) out.push({ name: 'marker', at: scene.start + t });
+      // One soft scribble for as long as the hand draws (a squeak repeated every second and a half was annoying).
+      out.push({ name: 'marker', at: scene.start + 0.1, frames: Math.round(seconds * FPS) });
     }
     // What the hand does after drawing (a push, an underline) waits until the drawing is done, and so does its sound.
     const held = scene.background?.type === 'drawing' ? scene.start + drawSeconds(scene.end - scene.start, landscape) + 10 / FPS : scene.start;
     scene.blocks.forEach((block) => {
-      if (block.underlineAt !== undefined) out.push({ name: 'underline', at: Math.max(block.underlineAt, held) });
+      if (block.underlineAt !== undefined) out.push({ name: 'underline', at: Math.max(block.underlineAt, held), frames: 18 });
       if (block.push) out.push({ name: 'push', at: Math.max(block.at ?? scene.start, held) });
       if (['chips', 'tiles', 'rows'].includes(block.type)) block.items.forEach((item) => out.push({ name: 'pop', at: item.at ?? block.at ?? scene.start }));
       if (block.type === 'number') out.push({ name: 'chaching', at: (block.at ?? scene.start) + 0.55 });
@@ -1721,8 +1722,12 @@ function Soundtrack({ audio = {}, scenes, duration }) {
       ))}
       {music?.url && <Audio src={src(music.url)} volume={envelope} loop />}
       {sfx.map((s, i) => (
-        <Sequence key={`s${i}`} from={Math.max(0, Math.round(s.at * FPS))} durationInFrames={60}>
-          <Audio src={src(s.url || `smart-video/sfx/${SFX_FILE[s.name] || s.name}.mp3`)} volume={s.volume ?? SFX_VOLUME[s.name] ?? 0.3} />
+        <Sequence key={`s${i}`} from={Math.max(0, Math.round(s.at * FPS))} durationInFrames={s.frames || 60}>
+          <Audio
+            src={src(s.url || `smart-video/sfx/${SFX_FILE[s.name] || s.name}.mp3`)}
+            // A sound with a set length (the marker while the hand draws) comes in and goes out softly.
+            volume={s.frames ? (f) => interpolate(f, [0, 4, s.frames - 8, s.frames], [0, 1, 1, 0], clamp) * (s.volume ?? SFX_VOLUME[s.name] ?? 0.3) : (s.volume ?? SFX_VOLUME[s.name] ?? 0.3)}
+          />
         </Sequence>
       ))}
     </>
