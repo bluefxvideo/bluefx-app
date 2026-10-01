@@ -258,38 +258,51 @@ function rootOf(job: SmartVideoJob, all: SmartVideoJob[]): string {
   return current.id;
 }
 
-/** The user's earlier automatic listing videos, newest first: one card per video, its latest version. */
+/** The user's earlier automatic listing videos, newest first: one card per video, with its versions behind it. */
 function ListingLibrary({ jobs, currentId, onOpen }: { jobs: SmartVideoJob[]; currentId?: string; onOpen: (jobId: string) => void }) {
-  const latest = new Map<string, SmartVideoJob>();
-  for (const job of [...jobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) latest.set(rootOf(job, jobs), job);
-  const cards = [...latest.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // Original first, then every change in the order it was made
+  const videos = new Map<string, SmartVideoJob[]>();
+  for (const job of [...jobs].sort((x, y) => x.createdAt.localeCompare(y.createdAt))) {
+    const root = rootOf(job, jobs);
+    videos.set(root, [...(videos.get(root) ?? []), job]);
+  }
+  const cards = [...videos.values()].sort((x, y) => y[y.length - 1].createdAt.localeCompare(x[x.length - 1].createdAt));
   if (!cards.length) return null;
   return (
     <div className="space-y-2 border-t pt-3">
       <h3 className="text-sm font-medium">Your listing videos</h3>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-        {cards.map((job) => {
-          const running = job.status !== 'done' && job.status !== 'failed';
+        {cards.map((versions) => {
+          const latest = versions[versions.length - 1];
+          const shown = [...versions].reverse().find((version) => version.status === 'done' && version.videoUrl);
+          const running = latest.status !== 'done' && latest.status !== 'failed';
           return (
             <button
-              key={job.id}
+              key={versions[0].id}
               type="button"
-              onClick={() => onOpen(job.id)}
-              className={cn('overflow-hidden rounded-lg border bg-card text-left transition hover:border-primary/60', job.id === currentId && 'border-primary')}
+              // A failed change leaves the video as it was: the card opens the last good version, not the failure.
+              onClick={() => onOpen((latest.status === 'failed' && shown ? shown : latest).id)}
+              className={cn(
+                'overflow-hidden rounded-lg border bg-card text-left transition hover:border-primary/60',
+                versions.some((version) => version.id === currentId) && 'border-primary',
+              )}
             >
               <div className="relative aspect-video bg-black">
-                {job.videoUrl && (
+                {shown?.videoUrl && (
                   // The first second of the video is its thumbnail; only the file's header is fetched.
-                  <video src={`${job.videoUrl}#t=1`} preload="metadata" muted playsInline className="h-full w-full object-contain" />
+                  <video src={`${shown.videoUrl}#t=1`} preload="metadata" muted playsInline className="h-full w-full object-contain" />
                 )}
                 {running && <span className="absolute left-1.5 top-1.5 rounded-full bg-primary px-2 py-0.5 text-[10px] text-primary-foreground">Working</span>}
-                {job.status === 'failed' && (
-                  <span className="absolute left-1.5 top-1.5 rounded-full bg-destructive px-2 py-0.5 text-[10px] text-destructive-foreground">Failed</span>
-                )}
+                {latest.status === 'failed' &&
+                  (shown ? (
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] text-black">Last change failed</span>
+                  ) : (
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-destructive px-2 py-0.5 text-[10px] text-destructive-foreground">Failed</span>
+                  ))}
               </div>
               <p className="truncate px-2 py-1.5 text-xs">
-                {new Date(job.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                {job.durationSeconds ? ` · ${Math.round(job.durationSeconds)} s` : ''}
+                {new Date(latest.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {(shown ?? latest).durationSeconds ? ` · ${Math.round((shown ?? latest).durationSeconds || 0)} s` : ''}
               </p>
             </button>
           );
