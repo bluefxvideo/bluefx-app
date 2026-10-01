@@ -63,5 +63,8 @@ export const usage = {
   scenePicture: (scene: number, free = false) => add(free ? 'scene picture (free remake)' : 'scene picture', PRICES.scenePicturePerImage, `scene ${scene}`),
   castPicture: () => add('cast picture', PRICES.castPicturePerImage, '1 image'),
   pictureCheck: () => add('scene picture check', PRICES.pictureCheckPerPicture, '1 picture'),
+  frameLook: () => add('frame look', PRICES.pictureCheckPerPicture, '1 picture'),
+  savedVoice: () => add('saved voice', PRICES.clipPerSecond.best, '1 voice'),
+  scriptFix: (lines: number) => add('script fix', PRICES.captionNumbersPerCall, `${lines} lines`),
   clip: (seconds: number, engine: 'best' | 'standard', free = false) => add(free ? 'clip (free retake)' : 'clip', seconds * PRICES.clipPerSecond[engine], `${seconds} s, ${engine}`),
 };

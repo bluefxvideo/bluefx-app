@@ -230,6 +230,8 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
     if (Math.abs(target - scale) > 0.005) setScale(target);
   });
   const down = align !== 'flex-start';
+  // `scrim="soft"`: remade footage keeps its light; the text carries its own outline or shadow.
+  const dark = scrim === 'soft' ? 0.45 : 1;
   return (
     <Column.Provider value={columnWidth}>
       <div
@@ -250,7 +252,7 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
                 right: -3000,
                 top: down ? -170 : -3000,
                 bottom: down ? -3000 : -170,
-                background: `linear-gradient(to ${down ? 'bottom' : 'top'}, rgba(0,0,0,0) 0px, rgba(0,0,0,0.62) 190px, rgba(0,0,0,0.74) 100%)`,
+                background: `linear-gradient(to ${down ? 'bottom' : 'top'}, rgba(0,0,0,0) 0px, rgba(0,0,0,${0.62 * dark}) 190px, rgba(0,0,0,${0.74 * dark}) 100%)`,
               }}
             />
           )}
@@ -263,7 +265,7 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
                 bottom: -3000,
                 left: -3000,
                 right: -260,
-                background: 'linear-gradient(to left, rgba(0,0,0,0) 0px, rgba(0,0,0,0.6) 260px, rgba(0,0,0,0.72) 100%)',
+                background: `linear-gradient(to left, rgba(0,0,0,0) 0px, rgba(0,0,0,${0.6 * dark}) 260px, rgba(0,0,0,${0.72 * dark}) 100%)`,
               }}
             />
           )}
@@ -1299,7 +1301,7 @@ function Scene({ scene, index, first }) {
     if (scene.speaker) safe.bottom = captions ? 600 : 330;
     layout = (
       // Over a full-frame photo the blocks sit low, on the dark end of the gradient.
-      <Stack top={safe.top} bottom={safe.bottom} gap={gap} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker && hasText}>
+      <Stack top={safe.top} bottom={safe.bottom} gap={gap} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker && hasText && (scene.shade || true)}>
         {render(scene.blocks)}
       </Stack>
     );
@@ -1313,7 +1315,7 @@ function Scene({ scene, index, first }) {
       // The text stands in the lower left; a tall clip shown on the right leaves the left half free.
       const tall = assets[scene.background.asset]?.portrait;
       layout = (
-        <Stack top={top} bottom={bottom + 20} left={tall ? 120 : 90} width={tall ? 1000 : 900} gap={gap} align={tall ? 'center' : 'flex-end'} scrim={!tall && hasText} scrimFrom="side">
+        <Stack top={top} bottom={bottom + 20} left={tall ? 120 : 90} width={tall ? 1000 : 900} gap={gap} align={tall ? 'center' : 'flex-end'} scrim={!tall && hasText && (scene.shade || true)} scrimFrom="side">
           {render(scene.blocks)}
         </Stack>
       );

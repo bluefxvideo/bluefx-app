@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { createAdminClient } from '@/app/supabase/server';
-import { getKlingQueueStatus, getKlingResult, submitKlingO3ProImageToVideo } from '@/actions/models/fal-kling-video';
+import { createKlingVoice, getKlingQueueStatus, getKlingResult, submitKlingO3ProImageToVideo, submitKlingO3ProVoiceClip } from '@/actions/models/fal-kling-video';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { refundSentence } from '@/lib/credits/refund';
 import { ensureFalCompatibleImage } from '@/lib/fal-image-guard';
@@ -28,9 +28,9 @@ import {
 } from '@/types/clone-studio';
 import { failCloneAnimation, finalizeCloneAnimation } from './animation';
 import type { CloneCredits } from './credits';
-import { castForClient, castPicturePrompt, castToPicture, composeBoard, directCloneAd, directedScenes, finishSettingsOf, type DirectorPhoto } from './director';
+import { castForClient, castPicturePrompt, castToPicture, composeBoard, directShots, directedScenes, finishSettingsOf, planCloneAd, type DirectorPhoto } from './director';
 import { isOwnFile, publicLink } from './files';
-import { hear, proposeFinish, soundOf } from './finish';
+import { hear, narratorSample, proposeFinish, soundOf } from './finish';
 import { checkScenePicture, makeCastPicture, makeScenePicture, sceneReferences, withPicture, type PictureVerdict } from './picture';
 import { finishCloneAd, logCloneRun } from './render';
 import { mutateProject, type ProjectPatch } from './store';
@@ -192,13 +192,15 @@ async function plan(ctx: RunContext, project: CloneProject): Promise<CloneProjec
   const auto = autoOf(project.analysis_summary);
   const read = await readBrief(project, auto);
   const photos: DirectorPhoto[] = read.photos.map((url, i) => ({ id: `R${i + 1}`, url }));
-  const direction = await directCloneAd({ project, brief: read.brief, photos, length: auto.length });
+  const planned = await planCloneAd({ project, brief: read.brief, photos, length: auto.length });
+  // The director watches the source ad and writes the shots while the cast's pictures are made.
+  const shots = directShots(project, planned, read.brief);
 
   // People and products the client has no photo of get one picture each, used in every scene they appear in.
   const made: Record<string, string> = {};
   const charged: string[] = [];
-  const notes = [...read.notes, ...(direction.warnings || [])];
-  for (const row of castToPicture(direction)) {
+  const notes = [...read.notes, ...(planned.warnings || [])];
+  for (const row of castToPicture(planned)) {
     try {
       const url = await makeCastPicture(ctx.projectId, castPicturePrompt(row));
       usage.castPicture();
@@ -215,7 +217,8 @@ async function plan(ctx: RunContext, project: CloneProject): Promise<CloneProjec
   }
   const castCredits = charged.length * CLONE_IMAGE_CREDITS;
 
-  const board = composeBoard(direction, project, photos, made);
+  const direction = await shots;
+  const board = composeBoard(direction, project, photos, made, read.brief);
   const allPhotos = photos.map((photo) => photo.url);
   const toPicture = board.filter((scene) => scene.plan.keep && scene.plan.treatment !== 'card').length;
   return write(ctx, (fresh) => {
@@ -414,12 +417,42 @@ const clipPrefix = (runId: string, n: number) => `${runId}-clip-${n}-`;
 const orderedIn = (scene: CloneScene, runId: string) => Boolean(scene.anim?.attempt_id?.startsWith(clipPrefix(runId, scene.n)));
 const takeOf = (scene: CloneScene, runId: string) => Number(scene.anim?.attempt_id?.slice(clipPrefix(runId, scene.n).length).split('-')[0]) || 1;
 
+/** A scene in which the ad's main speaker says a line on camera: the clip that gets the narrator's voice. */
+const leadTalks = (scene: CloneScene | undefined) => Boolean(scene?.plan?.lead && scene.plan.speaker === 'on_camera' && scene.finish?.line?.trim());
+
+/**
+ * The narrator's voice, saved with the video engine, so that the person on camera and the
+ * narrator are one voice. The engine otherwise picks a new voice for every clip. Saved once
+ * for a board and a narrator; null when it could not be saved (the clips are then made as before).
+ */
+async function savedVoice(ctx: RunContext, project: CloneProject): Promise<string | null> {
+  const summary = project.analysis_summary;
+  const gender = summary?.finish?.settings?.voice || DEFAULT_FINISH_SETTINGS.voice;
+  const kept = autoOf(summary).voice;
+  if (kept?.id && kept.gender === gender) return kept.id;
+  try {
+    const lines = project.scenes.filter((scene) => !scene.is_custom && scene.finish && scene.finish.picture !== 'skip').map((scene) => scene.finish?.line || '');
+    const sample = await narratorSample(lines, summary?.finish?.language, gender);
+    const voice = await createKlingVoice(`data:audio/wav;base64,${sample.toString('base64')}`);
+    if (!voice.success || !voice.voiceId) throw new Error(voice.error || 'no voice id');
+    usage.savedVoice();
+    const id = voice.voiceId;
+    await write(ctx, () => ({ auto: { voice: { id, gender } } }));
+    return id;
+  } catch (error) {
+    if (error instanceof Superseded) throw error;
+    console.warn('Clone Studio: the narrator\'s voice could not be saved, the clips get a voice of their own:', String(error).slice(0, 200));
+    return null;
+  }
+}
+
 /**
  * Orders one clip: the order is written on the scene, then paid, then placed with the video
  * engine. A retake after a failed check costs nothing. Written down first, an order that a
  * dying process left half done is seen by the next worker and settled (see settleHalfOrders).
+ * With a saved voice, the main speaker's talking clip is ordered in that voice.
  */
-async function orderClip(ctx: RunContext, n: number, engine: CloneAnimEngine, take: number): Promise<void> {
+async function orderClip(ctx: RunContext, n: number, engine: CloneAnimEngine, take: number, voiceId: string | null = null): Promise<void> {
   const project = await readProject(ctx.projectId);
   const scene = project.scenes.find((s) => s.n === n && !s.is_custom);
   if (!scene?.edited_image_url || !isOwnFile(scene.edited_image_url)) return;
@@ -428,6 +461,7 @@ async function orderClip(ctx: RunContext, n: number, engine: CloneAnimEngine, ta
   const credits = take === 1 ? cloneClipCredits(seconds, engine) : 0;
   const prompt = scene.motion_prompt?.trim() || composeMotionPrompt(scene.analysis);
   const negative = scene.negative_prompt?.trim() || CLONE_ANIM_NEGATIVE_PROMPT;
+  const voice = engine === 'best' && voiceId && leadTalks(scene) && (project.aspect_ratio === '16:9' || project.aspect_ratio === '9:16') ? voiceId : null;
 
   await write(ctx, (fresh) => ({
     scenes: changeScene(fresh.scenes, n, (current) => ({
@@ -437,6 +471,7 @@ async function orderClip(ctx: RunContext, n: number, engine: CloneAnimEngine, ta
       anim_versions: sceneClip(current) ? [sceneClip(current) as string, ...(current.anim_versions || []).filter((url) => url !== sceneClip(current))].slice(0, 5) : current.anim_versions,
       anim_seconds: seconds,
       anim_engine: engine,
+      anim_voice: voice,
       motion_prompt: prompt,
       negative_prompt: negative,
     })),
@@ -454,16 +489,25 @@ async function orderClip(ctx: RunContext, n: number, engine: CloneAnimEngine, ta
     }
   }
   const image = (await ensureFalCompatibleImage(scene.edited_image_url, attempt, `scene${n}-anim`)) || scene.edited_image_url;
-  const submit = await submitKlingO3ProImageToVideo({
-    prompt,
-    image_url: image,
-    duration: seconds,
-    negative_prompt: negative,
-    // Footage on the standard tier is ordered without sound: the narrator and the music carry the scene.
-    generate_audio: engine === 'best',
-    tier: engine === 'standard' ? 'standard' : 'pro',
-    webhook_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`,
-  });
+  const webhook_url = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/fal-ai`;
+  const plain = () =>
+    submitKlingO3ProImageToVideo({
+      prompt,
+      image_url: image,
+      duration: seconds,
+      negative_prompt: negative,
+      // Footage on the standard tier is ordered without sound: the narrator and the music carry the scene.
+      generate_audio: engine === 'best',
+      tier: engine === 'standard' ? 'standard' : 'pro',
+      webhook_url,
+    });
+  let submit = voice ? await submitKlingO3ProVoiceClip({ prompt, image_url: image, duration: seconds, aspect_ratio: project.aspect_ratio as '16:9' | '9:16', voice_id: voice, webhook_url }) : await plain();
+  if (voice && (!submit.success || !submit.request_id)) {
+    // The saved voice was not taken (it may have expired): the clip is made the plain way rather than not at all.
+    console.warn(`Clone Studio: scene ${n} could not be ordered with the saved voice (${submit.error}), ordering it without`);
+    await write(ctx, (fresh) => ({ scenes: changeScene(fresh.scenes, n, (current) => (current.anim?.attempt_id === attempt ? { ...current, anim_voice: null } : current)) }));
+    submit = await plain();
+  }
   if (!submit.success || !submit.request_id) {
     if (credits) await ctx.credits.refund(attempt, 'clone studio animation');
     await giveUp(submit.error);
@@ -548,12 +592,14 @@ export async function runCloneMotion(ctx: RunContext): Promise<void> {
       const numbers = picks.map((pick) => pick.n);
       console.log(`🎬 Clone Studio: adding motion to ${picks.length} scenes of project ${ctx.projectId} (run ${ctx.runId})`);
 
-      // 1) Every chosen scene gets its clip ordered, once.
+      // 1) Every chosen scene gets its clip ordered, once. The main speaker's clips speak with the narrator's voice.
       await write(ctx, () => ({ run: { stage: 'clips', total: picks.length } }));
       project = await settleHalfOrders(ctx, project);
+      const sceneOf = (n: number) => project.scenes.find((s) => s.n === n && !s.is_custom);
+      const voiceId = picks.some((pick) => pick.engine === 'best' && leadTalks(sceneOf(pick.n))) ? await savedVoice(ctx, project) : null;
       for (const pick of picks) {
-        const scene = project.scenes.find((s) => s.n === pick.n && !s.is_custom);
-        if (scene && !orderedIn(scene, ctx.runId)) await orderClip(ctx, pick.n, pick.engine, 1);
+        const scene = sceneOf(pick.n);
+        if (scene && !orderedIn(scene, ctx.runId)) await orderClip(ctx, pick.n, pick.engine, 1, voiceId);
       }
       project = await awaitClips(ctx, numbers);
 
@@ -565,7 +611,7 @@ export async function runCloneMotion(ctx: RunContext): Promise<void> {
         if (!scene || !sceneClip(scene) || !orderedIn(scene, ctx.runId) || takeOf(scene, ctx.runId) > 1) continue;
         if (await saysItsLine(scene, language)) continue;
         console.warn(`Clone Studio: the clip of scene ${pick.n} does not say its line, taking it again`);
-        await orderClip(ctx, pick.n, pick.engine, 2);
+        await orderClip(ctx, pick.n, pick.engine, 2, voiceId);
         retakes.push(pick.n);
       }
       if (retakes.length) {
