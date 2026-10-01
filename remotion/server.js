@@ -7,6 +7,7 @@ import {
   renderStill,
   selectComposition,
   getCompositions,
+  RenderInternals,
 } from "@remotion/renderer";
 import { ensureBrowser } from "@remotion/renderer";
 import path from "path";
@@ -1032,6 +1033,39 @@ async function preDownloadAssets(inputProps, renderId) {
   return { props: JSON.parse(updatedJson), tempDir };
 }
 
+/**
+ * Levels the sound of a finished export to -14 LUFS, the level social platforms
+ * play at. An exported listing video (calm voice, music at 15%) came out at about
+ * -25 LUFS, clearly quieter than the videos around it. The picture is copied
+ * untouched. Uses the ffmpeg that ships with the renderer. A failure leaves the
+ * export as it was rendered.
+ */
+async function levelLoudness(file) {
+  const leveled = file.replace(/\.mp4$/, ".leveled.mp4");
+  try {
+    await RenderInternals.callFf({
+      bin: "ffmpeg",
+      args: [
+        "-v", "error", "-y", "-i", file,
+        "-c:v", "copy",
+        "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
+        "-ar", "48000", "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        leveled,
+      ],
+      indent: false,
+      logLevel: "error",
+      binariesDirectory: null,
+      cancelSignal: undefined,
+    });
+    fs.renameSync(leveled, file);
+    console.log(`🔊 Sound leveled to -14 LUFS: ${path.basename(file)}`);
+  } catch (error) {
+    console.warn(`⚠️ Could not level the sound, keeping the render as it is: ${String(error).slice(0, 200)}`);
+    if (fs.existsSync(leveled)) fs.rmSync(leveled, { force: true });
+  }
+}
+
 // Background render function for async mode
 async function performBackgroundRender(
   composition,
@@ -1171,6 +1205,22 @@ async function performBackgroundRender(
     // Check if file was created
     if (!fs.existsSync(outputLocation)) {
       throw new Error("Output file was not created despite successful render");
+    }
+
+    // Exports from the editor get the same loudness as every finished Phantom video.
+    // (The Phantom levels its own renders in the main app.)
+    if (composition.id === "VideoEditor") {
+      setRenderProgress(filename, {
+        status: "uploading",
+        progress: 0.93,
+        renderedFrames: composition.durationInFrames,
+        totalFrames: composition.durationInFrames,
+        stage: "leveling the sound",
+        fps: 0,
+        startTime: renderStartTime2,
+        elapsedTime: Date.now() - renderStartTime2,
+      }, userId);
+      await levelLoudness(outputLocation);
     }
 
     const fileStats = fs.statSync(outputLocation);
