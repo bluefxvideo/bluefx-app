@@ -9,11 +9,13 @@ import {
 } from '@/components/ui/tabs';
 import { Film, History, Upload as UploadIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { urlToFile } from '@/lib/url-to-file';
 import { useVideoRoughcut } from './hooks/use-video-roughcut';
 import { UploadTab } from './tabs/upload-tab';
 import { HistoryTab } from './tabs/history-tab';
 import { JobOutput } from './output-panel/job-output';
-import { LoadingSkeleton } from './output-panel/loading-skeleton';
+import type { RoughcutExample } from './examples';
+import { RoughcutExamples, RoughcutTips } from './roughcut-examples';
 
 /**
  * Rough-Cut Editor — top-level page.
@@ -34,6 +36,21 @@ export function VideoRoughcutPage() {
     confirmJob,
     reset,
   } = useVideoRoughcut();
+
+  // "Try this example": the example recording goes through the same steps as a dropped file.
+  // Reading the file and showing the price is free; the charge comes with "Create rough cut".
+  const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
+  const handleTryExample = async (example: RoughcutExample) => {
+    setLoadingExampleId(example.id);
+    try {
+      const file = await urlToFile(example.rawVideo.url, example.rawVideo.name, 'video/mp4');
+      await prepareFile(file);
+    } catch {
+      toast.error('Could not load the example. Please try again.');
+    } finally {
+      setLoadingExampleId(null);
+    }
+  };
 
   // Toast on completion / failure
   useEffect(() => {
@@ -78,17 +95,20 @@ export function VideoRoughcutPage() {
 
         <TabsContent value="upload">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <UploadTab
-              stage={stage}
-              progress={progress}
-              error={error}
-              isProcessing={isProcessing}
-              pending={pending}
-              availableCredits={availableCredits}
-              onStart={prepareFile}
-              onConfirm={confirmJob}
-              onReset={reset}
-            />
+            <div className="space-y-4">
+              <RoughcutTips />
+              <UploadTab
+                stage={stage}
+                progress={progress}
+                error={error}
+                isProcessing={isProcessing}
+                pending={pending}
+                availableCredits={availableCredits}
+                onStart={prepareFile}
+                onConfirm={confirmJob}
+                onReset={reset}
+              />
+            </div>
             <div>
               {currentJob ? (
                 <JobOutput
@@ -97,7 +117,8 @@ export function VideoRoughcutPage() {
                   onRetry={reset}
                 />
               ) : (
-                <LoadingSkeleton />
+                // No job yet: a real rough cut from this tool, played against the raw recording
+                <RoughcutExamples onTry={handleTryExample} loadingId={loadingExampleId} busy={isProcessing} />
               )}
             </div>
           </div>

@@ -10,9 +10,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { dispatch } from "@designcombo/events";
-import { ADD_VIDEO } from "@designcombo/state";
-import { generateId } from "@designcombo/timeline";
 import { IImage, ITrackItem } from "@designcombo/types";
 import {
 	Film,
@@ -26,8 +23,8 @@ import {
 	useBatchAnimateState,
 	type AnimationItem,
 } from "../store/use-batch-animate-state";
-import { stateManager } from "../store/state-manager-instance";
 import useStore from "../store/use-store";
+import { placeAnimatedClip } from "../utils/animated-clip";
 
 interface BatchAnimateControlProps {
 	selectedItems: (ITrackItem & IImage)[];
@@ -80,47 +77,8 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Reorder tracks so caption tracks are at the end of the tracks array
-// In Remotion, items rendered last appear on top — so captions need to be last
-function reorderCaptionsToTop() {
-	try {
-		const state = stateManager.getState();
-		const { tracks, trackItemsMap } = state;
-
-		const captionTrackIds = new Set<string>();
-		tracks.forEach((track) => {
-			track.items.forEach((itemId) => {
-				const item = trackItemsMap[itemId];
-				if (!item) return;
-				if (
-					(item.type === "text" &&
-						(item.details as any)?.isCaptionTrack) ||
-					item.type === "caption"
-				) {
-					captionTrackIds.add(track.id);
-				}
-			});
-		});
-
-		if (captionTrackIds.size === 0) return;
-
-		const captionTracks = tracks.filter((t) =>
-			captionTrackIds.has(t.id),
-		);
-		const otherTracks = tracks.filter(
-			(t) => !captionTrackIds.has(t.id),
-		);
-
-		stateManager.updateState({
-			tracks: [...otherTracks, ...captionTracks],
-		});
-	} catch (err) {
-		console.warn("⚠️ Failed to reorder caption tracks:", err);
-	}
-}
-
 // ─── Ordered Dispatch Queue ──────────────────────────────────
-// Dispatches ADD_VIDEO in original image order, regardless of completion order
+// Places the clips in original image order, regardless of completion order
 
 async function tryDispatchInOrder(
 	settings: { cameraMotion: string; duration: string; prompt: string },
@@ -168,52 +126,29 @@ async function dispatchOneVideo(
 	settings: { cameraMotion: string; duration: string; prompt: string },
 ) {
 	const { actions } = useBatchAnimateState.getState();
-	const newVideoId = generateId();
-	const durationMs = parseInt(settings.duration) * 1000;
 
-	console.log(`🎬 Batch animate: adding video for ${item.itemId}`, {
-		videoUrl: item.videoUrl,
-		newVideoId,
-	});
-
-	dispatch(ADD_VIDEO, {
-		payload: {
-			id: newVideoId,
-			details: { src: item.videoUrl },
-			display: {
-				from: item.originalFrom,
-				to: item.originalFrom + durationMs,
-			},
-			metadata: {
-				animatedFrom: item.imageSrc,
-				cameraMotion: settings.cameraMotion,
-			},
+	// The clip takes the photo's place on the timeline
+	const placed = await placeAnimatedClip(
+		{
+			itemId: item.itemId,
+			src: item.imageSrc,
+			from: item.originalFrom,
+			to: item.originalTo,
 		},
-		options: {
-			resourceId: "main",
-			scaleMode: "fit",
-		},
-	});
+		item.videoUrl as string,
+		parseInt(settings.duration),
+		settings.cameraMotion,
+	);
 
-	// Wait for video to appear in state manager
-	let waitAttempts = 0;
-	const maxWaitAttempts = 60; // 30 seconds max
-	while (
-		!stateManager.getState().trackItemsMap[newVideoId] &&
-		waitAttempts < maxWaitAttempts
-	) {
-		await sleep(500);
-		waitAttempts++;
-	}
-
-	if (stateManager.getState().trackItemsMap[newVideoId]) {
-		console.log(`✅ Batch animate: video ${newVideoId} confirmed in state after ${waitAttempts * 500}ms`);
+	if (placed) {
+		actions.updateItem(item.itemId, { status: "done" });
+		console.log(`✅ Batch animate: done for ${item.itemId}`);
 	} else {
-		console.warn(`⚠️ Batch animate: video ${newVideoId} NOT found in state after ${maxWaitAttempts * 500}ms, proceeding anyway`);
+		actions.updateItem(item.itemId, {
+			status: "failed",
+			error: "The clip was made but could not be added to the timeline",
+		});
 	}
-
-	actions.updateItem(item.itemId, { status: "done" });
-	console.log(`✅ Batch animate: done for ${item.itemId}`);
 	(window as any).refreshEditorCredits?.();
 }
 
@@ -305,7 +240,7 @@ async function processOneImage(
 
 		// 2. Poll for completion (include listing context for DB persistence)
 		const listingId = getListingId();
-		let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}`;
+		let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}&userId=${getUserId()}`;
 		if (listingId) pollUrl += `&listingId=${listingId}`;
 		if (item.imageSrc) pollUrl += `&imageUrl=${encodeURIComponent(item.imageSrc)}`;
 
@@ -379,6 +314,7 @@ export function BatchAnimateControl({
 			itemId: item.id,
 			imageSrc: item.details?.src as string,
 			originalFrom: item.display?.from || 0,
+			originalTo: item.display?.to || 0,
 			status: "pending" as const,
 		}));
 

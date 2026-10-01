@@ -1,7 +1,7 @@
 /**
  * Smart Video end-to-end test: a folder of client files + a brief → finished MP4.
  *
- * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal] [auto|playful|elegant|bold|clean|whiteboard]
+ * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal] [auto|playful|elegant|bold|clean|whiteboard] [full|no-voice|no-music|silent]
  *                  With a link, the brief file is the client's own note (offer, contact) added to the scraped facts.
  * Output:         remotion/out/smart-<job-name>.mp4 (+ the plan in remotion/test-plans/)
  */
@@ -17,7 +17,9 @@ import type { SmartAsset, StyleName, VideoFormat, VideoLength } from '../lib/sma
 
 config({ path: path.resolve(__dirname, '../../.env.local') });
 
-const [job, source, briefFile, length = 'auto', format = 'vertical', look = 'auto'] = process.argv.slice(2);
+const [job, source, briefFile, length = 'auto', format = 'vertical', look = 'auto', soundName = 'full'] = process.argv.slice(2);
+// The soundtrack switches of the page: voice-over and music, each on or off
+const sound = { voiceOver: soundName === 'full' || soundName === 'no-music', music: soundName === 'full' || soundName === 'no-voice' };
 let folder = source;
 if (!job || !source || !briefFile) throw new Error('Usage: smart-video-test.ts <job-name> <files-folder> <brief.txt>');
 
@@ -50,12 +52,12 @@ async function main() {
     console.log(`✅ Link read: ${photos.length} usable photos of ${link.imageUrls.length} found, ${link.brief.length} characters of facts`);
   }
   const assets = await prepareFolder();
-  const { props, plan, usage, warnings } = await createSmartVideo(
+  const { props, plan, media, usage, warnings } = await createSmartVideo(
     brief,
     assets,
     storeLocal,
     async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))),
-    { length: length as VideoLength, format: format as VideoFormat, look: look === 'auto' ? null : (look as StyleName) }
+    { length: length as VideoLength, format: format as VideoFormat, look: look === 'auto' ? null : (look as StyleName), sound }
   );
   for (const warning of warnings) console.log(`⚠️ For the client: ${warning}`);
 
@@ -63,6 +65,8 @@ async function main() {
   const propsFile = path.join(REMOTION, 'test-plans', `${job}.json`);
   fs.writeFileSync(propsFile, JSON.stringify(props, null, 2));
   fs.writeFileSync(path.join(REMOTION, 'test-plans', `${job}.director.json`), JSON.stringify(plan, null, 2));
+  // Plan + media rebuild the props with another soundtrack without paying for the video again (smart-video-sound-proof.ts)
+  fs.writeFileSync(path.join(REMOTION, 'test-plans', `${job}.media.json`), JSON.stringify(media, null, 2));
   const total = usage.reduce((sum, u) => sum + u.usd, 0);
   fs.writeFileSync(path.join(REMOTION, 'test-plans', `${job}.usage.json`), JSON.stringify({ totalUsd: total, usage }, null, 2));
   console.log(`💵 API cost: $${total.toFixed(3)}  (${usage.map((u) => `${u.step} $${u.usd.toFixed(3)}`).join(', ')})`);

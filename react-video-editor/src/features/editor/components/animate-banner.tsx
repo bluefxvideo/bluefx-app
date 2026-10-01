@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Film, Sparkles, X } from "lucide-react";
 import useStore from "../store/use-store";
 import { IImage, ITrackItem } from "@designcombo/types";
-import { useBatchAnimateState } from "../store/use-batch-animate-state";
-import { dispatch as editorDispatch } from "@designcombo/events";
-import { ADD_VIDEO } from "@designcombo/state";
-import { generateId } from "@designcombo/timeline";
-import { stateManager } from "../store/state-manager-instance";
+import {
+  clipSecondsForSlot,
+  hasAnimatedClip,
+  placeAnimatedClip,
+} from "../utils/animated-clip";
 
 const MAX_CONCURRENT = 3;
+const PROMPT =
+  "Slow smooth dolly in on rails. Stabilized camera, no handheld shake, no jitter. Professional real estate cinematography.";
 
 function getApiUrl(): string {
   const urlParams = new URLSearchParams(window.location.search);
@@ -40,91 +42,88 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Ensure text overlays (intro/outro/captions) render on top of new video tracks
-function reorderTextTracksToTop() {
-  try {
-    const state = stateManager.getState();
-    const { tracks, trackItemsMap } = state;
-    const textTrackIds = new Set<string>();
-    tracks.forEach((track) => {
-      track.items.forEach((itemId) => {
-        const item = trackItemsMap[itemId];
-        if (!item) return;
-        if (item.type === "text" || item.type === "caption" ||
-            (item.metadata as any)?.introOverlay || (item.metadata as any)?.outroOverlay) {
-          textTrackIds.add(track.id);
-        }
-      });
-    });
-    if (textTrackIds.size === 0) return;
-    const textTracks = tracks.filter((t) => textTrackIds.has(t.id));
-    const otherTracks = tracks.filter((t) => !textTrackIds.has(t.id));
-    stateManager.updateState({ tracks: [...otherTracks, ...textTracks] });
-  } catch (err) {
-    console.warn("⚠️ Failed to reorder text tracks:", err);
-  }
+/** What one "Animate All" run left behind, shown until the next run or until the banner is closed. */
+interface RunResult {
+  failed: number;
+  total: number;
+  refunded: number;
+  /** The first reason a photo failed, e.g. not enough credits. */
+  reason: string | null;
 }
 
 /**
  * Floating banner that appears above the editor scene for ReelEstate projects.
- * Prompts user to animate all photos into cinematic video clips.
+ * Turns every photo that has no clip yet into a video clip. Each clip takes its
+ * photo's place on the timeline, so the video keeps its length and every room
+ * still plays under its own line.
  */
 export function AnimateBanner() {
   const { trackItemsMap } = useStore();
   const [dismissed, setDismissed] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [lastRun, setLastRun] = useState<RunResult | null>(null);
 
   // Check if this is a ReelEstate project
   const isReelEstate =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("listingId");
 
-  // Count image items on timeline (candidates for animation)
   const imageItems = Object.values(trackItemsMap).filter(
     (item) => item.type === "image",
   ) as (ITrackItem & IImage)[];
 
-  // Don't show if:
-  // - Not a ReelEstate project
-  // - No images to animate
-  // - Banner was dismissed
-  // - Already animating
-  if (!isReelEstate || imageItems.length === 0 || dismissed) return null;
+  // Photos that still play as a still picture, in timeline order
+  const pending = imageItems
+    .filter((item) => item.details?.src && !hasAnimatedClip(item, trackItemsMap))
+    .sort((a, b) => a.display.from - b.display.from)
+    .map((item) => ({
+      item,
+      seconds: clipSecondsForSlot(item.display.to - item.display.from),
+    }));
 
-  const creditCost = imageItems.length * 6; // 6s × 1 credit/s per image
+  if (!isReelEstate || dismissed) return null;
+  if (pending.length === 0 && !isAnimating && !lastRun) return null;
+
+  // 1 credit per second of clip
+  const creditCost = pending.reduce((sum, photo) => sum + photo.seconds, 0);
 
   const handleAnimateAll = async () => {
-    if (isAnimating) return;
+    if (isAnimating || pending.length === 0) return;
+    const photos = pending;
     setIsAnimating(true);
-    setProgress({ done: 0, total: imageItems.length });
+    setLastRun(null);
+    setProgress({ done: 0, total: photos.length });
 
     const apiUrl = getApiUrl();
     const userId = getUserId();
+    const listingId = getListingId();
     const aspectRatio = getCanvasAspectRatio();
-    const duration = "6";
-    const prompt = "Slow smooth dolly in on rails. Stabilized camera, no handheld shake, no jitter. Professional real estate cinematography.";
 
     let completed = 0;
+    let failed = 0;
+    let refunded = 0;
+    let reason: string | null = null;
     let activeCount = 0;
-    let itemIndex = 0;
 
-    const processOne = async (item: ITrackItem & IImage) => {
+    const fail = (message: string | undefined, creditsBack = 0) => {
+      failed++;
+      refunded += creditsBack;
+      if (!reason && message) reason = message;
+    };
+
+    const processOne = async ({ item, seconds }: (typeof photos)[number]) => {
       try {
-        const imageSrc = item.details?.src;
-        if (!imageSrc) return;
-
-        console.log(`🎬 Animating photo ${completed + 1}/${imageItems.length}: ${imageSrc.substring(0, 60)}...`);
+        const imageSrc = item.details.src;
 
         // 1. Create prediction
-        const listingId = getListingId();
         const createRes = await fetch(`${apiUrl}/api/editor/animate-image`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             image_url: imageSrc,
-            duration: parseInt(duration),
-            prompt,
+            duration: seconds,
+            prompt: PROMPT,
             aspect_ratio: aspectRatio,
             user_id: userId,
             listing_id: listingId,
@@ -133,7 +132,8 @@ export function AnimateBanner() {
 
         const createData = await createRes.json();
         if (!createData.success || !createData.prediction_id) {
-          console.error(`❌ Failed to start animation for image:`, createData.error);
+          console.error("❌ Failed to start animation for image:", createData.error);
+          fail(createData.error);
           return;
         }
 
@@ -143,7 +143,7 @@ export function AnimateBanner() {
         let videoUrl: string | null = null;
         let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}&userId=${userId}`;
         if (listingId) pollUrl += `&listingId=${listingId}`;
-        if (imageSrc) pollUrl += `&imageUrl=${encodeURIComponent(imageSrc)}`;
+        pollUrl += `&imageUrl=${encodeURIComponent(imageSrc)}`;
         for (let attempt = 0; attempt < 120; attempt++) {
           await sleep(5000);
           const pollRes = await fetch(pollUrl);
@@ -154,69 +154,62 @@ export function AnimateBanner() {
             break;
           }
           if (pollData.status === "failed") {
-            console.error(`❌ Animation failed for image:`, pollData.error);
+            console.error("❌ Animation failed for image:", pollData.error);
+            fail(pollData.error, pollData.refunded_credits || 0);
             return;
           }
         }
 
         if (!videoUrl) {
           console.error("❌ Animation timed out");
+          fail("The animation took too long.");
           return;
         }
 
-        // 3. Replace image with video on the timeline
-        const newVideoId = generateId();
-        const durationMs = parseInt(duration) * 1000;
-        const originalFrom = item.display?.from || 0;
-        const itemToDelete = item.id;
-
-        // Add the video first
-        editorDispatch(ADD_VIDEO, {
-          payload: {
-            id: newVideoId,
-            details: { src: videoUrl },
-            display: {
-              from: originalFrom,
-              to: originalFrom + durationMs,
-            },
-            metadata: {
-              animatedFrom: imageSrc,
-            },
+        // 3. The clip takes the photo's place on the timeline
+        const placed = await placeAnimatedClip(
+          {
+            itemId: item.id,
+            src: imageSrc,
+            from: item.display.from,
+            to: item.display.to,
           },
-          options: {
-            resourceId: "main",
-            scaleMode: "fit",
-          },
-        });
-
-        // Keep the original image for re-generation
-        await sleep(300);
+          videoUrl,
+          seconds,
+        );
+        if (!placed) {
+          fail("A clip was made but could not be added to the timeline. Reload the page to see it.");
+          return;
+        }
 
         completed++;
-        setProgress({ done: completed, total: imageItems.length });
-        console.log(`✅ Animated ${completed}/${imageItems.length}`);
+        setProgress({ done: completed, total: photos.length });
+        console.log(`✅ Animated ${completed}/${photos.length}`);
       } catch (err) {
         console.error("❌ Animation error:", err);
+        fail(err instanceof Error ? err.message : undefined);
       }
     };
 
     // Process with concurrency limit
     const promises: Promise<void>[] = [];
-    for (const item of imageItems) {
+    for (const photo of photos) {
       while (activeCount >= MAX_CONCURRENT) {
         await sleep(1000);
       }
       activeCount++;
-      const p = processOne(item).finally(() => { activeCount--; });
+      const p = processOne(photo).finally(() => { activeCount--; });
       promises.push(p);
     }
     await Promise.all(promises);
 
     setIsAnimating(false);
-    setDismissed(true);
-    console.log(`🎉 All ${completed} photos animated!`);
+    setLastRun(failed > 0 ? { failed, total: photos.length, refunded, reason } : null);
+    console.log(`🎉 ${completed} of ${photos.length} photos animated`);
     (window as any).refreshEditorCredits?.();
   };
+
+  const allPhotos = pending.length === imageItems.length;
 
   return (
     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50">
@@ -238,17 +231,27 @@ export function AnimateBanner() {
           </div>
         ) : (
           <>
-            <span className="text-sm font-medium text-white whitespace-nowrap">
-              Bring your photos to life with AI animation
+            <span className="text-sm font-medium text-white">
+              {lastRun ? (
+                <>
+                  {lastRun.failed} of {lastRun.total} photos failed.
+                  {lastRun.refunded > 0 && ` ${lastRun.refunded} credits were returned.`}
+                  {lastRun.reason && <span className="block text-xs font-normal text-white/80">{lastRun.reason}</span>}
+                </>
+              ) : (
+                <span className="whitespace-nowrap">Bring your photos to life with AI animation</span>
+              )}
             </span>
-            <Button
-              size="sm"
-              onClick={handleAnimateAll}
-              className="bg-white text-blue-700 hover:bg-white/90 h-7 px-3 text-xs font-semibold gap-1.5"
-            >
-              <Film className="w-3.5 h-3.5" />
-              Animate All ({creditCost} credits)
-            </Button>
+            {pending.length > 0 && (
+              <Button
+                size="sm"
+                onClick={handleAnimateAll}
+                className="bg-white text-blue-700 hover:bg-white/90 h-7 px-3 text-xs font-semibold gap-1.5"
+              >
+                <Film className="w-3.5 h-3.5" />
+                {allPhotos ? "Animate All" : `Animate ${pending.length} more`} ({creditCost} credits)
+              </Button>
+            )}
             <button
               onClick={() => setDismissed(true)}
               className="text-white/60 hover:text-white ml-1"

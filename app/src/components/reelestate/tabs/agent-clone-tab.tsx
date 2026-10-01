@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import type { AgentCloneShot, AgentCloneDuration } from '@/types/reelestate';
 import { AGENT_CLONE_DURATIONS } from '@/types/reelestate';
+import type { AgentCloneExample } from '../examples';
+import { AgentCloneTips } from '../reelestate-examples';
 
 const DEFAULT_PROMPT = 'A real estate agent standing naturally in this property. Professional photo, natural lighting, matching perspective and shadows.';
 
@@ -35,12 +37,19 @@ interface AgentCloneTabProps {
   isWorking: boolean;
   onUpdateShot: (id: string, updates: Partial<AgentCloneShot>) => void;
   onRemoveShot: (id: string) => void;
-  onCreateAndGenerate: (backgroundUrl: string, prompt: string) => void;
+  onCreateAndGenerate: (
+    backgroundUrl: string,
+    prompt: string,
+    animation?: Pick<AgentCloneShot, 'duration' | 'action' | 'dialogue'>,
+  ) => void;
   onRegenerateComposite: (shotId: string, prompt: string) => void;
   onAnimateShot: (shotId: string) => void;
   /** null file = reuse the remembered sample */
   onSwitchVoice: (shotId: string, file: File | null) => void;
   lastVoiceSample: { url: string; name: string } | null;
+  /** An example picked in the result panel: its photos, prompt and settings go into the form. */
+  example?: AgentCloneExample | null;
+  onExampleDone?: () => void;
 }
 
 // Images go to storage first and only the URL travels through the server
@@ -84,6 +93,8 @@ export function AgentCloneTab({
   onAnimateShot,
   onSwitchVoice,
   lastVoiceSample,
+  example,
+  onExampleDone,
 }: AgentCloneTabProps) {
   const agentFileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
@@ -98,6 +109,8 @@ export function AgentCloneTab({
   // A sample from a previous switch is offered, never pre-selected (a
   // pre-filled "Using x.mp3" read as if a voice had been added by itself).
   const [useLastSample, setUseLastSample] = useState(false);
+  // "Try this example": the example's length, action and line wait here until the composite exists
+  const [exampleAnimation, setExampleAnimation] = useState<Pick<AgentCloneShot, 'duration' | 'action' | 'dialogue'> | null>(null);
 
   // Current active shot (latest)
   const shot = shots.length > 0 ? shots[shots.length - 1] : null;
@@ -105,6 +118,21 @@ export function AgentCloneTab({
   const hasComposite = shot?.status === 'composite_ready' || shot?.status === 'animating' || shot?.status === 'ready';
   const hasVideo = shot?.status === 'ready';
   const isFailed = shot?.status === 'failed';
+
+  // "Try this example": the photos are already online, so nothing is uploaded
+  useEffect(() => {
+    if (!example) return;
+    if (shot) onRemoveShot(shot.id);
+    onSetAgentPhoto(example.agentPhoto.url);
+    onSetAspectRatio(example.aspectRatio);
+    setBgUrl(example.background.url);
+    setPrompt(example.prompt);
+    setExampleAnimation({ duration: example.duration, action: example.action, dialogue: example.dialogue });
+    onExampleDone?.();
+    toast.success('Example loaded. Click Generate Composite to continue.');
+    // Runs once per picked example; the shot it replaces is read at that moment
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [example]);
 
   // ─── File Helpers ──────────────────────────────
 
@@ -147,7 +175,8 @@ export function AgentCloneTab({
   const handleGenerate = () => {
     if (!bgUrl) return;
     if (shot) onRemoveShot(shot.id);
-    onCreateAndGenerate(bgUrl, prompt);
+    onCreateAndGenerate(bgUrl, prompt, exampleAnimation ?? undefined);
+    setExampleAnimation(null);
   };
 
   const handleRegenerate = () => {
@@ -158,12 +187,14 @@ export function AgentCloneTab({
   const handleChangeBackground = () => {
     if (shot) onRemoveShot(shot.id);
     setBgUrl('');
+    setExampleAnimation(null);
   };
 
   const handleNewShot = () => {
     if (shot) onRemoveShot(shot.id);
     setBgUrl('');
     setPrompt(DEFAULT_PROMPT);
+    setExampleAnimation(null);
   };
 
   const handleAgentDrop = useCallback(async (e: React.DragEvent) => {
@@ -218,6 +249,10 @@ export function AgentCloneTab({
   return (
     <TabContentWrapper>
       <TabBody>
+        <div className="mb-4">
+          <AgentCloneTips />
+        </div>
+
         {/* ── Step 1: Setup ──────────────────────── */}
         <StandardStep
           stepNumber={1}
@@ -280,7 +315,7 @@ export function AgentCloneTab({
         <StandardStep
           stepNumber={2}
           title="Create"
-          description={hasVideo ? 'Your clip is ready' : hasComposite ? 'Composite ready — configure and animate' : 'Add a background and generate'}
+          description={hasVideo ? 'Your clip is ready' : hasComposite ? 'Composite ready. Set the length, the action and your line, then animate.' : 'Add a background and generate'}
         >
           <div className={`space-y-3 ${!agentPhotoUrl ? 'opacity-50 pointer-events-none' : ''}`}>
 
@@ -311,7 +346,7 @@ export function AgentCloneTab({
                 <div className="mt-1 relative aspect-video rounded-lg overflow-hidden border border-border/50">
                   <img src={bgUrl} alt="Background" className="w-full h-full object-cover" />
                   <button
-                    onClick={() => setBgUrl('')}
+                    onClick={() => { setBgUrl(''); setExampleAnimation(null); }}
                     className="absolute top-1.5 right-1.5 p-1 bg-black/60 hover:bg-black/80 rounded-full transition-colors"
                   >
                     <X className="h-3.5 w-3.5 text-white" />

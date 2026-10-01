@@ -1,5 +1,5 @@
 import type { ToolExample } from '@/components/tools/tool-examples';
-import type { CleanupPreset, TargetDuration } from '@/types/reelestate';
+import type { AgentCloneDuration, CleanupPreset, TargetDuration } from '@/types/reelestate';
 
 // Real results of ReelEstate, made in the tool with invented houses.
 const BASE = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/examples/reelestate';
@@ -19,19 +19,19 @@ export interface ListingVideoExample extends ToolExample {
   script: string[];
   /** Seconds the finished video runs. */
   seconds: number;
-  /** What each paid step cost. The export is free. */
-  credits: { photoCheck: number; script: number; voice: number };
+  /** What each paid step cost. Animation is the Studio's Animate All, 6 credits per photo here. The export is free. */
+  credits: { photoCheck: number; script: number; voice: number; animation: number };
 }
 
 export const LISTING_VIDEO_EXAMPLES: ListingVideoExample[] = [
   {
     id: 'listing',
     label: 'Listing video',
-    title: '14 Birchwood Lane: 8 photos, one narrated video',
+    title: '14 Birchwood Lane: 8 photos, animated and narrated',
     shows:
-      'One photo per room, in the order a visitor walks the house. 30 seconds chosen, 31 seconds delivered: the script is written to fit the length with the chosen voice.',
-    videoUrl: `${BASE}/listing/14-birchwood-lane.mp4`,
-    posterUrl: `${BASE}/listing/poster.jpg`,
+      'One photo per room, in the order a visitor walks the house. Animate All in the Studio turned every photo into a moving clip. 30 seconds chosen, 31 seconds delivered: the script is written to fit the length with the chosen voice.',
+    videoUrl: `${BASE}/listing/14-birchwood-lane-animated.mp4`,
+    posterUrl: `${BASE}/listing/poster-animated.jpg`,
     projectName: '14 Birchwood Lane (example)',
     photos: [
       { name: '01-front.jpg', url: `${BASE}/listing/01-front.jpg` },
@@ -63,7 +63,7 @@ export const LISTING_VIDEO_EXAMPLES: ListingVideoExample[] = [
       'Watch the sunset. Schedule your private showing today.',
     ],
     seconds: 31,
-    credits: { photoCheck: 2, script: 1, voice: 2 },
+    credits: { photoCheck: 2, script: 1, voice: 2, animation: 48 },
   },
 ];
 
@@ -109,5 +109,65 @@ export const PHOTO_CLEANUP_EXAMPLES: PhotoCleanupExample[] = [
     fileName: 'kitchen.jpg',
     preset: 'declutter_counters',
     credits: 2,
+  },
+];
+
+export interface AgentCloneExample extends ToolExample {
+  videoUrl: string;
+  posterUrl: string;
+  /** The agent's own photo: one photo serves every room. */
+  agentPhoto: { name: string; url: string };
+  /** The listing photo the agent is placed into. */
+  background: { name: string; url: string };
+  /** The composite prompt, exactly as entered. */
+  prompt: string;
+  aspectRatio: '16:9' | '9:16';
+  duration: AgentCloneDuration;
+  /** The action text, exactly as entered. */
+  action: string;
+  /** The preset button behind the action, when one was used. */
+  actionPreset?: string;
+  dialogue: string;
+  /** What each paid step cost. */
+  credits: { composite: number; animation: number };
+}
+
+export const AGENT_CLONE_EXAMPLES: AgentCloneExample[] = [
+  {
+    id: 'kitchen',
+    label: 'In the kitchen',
+    title: 'A 10-second kitchen tour with the agent in the room',
+    shows:
+      'One photo of the agent and one listing photo. The agent stands in the kitchen with matching light, gestures at the island and says the line.',
+    videoUrl: `${BASE}/agent-clone/kitchen.mp4`,
+    posterUrl: `${BASE}/agent-clone/kitchen-poster.jpg`,
+    agentPhoto: { name: 'agent-photo.jpg', url: `${BASE}/agent-clone/agent-photo.jpg` },
+    background: { name: '05-kitchen.jpg', url: `${BASE}/listing/05-kitchen.jpg` },
+    prompt:
+      'A real estate agent standing naturally in this property. Professional photo, natural lighting, matching perspective and shadows.',
+    aspectRatio: '16:9',
+    duration: 10,
+    action: 'gesturing around the room, presenting the space to the viewer',
+    actionPreset: 'Gesturing around',
+    dialogue: 'Welcome to 14 Birchwood Lane. This kitchen has a quartz island and brass fixtures. Come see it this weekend.',
+    credits: { composite: 2, animation: 10 },
+  },
+  {
+    id: 'front',
+    label: 'In front of the house',
+    title: 'A 6-second "just listed" clip for Reels',
+    shows:
+      'Portrait format. The prompt places the agent on the front path, and the action makes the agent walk toward the camera.',
+    videoUrl: `${BASE}/agent-clone/front.mp4`,
+    posterUrl: `${BASE}/agent-clone/front-poster.jpg`,
+    agentPhoto: { name: 'agent-photo.jpg', url: `${BASE}/agent-clone/agent-photo.jpg` },
+    background: { name: '01-front.jpg', url: `${BASE}/listing/01-front.jpg` },
+    prompt:
+      'A real estate agent standing on the front path of this house, the whole house visible behind her. Professional photo, natural lighting, matching perspective and shadows.',
+    aspectRatio: '9:16',
+    duration: 6,
+    action: 'walking slowly toward the camera along the front path, smiling',
+    dialogue: 'Just listed: 14 Birchwood Lane. Message me for a private showing.',
+    credits: { composite: 2, animation: 6 },
   },
 ];

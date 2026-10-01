@@ -62,21 +62,24 @@ export function ToolExamples<T extends ToolExample>({
         <p className="text-xs text-muted-foreground">{intro}</p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {examples.map((e) => (
-          <button
-            key={e.id}
-            type="button"
-            onClick={() => setActiveId(e.id)}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-medium',
-              e.id === example.id ? 'border-primary bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-muted/50',
-            )}
-          >
-            {e.label}
-          </button>
-        ))}
-      </div>
+      {/* A single example needs no selector */}
+      {examples.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {examples.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => setActiveId(e.id)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-xs font-medium',
+                e.id === example.id ? 'border-primary bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-muted/50',
+              )}
+            >
+              {e.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div key={example.id}>{media(example)}</div>
 

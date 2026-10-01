@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Repeat, Loader2, Download, AlertCircle, Upload, X, History, Check, Film } from 'lucide-react';
+import { Repeat, Loader2, Download, AlertCircle, Upload, X, History, Check } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
@@ -10,7 +10,9 @@ import { ElapsedTimer } from '@/components/tools/elapsed-timer';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { urlToFile } from '@/lib/url-to-file';
 import { useCredits } from '@/hooks/useCredits';
 import {
   executeVideoSwap,
@@ -24,6 +26,8 @@ import {
   videoSwapCredits,
   type VideoSwapOrientation,
 } from '@/lib/video-swap/pricing';
+import type { VideoSwapExample } from './examples';
+import { VideoSwapExamples, VideoSwapTips } from './video-swap-examples';
 
 /**
  * Video Swap: the person from a photo performs the motion of the person in a
@@ -31,6 +35,9 @@ import {
  * Maker and Image Maker: inputs on the left, result on the right, History
  * tab. The controls are exactly the engine's inputs.
  */
+
+/** Measured 2026-10-01: two 6 to 7 second clips took 2.5 minutes each; a 3 second clip took 6 minutes in September. */
+const TYPICAL_WAIT = '3 to 6 minutes for a short clip';
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -238,6 +245,7 @@ export function VideoSwapPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [job, setJob] = useState<JobView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const tabs = [
@@ -361,6 +369,28 @@ export function VideoSwapPage() {
     }
   };
 
+  // "Try this example": the example's video and photo go into the form like files the user picked
+  const handleTryExample = async (example: VideoSwapExample) => {
+    setLoadingExampleId(example.id);
+    setError(null);
+    try {
+      const [video, photo] = await Promise.all([
+        urlToFile(example.sourceVideo.url, example.sourceVideo.name, 'video/mp4'),
+        urlToFile(example.personPhoto.url, example.personPhoto.name, 'image/jpeg'),
+      ]);
+      await onVideo(video);
+      onImage(photo);
+      setOrientation(example.orientation);
+      setKeepSound(example.keepSound);
+      setPrompt('');
+      toast.success('Example loaded. Click Swap to make it.');
+    } catch {
+      setError('Could not load the example. Please try again.');
+    } finally {
+      setLoadingExampleId(null);
+    }
+  };
+
   const handleCancel = async () => {
     if (!job) return;
     const res = await cancelVideoSwapJob(job.id);
@@ -375,6 +405,7 @@ export function VideoSwapPage() {
 
   const inputPanel = (
     <div className="h-full flex flex-col gap-5 overflow-y-auto pr-1">
+      <VideoSwapTips />
       <div>
         <label className="block text-sm font-medium mb-2">
           Video <span className="text-zinc-400 font-normal">· the motion to keep</span>
@@ -432,7 +463,7 @@ export function VideoSwapPage() {
             </DropBox>
           )}
           <p className="text-xs text-zinc-400 pt-1">
-            A photo with clear body proportions, nothing covering the person, and the person filling a good part of the frame. Single person only.
+            A photo with clear body proportions, nothing covering the person, and the person filling a good part of the frame. Single person only. The result shows this person in the place of this photo.
           </p>
         </div>
       </div>
@@ -490,8 +521,8 @@ export function VideoSwapPage() {
       <div className="mt-auto pt-2 space-y-3">
         <p className="text-xs text-zinc-400">
           {billedSeconds > 0
-            ? `${billedSeconds} s × ${VIDEO_SWAP_CREDITS_PER_SECOND} credits per second. Takes about 2 minutes per second of video.`
-            : `${VIDEO_SWAP_CREDITS_PER_SECOND} credits per second of video. Takes about 2 minutes per second.`}
+            ? `${billedSeconds} s × ${VIDEO_SWAP_CREDITS_PER_SECOND} credits per second. Usually ${TYPICAL_WAIT}.`
+            : `${VIDEO_SWAP_CREDITS_PER_SECOND} credits per second of video. Usually ${TYPICAL_WAIT}.`}
         </p>
         {typeof available === 'number' && cost > 0 && available < cost && (
           <InsufficientCreditsNotice needed={cost} available={available} />
@@ -517,7 +548,7 @@ export function VideoSwapPage() {
         <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
           <Loader2 className="w-8 h-8 animate-spin" />
           <p className="text-sm">Swapping the person in…</p>
-          <ElapsedTimer typical="about 2 minutes per second of video" />
+          <ElapsedTimer typical={TYPICAL_WAIT} />
           <p className="text-xs text-zinc-400 text-center max-w-xs">
             You can leave this page. The finished video lands in History.
           </p>
@@ -531,9 +562,9 @@ export function VideoSwapPage() {
           <p className="text-sm text-center max-w-sm">{job.error_message || 'The swap did not complete.'}</p>
         </div>
       ) : (
-        <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
-          <Film className="w-10 h-10" />
-          <p className="text-sm">Your swapped video will appear here</p>
+        // Nothing made yet: real swaps from this tool, with what went into each
+        <div className="h-full overflow-y-auto">
+          <VideoSwapExamples onTry={handleTryExample} loadingId={loadingExampleId} busy={isStarting} />
         </div>
       )}
     </div>
@@ -543,7 +574,7 @@ export function VideoSwapPage() {
     <StandardToolPage
       icon={Repeat}
       title="Video Swap"
-      description="Put a new person into a video. The motion, timing and camera stay the same."
+      description="The person in your photo performs the motion of your video. Motion, timing and sound come from the video. The person and the place come from the photo."
       iconGradient="bg-primary"
       toolName="Video Swap"
       tabs={<StandardToolTabs tabs={tabs} activeTab={activeTab} basePath="/dashboard/video-swap" />}

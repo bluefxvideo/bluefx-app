@@ -28,6 +28,9 @@ export function useSmartVideo() {
   const [exactWords, setExactWords] = useState(false);
   const [format, setFormat] = useState<VideoFormat>('vertical');
   const [look, setLook] = useState<VideoLook>('auto');
+  // The soundtrack: a narrator and music, each of which the client can switch off
+  const [voiceOver, setVoiceOver] = useState(true);
+  const [music, setMusic] = useState(true);
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -86,6 +89,8 @@ export function useSmartVideo() {
         length: exactWords ? 'script' : 'auto',
         format,
         look,
+        voiceOver,
+        music,
         link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -98,12 +103,12 @@ export function useSmartVideo() {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, look, files, queryClient]);
+  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
   const revise = useCallback(
-    async (note: string, added: File[] = []) => {
+    async (note: string, added: File[] = [], sound?: { voiceOver: boolean; music: boolean }) => {
       if (!jobId) return false;
       setRevising(true);
       try {
@@ -119,7 +124,7 @@ export function useSmartVideo() {
           uploadJobId = requested.data.jobId;
           uploads = requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path }));
         }
-        const revised = await reviseSmartVideoJob({ jobId, note, uploadJobId, uploads });
+        const revised = await reviseSmartVideoJob({ jobId, note, ...sound, uploadJobId, uploads });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);
         queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
@@ -135,6 +140,36 @@ export function useSmartVideo() {
     [jobId, queryClient],
   );
 
+  // A failed edit is run again as it was asked: same video, same note, same sound choices.
+  // (Files that came with the failed edit are not sent again; the note box is the place for those.)
+  const retryEdit = useCallback(
+    async (failed: SmartVideoJob) => {
+      if (!failed.parentId) return false;
+      setRevising(true);
+      try {
+        const revised = await reviseSmartVideoJob({ jobId: failed.parentId, note: failed.note || '', voiceOver: failed.voiceOver, music: failed.music, uploads: [] });
+        if (!revised.success) throw new Error(revised.error);
+        setJobId(revised.data.jobId);
+        queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+        queryClient.invalidateQueries({ queryKey: ['user-credits'] });
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not start the edit');
+        return false;
+      } finally {
+        setRevising(false);
+      }
+    },
+    [queryClient],
+  );
+
+  // A failed new video: back to the form, with the text it was made from (the files have to be added again).
+  const tryAgain = useCallback((failed: SmartVideoJob) => {
+    setBrief((current) => current || failed.brief || '');
+    setLink((current) => current || failed.link || '');
+    setJobId(null);
+  }, []);
+
   // "Try this example": the form gets exactly what made the example video, photos and clip included,
   // so the structure is there to copy before the user swaps in their own business.
   const [loadingExample, setLoadingExample] = useState<string | null>(null);
@@ -145,6 +180,8 @@ export function useSmartVideo() {
     setFormat(example.format);
     setLook(example.look);
     setExactWords(false);
+    setVoiceOver(true);
+    setMusic(true);
     setFiles([]);
     try {
       const loaded = await Promise.all(
@@ -178,6 +215,10 @@ export function useSmartVideo() {
     setFormat,
     look,
     setLook,
+    voiceOver,
+    setVoiceOver,
+    music,
+    setMusic,
     files,
     addFiles,
     removeFile,
@@ -192,6 +233,8 @@ export function useSmartVideo() {
     isBusy: Boolean(uploading) || revising || isRunning(job) || (Boolean(jobId) && !job),
     start,
     reset,
+    retryEdit,
+    tryAgain,
     openJob: setJobId,
     loadExample,
     loadingExample,

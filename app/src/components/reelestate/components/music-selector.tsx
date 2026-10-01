@@ -15,14 +15,18 @@ import {
 
 interface MusicSelectorProps {
   selectedTrackId: string | null;
+  /** The project's saved music. A reopened project knows its track only by this URL. */
+  selectedUrl?: string | null;
   volume: number;
-  onSelectTrack: (trackId: string, url: string) => void;
+  /** null = no music */
+  onSelectTrack: (trackId: string | null, url: string | null) => void;
   onVolumeChange: (volume: number) => void;
   disabled?: boolean;
 }
 
 export function MusicSelector({
-  selectedTrackId,
+  selectedTrackId: selectedId,
+  selectedUrl,
   volume,
   onSelectTrack,
   onVolumeChange,
@@ -31,6 +35,7 @@ export function MusicSelector({
   const [activeFilter, setActiveFilter] = useState<MusicFilter>('all');
 
   const tracks = getTracksByGenre(activeFilter);
+  const selectedTrackId = selectedId ?? getTracksByGenre('all').find(t => t.url === selectedUrl)?.id ?? null;
 
   const selectTrack = useCallback((track: MusicTrack) => {
     onSelectTrack(track.id, track.url);
@@ -64,6 +69,20 @@ export function MusicSelector({
 
       {/* Track list */}
       <div className="space-y-1 max-h-[220px] overflow-y-auto pr-1">
+        {/* The video can also go without music */}
+        <div
+          className={cn(
+            'flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all border',
+            selectedTrackId === null
+              ? 'border-primary bg-primary/10'
+              : 'border-transparent hover:bg-muted/50',
+            disabled && 'opacity-50 pointer-events-none'
+          )}
+          onClick={() => onSelectTrack(null, null)}
+        >
+          <p className="flex-1 text-sm font-medium">No music</p>
+          {selectedTrackId === null && <Check className="h-4 w-4 text-primary shrink-0" />}
+        </div>
         {tracks.map(track => {
           const isSelected = selectedTrackId === track.id;
 

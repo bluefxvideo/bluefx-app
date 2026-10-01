@@ -4,28 +4,26 @@ import { useState } from 'react';
 import { containerStyles } from '@/lib/container-styles';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { UserCircle, Download, Loader2, Mic } from 'lucide-react';
+import { Download, Loader2, Mic } from 'lucide-react';
 import type { AgentCloneShot } from '@/types/reelestate';
+import type { AgentCloneExample } from '../examples';
+import { AgentCloneExamples } from '../reelestate-examples';
 
 interface AgentCloneOutputProps {
   shot: AgentCloneShot | null;
+  /** "Try this example" in the examples shown while no shot is open. */
+  onTryExample: (example: AgentCloneExample) => void;
 }
 
-export function AgentCloneOutput({ shot }: AgentCloneOutputProps) {
+export function AgentCloneOutput({ shot, onTryExample }: AgentCloneOutputProps) {
   // Which audio track to show once a voice switch exists (hook must run before any early return)
   const [view, setView] = useState<'voice' | 'original'>('voice');
 
-  // Empty state
+  // No shot yet: real clips from this tool, with what went into each
   if (!shot || shot.status === 'idle') {
     return (
-      <div className={`h-full flex flex-col items-center justify-center text-center ${containerStyles.panel} p-8`}>
-        <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-          <UserCircle className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-medium mb-2">Agent Clone</h3>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Upload your photo and a background to create an AI presenter shot for your listing videos.
-        </p>
+      <div className={`h-full overflow-y-auto ${containerStyles.panel} p-4`}>
+        <AgentCloneExamples onTry={onTryExample} busy={false} />
       </div>
     );
   }
