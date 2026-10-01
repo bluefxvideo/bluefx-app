@@ -95,7 +95,9 @@ export function buildTheme(style: string, proposed?: { bg?: string | null; accen
   const theme: Record<string, string> = {};
   // A whiteboard is always the white board; only the marker colour can be the brand's.
   if (style === 'whiteboard') {
-    if (isHex(proposed?.accent) && luminance(proposed.accent) < 0.55) {
+    // The second marker must be a real colour: a black or grey "accent" leaves the whole video in one ink
+    // and nothing stands out. Then the look's own blue marker is used.
+    if (isHex(proposed?.accent) && saturation(proposed.accent) > 0.35 && luminance(proposed.accent) < 0.55 && luminance(proposed.accent) > 0.06) {
       theme.accent = proposed.accent;
       theme.accentDark = mix(proposed.accent, 0, 0.35);
     }

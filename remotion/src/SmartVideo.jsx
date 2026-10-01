@@ -130,7 +130,9 @@ const STYLES = {
   whiteboard: {
     theme: { bg: '#FAF9F5', bgLight: '#FFFFFF', bgDeep: '#ECEAE3', accent: '#2563EB', accentDark: '#1E40AF', ink: '#1F2430' },
     fonts: { title: ['Caveat', 'Caveat.ttf', '400 700'], body: ['Caveat', 'Caveat.ttf', '400 700'], extra: [['Marker', 'PermanentMarker.ttf', '400']] },
-    title: { kind: 'hand', weight: 700, scale: 1.12, chars: 1.25, upper: false },
+    // Short lines (about 12 letters): a headline in two big lines fills the board better than one long line.
+    title: { kind: 'hand', weight: 700, scale: 1.12, chars: 0.8, upper: false },
+    grow: 1.7,
     bodyWeight: 700,
     surface: 'light',
     panel: '#FAF9F5',
@@ -220,6 +222,7 @@ function autoBreak(text, maxChars) {
 
 function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = false, scrimFrom = 'vertical', children }) {
   const { W, H } = useFrame();
+  const { look } = usePlan();
   const columnWidth = width ?? W;
   const ref = useRef(null);
   const [scale, setScale] = useState(1);
@@ -228,8 +231,9 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
     const h = ref.current?.offsetHeight;
     const w = ref.current?.offsetWidth;
     if (!h || !w) return;
-    // Shrinks a stack that is too big; grows a small one (up to 22%) so it fills its column.
-    const target = Math.min(1.22, (available * 0.94) / h, (columnWidth - 2 * 34) / w);
+    // Shrinks a stack that is too big; grows a small one so it fills its column (up to 22%; handwriting, which
+    // is thin and light, up to 70%: a board with small writing in the middle looks empty).
+    const target = Math.min(look.grow || 1.22, (available * 0.94) / h, (columnWidth - 2 * 34) / w);
     if (Math.abs(target - scale) > 0.005) setScale(target);
   });
   const down = align !== 'flex-start';
@@ -356,6 +360,7 @@ function PushIn({ at, rotate = 0, zIndex = 5, children }) {
 const TITLE_SIZE = { xl: 150, l: 110, m: 92, s: 72 };
 const TITLE_CHARS = { xl: 11, l: 15, m: 18, s: 24 };
 const HAND_FRAMES_PER_CHAR = 1.4;
+const HAND_LIST_CHARS = 16; // a handwritten list line longer than this is written in two lines
 
 function titlePaint(look, theme, tone, size, textColor) {
   const kind = look.title.kind;
@@ -564,9 +569,9 @@ function Badge({ block }) {
   const playful = look.title.kind === 'sticker';
   if (look.pill.marker) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, fontFamily: MARKER, fontSize: size * 0.8, color: theme.ink }}>
-        <span style={{ color: theme.accent, fontSize: size * 1.1 }}>✓</span>
-        <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, fontFamily: MARKER, fontSize: size * 0.8, lineHeight: 1.15, color: theme.ink }}>
+        <span style={{ color: theme.accent, fontSize: size * 1.1, lineHeight: 0.9 }}>✓</span>
+        <div ref={ref} style={{ whiteSpace: 'pre' }}>{autoBreak(block.text, 14)}</div>
       </div>
     );
   }
@@ -642,14 +647,15 @@ const CHIP_COLORS = ['accent', 'blue', 'green', 'orange', 'purple'];
 function Chip({ item, index }) {
   const { theme, look } = usePlan();
   const textColor = useTextColor();
-  const [ref, size] = useFit(look.chip.icon === 'check' ? 66 : 50, useColumn() - 2 * SIDE - 190);
+  const [ref, size] = useFit(look.chip.icon === 'check' ? 72 : 50, useColumn() - 2 * SIDE - (look.chip.icon === 'check' ? 90 : 190));
   const chip = look.chip;
   if (chip.icon === 'check') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 22, minWidth: 620 }}>
-        <span style={{ fontFamily: MARKER, fontSize: size * 0.95, color: theme.accent, width: 60, textAlign: 'center', flexShrink: 0 }}>✓</span>
-        <div ref={ref} style={{ fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, lineHeight: 1.05, color: textColor, whiteSpace: 'nowrap' }}>
-          {item.text}
+      // A long line is written in two: shorter lines let the whole list be written bigger.
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22 }}>
+        <span style={{ fontFamily: MARKER, fontSize: size * 0.95, lineHeight: 1.1, color: theme.accent, width: 60, textAlign: 'center', flexShrink: 0 }}>✓</span>
+        <div ref={ref} style={{ fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, lineHeight: 1.05, color: textColor, whiteSpace: 'pre' }}>
+          {autoBreak(item.text, HAND_LIST_CHARS)}
         </div>
       </div>
     );
@@ -803,7 +809,7 @@ function Row({ item }) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 22, fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, color: textColor }}>
         <span style={{ fontFamily: MARKER, fontSize: size * 0.9, color: theme.accent, width: 58, textAlign: 'center', flexShrink: 0 }}>✓</span>
-        <span ref={ref} style={{ whiteSpace: 'nowrap' }}>{item.text}</span>
+        <span ref={ref} style={{ whiteSpace: 'pre', lineHeight: 1.05 }}>{autoBreak(item.text, HAND_LIST_CHARS)}</span>
       </div>
     );
   }
@@ -970,7 +976,10 @@ function MediaFill({ asset, block, duration }) {
 function Media({ block, duration }) {
   const { assets, theme, look } = usePlan();
   const asset = assets[block.asset];
-  const [w, h] = CARD[block.shape] || CARD.wide;
+  // A square or tall photo in a wide card loses the top and bottom of the picture (a face cut at the chin).
+  const ratio = asset?.width && asset?.height ? asset.width / asset.height : null;
+  const shape = ratio === null ? block.shape : ratio < 0.9 ? 'tall' : ratio <= 1.2 ? 'square' : block.shape === 'tall' || block.shape === 'square' ? 'photo' : block.shape;
+  const [w, h] = CARD[shape] || CARD.wide;
   const card = look.card;
   if (!asset) return null;
   if (block.cutout && asset.cutoutUrl) return <Cutout asset={asset} block={block} />;
@@ -1111,16 +1120,19 @@ function Board({ children }) {
 }
 
 // Where a scene's drawing sits: across the top when vertical, on the left when horizontal.
-function drawingBox({ W, H, landscape }, captions) {
+// The drawing keeps its own shape (ratio = width / height) and takes exactly the room it needs,
+// so the words get everything that is left.
+function drawingBox({ W, H, landscape }, captions, ratio = 1) {
   if (landscape) {
     const top = 70;
-    const bottom = captions ? 215 : 70;
-    const size = Math.min(900, H - top - bottom);
-    return { x: 100, y: top + (H - top - bottom - size) / 2, w: size, h: size };
+    const maxH = H - top - (captions ? 215 : 70);
+    const w = Math.min(940, maxH * ratio);
+    return { x: 90, y: top + (maxH - w / ratio) / 2, w, h: w / ratio };
   }
-  const size = captions ? 800 : 900;
-  return { x: (W - size) / 2, y: 150, w: size, h: size };
+  const w = Math.min(940, (captions ? 780 : 900) * ratio);
+  return { x: (W - w) / 2, y: 150, w, h: w / ratio };
 }
+const ratioOf = (asset) => (asset?.width && asset?.height ? asset.width / asset.height : 1);
 
 // How long the hand draws: under half the scene, so the words that follow stay up long enough to read.
 const drawSeconds = (sceneSeconds) => Math.min(3, Math.max(1.5, sceneSeconds * 0.4));
@@ -1134,13 +1146,8 @@ function useDrawing(background, duration, first) {
   const { assets, captions } = usePlan();
   const frame = useCurrentFrame();
   const asset = assets[background.asset];
-  const box = drawingBox(frameSize, captions);
-  // The picture fills its box by its own shape, so the hand never draws over empty board.
-  const ratio = asset?.width && asset?.height ? asset.width / asset.height : 1;
-  const w = ratio >= 1 ? box.w : box.h * ratio;
-  const h = ratio >= 1 ? box.w / ratio : box.h;
-  const x = box.x + (box.w - w) / 2;
-  const y = box.y + (box.h - h) / 2;
+  // The box is the picture itself, so the hand never draws over empty board.
+  const { x, y, w, h } = drawingBox(frameSize, captions, ratioOf(asset));
   const drawFrames = Math.round(drawSeconds(duration / FPS) * FPS);
   // The first scene opens with part of the picture already there (it doubles as the thumbnail).
   const p = interpolate(frame, [4, 4 + drawFrames], [first ? DRAW_ROWS * 0.35 : 0, DRAW_ROWS], clamp);
@@ -1368,13 +1375,13 @@ function Scene({ scene, index, first }) {
 
   let layout;
   if (type === 'drawing') {
-    const box = drawingBox(frameSize, captions);
+    const box = drawingBox(frameSize, captions, ratioOf(assets[scene.background.asset]));
     layout = landscape ? (
-      <Stack top={70} bottom={captions ? 215 : 70} left={box.x + box.w + 50} width={W - box.x - box.w - 50 - 60} gap={gap}>
+      <Stack top={70} bottom={captions ? 215 : 70} left={box.x + box.w + 60} width={W - box.x - box.w - 60 - 70} gap={gap}>
         {render(scene.blocks)}
       </Stack>
     ) : (
-      <Stack top={box.y + box.h + 30} bottom={captions ? 610 : 250} gap={gap}>
+      <Stack top={box.y + box.h + 40} bottom={captions ? 610 : 250} gap={gap}>
         {render(scene.blocks)}
       </Stack>
     );

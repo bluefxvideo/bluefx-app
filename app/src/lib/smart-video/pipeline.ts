@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { directVideo, reviseVideo } from './director';
 import {
   MOTION_CLIP_SECONDS,
@@ -232,6 +233,9 @@ async function produce(
               cutoutUrl: cutoutUrls.get(a.id) || undefined,
               // A tall picture cannot fill a wide frame; the renderer shows it whole instead.
               portrait: Boolean(a.width && a.height && a.height > a.width * 1.15),
+              // The picture's own shape: a card that crops a square or tall photo to a wide one cuts faces.
+              width: a.width,
+              height: a.height,
             },
           ] as const
       ),
@@ -264,6 +268,7 @@ export async function reviseSmartVideo(
     onStage('producing');
     const media = { ...previous.media, sound, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
     await addFiles(plan, media, added, store);
+    await measurePhotos(media);
     // Whiteboard: a drawing that is new, or whose description changed, is drawn again; the others are kept.
     const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
     const redraw = (plan.drawings || []).filter((d) => !media.assets[d.id] || before.get(d.id) !== d.prompt);
@@ -295,6 +300,21 @@ export async function reviseSmartVideo(
     return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
   });
   return { ...result, usage };
+}
+
+/** Videos made before sizes were saved: measure their photos once, so an edit shows them in their own shape. */
+async function measurePhotos(media: SmartVideoMedia): Promise<void> {
+  await Promise.all(
+    Object.entries(media.assets).map(async ([id, asset]) => {
+      if (asset.kind !== 'image' || asset.width || !/^https?:/.test(asset.url)) return;
+      try {
+        const { width, height } = await sharp(Buffer.from(await (await fetch(asset.url, { signal: AbortSignal.timeout(20_000) })).arrayBuffer())).metadata();
+        if (width && height) media.assets[id] = { ...asset, width, height };
+      } catch {
+        // an unmeasured photo keeps the card the director chose
+      }
+    })
+  );
 }
 
 /** Whiteboard drawings, in parallel. One that fails leaves its scene on the plain board rather than failing the video. */
@@ -332,6 +352,8 @@ async function addFiles(plan: DirectorPlan, media: SmartVideoMedia, added: Smart
         kind: a.kind,
         cutoutUrl: cutoutUrl || undefined,
         portrait: Boolean(a.width && a.height && a.height > a.width * 1.15),
+        width: a.width,
+        height: a.height,
       };
       if (heard) media.clipWords[a.id] = heard;
     })
