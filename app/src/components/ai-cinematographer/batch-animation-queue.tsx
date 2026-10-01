@@ -20,6 +20,7 @@ import {
   Download,
   Trash2,
 } from 'lucide-react';
+import { CAMERA_MOVE_WARNING } from '@/lib/scene-breakdown/motion-presets';
 
 export interface QueueItem {
   id: string;
@@ -377,6 +378,9 @@ export function BatchAnimationQueue({
                           </SelectContent>
                         </Select>
                       </div>
+                      {item.model === 'fast' && item.camera_motion && item.camera_motion !== 'none' && item.camera_motion !== 'static' && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">{CAMERA_MOVE_WARNING}</p>
+                      )}
 
                     </div>
                   )}

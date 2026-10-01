@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +9,7 @@ import { breakdownScript } from '@/actions/tools/scene-breakdown';
 // Product substitution removed — breakdown is a faithful copy, client customizes via AI chat
 import { refineBreakdownWithAI } from '@/actions/tools/scene-breakdown';
 import { groupScenesIntoBatches } from '@/lib/scene-breakdown/types';
-import { MOTION_PRESETS } from '@/lib/scene-breakdown/motion-presets';
+import { CAMERA_MOVE_WARNING, MOTION_PRESETS, isCameraMove } from '@/lib/scene-breakdown/motion-presets';
 import { isLostReferencePhoto, type WizardData, type ChatMessage } from '../wizard-types';
 import { MAX_SCENE_REFERENCE_IMAGES } from '@/types/cinematographer';
 import type { BreakdownScene, SceneBreakdownResult } from '@/lib/scene-breakdown/types';
@@ -18,7 +18,8 @@ import { toast } from 'sonner';
 
 interface CustomizePlanStepProps {
   wizardData: WizardData;
-  onBreakdownComplete: (result: SceneBreakdownResult) => void;
+  /** `source` 'assistant': the AI Assistant changed an existing plan (the cameras stay as picked). */
+  onBreakdownComplete: (result: SceneBreakdownResult, source?: 'breakdown' | 'assistant') => void;
   onUpdateScene: (sceneNumber: number, updates: Partial<BreakdownScene>) => void;
   onUpdateGlobalAesthetic: (prompt: string) => void;
   onUpdateNarration: (narration: string) => void;
@@ -27,6 +28,10 @@ interface CustomizePlanStepProps {
   onToggleScene?: (sceneNumber: number) => void;
   /** Typed into the AI Assistant box on arrival ("Try this example"), not sent. */
   initialInstruction?: string;
+  /** Shown above the script box until there is a shot plan (Video Ad From Script). */
+  tips?: ReactNode;
+  /** Shown under the Break Down button until there is a shot plan (Video Ad From Script). */
+  examples?: ReactNode;
 }
 
 export function CustomizePlanStep({
@@ -39,6 +44,8 @@ export function CustomizePlanStep({
   onUpdateAspectRatio,
   onToggleScene,
   initialInstruction,
+  tips,
+  examples,
 }: CustomizePlanStepProps) {
   const [isBreakingDown, setIsBreakingDown] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -104,7 +111,7 @@ export function CustomizePlanStep({
 
       if (response.success && response.result) {
         // Update all scenes at once
-        onBreakdownComplete(response.result);
+        onBreakdownComplete(response.result, 'assistant');
 
         const assistantMessage: ChatMessage = {
           id: `msg-${Date.now()}`,
@@ -343,6 +350,8 @@ export function CustomizePlanStep({
                   </p>
                 </div>
 
+                {tips}
+
                 {/* Show analysis text (clone mode) */}
                 {wizardData.analysisText && (
                   <details className="group">
@@ -359,8 +368,9 @@ export function CustomizePlanStep({
                 {/* Narration script (only if no analysis loaded — manual mode) */}
                 {!wizardData.analysisText && (
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Narration Script</label>
+                    <label htmlFor="narration-script" className="text-sm font-medium mb-2 block">Narration Script</label>
                     <Textarea
+                      id="narration-script"
                       value={wizardData.narrationScript}
                       onChange={e => onUpdateNarration(e.target.value)}
                       placeholder="Paste your narration script here..."
@@ -384,6 +394,8 @@ export function CustomizePlanStep({
                     Add your product image on the left panel for best results
                   </p>
                 )}
+
+                {examples}
               </>
             )}
           </div>
@@ -463,7 +475,7 @@ export function CustomizePlanStep({
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">Motion:</span>
                               <select
-                                value={scene.motionPresetId || 6}
+                                value={scene.motionPresetId ?? 9}
                                 onChange={e => onUpdateScene(scene.sceneNumber, { motionPresetId: parseInt(e.target.value) })}
                                 className="text-xs bg-secondary/30 border border-border/30 rounded px-2 py-0.5"
                               >
@@ -472,6 +484,9 @@ export function CustomizePlanStep({
                                 ))}
                               </select>
                             </div>
+                            {isCameraMove(scene.motionPresetId) && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400">{CAMERA_MOVE_WARNING}</p>
+                            )}
                           </>
                         )}
                       </div>

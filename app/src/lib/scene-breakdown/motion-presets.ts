@@ -18,6 +18,17 @@ export const MOTION_PRESETS: MotionPreset[] = [
   { id: 9, name: 'None', prompt: 'No specific camera motion, determined by prompt' },
 ];
 
+/** The still camera. It kept every Fast test clip in one shot (see handleBreakdownComplete in ad-creator-page.tsx). */
+export const STATIC_MOTION_PRESET_ID = 1;
+
+/** A preset that moves the camera (everything but Static and None). */
+export function isCameraMove(presetId: number | null | undefined): boolean {
+  return presetId != null && presetId !== STATIC_MOTION_PRESET_ID && presetId !== 9;
+}
+
+/** Shown next to a camera move, in the shot plan and in the clip queue. */
+export const CAMERA_MOVE_WARNING = 'A camera move can make a Fast clip jump to a different shot. Static is the safe choice.';
+
 /**
  * Get a motion preset by ID
  */
