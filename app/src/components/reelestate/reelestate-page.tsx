@@ -164,6 +164,7 @@ export function ReelEstatePage() {
   const handleTryAutomaticExample = useCallback(async (example: AutomaticVideoExample) => {
     setLoadingAutomaticId(example.id);
     automatic.setLink('');
+    automatic.setInstructions('');
     automatic.setBrief(example.facts);
     automatic.setListingSeconds(example.seconds);
     automatic.setFormat(example.format);

@@ -35,6 +35,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   const isListing = mode === 'listing';
   // Listing video: the length (every photo becomes a moving clip)
   const [listingSeconds, setListingSeconds] = useState<ListingLength>(30);
+  // ... and what the client wants done differently ("Start with the kitchen.")
+  const [instructions, setInstructions] = useState('');
   const [brief, setBrief] = useState('');
   const [link, setLink] = useState('');
   const [exactWords, setExactWords] = useState(false);
@@ -121,7 +123,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         look,
         voiceOver,
         music,
-        ...(isListing ? { listing: { seconds: listingSeconds } } : {}),
+        ...(isListing ? { listing: { seconds: listingSeconds, ...(instructions.trim() ? { instructions: instructions.trim() } : {}) } } : {}),
         link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -134,7 +136,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient, isListing, listingSeconds]);
+  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient, isListing, listingSeconds, instructions]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
@@ -198,6 +200,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   const tryAgain = useCallback((failed: SmartVideoJob) => {
     setBrief((current) => current || failed.brief || '');
     setLink((current) => current || failed.link || '');
+    setInstructions((current) => current || failed.listing?.instructions || '');
     setJobId(null);
   }, []);
 
@@ -231,6 +234,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     setJobId(null);
     setBrief('');
     setLink('');
+    setInstructions('');
     setFiles([]);
     queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
   }, [queryClient]);
@@ -243,6 +247,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   return {
     listingSeconds,
     setListingSeconds,
+    instructions,
+    setInstructions,
     listingPhotos,
     clipCredits,
     brief,

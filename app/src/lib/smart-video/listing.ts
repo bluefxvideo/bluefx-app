@@ -15,7 +15,12 @@ export interface ListingOptions {
   seconds: ListingLength;
   /** Every photo in the video becomes a moving clip (image-to-video). Always true in the product; false only in local checks of text and length. */
   animate: boolean;
+  /** What the client wants done differently, in their own words ("Start with the kitchen. Leave the bathrooms out."). */
+  instructions?: string;
 }
+
+/** The longest instructions the form takes. */
+export const LISTING_INSTRUCTIONS_MAX = 1000;
 
 /** A listing video shows whole photos, so it needs enough of them for the shortest plan the engine accepts. */
 export const LISTING_MIN_PHOTOS = 4;
@@ -112,7 +117,21 @@ THIS VIDEO IS A PROPERTY LISTING VIDEO. The rules in this section replace the ge
 - LAST SCENE: blocks = a title with the call to action in capitals ("OPEN HOUSE\\nSAT 11-2" when the material names an open house, otherwise "BOOK A\\nSHOWING"), a caption "Listed by" plus the agent's name when the material names the agent, and a highlight with the agent's phone number (else the email, else the website; with none of them, the street address plus a note in "warnings"). Narration: one line about this photo, then the call to action. Never read the phone number out.
 - Everything spoken and everything on screen is in the language of the client's text, the labels and the call to action included.
 - No gallery, chips, rows, badge, emoji, stars, quote, logo or media blocks anywhere. "animate", "lifestyleShots", "drawings" and "signatureSound" are null.
-- voice.direction: "${LISTING_VOICE}"`;
+- voice.direction: "${LISTING_VOICE}"${instructionsRule(listing, photos)}`;
+}
+
+/**
+ * The client's own instructions outrank the recipe, with three things held: the length and the
+ * number of photos (the price was quoted for them) and the look of the room photos.
+ */
+function instructionsRule(listing: ListingOptions, photos: number): string {
+  const instructions = listing.instructions?.trim();
+  if (!instructions) return '';
+  return `
+- THE CLIENT'S INSTRUCTIONS FOR THIS VIDEO (between the triple quotes) outrank the rules of this section wherever the two differ: which photos to show or leave out, their order, what to say about a room, what to stress, the call to action, the language. A fact the client states there ("the roof is new", "five minutes from the lake") is the client's to state: use it as given. Three things the instructions cannot change: the length (${listing.seconds} seconds), the number of photos (at most ${photos}; fewer is fine when the client asks for fewer), and the look of the room photos (full screen, no text on them). When an instruction asks for one of these three, or for a photo that is not among the files, follow the rest and tell the client in "warnings", in one plain sentence, what was not done and what to do instead (for a longer video or more photos: choose a longer length on the form). Never read an instruction out as narration.
+"""
+${instructions.slice(0, LISTING_INSTRUCTIONS_MAX)}
+"""`;
 }
 
 /**
@@ -122,20 +141,25 @@ THIS VIDEO IS A PROPERTY LISTING VIDEO. The rules in this section replace the ge
 export function checkListingPlan(plan: DirectorPlan, assets: SmartAsset[], listing: ListingOptions): string | null {
   const photos = assets.filter((a) => a.kind === 'image').length;
   const wanted = listingPhotoCount(listing.seconds, photos);
+  // The client's instructions may ask for fewer photos, another opener or no phone number
+  const instructed = Boolean(listing.instructions?.trim());
   const shown = plan.scenes.map((scene) => scene.background.asset);
   const notFull = plan.scenes.findIndex((scene) => scene.background.type !== 'mediaFull');
   if (notFull !== -1) return `scene ${notFull + 1}: every scene of a listing video has a "mediaFull" background with one of the photos.`;
   // (with fewer photos than the shortest video has scenes, one photo has to come back)
   const twice = photos >= LISTING_MIN_PHOTOS && shown.find((id, i) => shown.indexOf(id) !== i);
   if (twice) return `photo "${twice}" is shown in two scenes; every scene shows a different photo.`;
-  if (plan.scenes.length > wanted || plan.scenes.length < Math.min(wanted, Math.max(LISTING_MIN_PHOTOS, wanted - 1))) {
+  if (plan.scenes.length > wanted) {
+    return `the video has ${plan.scenes.length} scenes; a ${listing.seconds}-second listing video shows at most ${wanted} photos, one per scene (the client was quoted a price for ${wanted}), whatever else is asked.`;
+  }
+  if (!instructed && plan.scenes.length < Math.min(wanted, Math.max(LISTING_MIN_PHOTOS, wanted - 1))) {
     return `the video has ${plan.scenes.length} scenes; a ${listing.seconds}-second listing video with these photos has ${wanted} scenes, one photo each.`;
   }
   const withText = plan.scenes.findIndex((scene, i) => i > 1 && i < plan.scenes.length - 1 && scene.blocks.length > 0);
   if (withText !== -1) return `scene ${withText + 1} is a room photo and must have "blocks": [] (only scene 1, scene 2 and the last scene carry text).`;
-  if (!plan.scenes[0].blocks.some((b) => b.type === 'title')) return 'scene 1 needs a title with the street address.';
+  if (!instructed && !plan.scenes[0].blocks.some((b) => b.type === 'title')) return 'scene 1 needs a title with the street address.';
   const last = plan.scenes[plan.scenes.length - 1];
-  if (!last.blocks.some((b) => b.type === 'highlight')) return 'the last scene needs a highlight block with the agent\'s contact.';
+  if (!instructed && !last.blocks.some((b) => b.type === 'highlight')) return 'the last scene needs a highlight block with the agent\'s contact.';
   const forbidden = plan.scenes.flatMap((scene) => scene.blocks).find((b) => !['title', 'pill', 'number', 'tiles', 'caption', 'highlight'].includes(b.type));
   if (forbidden) return `a listing video has no "${forbidden.type}" block; use only title, pill, number, tiles, caption and highlight.`;
 
@@ -173,10 +197,16 @@ export function listingFigure(big: string, label: string | null | undefined, lan
   }
 }
 
-/** What the recipe fixes is not left to the plan: captions on, nothing generated but the clips of the client's own photos. */
-export function asListingPlan(plan: DirectorPlan): DirectorPlan {
+/**
+ * What the recipe fixes is not left to the plan: captions on, nothing generated but the clips of
+ * the client's own photos, and never more photos than the price was quoted for (`maxScenes`: a plan
+ * that still shows more loses its last rooms, never the opener, the figures or the ending).
+ */
+export function asListingPlan(plan: DirectorPlan, maxScenes?: number): DirectorPlan {
+  const scenes = maxScenes && plan.scenes.length > maxScenes ? [...plan.scenes.slice(0, maxScenes - 1), plan.scenes[plan.scenes.length - 1]] : plan.scenes;
   return {
     ...plan,
+    scenes,
     format: 'tour',
     captions: true,
     voice: { ...plan.voice, direction: LISTING_VOICE },

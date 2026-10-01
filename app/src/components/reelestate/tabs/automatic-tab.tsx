@@ -10,7 +10,7 @@ import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-co
 import { StandardStep } from '@/components/tools/standard-step';
 import { cn } from '@/lib/utils';
 import { cleanLink } from '@/lib/smart-video/link';
-import { LISTING_LENGTHS, LISTING_MIN_PHOTOS, listingPhotoCount } from '@/lib/smart-video/listing';
+import { LISTING_INSTRUCTIONS_MAX, LISTING_LENGTHS, LISTING_MIN_PHOTOS, listingPhotoCount } from '@/lib/smart-video/listing';
 import { LISTING_CLIP_CREDITS } from '@/lib/smart-video/pricing';
 import type { VideoFormat } from '@/lib/smart-video/types';
 import type { useSmartVideo } from '@/components/smart-video/hooks/use-smart-video';
@@ -120,7 +120,7 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
           </div>
         </StandardStep>
 
-        <StandardStep stepNumber={2} title="The video" description="Length and shape">
+        <StandardStep stepNumber={2} title="The video" description="Length, shape and your instructions">
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Length</Label>
@@ -173,6 +173,22 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
             <p className="rounded-lg border p-3 text-xs text-muted-foreground">
               Every photo becomes a moving clip: the camera pushes slowly into the room. {LISTING_CLIP_CREDITS} credits per photo.
             </p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="listing-instructions">Instructions (optional)</Label>
+              <Textarea
+                id="listing-instructions"
+                value={video.instructions}
+                onChange={(e) => video.setInstructions(e.target.value)}
+                maxLength={LISTING_INSTRUCTIONS_MAX}
+                placeholder={
+                  'Anything the video should do differently, in your own words.\n"Start with the kitchen." "Leave the bathrooms out." "Mention the new roof and the school district." "End with: Call me today."'
+                }
+                className="min-h-[90px]"
+                disabled={busy}
+              />
+              <p className="text-xs text-muted-foreground">The length and the number of photos stay as chosen above.</p>
+            </div>
           </div>
         </StandardStep>
 
@@ -195,8 +211,14 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
           <span>Make the listing video · {total} credits</span>
         </Button>
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          {video.credits} credits for the video and {LISTING_CLIP_CREDITS} for each of {video.listingPhotos} animated photos.{' '}
-          {video.link.trim() ? 'A listing with fewer photos costs less, and a' : 'A'} photo that cannot be animated is not charged.
+          {/* The price follows the length, not the number of photos that come in: say so where the price is. */}
+          {video.credits} + {video.listingPhotos} × {LISTING_CLIP_CREDITS} credits: a {video.listingSeconds}-second video shows {video.listingPhotos} photos
+          {video.link.trim()
+            ? ', however many the listing has (fewer photos cost less)'
+            : video.files.length > video.listingPhotos
+              ? ` of your ${video.files.length}`
+              : ''}
+          . A photo that cannot be animated is not charged.
         </p>
       </TabFooter>
     </TabContentWrapper>

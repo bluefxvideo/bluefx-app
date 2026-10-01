@@ -310,7 +310,10 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
 
     // The product has no still-photo listing video (the owner's call, 2026-10-02): every photo is animated.
-    const listing: ListingOptions | undefined = parsed.listing ? { seconds: parsed.listing.seconds, animate: true } : undefined;
+    const instructions = parsed.listing?.instructions?.trim();
+    const listing: ListingOptions | undefined = parsed.listing
+      ? { seconds: parsed.listing.seconds, animate: true, ...(instructions ? { instructions } : {}) }
+      : undefined;
     if (listing && !parsed.link && parsed.uploads.length < LISTING_MIN_PHOTOS) {
       return createApiError(`Add at least ${LISTING_MIN_PHOTOS} photos of the home, or paste the listing link`);
     }

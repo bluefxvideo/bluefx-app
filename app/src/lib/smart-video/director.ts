@@ -145,7 +145,7 @@ export async function directVideo(
   }
 
   const plan = await askDirector(parts, (candidate, lastChance) => checkPlan(candidate, assets, brief, length, false, lastChance, look, listing), length === 'script' ? 480_000 : 280_000);
-  return listing ? asListingPlan(plan) : plan;
+  return listing ? asListingPlan(plan, listingPhotoCount(listing.seconds, photos)) : plan;
 }
 
 /** One director call with validation; a rejected plan goes back once with the reason. */

@@ -3,7 +3,8 @@
  *
  * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal] [auto|playful|elegant|bold|clean|whiteboard] [full|no-voice|no-music|silent] [listing seconds: 30|45|60] [animated|still]
  *                  With a link, the brief file is the client's own note (offer, contact) added to the scraped facts.
- *                  The last two arguments make ReelEstate's automatic listing video (the photos animated unless "still").
+ *                  The last arguments make ReelEstate's automatic listing video: the length, "animated" (the product) or
+ *                  "still" (a cheap check of text and length), and a file with the client's instructions.
  * Output:         remotion/out/smart-<job-name>.mp4 (+ the plan in remotion/test-plans/)
  */
 import { config } from 'dotenv';
@@ -19,8 +20,15 @@ import type { SmartAsset, StyleName, VideoFormat, VideoLength } from '../lib/sma
 
 config({ path: path.resolve(__dirname, '../../.env.local') });
 
-const [job, source, briefFile, length = 'auto', format = 'vertical', look = 'auto', soundName = 'full', listingSeconds, listingPhotos = 'animated'] = process.argv.slice(2);
-const listing = listingSeconds ? { seconds: Number(listingSeconds) as ListingLength, animate: listingPhotos !== 'still' } : null;
+const [job, source, briefFile, length = 'auto', format = 'vertical', look = 'auto', soundName = 'full', listingSeconds, listingPhotos = 'animated', instructionsFile] =
+  process.argv.slice(2);
+const listing = listingSeconds
+  ? {
+      seconds: Number(listingSeconds) as ListingLength,
+      animate: listingPhotos !== 'still',
+      ...(instructionsFile ? { instructions: fs.readFileSync(instructionsFile, 'utf-8').trim() } : {}),
+    }
+  : null;
 // The soundtrack switches of the page: voice-over and music, each on or off
 const sound = { voiceOver: soundName === 'full' || soundName === 'no-music', music: soundName === 'full' || soundName === 'no-voice' };
 let folder = source;

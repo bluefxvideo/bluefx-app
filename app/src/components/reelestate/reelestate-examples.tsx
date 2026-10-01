@@ -80,6 +80,7 @@ export function AutomaticVideoTips() {
         'Paste a Zillow or Realtor.com link and the photos, the address, the price and the figures come in by themselves. Or add 4 to 15 of your own photos, one per room.',
         'Write the facts the video should show: address, price, bedrooms, bathrooms, square feet. The price and the figures appear as animated text on the second photo.',
         'Add your name and phone number. The last photo carries them, with the open house when you name one.',
+        'Want the video your way? Write it under Instructions: "Start with the kitchen." "Leave the bathrooms out." "Mention the new roof."',
         'Choose the length by the photos: 30 seconds shows 7 photos, 45 seconds 11, 60 seconds 16. From a link, the video takes one photo per room from the whole listing.',
         `Every photo becomes a moving clip: the camera pushes slowly into the room. A video costs ${LISTING_CREDITS} credits plus ${LISTING_CLIP_CREDITS} per photo: ${AUTOMATIC_PRICES}.`,
         'Not quite right? Write what to change under the finished video: a new price, a room to leave out, another open house. A change costs 10 credits.',

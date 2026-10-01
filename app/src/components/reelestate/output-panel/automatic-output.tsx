@@ -173,7 +173,7 @@ export function AutomaticOutput({
         </div>
       ) : (
         <>
-          <WaitNote since={job.createdAt} change={Boolean(job.parentId)} />
+          <WaitNote since={job.createdAt} change={Boolean(job.parentId)} seconds={job.listing?.seconds ?? 30} />
           <ul className="space-y-3">
             {STAGES.map((stage, i) => (
               <li key={stage.status} className={cn('flex items-center gap-3 text-sm', i > current && 'text-muted-foreground')}>
@@ -313,7 +313,10 @@ function ListingLibrary({ jobs, currentId, onOpen }: { jobs: SmartVideoJob[]; cu
 }
 
 // The wait is several minutes: show that time is passing, and that the page can be left.
-function WaitNote({ since, change }: { since: string; change: boolean }) {
+// (a 30-second video took 8 minutes on the live site on 2026-10-02; every further clip and second adds to that)
+const MAKING_TIME: Record<number, string> = { 30: '5 to 8', 45: '7 to 10', 60: '9 to 12' };
+
+function WaitNote({ since, change, seconds: length }: { since: string; change: boolean; seconds: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -322,7 +325,7 @@ function WaitNote({ since, change }: { since: string; change: boolean }) {
   const seconds = Math.max(0, Math.floor((now - Date.parse(since)) / 1000));
   return (
     <p className="text-center text-xs text-muted-foreground">
-      {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} · {change ? 'A change takes about 2 minutes' : 'A listing video takes about 5 to 8 minutes'}. You can leave this page: the video
+      {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} · {change ? 'A change takes about 2 minutes' : `A ${length}-second listing video takes about ${MAKING_TIME[length] ?? MAKING_TIME[30]} minutes`}. You can leave this page: the video
       will be under Your listing videos.
     </p>
   );

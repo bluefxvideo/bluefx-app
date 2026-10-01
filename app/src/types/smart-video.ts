@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { cleanLink } from '@/lib/smart-video/link';
 import { VIDEO_FORMATS, VIDEO_LENGTHS, VIDEO_LOOKS, type VideoFormat, type VideoLength, type VideoLook } from '@/lib/smart-video/types';
-import type { ListingOptions } from '@/lib/smart-video/listing';
+import { LISTING_INSTRUCTIONS_MAX, type ListingOptions } from '@/lib/smart-video/listing';
 
 export const SMART_VIDEO_MAX_FILES = 15;
 export const SMART_VIDEO_MAX_FILE_MB = 100;
@@ -22,8 +22,14 @@ export const SmartVideoStartSchema = z.object({
   // The soundtrack: a narrator reading the script, and music. Both on unless the client switches one off.
   voiceOver: z.boolean().default(true),
   music: z.boolean().default(true),
-  // ReelEstate's automatic listing video: the chosen length. Every photo becomes a moving clip.
-  listing: z.object({ seconds: z.union([z.literal(30), z.literal(45), z.literal(60)]) }).optional(),
+  // ReelEstate's automatic listing video: the chosen length (every photo becomes a moving clip),
+  // and what the client wants done differently, in their own words.
+  listing: z
+    .object({
+      seconds: z.union([z.literal(30), z.literal(45), z.literal(60)]),
+      instructions: z.string().max(LISTING_INSTRUCTIONS_MAX, `Instructions can be up to ${LISTING_INSTRUCTIONS_MAX} characters`).optional(),
+    })
+    .optional(),
   // Cleaned first: tracking parameters are dropped, so length limits apply to the real link.
   link: z.preprocess((value) => (typeof value === 'string' ? cleanLink(value) : value), z.string().url('That link does not look right').max(1200, 'That link is too long').optional().or(z.literal(''))),
   uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_FILES),
