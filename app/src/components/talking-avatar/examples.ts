@@ -62,6 +62,16 @@ export const AVATAR_EXAMPLES: AvatarExample[] = [
     action: '',
     resolution: 'landscape',
   }),
-  // A Basic example returns once Basic's lip sync is fixed: its mouth runs ~0.2 s
-  // ahead of the voice, and the first one (Susan, realtor) showed it.
+  example({
+    id: 'basic',
+    label: 'Basic',
+    title: 'A voice you pick, at the lowest price',
+    shows: 'Marcus from the avatar library, 35 words and a voice picked from the list. Basic lip-syncs the voice you choose or upload, 1 credit a second.',
+    tier: 'standard',
+    photo: 'marcus-bell.jpg',
+    script: "Hi, I'm Marcus from Bell Moving. Moving this month? Send us a photo of your stuff and we'll text you a flat price within one hour. The price we text is the price you pay.",
+    voice: { id: 'English_DecentYoungMan', name: 'Lucas (Decent)' },
+    action: '',
+    resolution: 'landscape',
+  }),
 ];

@@ -47,7 +47,7 @@ export function AvatarTips() {
         'Start with a clear photo, face toward the camera: a library avatar, your own photo, or one made with AI.',
         'Write the way people talk: short sentences, one idea each, and a clear next step (call, text, visit).',
         'Watch the counter under the script: it shows how long the video will be and what it costs.',
-        'Basic: you pick the voice or upload your own recording. Up to 20 seconds, 1 credit a second.',
+        'Basic: you pick the voice or upload your own recording. Up to 19 seconds, 1 credit a second.',
         'Fast and Ultra speak the script with a voice they choose: Fast 2 credits a second, Ultra 8 with the most realistic lip sync. Want your own voice? Use Switch voice on the finished video.',
         'Optional: say how the avatar should move ("smiles warmly and nods"). Left empty, the avatar simply talks to the camera.',
       ]}
