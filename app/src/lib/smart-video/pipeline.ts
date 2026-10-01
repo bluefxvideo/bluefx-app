@@ -12,6 +12,7 @@ import {
   transcribeWords,
   type SpokenWord,
 } from './audio';
+import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { extractAudio } from './prepare-assets';
@@ -50,6 +51,8 @@ export interface SmartVideoMedia {
   clipWords: Record<string, SpokenWord[]>;
   musicUrl: string | null;
   soundUrl: string | null;
+  /** The numbers the captions show as digits ("ten eggs" → "10 eggs"), by narration line. Absent on older videos. */
+  digits?: Record<string, NumberSpan[]>;
   /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips. */
   assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number }>;
 }
@@ -165,7 +168,7 @@ async function produce(
 
   const drawings = makeDrawings(plan.drawings || [], store);
 
-  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets] = await Promise.all([
+  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store) : null,
     generateMusic(plan.musicPrompt, plan.style)
       .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
@@ -184,6 +187,7 @@ async function produce(
     motion,
     clipWords,
     drawings,
+    plan.captions ? captionDigits(plan.scenes.map((scene) => scene.narration), languageName) : {},
   ]);
 
   const media: SmartVideoMedia = {
@@ -192,6 +196,7 @@ async function produce(
     clipWords: heardInClips,
     musicUrl,
     soundUrl,
+    digits,
     assets: Object.fromEntries([
       ...[...motionUrls].map(([id, url]) => [`${id}-motion`, { url, kind: 'video' as const, portrait: !horizontal }] as const),
       ...lifestyleAssets,
@@ -256,6 +261,9 @@ export async function reviseSmartVideo(
             .catch(() => null)
         : null;
     }
+    // Lines that are new in this edit (or a video made before captions showed digits) are read for numbers.
+    const unread = plan.captions ? plan.scenes.map((scene) => scene.narration).filter((line) => !(line.trim() in (media.digits || {}))) : [];
+    if (unread.length) media.digits = { ...media.digits, ...(await captionDigits(unread, LANGUAGE_NAMES.of(plan.language) || plan.language)) };
     const props = buildProps(plan, media);
     return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
   });
@@ -381,7 +389,8 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
     };
   });
 
-  const spoken = timed.flatMap((t) => t.tokens);
+  // The captions show a number as digits ("10 eggs"); the voice was given it in words.
+  const spoken = timed.flatMap((t, i) => withDigits(t.tokens, media.digits?.[plan.scenes[i].narration.trim()]));
   const props = {
     duration,
     format: media.format || 'vertical',

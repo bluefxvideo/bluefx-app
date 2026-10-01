@@ -16,6 +16,9 @@ const PRICES = {
   drawingPerImage: 0.04, // fal gpt-image-2.5 flare text-to-image, 1024x1024 high
   motionPerSecond: 0.04, // fal ltx-2.3 image-to-video fast, 1080p
   cutoutPerImage: 0.005, // fal birefnet, compute-second billed; rounded up
+  voiceMatchPerMinute: 0.02, // fal chatterbox hd speech-to-speech
+  lookPerImage: 0.0003, // gemini-3.5-flash-lite, one small picture and a short answer
+  captionNumbersPerCall: 0.003, // gemini-3.6-flash, the script's lines in, a short list out (thinking included)
 };
 
 export interface UsageEntry {
@@ -50,4 +53,7 @@ export const usage = {
   drawing: () => add('whiteboard drawing', PRICES.drawingPerImage, '1 image'),
   motion: (seconds: number) => add('animated photo', seconds * PRICES.motionPerSecond, `${seconds} s clip`),
   cutout: () => add('product cut-out', PRICES.cutoutPerImage, '1 image'),
+  voiceMatch: (seconds: number) => add('voice match', (seconds / 60) * PRICES.voiceMatchPerMinute, `${seconds.toFixed(0)} s`),
+  look: () => add('picture check', PRICES.lookPerImage, '1 picture'),
+  captionNumbers: (lines: number) => add('caption numbers', PRICES.captionNumbersPerCall, `${lines} lines`),
 };

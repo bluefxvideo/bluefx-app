@@ -14,6 +14,7 @@ export type CloneProjectStatus =
   | 'board_ready'
   | 'animating'
   | 'assembling'
+  | 'finishing'
   | 'completed'
   | 'failed';
 
@@ -114,8 +115,92 @@ export interface CloneScene {
    * synthetic (0..duration) and assembly uses the chosen clip length.
    */
   is_custom?: boolean;
+  /** How this scene goes into the finished ad. Filled in by "Finish the ad", editable there. */
+  finish?: SceneFinish;
   credits_spent: number;
 }
+
+// ---------------------------------------------------------------------------
+// "Finish the ad": the editor that turns the board into a finished ad
+// ---------------------------------------------------------------------------
+
+/** What the scene shows: its clip, its picture with a slow zoom, a typed card, or nothing (left out). */
+export type FinishPicture = 'clip' | 'still' | 'card' | 'skip';
+/** Where the scene's voice comes from: the person talking in the clip, the narrator, or nobody. */
+export type FinishSound = 'clip' | 'narrator' | 'none';
+
+export interface SceneFinish {
+  picture: FinishPicture;
+  sound: FinishSound;
+  /** The words of this scene: what the narrator says, or how the caption spells what the person in the clip says. */
+  line: string;
+  /** Text typed on screen, one item per line; the first line is the headline. */
+  text: string;
+  /** What was heard in the clip when it was last checked, and which clip that was. */
+  heard?: string;
+  checked_clip_url?: string | null;
+}
+
+export const FINISH_LOOKS = ['clean', 'bold', 'elegant', 'playful'] as const;
+export type FinishLook = (typeof FINISH_LOOKS)[number];
+
+export interface FinishSettings {
+  voice: 'female' | 'male';
+  /** The narrator's recording is converted to the voice of the person who talks on camera. */
+  match_voice: boolean;
+  captions: boolean;
+  look: FinishLook;
+  /** Colour of the typed text's accents, e.g. "#D7261E"; empty = the look's own. */
+  accent: string;
+  music: boolean;
+}
+
+export const DEFAULT_FINISH_SETTINGS: FinishSettings = {
+  voice: 'female',
+  match_voice: true,
+  captions: true,
+  look: 'clean',
+  accent: '',
+  music: true,
+};
+
+export type FinishStage = 'clips' | 'voice' | 'rendering' | 'levelling' | 'done' | 'failed';
+
+/** The run the page watches. Costs are never written here: this row is readable by its owner. */
+export interface FinishRun {
+  id: string;
+  stage: FinishStage;
+  /** Render progress, 0-100. */
+  progress: number;
+  error?: string;
+  started_at: string;
+}
+
+export interface CloneFinish {
+  settings: FinishSettings;
+  /** ISO 639 code heard in the clips ("eng"); the narrator speaks it. */
+  language?: string;
+  run?: FinishRun;
+}
+
+/** Flat credits for finishing an ad: voice, captions, typed text, music and the render. */
+export const CLONE_FINISH_CREDITS = 30;
+/** A finishing run that has shown no sign of life for this long died with its server process. */
+export const CLONE_FINISH_STALE_MS = 12 * 60 * 1000;
+
+/** The words the client put into a scene's video prompt between quotes, or '' when there are none. */
+export function spokenLineOf(motionPrompt: string | null | undefined): string {
+  const quoted = /["“]([^"”]{2,})["”]/.exec(motionPrompt || '');
+  return quoted ? quoted[1].trim() : '';
+}
+
+/** The scene's current clip, or null while it has none. */
+export const sceneClip = (scene: CloneScene): string | null =>
+  scene.anim?.status === 'completed' && scene.anim.video_url ? scene.anim.video_url : null;
+
+/** A scene whose finish proposal is still good: it was made for the clip the scene has now. */
+export const finishIsCurrent = (scene: CloneScene): boolean =>
+  Boolean(scene.finish) && (scene.finish?.checked_clip_url ?? null) === sceneClip(scene);
 
 /**
  * Default video prompt composed from the scene analysis (action-arc rule:
@@ -194,6 +279,8 @@ export interface CloneAnalysisSummary {
    * editable music_prompt; they are also copyable into Music Maker.
    */
   music_prompt_options?: Array<{ label: string; prompt: string }>;
+  /** "Finish the ad": the settings the client chose and the run in progress. */
+  finish?: CloneFinish;
 }
 
 export interface CloneProject {

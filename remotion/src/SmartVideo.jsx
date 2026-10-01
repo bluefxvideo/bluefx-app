@@ -872,13 +872,15 @@ function MediaFill({ asset, block, duration }) {
   const frame = useCurrentFrame();
   const focus = block.focus || '50% 50%';
   if (asset.kind === 'video') {
+    // A long shot is cut by jumping the zoom at a spoken pause: the last punch reached sets the scale.
+    const scale = (block.punches || []).reduce((s, punch) => (frame >= punch.frame ? punch.scale : s), 1);
     return (
       <OffthreadVideo
         src={src(asset.url)}
         startFrom={Math.round((block.startFrom || 0) * FPS)}
         playbackRate={block.playbackRate || 1}
         muted
-        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: focus }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: focus, ...(scale === 1 ? {} : { transform: `scale(${scale})`, transformOrigin: block.punchFocus || '50% 40%' }) }}
       />
     );
   }
@@ -1192,8 +1194,17 @@ function MediaBlurBg({ background }) {
 function MediaFullBg({ background, duration }) {
   const { landscape } = useFrame();
   const { assets, captions } = usePlan();
+  const { start } = useContext(SceneTime);
   const asset = assets[background.asset];
-  const block = { zoom: [1.02, 1.1], focus: background.focus, startFrom: background.startFrom, playbackRate: background.playbackRate };
+  const block = {
+    zoom: [1.02, 1.1],
+    focus: background.focus,
+    startFrom: background.startFrom,
+    playbackRate: background.playbackRate,
+    // `punches` come in video time; the clip counts frames from the start of its scene.
+    punches: background.punches?.map((punch) => ({ frame: Math.round((punch.at - start) * FPS), scale: punch.scale })),
+    punchFocus: background.punchFocus,
+  };
   // A tall photo or clip cannot fill a wide frame without losing the subject:
   // it stands whole on the right, over a blurred copy of itself.
   if (landscape && asset?.portrait) {
@@ -1263,6 +1274,8 @@ function Scene({ scene, index, first }) {
   // The words of a drawing scene wait until the picture is drawn and the hand has left (except on the opening frame).
   const holdFrames = type === 'drawing' && !first ? Math.round(drawSeconds(duration / FPS) * FPS) + 10 : 0;
   const gap = scene.gap ?? 30;
+  // A full-frame picture is darkened behind its text only: a shot without text stays as it is.
+  const hasText = scene.blocks.length > 0;
   const render = (blocks) => blocks.map((block, i) => <Block key={i} block={block} duration={duration} />);
 
   let layout;
@@ -1284,7 +1297,7 @@ function Scene({ scene, index, first }) {
     if (scene.speaker) safe.bottom = captions ? 600 : 330;
     layout = (
       // Over a full-frame photo the blocks sit low, on the dark end of the gradient.
-      <Stack top={safe.top} bottom={safe.bottom} gap={gap} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker}>
+      <Stack top={safe.top} bottom={safe.bottom} gap={gap} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker && hasText}>
         {render(scene.blocks)}
       </Stack>
     );
@@ -1298,7 +1311,7 @@ function Scene({ scene, index, first }) {
       // The text stands in the lower left; a tall clip shown on the right leaves the left half free.
       const tall = assets[scene.background.asset]?.portrait;
       layout = (
-        <Stack top={top} bottom={bottom + 20} left={tall ? 120 : 90} width={tall ? 1000 : 900} gap={gap} align={tall ? 'center' : 'flex-end'} scrim={!tall} scrimFrom="side">
+        <Stack top={top} bottom={bottom + 20} left={tall ? 120 : 90} width={tall ? 1000 : 900} gap={gap} align={tall ? 'center' : 'flex-end'} scrim={!tall && hasText} scrimFrom="side">
           {render(scene.blocks)}
         </Stack>
       );
@@ -1404,15 +1417,18 @@ function chunkWords(words) {
   return chunks;
 }
 
-function Captions({ words }) {
+function Captions({ words, cuts = [] }) {
   const { W, H, landscape } = useFrame();
   const { theme, look, styleName } = usePlan();
   const frame = useCurrentFrame();
   const t = frame / FPS;
   const chunks = React.useMemo(() => chunkWords(words), [words]);
   const index = chunks.findIndex((chunk, i) => {
-    const end = chunks[i + 1] ? chunks[i + 1][0].start : chunk[chunk.length - 1].end + 0.5;
-    return t >= chunk[0].start - 0.04 && t < Math.min(end, chunk[chunk.length - 1].end + 0.7);
+    const last = chunk[chunk.length - 1];
+    const end = chunks[i + 1] ? chunks[i + 1][0].start : last.end + 0.5;
+    // On a plain cut the words of the old shot leave with it instead of hanging on over the new one.
+    const cut = cuts.find((at) => at > last.start + 0.25) ?? Infinity;
+    return t >= chunk[0].start - 0.04 && t < Math.min(end, last.end + 0.7, cut);
   });
   if (index < 0) return null;
   const chunk = chunks[index];
@@ -1457,7 +1473,7 @@ function Captions({ words }) {
 function autoSfx(scenes) {
   const out = [];
   scenes.forEach((scene, i) => {
-    if (i > 0) out.push({ name: 'whoosh', at: scene.start - 0.3 });
+    if (i > 0 && !scene.cut) out.push({ name: 'whoosh', at: scene.start - 0.3 });
     if (scene.background?.type === 'drawing') {
       const seconds = drawSeconds(scene.end - scene.start);
       for (let t = 0.1; t < seconds - 0.4; t += 1.45) out.push({ name: 'marker', at: scene.start + t });
@@ -1534,10 +1550,9 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
               <Scene scene={scene} index={i} first={i === 0} />
             </Sequence>
           ))}
-        {scenes.slice(1).map((scene, i) => (
-          <Transition key={i} at={Math.round(scene.start * FPS)} />
-        ))}
-        {ready && captions?.words?.length > 0 && <Captions words={captions.words} />}
+        {/* `cut`: the scene starts on a plain cut, as footage does; every other scene change is covered by the look's transition. */}
+        {scenes.slice(1).map((scene, i) => (scene.cut ? null : <Transition key={i} at={Math.round(scene.start * FPS)} />))}
+        {ready && captions?.words?.length > 0 && <Captions words={captions.words} cuts={scenes.filter((scene) => scene.cut).map((scene) => scene.start)} />}
         <Soundtrack audio={audio} scenes={scenes} duration={total} />
       </AbsoluteFill>
     </Plan.Provider>

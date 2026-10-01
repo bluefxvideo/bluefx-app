@@ -1,10 +1,6 @@
 'use server';
 
-import { execFile } from 'node:child_process';
-import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
 import { ZodError } from 'zod';
@@ -16,7 +12,7 @@ import { PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pric
 import type { DirectorPlan } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { downloadLinkPhotos, fromLink } from '@/lib/smart-video/sources';
-import { checkRemotionProgress, startRemotionRender } from '@/actions/services/remotion-render-service';
+import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
 import { createApiError, createApiSuccess, type ApiResponse } from '@/types/validation';
 import {
   SmartVideoReviseSchema,
@@ -38,7 +34,6 @@ import {
  * lives in the table, which only the server can read.
  */
 
-const run = promisify(execFile);
 const BUCKET = 'script-videos';
 const STALE_AFTER_MS = 12 * 60 * 1000;
 // One video costs up to about $1 in API fees before it can fail; nobody needs more than two at once.
@@ -364,7 +359,7 @@ async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: str
   });
   let reported = 0;
   track(job);
-  const renderedUrl = await render(props, (progress) => {
+  const renderedUrl = await renderSmartVideo(props, (progress) => {
     job = { ...job, renderProgress: progress };
     track(job);
     if (progress - reported >= 10) {
@@ -470,36 +465,6 @@ async function mediaFromProps(props: Record<string, unknown>, dir: string, langu
     soundUrl: audio.sfx?.find((s) => s.url)?.url ?? null,
     assets: props.assets as SmartVideoMedia['assets'],
   };
-}
-
-async function render(props: Record<string, unknown>, onProgress: (percent: number) => void): Promise<string> {
-  const started = await startRemotionRender({ compositionId: 'SmartVideo', inputProps: props });
-  if (!started.success || !started.renderId) throw new Error(started.error || 'The render did not start');
-  // A 3-minute script is ~5,000 frames; the production server renders two at a time.
-  for (let waited = 0; waited < 60 * 60; waited += 3) {
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    const progress = await checkRemotionProgress(started.renderId);
-    if (progress.status === 'completed' && progress.videoUrl) return progress.videoUrl;
-    if (progress.status === 'failed') throw new Error(progress.error || 'The render failed');
-    onProgress(Math.round((progress.progress || 0) * 100));
-  }
-  throw new Error('The render timed out');
-}
-
-/** Levels the mix to -14 LUFS (social-media standard); a calm voice otherwise comes out quiet. */
-async function levelLoudness(videoUrl: string): Promise<Buffer> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'smart-video-'));
-  const output = path.join(dir, 'video.mp4');
-  try {
-    await run(
-      'ffmpeg',
-      ['-v', 'error', '-y', '-i', videoUrl, '-c:v', 'copy', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-ar', '48000', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', output],
-      { timeout: 5 * 60 * 1000 }
-    );
-    return await fs.readFile(output);
-  } finally {
-    await fs.rm(dir, { recursive: true, force: true });
-  }
 }
 
 const DEAD_JOB = 'The job stopped unexpectedly (the server restarted during an update). Please run it again.';

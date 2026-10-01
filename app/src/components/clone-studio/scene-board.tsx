@@ -22,6 +22,7 @@ import {
 } from '@/actions/tools/clone-studio';
 import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
+import { FinishPanel } from './finish-panel';
 
 interface SceneBoardProps {
   project: CloneProject;
@@ -247,7 +248,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
-                  Soundtrack — sent on assemble
+                  Soundtrack: the music of your ad
                 </p>
                 {musicBpm && (
                   <span
@@ -323,9 +324,8 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                 className="text-xs min-h-[72px]"
               />
               <p className="text-[10px] text-zinc-600">
-                This exact text is sent on assemble (target length appended automatically).
+                This exact text is sent to the music engine when the ad is finished or assembled (the target length is added automatically).
                 Pick a direction above, edit freely, or copy one into Music Maker for a standalone track.
-                Generated tracks vary in length — trim to your cut.
               </p>
             </div>
           )}
@@ -566,7 +566,10 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         </Card>
       </div>
 
-      {/* Assemble */}
+      {/* Finish: the edited ad (voice, captions, text, music) */}
+      <FinishPanel project={project} onProjectUpdate={onProjectUpdate} />
+
+      {/* Assemble: the plain join */}
       {animatedCount > 0 && (
         <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
@@ -574,7 +577,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               {animatedCount}/{project.scenes.length} scenes animated
             </p>
             <p className="text-xs text-zinc-500">
-              Joins your animated scenes in order, full length.
+              Or join your animated scenes as they are, in order and full length: no narrator, captions or text.
             </p>
           </div>
           <label
@@ -588,7 +591,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             <Checkbox checked={withMusic} onCheckedChange={(v) => setWithMusic(v === true)} />
             <Music className="w-3.5 h-3.5" /> AI music bed · {CLONE_MUSIC_CREDITS} cr
           </label>
-          <Button onClick={handleAssemble} disabled={assembling || project.status === 'assembling'}>
+          <Button variant="outline" onClick={handleAssemble} disabled={assembling || project.status === 'assembling' || project.status === 'finishing'}>
             {assembling || project.status === 'assembling' ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
