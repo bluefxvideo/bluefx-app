@@ -167,7 +167,6 @@ export function ReelEstatePage() {
     automatic.setBrief(example.facts);
     automatic.setListingSeconds(example.seconds);
     automatic.setFormat(example.format);
-    automatic.setAnimate(example.animate);
     automatic.setVoiceOver(true);
     automatic.setMusic(true);
     try {

@@ -5,7 +5,6 @@ import { Loader2, RectangleHorizontal, RectangleVertical, Upload, Wand2 } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
@@ -28,7 +27,7 @@ const PHOTOS_PER_LENGTH = LISTING_LENGTHS.map((seconds, i) => `${seconds} second
 
 /**
  * ReelEstate's automatic listing video: a link or photos and the facts in, a
- * finished video out. One screen and one button; the step-by-step maker stays
+ * finished video out, every photo animated. One screen and one button; the step-by-step maker stays
  * in the next tab for people who want to place every photo by hand.
  */
 export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo> }) {
@@ -121,7 +120,7 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
           </div>
         </StandardStep>
 
-        <StandardStep stepNumber={2} title="The video" description="Length, shape and motion">
+        <StandardStep stepNumber={2} title="The video" description="Length and shape">
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Length</Label>
@@ -171,17 +170,9 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
               </div>
             </div>
 
-            <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
-              <div className="space-y-1">
-                <Label htmlFor="listing-animate">Animate the photos</Label>
-                <p className="text-xs text-muted-foreground">
-                  {video.animate
-                    ? `Every photo becomes a moving clip: the camera pushes slowly into the room. ${LISTING_CLIP_CREDITS} credits per photo.`
-                    : 'Off: still photos with a slow zoom. No extra credits.'}
-                </p>
-              </div>
-              <Switch id="listing-animate" checked={video.animate} onCheckedChange={video.setAnimate} disabled={busy} />
-            </div>
+            <p className="rounded-lg border p-3 text-xs text-muted-foreground">
+              Every photo becomes a moving clip: the camera pushes slowly into the room. {LISTING_CLIP_CREDITS} credits per photo.
+            </p>
           </div>
         </StandardStep>
 
@@ -203,11 +194,8 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
           Make the listing video · {total} credits
         </Button>
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          {video.animate
-            ? `${video.credits} credits for the video and ${LISTING_CLIP_CREDITS} for each of ${video.listingPhotos} animated photos. ${
-                video.link.trim() ? 'A listing with fewer photos costs less, and a' : 'A'
-              } photo that cannot be animated is not charged.`
-            : `${video.credits} credits. Ready in about 5 minutes.`}
+          {video.credits} credits for the video and {LISTING_CLIP_CREDITS} for each of {video.listingPhotos} animated photos.{' '}
+          {video.link.trim() ? 'A listing with fewer photos costs less, and a' : 'A'} photo that cannot be animated is not charged.
         </p>
       </TabFooter>
     </TabContentWrapper>

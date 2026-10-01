@@ -22,8 +22,8 @@ export const SmartVideoStartSchema = z.object({
   // The soundtrack: a narrator reading the script, and music. Both on unless the client switches one off.
   voiceOver: z.boolean().default(true),
   music: z.boolean().default(true),
-  // ReelEstate's automatic listing video: the chosen length, and whether the photos become moving clips.
-  listing: z.object({ seconds: z.union([z.literal(30), z.literal(45), z.literal(60)]), animate: z.boolean() }).optional(),
+  // ReelEstate's automatic listing video: the chosen length. Every photo becomes a moving clip.
+  listing: z.object({ seconds: z.union([z.literal(30), z.literal(45), z.literal(60)]) }).optional(),
   // Cleaned first: tracking parameters are dropped, so length limits apply to the real link.
   link: z.preprocess((value) => (typeof value === 'string' ? cleanLink(value) : value), z.string().url('That link does not look right').max(1200, 'That link is too long').optional().or(z.literal(''))),
   uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_FILES),

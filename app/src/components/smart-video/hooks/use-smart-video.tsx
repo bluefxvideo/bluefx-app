@@ -33,9 +33,8 @@ const isPhoto = (file: File) => file.type.startsWith('image/') || /\.(jpe?g|png|
 export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   const queryClient = useQueryClient();
   const isListing = mode === 'listing';
-  // Listing video: the length, and whether the photos become moving clips
+  // Listing video: the length (every photo becomes a moving clip)
   const [listingSeconds, setListingSeconds] = useState<ListingLength>(30);
-  const [animate, setAnimate] = useState(true);
   const [brief, setBrief] = useState('');
   const [link, setLink] = useState('');
   const [exactWords, setExactWords] = useState(false);
@@ -122,7 +121,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         look,
         voiceOver,
         music,
-        ...(isListing ? { listing: { seconds: listingSeconds, animate } } : {}),
+        ...(isListing ? { listing: { seconds: listingSeconds } } : {}),
         link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -135,7 +134,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient, isListing, listingSeconds, animate]);
+  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient, isListing, listingSeconds]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
@@ -239,13 +238,11 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   // Listing video: how many photos the video shows, and what animating them adds to the price
   // (before anything is added, the price is shown for the photos a video of this length holds)
   const listingPhotos = listingPhotoCount(listingSeconds, (link.trim() ? listingLinkPhotos(files.length) : 0) + files.length || 99);
-  const clipCredits = isListing && animate ? listingPhotos * LISTING_CLIP_CREDITS : 0;
+  const clipCredits = isListing ? listingPhotos * LISTING_CLIP_CREDITS : 0;
 
   return {
     listingSeconds,
     setListingSeconds,
-    animate,
-    setAnimate,
     listingPhotos,
     clipCredits,
     brief,

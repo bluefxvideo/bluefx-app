@@ -3,6 +3,8 @@
 import { Home, ImageIcon, UserCircle } from 'lucide-react';
 import { ExampleChip, ExampleFile, ExampleText, ExampleVideo, ToolExamples } from '@/components/tools/tool-examples';
 import { ToolTips } from '@/components/tools/tool-tips';
+import { LISTING_LENGTHS, listingPhotoCount } from '@/lib/smart-video/listing';
+import { LISTING_CLIP_CREDITS, LISTING_CREDITS } from '@/lib/smart-video/pricing';
 import { CLEANUP_PRESET_CONFIG } from '@/types/reelestate';
 import { BeforeAfterView } from './components/before-after-view';
 import {
@@ -15,6 +17,11 @@ import {
   type ListingVideoExample,
   type PhotoCleanupExample,
 } from './examples';
+
+// "67 credits for 30 seconds, 91 for 45, 121 for 60"
+const AUTOMATIC_PRICES = LISTING_LENGTHS.map(
+  (seconds, i) => `${LISTING_CREDITS + listingPhotoCount(seconds, 99) * LISTING_CLIP_CREDITS}${i === 0 ? ' credits' : ''} for ${seconds}${i === 0 ? ' seconds' : ''}`,
+).join(', ');
 
 /**
  * Shown where the automatic listing video appears while nothing is being made:
@@ -39,7 +46,7 @@ export function AutomaticVideoExamples({
       media={(example) => <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.format === 'horizontal'} />}
       cost={(example) => {
         const { video, animation } = example.credits;
-        return `Cost: ${video + animation} credits in total · ${video} for the video, ${animation} to animate the ${example.photos.length} photos. With still photos the same video costs ${video} credits.`;
+        return `Cost: ${video + animation} credits in total · ${video} for the video, ${animation} to animate the ${example.photos.length} photos.`;
       }}
       renderInputs={(example) => (
         <>
@@ -51,7 +58,6 @@ export function AutomaticVideoExamples({
           <div className="flex flex-wrap items-center gap-2">
             <ExampleChip>{example.seconds} seconds</ExampleChip>
             <ExampleChip>{example.format === 'horizontal' ? 'Horizontal' : 'Vertical'}</ExampleChip>
-            <ExampleChip>Animate the photos: {example.animate ? 'on' : 'off'}</ExampleChip>
             <ExampleChip>Voice-over and music: on</ExampleChip>
           </div>
           <ExampleText>{example.facts}</ExampleText>
@@ -75,7 +81,7 @@ export function AutomaticVideoTips() {
         'Write the facts the video should show: address, price, bedrooms, bathrooms, square feet. The price and the figures appear as animated text on the second photo.',
         'Add your name and phone number. The last photo carries them, with the open house when you name one.',
         'Choose the length by the photos: 30 seconds shows 7 photos, 45 seconds 11, 60 seconds 16. From a link, the video takes one photo per room from the whole listing.',
-        'Animate the photos turns every photo into a moving clip for 6 credits a photo. Off, the photos zoom slowly and the video costs 25 credits.',
+        `Every photo becomes a moving clip: the camera pushes slowly into the room. A video costs ${LISTING_CREDITS} credits plus ${LISTING_CLIP_CREDITS} per photo: ${AUTOMATIC_PRICES}.`,
         'Not quite right? Write what to change under the finished video: a new price, a room to leave out, another open house. A change costs 10 credits.',
       ]}
     />

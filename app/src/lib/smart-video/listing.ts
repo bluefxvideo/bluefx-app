@@ -13,7 +13,7 @@ export type ListingLength = (typeof LISTING_LENGTHS)[number];
 export interface ListingOptions {
   /** The length the client chose, in seconds. */
   seconds: ListingLength;
-  /** Every photo in the video becomes a moving clip (image-to-video). */
+  /** Every photo in the video becomes a moving clip (image-to-video). Always true in the product; false only in local checks of text and length. */
   animate: boolean;
 }
 

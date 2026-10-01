@@ -81,7 +81,6 @@ export interface AutomaticVideoExample extends ToolExample {
   facts: string;
   seconds: ListingLength;
   format: VideoFormat;
-  animate: boolean;
   /** Seconds the finished video runs. */
   runs: number;
   /** The video's own price, and what animating the photos added. */
@@ -116,7 +115,6 @@ export const AUTOMATIC_VIDEO_EXAMPLES: AutomaticVideoExample[] = [
     ].join('\n'),
     seconds: 30,
     format: 'horizontal',
-    animate: true,
     runs: 30,
     credits: { video: 25, animation: 42 },
   },

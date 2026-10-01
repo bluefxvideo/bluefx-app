@@ -9,7 +9,7 @@ import { transcribeWords } from '@/lib/smart-video/audio';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { createSmartVideo, reviseSmartVideo, type SmartVideoMedia, type SmartVideoResult } from '@/lib/smart-video/pipeline';
 import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
-import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount } from '@/lib/smart-video/listing';
+import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingOptions } from '@/lib/smart-video/listing';
 import type { DirectorPlan } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { downloadLinkPhotos, fromLink } from '@/lib/smart-video/sources';
@@ -309,12 +309,13 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     if (await readJob(userId, parsed.jobId)) return createApiError('This video was already started');
     if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
 
-    const listing = parsed.listing;
+    // The product has no still-photo listing video (the owner's call, 2026-10-02): every photo is animated.
+    const listing: ListingOptions | undefined = parsed.listing ? { seconds: parsed.listing.seconds, animate: true } : undefined;
     if (listing && !parsed.link && parsed.uploads.length < LISTING_MIN_PHOTOS) {
       return createApiError(`Add at least ${LISTING_MIN_PHOTOS} photos of the home, or paste the listing link`);
     }
     const credits = listing ? LISTING_CREDITS : phantomCredits(parsed.brief, parsed.length === 'script');
-    if (listing?.animate) {
+    if (listing) {
       // The clips are charged photo by photo while the video is made: the balance has to cover all of them now.
       const photos = listingPhotoCount(listing.seconds, (parsed.link ? listingLinkPhotos(parsed.uploads.length) : 0) + parsed.uploads.length);
       const needed = credits + photos * LISTING_CLIP_CREDITS;
