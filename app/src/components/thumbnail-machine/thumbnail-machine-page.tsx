@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { Image as ImageIcon, Wand2, History } from 'lucide-react';
 import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolLayout } from '@/components/tools/standard-tool-layout';
@@ -18,6 +18,7 @@ const useThumbnailMachine = USE_V2_HOOK ? useThumbnailMachineV2 : useThumbnailMa
 // Tab content components
 import { ProTab } from './tabs/pro-tab';
 import { HistoryFilters } from '@/components/tools/standard-history-filters';
+import type { ThumbnailExample } from './examples';
 
 /**
  * Thumbnail Machine - Complete AI-Orchestrated Tool with Tabs
@@ -28,6 +29,9 @@ export function ThumbnailMachinePage() {
   const promptInputRef = useRef<HTMLTextAreaElement>(null!);
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters | undefined>();
   const [hasReferenceImage, setHasReferenceImage] = useState(false);
+  // "Try this example": the examples sit in the result panel, the form in the Generate tab
+  const [exampleToLoad, setExampleToLoad] = useState<ThumbnailExample | null>(null);
+  const clearExampleToLoad = useCallback(() => setExampleToLoad(null), []);
   
   
   const {
@@ -97,6 +101,8 @@ export function ThumbnailMachinePage() {
             isGenerating={isGenerating}
             credits={credits ? { available_credits: credits.available_credits } : null}
             error={error}
+            example={exampleToLoad}
+            onExampleDone={clearExampleToLoad}
           />
         );
     }
@@ -133,6 +139,7 @@ export function ThumbnailMachinePage() {
             historyFilters={historyFilters}
             prompt={result?.prompt || ''}
             hasReferenceImage={hasReferenceImage}
+            onTryExample={setExampleToLoad}
           />
         </StandardToolLayout>
       )}

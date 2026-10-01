@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -12,12 +12,18 @@ import { PromptSection } from '../input-panel/prompt-section';
 import { StandardStep } from '@/components/tools/standard-step';
 import { uploadImageToStorage } from '@/actions/supabase-storage';
 import { ThumbnailConceptChat } from './thumbnail-concept-chat';
+import { toast } from 'sonner';
+import type { ThumbnailExample } from '../examples';
+import { ThumbnailTips } from '../thumbnail-examples';
 
 interface ProTabProps {
   onGenerate: (request: ThumbnailMachineRequest) => Promise<ThumbnailMachineResponse>;
   isGenerating: boolean;
   credits: { available_credits: number } | null;
   error?: string;
+  /** "Try this example": put this example's input into the form (nothing is generated). */
+  example?: ThumbnailExample | null;
+  onExampleDone?: () => void;
 }
 
 const CREDITS_PER_PRO = 10;
@@ -27,6 +33,8 @@ export function ProTab({
   isGenerating,
   credits,
   error,
+  example,
+  onExampleDone,
 }: ProTabProps) {
   const [formData, setFormData] = useState({
     prompt: '',
@@ -52,6 +60,21 @@ export function ProTab({
   // YouTube thumbnail grab state
   const [ytThumbnailUrl, setYtThumbnailUrl] = useState('');
   const [isFetchingYtThumb, setIsFetchingYtThumb] = useState(false);
+
+  // "Try this example": the description, the text overlay and the reference photos go
+  // in as they were. A loaded YouTube video is cleared: its transcript would be sent along.
+  useEffect(() => {
+    if (!example) return;
+    setFormData({ prompt: example.prompt, text_overlay: example.textOverlay, skip_prompt_enhancement: false });
+    setReferenceImages(example.references.map((ref) => ref.url));
+    setTranscript(null);
+    setVideoTitle(null);
+    setYoutubeUrl('');
+    setTranscriptError(null);
+    promptInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast.success('Example loaded. Swap in your own photo and words, then click Generate.');
+    onExampleDone?.();
+  }, [example, onExampleDone]);
 
   const handleSubmit = async () => {
     if (!formData.prompt?.trim()) return;
@@ -201,6 +224,8 @@ export function ProTab({
   return (
     <TabContentWrapper>
       <TabBody>
+        <ThumbnailTips />
+
         {/* Step 1: YouTube Video (Optional) */}
         <StandardStep
           stepNumber={1}
