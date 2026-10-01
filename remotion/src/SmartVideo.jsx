@@ -41,9 +41,6 @@ const Frame = createContext(FRAMES.vertical);
 const useFrame = () => useContext(Frame);
 const Column = createContext(1080);
 const useColumn = () => useContext(Column);
-// Where in the frame the current column stands ('left' | 'center' | 'right'): the pushing hand comes from the
-// side with more room, so it is seen crossing the frame instead of hiding at the edge.
-const Side = createContext('center');
 const SIDE = 50;
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' };
 const EMOJI = '"Noto Color Emoji", "Apple Color Emoji", sans-serif';
@@ -237,11 +234,10 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
   });
   const down = align !== 'flex-start';
   return (
-    <Side.Provider value={left + columnWidth / 2 < W * 0.4 ? 'left' : left + columnWidth / 2 > W * 0.6 ? 'right' : 'center'}>
     <Column.Provider value={columnWidth}>
       <div
-        // A column with something the hand pushes in stands above the others, so the arm is never under their words.
-        style={{ position: 'absolute', top, left, width: columnWidth, height: available, display: 'flex', alignItems: align, justifyContent: 'center', zIndex: React.Children.toArray(children).some((child) => child?.props?.block?.push) ? 6 : 'auto' }}
+        // A column where the hand pushes something in or underlines stands above the others, so the arm is never under their words.
+        style={{ position: 'absolute', top, left, width: columnWidth, height: available, display: 'flex', alignItems: align, justifyContent: 'center', zIndex: React.Children.toArray(children).some((child) => child?.props?.block?.push || child?.props?.block?.underlineAt !== undefined) ? 6 : 'auto' }}
       >
         <div
           ref={ref}
@@ -279,7 +275,6 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
         </div>
       </div>
     </Column.Provider>
-    </Side.Provider>
   );
 }
 
@@ -324,26 +319,35 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
   return <div style={{ opacity, transform: `${move} rotate(${look.rotate ? rotate : 0}deg)`, ...style }}>{children}</div>;
 }
 
-// Whiteboard: the hand slides an element in across the frame, lets go and leaves the way it came.
-const PUSH_FRAMES = 16;
+// Whiteboard: an open hand slides an element up from the bottom edge, lets go and withdraws.
+// From below, because the arm then crosses nothing else: not the drawing, not the other column's words.
+const PUSH_FRAMES = 22;
+const PUSH_HAND_W = 250;
 function PushIn({ at, rotate = 0, children }) {
-  const { W, landscape } = useFrame();
-  const fromLeft = useContext(Side) === 'right';
+  const { H } = useFrame();
   const frame = useCurrentFrame();
-  const t = frame - useLocalFrame(at);
-  if (t < 0) return <div style={{ visibility: 'hidden' }}>{children}</div>;
-  const dir = fromLeft ? -1 : 1;
-  const travel = interpolate(t, [0, PUSH_FRAMES], [W * 1.1, 0], { ...clamp, easing: Easing.out(Easing.cubic) });
-  const leave = interpolate(t, [PUSH_FRAMES + 4, PUSH_FRAMES + 16], [0, W * 1.3], { ...clamp, easing: Easing.in(Easing.cubic) });
-  const handW = landscape ? 300 : 330;
-  // The arm lies along the push: the fist against the element's edge, the forearm running out of the frame.
-  const hand = fromLeft
-    ? { right: '100%', transformOrigin: '100% 0', transform: `translate(${handW * 0.05 - leave}px, ${handW * 0.5}px) rotate(90deg)` }
-    : { left: '100%', transformOrigin: '0 0', transform: `translate(${leave - handW * 0.05}px, ${handW * 0.5}px) rotate(-90deg)` };
+  const ref = useRef(null);
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    const h = ref.current?.offsetHeight || 0;
+    if (h && Math.abs(h - height) > 1) setHeight(h);
+  });
+  // Never during the wipe between two scenes: the push itself is the thing to see.
+  const t = frame - Math.max(useLocalFrame(at), 8);
+  if (t < 0) return <div ref={ref} style={{ visibility: 'hidden' }}>{children}</div>;
+  const travel = interpolate(t, [0, PUSH_FRAMES], [H, 0], { ...clamp, easing: Easing.out(Easing.quad) });
+  const leave = interpolate(t, [PUSH_FRAMES + 5, PUSH_FRAMES + 21], [0, H * 1.2], { ...clamp, easing: Easing.inOut(Easing.quad) });
+  // The fingers rest on a photo; under a line of text only the fingertips touch its lower edge.
+  const overlap = Math.min(PUSH_HAND_W * 0.55, height * 0.35);
   return (
-    <div style={{ position: 'relative', zIndex: 5, transform: `translateX(${dir * travel}px) rotate(${rotate}deg)` }}>
+    <div ref={ref} style={{ position: 'relative', zIndex: 5, transform: `translateY(${travel}px) rotate(${rotate}deg)` }}>
       {children}
-      {leave < W * 1.3 && <Img src={staticFile('smart-video/whiteboard/hand.png')} style={{ position: 'absolute', top: '50%', width: handW, maxWidth: 'none', ...hand }} />}
+      {leave < H * 1.2 && (
+        <Img
+          src={staticFile('smart-video/whiteboard/hand-open.png')}
+          style={{ position: 'absolute', left: '50%', top: `calc(100% - ${overlap}px)`, width: PUSH_HAND_W, maxWidth: 'none', marginLeft: -PUSH_HAND_W * 0.35, transformOrigin: '50% 0', transform: `translateY(${leave}px) rotate(${-rotate - 6}deg)` }}
+        />
+      )}
     </div>
   );
 }
@@ -423,7 +427,13 @@ function Title({ block }) {
   const frame = useCurrentFrame();
   const from = useLocalFrame(block.at);
   const underFrom = useLocalFrame(block.underlineAt ?? block.at);
-  const underline = block.underlineAt === undefined ? 0 : interpolate(frame - underFrom, [0, 10], [0, 1], clamp);
+  const UNDERLINE_FRAMES = 14;
+  const underline = block.underlineAt === undefined ? 0 : interpolate(frame - underFrom, [0, UNDERLINE_FRAMES], [0, 1], clamp);
+  // On the whiteboard the marker hand draws the line: it comes in, follows the stroke and leaves.
+  const penOffset =
+    look.title.kind !== 'hand' || block.underlineAt === undefined
+      ? null
+      : interpolate(frame - underFrom, [-10, 0, UNDERLINE_FRAMES + 2, UNDERLINE_FRAMES + 14], [900, 0, 0, 900], { ...clamp, easing: Easing.inOut(Easing.quad) });
   if (look.title.kind === 'hand' && block.display === undefined && !block.push) {
     const written = Math.max(0, Math.floor((frame - from) / HAND_FRAMES_PER_CHAR));
     if (written < text.length) block = { ...block, display: text.slice(0, written) };
@@ -457,6 +467,21 @@ function Title({ block }) {
             style={{ strokeWidth: Math.max(6, Math.round(size * 0.07)) }}
           />
         </svg>
+      )}
+      {penOffset !== null && penOffset < 900 && (
+        <Img
+          src={staticFile('smart-video/whiteboard/hand.png')}
+          style={{
+            position: 'absolute',
+            left: `calc(${-2 + underline * 104}% - ${NIB.x * 300}px)`,
+            top: `calc(100% + 0.04em - ${NIB.y * 300}px)`,
+            width: 300,
+            maxWidth: 'none',
+            zIndex: 7,
+            transformOrigin: `${NIB.x * 100}% ${(NIB.y * 100 * 500) / 3600}%`,
+            transform: `translate(${penOffset * 0.55}px, ${penOffset}px) rotate(-28deg)`,
+          }}
+        />
       )}
       <div ref={ref} style={{ gridArea: '1 / 1', visibility: block.display === undefined ? 'visible' : 'hidden' }}>{line(text)}</div>
       {block.display !== undefined && <div style={{ gridArea: '1 / 1' }}>{line(block.display)}</div>}

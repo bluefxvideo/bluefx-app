@@ -24,7 +24,7 @@ export type VideoLook = (typeof VIDEO_LOOKS)[number];
 
 const cue = z.string().nullish().describe('Exact words from this scene\'s narration on which the element appears; null = scene start');
 const tone = z.enum(['light', 'brand', 'accent']).nullish();
-const push = z.boolean().nullish().describe('Whiteboard style only: the hand slides this element in from the side');
+const push = z.boolean().nullish().describe('Whiteboard style only: an open hand slides this element up into place');
 
 const ItemSchema = z.object({ icon: z.string(), text: z.string(), cue });
 
