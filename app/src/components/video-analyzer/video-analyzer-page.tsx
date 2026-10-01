@@ -17,6 +17,9 @@ import { analyzeVideo, analyzeYouTubeVideo, analyzeSocialMediaVideo, fetchVideoA
 import { detectPlatform } from '@/lib/social-video-utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useProject } from '@/lib/project-context';
+import { urlToFile } from '@/lib/url-to-file';
+import type { AnalyzeVideoExample } from './examples';
+import { AnalyzeVideoExamples, AnalyzeVideoTips } from './analyze-video-examples';
 
 // Analysis type options
 const ANALYSIS_TYPES = [
@@ -279,6 +282,34 @@ export function VideoAnalyzerPage() {
     }
   };
 
+  // "Try this example": the example's video and settings go into the form and its
+  // saved analysis opens in the result panel. Nothing runs, so nothing is charged.
+  const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
+  const handleTryExample = async (example: AnalyzeVideoExample) => {
+    setLoadingExampleId(example.id);
+    try {
+      const [file, analysis] = await Promise.all([
+        urlToFile(example.video.url, example.video.name, 'video/mp4'),
+        fetch(example.analysisUrl).then((res) => {
+          if (!res.ok) throw new Error(`analysis: ${res.status}`);
+          return res.text();
+        }),
+      ]);
+      setInputMode('file');
+      handleFileSelect(file);
+      setAnalysisType(example.analysisType);
+      setCustomPrompt(example.instructions);
+      setAnalysisResult(analysis);
+      setShowHistory(false);
+      toast.success('Example loaded: the video, the settings and the saved analysis. Nothing was charged.');
+    } catch (error) {
+      console.error('Example could not be loaded:', error);
+      toast.error('The example could not be loaded. Check the connection and try again.');
+    } finally {
+      setLoadingExampleId(null);
+    }
+  };
+
   const loadAnalysis = (analysis: VideoAnalysis) => {
     setAnalysisResult(analysis.analysis_result);
     setShowHistory(false);
@@ -339,6 +370,8 @@ export function VideoAnalyzerPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
           {/* Left Panel - Upload & Settings */}
           <div className="space-y-4">
+            <AnalyzeVideoTips />
+
             {/* Input Mode Toggle */}
             <div className="flex gap-2">
               <Button
@@ -606,6 +639,10 @@ export function VideoAnalyzerPage() {
                   <p className="text-zinc-400 text-center py-8">No saved analyses yet</p>
                 )}
               </Card>
+            ) : !analysisResult && !isAnalyzing ? (
+              <div className="h-full overflow-y-auto">
+                <AnalyzeVideoExamples onTry={handleTryExample} loadingId={loadingExampleId} busy={false} />
+              </div>
             ) : (
               <Card className="p-4 border border-border/50 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-4">
@@ -640,7 +677,7 @@ export function VideoAnalyzerPage() {
                       <p className="text-zinc-400">Analyzing video...</p>
                       <p className="text-zinc-400 text-sm">This may take a minute for longer videos</p>
                     </div>
-                  ) : analysisResult ? (
+                  ) : (
                     <div className="prose prose-invert prose-sm max-w-none">
                       <pre className="whitespace-pre-wrap text-zinc-300 text-sm font-sans leading-relaxed">
                         {analysisResult}
@@ -665,14 +702,6 @@ export function VideoAnalyzerPage() {
                           </Button>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                      <ScanSearch className="w-12 h-12 text-zinc-600 mb-4" />
-                      <p className="text-zinc-400">Upload a video and click analyze to get started</p>
-                      <p className="text-zinc-400 text-sm mt-2">
-                        Get detailed breakdowns of scenes, shots, lighting, and more
-                      </p>
                     </div>
                   )}
                 </div>
