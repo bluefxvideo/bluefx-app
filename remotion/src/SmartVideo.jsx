@@ -308,7 +308,8 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
       return <div style={{ opacity: interpolate(frame - from, [0, 4], [0, 1], clamp), transform: `scale(${drop}) rotate(${rotate}deg)`, ...style }}>{children}</div>;
     }
     const shown = interpolate(frame - from, [0, 12], [0, 100], clamp);
-    return <div style={{ clipPath: `inset(-40% ${100 - shown}% -40% -40%)`, transform: `rotate(${rotate}deg)`, ...style }}>{children}</div>;
+    // Once written, nothing is clipped: handwriting leans past the right edge of its own box (a cut-off last letter otherwise).
+    return <div style={{ clipPath: shown >= 100 ? 'none' : `inset(-40% ${100 - shown}% -40% -40%)`, transform: `rotate(${rotate}deg)`, ...style }}>{children}</div>;
   }
   const move = calm ? moves.rise : moves[anim] || moves.pop;
   return <div style={{ opacity, transform: `${move} rotate(${look.rotate ? rotate : 0}deg)`, ...style }}>{children}</div>;
@@ -450,7 +451,8 @@ function Pill({ block }) {
   if (look.pill.marker) {
     const ink = block.tone === 'dark' ? theme.ink : theme.accent;
     return (
-      <div style={{ fontFamily: MARKER, fontSize: size, lineHeight: 1.2, color: ink, padding: `${Math.round(size * 0.3)}px ${Math.round(size * 0.7)}px`, border: `5px solid ${ink}`, borderRadius: '26px 14px 28px 12px / 14px 26px 12px 28px' }}>
+      // A label that sits on a photo gets the board's paper behind it: marker on a dark picture cannot be read.
+      <div style={{ fontFamily: MARKER, fontSize: size, lineHeight: 1.2, color: ink, background: block.onPhoto ? theme.bg : 'transparent', boxShadow: block.onPhoto ? '0 8px 20px rgba(0,0,0,0.2)' : 'none', padding: `${Math.round(size * 0.3)}px ${Math.round(size * 0.7)}px`, border: `5px solid ${ink}`, borderRadius: '26px 14px 28px 12px / 14px 26px 12px 28px' }}>
         <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
       </div>
     );
@@ -926,14 +928,14 @@ function Media({ block, duration }) {
       {block.cornerTag && (
         <div style={{ position: 'absolute', top: -42, right: -10 }}>
           <PopIn at={block.cornerTag.at} rotate={8}>
-            <Pill block={{ text: block.cornerTag.text, tone: 'brand', size: 'l' }} />
+            <Pill block={{ text: block.cornerTag.text, tone: 'brand', size: 'l', onPhoto: true }} />
           </PopIn>
         </div>
       )}
       {block.footerPill && (
         <div style={{ position: 'absolute', bottom: -44, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
           <PopIn at={block.footerPill.at} anim="stamp" rotate={-2}>
-            <Pill block={{ text: block.footerPill.text, tone: 'accent', size: 'l' }} />
+            <Pill block={{ text: block.footerPill.text, tone: 'accent', size: 'l', onPhoto: true }} />
           </PopIn>
         </div>
       )}

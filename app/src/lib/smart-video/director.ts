@@ -3,6 +3,8 @@ import type { StyleName } from './types';
 import { usage } from './usage';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
+// Takes over when the director's model is overloaded: stable, sees images and video, writes JSON.
+const DIRECTOR_STAND_IN = 'gemini-2.5-pro';
 
 const BRIEF = `You are the creative director, copywriter and editor of a short vertical (9:16) social-media video ad.
 The client gave you ONLY a piece of text and some files. They will do nothing else: you decide everything.
@@ -142,23 +144,51 @@ const ATTEMPTS = 3;
  * survive. A plan that is merely shorter or less varied than we like still makes a good video;
  * a failed job makes none.
  */
+const BUSY = new Set([429, 500, 502, 503, 504]);
+const BUSY_WAITS_MS = [3000, 8000, 20000];
+
+/**
+ * One call to the director's model. Google answers 503 "high demand" for a minute now and then
+ * (2026-10-01: two edits died on it within two seconds). A busy answer is retried three times,
+ * then the stand-in model takes the call (two retries of its own); only when both are down does the job fail, in plain words.
+ */
+async function generate(key: string, body: string, timeoutMs: number): Promise<any> {
+  const call = (model: string) =>
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  for (const model of [DIRECTOR_MODEL, DIRECTOR_STAND_IN]) {
+    // 2026-10-01: every Gemini model refused a quarter to all of its calls for a while, so the stand-in is retried too.
+    const waits = model === DIRECTOR_MODEL ? BUSY_WAITS_MS : BUSY_WAITS_MS.slice(0, 2);
+    for (let attempt = 0; attempt <= waits.length; attempt++) {
+      const res = await call(model);
+      if (res.ok) return res.json();
+      const detail = (await res.text()).slice(0, 300);
+      if (!BUSY.has(res.status)) throw new Error(`Director call failed (${res.status}): ${detail}`);
+      console.warn(`⚠️ Director model ${model} is busy (${res.status}), attempt ${attempt + 1}`);
+      if (attempt < waits.length) await new Promise((resolve) => setTimeout(resolve, waits[attempt]));
+    }
+  }
+  throw new Error("The AI model that plans the video is overloaded right now. That is on Google's side and usually passes within minutes: please try again.");
+}
+
 async function askDirector(parts: unknown[], check: (plan: DirectorPlan, lastChance: boolean) => string | null, timeoutMs: number): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
   let feedback = '';
   // Two corrections: a fix for one rule sometimes breaks another, and a second correction costs far less than a failed job.
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${DIRECTOR_MODEL}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
+    const json = await generate(
+      key,
+      JSON.stringify({
         contents: [{ parts: feedback ? [...parts, { text: feedback }] : parts }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0.6 },
       }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!res.ok) throw new Error(`Director call failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
-    const json = await res.json();
+      timeoutMs
+    );
     usage.director(json.usageMetadata);
     const text: string = (json.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('');
 
@@ -203,6 +233,7 @@ export async function reviseVideo(
         ]
       : []),
     '- If the note gives a fact (a phone number, a price, a name), use it exactly. Update "warnings" to match the new state.',
+    '- You can only use the blocks, backgrounds and looks described above. When the note asks for an effect that does not exist (a new kind of animation, an underline, an object moved by the hand...), do the closest thing that does exist and say plainly in "warnings" what could not be done, so the client is not left guessing.',
     '',
     "CLIENT'S ORIGINAL TEXT:",
     brief,
