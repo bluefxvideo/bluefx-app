@@ -11,6 +11,10 @@ export const PHANTOM_EXTRA_MINUTE_CREDITS = 20;
 /** A change to a finished video from a note. */
 export const PHANTOM_REVISION_CREDITS = 10;
 
+/** The automatic listing video (ReelEstate): the video itself, plus each photo that becomes a moving clip. */
+export const LISTING_CREDITS = 25;
+export const LISTING_CLIP_CREDITS = 6;
+
 export const MAX_LIFESTYLE_PHOTOS = 3;
 export const MAX_ANIMATED_PHOTOS = 2;
 /** Whiteboard videos: one line drawing per scene, about $0.04 each. */

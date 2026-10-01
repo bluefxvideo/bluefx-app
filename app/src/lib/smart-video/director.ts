@@ -1,5 +1,6 @@
 import { DirectorPlanSchema, type DirectorPlan, type SmartAsset, type VideoFormat, type VideoLength } from './types';
 import type { StyleName } from './types';
+import { asListingPlan, checkListingPlan, listingPhotoCount, listingRecipe, type ListingOptions } from './listing';
 import { usage } from './usage';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
@@ -26,7 +27,7 @@ STEP 2 — Decide the format. The format sets the structure; never force one kin
 lifestyleShots (product format only): marketplace images are mostly packshots and infographics, which make dull scenes. Order up to 3 NEW photos of the real product in use: {id:"g1", fromAsset: the packshot's id, prompt: one sentence describing a vertical candid photo: who (the target customer), doing what with the product, where, light and mood}. Use the ids (g1, g2...) as mediaFull background assets in the benefit scenes and the hook. Do not show infographic images in media cards when a lifestyle shot can carry the scene.
 animate (any format): a still photo is lifeless next to real footage. Pick up to 2 photos that are used as mediaFull backgrounds, the hook first (so make the hook a mediaFull scene when you animate it), and they become 6-second moving clips: {asset, prompt}. prompt = one sentence with the camera move and what subtly moves: "Slow push-in toward the front door, leaves swaying, clouds drifting." / "Slow orbit around the kitchen island, light shimmering on the marble." Places, products, food and wide shots animate well; avoid photos with readable text and close-up faces. lifestyleShots ids can be animated too. Skip photos of scenes where the client already gave a clip.
 TALKING CLIPS: when a clip shows a person speaking to the camera (listen to it), their own voice beats any narrator. Make it a speaker scene: "speaker": {asset, from, to} = the seconds of the clip in which they say it; "narration" = exactly the words they say in that span, nothing added; background mediaFull with the same clip. Keep the blocks light and low (a pill with their name or role, at most one short title): never cover the face. Open the video with the speaker when what they say works as a hook. The narrator takes over in the other scenes and must not repeat what the speaker already said; make the narrator clearly a different person from the speaker (the other gender, an upbeat announcer), so the change of voice sounds intended. A clip of a person who is not speaking to camera is ordinary footage.
-WHITEBOARD VIDEOS (style "whiteboard" only): most scenes use background {"type":"drawing","asset":"d1"} and every drawing is listed in "drawings": [{"id":"d1","prompt":"..."}] (ids d1, d2...; at most 8; one drawing per scene, never the same drawing twice). prompt = one sentence describing a simple, clear line drawing that SHOWS the idea of the scene with concrete objects, people and visual metaphors: "a two-storey house with solar panels on the roof and a big sun with rays", "an electricity bill with a big downward arrow and a few coins", "a smiling family of four standing next to a large piggy bank". Never ask for words, letters, numbers, prices or logos inside a drawing: the words are written under it by the renderer. A drawing scene carries the drawing plus 1 to 3 blocks written under it: a title (the handwritten headline, at most 2 short lines) and optionally a pill, a number, or chips (at most 3 short items). The client's photos and logo still appear, "taped to the board": a media block on a brand background scene, and the logo in the last scene. No mediaFull, mediaBlur or imageTop backgrounds (except a speaker scene), no lifestyleShots, no animate, no cutout. captions false unless the client asks for them. Everything is handwritten, so write titles, pills and chips in normal sentence case ("High energy bills?"), never in capitals. The last scene: brand background, logo if there is one, title, caption, highlight.
+WHITEBOARD VIDEOS (style "whiteboard" only): most scenes use background {"type":"drawing","asset":"d1"} and every drawing is listed in "drawings": [{"id":"d1","prompt":"..."}] (ids d1, d2...; at most 8; one drawing per scene, never the same drawing twice). prompt = one sentence describing a simple, clear line drawing that SHOWS the idea of the scene with concrete objects, people and visual metaphors: "a two-storey house with solar panels on the roof and a big sun with rays", "an electricity bill with a big downward arrow and a few coins", "a smiling family of four standing next to a large piggy bank". Never ask for words, letters, numbers, prices or logos inside a drawing: the words are written under it by the renderer. A drawing scene carries the drawing plus 1 to 3 blocks written under it: a title (the handwritten headline, at most 2 short lines) and optionally a pill, a number, or chips (at most 3 short items). The client's photos and logo still appear, "taped to the board": a media block on a brand background scene, and the logo in the last scene. No mediaFull, mediaBlur or imageTop backgrounds (except a speaker scene), no lifestyleShots, no animate, no cutout. theme.accent is the ONE coloured marker used for ticks, underlines, the price and the circle round the contact: a strong marker colour (blue, red, green, orange) or the brand's own colour, never black, grey or white. captions false unless the client asks for them. Everything is handwritten, so write titles, pills and chips in normal sentence case ("High energy bills?"), never in capitals. An open hand can also slide an element up into place: "push": true on a media, title, pill or badge block (the hand pushes the photo or the line in from the bottom edge and lets go). Use it once or twice in a video, for the photo of the person or the one fact that matters most, never on every block, and not on the first title of a drawing scene. The last scene: brand background, logo if there is one, title, caption, highlight.
 captions: true adds word-by-word captions in the lower third, in step with the voice (the TikTok/Reels look, and most people watch muted). Use true for product and for playful or bold videos; false for elegant, and for clean unless the audience is young.
 
 STEP 3 — Decide the look. Pick the style that fits the BUSINESS and its audience, not your taste:
@@ -56,7 +57,7 @@ The proven scene recipes:
 - contact (last): background imageTop with the client's artwork if there is one, else brand + logo; then title (the action: "SEND:", "CALL NOW", "BOOK TODAY") + rows ONLY if the viewer must send or bring several things ("CV", "Cover letter") + caption ("to:", "call:") + highlight (the contact) + title (warm sign-off). The screen must read top to bottom as one instruction: action → to → contact. Address, opening hours and deadlines never go between the action and the contact; give them their own earlier scene or a pill.
 Backgrounds: "drawing" (whiteboard style only: a hand draws the drawing named in asset, the blocks are written under it), "brand" (the style's animated brand background, the default), "mediaBlur" (blurred asset behind blocks; good for the hook together with a media block of the same clip), "mediaFull" (a strong photo or clip fills the frame under a dark gradient; use few, short blocks), "imageTop" (artwork across the top third, blocks on a panel below; good for the contact scene).
 Blocks:
-- title {text,tone}: big headline. Short lines render HUGE: keep lines to 8-14 characters, use \\n for line breaks, at most 3 lines. tone light (default), brand, or accent.
+- title {text,tone,underlineCue}: big headline. underlineCue (optional, any style) = the exact words from this scene's narration at which a line is drawn under the title: use it when the narrator says the title's own phrase a moment after it appeared, at most once per scene. Short lines render HUGE: keep lines to 8-14 characters, use \\n for line breaks, at most 3 lines. tone light (default), brand, or accent.
 - pill {text,tone}: small label, e.g. location or category. badge {text}: a short win with a check mark, e.g. "NO EXPERIENCE NEEDED".
 - media {asset,shape,focus,startFrom,cutout}: a photo or clip in a card (cutout:true only for role "product" assets, and only on a brand background). shape wide 16:9, photo 4:3, square, small, tall. focus = where the subject is. footerPill adds a label on the card.
 - logo {asset}. emoji {text}: one large emoji. caption {text}: small grey helper line.
@@ -112,20 +113,30 @@ const HORIZONTAL_NOTE = `
 
 THIS VIDEO IS HORIZONTAL (16:9, for YouTube and websites), not vertical. Everything above still applies, with these differences: a scene with a media block is laid out with the picture on one side and the text on the other, so every brand-background scene should have a media (or gallery) block; landscape photos and clips fill a mediaFull scene best, while a tall photo or clip is shown whole on the right with the text beside it; lifestyleShots and animated photos are made in 16:9; an "imageTop" background shows the artwork on the left.`;
 
+/** A listing video without a chosen look gets the calm serif one the owner picked for listings. */
+const LISTING_LOOK: StyleName = 'elegant';
+
 export async function directVideo(
   brief: string,
   assets: SmartAsset[],
   length: VideoLength = 'auto',
   format: VideoFormat = 'vertical',
-  look: StyleName | null = null
+  chosenLook: StyleName | null = null,
+  /** The automatic listing video: a fixed recipe on top of the general rules. */
+  listing: ListingOptions | null = null
 ): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
 
+  const look = listing ? chosenLook || LISTING_LOOK : chosenLook;
+  const photos = assets.filter((a) => a.kind === 'image').length;
   const instructions = BRIEF.replace(
     '{{LENGTH}}',
-    `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
-  ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '') + (look ? `\n\nTHE CLIENT CHOSE THE LOOK: "style" must be "${look}". Everything else is still yours to decide.` : '');
+    listing
+      ? 'The length is fixed by the listing rules at the end.'
+      : `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
+  ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '') + (look && !listing ? `\n\nTHE CLIENT CHOSE THE LOOK: "style" must be "${look}". Everything else is still yours to decide.` : '')
+    + (listing && look ? listingRecipe(listing, listingPhotoCount(listing.seconds, photos), look) : '');
   const today = `\n\nTODAY: ${new Date().toISOString().slice(0, 10)}. Leave out any deadline, sale or event date in the material that has already passed.`;
   const parts: unknown[] = [{ text: instructions }, { text: `${today}\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
   for (const asset of assets) {
@@ -133,7 +144,8 @@ export async function directVideo(
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
 
-  return askDirector(parts, (plan, lastChance) => checkPlan(plan, assets, brief, length, false, lastChance, look), length === 'script' ? 480_000 : 280_000);
+  const plan = await askDirector(parts, (candidate, lastChance) => checkPlan(candidate, assets, brief, length, false, lastChance, look, listing), length === 'script' ? 480_000 : 280_000);
+  return listing ? asListingPlan(plan) : plan;
 }
 
 /** One director call with validation; a rejected plan goes back once with the reason. */
@@ -216,11 +228,16 @@ export async function reviseVideo(
   brief: string,
   existing: Record<string, { kind: 'image' | 'video'; cutoutUrl?: string }>,
   format: VideoFormat = 'vertical',
-  added: SmartAsset[] = []
+  added: SmartAsset[] = [],
+  /** The video is an automatic listing video: the edit keeps its recipe. */
+  listing: ListingOptions | null = null
 ): Promise<DirectorPlan> {
   const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion'));
   const cutouts = ids.filter((id) => existing[id].cutoutUrl);
-  const instructions = BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.') + (format === 'horizontal' ? HORIZONTAL_NOTE : '');
+  const instructions =
+    BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.') +
+    (format === 'horizontal' ? HORIZONTAL_NOTE : '') +
+    (listing ? listingRecipe(listing, plan.scenes.length, plan.style) + '\nThe client\'s note outranks the length and the photo count of these rules; everything else in them still holds.' : '');
   const task = [
     '',
     'YOU ALREADY MADE THIS VIDEO. The client watched it and left a note. Return the full plan again with ONLY the changes the note asks for.',
@@ -233,7 +250,7 @@ export async function reviseVideo(
         ]
       : []),
     '- If the note gives a fact (a phone number, a price, a name), use it exactly. Update "warnings" to match the new state.',
-    '- You can only use the blocks, backgrounds and looks described above. When the note asks for an effect that does not exist (a new kind of animation, an underline, an object moved by the hand...), do the closest thing that does exist and say plainly in "warnings" what could not be done, so the client is not left guessing.',
+    '- You can only use the blocks, backgrounds and looks described above. When the note asks for an effect that does not exist (a new kind of animation, zooming into a detail, text that changes colour...), do the closest thing that does exist and say plainly in "warnings" what could not be done, so the client is not left guessing.',
     '',
     "CLIENT'S ORIGINAL TEXT:",
     brief,
@@ -251,7 +268,8 @@ export async function reviseVideo(
     parts.push({ text: describe(asset) });
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
-  return askDirector(parts, (candidate) => checkPlan(candidate, assets, brief, 'auto', true), 280_000);
+  const revised = await askDirector(parts, (candidate) => checkPlan(candidate, assets, brief, 'auto', true, false, null, listing), 280_000);
+  return listing ? asListingPlan(revised) : revised;
 }
 
 // Things the renderer cannot fix by construction.
@@ -262,7 +280,8 @@ function checkPlan(
   length: VideoLength,
   revision: boolean,
   lastChance = false,
-  look: StyleName | null = null
+  look: StyleName | null = null,
+  listing: ListingOptions | null = null
 ): string | null {
   // The look the client picked is a promise, like their exact words.
   if (look && plan.style !== look) return `the client chose the look "${look}": "style" must be "${look}".`;
@@ -288,9 +307,12 @@ function checkPlan(
     // A full-frame photo carries the scene; elsewhere a thin stack looks empty.
     // With captions on, a full-frame scene is told to carry just a title: that must pass.
     // A drawing carries its scene the way a full-frame photo does.
-    const minimum = scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
+    // A listing's room photos carry no text at all.
+    const minimum = listing && scene.background.type === 'mediaFull' ? 0 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
+  // A listing video has its own recipe; the general taste rules below (word floor, file spread) do not fit it.
+  if (listing) return revision || lastChance ? null : checkListingPlan(plan, assets, listing);
   // Everything above would break or blank a scene. Everything below is taste: worth one or two corrections, never worth a failed job.
   // In a revision the client's note outranks the word-count and file-spread rules.
   if (revision) return null;

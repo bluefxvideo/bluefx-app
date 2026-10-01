@@ -24,13 +24,21 @@ export type VideoLook = (typeof VIDEO_LOOKS)[number];
 
 const cue = z.string().nullish().describe('Exact words from this scene\'s narration on which the element appears; null = scene start');
 const tone = z.enum(['light', 'brand', 'accent']).nullish();
+const push = z.boolean().nullish().describe('Whiteboard style only: an open hand slides this element up into place');
 
 const ItemSchema = z.object({ icon: z.string(), text: z.string(), cue });
 
 export const BlockSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('title'), text: z.string(), tone, cue }),
-  z.object({ type: z.literal('pill'), text: z.string(), tone: z.enum(['accent', 'dark', 'light', 'brand']).nullish(), cue }),
-  z.object({ type: z.literal('badge'), text: z.string(), cue }),
+  z.object({
+    type: z.literal('title'),
+    text: z.string(),
+    tone,
+    underlineCue: z.string().nullish().describe("Exact words from this scene's narration at which a line is drawn under this title; null = no underline"),
+    push,
+    cue,
+  }),
+  z.object({ type: z.literal('pill'), text: z.string(), tone: z.enum(['accent', 'dark', 'light', 'brand']).nullish(), push, cue }),
+  z.object({ type: z.literal('badge'), text: z.string(), push, cue }),
   z.object({ type: z.literal('highlight'), text: z.string(), cue }),
   z.object({ type: z.literal('caption'), text: z.string(), cue }),
   z.object({ type: z.literal('emoji'), text: z.string(), cue }),
@@ -43,6 +51,7 @@ export const BlockSchema = z.discriminatedUnion('type', [
     startFrom: z.number().nullish().describe('For video: second to start from'),
     footerPill: z.object({ text: z.string(), cue }).nullish(),
     cutout: z.boolean().nullish().describe('Show the product without its background, floating on the scene'),
+    push,
     cue,
   }),
   z.object({ type: z.literal('gallery'), assets: z.array(z.string()).min(2).max(3), cue }),
@@ -68,7 +77,8 @@ export const SceneSchema = z.object({
     asset: z.string().nullish(),
     focus: z.string().nullish(),
   }),
-  blocks: z.array(BlockSchema).min(1).max(6),
+  // Empty only in a listing video, whose room photos carry no text; the director's checks demand blocks everywhere else.
+  blocks: z.array(BlockSchema).max(6),
 });
 
 export const DirectorPlanSchema = z.object({

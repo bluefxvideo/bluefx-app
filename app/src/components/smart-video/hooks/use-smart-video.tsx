@@ -12,7 +12,8 @@ import {
 } from '@/actions/tools/smart-video';
 import { cleanLink } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
-import { phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS, LISTING_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingLength } from '@/lib/smart-video/listing';
 import type { PhantomExample } from '@/lib/smart-video/examples';
 import { urlToFile } from '@/lib/url-to-file';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
@@ -21,8 +22,19 @@ import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } fr
 const POLL_MS = 4000;
 const isRunning = (job?: SmartVideoJob | null) => Boolean(job && job.status !== 'done' && job.status !== 'failed');
 
-export function useSmartVideo() {
+/** A listing video is made from photos (some systems give a HEIC file no type, so the name counts too). */
+const isPhoto = (file: File) => file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif|avif|tiff?|gif|bmp)$/i.test(file.name);
+
+/**
+ * One hook, two pages: the Phantom ('phantom') and ReelEstate's automatic
+ * listing video ('listing'), which is the same engine with a fixed recipe, a
+ * chosen length and its own price.
+ */
+export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   const queryClient = useQueryClient();
+  const isListing = mode === 'listing';
+  // Listing video: the length (every photo becomes a moving clip)
+  const [listingSeconds, setListingSeconds] = useState<ListingLength>(30);
   const [brief, setBrief] = useState('');
   const [link, setLink] = useState('');
   const [exactWords, setExactWords] = useState(false);
@@ -44,26 +56,44 @@ export function useSmartVideo() {
     refetchIntervalInBackground: true,
   });
 
-  const { data: history = [], error: historyError } = useQuery({
+  const { data: allJobs = [], error: historyError } = useQuery({
     queryKey: ['smart-video-jobs'],
     queryFn: () => listSmartVideoJobs(),
   });
+  // Each page lists its own videos
+  const history = allJobs.filter((item) => Boolean(item.listing) === isListing);
 
   // The list shows each job's status, so it is refreshed when the open job finishes.
+  // So is the balance: a failed video gives its credits back, and a listing video pays for its clips while it is made.
   useEffect(() => {
-    if (job?.status === 'done' || job?.status === 'failed') queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+    if (job?.status !== 'done' && job?.status !== 'failed') return;
+    queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+    queryClient.invalidateQueries({ queryKey: ['user-credits'] });
   }, [job?.status, queryClient]);
 
-  const addFiles = useCallback((added: File[]) => {
-    const tooBig = added.filter((f) => f.size > SMART_VIDEO_MAX_FILE_MB * 1024 * 1024);
-    if (tooBig.length) toast.error(`${tooBig.map((f) => f.name).join(', ')}: over ${SMART_VIDEO_MAX_FILE_MB} MB`);
-    setFiles((current) => [...current, ...added.filter((f) => !tooBig.includes(f))].slice(0, SMART_VIDEO_MAX_FILES));
-  }, []);
+  const addFiles = useCallback(
+    (added: File[]) => {
+      const notPhotos = isListing ? added.filter((f) => !isPhoto(f)) : [];
+      if (notPhotos.length) toast.error(`${notPhotos.map((f) => f.name).join(', ')}: a listing video is made from photos`);
+      const tooBig = added.filter((f) => f.size > SMART_VIDEO_MAX_FILE_MB * 1024 * 1024);
+      if (tooBig.length) toast.error(`${tooBig.map((f) => f.name).join(', ')}: over ${SMART_VIDEO_MAX_FILE_MB} MB`);
+      setFiles((current) => [...current, ...added.filter((f) => !tooBig.includes(f) && !notPhotos.includes(f))].slice(0, SMART_VIDEO_MAX_FILES));
+    },
+    [isListing],
+  );
 
   const removeFile = useCallback((index: number) => setFiles((current) => current.filter((_, i) => i !== index)), []);
 
   const start = useCallback(async () => {
-    if (!brief.trim() && !link.trim()) {
+    if (isListing && !link.trim() && files.filter(isPhoto).length < LISTING_MIN_PHOTOS) {
+      toast.error(`Paste the listing link, or add at least ${LISTING_MIN_PHOTOS} photos of the home`);
+      return;
+    }
+    if (isListing && !link.trim() && !brief.trim()) {
+      toast.error('Write the address and the facts of the home: the video shows them');
+      return;
+    }
+    if (!isListing && !brief.trim() && !link.trim()) {
       toast.error('Write what the video is about, or paste a link');
       return;
     }
@@ -91,6 +121,7 @@ export function useSmartVideo() {
         look,
         voiceOver,
         music,
+        ...(isListing ? { listing: { seconds: listingSeconds } } : {}),
         link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
@@ -103,7 +134,7 @@ export function useSmartVideo() {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient]);
+  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient, isListing, listingSeconds]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
@@ -204,7 +235,16 @@ export function useSmartVideo() {
     queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
   }, [queryClient]);
 
+  // Listing video: how many photos the video shows, and what animating them adds to the price
+  // (before anything is added, the price is shown for the photos a video of this length holds)
+  const listingPhotos = listingPhotoCount(listingSeconds, (link.trim() ? listingLinkPhotos(files.length) : 0) + files.length || 99);
+  const clipCredits = isListing ? listingPhotos * LISTING_CLIP_CREDITS : 0;
+
   return {
+    listingSeconds,
+    setListingSeconds,
+    listingPhotos,
+    clipCredits,
     brief,
     setBrief,
     link,
@@ -221,13 +261,14 @@ export function useSmartVideo() {
     setMusic,
     files,
     addFiles,
+    replaceFiles: setFiles,
     removeFile,
     job: job ?? null,
     history,
     // The app was updated while this tab was open: its requests no longer reach the server until a reload.
     stalePage: isStalePageError(jobError?.message) || isStalePageError(historyError?.message),
     uploading,
-    credits: phantomCredits(brief, exactWords),
+    credits: isListing ? LISTING_CREDITS : phantomCredits(brief, exactWords),
     revise,
     revising,
     isBusy: Boolean(uploading) || revising || isRunning(job) || (Boolean(jobId) && !job),

@@ -188,8 +188,9 @@ export default function Navbar({
 		const urlParams = new URLSearchParams(window.location.search);
 		const isReelEstate = urlParams.has('listingId');
 		const isStoryboard = urlParams.has('storyboardId');
+		// (a Studio project comes from the Step by Step tab; the page's first tab is the automatic video)
 		const targetPath = isReelEstate
-			? '/dashboard/reelestate'
+			? '/dashboard/reelestate/video-maker'
 			: isStoryboard
 				? '/dashboard/ai-cinematographer'
 				: '/dashboard/script-to-video';

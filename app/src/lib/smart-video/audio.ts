@@ -1,4 +1,6 @@
+import { spawn } from 'node:child_process';
 import sharp from 'sharp';
+import { tracePath } from './drawing-path';
 import { usage } from './usage';
 
 /**
@@ -52,6 +54,26 @@ export function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
   header.write('data', 36);
   header.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([header, pcm]);
+}
+
+/**
+ * Speeds up or slows down a recording (mono 16-bit PCM) without changing its pitch.
+ * A few percent either way is not heard as a change of the voice.
+ */
+export function changeTempo(pcm: Buffer, rate: number, tempo: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const format = ['-f', 's16le', '-ar', String(rate), '-ac', '1'];
+    const ffmpeg = spawn('ffmpeg', ['-v', 'error', ...format, '-i', 'pipe:0', '-filter:a', `atempo=${tempo.toFixed(4)}`, ...format, 'pipe:1']);
+    const heard: Buffer[] = [];
+    let problem = '';
+    ffmpeg.stdout.on('data', (chunk: Buffer) => heard.push(chunk));
+    ffmpeg.stderr.on('data', (chunk: Buffer) => (problem += chunk.toString()));
+    ffmpeg.on('error', reject);
+    ffmpeg.on('close', (code) => (code === 0 ? resolve(Buffer.concat(heard)) : reject(new Error(`Changing the voice's tempo failed: ${problem.slice(0, 200)}`))));
+    // (a write error shows up as a failed exit above)
+    ffmpeg.stdin.on('error', () => undefined);
+    ffmpeg.stdin.end(pcm);
+  });
 }
 
 export async function generateVoice(
@@ -188,7 +210,7 @@ const DRAWING_INK = [31, 36, 48]; // the whiteboard look's ink colour (#1F2430)
  * background and cropped to the drawing, so the renderer's hand draws exactly the lines and
  * never sweeps over empty board. Returns the PNG and its size.
  */
-export async function generateDrawing(prompt: string): Promise<{ png: Buffer; width: number; height: number }> {
+export async function generateDrawing(prompt: string): Promise<{ png: Buffer; width: number; height: number; path: number[] }> {
   const res = await fetch('https://fal.run/openai/gpt-image-2.5/flare/text-to-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
@@ -223,21 +245,27 @@ export async function generateDrawing(prompt: string): Promise<{ png: Buffer; wi
     }
   }
   const png = await sharp(rgba, { raw: { width, height, channels: 4 } }).png().toBuffer();
-  return { png, width, height };
+  // Where the lines are, so the renderer's hand can follow them.
+  const alpha = Buffer.alloc(width * height);
+  for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3];
+  return { png, width, height, path: tracePath(alpha, width, height) };
 }
 
 export const MOTION_CLIP_SECONDS = 6; // the model's shortest clip
 
-/** Turns a frame-sized still into a short moving clip (fal LTX 2.3 Fast, queue API). Returns the MP4. */
-export async function animatePhoto(image: Buffer, prompt: string, horizontal = false): Promise<Buffer> {
+/**
+ * Turns a frame-sized still into a short moving clip (fal LTX 2.3 Fast, queue API). Returns the MP4.
+ * `exactPrompt` sends the prompt as it is (a listing's proven camera move), without the general additions.
+ */
+export async function animatePhoto(image: Buffer, prompt: string, horizontal = false, seconds = MOTION_CLIP_SECONDS, exactPrompt = false): Promise<Buffer> {
   const headers = { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` };
   const submit = await fetch('https://queue.fal.run/fal-ai/ltx-2.3/image-to-video/fast', {
     method: 'POST',
     headers,
     body: JSON.stringify({
       image_url: `data:image/jpeg;base64,${image.toString('base64')}`,
-      prompt: `${prompt} Smooth, slow, steady cinematic camera movement. Photorealistic, the scene stays exactly as in the image, no new objects, no text.`,
-      duration: MOTION_CLIP_SECONDS,
+      prompt: exactPrompt ? prompt : `${prompt} Smooth, slow, steady cinematic camera movement. Photorealistic, the scene stays exactly as in the image, no new objects, no text.`,
+      duration: seconds,
       resolution: '1080p',
       aspect_ratio: horizontal ? '16:9' : '9:16',
       fps: 25,
@@ -251,7 +279,7 @@ export async function animatePhoto(image: Buffer, prompt: string, horizontal = f
     const status = await (await fetch(status_url, { headers })).json();
     if (status.status === 'COMPLETED') {
       const result = await (await fetch(response_url, { headers })).json();
-      usage.motion(MOTION_CLIP_SECONDS);
+      usage.motion(seconds);
       return Buffer.from(await (await fetch(result.video.url)).arrayBuffer());
     }
     if (status.status === 'FAILED') throw new Error('Animation failed');

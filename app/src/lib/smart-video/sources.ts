@@ -18,7 +18,7 @@ export interface LinkSource {
   imageUrls: string[];
 }
 
-const MAX_PHOTOS = 12; // the first photos of a listing are the owner's best; more only costs director tokens
+const MAX_PHOTOS = 12; // what one video can use; more only costs director tokens
 const MAX_PAGE_TEXT = 6000;
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
@@ -56,13 +56,25 @@ const phone = (digits: unknown) =>
 
 // ---------- marketplaces and listings ----------
 
-export async function fromZillow(url: string): Promise<LinkSource> {
+/**
+ * A home listing's photos run in the order of a walk through the home, and
+ * there are 30 to 60 of them: the first twelve never reach the bedrooms. This
+ * takes evenly spaced photos from the whole listing, the first one (the front
+ * of the house) always among them.
+ */
+function spread<T>(photos: T[], limit: number): T[] {
+  if (photos.length <= limit) return photos;
+  return Array.from({ length: limit }, (_, i) => photos[Math.round((i * (photos.length - 1)) / (limit - 1))]);
+}
+
+export async function fromZillow(url: string, photos = MAX_PHOTOS): Promise<LinkSource> {
   const [home] = await runActor('maxcopell~zillow-detail-scraper', { startUrls: [{ url }], maxItems: 1 });
   const brief = lines([
     'REAL ESTATE LISTING (from Zillow)',
     home.listingAddress?.full && `Address: ${home.listingAddress.full}`,
     home.listingAddress?.neighborhood && `Neighborhood: ${home.listingAddress.neighborhood}`,
-    home.listingPrice?.formatted && `Price: ${home.listingPrice.formatted}`,
+    // (an off-market page gives "$0")
+    home.listingPrice?.amount > 0 && home.listingPrice.formatted && `Price: ${home.listingPrice.formatted}`,
     home.bedrooms && `Bedrooms: ${home.bedrooms}`,
     home.bathrooms && `Bathrooms: ${home.bathrooms}`,
     home.livingArea && `Living area: ${home.livingArea} sqft`,
@@ -73,14 +85,14 @@ export async function fromZillow(url: string): Promise<LinkSource> {
     // Zillow's data carries no agent contact (mls.name is the MLS board, e.g. "MIAMI", not a person).
     '\nAgent contact: not on the page. Use only a contact the client gives in their note.',
   ]);
-  const imageUrls = (home.listingPhotos || [])
-    .map((p: { url?: string }) => p.url)
-    .filter(Boolean)
-    .slice(0, MAX_PHOTOS);
+  const imageUrls = spread<string>(
+    (home.listingPhotos || []).map((p: { url?: string }) => p.url).filter(Boolean),
+    photos,
+  );
   return { brief, imageUrls };
 }
 
-export async function fromRealtor(url: string): Promise<LinkSource> {
+export async function fromRealtor(url: string, photos = MAX_PHOTOS): Promise<LinkSource> {
   const [home] = await runActor('memo23~realtor-search-cheerio', { startUrls: [{ url }], maxItems: 1 });
   const place = [home.address_line, home.address_city, home.address_state_code || home.address_state, home.address_postal_code]
     .filter(Boolean)
@@ -100,9 +112,10 @@ export async function fromRealtor(url: string): Promise<LinkSource> {
       ? `\nListed by (shown on the page): ${[home.primary_agent_name, home.primary_office_name, phone(home.primary_agent_phone || home.contactPhone)].filter(Boolean).join(', ')}. Use this contact unless the client's note gives another one.`
       : '\nAgent contact: use only a contact the client gives in their note.',
   ]);
-  const imageUrls = (Array.isArray(home.photo_urls) ? home.photo_urls : [])
-    .filter((u: unknown) => typeof u === 'string' && u.startsWith('http'))
-    .slice(0, MAX_PHOTOS);
+  const imageUrls = spread<string>(
+    (Array.isArray(home.photo_urls) ? home.photo_urls : []).filter((u: unknown) => typeof u === 'string' && u.startsWith('http')),
+    photos,
+  );
   return { brief, imageUrls };
 }
 
@@ -445,7 +458,7 @@ export async function fromWebsite(url: string): Promise<LinkSource> {
  * Downloads a link's photos. A page's <img> tags include icons, payment badges and thin banners:
  * anything too small or too stretched to fill a video frame is dropped. One failed download never fails the job.
  */
-export async function downloadLinkPhotos(imageUrls: string[]): Promise<{ filename: string; data: Buffer }[]> {
+export async function downloadLinkPhotos(imageUrls: string[], limit = MAX_PHOTOS): Promise<{ filename: string; data: Buffer }[]> {
   const photos = await Promise.all(
     imageUrls.map(async (url): Promise<Buffer | null> => {
       try {
@@ -462,15 +475,16 @@ export async function downloadLinkPhotos(imageUrls: string[]): Promise<{ filenam
   );
   return photos
     .filter((data): data is Buffer => Boolean(data))
-    .slice(0, MAX_PHOTOS)
+    .slice(0, limit)
     .map((data, i) => ({ filename: `link-${String(i + 1).padStart(2, '0')}.jpg`, data }));
 }
 
-export async function fromLink(url: string): Promise<LinkSource> {
+/** `listingPhotos`: how many photos a home listing brings (the automatic listing video takes more than one general video can use). */
+export async function fromLink(url: string, listingPhotos = MAX_PHOTOS): Promise<LinkSource> {
   const page = new URL(url);
   const host = page.hostname;
-  if (/zillow\.com$/i.test(host)) return fromZillow(url);
-  if (/realtor\.com$/i.test(host)) return fromRealtor(url);
+  if (/zillow\.com$/i.test(host)) return fromZillow(url, listingPhotos);
+  if (/realtor\.com$/i.test(host)) return fromRealtor(url, listingPhotos);
   if (/amazon\.|amzn\./i.test(host)) return fromAmazon(url);
   if (/tiktok\.com$/i.test(host)) return fromTikTokShop(url);
   if (isGoogleMapsLink(page)) return fromGoogleMaps(url);

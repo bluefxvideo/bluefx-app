@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Check,
   Download,
-  FileVideo,
   Ghost,
   Loader2,
   Pencil,
@@ -13,7 +12,6 @@ import {
   RotateCcw,
   ScrollText,
   Upload,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -31,6 +29,7 @@ import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
 import { PhantomExamples, PhantomTips } from './phantom-examples';
+import { FileThumb, SoundSwitches, plainError, soundLabel } from './shared';
 import type { PhantomExample } from '@/lib/smart-video/examples';
 
 // The tool's persona: an unseen genius who does the work and leaves you the credit.
@@ -628,60 +627,6 @@ function OutputPanel({
   );
 }
 
-/** The soundtrack of a video in words, e.g. "music only". */
-function soundLabel(job: SmartVideoJob): string {
-  const voiceOver = job.voiceOver !== false;
-  const music = job.music !== false;
-  if (voiceOver && music) return 'voice-over and music';
-  if (voiceOver) return 'voice-over only';
-  if (music) return 'music only';
-  return 'no sound';
-}
-
-/** Voice-over on or off, music on or off: on the form for a new video, and under a finished one for the next version. */
-function SoundSwitches({
-  id,
-  voiceOver,
-  music,
-  onVoiceOver,
-  onMusic,
-  disabled,
-}: {
-  id: string;
-  voiceOver: boolean;
-  music: boolean;
-  onVoiceOver: (on: boolean) => void;
-  onMusic: (on: boolean) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="divide-y rounded-lg border">
-      <div className="flex items-start justify-between gap-4 p-3">
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-voice`}>Voice-over</Label>
-          <p className="text-xs text-muted-foreground">
-            {voiceOver ? 'A narrator reads the script.' : 'Off: nobody reads the script. The words appear as captions, in the same rhythm.'}
-          </p>
-        </div>
-        <Switch id={`${id}-voice`} checked={voiceOver} onCheckedChange={onVoiceOver} disabled={disabled} />
-      </div>
-      <div className="flex items-start justify-between gap-4 p-3">
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-music`}>Music</Label>
-          <p className="text-xs text-muted-foreground">
-            {music
-              ? 'Music made for this video.'
-              : voiceOver
-                ? 'Off: the voice plays without music.'
-                : 'Off: the video has no sound. Add your own track where you post it.'}
-          </p>
-        </div>
-        <Switch id={`${id}-music`} checked={music} onCheckedChange={onMusic} disabled={disabled} />
-      </div>
-    </div>
-  );
-}
-
 interface VideoGroup {
   /** The first version: its text names the video. */
   root: SmartVideoJob;
@@ -708,16 +653,6 @@ function groupVersions(jobs: SmartVideoJob[]): VideoGroup[] {
   return [...groups.values()]
     .map((group) => ({ ...group, versions: group.versions.sort((a, b) => a.createdAt.localeCompare(b.createdAt)) }))
     .sort((a, b) => newest(b).localeCompare(newest(a)));
-}
-
-// What went wrong, in words a client can use. Older failures were saved with the raw answer of the AI service.
-function plainError(error?: string): string {
-  if (!error) return 'unknown reason';
-  const refund = /\d+ credits have been returned to your balance\./.exec(error)?.[0] ?? '';
-  if (/\(503\)|\(429\)|high demand|UNAVAILABLE|overloaded/i.test(error)) {
-    return `the AI model that plans the video was overloaded for a moment. Nothing is wrong with your video or your note. ${refund}`.trim();
-  }
-  return error;
 }
 
 function videoTitle(job: SmartVideoJob): string {
@@ -793,39 +728,6 @@ function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; cur
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// A picked file as a picture, so a wrong upload is caught before it costs credits.
-function FileThumb({ file, disabled, onRemove }: { file: File; disabled: boolean; onRemove: () => void }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
-  const isVideo = file.type.startsWith('video');
-  return (
-    <div className="relative aspect-square overflow-hidden rounded-md border bg-muted" title={file.name}>
-      {url && isVideo && <video src={`${url}#t=0.5`} preload="metadata" muted playsInline className="h-full w-full object-cover" />}
-      {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, nothing for next/image to optimise */}
-      {url && !isVideo && <img src={url} alt={file.name} className="h-full w-full object-cover" />}
-      {isVideo && (
-        <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/70 px-1 py-0.5 text-[10px] text-white">
-          <FileVideo className="h-3 w-3" />
-          clip
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={disabled}
-        aria-label={`Remove ${file.name}`}
-        className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-black disabled:opacity-50"
-      >
-        <X className="h-3 w-3" />
-      </button>
     </div>
   );
 }
