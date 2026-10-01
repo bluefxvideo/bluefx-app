@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/app/supabase/server';
 import { downloadAndUploadVideo } from '@/actions/supabase-storage';
 import { refundFailedGeneration } from '@/lib/credits/refund';
+import { mutateProject } from '@/lib/clone-studio/store';
 import type { CloneProject, CloneScene } from '@/types/clone-studio';
 
 /**
@@ -52,27 +53,32 @@ export async function finalizeCloneAnimation(
   });
   const finalUrl = upload.success && upload.url ? upload.url : falVideoUrl;
 
-  const supabase = createAdminClient();
-  const scenes = project.scenes.map((s) => {
-    if (s.n !== scene.n) return s;
-    // Clip history: stable newest-first list including the current clip
-    // (mirrors image_versions); the old clip stays selectable as a take
-    const history = s.anim_versions || [];
-    const withCurrent = s.anim?.video_url && !history.includes(s.anim.video_url)
-      ? [s.anim.video_url, ...history]
-      : history;
+  // The scene is found again by its request id on the fresh row: other clips may have landed,
+  // and scenes may have been added or removed, while this clip was being stored.
+  let sceneNumber = scene.n;
+  await mutateProject(project.id, (fresh) => {
+    const current = fresh.scenes.find((s) => s.anim?.request_id === requestId);
+    if (!current || (current.anim.status === 'completed' && current.anim.video_url)) return null;
+    sceneNumber = current.n;
     return {
-      ...s,
-      anim: { ...s.anim, video_url: finalUrl, status: 'completed' as const },
-      anim_versions: [finalUrl, ...withCurrent].slice(0, 5),
+      scenes: fresh.scenes.map((s) => {
+        if (s !== current) return s;
+        // Clip history: stable newest-first list including the current clip
+        // (mirrors image_versions); the old clip stays selectable as a take
+        const history = s.anim_versions || [];
+        const withCurrent = s.anim?.video_url && !history.includes(s.anim.video_url)
+          ? [s.anim.video_url, ...history]
+          : history;
+        return {
+          ...s,
+          anim: { ...s.anim, video_url: finalUrl, status: 'completed' as const },
+          anim_versions: [finalUrl, ...withCurrent].slice(0, 5),
+        };
+      }),
     };
   });
-  await supabase
-    .from('ad_clone_projects')
-    .update({ scenes, updated_at: new Date().toISOString() })
-    .eq('id', project.id);
 
-  console.log(`✅ Clone Studio: scene ${scene.n} animation complete (project ${project.id})`);
+  console.log(`✅ Clone Studio: scene ${sceneNumber} animation complete (project ${project.id})`);
   return { handled: true };
 }
 
@@ -88,14 +94,18 @@ export async function failCloneAnimation(
     return { handled: true };
   }
 
-  const supabase = createAdminClient();
-  const scenes = project.scenes.map((s) =>
-    s.n === scene.n ? { ...s, anim: { ...s.anim, status: 'failed' as const } } : s
-  );
-  await supabase
-    .from('ad_clone_projects')
-    .update({ scenes, updated_at: new Date().toISOString() })
-    .eq('id', project.id);
+  // Only the writer that turns the scene from "generating" to "failed" refunds it.
+  let failedNow = false;
+  await mutateProject(project.id, (fresh) => {
+    failedNow = false;
+    const current = fresh.scenes.find((s) => s.anim?.request_id === requestId);
+    if (!current || current.anim.status !== 'generating') return null;
+    failedNow = true;
+    return {
+      scenes: fresh.scenes.map((s) => (s === current ? { ...s, anim: { ...s.anim, status: 'failed' as const } } : s)),
+    };
+  });
+  if (!failedNow) return { handled: true };
 
   await refundFailedGeneration({
     userId: project.user_id,

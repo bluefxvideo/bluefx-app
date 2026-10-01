@@ -20,6 +20,7 @@ import {
   getKlingResult,
 } from '@/actions/models/fal-kling-video';
 import { finalizeCloneAnimation, failCloneAnimation } from '@/lib/clone-studio/animation';
+import { mutateProject, type ProjectPatch } from '@/lib/clone-studio/store';
 import { assembleClips } from '@/lib/clone-studio/assembly';
 import { detectTempo } from '@/lib/clone-studio/tempo';
 import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
@@ -45,6 +46,7 @@ import {
   CLONE_MAX_SOURCE_SECONDS,
   CLONE_MUSIC_CREDITS,
   composeMotionPrompt,
+  type CloneAnalysisSummary,
   type CloneImageEngine,
   type CloneProject,
   type CloneProjectResponse,
@@ -403,16 +405,37 @@ async function loadOwnedProject(projectId: string): Promise<
   return { ok: true, userId: user.id, project: data as unknown as CloneProject };
 }
 
-async function saveScenes(
+/**
+ * Changes one scene of a project the caller owns. The change is made on the row as it is
+ * at the moment of writing (see mutateProject), so it cannot undo what a clip, a picture
+ * or another card wrote in the meantime. `extra` adds project-level columns to the same write.
+ */
+async function changeScene(
   projectId: string,
-  scenes: CloneScene[],
-  extraFields: Record<string, unknown> = {}
-): Promise<void> {
-  const admin = createAdminClient();
-  await admin
-    .from('ad_clone_projects')
-    .update({ scenes, ...extraFields, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
+  sceneN: number,
+  change: (scene: CloneScene) => CloneScene,
+  extra: (project: CloneProject) => ProjectPatch = () => ({})
+): Promise<CloneProjectResponse> {
+  const project = await mutateProject(projectId, (fresh) =>
+    fresh.scenes.some((s) => s.n === sceneN)
+      ? { scenes: fresh.scenes.map((s) => (s.n === sceneN ? change(s) : s)), ...extra(fresh) }
+      : null
+  );
+  return project ? { success: true, project } : { success: false, error: 'Project not found' };
+}
+
+const EMPTY_SUMMARY: CloneAnalysisSummary = { summary: '', characters: [], products: [], visual_style: '', music_brief: '' };
+
+/** Changes the project-level notes (references, transcript, soundtrack, finish settings) the same safe way. */
+async function changeSummary(
+  projectId: string,
+  change: (summary: CloneAnalysisSummary, project: CloneProject) => CloneAnalysisSummary | null
+): Promise<CloneProjectResponse> {
+  const project = await mutateProject(projectId, (fresh) => {
+    const next = change(fresh.analysis_summary || EMPTY_SUMMARY, fresh);
+    return next ? { analysis_summary: next } : null;
+  });
+  return project ? { success: true, project } : { success: false, error: 'Project not found' };
 }
 
 export async function updateSceneInput(
@@ -440,26 +463,20 @@ export async function updateSceneInput(
       ? input.anim_seconds
       : Math.min(15, Math.max(3, Math.round(input.anim_seconds)));
 
-  const scenes = loaded.project.scenes.map((s) =>
-    s.n === sceneN
-      ? {
-          ...s,
-          ...(input.user_instruction !== undefined ? { user_instruction: input.user_instruction } : {}),
-          ...(input.user_ref_urls !== undefined ? { user_ref_urls: input.user_ref_urls.slice(0, 6) } : {}),
-          ...(input.analysis !== undefined ? { analysis: input.analysis } : {}),
-          ...(input.anim_seconds !== undefined ? { anim_seconds: animSeconds } : {}),
-          // Custom scenes have no source timing — their assembly duration IS the chosen clip length
-          ...(input.anim_seconds != null && s.is_custom ? { start: 0, end: animSeconds ?? 3 } : {}),
-          ...(input.motion_prompt !== undefined ? { motion_prompt: input.motion_prompt } : {}),
-          ...(input.negative_prompt !== undefined ? { negative_prompt: input.negative_prompt } : {}),
-          ...(input.excluded_project_ref_urls !== undefined
-            ? { excluded_project_ref_urls: input.excluded_project_ref_urls }
-            : {}),
-        }
-      : s
-  );
-  await saveScenes(projectId, scenes);
-  return { success: true, project: { ...loaded.project, scenes } };
+  return changeScene(projectId, sceneN, (s) => ({
+    ...s,
+    ...(input.user_instruction !== undefined ? { user_instruction: input.user_instruction } : {}),
+    ...(input.user_ref_urls !== undefined ? { user_ref_urls: input.user_ref_urls.slice(0, 6) } : {}),
+    ...(input.analysis !== undefined ? { analysis: input.analysis } : {}),
+    ...(input.anim_seconds !== undefined ? { anim_seconds: animSeconds } : {}),
+    // Custom scenes have no source timing — their assembly duration IS the chosen clip length
+    ...(input.anim_seconds != null && s.is_custom ? { start: 0, end: animSeconds ?? 3 } : {}),
+    ...(input.motion_prompt !== undefined ? { motion_prompt: input.motion_prompt } : {}),
+    ...(input.negative_prompt !== undefined ? { negative_prompt: input.negative_prompt } : {}),
+    ...(input.excluded_project_ref_urls !== undefined
+      ? { excluded_project_ref_urls: input.excluded_project_ref_urls }
+      : {}),
+  }));
 }
 
 /** Upload one user reference image (person/product) for a scene. */
@@ -591,32 +608,30 @@ export async function generateSceneImage(
       throw new Error(`Could not store the generated image: ${stored.error}`);
     }
 
-    // Re-read right before writing to shrink the read-modify-write window
-    // (parallel generations on other scenes update the same jsonb column)
-    const fresh = await loadOwnedProject(projectId);
-    const freshProject = fresh.ok ? fresh.project : project;
-    const scenes = freshProject.scenes.map((s) => {
-      if (s.n !== sceneN) return s;
-      // image_versions is the FULL history (newest first) INCLUDING the
-      // current image; edited_image_url is just the selected pointer. Stable
-      // order means the version strip never reshuffles on restore. Legacy
-      // rows (current not in the list) converge here.
-      const history = s.image_versions || [];
-      const withCurrent = s.edited_image_url && !history.includes(s.edited_image_url)
-        ? [s.edited_image_url, ...history]
-        : history;
-      return {
-        ...s,
-        edited_image_url: stored.url!,
-        image_versions: [stored.url!, ...withCurrent].slice(0, CLONE_MAX_IMAGE_VERSIONS),
-        credits_spent: (s.credits_spent || 0) + CLONE_IMAGE_CREDITS,
-      };
-    });
-    await saveScenes(projectId, scenes, {
-      credits_spent: (freshProject.credits_spent || 0) + CLONE_IMAGE_CREDITS,
-    });
-
-    return { success: true, project: { ...freshProject, scenes } };
+    // Parallel generations on other scenes write the same jsonb column: the
+    // picture goes into the board as it is now, not as it was 30 seconds ago
+    const url = stored.url;
+    return await changeScene(
+      projectId,
+      sceneN,
+      (s) => {
+        // image_versions is the FULL history (newest first) INCLUDING the
+        // current image; edited_image_url is just the selected pointer. Stable
+        // order means the version strip never reshuffles on restore. Legacy
+        // rows (current not in the list) converge here.
+        const history = s.image_versions || [];
+        const withCurrent = s.edited_image_url && !history.includes(s.edited_image_url)
+          ? [s.edited_image_url, ...history]
+          : history;
+        return {
+          ...s,
+          edited_image_url: url,
+          image_versions: [url, ...withCurrent].slice(0, CLONE_MAX_IMAGE_VERSIONS),
+          credits_spent: (s.credits_spent || 0) + CLONE_IMAGE_CREDITS,
+        };
+      },
+      (fresh) => ({ credits_spent: (fresh.credits_spent || 0) + CLONE_IMAGE_CREDITS })
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Image generation failed';
     console.error(`Clone Studio: scene ${sceneN} image generation failed:`, error);
@@ -741,30 +756,32 @@ export async function animateScene(
     return { success: false, error: submit.error || 'Animation submit failed — credits refunded' };
   }
 
-  const fresh = await loadOwnedProject(projectId);
-  const freshProject = fresh.ok ? fresh.project : project;
-  const scenes = freshProject.scenes.map((s) =>
-    s.n === sceneN
-      ? {
-          ...s,
-          anim: {
-            request_id: submit.request_id!,
-            video_url: null,
-            status: 'generating' as const,
-            attempt_id: attemptId,
-          },
-          anim_seconds: durationSeconds,
-          motion_prompt: motionPrompt,
-          negative_prompt: negativePrompt,
-          credits_spent: (s.credits_spent || 0) + credits,
-        }
-      : s
-  );
-  await saveScenes(projectId, scenes, {
-    credits_spent: (freshProject.credits_spent || 0) + credits,
-  });
-
-  return { success: true, project: { ...freshProject, scenes } };
+  const requestId = submit.request_id;
+  try {
+    return await changeScene(
+      projectId,
+      sceneN,
+      (s) => ({
+        ...s,
+        anim: {
+          request_id: requestId,
+          video_url: null,
+          status: 'generating' as const,
+          attempt_id: attemptId,
+        },
+        anim_seconds: durationSeconds,
+        motion_prompt: motionPrompt,
+        negative_prompt: negativePrompt,
+        credits_spent: (s.credits_spent || 0) + credits,
+      }),
+      (fresh) => ({ credits_spent: (fresh.credits_spent || 0) + credits })
+    );
+  } catch (error) {
+    // Without the request id on the board the clip could never be collected: give the credits back
+    console.error(`Clone Studio: scene ${sceneN} animation could not be saved:`, error);
+    await refundFailedGeneration({ userId, referenceIds: [attemptId], operation: 'clone studio animation' });
+    return { success: false, error: 'The animation could not be started. Your credits were refunded. Please try again.' };
+  }
 }
 
 /**
@@ -944,18 +961,7 @@ export async function updateProjectReferences(
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
 
-  const summary = {
-    ...(loaded.project.analysis_summary || {
-      summary: '', characters: [], products: [], visual_style: '', music_brief: '',
-    }),
-    project_ref_urls: urls.slice(0, 6),
-  };
-  const admin = createAdminClient();
-  await admin
-    .from('ad_clone_projects')
-    .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
-  return { success: true, project: { ...loaded.project, analysis_summary: summary } };
+  return changeSummary(projectId, (summary) => ({ ...summary, project_ref_urls: urls.slice(0, 6) }));
 }
 
 /**
@@ -998,18 +1004,8 @@ export async function generateProjectTranscript(projectId: string): Promise<Clon
     return { success: false, error: 'Could not transcribe the source video — try reopening the project.' };
   }
 
-  const summary = {
-    ...(project.analysis_summary || {
-      summary: '', characters: [], products: [], visual_style: '', music_brief: '',
-    }),
-    transcript,
-  };
-  const admin = createAdminClient();
-  await admin
-    .from('ad_clone_projects')
-    .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
-  return { success: true, project: { ...project, analysis_summary: summary } };
+  const heard = transcript;
+  return changeSummary(projectId, (summary) => ({ ...summary, transcript: heard }));
 }
 
 /**
@@ -1042,32 +1038,24 @@ export async function ensureProjectSoundtrack(projectId: string): Promise<CloneP
     }
   }
 
+  const tempo = musicBpm;
   if (!summary.music_brief?.trim()) {
     // Nothing to build prompts from — still persist any measured tempo.
-    if (musicBpm === undefined || musicBpm === summary.music_bpm) return { success: true, project };
-    const withBpm = { ...summary, music_bpm: musicBpm };
-    await createAdminClient()
-      .from('ad_clone_projects')
-      .update({ analysis_summary: withBpm, updated_at: new Date().toISOString() })
-      .eq('id', projectId);
-    return { success: true, project: { ...project, analysis_summary: withBpm } };
+    if (tempo === undefined || tempo === summary.music_bpm) return { success: true, project };
+    return changeSummary(projectId, (fresh) => ({ ...fresh, music_bpm: tempo }));
   }
 
-  const opts = await buildSoundtrackPromptOptions(summary.music_brief, musicBpm);
+  const opts = await buildSoundtrackPromptOptions(summary.music_brief, tempo);
   if (!opts.success || !opts.options?.length) {
     return { success: false, error: opts.error || 'Could not build soundtrack prompts' };
   }
 
-  const nextSummary = {
-    ...summary,
-    ...(musicBpm !== undefined ? { music_bpm: musicBpm } : {}),
-    music_prompt_options: opts.options,
-  };
-  await createAdminClient()
-    .from('ad_clone_projects')
-    .update({ analysis_summary: nextSummary, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
-  return { success: true, project: { ...project, analysis_summary: nextSummary } };
+  const options = opts.options;
+  return changeSummary(projectId, (fresh) => ({
+    ...fresh,
+    ...(tempo !== undefined ? { music_bpm: tempo } : {}),
+    music_prompt_options: options,
+  }));
 }
 
 /** Save the user-editable soundtrack prompt (assembly sends it verbatim + length suffix). */
@@ -1078,18 +1066,7 @@ export async function updateProjectMusicPrompt(
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
 
-  const summary = {
-    ...(loaded.project.analysis_summary || {
-      summary: '', characters: [], products: [], visual_style: '', music_brief: '',
-    }),
-    music_prompt: musicPrompt.trim(),
-  };
-  const admin = createAdminClient();
-  await admin
-    .from('ad_clone_projects')
-    .update({ analysis_summary: summary, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
-  return { success: true, project: { ...loaded.project, analysis_summary: summary } };
+  return changeSummary(projectId, (summary) => ({ ...summary, music_prompt: musicPrompt.trim() }));
 }
 
 /**
@@ -1111,7 +1088,7 @@ export async function reconcileProjectDialog(projectId: string): Promise<ClonePr
     return { success: false, error: 'Transcript not ready yet' };
   }
 
-  let scenes = project.scenes;
+  let corrected: Record<number, string> = {};
   if (summary.transcript) {
     const rec = await reconcileSceneDialogWithTranscript(
       project.scenes.map((s) => ({ n: s.n, start: s.start, end: s.end, dialog: s.analysis?.dialog || '' })),
@@ -1120,16 +1097,16 @@ export async function reconcileProjectDialog(projectId: string): Promise<ClonePr
     if (!rec.success || !rec.dialog) {
       return { success: false, error: rec.error || 'Dialog reconcile failed' };
     }
-    scenes = project.scenes.map((s) =>
-      rec.dialog![s.n] !== undefined
-        ? { ...s, analysis: { ...s.analysis, dialog: rec.dialog![s.n] } }
-        : s
-    );
+    corrected = rec.dialog;
   }
 
-  const nextSummary = { ...summary, dialog_reconciled: true };
-  await saveScenes(projectId, scenes, { analysis_summary: nextSummary });
-  return { success: true, project: { ...project, scenes, analysis_summary: nextSummary } };
+  const saved = await mutateProject(projectId, (fresh) => ({
+    scenes: fresh.scenes.map((s) =>
+      corrected[s.n] !== undefined ? { ...s, analysis: { ...s.analysis, dialog: corrected[s.n] } } : s
+    ),
+    analysis_summary: { ...(fresh.analysis_summary || EMPTY_SUMMARY), dialog_reconciled: true },
+  }));
+  return saved ? { success: true, project: saved } : { success: false, error: 'Project not found' };
 }
 
 /**
@@ -1163,26 +1140,24 @@ export async function applyInstructionToAllScenes(
 
   // Per-scene tailored instruction; verbatim copy is the fallback so a
   // failed AI pass degrades to the old behavior instead of doing nothing.
-  let scenes = loaded.project.scenes.map((s) => ({
-    ...s,
-    user_instruction:
-      contextualized.success && contextualized.instructions
-        ? contextualized.instructions[s.n] ?? instruction
-        : instruction,
-  }));
+  const instructions = contextualized.success && contextualized.instructions ? contextualized.instructions : null;
   if (!contextualized.success && contextualized.error) {
     console.warn('Clone Studio: instruction contextualize failed (applied verbatim):', contextualized.error);
   }
-  if (rewrite.success && rewrite.prompts) {
-    scenes = scenes.map((s) =>
-      rewrite.prompts![s.n] ? { ...s, motion_prompt: rewrite.prompts![s.n] } : s
-    );
-  } else if (rewrite.error) {
+  const prompts = rewrite.success && rewrite.prompts ? rewrite.prompts : null;
+  if (!prompts && rewrite.error) {
     console.warn('Clone Studio: motion-prompt reconcile failed (instructions still applied):', rewrite.error);
   }
 
-  await saveScenes(projectId, scenes);
-  return { success: true, project: { ...loaded.project, scenes } };
+  // The two passes take a while: the result goes into the board as it is now
+  const saved = await mutateProject(projectId, (fresh) => ({
+    scenes: fresh.scenes.map((s) => ({
+      ...s,
+      user_instruction: instructions ? instructions[s.n] ?? instruction : instruction,
+      ...(prompts?.[s.n] ? { motion_prompt: prompts[s.n] } : {}),
+    })),
+  }));
+  return saved ? { success: true, project: saved } : { success: false, error: 'Project not found' };
 }
 
 function emptySceneAnalysis(): SceneAnalysis {
@@ -1231,16 +1206,16 @@ export async function addCustomScene(
     credits_spent: 0,
   };
 
-  const scenes = [...loaded.project.scenes];
-  const insertIndex =
-    opts.afterScene != null
-      ? Math.max(0, Math.min(scenes.length, scenes.findIndex((s) => s.n === opts.afterScene) + 1))
-      : scenes.length;
-  scenes.splice(insertIndex, 0, newScene);
-  const renumbered = scenes.map((s, i) => ({ ...s, n: i + 1 }));
-
-  await saveScenes(projectId, renumbered);
-  return { success: true, project: { ...loaded.project, scenes: renumbered } };
+  const saved = await mutateProject(projectId, (fresh) => {
+    const scenes = [...fresh.scenes];
+    const insertIndex =
+      opts.afterScene != null
+        ? Math.max(0, Math.min(scenes.length, scenes.findIndex((s) => s.n === opts.afterScene) + 1))
+        : scenes.length;
+    scenes.splice(insertIndex, 0, newScene);
+    return { scenes: scenes.map((s, i) => ({ ...s, n: i + 1 })) };
+  });
+  return saved ? { success: true, project: saved } : { success: false, error: 'Project not found' };
 }
 
 /** Remove a user-added scene (analyzed scenes from the source ad are kept). */
@@ -1257,11 +1232,13 @@ export async function removeCustomScene(
     return { success: false, error: 'Only custom scenes can be removed' };
   }
 
-  const renumbered = loaded.project.scenes
-    .filter((s) => s.n !== sceneN)
-    .map((s, i) => ({ ...s, n: i + 1 }));
-  await saveScenes(projectId, renumbered);
-  return { success: true, project: { ...loaded.project, scenes: renumbered } };
+  // The scene is found again by its frame: numbers shift when another scene was added meanwhile
+  const saved = await mutateProject(projectId, (fresh) => {
+    const target = fresh.scenes.find((s) => s.is_custom && s.keyframe_url === scene.keyframe_url);
+    if (!target) return null;
+    return { scenes: fresh.scenes.filter((s) => s !== target).map((s, i) => ({ ...s, n: i + 1 })) };
+  });
+  return saved ? { success: true, project: saved } : { success: false, error: 'Project not found' };
 }
 
 /** Swap a previous clip back in as the scene's current one (assembly uses it). */
@@ -1273,8 +1250,8 @@ export async function restoreSceneClipVersion(
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
 
-  const scenes = loaded.project.scenes.map((s) => {
-    if (s.n !== sceneN || s.anim?.status !== 'completed') return s;
+  return changeScene(projectId, sceneN, (s) => {
+    if (s.anim?.status !== 'completed') return s;
     const history = s.anim_versions || [];
     const withCurrent = s.anim.video_url && !history.includes(s.anim.video_url)
       ? [s.anim.video_url, ...history].slice(0, 5)
@@ -1282,8 +1259,6 @@ export async function restoreSceneClipVersion(
     if (!withCurrent.includes(clipUrl)) return s;
     return { ...s, anim: { ...s.anim, video_url: clipUrl }, anim_versions: withCurrent };
   });
-  await saveScenes(projectId, scenes);
-  return { success: true, project: { ...loaded.project, scenes } };
 }
 
 /** Swap a previous version back in as the scene's current image. */
@@ -1295,8 +1270,7 @@ export async function restoreSceneImageVersion(
   const loaded = await loadOwnedProject(projectId);
   if (!loaded.ok) return { success: false, error: loaded.error };
 
-  const scenes = loaded.project.scenes.map((s) => {
-    if (s.n !== sceneN) return s;
+  return changeScene(projectId, sceneN, (s) => {
     // Selecting a version only moves the pointer — the history list stays in
     // stable order (converging legacy rows whose current wasn't listed)
     const history = s.image_versions || [];
@@ -1305,6 +1279,4 @@ export async function restoreSceneImageVersion(
       : history;
     return { ...s, edited_image_url: versionUrl, image_versions: withCurrent };
   });
-  await saveScenes(projectId, scenes);
-  return { success: true, project: { ...loaded.project, scenes } };
 }

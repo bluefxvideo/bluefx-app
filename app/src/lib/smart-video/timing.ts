@@ -27,9 +27,21 @@ export interface ScriptTimeline {
   sceneCoverage: number[];
 }
 
+/**
+ * The words of a line as the captions count them: as written (`raw`) and normalised (`token`).
+ * A long dash without spaces joins two spoken words ("cents—that's"); they are two words here,
+ * so each is heard, timed and shown by itself.
+ */
+export const scriptWords = (text: string): { raw: string; token: string }[] =>
+  text
+    .replace(/(\S[—–])(?=\S)/g, '$1 ')
+    .split(/\s+/)
+    .map((raw) => ({ raw, token: normalize(raw).join('') }))
+    .filter((w) => w.token);
+
 export function alignScript(narration: string[], words: SpokenWord[]): ScriptTimeline {
   // One token per written word, so captions can show the script's own spelling.
-  const written = narration.map((text) => text.split(/\s+/).map((raw) => ({ raw, token: normalize(raw).join('') })).filter((w) => w.token));
+  const written = narration.map(scriptWords);
   const script = written.map((words) => words.map((w) => w.token));
   const flat = script.flat();
   const heard = words.map((w) => normalize(w.text).join(''));
@@ -99,7 +111,7 @@ export function alignScript(narration: string[], words: SpokenWord[]): ScriptTim
 /** Time at which `cue` is spoken inside a scene, or null when it cannot be found. */
 export function cueTime(tokens: { token: string; time: number }[], cue: string | null | undefined): number | null {
   if (!cue) return null;
-  const wanted = cue.split(/\s+/).map((w) => normalize(w).join('')).filter(Boolean);
+  const wanted = scriptWords(cue).map((word) => word.token);
   if (!wanted.length) return null;
   for (let length = wanted.length; length >= 1; length--) {
     for (let i = 0; i + length <= tokens.length; i++) {
