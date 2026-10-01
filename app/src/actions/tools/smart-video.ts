@@ -8,7 +8,8 @@ import { createAdminClient, createClient } from '@/app/supabase/server';
 import { transcribeWords } from '@/lib/smart-video/audio';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { createSmartVideo, reviseSmartVideo, type SmartVideoMedia, type SmartVideoResult } from '@/lib/smart-video/pipeline';
-import { PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount } from '@/lib/smart-video/listing';
 import type { DirectorPlan } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { downloadLinkPhotos, fromLink } from '@/lib/smart-video/sources';
@@ -223,17 +224,75 @@ export async function requestSmartVideoUploads(input: {
 }
 
 /** Charges before the work starts; job_id is how a failed job's refund finds this debit. */
-async function charge(userId: string, jobId: string, credits: number): Promise<string | null> {
+async function charge(userId: string, jobId: string, credits: number, operation = 'smart-video'): Promise<string | null> {
   const { deductCredits } = await import('@/actions/database/cinematographer-database');
-  const result = await deductCredits(userId, credits, 'smart-video', { job_id: jobId });
+  const result = await deductCredits(userId, credits, operation, { job_id: jobId });
   return result.success ? null : result.error || 'Credit deduction failed';
+}
+
+/**
+ * A listing video's animated photos are charged one by one, when each clip is ordered. Each charge
+ * has its own reference, so the clip that fails (or the whole video) gets exactly its credits back.
+ * The key is "batch_id", never "job_id": the video's own charge must stay the only debit under the job id.
+ */
+const clipReference = (jobId: string, assetId: string) => `${jobId}-clip-${assetId}`;
+
+async function chargeClip(job: SmartVideoJob, assetId: string): Promise<boolean> {
+  const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
+    p_user_id: job.userId,
+    p_amount: LISTING_CLIP_CREDITS,
+    p_operation: 'listing-video-clip',
+    p_metadata: { batch_id: clipReference(job.id, assetId), video: job.id },
+  });
+  const charged = !error && Boolean((data as { success?: boolean } | null)?.success);
+  if (!charged) console.warn(`⚠️ Listing clip ${assetId} of job ${job.id} was not charged, the photo stays still:`, error?.message || data);
+  return charged;
+}
+
+async function refundClip(job: SmartVideoJob, assetId: string): Promise<number> {
+  const refund = await refundFailedGeneration({ userId: job.userId, referenceIds: [clipReference(job.id, assetId)], operation: 'listing photo animation' });
+  return refund.refunded ? (refund.amount ?? 0) : 0;
+}
+
+/**
+ * The animated photos a listing video was charged for, read from the ledger: a job that died
+ * between a charge and its next save still gets every credit back.
+ */
+async function chargedClips(job: SmartVideoJob): Promise<string[]> {
+  if (!job.listing?.animate) return [];
+  const saved = (job.clipCharges ?? []).map((assetId) => clipReference(job.id, assetId));
+  const { data, error } = await createAdminClient()
+    .from('credit_transactions')
+    .select('metadata')
+    .eq('user_id', job.userId)
+    .eq('transaction_type', 'debit')
+    .filter('metadata->>video', 'eq', job.id);
+  if (error) {
+    console.warn(`⚠️ Could not read the clip charges of job ${job.id}, using the ones saved with the job:`, error.message);
+    return saved;
+  }
+  const ledger = (data || []).map((row) => (row.metadata as { batch_id?: string } | null)?.batch_id).filter((r): r is string => Boolean(r));
+  return [...new Set([...ledger, ...saved])];
+}
+
+/** Credits a user can spend right now. */
+async function availableCredits(userId: string): Promise<number> {
+  const { data } = await createAdminClient().from('user_credits').select('available_credits').eq('user_id', userId).single();
+  return data?.available_credits ?? 0;
 }
 
 async function failAndRefund(job: SmartVideoJob, reason: string): Promise<SmartVideoJob> {
   const refund = job.creditsUsed
-    ? await refundFailedGeneration({ userId: job.userId, referenceIds: [job.id], operation: 'Phantom video' })
+    ? await refundFailedGeneration({ userId: job.userId, referenceIds: [job.id], operation: job.listing ? 'listing video' : 'Phantom video' })
     : { refunded: false as const };
-  const error = refund.refunded && refund.amount ? `${reason} ${refundSentence(refund.amount)}` : reason;
+  // A listing video that fails also gives back the photos it had already animated
+  // (one after the other: a refund reads the balance and writes it back)
+  let returned = refund.refunded ? (refund.amount ?? 0) : 0;
+  for (const reference of await chargedClips(job).catch(() => [] as string[])) {
+    const clip = await refundFailedGeneration({ userId: job.userId, referenceIds: [reference], operation: 'listing photo animation' }).catch(() => null);
+    if (clip?.refunded) returned += clip.amount ?? 0;
+  }
+  const error = returned > 0 ? `${reason} ${refundSentence(returned)}` : reason;
   return writeJob(job, { status: 'failed', error });
 }
 
@@ -243,13 +302,28 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     const userId = await currentUserId();
     if (!userId) return createApiError('Please sign in again');
     const parsed = SmartVideoStartSchema.parse(input);
-    if (!parsed.brief.trim() && !parsed.link) return createApiError('Write what the video is about, or paste a link');
+    if (!parsed.brief.trim() && !parsed.link) {
+      return createApiError(parsed.listing ? 'Paste the listing link, or write the address and the facts of the home' : 'Write what the video is about, or paste a link');
+    }
     if (parsed.uploads.some((u) => !u.path.startsWith(`${jobDir(userId, parsed.jobId)}/src/`))) return createApiError('Invalid upload path');
     if (await readJob(userId, parsed.jobId)) return createApiError('This video was already started');
     if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
 
-    const credits = phantomCredits(parsed.brief, parsed.length === 'script');
-    const chargeError = await charge(userId, parsed.jobId, credits);
+    const listing = parsed.listing;
+    if (listing && !parsed.link && parsed.uploads.length < LISTING_MIN_PHOTOS) {
+      return createApiError(`Add at least ${LISTING_MIN_PHOTOS} photos of the home, or paste the listing link`);
+    }
+    const credits = listing ? LISTING_CREDITS : phantomCredits(parsed.brief, parsed.length === 'script');
+    if (listing?.animate) {
+      // The clips are charged photo by photo while the video is made: the balance has to cover all of them now.
+      const photos = listingPhotoCount(listing.seconds, (parsed.link ? listingLinkPhotos(parsed.uploads.length) : 0) + parsed.uploads.length);
+      const needed = credits + photos * LISTING_CLIP_CREDITS;
+      const balance = await availableCredits(userId);
+      if (balance < needed) {
+        return createApiError(`This video needs ${needed} credits: ${credits} for the video and ${LISTING_CLIP_CREDITS} for each of ${photos} animated photos. You have ${balance}.`);
+      }
+    }
+    const chargeError = await charge(userId, parsed.jobId, credits, listing ? 'listing-video' : 'smart-video');
     if (chargeError) return createApiError(chargeError);
 
     const now = new Date().toISOString();
@@ -264,6 +338,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       look: parsed.look,
       voiceOver: parsed.voiceOver,
       music: parsed.music,
+      ...(listing ? { listing } : {}),
       creditsUsed: credits,
       createdAt: now,
       updatedAt: now,
@@ -278,6 +353,10 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
 
 async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string; path: string }[]): Promise<void> {
   let job = initial;
+  // Listing video: the photos whose animation is paid for so far
+  const clipCharges: string[] = [];
+  // Refunds run one at a time: each reads the balance and writes it back, so two at once would lose one.
+  let refunds: Promise<void> = Promise.resolve();
   const dir = jobDir(job.userId, job.id);
   // A heartbeat keeps updatedAt fresh, so the page can tell a slow job from a dead one.
   const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
@@ -287,8 +366,10 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
 
     let brief = job.brief;
     if (job.link) {
-      const link = await fromLink(job.link);
-      files.push(...(await downloadLinkPhotos(link.imageUrls)));
+      // A listing video takes its photos from the whole listing, more of them than a general video uses
+      const linkPhotos = job.listing ? listingLinkPhotos(uploads.length) : undefined;
+      const link = await fromLink(job.link, linkPhotos);
+      files.push(...(await downloadLinkPhotos(link.imageUrls, linkPhotos)));
       brief = job.brief.trim() ? `${link.brief}\n\nNOTE FROM THE CLIENT:\n${job.brief}` : link.brief;
     }
 
@@ -304,18 +385,44 @@ async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string;
         format: job.format,
         look: job.look && job.look !== 'auto' ? job.look : null,
         sound: soundOf(job),
+        listing: job.listing ?? null,
+        clips: job.listing?.animate
+          ? {
+              // Every charge is saved with the job at once: a job that dies half-way still knows what to give back.
+              charge: async (assetId) => {
+                const charged = await chargeClip(job, assetId);
+                if (charged) {
+                  clipCharges.push(assetId);
+                  job = { ...job, clipCharges: [...clipCharges] };
+                  writeJob(job).catch(() => undefined);
+                }
+                return charged;
+              },
+              refund: (assetId) =>
+                (refunds = refunds
+                  .then(async () => {
+                    if ((await refundClip(job, assetId)) === 0) return;
+                    clipCharges.splice(clipCharges.indexOf(assetId), 1);
+                    job = { ...job, clipCharges: [...clipCharges] };
+                    writeJob(job).catch(() => undefined);
+                  })
+                  .catch((error) => console.warn(`⚠️ Refund of listing clip ${assetId} failed:`, String(error).slice(0, 160)))),
+            }
+          : undefined,
         onStage: (stage) => {
           job = { ...job, status: stage };
           writeJob(job).catch(() => undefined);
         },
       }
     );
+    // What a listing video cost in the end: its own price plus the photos that were animated
+    if (job.listing) job = { ...job, clipCharges: [...clipCharges], creditsUsed: (initial.creditsUsed ?? 0) + clipCharges.length * LISTING_CLIP_CREDITS };
     await finish(job, result, brief, (next) => {
       job = next;
     });
   } catch (error) {
     console.error(`❌ Smart Video job ${job.id} failed:`, error);
-    await failAndRefund(job, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
+    await failAndRefund({ ...job, clipCharges: [...clipCharges] }, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
   } finally {
     clearInterval(heartbeat);
   }
@@ -417,6 +524,7 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
       // The new version keeps the sound of the video it changes, unless the edit switches it.
       voiceOver: sound.voiceOver,
       music: sound.music,
+      ...(parent.listing ? { listing: parent.listing } : {}),
       parentId: parent.id,
       note: parsed.note,
       creditsUsed: PHANTOM_REVISION_CREDITS,

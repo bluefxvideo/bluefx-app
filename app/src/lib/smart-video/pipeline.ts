@@ -2,6 +2,7 @@ import { directVideo, reviseVideo } from './director';
 import {
   MOTION_CLIP_SECONDS,
   animatePhoto,
+  changeTempo,
   cutOutProduct,
   generateDrawing,
   generateLifestyleShot,
@@ -15,6 +16,17 @@ import {
 import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
+import {
+  LISTING_MAX_PAUSE,
+  LISTING_MIN_PHOTOS,
+  LISTING_MOTION,
+  LISTING_TAIL,
+  LISTING_TEMPO,
+  listingClipSeconds,
+  listingFigure,
+  listingVoiceEnd,
+  type ListingOptions,
+} from './listing';
 import { extractAudio } from './prepare-assets';
 import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, StyleName, VideoFormat, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
@@ -69,8 +81,10 @@ export interface SmartVideoMedia {
   soundUrl: string | null;
   /** The numbers the captions show as digits ("ten eggs" → "10 eggs"), by narration line. Absent on older videos. */
   digits?: Record<string, NumberSpan[]>;
-  /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips. */
-  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number }>;
+  /** The video is an automatic listing video; a revision keeps its recipe and its plain cuts. */
+  listing?: ListingOptions;
+  /** What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips (`seconds` = a clip's length). */
+  assets: Record<string, { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number; seconds?: number }>;
 }
 
 export interface SmartVideoResult {
@@ -90,6 +104,13 @@ export interface SmartVideoOptions {
   /** A look the client picked; null lets the director choose. */
   look?: StyleName | null;
   sound?: SmartVideoSound;
+  /** The automatic listing video (ReelEstate). */
+  listing?: ListingOptions | null;
+  /**
+   * A listing's animated photos are paid per photo. `charge` is asked before a photo is animated
+   * (false = no credits: the photo stays still); `refund` gives the credits back when its clip fails.
+   */
+  clips?: { charge: (assetId: string) => Promise<boolean>; refund: (assetId: string) => Promise<void> };
   onStage?: (stage: SmartVideoStage) => void;
 }
 
@@ -109,12 +130,19 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, onStage = () => {} }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {} }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
+  // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
+  const photos = assets.filter((a) => a.kind === 'image').length;
+  if (listing && photos < LISTING_MIN_PHOTOS) {
+    throw new Error(
+      `A listing video needs at least ${LISTING_MIN_PHOTOS} photos and ${photos === 1 ? 'only 1 came' : `${photos} came`} with this listing. Add your own photos, or check that the link shows an active listing.`
+    );
+  }
   onStage('directing');
-  console.log(`🎬 Smart Video: directing (${assets.length} files)...`);
+  console.log(`🎬 Smart Video: directing (${assets.length} files${listing ? `, listing video of ${listing.seconds} s` : ''})...`);
   const horizontal = format === 'horizontal';
-  const plan = await directVideo(brief, assets, length, format, look);
+  const plan = await directVideo(brief, assets, length, format, look, listing);
   console.log(`✅ Plan: ${plan.scenes.length} scenes, style "${plan.style}" (${plan.styleReason}), language ${plan.language}`);
 
   onStage('producing');
@@ -186,7 +214,7 @@ async function produce(
   const drawings = makeDrawings(plan.drawings || [], store);
 
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
-    narration.length ? recordVoice(narration, languageName, plan, store) : null,
+    narration.length ? recordVoice(narration, languageName, plan, store, listing ? listingFit(listing, narration.length) : undefined) : null,
     sound.music
       ? generateMusic(plan.musicPrompt, plan.style)
           .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
@@ -213,6 +241,7 @@ async function produce(
   const media: SmartVideoMedia = {
     format,
     sound,
+    ...(listing ? { listing } : {}),
     voice,
     clipWords: heardInClips,
     musicUrl,
@@ -237,8 +266,48 @@ async function produce(
       ),
     ]),
   };
+  if (listing?.animate) await animateListingPhotos(plan, media, assets, store, clips);
   const props = buildProps(plan, media);
   return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
+}
+
+/**
+ * A listing video's photos become moving clips. This runs after the voice is recorded, because a
+ * clip is made as long as its photo is on screen (6 to 12 seconds). A photo whose clip fails, or
+ * that the client has no credits for, stays a still: the video is made either way.
+ */
+async function animateListingPhotos(
+  plan: DirectorPlan,
+  media: SmartVideoMedia,
+  assets: SmartAsset[],
+  store: StoreFile,
+  clips: SmartVideoOptions['clips']
+): Promise<void> {
+  const horizontal = media.format === 'horizontal';
+  const timed = buildProps(plan, media).scenes;
+  // One clip per photo, as long as the longest scene that shows it
+  const wanted = new Map<string, { seconds: number; focus?: string | null }>();
+  plan.scenes.forEach((scene, i) => {
+    const photo = assets.find((a) => a.id === scene.background.asset && a.kind === 'image');
+    if (!photo || scene.background.type !== 'mediaFull') return;
+    const seconds = timed[i].end - timed[i].start;
+    if (seconds > (wanted.get(photo.id)?.seconds ?? 0)) wanted.set(photo.id, { seconds, focus: scene.background.focus });
+  });
+  console.log(`🎞️ Animating ${wanted.size} listing photos...`);
+  await Promise.all(
+    [...wanted].map(async ([id, { seconds, focus }]) => {
+      if (clips && !(await clips.charge(id))) return;
+      try {
+        const photo = assets.find((a) => a.id === id) as SmartAsset;
+        const clipSeconds = listingClipSeconds(seconds);
+        const clip = await animatePhoto(await cropToFrame(photo.data, focus, horizontal), LISTING_MOTION, horizontal, clipSeconds, true);
+        media.assets[`${id}-motion`] = { url: await store(clip, `${id}-motion.mp4`, 'video/mp4'), kind: 'video', portrait: !horizontal, seconds: clipSeconds };
+      } catch (error) {
+        console.warn(`⚠️ Animating ${id} failed, the photo stays still:`, String(error).slice(0, 160));
+        await clips?.refund(id).catch(() => undefined);
+      }
+    })
+  );
 }
 
 /**
@@ -260,7 +329,7 @@ export async function reviseSmartVideo(
     const sound = soundNow ?? previous.media.sound ?? FULL_SOUND;
     onStage('directing');
     // A change of the sound alone needs no new plan: the same video is rendered with another soundtrack.
-    const plan = note.trim() ? await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added) : previous.plan;
+    const plan = note.trim() ? await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added, previous.media.listing ?? null) : previous.plan;
     onStage('producing');
     const media = { ...previous.media, sound, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
     await addFiles(plan, media, added, store);
@@ -272,7 +341,8 @@ export async function reviseSmartVideo(
     const clipWordsSaved = media.clipWords || {};
     const spoken = (p: DirectorPlan) => p.scenes.filter((scene) => !(scene.speaker && clipWordsSaved[scene.speaker.asset])).map((scene) => scene.narration);
     if (JSON.stringify(spoken(plan)) !== JSON.stringify(spoken(previous.plan)) || plan.voice.gender !== previous.plan.voice.gender) {
-      media.voice = spoken(plan).length ? await recordVoice(spoken(plan), LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store) : null;
+      const fit = previous.media.listing ? listingFit(previous.media.listing, spoken(plan).length) : undefined;
+      media.voice = spoken(plan).length ? await recordVoice(spoken(plan), LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store, fit) : null;
     }
     // Music is made when the plan asks for other music, or when it is switched on for a video made without.
     if (sound.music && (plan.musicPrompt !== previous.plan.musicPrompt || !media.musicUrl)) {
@@ -342,8 +412,9 @@ async function addFiles(plan: DirectorPlan, media: SmartVideoMedia, added: Smart
 export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
   const { voice, musicUrl, soundUrl } = media;
   const sound = media.sound ?? FULL_SOUND;
-  const motionUrls = new Map(
-    Object.entries(media.assets).flatMap(([id, asset]) => (id.endsWith('-motion') ? [[id.slice(0, -'-motion'.length), asset.url] as const] : []))
+  // Photos that were animated, with the length of each clip
+  const motionClips = new Map(
+    Object.entries(media.assets).flatMap(([id, asset]) => (id.endsWith('-motion') ? [[id.slice(0, -'-motion'.length), asset.seconds ?? MOTION_CLIP_SECONDS] as const] : []))
   );
   // A scene is carried either by the narrator's recording or by a person talking in a clip.
   const speakerOf = (i: number) => {
@@ -355,45 +426,59 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
   const soundAfter = soundUrl && plan.signatureSound ? Math.min(plan.signatureSound.afterScene, plan.scenes.length - 2) : -1;
 
   // Walk the scenes in order, laying each one's audio on the timeline right after the last.
-  const cuts: { url?: string; at: number; srcStart: number; srcEnd: number; volume?: number }[] = [];
-  const sfx: { url: string; at: number; volume: number }[] = [];
-  const timed: { start: number; tokens: { token: string; raw: string; time: number }[]; startFrom?: number }[] = [];
-  let cursor = 0;
-  let lastWordEnd = 0;
-  plan.scenes.forEach((scene, i) => {
-    const speaker = speakerOf(i);
-    if (speaker) {
-      const heard = media.clipWords[speaker.asset].filter((w) => w.end > speaker.from - 0.25 && w.start < speaker.to + 0.25);
-      const srcStart = Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
-      const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + 0.4;
-      const tokens = alignScript([scene.narration], heard).sceneTokens[0].map((t) => ({ ...t, time: t.time - srcStart + cursor }));
-      cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: 1 });
-      timed.push({ start: cursor, tokens, startFrom: srcStart });
-      lastWordEnd = (heard[heard.length - 1]?.end ?? speaker.to) - srcStart + cursor;
-      cursor += srcEnd - srcStart;
-      // The narrator never starts on the speaker's heels.
-      if (i + 1 < plan.scenes.length && !speakerOf(i + 1)) cursor += HANDOVER_PAUSE;
-    } else if (voice) {
-      const k = narrated.indexOf(i);
-      const srcStart = k === 0 ? 0 : Math.max(0, (narratorTokens[k][0]?.time ?? 0) - 0.15);
-      const srcEnd = k + 1 < narrated.length ? Math.max(srcStart + 0.2, (narratorTokens[k + 1][0]?.time ?? voice.durationSeconds) - 0.15) : voice.durationSeconds;
-      const at = cursor + (i === 0 ? VOICE_LEAD : 0);
-      const tokens = narratorTokens[k].map((t) => ({ ...t, time: t.time - srcStart + at }));
-      cuts.push({ at, srcStart, srcEnd });
-      // The picture changes just before the first word of the scene.
-      timed.push({ start: i === 0 ? 0 : Math.max(0, (tokens[0]?.time ?? at) - SCENE_LEAD), tokens });
-      const lastHeard = k + 1 < narrated.length ? srcEnd : (voice.words[voice.words.length - 1]?.end ?? srcEnd);
-      lastWordEnd = lastHeard - srcStart + at;
-      cursor = at + (srcEnd - srcStart);
-    } else {
-      timed.push({ start: cursor, tokens: [] });
-    }
-    if (i === soundAfter && soundUrl) {
-      sfx.push({ url: soundUrl, at: cursor + 0.05, volume: 0.55 });
-      cursor += SOUND_GAP;
-    }
-  });
-  const duration = Math.ceil((lastWordEnd + TAIL) * 10) / 10;
+  // `pause`: a beat of music after each narrated scene (a listing video uses it to reach its length).
+  const layOut = (pause: number) => {
+    const cuts: { url?: string; at: number; srcStart: number; srcEnd: number; volume?: number }[] = [];
+    const sfx: { url: string; at: number; volume: number }[] = [];
+    const timed: { start: number; tokens: { token: string; raw: string; time: number }[]; startFrom?: number }[] = [];
+    let cursor = 0;
+    let lastWordEnd = 0;
+    plan.scenes.forEach((scene, i) => {
+      const speaker = speakerOf(i);
+      if (speaker) {
+        const heard = media.clipWords[speaker.asset].filter((w) => w.end > speaker.from - 0.25 && w.start < speaker.to + 0.25);
+        const srcStart = Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
+        const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + 0.4;
+        const tokens = alignScript([scene.narration], heard).sceneTokens[0].map((t) => ({ ...t, time: t.time - srcStart + cursor }));
+        cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: 1 });
+        timed.push({ start: cursor, tokens, startFrom: srcStart });
+        lastWordEnd = (heard[heard.length - 1]?.end ?? speaker.to) - srcStart + cursor;
+        cursor += srcEnd - srcStart;
+        // The narrator never starts on the speaker's heels.
+        if (i + 1 < plan.scenes.length && !speakerOf(i + 1)) cursor += HANDOVER_PAUSE;
+      } else if (voice) {
+        const k = narrated.indexOf(i);
+        const srcStart = k === 0 ? 0 : Math.max(0, (narratorTokens[k][0]?.time ?? 0) - 0.15);
+        const srcEnd = k + 1 < narrated.length ? Math.max(srcStart + 0.2, (narratorTokens[k + 1][0]?.time ?? voice.durationSeconds) - 0.15) : voice.durationSeconds;
+        const at = cursor + (i === 0 ? VOICE_LEAD : 0);
+        const tokens = narratorTokens[k].map((t) => ({ ...t, time: t.time - srcStart + at }));
+        cuts.push({ at, srcStart, srcEnd });
+        // The picture changes just before the first word of the scene.
+        timed.push({ start: i === 0 ? 0 : Math.max(0, (tokens[0]?.time ?? at) - SCENE_LEAD), tokens });
+        const lastHeard = k + 1 < narrated.length ? srcEnd : (voice.words[voice.words.length - 1]?.end ?? srcEnd);
+        lastWordEnd = lastHeard - srcStart + at;
+        cursor = at + (srcEnd - srcStart) + (k + 1 < narrated.length ? pause : 0);
+      } else {
+        timed.push({ start: cursor, tokens: [] });
+      }
+      if (i === soundAfter && soundUrl) {
+        sfx.push({ url: soundUrl, at: cursor + 0.05, volume: 0.55 });
+        cursor += SOUND_GAP;
+      }
+    });
+    return { cuts, sfx, timed, lastWordEnd };
+  };
+  let laid = layOut(0);
+  // A listing video whose voice ends early gets a longer beat between its photos, up to LISTING_MAX_PAUSE each.
+  if (media.listing && narrated.length > 1) {
+    const early = listingVoiceEnd(media.listing.seconds) - laid.lastWordEnd;
+    if (early > 0.05) laid = layOut(Math.min(LISTING_MAX_PAUSE, early / (narrated.length - 1)));
+  }
+  const { cuts, sfx, timed, lastWordEnd } = laid;
+  // A listing video ends on its chosen length: the ending that holds the contact card takes up
+  // what the pauses and the voice's tempo left over.
+  const tail = media.listing ? Math.min(LISTING_TAIL[1], Math.max(LISTING_TAIL[0], media.listing.seconds - lastWordEnd)) : TAIL;
+  const duration = Math.ceil((lastWordEnd + tail) * 10) / 10;
 
   const scenes = plan.scenes.map((scene, i) => {
     const { start, tokens, startFrom } = timed[i];
@@ -407,11 +492,17 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       end,
       // A speaker's clip plays in step with its own sound; other photos may have been animated.
       speaker: startFrom !== undefined || undefined,
-      background: startFrom !== undefined ? { ...scene.background, startFrom, playbackRate: 1 } : motionBackground(scene.background, motionUrls, end - start),
+      // A listing video goes from photo to photo on a plain cut, as footage does: no fade through black between rooms.
+      ...(media.listing && i > 0 ? { cut: true } : {}),
+      background: startFrom !== undefined ? { ...scene.background, startFrom, playbackRate: 1 } : motionBackground(scene.background, motionClips, end - start),
       blocks: (startFrom !== undefined ? speakerBlocks(scene.blocks) : scene.blocks).map((block, k, shown) => {
         // The first headline of a scene is on screen from its first frame: no empty openings.
         const opening = k === shown.findIndex((b) => b.type === 'title' || b.type === 'badge');
         const staged = stageBlock(block, k, opening ? () => undefined : at, plan.language, i === 0);
+        // A listing's asking price does not count up: every number on the way would be a wrong price.
+        if (media.listing && staged.type === 'number') return { ...staged, still: true };
+        // The figures of a home read as figures: "3,225", not "3225".
+        if (media.listing && staged.type === 'tiles') return { ...staged, items: staged.items.map((item) => ({ ...item, big: listingFigure(item.big, item.top, plan.language) })) };
         return startFrom !== undefined && staged.type === 'title' ? { ...staged, size: 's', rotate: 0, anim: undefined } : staged;
       }),
     };
@@ -466,12 +557,22 @@ function clientWarnings(plan: DirectorPlan): string[] {
   return warnings;
 }
 
+/** What brings a listing's recording to the length the client chose: where the last word should end, and what the pauses can add. */
+const listingFit = (listing: ListingOptions, lines: number) => ({
+  endAt: listingVoiceEnd(listing.seconds) - VOICE_LEAD,
+  pauses: LISTING_MAX_PAUSE * Math.max(0, lines - 1),
+});
+
 /**
  * Records the narration and times every word. The voice model sometimes skips
  * or merges sentences, so each take is transcribed and checked scene by scene,
  * and a take with a missing scene is redone. Long scripts are recorded in parts.
+ *
+ * `fit` (a listing video): where the last word should end, and how much the pauses between the
+ * photos can add. A recording that runs long is sped up; one that runs short is slowed down only
+ * by what the pauses cannot cover. Both stay within LISTING_TEMPO.
  */
-async function recordVoice(narration: string[], languageName: string, plan: DirectorPlan, store: StoreFile) {
+async function recordVoice(narration: string[], languageName: string, plan: DirectorPlan, store: StoreFile, fit?: { endAt: number; pauses: number }) {
   const parts: string[][] = [[]];
   let count = 0;
   for (const line of narration) {
@@ -515,16 +616,29 @@ async function recordVoice(narration: string[], languageName: string, plan: Dire
     audio.push(part.pcm, ...(i + 1 < recorded.length ? [gap] : []));
     offset += part.durationSeconds + VOICE_PART_GAP;
   }
-  const durationSeconds = offset - VOICE_PART_GAP;
-  const url = await store(pcmToWav(Buffer.concat(audio), rate), 'voice.wav', 'audio/wav');
+  let durationSeconds = offset - VOICE_PART_GAP;
+  let pcm: Buffer = Buffer.concat(audio);
+  const lastWord = words[words.length - 1]?.end;
+  if (fit && lastWord) {
+    const wanted = lastWord > fit.endAt ? fit.endAt : Math.max(lastWord, fit.endAt - fit.pauses);
+    const tempo = Math.min(LISTING_TEMPO[1], Math.max(LISTING_TEMPO[0], lastWord / wanted));
+    if (Math.abs(tempo - 1) >= 0.01) {
+      pcm = await changeTempo(pcm, rate, tempo);
+      for (const word of words) Object.assign(word, { start: word.start / tempo, end: word.end / tempo });
+      durationSeconds = pcm.length / 2 / rate;
+      console.log(`🎚️ Voice at ${(tempo * 100).toFixed(0)}% of its recorded pace: the last word now ends at ${(lastWord / tempo).toFixed(1)} s instead of ${lastWord.toFixed(1)} s`);
+    }
+  }
+  const url = await store(pcmToWav(pcm, rate), 'voice.wav', 'audio/wav');
   console.log(`✅ Voice: ${durationSeconds.toFixed(1)} s in ${parts.length} part(s), ${words.length} words timed`);
   return { url, words, durationSeconds };
 }
 
 // A background whose photo was animated plays the clip instead, slowed so it spans the scene.
-function motionBackground<T extends { asset?: string | null }>(background: T, motionUrls: Map<string, string>, sceneSeconds: number) {
-  if (!background.asset || !motionUrls.has(background.asset)) return background;
-  const playbackRate = Math.min(1, Math.max(0.4, (MOTION_CLIP_SECONDS - 0.2) / sceneSeconds));
+function motionBackground<T extends { asset?: string | null }>(background: T, motionClips: Map<string, number>, sceneSeconds: number) {
+  const clipSeconds = background.asset ? motionClips.get(background.asset) : undefined;
+  if (!background.asset || clipSeconds === undefined) return background;
+  const playbackRate = Math.min(1, Math.max(0.4, (clipSeconds - 0.2) / sceneSeconds));
   return { ...background, asset: `${background.asset}-motion`, playbackRate };
 }
 

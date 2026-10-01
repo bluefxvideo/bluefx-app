@@ -420,7 +420,8 @@ function NumberTitle({ block }) {
   const from = useLocalFrame(block.at);
   const p = interpolate(frame - from, [0, 21], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const step = Math.max(1, 5 * 10 ** (Math.floor(Math.log10(Math.max(block.value, 1))) - 2));
-  const value = p >= 1 ? block.value : Math.round((block.value * p) / step) * step;
+  // `still`: the figure stands from its first frame (a listing's asking price must never read as another price).
+  const value = block.still || p >= 1 ? block.value : Math.round((block.value * p) / step) * step;
   const format = (v) => `${block.prefix || ''}${v.toLocaleString(block.locale || 'en-US')}${block.suffix || ''}`;
   // Fit against the final value so the size does not change while counting.
   const figure = <Title block={{ size: 'xl', tone: 'accent', text: format(block.value), display: format(value) }} />;

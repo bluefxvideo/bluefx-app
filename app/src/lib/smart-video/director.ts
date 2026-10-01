@@ -1,5 +1,6 @@
 import { DirectorPlanSchema, type DirectorPlan, type SmartAsset, type VideoFormat, type VideoLength } from './types';
 import type { StyleName } from './types';
+import { asListingPlan, checkListingPlan, listingPhotoCount, listingRecipe, type ListingOptions } from './listing';
 import { usage } from './usage';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
@@ -112,20 +113,30 @@ const HORIZONTAL_NOTE = `
 
 THIS VIDEO IS HORIZONTAL (16:9, for YouTube and websites), not vertical. Everything above still applies, with these differences: a scene with a media block is laid out with the picture on one side and the text on the other, so every brand-background scene should have a media (or gallery) block; landscape photos and clips fill a mediaFull scene best, while a tall photo or clip is shown whole on the right with the text beside it; lifestyleShots and animated photos are made in 16:9; an "imageTop" background shows the artwork on the left.`;
 
+/** A listing video without a chosen look gets the calm serif one the owner picked for listings. */
+const LISTING_LOOK: StyleName = 'elegant';
+
 export async function directVideo(
   brief: string,
   assets: SmartAsset[],
   length: VideoLength = 'auto',
   format: VideoFormat = 'vertical',
-  look: StyleName | null = null
+  chosenLook: StyleName | null = null,
+  /** The automatic listing video: a fixed recipe on top of the general rules. */
+  listing: ListingOptions | null = null
 ): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
 
+  const look = listing ? chosenLook || LISTING_LOOK : chosenLook;
+  const photos = assets.filter((a) => a.kind === 'image').length;
   const instructions = BRIEF.replace(
     '{{LENGTH}}',
-    `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
-  ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '') + (look ? `\n\nTHE CLIENT CHOSE THE LOOK: "style" must be "${look}". Everything else is still yours to decide.` : '');
+    listing
+      ? 'The length is fixed by the listing rules at the end.'
+      : `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
+  ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '') + (look && !listing ? `\n\nTHE CLIENT CHOSE THE LOOK: "style" must be "${look}". Everything else is still yours to decide.` : '')
+    + (listing && look ? listingRecipe(listing, listingPhotoCount(listing.seconds, photos), look) : '');
   const today = `\n\nTODAY: ${new Date().toISOString().slice(0, 10)}. Leave out any deadline, sale or event date in the material that has already passed.`;
   const parts: unknown[] = [{ text: instructions }, { text: `${today}\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
   for (const asset of assets) {
@@ -133,7 +144,8 @@ export async function directVideo(
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
 
-  return askDirector(parts, (plan, lastChance) => checkPlan(plan, assets, brief, length, false, lastChance, look), length === 'script' ? 480_000 : 280_000);
+  const plan = await askDirector(parts, (candidate, lastChance) => checkPlan(candidate, assets, brief, length, false, lastChance, look, listing), length === 'script' ? 480_000 : 280_000);
+  return listing ? asListingPlan(plan) : plan;
 }
 
 /** One director call with validation; a rejected plan goes back once with the reason. */
@@ -216,11 +228,16 @@ export async function reviseVideo(
   brief: string,
   existing: Record<string, { kind: 'image' | 'video'; cutoutUrl?: string }>,
   format: VideoFormat = 'vertical',
-  added: SmartAsset[] = []
+  added: SmartAsset[] = [],
+  /** The video is an automatic listing video: the edit keeps its recipe. */
+  listing: ListingOptions | null = null
 ): Promise<DirectorPlan> {
   const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion'));
   const cutouts = ids.filter((id) => existing[id].cutoutUrl);
-  const instructions = BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.') + (format === 'horizontal' ? HORIZONTAL_NOTE : '');
+  const instructions =
+    BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.') +
+    (format === 'horizontal' ? HORIZONTAL_NOTE : '') +
+    (listing ? listingRecipe(listing, plan.scenes.length, plan.style) + '\nThe client\'s note outranks the length and the photo count of these rules; everything else in them still holds.' : '');
   const task = [
     '',
     'YOU ALREADY MADE THIS VIDEO. The client watched it and left a note. Return the full plan again with ONLY the changes the note asks for.',
@@ -251,7 +268,8 @@ export async function reviseVideo(
     parts.push({ text: describe(asset) });
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
-  return askDirector(parts, (candidate) => checkPlan(candidate, assets, brief, 'auto', true), 280_000);
+  const revised = await askDirector(parts, (candidate) => checkPlan(candidate, assets, brief, 'auto', true, false, null, listing), 280_000);
+  return listing ? asListingPlan(revised) : revised;
 }
 
 // Things the renderer cannot fix by construction.
@@ -262,7 +280,8 @@ function checkPlan(
   length: VideoLength,
   revision: boolean,
   lastChance = false,
-  look: StyleName | null = null
+  look: StyleName | null = null,
+  listing: ListingOptions | null = null
 ): string | null {
   // The look the client picked is a promise, like their exact words.
   if (look && plan.style !== look) return `the client chose the look "${look}": "style" must be "${look}".`;
@@ -288,9 +307,12 @@ function checkPlan(
     // A full-frame photo carries the scene; elsewhere a thin stack looks empty.
     // With captions on, a full-frame scene is told to carry just a title: that must pass.
     // A drawing carries its scene the way a full-frame photo does.
-    const minimum = scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
+    // A listing's room photos carry no text at all.
+    const minimum = listing && scene.background.type === 'mediaFull' ? 0 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
+  // A listing video has its own recipe; the general taste rules below (word floor, file spread) do not fit it.
+  if (listing) return revision || lastChance ? null : checkListingPlan(plan, assets, listing);
   // Everything above would break or blank a scene. Everything below is taste: worth one or two corrections, never worth a failed job.
   // In a revision the client's note outranks the word-count and file-spread rules.
   if (revision) return null;

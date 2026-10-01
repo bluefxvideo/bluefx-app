@@ -7,12 +7,80 @@ import { CLEANUP_PRESET_CONFIG } from '@/types/reelestate';
 import { BeforeAfterView } from './components/before-after-view';
 import {
   AGENT_CLONE_EXAMPLES,
+  AUTOMATIC_VIDEO_EXAMPLES,
   LISTING_VIDEO_EXAMPLES,
   PHOTO_CLEANUP_EXAMPLES,
   type AgentCloneExample,
+  type AutomaticVideoExample,
   type ListingVideoExample,
   type PhotoCleanupExample,
 } from './examples';
+
+/**
+ * Shown where the automatic listing video appears while nothing is being made:
+ * a real video from this tab, the photos and facts behind it, and a button that
+ * puts them into the form.
+ */
+export function AutomaticVideoExamples({
+  onTry,
+  loadingId,
+  busy,
+}: {
+  onTry: (example: AutomaticVideoExample) => void;
+  loadingId: string | null;
+  busy: boolean;
+}) {
+  return (
+    <ToolExamples
+      heading="What the automatic listing video makes"
+      intro="A real video made on this tab from the photos and the facts below. The house and the agent are made up. Under it: exactly what went in."
+      icon={Home}
+      examples={AUTOMATIC_VIDEO_EXAMPLES}
+      media={(example) => <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.format === 'horizontal'} />}
+      cost={(example) => {
+        const { video, animation } = example.credits;
+        return `Cost: ${video + animation} credits in total · ${video} for the video, ${animation} to animate the ${example.photos.length} photos. With still photos the same video costs ${video} credits.`;
+      }}
+      renderInputs={(example) => (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            {example.photos.map((photo) => (
+              <ExampleFile key={photo.name} name={photo.name} url={photo.url} kind="photo" />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExampleChip>{example.seconds} seconds</ExampleChip>
+            <ExampleChip>{example.format === 'horizontal' ? 'Horizontal' : 'Vertical'}</ExampleChip>
+            <ExampleChip>Animate the photos: {example.animate ? 'on' : 'off'}</ExampleChip>
+            <ExampleChip>Voice-over and music: on</ExampleChip>
+          </div>
+          <ExampleText>{example.facts}</ExampleText>
+        </>
+      )}
+      onTry={onTry}
+      loadingId={loadingId}
+      busy={busy}
+      tryNote="Puts these photos and facts into the form. Nothing is charged until you click Make the listing video."
+    />
+  );
+}
+
+/** Short rules for a strong automatic listing video, above the form. */
+export function AutomaticVideoTips() {
+  return (
+    <ToolTips
+      storageKey="reelestate.automatic.tips.closed"
+      tips={[
+        'Paste a Zillow or Realtor.com link and the photos, the address, the price and the figures come in by themselves. Or add 4 to 15 of your own photos, one per room.',
+        'Write the facts the video should show: address, price, bedrooms, bathrooms, square feet. The price and the figures appear as animated text on the second photo.',
+        'Add your name and phone number. The last photo carries them, with the open house when you name one.',
+        'Choose the length by the photos: 30 seconds shows 7 photos, 45 seconds 11, 60 seconds 16. From a link, the video takes one photo per room from the whole listing.',
+        'Animate the photos turns every photo into a moving clip for 6 credits a photo. Off, the photos zoom slowly and the video costs 25 credits.',
+        'Not quite right? Write what to change under the finished video: a new price, a room to leave out, another open house. A change costs 10 credits.',
+      ]}
+    />
+  );
+}
 
 /**
  * Shown where the listing video appears while no project is open: a real video

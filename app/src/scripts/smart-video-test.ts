@@ -1,8 +1,9 @@
 /**
  * Smart Video end-to-end test: a folder of client files + a brief → finished MP4.
  *
- * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal] [auto|playful|elegant|bold|clean|whiteboard] [full|no-voice|no-music|silent]
+ * Run from app/:  npx tsx src/scripts/smart-video-test.ts <job-name> <files-folder | link> <brief.txt> [auto|script] [vertical|horizontal] [auto|playful|elegant|bold|clean|whiteboard] [full|no-voice|no-music|silent] [listing seconds: 30|45|60] [animated|still]
  *                  With a link, the brief file is the client's own note (offer, contact) added to the scraped facts.
+ *                  The last two arguments make ReelEstate's automatic listing video (the photos animated unless "still").
  * Output:         remotion/out/smart-<job-name>.mp4 (+ the plan in remotion/test-plans/)
  */
 import { config } from 'dotenv';
@@ -13,11 +14,13 @@ import path from 'node:path';
 import { createSmartVideo } from '../lib/smart-video/pipeline';
 import { prepareAssets } from '../lib/smart-video/prepare-assets';
 import { downloadLinkPhotos, fromLink } from '../lib/smart-video/sources';
+import { listingLinkPhotos, type ListingLength } from '../lib/smart-video/listing';
 import type { SmartAsset, StyleName, VideoFormat, VideoLength } from '../lib/smart-video/types';
 
 config({ path: path.resolve(__dirname, '../../.env.local') });
 
-const [job, source, briefFile, length = 'auto', format = 'vertical', look = 'auto', soundName = 'full'] = process.argv.slice(2);
+const [job, source, briefFile, length = 'auto', format = 'vertical', look = 'auto', soundName = 'full', listingSeconds, listingPhotos = 'animated'] = process.argv.slice(2);
+const listing = listingSeconds ? { seconds: Number(listingSeconds) as ListingLength, animate: listingPhotos !== 'still' } : null;
 // The soundtrack switches of the page: voice-over and music, each on or off
 const sound = { voiceOver: soundName === 'full' || soundName === 'no-music', music: soundName === 'full' || soundName === 'no-voice' };
 let folder = source;
@@ -44,9 +47,10 @@ async function main() {
   let brief = fs.readFileSync(briefFile, 'utf-8');
   if (/^https?:/.test(source)) {
     console.log('🔗 Reading the link...');
-    const link = await fromLink(source);
+    const linkPhotos = listing ? listingLinkPhotos(0) : undefined;
+    const link = await fromLink(source, linkPhotos);
     folder = fs.mkdtempSync(path.join(os.tmpdir(), 'smart-video-'));
-    const photos = await downloadLinkPhotos(link.imageUrls);
+    const photos = await downloadLinkPhotos(link.imageUrls, linkPhotos);
     for (const photo of photos) fs.writeFileSync(path.join(folder, photo.filename), photo.data);
     brief = `${link.brief}\n\nNOTE FROM THE CLIENT:\n${brief}`;
     console.log(`✅ Link read: ${photos.length} usable photos of ${link.imageUrls.length} found, ${link.brief.length} characters of facts`);
@@ -57,7 +61,7 @@ async function main() {
     assets,
     storeLocal,
     async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))),
-    { length: length as VideoLength, format: format as VideoFormat, look: look === 'auto' ? null : (look as StyleName), sound }
+    { length: length as VideoLength, format: format as VideoFormat, look: look === 'auto' ? null : (look as StyleName), sound, listing }
   );
   for (const warning of warnings) console.log(`⚠️ For the client: ${warning}`);
 

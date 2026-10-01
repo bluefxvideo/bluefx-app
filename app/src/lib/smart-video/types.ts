@@ -68,7 +68,8 @@ export const SceneSchema = z.object({
     asset: z.string().nullish(),
     focus: z.string().nullish(),
   }),
-  blocks: z.array(BlockSchema).min(1).max(6),
+  // Empty only in a listing video, whose room photos carry no text; the director's checks demand blocks everywhere else.
+  blocks: z.array(BlockSchema).max(6),
 });
 
 export const DirectorPlanSchema = z.object({

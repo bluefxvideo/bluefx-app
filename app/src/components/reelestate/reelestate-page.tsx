@@ -8,9 +8,13 @@ import { StandardToolPage } from '@/components/tools/standard-tool-page';
 import { StandardToolTabs } from '@/components/tools/standard-tool-tabs';
 import { useReelEstate } from './hooks/use-reelestate';
 import { useAgentClone } from './hooks/use-agent-clone';
-import { Home, Video, ImageIcon, History, UserCircle } from 'lucide-react';
+import { Home, Video, ImageIcon, History, UserCircle, Wand2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useSmartVideo } from '@/components/smart-video/hooks/use-smart-video';
+import { urlToFile } from '@/lib/url-to-file';
 
 // Tab content
+import { AutomaticTab } from './tabs/automatic-tab';
 import { VideoMakerTab } from './tabs/video-maker-tab';
 import { PhotoCleanupTab } from './tabs/photo-cleanup-tab';
 import { AgentCloneTab } from './tabs/agent-clone-tab';
@@ -20,14 +24,21 @@ import { VideoMakerOutput } from './output-panel/video-maker-output';
 import { PhotoCleanupOutput } from './output-panel/photo-cleanup-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { AgentCloneOutput } from './output-panel/agent-clone-output';
-import type { AgentCloneExample, ListingVideoExample, PhotoCleanupExample } from './examples';
+import { AutomaticOutput } from './output-panel/automatic-output';
+import type { AgentCloneExample, AutomaticVideoExample, ListingVideoExample, PhotoCleanupExample } from './examples';
 
 const REELESTATE_TABS = [
   {
-    id: 'video-maker',
-    label: 'Video Maker',
-    icon: Video,
+    id: 'automatic',
+    label: 'Automatic',
+    icon: Wand2,
     path: '/dashboard/reelestate',
+  },
+  {
+    id: 'video-maker',
+    label: 'Step by Step',
+    icon: Video,
+    path: '/dashboard/reelestate/video-maker',
   },
   {
     id: 'photo-cleanup',
@@ -113,6 +124,8 @@ export function ReelEstatePage() {
   } = useReelEstate();
 
   const agentClone = useAgentClone();
+  // The automatic listing video runs on the Phantom's job system
+  const automatic = useSmartVideo('listing');
 
   // Tab override: when loadProject is called from History, switch tab via state
   // (router.push soft navigation doesn't work reliably with this layout structure)
@@ -123,7 +136,8 @@ export function ReelEstatePage() {
     if (pathname.includes('/agent-clone')) return 'agent-clone';
     if (pathname.includes('/photo-cleanup')) return 'photo-cleanup';
     if (pathname.includes('/history')) return 'history';
-    return 'video-maker';
+    if (pathname.includes('/video-maker')) return 'video-maker';
+    return 'automatic';
   };
 
   const activeTab = getActiveTab();
@@ -144,6 +158,28 @@ export function ReelEstatePage() {
     });
     setLoadingExampleId(null);
   }, [startExampleProject]);
+
+  // "Try this example" of the automatic video: the photos, the facts and the settings go into the form
+  const [loadingAutomaticId, setLoadingAutomaticId] = useState<string | null>(null);
+  const handleTryAutomaticExample = useCallback(async (example: AutomaticVideoExample) => {
+    setLoadingAutomaticId(example.id);
+    automatic.setLink('');
+    automatic.setBrief(example.facts);
+    automatic.setListingSeconds(example.seconds);
+    automatic.setFormat(example.format);
+    automatic.setAnimate(example.animate);
+    automatic.setVoiceOver(true);
+    automatic.setMusic(true);
+    try {
+      const files = await Promise.all(example.photos.map((photo) => urlToFile(photo.url, photo.name, 'image/jpeg')));
+      automatic.replaceFiles(files);
+      toast.success('Example loaded. Nothing is charged until you click Make the listing video.');
+    } catch {
+      toast.error('The example photos could not be loaded. The facts are filled in: add your own photos.');
+    } finally {
+      setLoadingAutomaticId(null);
+    }
+  }, [automatic]);
 
   const [cleanupExample, setCleanupExample] = useState<PhotoCleanupExample | null>(null);
   const clearCleanupExample = useCallback(() => setCleanupExample(null), []);
@@ -232,6 +268,13 @@ export function ReelEstatePage() {
             shot={agentClone.shots.length > 0 ? agentClone.shots[agentClone.shots.length - 1] : null}
             onTryExample={setAgentCloneExample}
           />
+        </StandardToolLayout>
+      ) : activeTab === 'automatic' ? (
+        <StandardToolLayout>
+          <div className="h-full overflow-hidden">
+            <AutomaticTab video={automatic} />
+          </div>
+          <AutomaticOutput video={automatic} onTryExample={handleTryAutomaticExample} loadingExampleId={loadingAutomaticId} />
         </StandardToolLayout>
       ) : (
         <StandardToolLayout>

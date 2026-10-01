@@ -1,5 +1,7 @@
 import type { ToolExample } from '@/components/tools/tool-examples';
 import type { AgentCloneDuration, CleanupPreset, TargetDuration } from '@/types/reelestate';
+import type { ListingLength } from '@/lib/smart-video/listing';
+import type { VideoFormat } from '@/lib/smart-video/types';
 
 // Real results of ReelEstate, made in the tool with invented houses.
 const BASE = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/examples/reelestate';
@@ -64,6 +66,59 @@ export const LISTING_VIDEO_EXAMPLES: ListingVideoExample[] = [
     ],
     seconds: 31,
     credits: { photoCheck: 2, script: 1, voice: 2, animation: 48 },
+  },
+];
+
+/**
+ * The example on the Automatic tab: the same invented house, made by the
+ * automatic listing video from exactly the photos, facts and settings listed.
+ */
+export interface AutomaticVideoExample extends ToolExample {
+  videoUrl: string;
+  posterUrl: string;
+  photos: { name: string; url: string }[];
+  /** The text typed into "Facts and contact". */
+  facts: string;
+  seconds: ListingLength;
+  format: VideoFormat;
+  animate: boolean;
+  /** Seconds the finished video runs. */
+  runs: number;
+  /** The video's own price, and what animating the photos added. */
+  credits: { video: number; animation: number };
+}
+
+export const AUTOMATIC_VIDEO_EXAMPLES: AutomaticVideoExample[] = [
+  {
+    id: 'automatic',
+    label: 'Listing video',
+    title: '14 Birchwood Lane: 7 photos and 6 lines of facts in, the finished video out',
+    shows:
+      'Nothing was placed by hand. The address, the price and the figures appear as animated text, every photo moves, the captions follow the voice, and the last photo carries the open house and the phone number.',
+    videoUrl: `${BASE}/automatic/14-birchwood-lane-automatic.mp4`,
+    posterUrl: `${BASE}/automatic/poster.jpg`,
+    photos: [
+      { name: '01-front.jpg', url: `${BASE}/listing/01-front.jpg` },
+      { name: '02-porch.jpg', url: `${BASE}/listing/02-porch.jpg` },
+      { name: '03-living-room.jpg', url: `${BASE}/listing/03-living-room.jpg` },
+      { name: '05-kitchen.jpg', url: `${BASE}/listing/05-kitchen.jpg` },
+      { name: '06-bedroom.jpg', url: `${BASE}/listing/06-bedroom.jpg` },
+      { name: '07-bathroom.jpg', url: `${BASE}/listing/07-bathroom.jpg` },
+      { name: '08-backyard.jpg', url: `${BASE}/listing/08-backyard.jpg` },
+    ],
+    facts: [
+      '14 Birchwood Lane, Meridian, Idaho 83642',
+      '$585,000',
+      '4 bedrooms, 3 bathrooms, 2,450 square feet',
+      'Craftsman bungalow with a covered front porch and porch swing. Living room with a fireplace and built-in bookshelves. Kitchen with a large white quartz island. Primary bedroom with wooden ceiling beams. Bathroom with a double vanity and marble countertops. Fenced backyard with a fire pit, facing the sunset.',
+      'Open house Saturday 11 to 2.',
+      'Listed by Dana Whitfield, Keystone Realty, 208-555-0190',
+    ].join('\n'),
+    seconds: 30,
+    format: 'horizontal',
+    animate: true,
+    runs: 30,
+    credits: { video: 25, animation: 42 },
   },
 ];
 
