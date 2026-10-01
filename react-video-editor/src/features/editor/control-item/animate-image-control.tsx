@@ -10,13 +10,10 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { dispatch } from "@designcombo/events";
-import { ADD_VIDEO } from "@designcombo/state";
-import { generateId } from "@designcombo/timeline";
 import { IImage, ITrackItem } from "@designcombo/types";
 import { Film, Loader2 } from "lucide-react";
 import useStore from "../store/use-store";
-import { stateManager } from "../store/state-manager-instance";
+import { placeAnimatedClip } from "../utils/animated-clip";
 
 interface AnimateImageControlProps {
 	trackItem: ITrackItem & IImage;
@@ -31,6 +28,7 @@ interface AnimationJob {
 	imageItemId: string;
 	imageSrc: string;
 	originalFrom: number;
+	originalTo: number;
 	durationMs: number;
 	cameraMotion: string;
 	intervalId: NodeJS.Timeout;
@@ -46,84 +44,24 @@ function notifyJobListeners() {
 	jobListeners.forEach((fn) => fn());
 }
 
-// Reorder tracks so text overlay tracks (captions + intro/outro) are at the end
-// In Remotion, items rendered last appear on top — so text needs to be last
-function reorderCaptionsToTop() {
-	try {
-		const state = stateManager.getState();
-		const { tracks, trackItemsMap } = state;
-
-		const textTrackIds = new Set<string>();
-		tracks.forEach((track) => {
-			track.items.forEach((itemId) => {
-				const item = trackItemsMap[itemId];
-				if (!item) return;
-				// Match caption tracks AND intro/outro overlay tracks
-				if (
-					item.type === "text" ||
-					item.type === "caption" ||
-					(item.metadata as any)?.introOverlay ||
-					(item.metadata as any)?.outroOverlay
-				) {
-					textTrackIds.add(track.id);
-				}
-			});
-		});
-
-		if (textTrackIds.size === 0) return;
-
-		const textTracks = tracks.filter((t) => textTrackIds.has(t.id));
-		const otherTracks = tracks.filter((t) => !textTrackIds.has(t.id));
-
-		stateManager.updateState({
-			tracks: [...otherTracks, ...textTracks],
-		});
-	} catch (err) {
-		console.warn("⚠️ Failed to reorder text tracks:", err);
-	}
-}
-
-// Queue to serialize delete operations so they don't interfere with each other
-let deleteQueue: Promise<void> = Promise.resolve();
-
-function queueDeleteAndReplace(job: AnimationJob, videoUrl: string) {
-	deleteQueue = deleteQueue.then(
-		() =>
-			new Promise<void>((resolve) => {
-				const newVideoId = generateId();
-
-				// Step 1: Add the new video
-				dispatch(ADD_VIDEO, {
-					payload: {
-						id: newVideoId,
-						details: { src: videoUrl },
-						display: {
-							from: job.originalFrom,
-							to: job.originalFrom + job.durationMs,
-						},
-						metadata: {
-							animatedFrom: job.imageSrc,
-							cameraMotion: job.cameraMotion,
-						},
-					},
-					options: {
-						resourceId: "main",
-						scaleMode: "fit",
-					},
-				});
-
-				// Step 2: Select the new video (keep the original image for re-generation)
-				setTimeout(() => {
-					useStore.setState({ activeIds: [newVideoId] });
-					console.log(
-						"✅ Image animated — video added, original image kept:",
-						job.imageItemId,
-					);
-					(window as any).refreshEditorCredits?.();
-					resolve();
-				}, 300);
-			}),
+/** The clip takes the photo's place on the timeline and becomes the selected item. */
+async function replaceWithClip(job: AnimationJob, videoUrl: string) {
+	const newVideoId = await placeAnimatedClip(
+		{
+			itemId: job.imageItemId,
+			src: job.imageSrc,
+			from: job.originalFrom,
+			to: job.originalTo,
+		},
+		videoUrl,
+		job.durationMs / 1000,
+		job.cameraMotion,
 	);
+	if (newVideoId) {
+		useStore.setState({ activeIds: [newVideoId] });
+		console.log("✅ Image animated, clip placed over the image:", job.imageItemId);
+	}
+	(window as any).refreshEditorCredits?.();
 }
 
 const CAMERA_MOTIONS = [
@@ -176,6 +114,7 @@ function startPolling(
 	imageItemId: string,
 	imageSrc: string,
 	originalFrom: number,
+	originalTo: number,
 	durationMs: number,
 	cameraMotion: string,
 ) {
@@ -188,6 +127,7 @@ function startPolling(
 		imageItemId,
 		imageSrc,
 		originalFrom,
+		originalTo,
 		durationMs,
 		cameraMotion,
 		intervalId: null as any,
@@ -197,7 +137,7 @@ function startPolling(
 
 	// Build poll URL with listing context for DB persistence
 	const listingId = getListingId();
-	let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}`;
+	let pollUrl = `${apiUrl}/api/editor/animate-image?predictionId=${predictionId}&userId=${getUserId()}`;
 	if (listingId) pollUrl += `&listingId=${listingId}`;
 	if (imageSrc) pollUrl += `&imageUrl=${encodeURIComponent(imageSrc)}`;
 
@@ -211,8 +151,7 @@ function startPolling(
 				job.status = "Replacing image with video...";
 				notifyJobListeners();
 
-				// Queue the delete+replace so concurrent completions don't clash
-				queueDeleteAndReplace(job, pollData.video_url);
+				void replaceWithClip(job, pollData.video_url);
 
 				// Clean up job after replacement is queued
 				setTimeout(() => {
@@ -292,6 +231,7 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 			imageItemId: trackItem.id,
 			imageSrc,
 			originalFrom: trackItem.display?.from || 0,
+			originalTo: trackItem.display?.to || 0,
 			durationMs: parseInt(duration) * 1000,
 			cameraMotion,
 			intervalId: null as any,
@@ -329,6 +269,7 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 
 			const predictionId = createData.prediction_id;
 			const originalFrom = trackItem.display?.from || 0;
+			const originalTo = trackItem.display?.to || 0;
 			const videoDurationMs = parseInt(duration) * 1000;
 
 			// Start module-level polling (survives unmount)
@@ -338,6 +279,7 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 				trackItem.id,
 				imageSrc,
 				originalFrom,
+				originalTo,
 				videoDurationMs,
 				cameraMotion,
 			);

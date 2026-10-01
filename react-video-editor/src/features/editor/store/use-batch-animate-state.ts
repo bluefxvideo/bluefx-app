@@ -4,6 +4,7 @@ export interface AnimationItem {
 	itemId: string;
 	imageSrc: string;
 	originalFrom: number;
+	originalTo: number;
 	status: "pending" | "processing" | "polling" | "ready" | "done" | "failed";
 	predictionId?: string;
 	videoUrl?: string;

@@ -6,20 +6,77 @@ import {
 } from '@/actions/models/fal-ltx-image-to-video';
 import { createAdminClient } from '@/app/supabase/server';
 import { downloadAndUploadVideo } from '@/actions/supabase-storage';
+import { normalizeProviderError, refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 
 /**
  * Editor Animate Image API
  *
  * Turns a still image into a video clip using LTX-2.3-Fast on fal.ai (image-to-video).
- * POST: submit a queue job (deducts credits first)
- * GET:  poll job status (persists video to Supabase on completion)
+ * POST: submit a queue job, then charge for it (the debit carries the job id)
+ * GET:  poll job status (persists video to Supabase on completion, refunds a failed job)
  */
 
 // Credit cost: 1 credit per second (matches cinematographer pricing)
 const CREDITS_PER_SECOND = 1;
 
+// Clip lengths the engine makes, in seconds
+const CLIP_SECONDS = [6, 8, 10, 12, 14, 16, 18, 20];
+
 // Cache persisted video URLs to avoid re-uploading on repeated polls
 const videoUrlCache = new Map<string, string>();
+
+// Jobs that failed for good, so a repeated poll gets the same answer
+const failedJobs = new Map<string, { reason: string; refunded: number }>();
+
+/**
+ * fal reports a job that could not be made as COMPLETED and rejects the result
+ * request (4xx). Returns the provider's reason for such a job, null for anything
+ * that may still work on the next poll (5xx, rate limit, network).
+ */
+function permanentFailure(err: unknown): string | null {
+  const message = err instanceof Error ? err.message : '';
+  const match = message.match(/fal\.ai result error: (4\d\d) - ([\s\S]*)$/);
+  if (!match || match[1] === '408' || match[1] === '429') return null;
+  try {
+    return normalizeProviderError(JSON.parse(match[2])) || match[2];
+  } catch {
+    return match[2];
+  }
+}
+
+/** Give the credits of a failed job back and remember the outcome. */
+async function failJob(predictionId: string, userId: string | null, detail: string | null) {
+  let refunded = 0;
+  if (userId) {
+    const refund = await refundFailedGeneration({
+      userId,
+      referenceIds: [predictionId],
+      operation: 'photo animation',
+    });
+    if (refund.refunded) refunded = refund.amount ?? 0;
+    else console.warn(`⚠️ No refund for animate-image job ${predictionId}: ${refund.reason}`);
+  }
+  const reason = detail
+    ? `The photo could not be animated: ${detail.slice(0, 200)}`
+    : 'The photo could not be animated. Trying again usually works.';
+  const outcome = { reason: /[.!?]$/.test(reason) ? reason : `${reason}.`, refunded };
+  failedJobs.set(predictionId, outcome);
+  return outcome;
+}
+
+function failedResponse(request: NextRequest, outcome: { reason: string; refunded: number }) {
+  return NextResponse.json(
+    {
+      success: true,
+      status: 'failed',
+      video_url: null,
+      reason: outcome.reason,
+      refunded_credits: outcome.refunded,
+      error: outcome.refunded > 0 ? `${outcome.reason} ${refundSentence(outcome.refunded)}` : outcome.reason,
+    },
+    { headers: corsHeaders(request) },
+  );
+}
 
 /**
  * Persist a completed clip to the listing's clip_predictions JSONB array.
@@ -52,9 +109,9 @@ async function saveClipToListing(
     // Find the photo index matching this image URL
     const photoIndex = photoUrls.findIndex((url: string) => url === imageUrl);
 
-    // Check if this prediction already exists
+    // The same job again, or an earlier clip of the same photo: the newest clip takes its place
     const existingIdx = clipPredictions.findIndex(
-      (c: any) => c.prediction_id === predictionId,
+      (c: any) => c.prediction_id === predictionId || (photoIndex >= 0 && c.index === photoIndex),
     );
 
     const clipEntry = {
@@ -123,13 +180,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const videoDuration = duration || 6;
+    const videoDuration = Number(duration) || 6;
+    if (!CLIP_SECONDS.includes(videoDuration)) {
+      return NextResponse.json(
+        { success: false, error: `duration must be one of ${CLIP_SECONDS.join(', ')} seconds` },
+        { status: 400, headers: corsHeaders(request) },
+      );
+    }
     const creditCost = videoDuration * CREDITS_PER_SECOND;
 
-    // Deduct credits if user_id is provided (use admin client — editor has no auth cookies)
+    // Check the balance first (use admin client — editor has no auth cookies)
+    const supabase = createAdminClient();
     if (user_id) {
-      const supabase = createAdminClient();
-
       const { data: creditData } = await supabase
         .from('user_credits')
         .select('available_credits')
@@ -148,23 +210,6 @@ export async function POST(request: NextRequest) {
           { status: 402, headers: corsHeaders(request) },
         );
       }
-
-      const { data: deduction, error: deductError } = await supabase
-        .rpc('deduct_user_credits', {
-          p_user_id: user_id,
-          p_amount: creditCost,
-          p_operation: 'editor-animate-image',
-          p_metadata: { duration: videoDuration, provider: 'fal' },
-        });
-
-      if (deductError || !deduction?.success) {
-        return NextResponse.json(
-          { success: false, error: deductError?.message || 'Credit deduction failed' },
-          { status: 402, headers: corsHeaders(request) },
-        );
-      }
-
-      console.log(`💳 Animate-image: deducted ${creditCost} credits for ${videoDuration}s video (remaining: ${deduction.remaining_credits})`);
     }
 
     // Build prompt — include camera motion instruction directly in text
@@ -181,6 +226,38 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Animate-image FAL job queued:', queueResponse.request_id);
 
+    // Charge once the engine has taken the job. The debit carries the job id, so
+    // a job that fails later is refunded against exactly this debit. (Charging
+    // before the submit lost the credits whenever the submit itself failed.)
+    if (user_id) {
+      const { data: deduction, error: deductError } = await supabase
+        .rpc('deduct_user_credits', {
+          p_user_id: user_id,
+          p_amount: creditCost,
+          p_operation: 'editor-animate-image',
+          p_metadata: {
+            duration: videoDuration,
+            provider: 'fal',
+            prediction_id: queueResponse.request_id,
+            ...(listing_id ? { listing_id } : {}),
+          },
+        });
+
+      if (deductError || !deduction?.success) {
+        // No charge, no clip: stop the job
+        await fetch(`https://queue.fal.run/fal-ai/ltx-2.3/requests/${queueResponse.request_id}/cancel`, {
+          method: 'PUT',
+          headers: { Authorization: `Key ${process.env.FAL_KEY}` },
+        }).catch(() => undefined);
+        return NextResponse.json(
+          { success: false, error: deductError?.message || deduction?.error || 'Credit deduction failed' },
+          { status: 402, headers: corsHeaders(request) },
+        );
+      }
+
+      console.log(`💳 Animate-image: deducted ${creditCost} credits for ${videoDuration}s video (remaining: ${deduction.remaining_credits})`);
+    }
+
     return NextResponse.json(
       {
         success: true,
@@ -193,7 +270,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('❌ Animate-image POST error:', err);
     return NextResponse.json(
-      { success: false, error: 'Failed to create animation' },
+      { success: false, error: 'The animation could not be started. Nothing was charged.' },
       { status: 500, headers: corsHeaders(request) },
     );
   }
@@ -207,6 +284,7 @@ export async function GET(request: NextRequest) {
     const predictionId = url.searchParams.get('predictionId');
     const listingId = url.searchParams.get('listingId');
     const imageUrl = url.searchParams.get('imageUrl');
+    const userId = url.searchParams.get('userId');
 
     if (!predictionId) {
       return NextResponse.json(
@@ -228,6 +306,9 @@ export async function GET(request: NextRequest) {
         { headers: corsHeaders(request) },
       );
     }
+
+    const failed = failedJobs.get(predictionId);
+    if (failed) return failedResponse(request, failed);
 
     // Check FAL queue status
     const statusResponse = await getFalLTX23Status(predictionId);
@@ -284,28 +365,26 @@ export async function GET(request: NextRequest) {
             { headers: corsHeaders(request) },
           );
         }
+        // Finished without a video: nothing more will come
+        return failedResponse(request, await failJob(predictionId, userId, null));
       } catch (resultErr) {
         console.error('❌ Failed to fetch FAL result:', resultErr);
+        const detail = permanentFailure(resultErr);
+        if (detail !== null) {
+          return failedResponse(request, await failJob(predictionId, userId, detail));
+        }
       }
     }
 
     if (statusResponse.status === 'FAILED') {
-      return NextResponse.json(
-        {
-          success: true,
-          status: 'failed',
-          video_url: null,
-          error: 'Animation generation failed',
-        },
-        { headers: corsHeaders(request) },
-      );
+      return failedResponse(request, await failJob(predictionId, userId, null));
     }
 
-    // Still in progress
+    // Still in progress (a finished job whose result could not be read yet is asked for again)
     return NextResponse.json(
       {
         success: true,
-        status: mappedStatus,
+        status: statusResponse.status === 'COMPLETED' ? 'processing' : mappedStatus,
         video_url: null,
         error: null,
       },
