@@ -189,9 +189,10 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
       </TabBody>
 
       <TabFooter>
-        <Button onClick={video.start} disabled={busy} className="h-12 w-full font-medium" size="lg">
-          {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-          Make the listing video · {total} credits
+        {/* The label wraps on a narrow form panel (a laptop screen) instead of being cut off at both ends. */}
+        <Button onClick={video.start} disabled={busy} className="h-auto min-h-12 w-full whitespace-normal py-2 font-medium" size="lg">
+          {busy ? <Loader2 className="mr-2 h-4 w-4 flex-shrink-0 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4 flex-shrink-0" />}
+          <span>Make the listing video · {total} credits</span>
         </Button>
         <p className="mt-2 text-center text-xs text-muted-foreground">
           {video.credits} credits for the video and {LISTING_CLIP_CREDITS} for each of {video.listingPhotos} animated photos.{' '}
