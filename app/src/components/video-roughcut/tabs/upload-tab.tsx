@@ -32,6 +32,7 @@ import {
   ROUGHCUT_PRICE_TEXT,
   roughcutPriceBreakdown,
 } from '@/lib/video-roughcut/pricing';
+import { formatLength } from '@/lib/video-roughcut/format';
 import type { PendingRoughcut, RoughcutStage } from '../hooks/use-video-roughcut';
 
 const STAGE_LABEL: Record<RoughcutStage, string> = {
@@ -44,14 +45,6 @@ const STAGE_LABEL: Record<RoughcutStage, string> = {
 
 const LARGE_FILE_BYTES = 2 * 1024 * 1024 * 1024;
 const TEN_GB = 10 * 1024 * 1024 * 1024;
-
-/** "24 min 29 s" */
-function formatLength(seconds: number): string {
-  const total = Math.round(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return m === 0 ? `${s} s` : s === 0 ? `${m} min` : `${m} min ${s} s`;
-}
 
 interface UploadTabProps {
   stage: RoughcutStage;

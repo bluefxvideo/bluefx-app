@@ -108,7 +108,12 @@ export function useAgentClone() {
   // Avoids the stale-closure bug where addShot + generateComposite in the same
   // event handler can't find the new shot because React hasn't re-rendered yet.
 
-  const createAndGenerate = useCallback(async (backgroundUrl: string, prompt: string) => {
+  const createAndGenerate = useCallback(async (
+    backgroundUrl: string,
+    prompt: string,
+    /** "Try this example": the example's length, action and line, ready for the Animate step. */
+    animation?: Pick<AgentCloneShot, 'duration' | 'action' | 'dialogue'>,
+  ) => {
     if (!agentPhotoUrl) {
       toast.error('Upload your photo first');
       return;
@@ -126,10 +131,10 @@ export function useAgentClone() {
       predictionId: null,
       status: 'compositing',
       prompt,
-      dialogue: '',
-      action: '',
+      dialogue: animation?.dialogue ?? '',
+      action: animation?.action ?? '',
       cameraMotion: 'none',
-      duration: 6,
+      duration: animation?.duration ?? 6,
       error: null,
     };
 

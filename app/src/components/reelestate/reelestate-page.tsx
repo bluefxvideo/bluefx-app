@@ -20,7 +20,7 @@ import { VideoMakerOutput } from './output-panel/video-maker-output';
 import { PhotoCleanupOutput } from './output-panel/photo-cleanup-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { AgentCloneOutput } from './output-panel/agent-clone-output';
-import type { ListingVideoExample, PhotoCleanupExample } from './examples';
+import type { AgentCloneExample, ListingVideoExample, PhotoCleanupExample } from './examples';
 
 const REELESTATE_TABS = [
   {
@@ -148,6 +148,9 @@ export function ReelEstatePage() {
   const [cleanupExample, setCleanupExample] = useState<PhotoCleanupExample | null>(null);
   const clearCleanupExample = useCallback(() => setCleanupExample(null), []);
 
+  const [agentCloneExample, setAgentCloneExample] = useState<AgentCloneExample | null>(null);
+  const clearAgentCloneExample = useCallback(() => setAgentCloneExample(null), []);
+
   // Wrap loadProject to also switch tab
   const handleLoadProject = useCallback((...args: Parameters<typeof loadProject>) => {
     loadProject(...args);
@@ -221,10 +224,13 @@ export function ReelEstatePage() {
               onAnimateShot={agentClone.animateShot}
               onSwitchVoice={agentClone.switchVoice}
               lastVoiceSample={agentClone.lastVoiceSample}
+              example={agentCloneExample}
+              onExampleDone={clearAgentCloneExample}
             />
           </div>
           <AgentCloneOutput
             shot={agentClone.shots.length > 0 ? agentClone.shots[agentClone.shots.length - 1] : null}
+            onTryExample={setAgentCloneExample}
           />
         </StandardToolLayout>
       ) : (

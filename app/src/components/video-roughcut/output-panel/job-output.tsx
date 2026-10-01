@@ -22,6 +22,7 @@ import type {
   RoughcutJob,
   RoughcutJobStatus,
 } from '@/actions/database/video-roughcut-database';
+import { formatLength } from '@/lib/video-roughcut/format';
 import { RemovalList } from './removal-list';
 import { DownloadXmlButton } from './download-xml-button';
 
@@ -97,13 +98,15 @@ export function JobOutput({ job, onDismiss, onRetry }: JobOutputProps) {
 
   // status === 'done'
   const timeSaved = job.time_saved_seconds ?? 0;
-  const segments = job.segments_removed ?? 0;
+  // A cut is one removed stretch of the timeline, the rows of "What was cut".
+  // segments_removed counts transcript phrases, several per cut: a 72-second
+  // take with 6 cuts read "15 cuts" and "~23 min saved".
+  const cuts = job.removals?.length || (job.segments_removed ?? 0);
   const duration = job.video_duration_seconds ?? 0;
   const percentRemoved =
     duration > 0 ? Math.round((timeSaved / duration) * 100) : 0;
-  const minutesRemoved = Math.round(timeSaved / 60);
   // Rough estimate: each cut is 1–2 min of manual editing
-  const editingTimeSaved = Math.max(1, Math.round(segments * 1.5));
+  const editingTimeSaved = Math.max(1, Math.round(cuts * 1.5));
 
   return (
     <div className="space-y-4">
@@ -142,10 +145,10 @@ export function JobOutput({ job, onDismiss, onRetry }: JobOutputProps) {
                 Removed
               </div>
               <div className="mt-1 text-lg font-semibold">
-                {minutesRemoved} min
+                {formatLength(timeSaved)}
               </div>
               <div className="text-xs text-muted-foreground">
-                {segments} cuts · {percentRemoved}% of video
+                {cuts} {cuts === 1 ? 'cut' : 'cuts'} · {percentRemoved}% of video
               </div>
             </div>
             <div className="rounded-md border bg-muted/30 p-3">

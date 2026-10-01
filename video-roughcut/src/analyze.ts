@@ -45,7 +45,7 @@ Trim a kept segment when it starts or ends with a stumble:
 - keepUntil: the exact final words to keep, when the segment ends by restarting the next line.
 - Use an empty string for an end you don't trim.
 
-Segments you don't list in "remove" are kept. Give a short reason for each removal group and each trim.`;
+Segments you don't list in "remove" are kept. Give a short reason for each removal group and each trim. The speaker reads the reasons and cannot see the segment numbers: describe the line in words ("earlier attempt at the pricing line"), never by number.`;
 
 /** What the model returns. Anything not listed in `remove` is kept. */
 export const DecisionsSchema = z.object({
