@@ -41,6 +41,8 @@ const Frame = createContext(FRAMES.vertical);
 const useFrame = () => useContext(Frame);
 const Column = createContext(1080);
 const useColumn = () => useContext(Column);
+// How much the current stack is scaled: a hand drawn inside it divides by this to keep one size on screen.
+const StackScale = createContext(1);
 const SIDE = 50;
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' };
 const EMOJI = '"Noto Color Emoji", "Apple Color Emoji", sans-serif';
@@ -275,7 +277,7 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
               }}
             />
           )}
-          {children}
+          <StackScale.Provider value={scale}>{children}</StackScale.Provider>
         </div>
       </div>
     </Column.Provider>
@@ -283,8 +285,10 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
 }
 
 // ---------- motion ----------
-// `holdFrames`: in a drawing scene the words wait until the picture is mostly drawn.
-const SceneTime = createContext({ start: 0, first: false, holdFrames: 0 });
+// `holdFrames`: in a tall drawing scene the words wait until the picture is drawn (the arm passes over them).
+// `handBusy`: until then the hand is drawing, so it cannot push anything in or underline yet.
+// `contact`: the scene shows the contact (a highlight), which must be the biggest thing on it.
+const SceneTime = createContext({ start: 0, first: false, holdFrames: 0, handBusy: 0, contact: false });
 
 // Scene-local frame for an absolute time. Blocks due at the very start of the
 // first scene are already settled on frame 0 (it doubles as the thumbnail).
@@ -323,35 +327,52 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
   return <div style={{ opacity, transform: `${move} rotate(${look.rotate ? rotate : 0}deg)`, ...style }}>{children}</div>;
 }
 
-// Whiteboard: an open hand slides an element up from the bottom edge, lets go and withdraws.
-// From below, because the arm then crosses nothing else: not the drawing, not the other column's words.
+// The two hands. Only the photographed arm is used (an arm lengthened by repeating its skin looks stretched),
+// so every hand is sized and angled to make the real arm reach an edge of the frame.
+const MARKER_HAND = { file: 'smart-video/whiteboard/hand.png', w: 500, h: 1410 };
+const OPEN_HAND = { file: 'smart-video/whiteboard/hand-open.png', w: 371, h: 1466 };
+const HAND_W = 400; // the marker hand, on screen
+const NIB = { x: 3 / 500, y: 33 / 500 }; // the marker tip in hand.png, as a share of its width
+const NIB_ORIGIN = `${NIB.x * 100}% ${((NIB.y * MARKER_HAND.w) / MARKER_HAND.h) * 100}%`;
+const ARM_FADE = 110; // the last rows of both images fade out
+
+// Whiteboard: an open hand slides an element into place, lets go and withdraws. It comes up from the
+// bottom edge when its arm reaches that far (it then crosses nothing else), otherwise in from the right.
 const PUSH_FRAMES = 22;
-const PUSH_HAND_W = 250;
+const PUSH_HAND_W = 300;
 function PushIn({ at, rotate = 0, zIndex = 5, children }) {
-  const { H } = useFrame();
+  const { W, H } = useFrame();
+  const scale = useContext(StackScale) || 1;
+  const { handBusy = 0 } = useContext(SceneTime);
   const frame = useCurrentFrame();
   const ref = useRef(null);
-  const [height, setHeight] = useState(0);
+  const [box, setBox] = useState(null);
   useLayoutEffect(() => {
-    const h = ref.current?.offsetHeight || 0;
-    if (h && Math.abs(h - height) > 1) setHeight(h);
+    const el = ref.current;
+    if (!el) return;
+    const next = { bottom: Math.round(el.getBoundingClientRect().bottom), width: el.offsetWidth, height: el.offsetHeight };
+    if (!box || Math.abs(next.bottom - box.bottom) > 2 || Math.abs(next.width - box.width) > 1 || Math.abs(next.height - box.height) > 1) setBox(next);
   });
-  // Never during the wipe between two scenes: the push itself is the thing to see.
-  const t = frame - Math.max(useLocalFrame(at), 8);
-  if (t < 0) return <div ref={ref} style={{ visibility: 'hidden' }}>{children}</div>;
-  const travel = interpolate(t, [0, PUSH_FRAMES], [H, 0], { ...clamp, easing: Easing.out(Easing.quad) });
-  const leave = interpolate(t, [PUSH_FRAMES + 5, PUSH_FRAMES + 21], [0, H * 1.2], { ...clamp, easing: Easing.inOut(Easing.quad) });
-  // The fingers rest on a photo; under a line of text only the fingertips touch its lower edge.
-  const overlap = Math.min(PUSH_HAND_W * 0.55, height * 0.35);
+  // Never during the wipe between two scenes, and not while the same hand is still drawing.
+  const t = frame - Math.max(useLocalFrame(at), handBusy, 8);
+  const hand = PUSH_HAND_W / scale;
+  const reach = ((OPEN_HAND.h - ARM_FADE) / OPEN_HAND.w) * PUSH_HAND_W;
+  // The fingers rest on a photo; on a line of text only the fingertips touch its edge.
+  const overlap = Math.min(hand * 0.55, (box?.height || 0) * 0.35);
+  const fromBelow = !box || H - box.bottom + overlap * scale <= reach;
+  const distance = (fromBelow ? H : W) / scale;
+  const travel = interpolate(t, [0, PUSH_FRAMES], [distance, 0], { ...clamp, easing: Easing.out(Easing.quad) });
+  const leave = interpolate(t, [PUSH_FRAMES + 5, PUSH_FRAMES + 21], [0, distance * 1.2], { ...clamp, easing: Easing.inOut(Easing.quad) });
+  const handStyle = fromBelow
+    ? { left: '50%', top: `calc(100% - ${overlap}px)`, marginLeft: -hand * 0.35, transformOrigin: '50% 0', transform: `translateY(${leave}px) rotate(${-rotate - 6}deg)` }
+    : // rotated a quarter turn: fingers to the left on the element's right edge, the arm running out to the right
+      { left: `calc(100% - ${Math.min(hand * 0.55, (box?.width || 0) * 0.25)}px)`, top: '50%', transformOrigin: '0 0', transform: `translate(${leave}px, ${hand * 0.5}px) rotate(-90deg)` };
   return (
-    <div ref={ref} style={{ position: 'relative', zIndex, transform: `translateY(${travel}px) rotate(${rotate}deg)` }}>
-      {children}
-      {leave < H * 1.2 && (
-        <Img
-          src={staticFile('smart-video/whiteboard/hand-open.png')}
-          style={{ position: 'absolute', left: '50%', top: `calc(100% - ${overlap}px)`, width: PUSH_HAND_W, maxWidth: 'none', marginLeft: -PUSH_HAND_W * 0.35, transformOrigin: '50% 0', transform: `translateY(${leave}px) rotate(${-rotate - 6}deg)` }}
-        />
-      )}
+    <div ref={ref} style={{ position: 'relative', zIndex }}>
+      <div style={{ visibility: t < 0 ? 'hidden' : 'visible', transform: `${fromBelow ? `translateY(${travel}px)` : `translateX(${travel}px)`} rotate(${rotate}deg)` }}>
+        {children}
+        {t >= 0 && leave < distance * 1.2 && <Img src={staticFile(OPEN_HAND.file)} style={{ position: 'absolute', width: hand, maxWidth: 'none', ...handStyle }} />}
+      </div>
     </div>
   );
 }
@@ -421,7 +442,10 @@ function readableOnPhoto(hex) {
 function Title({ block }) {
   const { theme, look } = usePlan();
   const textColor = useTextColor();
-  const base = Math.round((TITLE_SIZE[block.size] || TITLE_SIZE.l) * look.title.scale);
+  const { handBusy = 0, contact = false } = useContext(SceneTime);
+  const stackScale = useContext(StackScale) || 1;
+  // On the contact scene of a whiteboard the number to call leads, so the headlines step back.
+  const base = Math.round((TITLE_SIZE[block.size] || TITLE_SIZE.l) * look.title.scale * (contact && look.pill.marker ? 0.86 : 1));
   const probe = titlePaint(look, theme, block.tone, base, textColor);
   const [ref, size] = useFit(base, useColumn() - 2 * SIDE - Math.round(base * 0.22) - (probe.inset || 0));
   const paint = titlePaint(look, theme, block.tone, size, textColor);
@@ -431,14 +455,15 @@ function Title({ block }) {
   // Handwriting: the words appear letter by letter, at the size fitted for the whole line.
   const frame = useCurrentFrame();
   const from = useLocalFrame(block.at);
-  const underFrom = useLocalFrame(block.underlineAt ?? block.at);
+  // The hand that underlines is the hand that draws: it waits until the drawing is done.
+  const underFrom = Math.max(useLocalFrame(block.underlineAt ?? block.at), block.underlineAt === undefined ? 0 : handBusy);
   const UNDERLINE_FRAMES = 14;
   const underline = block.underlineAt === undefined ? 0 : interpolate(frame - underFrom, [0, UNDERLINE_FRAMES], [0, 1], clamp);
   // On the whiteboard the marker hand draws the line: it comes in, follows the stroke and leaves.
   const penOffset =
     look.title.kind !== 'hand' || block.underlineAt === undefined
       ? null
-      : interpolate(frame - underFrom, [-10, 0, UNDERLINE_FRAMES + 2, UNDERLINE_FRAMES + 14], [900, 0, 0, 900], { ...clamp, easing: Easing.inOut(Easing.quad) });
+      : interpolate(frame - underFrom, [-10, 0, UNDERLINE_FRAMES + 2, UNDERLINE_FRAMES + 14], [1100, 0, 0, 1100], { ...clamp, easing: Easing.inOut(Easing.quad) });
   if (look.title.kind === 'hand' && block.display === undefined && !block.push) {
     const written = Math.max(0, Math.floor((frame - from) / HAND_FRAMES_PER_CHAR));
     if (written < text.length) block = { ...block, display: text.slice(0, written) };
@@ -473,18 +498,19 @@ function Title({ block }) {
           />
         </svg>
       )}
-      {penOffset !== null && penOffset < 900 && (
+      {penOffset !== null && penOffset < 1100 && (
+        // The arm points at the right edge of the frame (58°), which the real arm reaches from any headline.
         <Img
-          src={staticFile('smart-video/whiteboard/hand.png')}
+          src={staticFile(MARKER_HAND.file)}
           style={{
             position: 'absolute',
-            left: `calc(${-2 + underline * 104}% - ${NIB.x * 300}px)`,
-            top: `calc(100% + 0.04em - ${NIB.y * 300}px)`,
-            width: 300,
+            left: `calc(${-2 + underline * 104}% - ${(NIB.x * HAND_W) / stackScale}px)`,
+            top: `calc(100% + 0.04em - ${(NIB.y * HAND_W) / stackScale}px)`,
+            width: HAND_W / stackScale,
             maxWidth: 'none',
             zIndex: 7,
-            transformOrigin: `${NIB.x * 100}% ${(NIB.y * 100 * 500) / 3600}%`,
-            transform: `translate(${penOffset * 0.55}px, ${penOffset}px) rotate(-28deg)`,
+            transformOrigin: NIB_ORIGIN,
+            transform: `translate(${(penOffset * 0.85) / stackScale}px, ${(penOffset * 0.53) / stackScale}px) rotate(-58deg)`,
           }}
         />
       )}
@@ -569,8 +595,9 @@ function Badge({ block }) {
   const playful = look.title.kind === 'sticker';
   if (look.pill.marker) {
     return (
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, fontFamily: MARKER, fontSize: size * 0.8, lineHeight: 1.15, color: theme.ink }}>
-        <span style={{ color: theme.accent, fontSize: size * 1.1, lineHeight: 0.9 }}>✓</span>
+      // Marker capitals are loud: kept well under the headline's size, so the headline leads.
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, fontFamily: MARKER, fontSize: size * 0.58, lineHeight: 1.15, color: theme.ink }}>
+        <span style={{ color: theme.accent, fontSize: size * 0.8, lineHeight: 0.9 }}>✓</span>
         <div ref={ref} style={{ whiteSpace: 'pre' }}>{autoBreak(block.text, 14)}</div>
       </div>
     );
@@ -600,13 +627,13 @@ function Highlight({ block }) {
   const { theme, look } = usePlan();
   const frame = useCurrentFrame();
   const from = useLocalFrame(block.at);
-  const [ref, size] = useFit(look.pill.marker ? 76 : 60, useColumn() - 2 * SIDE - (look.pill.marker ? 200 : 120));
+  const [ref, size] = useFit(look.pill.marker ? 100 : 60, useColumn() - 2 * SIDE - (look.pill.marker ? 110 : 120));
   const pulse = 1 + 0.025 * Math.sin(Math.max(0, frame - from - 18) / 7);
   if (look.pill.marker) {
     // The ellipse is drawn round the words once they are written.
     const drawn = interpolate(frame - from, [10, 26], [0, 1], clamp);
     return (
-      <div style={{ position: 'relative', padding: `${Math.round(size * 0.55)}px ${Math.round(size * 0.9)}px`, fontFamily: MARKER, fontSize: size, color: theme.ink }}>
+      <div style={{ position: 'relative', padding: `${Math.round(size * 0.45)}px ${Math.round(size * 0.6)}px`, fontFamily: MARKER, fontSize: size, color: theme.ink }}>
         <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
         <svg viewBox="0 0 100 40" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', clipPath: `inset(-30% ${(1 - drawn) * 100 - (drawn >= 1 ? 10 : 0)}% -30% -10%)` }}>
           <path
@@ -1137,8 +1164,6 @@ const ratioOf = (asset) => (asset?.width && asset?.height ? asset.width / asset.
 // How long the hand draws: under half the scene, so the words that follow stay up long enough to read.
 const drawSeconds = (sceneSeconds) => Math.min(3, Math.max(1.5, sceneSeconds * 0.4));
 const DRAW_ROWS = 8;
-const HAND_W = { vertical: 330, horizontal: 300 };
-const NIB = { x: 3 / 500, y: 33 / 500 }; // the marker tip in hand.png, as a share of its width
 
 // Where the marker is on this frame of a drawing scene, and how much of the picture is drawn.
 function useDrawing(background, duration, first) {
@@ -1188,23 +1213,25 @@ function DrawingHand({ background, duration, first }) {
   const { asset, tipX, tipY, frame, drawFrames, frameSize } = useDrawing(background, duration, first);
   if (!asset) return null;
   const { W, H, landscape } = frameSize;
-  const target = landscape ? { x: tipX + 260, y: H + 600 } : { x: W + 520, y: tipY + 1000 };
-  const angle = Math.max(5, Math.min(62, (Math.atan2(target.x - tipX, target.y - tipY) * 180) / Math.PI));
+  // Wide frame: up from the bottom edge, which the arm reaches from the top of the drawing.
+  // Tall frame: in from the right edge, steeply, because the bottom is out of the arm's reach.
+  const target = landscape ? { x: tipX + 260, y: H + 600 } : { x: W + 520, y: tipY + 480 };
+  const angle = Math.max(5, Math.min(74, (Math.atan2(target.x - tipX, target.y - tipY) * 180) / Math.PI));
   // Once the picture is done the hand pulls back along its arm and out of the frame.
   const away = interpolate(frame, [4 + drawFrames, 4 + drawFrames + 12], [0, 1.6 * Math.max(W, H)], { ...clamp, easing: Easing.in(Easing.cubic) });
   if (away >= 1.6 * Math.max(W, H)) return null;
   const rad = (angle * Math.PI) / 180;
-  const handW = HAND_W[landscape ? 'horizontal' : 'vertical'];
+  const handW = HAND_W;
   return (
     <AbsoluteFill style={{ zIndex: 20, pointerEvents: 'none', overflow: 'hidden' }}>
       <Img
-        src={staticFile('smart-video/whiteboard/hand.png')}
+        src={staticFile(MARKER_HAND.file)}
         style={{
           position: 'absolute',
           left: tipX - NIB.x * handW + Math.sin(rad) * away,
           top: tipY - NIB.y * handW + Math.cos(rad) * away,
           width: handW,
-          transformOrigin: `${NIB.x * 100}% ${(NIB.y * 100 * 500) / 3600}%`,
+          transformOrigin: NIB_ORIGIN,
           transform: `rotate(${-angle}deg)`,
         }}
       />
@@ -1366,8 +1393,12 @@ function Scene({ scene, index, first }) {
   const type = scene.background?.type || 'brand';
   const surface =
     type === 'mediaBlur' || type === 'mediaFull' ? 'dark' : type === 'imageTop' ? (look.panel ? 'light' : 'dark') : type === 'drawing' ? 'light' : look.surface;
-  // The words of a drawing scene wait until the picture is drawn and the hand has left (except on the opening frame).
-  const holdFrames = type === 'drawing' && !first ? Math.round(drawSeconds(duration / FPS) * FPS) + 10 : 0;
+  // Until then the hand is drawing. In a tall frame the words stand under the drawing and the arm passes over
+  // them, so they wait for it (except on the opening frame); in a wide frame they stand beside the drawing and
+  // are written while the hand draws: half an empty board for three seconds looks unfinished.
+  const handBusy = type === 'drawing' ? Math.round(drawSeconds(duration / FPS) * FPS) + 10 : 0;
+  const holdFrames = type === 'drawing' && !first && !landscape ? handBusy : 0;
+  const contact = scene.blocks.some((block) => block.type === 'highlight');
   const gap = scene.gap ?? 30;
   // A full-frame picture is darkened behind its text only: a shot without text stays as it is.
   const hasText = scene.blocks.length > 0;
@@ -1440,7 +1471,7 @@ function Scene({ scene, index, first }) {
   }
 
   return (
-    <SceneTime.Provider value={{ start: scene.start, first, holdFrames }}>
+    <SceneTime.Provider value={{ start: scene.start, first, holdFrames, handBusy, contact }}>
       <Surface.Provider value={surface}>
         <AbsoluteFill>
           {type === 'mediaBlur' && <MediaBlurBg background={scene.background} />}
@@ -1573,8 +1604,8 @@ function autoSfx(scenes) {
       const seconds = drawSeconds(scene.end - scene.start);
       for (let t = 0.1; t < seconds - 0.4; t += 1.45) out.push({ name: 'marker', at: scene.start + t });
     }
-    // In a drawing scene the words wait for the hand to leave, and so do their sounds.
-    const held = i > 0 && scene.background?.type === 'drawing' ? scene.start + drawSeconds(scene.end - scene.start) + 10 / FPS : scene.start;
+    // What the hand does after drawing (a push, an underline) waits until the drawing is done, and so does its sound.
+    const held = scene.background?.type === 'drawing' ? scene.start + drawSeconds(scene.end - scene.start) + 10 / FPS : scene.start;
     scene.blocks.forEach((block) => {
       if (block.underlineAt !== undefined) out.push({ name: 'underline', at: Math.max(block.underlineAt, held) });
       if (block.push) out.push({ name: 'push', at: Math.max(block.at ?? scene.start, held) });

@@ -242,7 +242,7 @@ async function produce(
     ]),
   };
   const props = buildProps(plan, media);
-  return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
+  return { props, plan, media, durationSeconds: props.duration, warnings: [...clientWarnings(plan), ...softPhotoWarnings(plan, assets)] };
 }
 
 /**
@@ -300,6 +300,19 @@ export async function reviseSmartVideo(
     return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
   });
   return { ...result, usage };
+}
+
+/**
+ * A photo much smaller than the card it is shown in comes out soft. The engine cannot sharpen it,
+ * but the client can upload a larger one, so they are told which photo it is.
+ */
+const SOFT_PHOTO_PX = 500;
+function softPhotoWarnings(plan: DirectorPlan, assets: SmartAsset[]): string[] {
+  const shown = new Set(plan.scenes.flatMap((scene) => [scene.background.asset, ...scene.blocks.flatMap((b) => ('asset' in b ? [b.asset] : 'assets' in b ? b.assets : []))]));
+  const logos = new Set(plan.assets.filter((a) => a.role === 'logo').map((a) => a.id));
+  return assets
+    .filter((a) => a.kind === 'image' && shown.has(a.id) && !logos.has(a.id) && a.width && a.height && Math.max(a.width, a.height) < SOFT_PHOTO_PX)
+    .map((a) => `The photo "${a.filename}" is small (${a.width} x ${a.height} pixels) and looks soft in the video. A larger version of it will look sharper.`);
 }
 
 /** Videos made before sizes were saved: measure their photos once, so an edit shows them in their own shape. */
