@@ -30,9 +30,11 @@ interface SceneCardProps {
   project: CloneProject;
   scene: CloneScene;
   onProjectUpdate: (project: CloneProject) => void;
+  /** The director is working on the board: the card shows, its buttons wait. */
+  locked?: boolean;
 }
 
-export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
+export function SceneCard({ project, scene, onProjectUpdate, locked = false }: SceneCardProps) {
   const [instruction, setInstruction] = useState(scene.user_instruction || '');
   const [generating, setGenerating] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
@@ -212,6 +214,9 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
   };
 
   const hasVideo = scene.anim?.status === 'completed' && !!scene.anim.video_url;
+  // The director's own look at the current picture, when the picture did not pass (or could not be made).
+  const flag = scene.check && !scene.check.pass && (!scene.check.picture_url || scene.check.picture_url === scene.edited_image_url) ? scene.check.why : '';
+  const leftOut = scene.plan?.keep === false;
   // Film-edge state color: the card's left border tells you where the scene is
   const stateEdge = hasVideo
     ? 'border-l-green-500/70'
@@ -241,6 +246,11 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               {(scene.is_custom || scene.analysis?.purpose) && (
                 <span className="text-[10px] uppercase tracking-widest text-zinc-500 shrink-0">
                   {scene.is_custom ? 'custom' : scene.analysis.purpose}
+                </span>
+              )}
+              {leftOut && (
+                <span className="text-[10px] uppercase tracking-widest text-amber-300/80 shrink-0" title="The director left this scene out of the shorter cut. Change it under Finish the ad.">
+                  left out of this cut
                 </span>
               )}
             </div>
@@ -386,6 +396,12 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
               </div>
             )}
           </div>
+
+          {flag && (
+            <p className="text-xs text-amber-200/90 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+              The director&apos;s check: {flag}
+            </p>
+          )}
 
           {/* Dialog — subtitle style, like the dailies monitor */}
           {scene.analysis?.dialog && (
@@ -549,7 +565,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
             </Button>
             <span className="text-[10px] text-zinc-600">or drop images here</span>
           </div>
-          <Button className="w-full" size="sm" onClick={handleGenerate} disabled={generating}>
+          <Button className="w-full" size="sm" onClick={handleGenerate} disabled={generating || locked}>
             {generating ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
@@ -627,7 +643,7 @@ export function SceneCard({ project, scene, onProjectUpdate }: SceneCardProps) {
                   size="sm"
                   className="flex-1 h-9"
                   onClick={handleAnimate}
-                  disabled={animating || animGenerating || generating || !scene.edited_image_url}
+                  disabled={animating || animGenerating || generating || locked || !scene.edited_image_url}
                   title={!scene.edited_image_url ? 'Generate an image first — Animate uses your current image' : undefined}
                 >
                   {animating || animGenerating ? (

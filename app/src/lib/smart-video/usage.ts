@@ -19,6 +19,10 @@ const PRICES = {
   voiceMatchPerMinute: 0.02, // fal chatterbox hd speech-to-speech
   lookPerImage: 0.0003, // gemini-3.5-flash-lite, one small picture and a short answer
   captionNumbersPerCall: 0.003, // gemini-3.6-flash, the script's lines in, a short list out (thinking included)
+  scenePicturePerImage: 0.048, // fal gpt-image-2.5 flare edit, 1080p high (edits run about 20% over text-to-image)
+  castPicturePerImage: 0.04, // fal gpt-image-2.5 flare text-to-image, high
+  pictureCheckPerPicture: 0.004, // gemini-3.6-flash, three to six small pictures in, a short verdict out (estimate)
+  clipPerSecond: { best: 0.14, standard: 0.084 }, // fal kling o3: pro with sound, standard without (measured 2026-10-01)
 };
 
 export interface UsageEntry {
@@ -56,4 +60,8 @@ export const usage = {
   voiceMatch: (seconds: number) => add('voice match', (seconds / 60) * PRICES.voiceMatchPerMinute, `${seconds.toFixed(0)} s`),
   look: () => add('picture check', PRICES.lookPerImage, '1 picture'),
   captionNumbers: (lines: number) => add('caption numbers', PRICES.captionNumbersPerCall, `${lines} lines`),
+  scenePicture: (scene: number, free = false) => add(free ? 'scene picture (free remake)' : 'scene picture', PRICES.scenePicturePerImage, `scene ${scene}`),
+  castPicture: () => add('cast picture', PRICES.castPicturePerImage, '1 image'),
+  pictureCheck: () => add('scene picture check', PRICES.pictureCheckPerPicture, '1 picture'),
+  clip: (seconds: number, engine: 'best' | 'standard', free = false) => add(free ? 'clip (free retake)' : 'clip', seconds * PRICES.clipPerSecond[engine], `${seconds} s, ${engine}`),
 };

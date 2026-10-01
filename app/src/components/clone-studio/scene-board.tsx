@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, Film, ImagePlus, Info, Loader2, Music, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, Film, ImagePlus, Loader2, Music } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ import {
   assembleCloneProject,
   addCustomScene,
   uploadCloneReference,
-  updateProjectReferences,
   applyInstructionToAllScenes,
   generateProjectTranscript,
   reconcileProjectDialog,
@@ -23,6 +22,8 @@ import {
 import { CLONE_MUSIC_CREDITS, type CloneProject } from '@/types/clone-studio';
 import { SceneCard } from './scene-card';
 import { FinishPanel } from './finish-panel';
+import { AutoPanel } from './auto-panel';
+import { ProjectPhotos } from './project-photos';
 
 interface SceneBoardProps {
   project: CloneProject;
@@ -38,9 +39,6 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   const [addingScene, setAddingScene] = useState(false);
   const [addAfter, setAddAfter] = useState<string>('end');
   const addSceneInputRef = useRef<HTMLInputElement>(null);
-  const projectRefInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingProjectRefs, setUploadingProjectRefs] = useState(false);
-  const [projectRefDragOver, setProjectRefDragOver] = useState(false);
   const [globalInstruction, setGlobalInstruction] = useState('');
   const [applyingInstruction, setApplyingInstruction] = useState(false);
   // Soundtrack prompt: what assembly sends to the music engine. Defaults to
@@ -58,38 +56,10 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
   }, [defaultMusicPrompt]);
   const summary = project.analysis_summary;
   const pollBusy = useRef(false);
+  // While the director works on the board, the hands-on controls wait.
+  const locked = project.status === 'directing';
 
   const animatedCount = project.scenes.filter((s) => s.anim?.status === 'completed').length;
-  const projectRefs = project.analysis_summary?.project_ref_urls || [];
-  const handleProjectRefUpload = async (files: FileList | null) => {
-    const slots = 6 - projectRefs.length;
-    const selected = Array.from(files || [])
-      .filter((f) => f.type.startsWith('image/'))
-      .slice(0, slots);
-    if (!selected.length) return;
-    setUploadingProjectRefs(true);
-    try {
-      const uploaded: string[] = [];
-      for (const file of selected) {
-        const up = await uploadCloneReference(project.id, file);
-        if (up.success && up.url) uploaded.push(up.url);
-        else toast.error(up.error || `Upload failed for ${file.name}`);
-      }
-      if (uploaded.length) {
-        const result = await updateProjectReferences(project.id, [...projectRefs, ...uploaded]);
-        if (result.success && result.project) onProjectUpdate(result.project);
-      }
-    } finally {
-      setUploadingProjectRefs(false);
-      if (projectRefInputRef.current) projectRefInputRef.current.value = '';
-    }
-  };
-
-  const handleRemoveProjectRef = async (url: string) => {
-    const result = await updateProjectReferences(project.id, projectRefs.filter((u) => u !== url));
-    if (result.success && result.project) onProjectUpdate(result.project);
-  };
-
   const handleApplyInstruction = async () => {
     if (!globalInstruction.trim()) return;
     if (!window.confirm('Write this instruction into ALL scenes? (overwrites each scene\u2019s current instruction)')) return;
@@ -366,66 +336,29 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         </Card>
       )}
 
-      {/* Setup: project refs + one instruction + batch actions */}
+      {/* The director: brief, photos, one click */}
+      <AutoPanel project={project} onProjectUpdate={onProjectUpdate} photos={<ProjectPhotos project={project} onProjectUpdate={onProjectUpdate} />} />
+
+      {/* Hands-on: project photos + one instruction, then scene by scene */}
       <Card className="p-4 space-y-4">
-        <p className="text-sm font-semibold text-white">How it works — set up once, then review scene by scene</p>
+        <div>
+          <p className="text-sm font-semibold text-white">Or work scene by scene</p>
+          <p className="text-xs text-zinc-500">Set up once, then make and review each scene yourself. Every box the director fills in is here too, and you can change any of them.</p>
+        </div>
 
         <div className="space-y-2">
           <p className="text-xs text-zinc-300">
             <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">1</span>
-            Add photos of <span className="text-white">your person and product</span> — they're used in every scene
+            Add photos of <span className="text-white">your person and product</span>. The photos go into every scene
             automatically, so everyone stays consistent:
           </p>
-          <div
-            className={`flex items-center gap-2 flex-wrap rounded-md transition-colors ${
-              projectRefDragOver ? 'ring-2 ring-primary bg-primary/10 p-1.5' : ''
-            }`}
-            onDragOver={(e) => { e.preventDefault(); setProjectRefDragOver(true); }}
-            onDragLeave={() => setProjectRefDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setProjectRefDragOver(false);
-              handleProjectRefUpload(e.dataTransfer.files);
-            }}
-          >
-            {projectRefs.map((url) => (
-              <div key={url} className="relative group">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="Project reference" className="w-14 h-14 object-cover rounded border border-border/50" />
-                <button
-                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center"
-                  onClick={() => handleRemoveProjectRef(url)}
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </div>
-            ))}
-            <input
-              ref={projectRefInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => handleProjectRefUpload(e.target.files)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-14"
-              onClick={() => projectRefInputRef.current?.click()}
-              disabled={uploadingProjectRefs || projectRefs.length >= 6}
-            >
-              {uploadingProjectRefs ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ImagePlus className="w-4 h-4 mr-1.5" />}
-              Add references
-            </Button>
-            <span className="text-[10px] text-zinc-600">or drag &amp; drop images here</span>
-          </div>
+          <ProjectPhotos project={project} onProjectUpdate={onProjectUpdate} />
         </div>
 
         <div className="space-y-2">
           <p className="text-xs text-zinc-300">
             <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">2</span>
-            Say what to swap, once — each scene gets only the parts that apply to it (review and tweak any card after):
+            Say what to swap, once. Each scene gets only the parts that apply to it (review and tweak any card after):
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <Textarea
@@ -433,13 +366,14 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               onChange={(e) => setGlobalInstruction(e.target.value)}
               placeholder='e.g. "Replace the young man with the bald man from reference 1. Replace every Pringles can with the Nutella jar from reference 2."'
               className="text-sm min-h-[60px] flex-1"
-              disabled={applyingInstruction}
+              disabled={applyingInstruction || locked}
             />
             <Button
               onClick={handleApplyInstruction}
-              disabled={applyingInstruction || !globalInstruction.trim()}
+              disabled={applyingInstruction || locked || !globalInstruction.trim()}
               className="sm:self-end h-11 px-6 font-medium"
               size="lg"
+              variant="outline"
             >
               {applyingInstruction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Apply to all scenes
@@ -498,6 +432,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             project={project}
             scene={scene}
             onProjectUpdate={onProjectUpdate}
+            locked={locked}
           />
         ))}
 
@@ -591,7 +526,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             <Checkbox checked={withMusic} onCheckedChange={(v) => setWithMusic(v === true)} />
             <Music className="w-3.5 h-3.5" /> AI music bed · {CLONE_MUSIC_CREDITS} cr
           </label>
-          <Button variant="outline" onClick={handleAssemble} disabled={assembling || project.status === 'assembling' || project.status === 'finishing'}>
+          <Button variant="outline" onClick={handleAssemble} disabled={assembling || locked || project.status === 'assembling' || project.status === 'finishing'}>
             {assembling || project.status === 'assembling' ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (

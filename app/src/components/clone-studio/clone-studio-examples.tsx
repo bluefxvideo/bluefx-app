@@ -61,11 +61,11 @@ export function CloneStudioTips() {
       storageKey="cloneStudio.tips.closed"
       tips={[
         'Clone an ad that already works, and keep it short: under a minute means fewer scenes to pay for.',
-        'Add photos of your person and your product once. They go into every scene, so faces and packaging stay the same.',
-        'Write the swap once ("Replace Bella with the owner in photo 1, the bread with the pizza in photo 2") and click Apply to all scenes. Each scene gets only the part that applies to it.',
-        'Check every new picture before you animate: a picture costs 4 credits, a clip 8 credits a second.',
-        'Read each motion prompt, it is sent exactly as written. Let one person do the talking so the whole ad keeps one voice.',
-        'Assemble joins the clips in the original timing. The music bed adds 5 credits.',
+        'The quick way: press "Do it for me" on the board. Write a few lines about your business, add your photos, and the director makes a first version of the whole ad from pictures: 30 credits plus 4 for each picture.',
+        'Then add motion where it sells. A person who talks to the camera needs a clip (8 credits a second). Other scenes can stay pictures or move for 5 credits a second.',
+        'Add photos of your person and your product. They go into every scene, so faces and packaging stay the same.',
+        'Working scene by scene? Write the swap once ("Replace Bella with the owner in photo 1, the bread with the pizza in photo 2") and click Apply to all scenes. Check every new picture before you animate.',
+        'Read each motion prompt, it is sent exactly as written. "Finish the ad" adds one voice, word captions, your text and music.',
       ]}
     />
   );

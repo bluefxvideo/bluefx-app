@@ -15,6 +15,7 @@ export type CloneProjectStatus =
   | 'animating'
   | 'assembling'
   | 'finishing'
+  | 'directing'
   | 'completed'
   | 'failed';
 
@@ -117,8 +118,116 @@ export interface CloneScene {
   is_custom?: boolean;
   /** How this scene goes into the finished ad. Filled in by "Finish the ad", editable there. */
   finish?: SceneFinish;
+  /** What the director decided for this scene ("Do it for me"). */
+  plan?: ScenePlan;
+  /** The director's own look at the scene's picture. */
+  check?: SceneCheck;
+  /** The engine the scene's current clip was ordered on. Absent = best. */
+  anim_engine?: CloneAnimEngine;
   credits_spent: number;
 }
+
+// ---------------------------------------------------------------------------
+// "Do it for me": the director that fills in the board and runs it
+// ---------------------------------------------------------------------------
+
+/** best = the engine that makes people talk (1080p, with sound); standard = moving footage (720p, no sound). */
+export type CloneAnimEngine = 'best' | 'standard';
+
+export interface ScenePlan {
+  /** False when a shorter cut leaves this scene out. */
+  keep: boolean;
+  /** video = live action, still = a motionless shot, card = text typed by the editor. */
+  treatment: 'video' | 'still' | 'card';
+  /** on_camera = a person in the frame says the line. */
+  speaker: 'on_camera' | 'narrator' | 'none';
+  /** The run that made this scene's picture and looked at it. */
+  pictured?: string;
+}
+
+export interface SceneCheck {
+  /** The picture this verdict is about. */
+  picture_url: string;
+  pass: boolean;
+  /** One short sentence; shown on the card when the picture did not pass. */
+  why: string;
+  /** Remakes the director already made of this scene, at no charge. */
+  remakes: number;
+}
+
+/** The whole ad, or a cut of about 30 or 15 seconds. */
+export const AUTO_LENGTHS = ['full', '30', '15'] as const;
+export type AutoLength = (typeof AUTO_LENGTHS)[number];
+
+export type AutoStage = 'planning' | 'pictures' | 'clips' | 'finishing' | 'done' | 'failed';
+
+/** The run the page watches. Costs are never written here: this row is readable by its owner. */
+export interface AutoRun {
+  id: string;
+  /** draft = plan, pictures and a first finished ad; motion = clips for the chosen scenes and the ad finished again. */
+  kind: 'draft' | 'motion';
+  stage: AutoStage;
+  /** Pictures or clips ready, of how many. */
+  done: number;
+  total: number;
+  /** The finishing step inside the run. */
+  finish?: { stage: FinishStage; progress: number };
+  /** Motion run: the scenes that get a clip, and on which engine. */
+  picks?: { n: number; engine: CloneAnimEngine }[];
+  /** Draft run: the director's plan is on the board. */
+  planned?: boolean;
+  error?: string;
+  started_at: string;
+  /** Times a run whose server process died was picked up again. */
+  resumed?: number;
+}
+
+/** A "Do it for me" run that has shown no sign of life for this long died with its server process (a deploy takes about five minutes). */
+export const CLONE_AUTO_STALE_MS = 3 * 60 * 1000;
+/** A dead run is picked up again this many times before it is given up. */
+export const CLONE_AUTO_RESUMES = 3;
+
+export interface CloneAuto {
+  /** What the client told the director about their business. */
+  brief: string;
+  /** A page the client's facts were read from. */
+  link?: string;
+  length: AutoLength;
+  /** Who and what the director replaces, in plain words. `photo` is the picture that stands in. */
+  cast?: { source: string; becomes: string; photo?: string }[];
+  /** What the client should know: facts the ad needs that the brief lacks, photos that could not be used. */
+  notes?: string[];
+  /** True once the director's plan is written into the board. */
+  planned?: boolean;
+  run?: AutoRun;
+}
+
+/** Flat credits for "Do it for me": the plan, the picture checks and the finished ad. Pictures and clips are priced as on the board. */
+export const CLONE_AUTO_CREDITS = 30;
+/** Credits per second of a standard clip: moving footage without sound, 720p. */
+export const CLONE_ANIM_STANDARD_CREDITS_PER_SECOND = 5;
+/** Pictures the director may make of people and products the client has no photo of. */
+export const CLONE_MAX_CAST_PICTURES = 3;
+/** Remakes of a picture that did not pass the director's own look, at no charge. */
+export const CLONE_FREE_REMAKES = 2;
+/** The project photos a board can hold: the client's own plus the ones the director made. */
+export const CLONE_MAX_PROJECT_REFS = 12;
+
+/** How long the clip of a scene is ordered: what the card says, or the scene's cut in the source ad; the engine makes 3 to 15 seconds. */
+export const cloneClipSeconds = (scene: Pick<CloneScene, 'anim_seconds' | 'start' | 'end'>) =>
+  Math.min(15, Math.max(3, Math.round(scene.anim_seconds ?? Math.ceil(scene.end - scene.start))));
+
+/**
+ * Whether a scene is worth a clip by default: a person says a whole phrase to the camera.
+ * In a fast-cut ad a sentence is spread over many cuts ("paprika," / "seven" / "spice,");
+ * a 3-second clip for one word buys nothing, so those scenes stay pictures under the narrator.
+ */
+export const suggestsClip = (scene: Pick<CloneScene, 'plan' | 'finish'>) =>
+  scene.plan?.speaker === 'on_camera' && (scene.finish?.line || '').split(/\s+/).filter(Boolean).length >= 4;
+
+/** Credits for a clip of this length on this engine. */
+export const cloneClipCredits = (seconds: number, engine: CloneAnimEngine = 'best') =>
+  seconds * (engine === 'standard' ? CLONE_ANIM_STANDARD_CREDITS_PER_SECOND : CLONE_ANIM_CREDITS_PER_SECOND);
 
 // ---------------------------------------------------------------------------
 // "Finish the ad": the editor that turns the board into a finished ad
@@ -181,10 +290,19 @@ export interface CloneFinish {
   /** ISO 639 code heard in the clips ("eng"); the narrator speaks it. */
   language?: string;
   run?: FinishRun;
+  /** Finished ads this board already got. The first one carries the full price. */
+  made?: number;
+  /** A paid run ended without its finished ad: the next finishing is free. */
+  owed?: boolean;
 }
 
 /** Flat credits for finishing an ad: voice, captions, typed text, music and the render. */
 export const CLONE_FINISH_CREDITS = 30;
+/** Finishing the same board again after a change to its words, text, music or scenes. */
+export const CLONE_REFINISH_CREDITS = 10;
+/** What the next "Finish the ad" on this board costs. */
+export const cloneFinishCredits = (summary: CloneAnalysisSummary | null | undefined) =>
+  summary?.finish?.owed ? 0 : (summary?.finish?.made || 0) > 0 ? CLONE_REFINISH_CREDITS : CLONE_FINISH_CREDITS;
 /** A finishing run that has shown no sign of life for this long died with its server process. */
 export const CLONE_FINISH_STALE_MS = 12 * 60 * 1000;
 
@@ -216,11 +334,17 @@ export function composeMotionPrompt(analysis: SceneAnalysis | undefined): string
   if (arc?.invariants?.length) parts.push(arc.invariants.join(' '));
   if (analysis?.camera) parts.push(`Camera: ${analysis.camera}.`);
   if (analysis?.dialog?.trim()) {
-    parts.push(`The person says, lips in sync: "${analysis.dialog.trim()}"`);
+    parts.push(spokenSentence(analysis.dialog));
   }
-  parts.push('Audio: natural diegetic sound for the scene only — no background music, no soundtrack.');
+  parts.push(CLONE_ANIM_AUDIO_DIRECTIVE);
   return parts.join(' ');
 }
+
+/** The sentence that makes a person in the clip say a line. The line sits between quotes: spokenLineOf reads it back. */
+export const spokenSentence = (line: string) => `The person says, lips in sync: "${line.trim().replace(/["“”]/g, "'")}"`;
+
+/** Closes every video prompt: the clip brings the sound of its scene, the music comes from the editor. */
+export const CLONE_ANIM_AUDIO_DIRECTIVE = 'Audio: natural diegetic sound for the scene only — no background music, no soundtrack.';
 
 /**
  * Fixed quality guard sent as the NEGATIVE prompt with every animation —
@@ -281,6 +405,8 @@ export interface CloneAnalysisSummary {
   music_prompt_options?: Array<{ label: string; prompt: string }>;
   /** "Finish the ad": the settings the client chose and the run in progress. */
   finish?: CloneFinish;
+  /** "Do it for me": what the client told the director, what the director decided, and the run in progress. */
+  auto?: CloneAuto;
 }
 
 export interface CloneProject {
