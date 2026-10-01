@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
@@ -8,6 +8,8 @@ import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
 import { CLEANUP_PRESET_CONFIG, type CleanupPreset } from '@/types/reelestate';
 import { createClient } from '@/app/supabase/client';
 import { toast } from 'sonner';
+import type { PhotoCleanupExample } from '../examples';
+import { PhotoCleanupTips } from '../reelestate-examples';
 
 interface CleanupQueueItem {
   url: string;
@@ -25,6 +27,9 @@ interface PhotoCleanupTabProps {
   onAddToQueue: (item: CleanupQueueItem) => void;
   onRemoveFromQueue: (index: number) => void;
   onClearQueue: () => void;
+  /** An example picked in the result panel: its photo and cleanup type go into the form. */
+  example?: PhotoCleanupExample | null;
+  onExampleDone?: () => void;
 }
 
 export function PhotoCleanupTab({
@@ -36,6 +41,8 @@ export function PhotoCleanupTab({
   onAddToQueue,
   onRemoveFromQueue,
   onClearQueue,
+  example,
+  onExampleDone,
 }: PhotoCleanupTabProps) {
   const [selectedPreset, setSelectedPreset] = useState<CleanupPreset>('remove_people');
   const [customPrompt, setCustomPrompt] = useState('');
@@ -45,6 +52,16 @@ export function PhotoCleanupTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalCost = queue.length * 2;
+
+  // "Try this example": the example photo is already online, so no upload is needed
+  useEffect(() => {
+    if (!example) return;
+    setUploadedPhotos([{ url: example.beforeUrl, filename: example.fileName }]);
+    setSelectedPreset(example.preset);
+    setCustomPrompt('');
+    onExampleDone?.();
+    toast.success('Example loaded. Click "Add 1 photo to queue", then Clean Up.');
+  }, [example, onExampleDone]);
 
   // Upload a file to Supabase and return the public URL
   const uploadToSupabase = async (file: File): Promise<string | null> => {
@@ -145,6 +162,10 @@ export function PhotoCleanupTab({
   return (
     <TabContentWrapper>
       <TabBody>
+        <div className="mb-4">
+          <PhotoCleanupTips />
+        </div>
+
         {/* Step 1: Upload Photos */}
         <StandardStep
           stepNumber={1}

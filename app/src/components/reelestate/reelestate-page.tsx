@@ -20,6 +20,7 @@ import { VideoMakerOutput } from './output-panel/video-maker-output';
 import { PhotoCleanupOutput } from './output-panel/photo-cleanup-output';
 import { HistoryOutput } from './output-panel/history-output';
 import { AgentCloneOutput } from './output-panel/agent-clone-output';
+import type { ListingVideoExample, PhotoCleanupExample } from './examples';
 
 const REELESTATE_TABS = [
   {
@@ -61,6 +62,7 @@ export function ReelEstatePage() {
     createProject,
     renameProject,
     startProject,
+    startExampleProject,
     addPhotos,
     analyzePhotos,
     generateScript,
@@ -126,6 +128,26 @@ export function ReelEstatePage() {
 
   const activeTab = getActiveTab();
 
+  // "Try this example": the examples sit in the result panel, the form in the tab
+  const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
+  const handleTryListingExample = useCallback(async (example: ListingVideoExample) => {
+    setLoadingExampleId(example.id);
+    await startExampleProject({
+      name: example.projectName,
+      photos: example.photos.map(photo => photo.url),
+      aspectRatio: example.aspectRatio,
+      targetDuration: example.targetDuration,
+      introText: example.introText,
+      voiceId: example.voice.id,
+      musicTrackId: example.music.id,
+      musicUrl: example.music.url,
+    });
+    setLoadingExampleId(null);
+  }, [startExampleProject]);
+
+  const [cleanupExample, setCleanupExample] = useState<PhotoCleanupExample | null>(null);
+  const clearCleanupExample = useCallback(() => setCleanupExample(null), []);
+
   // Wrap loadProject to also switch tab
   const handleLoadProject = useCallback((...args: Parameters<typeof loadProject>) => {
     loadProject(...args);
@@ -171,11 +193,14 @@ export function ReelEstatePage() {
               onAddToQueue={addToCleanupQueue}
               onRemoveFromQueue={removeFromCleanupQueue}
               onClearQueue={clearCleanupQueue}
+              example={cleanupExample}
+              onExampleDone={clearCleanupExample}
             />
           </div>
           <PhotoCleanupOutput
             results={cleanupResults}
             isCleaning={isCleaningUp}
+            onTryExample={setCleanupExample}
           />
         </StandardToolLayout>
       ) : activeTab === 'agent-clone' ? (
@@ -240,6 +265,8 @@ export function ReelEstatePage() {
             isWorking={isWorking}
             onPollClips={pollClips}
             onRegenerateClip={regenerateClip}
+            onTryExample={handleTryListingExample}
+            loadingExampleId={loadingExampleId}
           />
         </StandardToolLayout>
       )}

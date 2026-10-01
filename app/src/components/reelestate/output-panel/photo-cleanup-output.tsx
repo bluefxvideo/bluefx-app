@@ -4,26 +4,25 @@ import { containerStyles } from '@/lib/container-styles';
 import { BeforeAfterView } from '../components/before-after-view';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ImageIcon, Download, Loader2 } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import type { CleanupResult } from '@/types/reelestate';
 import { CLEANUP_PRESET_CONFIG } from '@/types/reelestate';
+import type { PhotoCleanupExample } from '../examples';
+import { PhotoCleanupExamples } from '../reelestate-examples';
 
 interface PhotoCleanupOutputProps {
   results: CleanupResult[];
   isCleaning: boolean;
+  /** "Try this example" in the examples shown while nothing is cleaned. */
+  onTryExample: (example: PhotoCleanupExample) => void;
 }
 
-export function PhotoCleanupOutput({ results, isCleaning }: PhotoCleanupOutputProps) {
+export function PhotoCleanupOutput({ results, isCleaning, onTryExample }: PhotoCleanupOutputProps) {
+  // Nothing cleaned yet: real before and after pairs from this tool
   if (results.length === 0 && !isCleaning) {
     return (
-      <div className={`h-full flex flex-col items-center justify-center text-center ${containerStyles.panel} p-8`}>
-        <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-          <ImageIcon className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-medium mb-2">Photo Cleanup</h3>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Upload property photos and choose a cleanup preset. AI will remove people, clutter, license plates, and more.
-        </p>
+      <div className={`h-full overflow-y-auto ${containerStyles.panel} p-4`}>
+        <PhotoCleanupExamples onTry={onTryExample} busy={isCleaning} />
       </div>
     );
   }

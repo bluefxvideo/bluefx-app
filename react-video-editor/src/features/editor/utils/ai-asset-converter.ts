@@ -355,6 +355,13 @@ export async function convertAIAssetsToEditorFormat(
     const firstSegment = aiAssets.segments![0];
     const lastSegment = aiAssets.segments![aiAssets.segments!.length - 1];
 
+    // A voiceover brings captions, and captions sit at 75% of the height: right
+    // where the big intro and outro lines are. The two overlapped in every
+    // narrated listing video. With a voiceover the big lines go to the top of
+    // the picture; without one they stay low.
+    const hasCaptions = Boolean(aiAssets.audio_url);
+    const bigLineTop = hasCaptions ? 0.06 : 0.70;
+
     // Pre-load fonts for intro/outro overlays
     await loadFonts([
       { name: "Montserrat-BlackItalic", url: "https://fonts.gstatic.com/s/montserrat/v18/JTUPjIg1_i6t8kCHKm459WxZSgnD-_xxrCq7qg.ttf" },
@@ -384,7 +391,7 @@ export async function convertAIAssetsToEditorFormat(
           color: "#ffffff",
           textAlign: "center",
           wordWrap: "break-word",
-          top: `${Math.round(canvasSize.height * 0.70)}px`,
+          top: `${Math.round(canvasSize.height * bigLineTop)}px`,
           left: `${Math.round(canvasSize.width * 0.05)}px`,
           borderWidth: 2,
           borderColor: "rgba(0,0,0,0.4)",
@@ -405,7 +412,8 @@ export async function convertAIAssetsToEditorFormat(
         // Details appear around 15 second mark (or at 60% of intro if intro < 15s)
         // Stay visible until the end of the last segment (not intro — intro is only first segment)
         const totalDurationMs = aiAssets.timeline_data.total_duration * 1000;
-        const detailsFromMs = Math.min(15000, introToMs * 0.6); // Clamp to 60% of intro if intro < 15s
+        // With captions the details take the address's place at the top once the address leaves
+        const detailsFromMs = hasCaptions ? introToMs : Math.min(15000, introToMs * 0.6); // Clamp to 60% of intro if intro < 15s
         const detailsToMs = totalDurationMs; // Visible until the end of the video
         const detailsTrack: ITrackItem = {
           id: generateId(),
@@ -422,7 +430,7 @@ export async function convertAIAssetsToEditorFormat(
             color: "#ffffff",
             textAlign: "center",
             wordWrap: "break-word",
-            top: `${Math.round(canvasSize.height * 0.75)}px`,
+            top: `${Math.round(canvasSize.height * (hasCaptions ? bigLineTop : 0.75))}px`,
             left: `${Math.round(canvasSize.width * 0.05)}px`,
             borderWidth: 1,
             borderColor: "rgba(0,0,0,0.3)",
@@ -457,7 +465,7 @@ export async function convertAIAssetsToEditorFormat(
           color: "#ffffff",
           textAlign: "center",
           wordWrap: "break-word",
-          top: `${Math.round(canvasSize.height * 0.70)}px`,
+          top: `${Math.round(canvasSize.height * bigLineTop)}px`,
           left: `${Math.round(canvasSize.width * 0.05)}px`,
           borderWidth: 2,
           borderColor: "rgba(0,0,0,0.4)",

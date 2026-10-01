@@ -64,19 +64,16 @@ export function BeforeAfterView({ beforeUrl, afterUrl, className = '' }: BeforeA
         draggable={false}
       />
 
-      {/* Before image (clipped) */}
-      <div
-        className="absolute inset-0 overflow-hidden"
-        style={{ width: `${sliderPosition}%` }}
-      >
-        <img
-          src={beforeUrl}
-          alt="Before cleanup"
-          className="w-full h-full object-cover"
-          style={{ width: `${containerRef.current ? containerRef.current.offsetWidth : 100}px`, maxWidth: 'none' }}
-          draggable={false}
-        />
-      </div>
+      {/* Before image, cut off at the slider. Clipping keeps both photos the
+          same size from the first paint (a measured width was 100px until the
+          first drag, so the "before" side showed a narrow strip). */}
+      <img
+        src={beforeUrl}
+        alt="Before cleanup"
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+        draggable={false}
+      />
 
       {/* Slider line */}
       <div
