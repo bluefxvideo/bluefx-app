@@ -323,7 +323,7 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
 // From below, because the arm then crosses nothing else: not the drawing, not the other column's words.
 const PUSH_FRAMES = 22;
 const PUSH_HAND_W = 250;
-function PushIn({ at, rotate = 0, children }) {
+function PushIn({ at, rotate = 0, zIndex = 5, children }) {
   const { H } = useFrame();
   const frame = useCurrentFrame();
   const ref = useRef(null);
@@ -340,7 +340,7 @@ function PushIn({ at, rotate = 0, children }) {
   // The fingers rest on a photo; under a line of text only the fingertips touch its lower edge.
   const overlap = Math.min(PUSH_HAND_W * 0.55, height * 0.35);
   return (
-    <div ref={ref} style={{ position: 'relative', zIndex: 5, transform: `translateY(${travel}px) rotate(${rotate}deg)` }}>
+    <div ref={ref} style={{ position: 'relative', zIndex, transform: `translateY(${travel}px) rotate(${rotate}deg)` }}>
       {children}
       {leave < H * 1.2 && (
         <Img
@@ -1057,15 +1057,23 @@ function Block({ block, duration }) {
   const body = <def.Component block={block} duration={duration} />;
   if (def.group) return body;
   const crooked = look.card.tape && block.type === 'media' && !block.cutout ? tilt(block.asset) : 0;
+  // The hand that underlines a title belongs to that title's layer: the title stands above the lines around it,
+  // or the hand would pass under the text below (it is painted later).
+  const above = block.underlineAt !== undefined ? 8 : undefined;
   if (look.motion === 'write' && block.push) {
     return (
-      <PushIn at={block.at} rotate={block.rotate ?? crooked}>
+      <PushIn at={block.at} rotate={block.rotate ?? crooked} zIndex={above}>
         {body}
       </PushIn>
     );
   }
   return (
-    <PopIn at={block.at} anim={block.anim || def.anim} rotate={block.rotate ?? (crooked || def.rotate || 0)}>
+    <PopIn
+      at={block.at}
+      anim={block.anim || def.anim}
+      rotate={block.rotate ?? (crooked || def.rotate || 0)}
+      style={above ? { position: 'relative', zIndex: above } : undefined}
+    >
       {body}
     </PopIn>
   );
