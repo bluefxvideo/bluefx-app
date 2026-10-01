@@ -411,7 +411,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       blocks: (startFrom !== undefined ? speakerBlocks(scene.blocks) : scene.blocks).map((block, k, shown) => {
         // The first headline of a scene is on screen from its first frame: no empty openings.
         const opening = k === shown.findIndex((b) => b.type === 'title' || b.type === 'badge');
-        const staged = stageBlock(block, k, opening ? () => undefined : at, plan.language, i === 0);
+        const staged = stageBlock(block, k, opening ? () => undefined : at, plan.language, i === 0, at);
         return startFrom !== undefined && staged.type === 'title' ? { ...staged, size: 's', rotate: 0, anim: undefined } : staged;
       }),
     };
@@ -540,7 +540,15 @@ function speakerBlocks(blocks: DirectorBlock[]): DirectorBlock[] {
 
 // Director block → renderer block: cues become times; small decorative
 // rotations are added here so the director never deals with them.
-function stageBlock(block: DirectorBlock, index: number, at: (cue?: string | null) => number | undefined, language: string, hook: boolean) {
+function stageBlock(
+  block: DirectorBlock,
+  index: number,
+  at: (cue?: string | null) => number | undefined,
+  language: string,
+  hook: boolean,
+  // The opening title has no cue of its own (`at` answers nothing for it), but its underline still follows the voice.
+  underline: (cue?: string | null) => number | undefined = at
+) {
   switch (block.type) {
     case 'chips':
     case 'rows':
@@ -564,12 +572,14 @@ function stageBlock(block: DirectorBlock, index: number, at: (cue?: string | nul
       return { ...number, prefix, suffix, locale: language, at: at(cue) };
     }
     case 'title': {
-      const { cue, ...title } = block;
+      const { cue, underlineCue, ...title } = block;
       // Size follows the longest line, so short punchy lines come out huge.
       const longest = Math.max(...title.text.split('\n').map((line) => line.length));
       const size = longest <= 10 ? 'xl' : longest <= (hook ? 16 : 14) ? 'l' : longest <= 19 ? 'm' : 's';
       const stamp = title.tone === 'accent' && size === 'xl';
-      return { ...title, size, anim: stamp ? 'stamp' : undefined, rotate: stamp ? -4 : size === 'm' ? -2 : 0, at: at(cue) };
+      // The line under a title is drawn when the narrator says the words; a cue that is not in the narration draws none.
+      const underlineAt = underlineCue ? underline(underlineCue) : undefined;
+      return { ...title, size, anim: stamp ? 'stamp' : undefined, rotate: stamp ? -4 : size === 'm' ? -2 : 0, at: at(cue), underlineAt };
     }
     default: {
       const { cue, ...rest } = block;

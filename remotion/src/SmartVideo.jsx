@@ -41,6 +41,9 @@ const Frame = createContext(FRAMES.vertical);
 const useFrame = () => useContext(Frame);
 const Column = createContext(1080);
 const useColumn = () => useContext(Column);
+// Where in the frame the current column stands ('left' | 'center' | 'right'): the pushing hand comes from the
+// side with more room, so it is seen crossing the frame instead of hiding at the edge.
+const Side = createContext('center');
 const SIDE = 50;
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' };
 const EMOJI = '"Noto Color Emoji", "Apple Color Emoji", sans-serif';
@@ -142,11 +145,14 @@ const STYLES = {
     motion: 'write',
     rotate: true,
     transition: 'erase',
-    sfx: { pop: 0, whoosh: 0, ding: 0.35, chaching: 0.35, marker: 1 },
+    sfx: { pop: 0, whoosh: 0, ding: 0.35, chaching: 0.35, marker: 1, underline: 1, push: 1 },
   },
 };
 const MARKER = '"Marker", "Caveat", cursive';
-const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.32 };
+const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.32, underline: 0.3, push: 0.28 };
+// Sounds that reuse another sound's file, and the ones only the whiteboard look plays.
+const SFX_FILE = { underline: 'marker', push: 'whoosh' };
+const WHITEBOARD_ONLY = ['marker', 'underline', 'push'];
 
 const Plan = createContext(null);
 const usePlan = () => useContext(Plan);
@@ -231,9 +237,11 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
   });
   const down = align !== 'flex-start';
   return (
+    <Side.Provider value={left + columnWidth / 2 < W * 0.4 ? 'left' : left + columnWidth / 2 > W * 0.6 ? 'right' : 'center'}>
     <Column.Provider value={columnWidth}>
       <div
-        style={{ position: 'absolute', top, left, width: columnWidth, height: available, display: 'flex', alignItems: align, justifyContent: 'center' }}
+        // A column with something the hand pushes in stands above the others, so the arm is never under their words.
+        style={{ position: 'absolute', top, left, width: columnWidth, height: available, display: 'flex', alignItems: align, justifyContent: 'center', zIndex: React.Children.toArray(children).some((child) => child?.props?.block?.push) ? 6 : 'auto' }}
       >
         <div
           ref={ref}
@@ -271,6 +279,7 @@ function Stack({ top, bottom, left = 0, width, gap, align = 'center', scrim = fa
         </div>
       </div>
     </Column.Provider>
+    </Side.Provider>
   );
 }
 
@@ -313,6 +322,30 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
   }
   const move = calm ? moves.rise : moves[anim] || moves.pop;
   return <div style={{ opacity, transform: `${move} rotate(${look.rotate ? rotate : 0}deg)`, ...style }}>{children}</div>;
+}
+
+// Whiteboard: the hand slides an element in across the frame, lets go and leaves the way it came.
+const PUSH_FRAMES = 16;
+function PushIn({ at, rotate = 0, children }) {
+  const { W, landscape } = useFrame();
+  const fromLeft = useContext(Side) === 'right';
+  const frame = useCurrentFrame();
+  const t = frame - useLocalFrame(at);
+  if (t < 0) return <div style={{ visibility: 'hidden' }}>{children}</div>;
+  const dir = fromLeft ? -1 : 1;
+  const travel = interpolate(t, [0, PUSH_FRAMES], [W * 1.1, 0], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const leave = interpolate(t, [PUSH_FRAMES + 4, PUSH_FRAMES + 16], [0, W * 1.3], { ...clamp, easing: Easing.in(Easing.cubic) });
+  const handW = landscape ? 300 : 330;
+  // The arm lies along the push: the fist against the element's edge, the forearm running out of the frame.
+  const hand = fromLeft
+    ? { right: '100%', transformOrigin: '100% 0', transform: `translate(${handW * 0.05 - leave}px, ${handW * 0.5}px) rotate(90deg)` }
+    : { left: '100%', transformOrigin: '0 0', transform: `translate(${leave - handW * 0.05}px, ${handW * 0.5}px) rotate(-90deg)` };
+  return (
+    <div style={{ position: 'relative', zIndex: 5, transform: `translateX(${dir * travel}px) rotate(${rotate}deg)` }}>
+      {children}
+      {leave < W * 1.3 && <Img src={staticFile('smart-video/whiteboard/hand.png')} style={{ position: 'absolute', top: '50%', width: handW, maxWidth: 'none', ...hand }} />}
+    </div>
+  );
 }
 
 // ---------- blocks ----------
@@ -389,7 +422,9 @@ function Title({ block }) {
   // Handwriting: the words appear letter by letter, at the size fitted for the whole line.
   const frame = useCurrentFrame();
   const from = useLocalFrame(block.at);
-  if (look.title.kind === 'hand' && block.display === undefined) {
+  const underFrom = useLocalFrame(block.underlineAt ?? block.at);
+  const underline = block.underlineAt === undefined ? 0 : interpolate(frame - underFrom, [0, 10], [0, 1], clamp);
+  if (look.title.kind === 'hand' && block.display === undefined && !block.push) {
     const written = Math.max(0, Math.floor((frame - from) / HAND_FRAMES_PER_CHAR));
     if (written < text.length) block = { ...block, display: text.slice(0, written) };
   }
@@ -406,9 +441,23 @@ function Title({ block }) {
         whiteSpace: 'pre',
         textTransform: look.title.upper ? 'uppercase' : 'none',
         fontVariantNumeric: 'tabular-nums',
+        position: 'relative',
         ...paint.outer,
       }}
     >
+      {underline > 0 && (
+        // A line under the title, drawn as the narrator says it: a marker stroke on the whiteboard, a bar elsewhere.
+        <svg viewBox="0 0 100 10" preserveAspectRatio="none" style={{ position: 'absolute', left: '-2%', width: '104%', bottom: '-0.16em', height: '0.24em', overflow: 'visible', clipPath: `inset(-300% ${(1 - underline) * 100}% -300% -10%)` }}>
+          <path
+            d={look.title.kind === 'hand' ? 'M 1 6 C 18 2, 34 9, 52 5 S 84 3, 99 6' : 'M 1 5 L 99 5'}
+            fill="none"
+            stroke={theme.accent}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+            style={{ strokeWidth: Math.max(6, Math.round(size * 0.07)) }}
+          />
+        </svg>
+      )}
       <div ref={ref} style={{ gridArea: '1 / 1', visibility: block.display === undefined ? 'visible' : 'hidden' }}>{line(text)}</div>
       {block.display !== undefined && <div style={{ gridArea: '1 / 1' }}>{line(block.display)}</div>}
     </div>
@@ -529,7 +578,7 @@ function Highlight({ block }) {
     return (
       <div style={{ position: 'relative', padding: `${Math.round(size * 0.55)}px ${Math.round(size * 0.9)}px`, fontFamily: MARKER, fontSize: size, color: theme.ink }}>
         <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
-        <svg viewBox="0 0 100 40" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', clipPath: `inset(-30% ${(1 - drawn) * 100 - (drawn >= 1 ? 10 : 0)}% -30% -10%)` }}>
           <path
             d="M 8 22 C 6 8, 40 3, 62 4 C 88 5, 99 13, 96 24 C 93 35, 58 39, 33 37 C 12 35, 2 28, 9 17 C 13 11, 22 8, 30 7"
             fill="none"
@@ -537,9 +586,6 @@ function Highlight({ block }) {
             strokeWidth="1.6"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
-            pathLength="1"
-            strokeDasharray="1"
-            strokeDashoffset={1 - drawn}
             style={{ strokeWidth: 7 }}
           />
         </svg>
@@ -986,6 +1032,13 @@ function Block({ block, duration }) {
   const body = <def.Component block={block} duration={duration} />;
   if (def.group) return body;
   const crooked = look.card.tape && block.type === 'media' && !block.cutout ? tilt(block.asset) : 0;
+  if (look.motion === 'write' && block.push) {
+    return (
+      <PushIn at={block.at} rotate={block.rotate ?? crooked}>
+        {body}
+      </PushIn>
+    );
+  }
   return (
     <PopIn at={block.at} anim={block.anim || def.anim} rotate={block.rotate ?? (crooked || def.rotate || 0)}>
       {body}
@@ -1480,7 +1533,11 @@ function autoSfx(scenes) {
       const seconds = drawSeconds(scene.end - scene.start);
       for (let t = 0.1; t < seconds - 0.4; t += 1.45) out.push({ name: 'marker', at: scene.start + t });
     }
+    // In a drawing scene the words wait for the hand to leave, and so do their sounds.
+    const held = i > 0 && scene.background?.type === 'drawing' ? scene.start + drawSeconds(scene.end - scene.start) + 10 / FPS : scene.start;
     scene.blocks.forEach((block) => {
+      if (block.underlineAt !== undefined) out.push({ name: 'underline', at: Math.max(block.underlineAt, held) });
+      if (block.push) out.push({ name: 'push', at: Math.max(block.at ?? scene.start, held) });
       if (['chips', 'tiles', 'rows'].includes(block.type)) block.items.forEach((item) => out.push({ name: 'pop', at: item.at ?? block.at ?? scene.start }));
       if (block.type === 'number') out.push({ name: 'chaching', at: (block.at ?? scene.start) + 0.55 });
       if (block.type === 'badge' || block.type === 'highlight') out.push({ name: 'ding', at: block.at ?? scene.start });
@@ -1494,7 +1551,7 @@ function Soundtrack({ audio = {}, scenes, duration }) {
   const { look } = usePlan();
   const { voice, music } = audio;
   const cuts = voice?.cuts || (voice ? [{ at: 0, srcStart: 0, srcEnd: duration }] : []);
-  const auto = audio.autoSfx === false ? [] : autoSfx(scenes).map((s) => ({ ...s, volume: SFX_VOLUME[s.name] * (look.sfx[s.name] ?? (s.name === 'marker' ? 0 : 1)) }));
+  const auto = audio.autoSfx === false ? [] : autoSfx(scenes).map((s) => ({ ...s, volume: SFX_VOLUME[s.name] * (look.sfx[s.name] ?? (WHITEBOARD_ONLY.includes(s.name) ? 0 : 1)) }));
   const sfx = [...auto, ...(audio.sfx || [])].filter((s) => Number.isFinite(s.at) && (s.volume === undefined || s.volume > 0));
   const bed = music?.volume ?? 0.14;
   const tail = music?.tailVolume ?? 0.4;
@@ -1519,7 +1576,7 @@ function Soundtrack({ audio = {}, scenes, duration }) {
       {music?.url && <Audio src={src(music.url)} volume={envelope} loop />}
       {sfx.map((s, i) => (
         <Sequence key={`s${i}`} from={Math.max(0, Math.round(s.at * FPS))} durationInFrames={60}>
-          <Audio src={src(s.url || `smart-video/sfx/${s.name}.mp3`)} volume={s.volume ?? SFX_VOLUME[s.name] ?? 0.3} />
+          <Audio src={src(s.url || `smart-video/sfx/${SFX_FILE[s.name] || s.name}.mp3`)} volume={s.volume ?? SFX_VOLUME[s.name] ?? 0.3} />
         </Sequence>
       ))}
     </>
