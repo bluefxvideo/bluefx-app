@@ -1,51 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/app/supabase/server';
-
-// Tool name mapping - matches operation types from deductCredits() calls
-const TOOL_NAMES: Record<string, string> = {
-  // AI Cinematographer operations
-  'video-generation': 'Cinematographer Video',
-  'starting-shot': 'Starting Shot',
-  'storyboard-generation': 'Storyboard Generation',
-  'storyboard-frame-extraction': 'Frame Extraction',
-
-  // Script to Video
-  'script-to-video-generation': 'Script to Video',
-  'video-export': 'Video Export',
-
-  // Voice & Audio
-  'voice_over_generation': 'Voice Over',
-  'music_generation': 'Music Generation',
-
-  // Avatar
-  'talking_avatar_generation': 'Talking Avatar',
-
-  // Thumbnail Machine
-  'thumbnail-generation': 'Thumbnail Generation',
-  'face-swap-only': 'Face Swap Only',
-  'recreation': 'Thumbnail Recreation',
-  'title-generation': 'Title Generation',
-
-  // Ebook
-  'ebook_generation': 'Ebook Writer',
-  'ebook_cover_generation': 'Ebook Cover',
-
-  // Logo
-  'logo-generation': 'Logo Generation',
-
-  // Video Swap
-  'video-swap': 'Video Swap',
-
-  // Legacy/alternative names
-  'voice_over': 'Voice Over',
-  'media_generation': 'AI Cinematographer',
-  'content_generation': 'Content Multiplier',
-  'avatar_video': 'Talking Avatar',
-  'ai_prediction': 'Thumbnail Machine',
-  'script_to_video': 'Script to Video',
-  'logo_generation': 'Logo Generator',
-  'video_swap': 'Video Swap',
-};
+import { dayStart, localDay, readAll, toolName, viewerOffset } from '@/lib/admin/usage';
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,15 +26,18 @@ export async function GET(request: NextRequest) {
 
     // Get query params
     const searchParams = request.nextUrl.searchParams;
-    const dateFilter = searchParams.get('date') || new Date().toISOString().split('T')[0];
+    // The day is the viewer's calendar day, not a UTC day: late-evening usage belongs to the day it was made on.
+    const tz = viewerOffset(searchParams.get('tz'));
+    const requestedDate = searchParams.get('date');
+    const dateFilter = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : localDay(Date.now(), tz);
     const toolFilter = searchParams.get('tool');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '30');
     const offset = (page - 1) * limit;
 
     // Calculate date range
-    const startOfDay = `${dateFilter}T00:00:00.000Z`;
-    const endOfDay = `${dateFilter}T23:59:59.999Z`;
+    const startOfDay = dayStart(dateFilter, tz).toISOString();
+    const endOfDay = new Date(dayStart(dateFilter, tz).getTime() + 24 * 60 * 60 * 1000).toISOString();
 
     // Use admin client
     const adminClient = createAdminClient();
@@ -90,8 +48,9 @@ export async function GET(request: NextRequest) {
       .select('id, user_id, operation_type, amount, created_at', { count: 'exact' })
       .eq('transaction_type', 'debit')
       .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay)
-      .order('created_at', { ascending: false });
+      .lt('created_at', endOfDay)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false });
 
     if (toolFilter && toolFilter !== 'all') {
       query = query.eq('operation_type', toolFilter);
@@ -107,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     // Get user profiles for entries
     const userIds = [...new Set((entries || []).map(e => e.user_id).filter(Boolean))];
-    let userMap: Record<string, { name: string; email?: string }> = {};
+    const userMap: Record<string, { name: string; email?: string }> = {};
 
     if (userIds.length > 0) {
       const { data: profiles } = await adminClient
@@ -130,20 +89,23 @@ export async function GET(request: NextRequest) {
       user_name: userMap[entry.user_id]?.name || 'Unknown User',
       user_email: userMap[entry.user_id]?.email,
       tool_name: entry.operation_type,
-      tool_display_name: TOOL_NAMES[entry.operation_type] || entry.operation_type.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+      tool_display_name: toolName(entry.operation_type),
       credits: Math.abs(entry.amount || 0),
       created_at: entry.created_at,
     }));
 
-    // Get daily summary
-    const { data: allDayEntries } = await adminClient
-      .from('credit_transactions')
-      .select('user_id, operation_type, amount')
-      .eq('transaction_type', 'debit')
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay);
-
-    const dayEntries = allDayEntries || [];
+    // Get daily summary (every row of the day: one request stops at 1,000)
+    const dayEntries = await readAll<{ user_id: string; operation_type: string | null; amount: number | null }>((from, to) =>
+      adminClient
+        .from('credit_transactions')
+        .select('user_id, operation_type, amount')
+        .eq('transaction_type', 'debit')
+        .gte('created_at', startOfDay)
+        .lt('created_at', endOfDay)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to)
+    );
     const uniqueUsers = new Set(dayEntries.map(e => e.user_id)).size;
     const totalCredits = dayEntries.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
 
@@ -157,22 +119,18 @@ export async function GET(request: NextRequest) {
     const byTool = Array.from(toolBreakdown.entries())
       .map(([tool, count]) => ({
         tool,
-        toolName: TOOL_NAMES[tool] || tool.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        toolName: toolName(tool),
         count,
       }))
       .sort((a, b) => b.count - a.count);
 
-    // Get unique tools for filter dropdown
-    const { data: allTools } = await adminClient
-      .from('credit_transactions')
-      .select('operation_type')
-      .eq('transaction_type', 'debit');
-
-    const uniqueTools = [...new Set((allTools || []).map(t => t.operation_type).filter(Boolean))];
-    const tools = uniqueTools.map(tool => ({
-      value: tool,
-      label: TOOL_NAMES[tool] || tool.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-    }));
+    // The tool filter lists what was used on this day (plus the tool it is set to). It used to be built from
+    // the 1,000 oldest charges ever, so no tool added since 2025 could be picked.
+    const usedTools = [...new Set(dayEntries.map(e => e.operation_type).filter((t): t is string => Boolean(t)))];
+    if (toolFilter && toolFilter !== 'all' && !usedTools.includes(toolFilter)) usedTools.push(toolFilter);
+    const tools = usedTools
+      .map(tool => ({ value: tool, label: toolName(tool) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
 
     const total = count || 0;
     const totalPages = Math.ceil(total / limit);

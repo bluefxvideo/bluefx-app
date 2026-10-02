@@ -1,52 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/app/supabase/server';
-
-// Tool name mapping for human-readable display
-// These match the operation types passed to deductCredits() across the codebase
-const TOOL_NAMES: Record<string, string> = {
-  // AI Cinematographer operations
-  'video-generation': 'Cinematographer Video',
-  'starting-shot': 'Starting Shot',
-  'storyboard-generation': 'Storyboard Generation',
-  'storyboard-frame-extraction': 'Frame Extraction',
-
-  // Script to Video
-  'script-to-video-generation': 'Script to Video',
-  'video-export': 'Video Export',
-
-  // Voice & Audio
-  'voice_over_generation': 'Voice Over',
-  'music_generation': 'Music Generation',
-
-  // Avatar
-  'talking_avatar_generation': 'Talking Avatar',
-
-  // Thumbnail Machine
-  'thumbnail-generation': 'Thumbnail Generation',
-  'face-swap-only': 'Face Swap Only',
-  'recreation': 'Thumbnail Recreation',
-  'title-generation': 'Title Generation',
-
-  // Ebook
-  'ebook_generation': 'Ebook Writer',
-  'ebook_cover_generation': 'Ebook Cover',
-
-  // Logo
-  'logo-generation': 'Logo Generation',
-
-  // Video Swap
-  'video-swap': 'Video Swap',
-
-  // Legacy/alternative names (for backwards compatibility)
-  'voice_over': 'Voice Over',
-  'media_generation': 'AI Cinematographer',
-  'content_generation': 'Content Multiplier',
-  'avatar_video': 'Talking Avatar',
-  'ai_prediction': 'Thumbnail Machine',
-  'script_to_video': 'Script to Video',
-  'logo_generation': 'Logo Generator',
-  'video_swap': 'Video Swap',
-};
+import { dayStart, daysBetween, localDay, readAll, toolName, viewerOffset } from '@/lib/admin/usage';
 
 export async function GET(request: NextRequest) {
   try {
@@ -80,8 +34,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const dateRange = searchParams.get('range') || '30d';
     const excludeAdmins = searchParams.get('excludeAdmins') === 'true';
-    const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365 * 10;
-    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    // Days are the viewer's calendar days: "Today" starts at their midnight, "Last 7 days" is today and the six days before.
+    const offset = viewerOffset(searchParams.get('tz'));
+    const today = localDay(Date.now(), offset);
+    const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : null;
+    const firstDay = days ? localDay(dayStart(today, offset).getTime() - (days - 1) * 24 * 60 * 60 * 1000, offset) : null;
+    const startDate = firstDay ? dayStart(firstDay, offset).toISOString() : '2000-01-01T00:00:00.000Z';
 
     console.log('📊 Date range:', dateRange, 'Exclude admins:', excludeAdmins, 'Start date:', startDate);
 
@@ -100,23 +58,26 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch credit transactions data (this is where user usage is stored)
-    // Same table that user-dashboard-enhanced.tsx uses
-    const { data: usageData, error: usageError } = await adminClient
-      .from('credit_transactions')
-      .select('user_id, operation_type, amount, created_at')
-      .eq('transaction_type', 'debit')
-      .gte('created_at', startDate)
-      .order('created_at', { ascending: false })
-      .limit(10000);
-
-    console.log('📊 Usage query result - error:', usageError?.message, 'count:', usageData?.length);
-
-    if (usageError) {
+    // Same table that user-dashboard-enhanced.tsx uses. Read page by page: one request stops at 1,000 rows.
+    let usageData: { user_id: string; operation_type: string | null; amount: number | null; created_at: string }[];
+    try {
+      usageData = await readAll((from, to) =>
+        adminClient
+          .from('credit_transactions')
+          .select('user_id, operation_type, amount, created_at')
+          .eq('transaction_type', 'debit')
+          .gte('created_at', startDate)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, to)
+      );
+    } catch (usageError) {
       return NextResponse.json({
-        error: `Failed to fetch usage data: ${usageError.message}`,
-        details: usageError
+        error: `Failed to fetch usage data: ${usageError instanceof Error ? usageError.message : 'unknown error'}`,
       }, { status: 500 });
     }
+
+    console.log('📊 Usage query result - count:', usageData.length);
 
     // Fetch user counts
     let totalUsersQuery = adminClient.from('profiles').select('*', { count: 'exact', head: true });
@@ -159,7 +120,7 @@ export async function GET(request: NextRequest) {
     const toolUsage = Array.from(toolMap.entries())
       .map(([toolId, data]) => ({
         toolId,
-        toolName: TOOL_NAMES[toolId] || toolId.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        toolName: toolName(toolId),
         totalCredits: data.credits,
         totalUses: data.uses,
         uniqueUsers: data.userIds.length,
@@ -170,7 +131,7 @@ export async function GET(request: NextRequest) {
     const dailyMap = new Map<string, { credits: number; generations: number; userIds: string[] }>();
     for (const entry of entries) {
       if (!entry.created_at) continue;
-      const dateKey = entry.created_at.split('T')[0];
+      const dateKey = localDay(entry.created_at, offset);
       const existing = dailyMap.get(dateKey) || { credits: 0, generations: 0, userIds: [] };
       existing.credits += Math.abs(entry.amount || 0);
       existing.generations += 1;
@@ -180,19 +141,17 @@ export async function GET(request: NextRequest) {
       dailyMap.set(dateKey, existing);
     }
 
-    const dailyTrends: { date: string; creditsUsed: number; generations: number; activeUsers: number }[] = [];
-    const today = new Date();
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateKey = date.toISOString().split('T')[0];
+    // One point per calendar day, days without usage included. "All time" starts at the first day with usage.
+    const firstUsedDay = [...dailyMap.keys()].sort()[0] || today;
+    const dailyTrends = daysBetween(firstDay || firstUsedDay, today).map((dateKey) => {
       const dayData = dailyMap.get(dateKey);
-      dailyTrends.push({
+      return {
         date: dateKey,
         creditsUsed: dayData?.credits || 0,
         generations: dayData?.generations || 0,
         activeUsers: dayData?.userIds.length || 0,
-      });
-    }
+      };
+    });
 
     // Top users
     const userMap = new Map<string, { credits: number; generations: number; lastActive: string }>();

@@ -137,7 +137,8 @@ export function PlatformUsagePanel() {
 
     try {
       console.log('Fetching platform stats for date range:', dateRange);
-      const response = await fetch(`/api/admin/platform-stats?range=${dateRange}&excludeAdmins=${excludeAdmins}`);
+      // (tz: this browser's clock, so a day on the chart is the day here and not a UTC day)
+      const response = await fetch(`/api/admin/platform-stats?range=${dateRange}&excludeAdmins=${excludeAdmins}&tz=${new Date().getTimezoneOffset()}`);
       const result = await response.json();
       console.log('Platform stats result:', result);
 
@@ -210,8 +211,9 @@ export function PlatformUsagePanel() {
     URL.revokeObjectURL(url);
   };
 
+  // A day on the chart is a calendar day ("2026-10-02"), not an instant: it reads the same in every time zone.
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   };
 
   const pieChartData = toolUsage.slice(0, 6).map((tool, index) => ({
@@ -358,7 +360,7 @@ export function PlatformUsagePanel() {
                       />
                       <YAxis tick={{ fontSize: 12 }} />
                       <Tooltip
-                        labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                        labelFormatter={(value) => new Date(value).toLocaleDateString(undefined, { timeZone: 'UTC' })}
                         formatter={(value, name) => [
                           value,
                           name === 'creditsUsed' ? 'Credits' : name === 'activeUsers' ? 'Active Users' : 'Generations',

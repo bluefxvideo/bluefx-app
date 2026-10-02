@@ -129,14 +129,16 @@ export async function GET(_request: NextRequest) {
         // Get total credits used from user_credits table
         const totalCreditsUsed = credits?.used_credits || 0
 
-        // Get last activity from credit_transactions table
+        // Get last activity from credit_transactions table: the last time credits were used
+        // (a monthly top-up or a refund is not activity)
         const { data: lastActivityData } = await adminClient
           .from('credit_transactions')
           .select('created_at')
           .eq('user_id', profile.id)
+          .eq('transaction_type', 'debit')
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         return {
           ...profile,

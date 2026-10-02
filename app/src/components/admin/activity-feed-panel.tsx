@@ -63,8 +63,9 @@ export function ActivityFeedPanel() {
   const [error, setError] = useState<string | null>(null);
 
   // Filters and pagination
+  // Today on this browser's clock (a UTC date is yesterday's until 3 a.m. in Romania)
   const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split('T')[0]
+    () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().split('T')[0]
   );
   const [toolFilter, setToolFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
@@ -78,6 +79,8 @@ export function ActivityFeedPanel() {
         date: selectedDate,
         page: page.toString(),
         limit: '30',
+        // The day is the day on this browser's clock
+        tz: new Date().getTimezoneOffset().toString(),
       });
 
       if (toolFilter && toolFilter !== 'all') {
@@ -221,6 +224,7 @@ export function ActivityFeedPanel() {
                   weekday: 'short',
                   month: 'short',
                   day: 'numeric',
+                  timeZone: 'UTC',
                 })}
               </div>
             </CardContent>
