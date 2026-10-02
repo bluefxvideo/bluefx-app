@@ -17,7 +17,7 @@ import { smallPicture } from './files';
 
 const CHECK_MODEL = 'gemini-3.6-flash';
 /** The points of the check that fail a picture. "frame" (another angle or crop) is noted by the model and let through. */
-const SERIOUS = ['done', 'identity', 'leftovers', 'damage', 'added'];
+const SERIOUS = ['done', 'identity', 'leftovers', 'damage', 'added', 'kept'];
 
 /**
  * The edit prompt intentionally does NOT restate the original character
@@ -127,7 +127,7 @@ export async function makeCastPicture(projectId: string, prompt: string): Promis
 
 export interface PictureVerdict {
   pass: boolean;
-  /** The points that failed: done, identity, leftovers, frame, damage, added. */
+  /** The points that failed: done, identity, leftovers, frame, damage, added, kept. */
   failed: string[];
   /** One short sentence a client can read. */
   why: string;
@@ -138,12 +138,13 @@ const CHECK = `You check one frame of an ad remake. You get, in this order: the 
 Judge the NEW frame on these points:
 1. done: every requested change is visible in the new frame (the replaced thing is gone, the replacement is there).
 2. identity: where the instruction points to a reference photo, the new frame shows that same person or product (face, hair, packaging), not a lookalike.
-3. leftovers: nothing of the replaced brand, product or person is still visible, and no source logo or on-screen text is left when its removal was asked.
+3. leftovers: nothing of the replaced brand, product or person is still visible, and no source logo or on-screen text is left when its removal was asked. Clothes or a costume that the instruction says the replacement wears are no leftover.
 4. frame: camera angle, framing and the positions of everything else are kept as in the original, unless the instruction asked otherwise.
 5. damage: no distorted faces or hands, no extra limbs or fingers, no duplicated objects, no garbled text, no pasted-on look.
 6. added: nothing was added that the instruction did not ask for.
+7. kept: every thing of the original frame that the instruction does not mention is still there and still the same thing (a toilet, a table, a tool in a hand, a second person or animal). A swap that swallowed its neighbour, or that put the replacement in the place of another thing, fails here. So does a replacement that is seen from another side than what it replaces (seen from behind stays seen from behind).
 
-Be strict about done, identity, leftovers and damage. Be lenient about small differences in light and colour.
+Be strict about done, identity, leftovers, damage and kept. Be lenient about small differences in light and colour.
 "why" says in one short plain sentence what is wrong with the NEW frame, in words that could be given to the picture model as a correction ("The source logo is still on the apron."). Empty when the frame passes.
 Answer JSON only: {"pass": true or false, "failed": [the names of the points that fail], "why": "..."}`;
 

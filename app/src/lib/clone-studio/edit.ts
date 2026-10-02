@@ -57,6 +57,21 @@ export function paceFactor(words: { start: number; end: number }[], target = NAR
   return Math.min(MAX_SPEED_UP, Math.max(1, target / rate));
 }
 
+/**
+ * A person on camera who talks slower than this is sped up, picture and sound together. The
+ * video engine speaks at about 2.7 words a second with pauses; a full test ad ran 63 seconds
+ * against a source of 54.
+ */
+export const ON_CAMERA_WORDS_PER_SECOND = 3.2;
+const MAX_CLIP_SPEED_UP = 1.12; // beyond this the movement starts to look hurried
+
+/** Speed factor for a talking clip: never slower, at most 12% faster. */
+export function clipPaceFactor(words: { start: number; end: number }[]): number {
+  const rate = speakingRate(words);
+  if (!rate) return 1;
+  return Math.min(MAX_CLIP_SPEED_UP, Math.max(1, ON_CAMERA_WORDS_PER_SECOND / rate));
+}
+
 const PUNCH_SCALE = 1.14;
 const MIN_HOLD = 1.3; // a zoom cut sooner than this after the last change reads as a glitch
 

@@ -288,6 +288,8 @@ function FinishRow({ scene, disabled, onChange }: { scene: CloneScene; disabled:
   const original = scene.analysis?.on_screen_text?.replace(/\s+/g, ' ').trim();
   const originalWords = scene.analysis?.dialog?.replace(/\s+/g, ' ').trim();
   const leftOut = !finish || picture === 'skip';
+  // The director gave this scene's words to a neighbour's phrase: the scene is shown over that voice.
+  const over = scene.plan?.over;
 
   return (
     <div className={`grid gap-3 rounded-md border border-border/40 bg-muted/20 p-2.5 md:grid-cols-[104px_170px_minmax(0,1fr)_minmax(0,1fr)] ${leftOut ? 'opacity-60' : ''}`}>
@@ -350,7 +352,7 @@ function FinishRow({ scene, disabled, onChange }: { scene: CloneScene; disabled:
                 if (line !== finish.line) onChange({ line });
               }}
               disabled={disabled || leftOut || sound === 'none'}
-              placeholder={sound === 'none' ? 'Nobody speaks in this scene' : sound === 'narrator' ? 'Write what the narrator says here' : 'What is said in this scene'}
+              placeholder={sound === 'none' ? (over ? `Shown while the scene ${over === 'previous' ? 'before' : 'after'} it speaks` : 'Nobody speaks in this scene') : sound === 'narrator' ? 'Write what the narrator says here' : 'What is said in this scene'}
               className="text-xs min-h-[56px]"
             />
             {originalWords && (

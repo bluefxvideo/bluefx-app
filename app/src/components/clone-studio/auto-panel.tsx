@@ -37,6 +37,8 @@ interface AutoPanelProps {
   onProjectUpdate: (project: CloneProject) => void;
   /** The board's photo strip: the client's person, product, place and logo. */
   photos: ReactNode;
+  /** Shows a scene's card (the board may be folded away). */
+  onOpenScene?: (n: number) => void;
 }
 
 type Choice = 'picture' | CloneAnimEngine;
@@ -69,7 +71,7 @@ function progressOf(run: AutoRun): { text: string; percent: number } {
   return { text: `${FINISH_LABEL[finish.stage]}${finish.stage === 'rendering' ? `: ${finish.progress}%` : ''}`, percent: 50 + within };
 }
 
-export function AutoPanel({ project, onProjectUpdate, photos }: AutoPanelProps) {
+export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: AutoPanelProps) {
   const auto = project.analysis_summary?.auto;
   const run = auto?.run;
   const running = project.status === 'directing';
@@ -139,12 +141,21 @@ export function AutoPanel({ project, onProjectUpdate, photos }: AutoPanelProps) 
   const [choices, setChoices] = useState<Record<number, Choice>>({});
   const choiceOf = (scene: CloneScene): Choice => choices[scene.n] ?? suggested(scene);
   const picked = movable.filter((scene) => choiceOf(scene) !== 'picture').map((scene) => ({ n: scene.n, engine: choiceOf(scene) as CloneAnimEngine }));
-  const motionCredits = picked.reduce((sum, pick) => sum + cloneClipCredits(cloneClipSeconds(movable.find((scene) => scene.n === pick.n)!), pick.engine), 0);
+  type MotionPick = { n: number; engine: CloneAnimEngine };
+  const creditsOf = (picks: MotionPick[]) => picks.reduce((sum, pick) => sum + cloneClipCredits(cloneClipSeconds(movable.find((scene) => scene.n === pick.n)!), pick.engine), 0);
+  const motionCredits = creditsOf(picked);
+  // The two ready choices, for the scenes that are still pictures: a person who talks gets a clip with sound, other footage moves without.
+  const still = movable.filter((scene) => !sceneClip(scene));
+  const talks = (scene: CloneScene) => scene.plan?.speaker === 'on_camera' && Boolean(scene.finish?.line?.trim());
+  const everything: MotionPick[] = still.map((scene) => ({ n: scene.n, engine: talks(scene) ? 'best' : 'standard' }));
+  const talkers: MotionPick[] = still.filter(suggestsClip).map((scene) => ({ n: scene.n, engine: 'best' }));
+  const [choosing, setChoosing] = useState(false);
+  const [showFlagged, setShowFlagged] = useState(false);
 
-  const startMotion = async () => {
+  const startMotion = async (picks: MotionPick[]) => {
     setStarting(true);
     try {
-      const result = await startCloneMotion(project.id, picked);
+      const result = await startCloneMotion(project.id, picks);
       if (result.success && result.project) {
         onProjectUpdate(result.project);
         setChoices({});
@@ -170,7 +181,11 @@ export function AutoPanel({ project, onProjectUpdate, photos }: AutoPanelProps) 
             <Wand2 className="w-4 h-4 text-primary" /> Do it for me
           </p>
           <p className="text-xs text-zinc-500">
-            Tell the director about your business. The director rewrites every scene for you, makes the pictures and finishes a first version of your ad. After that you choose which scenes get motion.
+            {!planned
+              ? 'Tell the director about your business. The director rewrites every scene for you, makes the pictures and finishes a first version of your ad. After that you make it move.'
+              : project.scenes.some((scene) => sceneClip(scene))
+                ? 'The director remade every scene for your business.'
+                : 'The director remade every scene for your business. The first version is made of pictures: now make it move.'}
           </p>
         </div>
         {planned && !running && (
@@ -325,69 +340,105 @@ export function AutoPanel({ project, onProjectUpdate, photos }: AutoPanelProps) 
 
           {flagged.length > 0 && (
             <div className="space-y-1">
-              <p className={label}>Pictures to look at</p>
-              <ul className="space-y-0.5 text-xs text-amber-200/80">
-                {flagged.map((scene) => (
-                  <li key={scene.n}>
-                    <a href={`#clone-scene-${scene.n}`} className="underline underline-offset-2 hover:text-amber-100">
-                      Scene {scene.n}
-                    </a>
-                    : {scene.check?.why}
-                    {scene.check?.picture_url ? ' You can change the instruction on the scene and generate the picture again.' : ''}
-                  </li>
-                ))}
-              </ul>
+              <button className="text-xs text-amber-200/80 hover:text-amber-100 text-left" onClick={() => setShowFlagged((open) => !open)}>
+                {flagged.length} of {scenes.filter((scene) => scene.edited_image_url).length} pictures did not pass the director&apos;s check. <span className="underline underline-offset-2">{showFlagged ? 'Hide' : 'Show which'}</span>
+              </button>
+              {showFlagged && (
+                <ul className="space-y-0.5 text-xs text-amber-200/80">
+                  {flagged.map((scene) => (
+                    <li key={scene.n}>
+                      <button className="underline underline-offset-2 hover:text-amber-100" onClick={() => onOpenScene?.(scene.n)}>
+                        Scene {scene.n}
+                      </button>
+                      : {scene.check?.why}
+                    </li>
+                  ))}
+                  <li className="text-zinc-500">Open a scene to change its instruction and make the picture again.</li>
+                </ul>
+              )}
             </div>
           )}
 
           {movable.length > 0 && (
-            <div className="space-y-2 pt-3 border-t border-border/40">
+            <div className="space-y-3 pt-3 border-t border-border/40">
               <div>
                 <p className="text-sm font-medium text-white flex items-center gap-2">
-                  <Film className="w-4 h-4 text-primary" /> Add motion
+                  <Film className="w-4 h-4 text-primary" /> Make it move
                 </p>
                 <p className="text-xs text-zinc-500">
-                  Every scene of the first version is a picture. A person who talks to the camera needs a clip with sound ({CLONE_ANIM_CREDITS_PER_SECOND} credits a second). Other footage can move on the standard engine (
-                  {CLONE_ANIM_STANDARD_CREDITS_PER_SECOND} credits a second, without sound). The ad is finished again at no extra charge.
+                  A person who talks gets a clip with sound ({CLONE_ANIM_CREDITS_PER_SECOND} credits a second). Other scenes move without sound ({CLONE_ANIM_STANDARD_CREDITS_PER_SECOND} credits a second). The ad is finished again at no extra
+                  charge.
                 </p>
               </div>
-              <div className="space-y-1.5">
-                {movable.map((scene) => {
-                  const seconds = cloneClipSeconds(scene);
-                  const clip = sceneClip(scene);
-                  const speaker = scene.plan?.speaker;
-                  return (
-                    <div key={scene.n} className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 p-2">
-                      <span className="font-mono text-xs font-bold text-white w-10 shrink-0">SC&thinsp;{String(scene.n).padStart(2, '0')}</span>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={scene.edited_image_url as string} alt={`Scene ${scene.n}`} className="h-12 w-9 object-cover rounded border border-border/50 bg-black/40 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-zinc-300 truncate">{scene.finish?.line || 'No words in this scene'}</p>
-                        <p className="text-[10px] text-zinc-600">
-                          {speaker === 'on_camera' ? 'A person talks to the camera' : speaker === 'narrator' ? 'The narrator speaks' : 'Nobody speaks'}
-                          {clip ? ' · has a clip' : ''}
-                        </p>
-                      </div>
-                      <select className={`${select} w-[290px] max-w-[45%] shrink-0`} value={choiceOf(scene)} onChange={(e) => setChoices((current) => ({ ...current, [scene.n]: e.target.value as Choice }))}>
-                        <option value="picture">{clip ? 'Keep the clip it has' : 'Stay a picture'}</option>
-                        <option value="best">
-                          {clip ? 'New clip' : 'Clip'} with sound, {seconds} s · {cloneClipCredits(seconds, 'best')} credits
-                        </option>
-                        <option value="standard">
-                          {clip ? 'New clip' : 'Clip'} without sound, {seconds} s · {cloneClipCredits(seconds, 'standard')} credits
-                        </option>
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {still.length === 0 ? (
+                <p className="text-xs text-zinc-400">Every scene has its clip.</p>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button onClick={() => startMotion(everything)} disabled={starting} size="lg" className="h-11 px-5 font-medium flex-1">
+                    {starting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Film className="w-4 h-4 mr-2" />}
+                    Everything moves · {creditsOf(everything)} credits
+                  </Button>
+                  {talkers.length > 0 && talkers.length < everything.length && (
+                    <Button onClick={() => startMotion(talkers)} disabled={starting} size="lg" variant="outline" className="h-11 px-5 font-medium flex-1">
+                      Only the {talkers.length === 1 ? 'scene' : `${talkers.length} scenes`} where a person talks · {creditsOf(talkers)} credits
+                    </Button>
+                  )}
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <p className="flex-1 text-[11px] text-zinc-500">A clip that cannot be made is refunded and the scene keeps its picture. A talking clip that misses its line is taken once more at no charge.</p>
-                <Button onClick={startMotion} disabled={starting || picked.length === 0} size="lg" className="h-11 px-6 font-medium">
-                  {starting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Film className="w-4 h-4 mr-2" />}
-                  {picked.length === 0 ? 'Choose scenes to animate' : `Add motion to ${picked.length} ${picked.length === 1 ? 'scene' : 'scenes'} · ${motionCredits} credits`}
-                </Button>
+                <button className="text-[11px] text-zinc-400 hover:text-zinc-200 underline underline-offset-2 shrink-0" onClick={() => setChoosing((open) => !open)}>
+                  {choosing ? 'Hide the scenes' : 'Choose scene by scene'}
+                </button>
               </div>
+              {choosing && (
+                <>
+                  <div className="space-y-1.5">
+                    {movable.map((scene) => {
+                      const seconds = cloneClipSeconds(scene);
+                      const clip = sceneClip(scene);
+                      const speaker = scene.plan?.speaker;
+                      const over = scene.plan?.over;
+                      // How the director wants the shot played: the video prompt up to its camera note.
+                      const played = (scene.motion_prompt || '').split(' Camera:')[0].trim();
+                      return (
+                        <div key={scene.n} className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 p-2">
+                          <span className="font-mono text-xs font-bold text-white w-10 shrink-0">SC&thinsp;{String(scene.n).padStart(2, '0')}</span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={scene.edited_image_url as string} alt={`Scene ${scene.n}`} className="h-12 w-9 object-cover rounded border border-border/50 bg-black/40 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-zinc-300 truncate">{scene.finish?.line || (over ? `Shown while the scene ${over === 'previous' ? 'before' : 'after'} it speaks` : 'No words in this scene')}</p>
+                            <p className="text-[10px] text-zinc-600">
+                              {speaker === 'on_camera' ? 'A person talks to the camera' : speaker === 'narrator' ? 'The narrator speaks' : 'Nobody speaks'}
+                              {clip ? ' · has a clip' : ''}
+                            </p>
+                            {played && (
+                              <p className="text-[10px] text-zinc-500 truncate" title={scene.motion_prompt || undefined}>
+                                The shot: {played}
+                              </p>
+                            )}
+                          </div>
+                          <select className={`${select} w-[290px] max-w-[45%] shrink-0`} value={choiceOf(scene)} onChange={(e) => setChoices((current) => ({ ...current, [scene.n]: e.target.value as Choice }))}>
+                            <option value="picture">{clip ? 'Keep the clip it has' : 'Stay a picture'}</option>
+                            <option value="best">
+                              {clip ? 'New clip' : 'Clip'} with sound, {seconds} s · {cloneClipCredits(seconds, 'best')} credits
+                            </option>
+                            <option value="standard">
+                              {clip ? 'New clip' : 'Clip'} without sound, {seconds} s · {cloneClipCredits(seconds, 'standard')} credits
+                            </option>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={() => startMotion(picked)} disabled={starting || picked.length === 0} size="lg" variant="outline" className="h-11 px-6 font-medium">
+                      {starting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Film className="w-4 h-4 mr-2" />}
+                      {picked.length === 0 ? 'Choose scenes to animate' : `Add motion to ${picked.length} ${picked.length === 1 ? 'scene' : 'scenes'} · ${motionCredits} credits`}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

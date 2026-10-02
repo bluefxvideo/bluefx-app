@@ -11,7 +11,7 @@ import type { StoreFile } from '@/lib/smart-video/types';
 import { usage } from '@/lib/smart-video/usage';
 import type { CloneProject, CloneScene, FinishSettings, FinishStage, SceneFinish } from '@/types/clone-studio';
 import { sceneClip, spokenLineOf } from '@/types/clone-studio';
-import { NARRATOR_WORDS_PER_SECOND, levelFilter, levelGain, measureLoudness, paceFactor, speakingRate } from './edit';
+import { NARRATOR_WORDS_PER_SECOND, clipPaceFactor, levelFilter, levelGain, measureLoudness, paceFactor, speakingRate } from './edit';
 import { ownFile } from './files';
 import { cleanupWorkDir, downloadToFile, makeWorkDir } from './segmentation';
 import { buildCloneTimeline, type CloneTimeline, type CutScene } from './timeline';
@@ -145,9 +145,11 @@ export async function proposeFinish(scene: CloneScene): Promise<{ finish: SceneF
   }
 
   const heard = await hear(await soundOf(ownFile(clip)));
-  const onCamera = heard.text ? await speakerOnCamera(ownFile(scene.edited_image_url || scene.keyframe_url), heard.text) : false;
   // The captions use the client's own spelling when the clip says what the client wrote.
   const agrees = written && heard.words.length ? alignScript([written], heard.words).sceneCoverage[0] >= 0.6 : false;
+  // A scene the director planned as a person talking, whose clip says its line, needs no second look:
+  // the look (one small picture, a small model) once sent a close-up of the speaker to the narrator.
+  const onCamera = !heard.text ? false : scene.plan?.speaker === 'on_camera' && agrees ? true : await speakerOnCamera(ownFile(scene.edited_image_url || scene.keyframe_url), heard.text);
   return {
     language: heard.text ? heard.language : undefined,
     finish: {
@@ -200,6 +202,23 @@ function asSpoken(lines: string[]): string[] {
   return paragraphs;
 }
 
+/**
+ * A short recording of the narrator reading the start of the ad's own script: the sample
+ * the video engine saves the voice from, so the people on camera speak with it.
+ */
+export async function narratorSample(lines: string[], language: string | undefined, gender: 'female' | 'male'): Promise<Buffer> {
+  const sample: string[] = [];
+  let words = 0;
+  for (const line of lines.map((text) => text.trim()).filter(Boolean)) {
+    sample.push(line);
+    words += line.split(/\s+/).length;
+    if (words >= 34) break;
+  }
+  if (words < 8) throw new Error('The script is too short for a voice sample');
+  const voice = await generateVoice(asSpoken(sample), languageName(language), { gender, direction: NARRATOR_DELIVERY });
+  return pcmToWav(voice.pcm, voice.rate);
+}
+
 /** Records the narrator. A take that dropped part of a line is recorded again; the best take is kept. */
 async function recordNarrator(lines: string[], language: string | undefined, gender: 'female' | 'male'): Promise<{ wav: Buffer; words: SpokenWord[] }> {
   let best: { wav: Buffer; words: SpokenWord[]; worst: number } | null = null;
@@ -246,7 +265,10 @@ export async function buildCloneFinish({ project, settings, language, store, onS
     onStage('clips');
     const assets: Record<string, { url: string; kind: 'image' | 'video'; portrait?: boolean }> = {};
     const scenes: CutScene[] = [];
-    const speech: { file: string; words: SpokenWord[] }[] = [];
+    const speech: { file: string; words: SpokenWord[]; narrators: boolean }[] = [];
+    // The narrator's voice as the video engine saved it: clips ordered with it speak in the narrator's own voice.
+    const saved = project.analysis_summary?.auto?.voice;
+    const narrators = (scene: CloneScene) => Boolean(saved && saved.gender === settings.voice && scene.anim_voice === saved.id);
     for (const scene of shown) {
       const finish = scene.finish as SceneFinish;
       const text = finish.text.split('\n').map((item) => item.trim()).filter(Boolean);
@@ -257,7 +279,7 @@ export async function buildCloneFinish({ project, settings, language, store, onS
         // A picture with a slow zoom, or a typed card.
         const still = picture === 'still' ? scene.edited_image_url : null;
         if (still) assets[`p${scene.n}`] = { url: ownFile(still), kind: 'image', portrait: !horizontal };
-        scenes.push({ asset: still ? `p${scene.n}` : '', picture: still ? 'still' : 'card', sound: finish.sound === 'narrator' && finish.line.trim() ? 'narrator' : 'none', line: finish.line, text, cutSeconds });
+        scenes.push({ asset: still ? `p${scene.n}` : '', picture: still ? 'still' : 'card', sound: finish.sound === 'narrator' && finish.line.trim() ? 'narrator' : 'none', line: finish.line, text, cutSeconds, over: scene.plan?.over });
         continue;
       }
 
@@ -267,30 +289,44 @@ export async function buildCloneFinish({ project, settings, language, store, onS
       // Who talks in the clip is heard here again, on the file the renderer will play.
       let heard: SpokenWord[] = [];
       let gain = 0;
+      // A person who talks slowly is brought up to an ad's pace: picture and sound together, so the lips stay on the words.
+      let speed = 1;
       if (finish.sound === 'clip' && info.sound) {
         heard = (await hear(await soundOf(raw), language)).words;
-        if (heard.length) gain = levelGain(await measureLoudness(raw));
+        if (heard.length) {
+          gain = levelGain(await measureLoudness(raw));
+          speed = clipPaceFactor(heard);
+          if (speed < 1.02) speed = 1;
+          else heard = heard.map((word) => ({ ...word, start: word.start / speed, end: word.end / speed }));
+        }
       }
       // The video engine delivers one keyframe per clip: the renderer would then decode from the first frame
       // for every frame it needs, and fall over. Each clip gets a keyframe every half second.
       const ready = file(`c${scene.n}.mp4`);
       await run(
         'ffmpeg',
-        ['-v', 'error', '-y', '-i', raw, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-g', '12', '-keyint_min', '12', '-sc_threshold', '0', ...(info.sound ? ['-af', levelFilter(gain), '-c:a', 'aac', '-b:a', '192k'] : ['-an']), '-movflags', '+faststart', ready],
+        [
+          '-v', 'error', '-y', '-i', raw,
+          ...(speed > 1 ? ['-vf', `setpts=PTS/${speed.toFixed(4)}`] : []),
+          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-g', '12', '-keyint_min', '12', '-sc_threshold', '0',
+          ...(info.sound ? ['-af', `${speed > 1 ? `atempo=${speed.toFixed(4)},` : ''}${levelFilter(gain)}`, '-c:a', 'aac', '-b:a', '192k'] : ['-an']),
+          '-movflags', '+faststart', ready,
+        ],
         { ...BIG, timeout: 5 * 60 * 1000 }
       );
       assets[`c${scene.n}`] = { url: await store(await fs.readFile(ready), `c${scene.n}.mp4`, 'video/mp4'), kind: 'video', portrait: info.portrait };
-      if (heard.length) speech.push({ file: ready, words: heard });
+      if (heard.length) speech.push({ file: ready, words: heard, narrators: narrators(scene) });
       scenes.push({
         asset: `c${scene.n}`,
         picture: 'clip',
-        clipSeconds: info.seconds,
+        clipSeconds: info.seconds / speed,
         sound: finish.sound === 'narrator' && !finish.line.trim() ? 'none' : finish.sound === 'clip' && !info.sound ? 'none' : finish.sound,
         // A person on camera with no line written for them is captioned as heard.
         line: finish.line.trim() || (finish.sound === 'clip' ? heard.map((word) => word.text).join(' ') : ''),
         heard,
         text,
         cutSeconds,
+        over: scene.plan?.over,
       });
       await fs.rm(raw, { force: true });
     }
@@ -314,6 +350,7 @@ export async function buildCloneFinish({ project, settings, language, store, onS
       voice,
       musicUrl,
       digits,
+      oneVoice: speech.length > 0 && speech.every((clip) => clip.narrators),
     });
   } finally {
     await cleanupWorkDir(dir);
@@ -323,7 +360,7 @@ export async function buildCloneFinish({ project, settings, language, store, onS
 /** The narrator's recording: at the pace of the person on camera, in that person's voice when asked, levelled, timed. */
 async function narrator(
   lines: string[],
-  speech: { file: string; words: SpokenWord[] }[],
+  speech: { file: string; words: SpokenWord[]; narrators: boolean }[],
   settings: FinishSettings,
   language: string | undefined,
   file: (name: string) => string,
@@ -340,10 +377,11 @@ async function narrator(
     current = file('voice-paced.wav');
   }
 
-  // The person who says the most on camera lends the narrator their voice.
+  // The person who says the most on camera lends the narrator their voice. When that person
+  // already speaks with the narrator's own voice (their clips were ordered with it), nothing is converted.
   const model = [...speech].sort((a, b) => b.words.length - a.words.length)[0];
   const modelSeconds = model ? model.words[model.words.length - 1].end - model.words[0].start : 0;
-  if (settings.match_voice && model && modelSeconds >= MIN_VOICE_SAMPLE_SECONDS) {
+  if (settings.match_voice && model && !model.narrators && modelSeconds >= MIN_VOICE_SAMPLE_SECONDS) {
     try {
       const sample = await soundOf(model.file);
       const narration = await fs.readFile(current);

@@ -112,6 +112,88 @@ export async function submitKlingO3ProImageToVideo(
   return submitKlingO3Pro(params);
 }
 
+const KLING_VOICE_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/create-voice';
+// The sibling of image-to-video that takes the picture as the first frame plus an "element" for the
+// person, and an element can carry a saved voice. Same price a second (measured 2026-10-01).
+const KLING_VOICE_CLIP_SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/o3/pro/reference-to-video';
+
+/**
+ * Saves a voice with the video engine from a recording (5 to 30 seconds of one person talking)
+ * and returns its id. Clips ordered with the id speak in that voice. Waits for the engine:
+ * about ten seconds.
+ */
+export async function createKlingVoice(voiceUrl: string): Promise<{ success: boolean; voiceId?: string; error?: string }> {
+  const falKey = process.env.FAL_KEY;
+  if (!falKey) return { success: false, error: 'FAL_KEY not configured' };
+  try {
+    const headers = { 'Content-Type': 'application/json', Authorization: `Key ${falKey}` };
+    const submit = await fetch(KLING_VOICE_SUBMIT_URL, { method: 'POST', headers, body: JSON.stringify({ voice_url: voiceUrl }) });
+    if (!submit.ok) return { success: false, error: `Voice submit failed (${submit.status}): ${(await submit.text()).substring(0, 150)}` };
+    const { request_id } = await submit.json();
+    if (!request_id) return { success: false, error: 'Voice submit returned no request_id' };
+    for (let waited = 0; waited < 180; waited += 3) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const status = await fetch(`https://queue.fal.run/${KLING_BASE}/requests/${request_id}/status`, { headers });
+      if (!status.ok) continue;
+      const state = (await status.json()).status;
+      if (state === 'FAILED') return { success: false, error: 'The voice could not be saved' };
+      if (state !== 'COMPLETED') continue;
+      const result = await fetch(`https://queue.fal.run/${KLING_BASE}/requests/${request_id}`, { headers });
+      const body = await result.json();
+      if (!result.ok || !body?.voice_id) return { success: false, error: `Voice result failed (${result.status}): ${JSON.stringify(body).substring(0, 150)}` };
+      return { success: true, voiceId: body.voice_id as string };
+    }
+    return { success: false, error: 'Saving the voice took too long' };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Voice submit failed' };
+  }
+}
+
+/**
+ * A talking clip in a saved voice: the picture is the first frame, the person in it is the
+ * element the voice belongs to. The prompt is sent as written.
+ */
+export async function submitKlingO3ProVoiceClip(params: {
+  prompt: string;
+  image_url: string;
+  /** Seconds, 3-15. */
+  duration: number;
+  aspect_ratio: '16:9' | '9:16' | '1:1';
+  voice_id: string;
+  webhook_url?: string;
+}): Promise<{ success: boolean; request_id?: string; error?: string }> {
+  const falKey = process.env.FAL_KEY;
+  if (!falKey) return { success: false, error: 'FAL_KEY not configured' };
+  try {
+    const duration = String(Math.min(15, Math.max(3, Math.round(params.duration))));
+    const response = await fetch(params.webhook_url ? `${KLING_VOICE_CLIP_SUBMIT_URL}?fal_webhook=${encodeURIComponent(params.webhook_url)}` : KLING_VOICE_CLIP_SUBMIT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey}` },
+      body: JSON.stringify({
+        prompt: params.prompt,
+        start_image_url: params.image_url,
+        elements: [{ frontal_image_url: params.image_url, reference_image_urls: [params.image_url], voice_id: params.voice_id }],
+        duration,
+        aspect_ratio: params.aspect_ratio,
+        generate_audio: true,
+        shot_type: 'customize',
+      }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('🚨 Kling O3 Pro voice clip submit error:', response.status, errorText.substring(0, 300));
+      return { success: false, error: `Video submit failed (${response.status}): ${errorText.substring(0, 150)}` };
+    }
+    const result = await response.json();
+    if (!result.request_id) return { success: false, error: 'Video submit returned no request_id' };
+    console.log(`🎬 Kling O3 Pro submitted: ${result.request_id} (${duration}s, saved voice)`);
+    return { success: true, request_id: result.request_id };
+  } catch (error) {
+    console.error('🚨 Kling O3 Pro voice clip submit error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Video submit failed' };
+  }
+}
+
 export async function submitKlingO3ProTextToVideo(
   params: Omit<KlingO3ProSubmitParams, 'image_url'>
 ): Promise<{ success: boolean; request_id?: string; error?: string }> {

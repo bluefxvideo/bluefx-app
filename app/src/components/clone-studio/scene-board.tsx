@@ -33,6 +33,19 @@ interface SceneBoardProps {
 
 export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps) {
   const [showSummary, setShowSummary] = useState(false);
+  // "Do it for me" keeps the page short: the finished ad, the director's panel and the words.
+  // The scene-by-scene board stays one click away. A board nobody has directed shows as before.
+  const planned = Boolean(project.analysis_summary?.auto?.planned);
+  const [showBoard, setShowBoard] = useState(!planned);
+  const wasPlanned = useRef(planned);
+  useEffect(() => {
+    if (planned && !wasPlanned.current) setShowBoard(false);
+    wasPlanned.current = planned;
+  }, [planned]);
+  const openScene = (n: number) => {
+    setShowBoard(true);
+    setTimeout(() => document.getElementById(`clone-scene-${n}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+  };
   const [assembling, setAssembling] = useState(false);
   const [withMusic, setWithMusic] = useState(true);
   const [trimToOriginal, setTrimToOriginal] = useState(false);
@@ -156,11 +169,8 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, transcript, dialogReconciled]);
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-4">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-        <div className="flex-1 space-y-2">
+  const headline = (
+    <>
           <Button variant="ghost" size="sm" onClick={onBack} className="text-zinc-400 -ml-2">
             <ArrowLeft className="w-4 h-4 mr-1" /> All projects
           </Button>
@@ -190,7 +200,12 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               </>
             )}
           </div>
+    </>
+  );
 
+  // What the hands-on work leans on: the source ad, its transcript, the music text.
+  const reference = (
+    <>
           {/* Full audio transcript — the per-scene dialog lines drift at cut
               boundaries; this is the uncut reference, always at hand */}
           {project.analysis_summary && (
@@ -299,8 +314,10 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               </p>
             </div>
           )}
-        </div>
-        {project.source_video_url && (
+    </>
+  );
+
+  const sourceVideo = project.source_video_url ? (
           <div className="w-full lg:w-[520px] xl:w-[600px] shrink-0 space-y-1">
             <video
               src={project.source_video_url}
@@ -312,15 +329,29 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               Tip: use the player&apos;s ⋮ menu → Picture in Picture to keep it floating while you scroll.
             </p>
           </div>
-        )}
-      </div>
+  ) : null;
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-4">
+      {/* Header. A directed board shows its name only; the source ad and its transcript sit with the scenes below. */}
+      {planned ? (
+        <div className="space-y-2">{headline}</div>
+      ) : (
+        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+          <div className="flex-1 space-y-2">
+            {headline}
+            {reference}
+          </div>
+          {sourceVideo}
+        </div>
+      )}
 
       {/* Final video */}
       {project.final_video_url && (
         <Card className="p-4 space-y-3 border-primary/40">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Film className="w-4 h-4 text-primary" /> Your cloned ad
+              <Film className="w-4 h-4 text-primary" /> {planned && animatedCount === 0 ? 'The first version of your ad: pictures only' : 'Your cloned ad'}
             </h4>
             <a href={`${project.final_video_url}?download=${(project.title || 'cloned-ad').replace(/[^a-z0-9-]+/gi, '-')}.mp4`}>
               <Button variant="outline" size="sm">
@@ -337,12 +368,38 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
       )}
 
       {/* The director: brief, photos, one click */}
-      <AutoPanel project={project} onProjectUpdate={onProjectUpdate} photos={<ProjectPhotos project={project} onProjectUpdate={onProjectUpdate} />} />
+      <AutoPanel project={project} onProjectUpdate={onProjectUpdate} photos={<ProjectPhotos project={project} onProjectUpdate={onProjectUpdate} />} onOpenScene={openScene} />
+
+      {/* A directed board: the words, text and music come right after the director; the scenes fold away */}
+      {planned && <FinishPanel project={project} onProjectUpdate={onProjectUpdate} />}
+      {planned && (
+        <button
+          className="w-full flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+          onClick={() => setShowBoard((open) => !open)}
+        >
+          <span>
+            <span className="block text-sm font-semibold text-white">Work scene by scene</span>
+            <span className="block text-xs text-zinc-500">
+              {project.scenes.length} scenes: every picture, instruction, video prompt and clip, with the ad you are remaking. For hands-on changes.
+            </span>
+          </span>
+          {showBoard ? <ChevronUp className="w-4 h-4 text-zinc-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />}
+        </button>
+      )}
+
+      {showBoard && (
+        <>
+      {planned && (
+        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+          <div className="flex-1 space-y-2">{reference}</div>
+          {sourceVideo}
+        </div>
+      )}
 
       {/* Hands-on: project photos + one instruction, then scene by scene */}
       <Card className="p-4 space-y-4">
         <div>
-          <p className="text-sm font-semibold text-white">Or work scene by scene</p>
+          <p className="text-sm font-semibold text-white">{planned ? 'Photos and one instruction for every scene' : 'Or work scene by scene'}</p>
           <p className="text-xs text-zinc-500">Set up once, then make and review each scene yourself. Every box the director fills in is here too, and you can change any of them.</p>
         </div>
 
@@ -502,7 +559,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
       </div>
 
       {/* Finish: the edited ad (voice, captions, text, music) */}
-      <FinishPanel project={project} onProjectUpdate={onProjectUpdate} />
+      {!planned && <FinishPanel project={project} onProjectUpdate={onProjectUpdate} />}
 
       {/* Assemble: the plain join */}
       {animatedCount > 0 && (
@@ -535,6 +592,8 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             {project.final_video_url ? 'Re-assemble' : 'Assemble video'}
           </Button>
         </Card>
+      )}
+        </>
       )}
 
     </div>

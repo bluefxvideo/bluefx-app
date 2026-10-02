@@ -124,6 +124,8 @@ export interface CloneScene {
   check?: SceneCheck;
   /** The engine the scene's current clip was ordered on. Absent = best. */
   anim_engine?: CloneAnimEngine;
+  /** The saved voice the scene's current clip speaks with (the narrator's, see CloneAuto.voice). Absent = a voice of the engine's own choosing. */
+  anim_voice?: string | null;
   credits_spent: number;
 }
 
@@ -141,6 +143,13 @@ export interface ScenePlan {
   treatment: 'video' | 'still' | 'card';
   /** on_camera = a person in the frame says the line. */
   speaker: 'on_camera' | 'narrator' | 'none';
+  /**
+   * The words heard during this scene belong to a phrase of the scene before or after it:
+   * the scene has no words of its own and is shown over that scene's voice, as in the source ad.
+   */
+  over?: 'previous' | 'next';
+  /** The person who speaks here is the ad's main speaker, the one the narrator stands in for: their clips speak with the narrator's voice. */
+  lead?: boolean;
   /** The run that made this scene's picture and looked at it. */
   pictured?: string;
 }
@@ -199,6 +208,8 @@ export interface CloneAuto {
   notes?: string[];
   /** True once the director's plan is written into the board. */
   planned?: boolean;
+  /** The narrator's voice as saved with the video engine: the main speaker's clips are ordered with it, so the ad has one voice. */
+  voice?: { id: string; gender: 'female' | 'male' };
   run?: AutoRun;
 }
 
