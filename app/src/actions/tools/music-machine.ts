@@ -10,6 +10,7 @@ import { createMusicRecord, updateMusicRecord } from '@/actions/database/music-d
 import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
+import { deductCredits } from '@/actions/database/cinematographer-database';
 
 // Request interface for Music Machine
 export interface MusicMachineRequest {
@@ -162,7 +163,7 @@ export async function executeMusicMachine(
       }
 
       // Synchronous path: deduct only after a successful generation.
-      await deductCredits(supabase, user.id, MUSIC_CREDITS, batch_id, 'music_generation');
+      const charged = await chargeMusic(user.id, batch_id, lyriaRequestId);
 
       return {
         success: true,
@@ -178,8 +179,8 @@ export async function executeMusicMachine(
         },
         request_id: lyriaRequestId,
         batch_id,
-        credits_used: MUSIC_CREDITS,
-        remaining_credits: Math.max(0, userCredits - MUSIC_CREDITS),
+        credits_used: charged.credits,
+        remaining_credits: charged.remaining ?? Math.max(0, userCredits - charged.credits),
         generation_time_ms: Date.now() - startTime,
         warnings: warnings.length > 0 ? warnings : undefined,
       };
@@ -227,8 +228,8 @@ export async function executeMusicMachine(
       warnings.push('Database record creation failed, but generation is proceeding');
     }
 
-    // Deduct credits
-    await deductCredits(supabase, user.id, MUSIC_CREDITS, batch_id, 'music_generation');
+    // Deduct credits (a song that fails later is refunded by the webhook, which finds this charge by its ids)
+    const charged = await chargeMusic(user.id, batch_id, prediction.request_id);
 
     return {
       success: true,
@@ -245,8 +246,8 @@ export async function executeMusicMachine(
       model_info: await getFalMiniMaxModelInfo(),
       request_id: prediction.request_id,
       batch_id,
-      credits_used: MUSIC_CREDITS,
-      remaining_credits: Math.max(0, userCredits - MUSIC_CREDITS),
+      credits_used: charged.credits,
+      remaining_credits: charged.remaining ?? Math.max(0, userCredits - charged.credits),
       generation_time_ms: Date.now() - startTime,
       warnings: warnings.length > 0 ? warnings : undefined,
     };
@@ -266,6 +267,22 @@ export async function executeMusicMachine(
 }
 
 /**
+ * Charges one track through the shared ledger (`credit_transactions`), like every other tool.
+ * Until 2026-10-02 this tool had its own deduction that wrote a generated column: the database
+ * rejected every update, so no track was ever charged and none showed on the admin screens.
+ * The ids let a failed song's refund find this charge.
+ */
+async function chargeMusic(userId: string, batchId: string, predictionId: string): Promise<{ credits: number; remaining?: number }> {
+  const result = await deductCredits(userId, MUSIC_CREDITS, 'music_generation', { batch_id: batchId, prediction_id: predictionId });
+  if (!result.success) {
+    // The track exists or is on its way: it is not taken back for a failed charge.
+    console.error(`❌ Music charge failed for user ${userId} (batch ${batchId}):`, result.error);
+    return { credits: 0 };
+  }
+  return { credits: MUSIC_CREDITS, remaining: result.remainingCredits };
+}
+
+/**
  * Get user's available credits from database
  */
 async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<number> {
@@ -276,45 +293,4 @@ async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>
     .single();
 
   return userCredits?.available_credits || 0;
-}
-
-/**
- * Deduct credits from user account with transaction logging
- */
-async function deductCredits(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  amount: number,
-  batchId: string,
-  operation: string
-) {
-  // Get current credits
-  const { data: currentCredits } = await supabase
-    .from('user_credits')
-    .select('available_credits')
-    .eq('user_id', userId)
-    .single();
-
-  const newCredits = Math.max(0, (currentCredits?.available_credits || 0) - amount);
-
-  // Update credits
-  await supabase
-    .from('user_credits')
-    .update({
-      available_credits: newCredits,
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', userId);
-
-  // Log credit usage for audit trail
-  await supabase
-    .from('credit_usage')
-    .insert({
-      user_id: userId,
-      credits_used: amount,
-      operation_type: operation,
-      reference_id: batchId,
-      service_type: 'music_generation',
-      created_at: new Date().toISOString()
-    } as any);
 }
