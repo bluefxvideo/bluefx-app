@@ -14,8 +14,10 @@ export const dynamic = 'force-dynamic';
  *
  * Coolify scheduled task on container bluefx-app, every 3 minutes (*\/3 * * * *). The double quotes are
  * required (single quotes would send the literal text, and every run would answer 401):
- *   curl -fsS -m 100 -H "Authorization: Bearer $CRON_SECRET_TOKEN" http://localhost:3000/api/cron/free-video
- * localhost avoids the proxy's ~55 s cut, and curl is in the runner image.
+ *   curl -fsS -m 100 -H "Authorization: Bearer ${CRON_SECRET_TOKEN:-$APP_CRON_SECRET_TOKEN}" "http://$(hostname):3000/api/cron/free-video"
+ * Calling the container itself avoids the proxy's ~55 s cut, and curl is in the runner image. Not localhost:
+ * the standalone server listens on $HOSTNAME, which Docker sets to the container id (the startup log shows
+ * "Local: http://<container id>:3000"), so localhost:3000 is refused. The token falls back like expectedToken.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const expectedToken = process.env.CRON_SECRET_TOKEN || process.env.APP_CRON_SECRET_TOKEN;

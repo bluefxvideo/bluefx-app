@@ -347,6 +347,8 @@ revoke all on public.free_video_funnel from anon, authenticated;
 grant select on public.free_video_funnel to service_role;
 
 -- The system user that owns every free job (free-video@bluefx.net, created by the owner in Authentication > Add user).
--- The agent puts the user id the owner sends in place of the placeholder below before handing this file over.
--- While the placeholder is still there the line fails (it is not a uuid) and the whole paste changes nothing.
-update public.free_video_settings set system_user_id = '<SYSTEM USER ID>', updated_at = now() where id = 1;
+-- Found by its email: while that user does not exist yet this sets null and nothing starts; run this statement
+-- again after creating the user.
+update public.free_video_settings
+   set system_user_id = (select id from auth.users where lower(email) = 'free-video@bluefx.net'), updated_at = now()
+ where id = 1;
