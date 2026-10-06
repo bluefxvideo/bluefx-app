@@ -29,7 +29,6 @@ const TRACKS: LibraryTrack[] = [
   track('acoustic-1', 96, 'warm acoustic', 'fingerpicked acoustic guitar, soft shaker, upright bass, light piano', 'warm, honest, homey'),
   track('acoustic-2', 88, 'heartfelt acoustic', 'strummed acoustic guitar, mandolin, soft tambourine, cello', 'heartfelt, trustworthy, down-to-earth'),
   track('trust-1', 100, 'professional', 'clean electric piano, soft synth pads, muted guitar, light drums, warm bass', 'professional, trustworthy, confident'),
-  track('trust-2', 110, 'modern corporate', 'bright piano, pizzicato strings, light electronic drums, synth bass', 'modern, capable, reassuring'),
   track('drive-1', 128, 'driving rock', 'punchy drums, crunchy electric guitar riff, bass guitar, hand claps', 'energetic, bold, motivating'),
   track('elegant-1', 80, 'elegant', 'grand piano, soft strings, warm cello, light harp', 'refined, calm, luxurious'),
   track('elegant-2', 72, 'graceful', 'string quartet, soft piano, gentle harp', 'graceful, premium, serene'),
@@ -41,7 +40,6 @@ const TRACKS: LibraryTrack[] = [
   track('bistro-1', 96, 'cozy jazz', 'jazz piano, upright bass, brushed drums, muted trumpet', 'cozy, classy, relaxed'),
   track('latin-1', 108, 'sunny Latin', 'nylon-string guitar, congas, bongos, marimba, bass', 'sunny, lively, festive'),
   track('bossa-1', 98, 'smooth bossa nova', 'nylon-string guitar, soft brushes, shaker, electric piano, bass', 'smooth, breezy, warm'),
-  track('urban-1', 92, 'laid-back hip-hop', 'boom-bap drums, deep bass, jazzy piano chops, soft vinyl texture', 'cool, confident, urban'),
   track('tech-1', 110, 'sleek electronic', 'arpeggiated synths, clean electronic drums, sub bass, soft pads', 'innovative, sleek, forward-looking'),
   track('tech-2', 100, 'minimal electronic', 'minimal electronic beat, glassy plucks, warm pads, soft bass', 'smart, clean, futuristic'),
   track('inspire-1', 90, 'hopeful', 'piano ostinato, soft strings, light percussion, warm bass', 'hopeful, inspiring, uplifting'),
@@ -56,8 +54,11 @@ const TRACKS: LibraryTrack[] = [
   track('community-1', 76, 'gentle', 'warm piano, soft organ, strings', 'hopeful, gentle, reverent'),
 ];
 
-/** What each made track sounds like (heard by gemini-3.6-flash when it was made, 2026-10-06; drive-2 and urban-2 kept
- * coming back with singing and were left out). The picker reads these, not the prompts. */
+/**
+ * What each made track sounds like (heard by gemini-3.6-flash when it was made, 2026-10-06). Left out because a voice
+ * kept coming back (singing or vocal chops): drive-2, urban-2, trust-2, urban-1. friendly-1, tech-1 and tech-2 were
+ * made again after the strict double listen (hasVoices) flagged the first takes. The picker reads these, not the prompts.
+ */
 const HEARD: Record<string, string> = {
   'acoustic-1': "Mid-tempo acoustic folk-pop track featuring acoustic guitar fingerpicking and strumming, warm bass, and soft percussion, creating a cheerful, relaxed, and uplifting mood.",
   'acoustic-2': "Mid-tempo, warm fingerpicked acoustic guitar performance with a soothing, peaceful folk melody.",
@@ -72,7 +73,7 @@ const HEARD: Record<string, string> = {
   'drive-1': "An upbeat, groovy synth-pop track featuring funk guitar riffs, synth bass, and a driving electronic drum beat.",
   'elegant-1': "A gentle, slow instrumental waltz featuring violin and acoustic guitar with a nostalgic and peaceful mood.",
   'elegant-2': "A slow, emotional classical piece featuring a lyrical violin melody accompanied by delicate piano arpeggios, creating a serene and nostalgic mood.",
-  'friendly-1': "Mid-tempo relaxed groove track featuring smooth electric guitar melodies, funky bass, synth accents, and steady percussion with a warm, chill vibe.",
+  'friendly-1': "Mid-tempo lo-fi neo-soul track with clean electric guitar melodies, smooth basslines, and a relaxed, jazzy groove.",
   'friendly-2': "An upbeat and cheerful acoustic track driven by bright ukulele, light percussion, warm bass, and playful glockenspiel, evoking an optimistic and carefree mood.",
   'funk-1': "An upbeat, groovy funk track featuring rhythmic electric guitar riffs, a bouncy bassline, punchy brass hits, and dynamic drums creating a cheerful and energetic mood.",
   'inspire-1': "An upbeat and cheerful acoustic guitar track featuring acoustic strumming and melodic fingerpicking with a warm, bright, and folk-inspired mood.",
@@ -83,12 +84,10 @@ const HEARD: Record<string, string> = {
   'playful-1': "Upbeat and cheerful acoustic pop track with strumming ukulele, light synth melodies, claps, and a playful, happy mood.",
   'playful-2': "An upbeat and cheerful acoustic pop track featuring playful acoustic guitar strumming, ukulele, bouncy bass, and a lively whistling melody.",
   'soul-1': "A mid-tempo funky instrumental track featuring catchy electric guitar riffs, smooth basslines, and steady drums in a cheerful, laid-back mood.",
-  'tech-1': "A groovy mid-tempo lofi funk track featuring a prominent bassline, chill electric guitar chops, smooth synth chords, and a relaxed beat.",
-  'tech-2': "A mid-tempo synth-pop track featuring melodic synth leads, driving electronic drums, and crisp guitar plucks with an upbeat, energetic mood.",
+  'tech-1': "An upbeat synthwave track featuring pulsating synth bass, warm synth pads, and a driving electronic drum beat.",
+  'tech-2': "Midtempo lo-fi hip-hop track featuring chilled guitar riffs, smooth synth leads, bouncy bass, and relaxed drums with a sunny, carefree vibe.",
   'trattoria-1': "An upbeat and cheerful gypsy jazz track featuring a lively accordion melody, rhythmic acoustic guitar strumming, and a playful upright bass line.",
   'trust-1': "Mid-tempo smooth jazz bossa nova track featuring electric guitar lead, bass, and warm percussion with a relaxed, pleasant mood.",
-  'trust-2': "An upbeat mid-tempo Afrobeat electronic track featuring synth melodies, energetic percussion, and a vibrant tropical dance rhythm.",
-  'urban-1': "A relaxed, mid-tempo lo-fi hip-hop track featuring smooth electric piano chords, a warm bassline, and laid-back drums creating a mellow, chill mood.",
 };
 
 export const MUSIC_LIBRARY: LibraryTrack[] = TRACKS.map((t) => ({ ...t, heard: HEARD[t.id] }));

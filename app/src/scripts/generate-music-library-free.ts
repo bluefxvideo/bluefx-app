@@ -1,8 +1,9 @@
 /**
  * Makes the free video funnel's music library (lib/smart-video/music-library.ts): every track that is not in storage
  * yet, with the same music model and rules as The Phantom's own music ($0.08 a track). Each take is listened to by
- * a small model and made again (up to 3 takes) when it has singing or speech, then uploaded as
- * smart-video/music-library/<id>.mp3. --force makes every track again.
+ * a small model (listenToMusic, the check The Phantom's own music uses) and made again (up to 3 takes) when it has
+ * singing or speech, then uploaded as
+ * smart-video/music-library/<id>.mp3. --force makes every track again; --only id1,id2 makes just those again.
  *
  * Run from app/:  FREE_MUSIC_ALLOW_PAID=1 npx tsx src/scripts/generate-music-library-free.ts [--force]
  */
@@ -15,39 +16,9 @@ import path from 'node:path';
 config({ path: path.resolve(__dirname, '../../.env.local') });
 
 const FORCE = process.argv.includes('--force');
-const TAKES = 3;
+const ONLY = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1].split(',') : null;
+const TAKES = 4;
 const PARALLEL = 4;
-const EAR_MODEL = 'gemini-3.6-flash';
-
-interface Heard {
-  vocals: boolean;
-  speech: boolean;
-  description: string;
-}
-
-/** What a small model hears in the track: singing, speech, and a one-line description. */
-async function listen(mp3: Buffer): Promise<Heard> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${EAR_MODEL}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { inlineData: { mimeType: 'audio/mpeg', data: mp3.toString('base64') } },
-            { text: 'Listen to the whole track. Answer JSON only: {"vocals": true if anyone sings or hums words at any moment, "speech": true if any spoken words, "description": "one line: tempo feel, instruments, mood"}' },
-          ],
-        },
-      ],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0 },
-    }),
-    signal: AbortSignal.timeout(90_000),
-  });
-  if (!res.ok) throw new Error(`${EAR_MODEL} failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
-  const json = await res.json();
-  return JSON.parse(json.candidates?.[0]?.content?.parts?.[0]?.text || '{}') as Heard;
-}
-
 function secondsOf(mp3: Buffer): number {
   const file = path.join(os.tmpdir(), `music-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
   fs.writeFileSync(file, mp3);
@@ -61,7 +32,7 @@ function secondsOf(mp3: Buffer): number {
 async function main(): Promise<void> {
   if (process.env.FREE_MUSIC_ALLOW_PAID !== '1') throw new Error('This spends about $0.08 a track. Tell the owner, then run it with FREE_MUSIC_ALLOW_PAID=1.');
   const { MUSIC_LIBRARY, libraryUrl } = await import('@/lib/smart-video/music-library');
-  const { MUSIC_RULES, musicTake } = await import('@/lib/smart-video/audio');
+  const { hasVoices, listenToMusic, MUSIC_RULES, musicTake, NO_VOICES } = await import('@/lib/smart-video/audio');
   const { trackUsage } = await import('@/lib/smart-video/usage');
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -69,7 +40,7 @@ async function main(): Promise<void> {
 
   const exists = async (id: string) => (await fetch(libraryUrl(id), { method: 'HEAD' })).ok;
   const todo: typeof MUSIC_LIBRARY = [];
-  for (const track of MUSIC_LIBRARY) if (FORCE || !(await exists(track.id))) todo.push(track);
+  for (const track of MUSIC_LIBRARY) if (ONLY ? ONLY.includes(track.id) : FORCE || !(await exists(track.id))) todo.push(track);
   console.log(`🎵 ${todo.length} of ${MUSIC_LIBRARY.length} tracks to make`);
 
   const report: Record<string, unknown>[] = [];
@@ -79,13 +50,15 @@ async function main(): Promise<void> {
         todo.slice(i, i + PARALLEL).map(async (track) => {
           for (let take = 1; take <= TAKES; take++) {
             try {
-              const mp3 = await musicTake(track.prompt + MUSIC_RULES);
-              const heard = await listen(mp3);
+              const mp3 = await musicTake(`${track.prompt}${MUSIC_RULES} ${NO_VOICES}`);
               const seconds = secondsOf(mp3);
-              if (heard.vocals || heard.speech || seconds < 20) {
-                console.log(`⚠️ ${track.id} take ${take}: ${heard.vocals ? 'singing ' : ''}${heard.speech ? 'speech ' : ''}${seconds.toFixed(0)} s, making it again`);
+              // The same strict check as The Phantom's music: two listens, and a voice named in a description counts.
+              const voiced = await hasVoices(mp3);
+              if (voiced !== false || seconds < 20) {
+                console.log(`⚠️ ${track.id} take ${take}: ${voiced ? 'a voice' : voiced === null ? 'check failed' : ''} ${seconds.toFixed(0)} s, making it again`);
                 continue;
               }
+              const heard = await listenToMusic(mp3);
               const up = await fetch(`${url}/storage/v1/object/script-videos/smart-video/music-library/${track.id}.mp3`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'audio/mpeg', 'x-upsert': 'true', 'Cache-Control': 'max-age=31536000' },

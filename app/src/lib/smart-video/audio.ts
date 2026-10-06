@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import sharp from 'sharp';
 import { tracePath } from './drawing-path';
+import { libraryUrl, pickLibraryTrack } from './music-library';
 import { usage } from './usage';
 
 /**
@@ -111,6 +112,8 @@ const SAFE_MUSIC: Record<string, string> = {
   clean: '104 BPM, light instrumental bed. Instruments: muted guitar plucks, soft piano, finger snaps, warm bass. Attitude: optimistic, friendly, tidy.',
 };
 export const MUSIC_RULES = ' Steady energy, no build-ups, no drops. No vocals. Sits under a voice-over. About 60 seconds.';
+/** Said to the music model on every take of a video's music: it adds singing and vocal chops otherwise. */
+export const NO_VOICES = 'Instrumental only: no human voices of any kind, no singing, no humming, no vocal chops.';
 
 /** One take of the music model for exactly this prompt, no fallback (the free music library is made with it). */
 export async function musicTake(text: string): Promise<Buffer> {
@@ -120,16 +123,82 @@ export async function musicTake(text: string): Promise<Buffer> {
   return audio;
 }
 
+const EAR_MODEL = 'gemini-3.6-flash';
+
+export interface HeardMusic {
+  vocals: boolean;
+  speech: boolean;
+  /** One line: tempo feel, instruments, mood. */
+  description: string;
+}
+
+/** What a small model hears in a music take: singing, speech, and a one-line description (about $0.002). */
+export async function listenToMusic(mp3: Buffer): Promise<HeardMusic> {
+  const json = await gemini(
+    EAR_MODEL,
+    {
+      contents: [
+        {
+          parts: [
+            { inlineData: { mimeType: 'audio/mpeg', data: mp3.toString('base64') } },
+            { text: 'Listen to the whole track. Answer JSON only: {"vocals": true if any human voice is heard at any moment: sung, hummed, chanted, shouted, or chopped into the beat (vocal chops, "oh" or "hey" samples), "speech": true if any spoken words, "description": "one line: tempo feel, instruments, mood"}' },
+          ],
+        },
+      ],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0 },
+    },
+    90_000
+  );
+  usage.musicCheck();
+  const heard = JSON.parse(json.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+  return { vocals: Boolean(heard.vocals), speech: Boolean(heard.speech), description: String(heard.description || '') };
+}
+
+// A voice named in the description counts even when the yes/no says otherwise ("... and vocal chops"), unless negated.
+const VOICE_WORDS = /(?<!\bno |\bwithout |\bfree of )\b(vocals?|voices?|vocal chops?|singers?|singing|sung|choir|chant(?:s|ing)?|humming|lyrics?)\b/i;
+
+/**
+ * Two listens at once: a take passes only when neither hears a voice (one listen misses vocal chops now and then,
+ * 2026-10-06). null when both checks failed, which lets the take through.
+ */
+export async function hasVoices(take: Buffer): Promise<boolean | null> {
+  const heard = (await Promise.all([listenToMusic(take), listenToMusic(take)].map((check) => check.catch(() => null)))).filter((h): h is HeardMusic => h !== null);
+  if (!heard.length) return null;
+  return heard.some((h) => h.vocals || h.speech || VOICE_WORDS.test(h.description));
+}
+
+/**
+ * The music bed for a video: the director's prompt (twice), then the look's safe bed. The music model sings now and
+ * then despite "No vocals" (13 of 46 takes, 2026-10-06; owner: "remove the singing"), so every take is listened to
+ * and made again when it has singing or speech; a check that fails lets its take through. When every take sang or
+ * failed, a ready-made library track (each one listened to when it was made) is used instead.
+ */
 export async function generateMusic(prompt: string, style: string): Promise<Buffer> {
   const attempts = [prompt, prompt, (SAFE_MUSIC[style] || SAFE_MUSIC.clean) + MUSIC_RULES];
   let lastError: unknown;
   for (const text of attempts) {
     try {
-      return await musicTake(text);
+      const take = await musicTake(`${text} ${NO_VOICES}`);
+      if (await hasVoices(take)) {
+        lastError = new Error('every music take had a voice in it');
+        console.warn('⚠️ Music take with a voice in it, making it again');
+        continue;
+      }
+      return take;
     } catch (error) {
       lastError = error;
       console.warn('⚠️ Music attempt failed:', String(error).slice(0, 120));
     }
+  }
+  try {
+    const track = await pickLibraryTrack(prompt);
+    const res = await fetch(libraryUrl(track.id), { signal: AbortSignal.timeout(30_000) });
+    if (res.ok) {
+      console.warn(`⚠️ Music: no clean take, using library track ${track.id}`);
+      return Buffer.from(await res.arrayBuffer());
+    }
+  } catch {
+    // Falls through to the last error.
   }
   throw lastError;
 }

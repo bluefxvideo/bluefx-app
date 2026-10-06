@@ -19,6 +19,7 @@ const PRICES = {
   voiceMatchPerMinute: 0.02, // fal chatterbox hd speech-to-speech
   lookPerImage: 0.0003, // gemini-3.5-flash-lite, one small picture and a short answer
   musicPickPerCall: 0.0003, // gemini-3.5-flash-lite, the library list in, one id out (music-library.ts)
+  musicCheckPerTake: 0.002, // gemini-3.6-flash listening to one music take (about 60 s of audio) for singing or speech
   captionNumbersPerCall: 0.003, // gemini-3.6-flash, the script's lines in, a short list out (thinking included)
   scenePicturePerImage: 0.048, // fal gpt-image-2.5 flare edit, 1080p high (edits run about 20% over text-to-image)
   castPicturePerImage: 0.04, // fal gpt-image-2.5 flare text-to-image, high
@@ -83,6 +84,7 @@ export const usage = {
   },
   music: () => add('music', PRICES.musicPerSong, '1 song'),
   musicPick: () => add('music pick', PRICES.musicPickPerCall, 'library track'),
+  musicCheck: () => add('music check', PRICES.musicCheckPerTake, 'singing or speech'),
   transcript: (seconds: number) => add('word timings', (seconds / 60) * PRICES.transcriptPerMinute, `${seconds.toFixed(0)} s`),
   sound: (seconds: number) => add('signature sound', seconds * PRICES.soundPerSecond, `${seconds} s`),
   lifestyleShot: () => add('lifestyle photo', PRICES.lifestyleShotPerImage, '1 image'),
