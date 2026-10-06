@@ -382,7 +382,7 @@ async function main(): Promise<void> {
   section('10. The $99 unlock');
   const token = 'AbCdEfGhIjKlMnOpQrSt_-';
   check('the test token has the token shape', FREE_VIDEO_TOKEN_PATTERN.test(token));
-  check('checkout link', unlockCheckoutUrl(token) === `https://bluefx.onfastspring.com/video-ad-unlock?tags=freeVideoLead:${token}`, unlockCheckoutUrl(token));
+  check('checkout link', unlockCheckoutUrl(token) === `https://bluefx.onfastspring.com/${UNLOCK.product}?tags=freeVideoLead:${token}`, unlockCheckoutUrl(token));
   check('the token travels as a FastSpring tag (no : or , inside)', !/[:,]/.test(token) && unlockCheckoutUrl(token).endsWith(`${UNLOCK.tagKey}:${token}`));
   check('button link', unlockGoUrl(token) === `/go/fvunlock?t=${token}`);
   check('the lifetime offer links stay ClickBank', offerUrl('fvthank') === 'https://ai.bluefx.net/lifetime/?affiliate=bluefx01&tid=fvthank');
@@ -398,18 +398,18 @@ async function main(): Promise<void> {
     totalInPayoutCurrency: 104.2,
     subtotalInPayoutCurrency: 99,
     account: { contact: { email: 'Jo@Example.com' } },
-    items: [{ product: 'video-ad-unlock', subtotal: 88.0, subtotalInPayoutCurrency: 99 }],
+    items: [{ product: UNLOCK.product, subtotal: 88.0, subtotalInPayoutCurrency: 99 }],
     tags: { freeVideoLead: token },
   };
   const read = readUnlockOrder(order);
   check('order: id, token, email, amount in the payout currency', read.id === 'ORD123' && read.token === token && read.email === 'jo@example.com' && read.amount === 99 && read.currency === 'USD', JSON.stringify(read));
   check('order: the unlock alone → only', freeVideoUnlockIn(order) === 'only');
   check('order: with a credit pack → mixed (the pack keeps its own handling)', freeVideoUnlockIn({ ...order, items: [...order.items, { product: '100-ai-credit-pack' }] }) === 'mixed');
-  check('order: the direct product field, any case', freeVideoUnlockIn({ product: { product: 'Video-Ad-Unlock' } }) === 'only' && freeVideoUnlockIn({ product: 'video-ad-unlock' }) === 'only');
+  check('order: the direct product field, any case', freeVideoUnlockIn({ product: { product: 'Video-Creation' } }) === 'only' && freeVideoUnlockIn({ product: 'video-creation' }) === 'only');
   check('order: other products → not ours', freeVideoUnlockIn({ items: [{ product: 'ai-media-machine-lifetime' }] }) === null && freeVideoUnlockIn(null) === null);
   check('order: tags as a JSON string', readUnlockOrder({ ...order, tags: JSON.stringify({ freeVideoLead: token }) }).token === token);
   check('order: a bad token is ignored', readUnlockOrder({ ...order, tags: { freeVideoLead: '../../x' } }).token === null);
-  const ret = readUnlockOrder({ return: 'RET9', original: { id: 'ORD123', reference: 'BLU' }, items: [{ product: 'video-ad-unlock' }] });
+  const ret = readUnlockOrder({ return: 'RET9', original: { id: 'ORD123', reference: 'BLU' }, items: [{ product: UNLOCK.product }] });
   check('return: its own id, pointing at the original order', ret.isReturn && ret.id === 'RET9' && ret.orderIds.includes('ORD123'));
   check('order: wrong field types read as missing', readUnlockOrder({ id: 42, items: 'x', tags: 7 }).id === null);
 

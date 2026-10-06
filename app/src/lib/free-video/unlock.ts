@@ -1,5 +1,5 @@
 /**
- * Free video ad funnel, Offer 1: the $99 unlock (FastSpring one-time product `video-ad-unlock`).
+ * Free video ad funnel, Offer 1: the $99 unlock (FastSpring one-time product `video-creation`, $99).
  *
  * The visitor pays on FastSpring's hosted checkout (unlockCheckoutUrl, reached through /go/fvunlock), with
  * the lead's view token as the tag `freeVideoLead`. FastSpring's webhook then lands in

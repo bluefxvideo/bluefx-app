@@ -235,7 +235,7 @@ async function processFastSpringEvent(eventType: string, eventData: FastSpringEv
     return
   }
 
-  // The free video ad's $99 unlock (product video-ad-unlock): order.completed, refunds and cancellations
+  // The free video ad's $99 unlock (product video-creation): order.completed, refunds and cancellations
   // are handled by lib/free-video/unlock.ts, which never creates a user and never touches credits.
   // Only when the order holds other products too do those go on to the routing below.
   const freeVideoUnlock = freeVideoUnlockIn(eventData)

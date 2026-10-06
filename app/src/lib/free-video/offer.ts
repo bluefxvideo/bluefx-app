@@ -57,13 +57,14 @@ export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM
 export const PHANTOM_PATH = '/dashboard/smart-video';
 
 /**
- * Offer 1: the $99 unlock (owner 2026-10-06). A FastSpring one-time product the owner creates in the
- * FastSpring dashboard. Its path must never contain "credit": the webhook's credit-pack routing matches on it.
+ * Offer 1: the $99 unlock (owner 2026-10-06). The owner's FastSpring one-time product video-creation
+ * (https://bluefx.onfastspring.com/video-creation, $99). Its path must never contain "credit": the webhook's
+ * credit-pack routing matches on it. Every order of this product is read as a free video ad unlock.
  * The hosted link carries the lead's view token as a FastSpring tag, the same ?tags=key:value form
  * buy-credits-dialog.tsx uses for userId; the webhook reads it back at data.tags.freeVideoLead.
  */
 export const UNLOCK = {
-  product: 'video-ad-unlock',
+  product: 'video-creation',
   storefront: 'https://bluefx.onfastspring.com',
   tagKey: 'freeVideoLead',
   price: '$99',

@@ -133,7 +133,7 @@ export interface FreeVideoLead {
   ip: string | null;
   user_agent: string | null;
   consent_at: string | null;
-  /** Offer 1, the $99 unlock: 'none' until a FastSpring order for the video-ad-unlock product arrives. */
+  /** Offer 1, the $99 unlock: 'none' until a FastSpring order for the video-creation product arrives. */
   unlock_status: FreeVideoUnlockStatus;
   /** FastSpring order id; unique, so a webhook delivered twice unlocks once. */
   unlock_order_id: string | null;
