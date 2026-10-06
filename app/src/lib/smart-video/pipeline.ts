@@ -142,6 +142,8 @@ export interface SmartVideoOptions {
    * users.
    */
   presenter?: boolean;
+  /** More checks on the script (the free video funnel, script-checks.ts); unset for paying users. */
+  checkScript?: (plan: DirectorPlan) => string | null;
 }
 
 export async function createSmartVideo(
@@ -160,7 +162,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false, checkScript }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
   const photos = assets.filter((a) => a.kind === 'image').length;
@@ -187,7 +189,7 @@ async function produce(
             return null;
           })
       : null;
-  const directed = await directVideo(brief, assets, length, format, look, listing);
+  const directed = await directVideo(brief, assets, length, format, look, listing, checkScript);
   // Listing videos keep their own recipe.
   const plan = adjustPlan && !listing ? adjustPlan(directed) : directed;
   // With the script ready, the presenter records scene 1 word for word, beside the production.

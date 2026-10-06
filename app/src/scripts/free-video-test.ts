@@ -111,7 +111,8 @@ async function main(): Promise<void> {
     { length: 'auto', format: 'vertical', look: null, sound: { voiceOver: true, music: true }, onStage: (stage) => keep({ stage }) },
     undefined,
     (plan) => live.plan(plan, assets),
-    (url) => live.stored('music.mp3', url)
+    (url) => live.stored('music.mp3', url),
+    read.brief
   );
   console.log(`🖼️ ${realPhotoCount(assets)} real photos of ${assets.length} files → look: ${options.look}, presenter: ${options.presenter ? 'yes' : 'no'}`);
 

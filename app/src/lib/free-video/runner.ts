@@ -38,6 +38,7 @@ import { deliverLead } from '@/lib/free-video/notify';
 import { startCleanRender } from '@/lib/free-video/unlock';
 import { displayDomain, isUnreadable, readBusinessSite } from '@/lib/free-video/website';
 import { PHANTOM_EXAMPLES } from '@/lib/smart-video/examples';
+import { checkFreeScript } from '@/lib/free-video/script-checks';
 import { libraryTrackUrl } from '@/lib/smart-video/music-library';
 import {
   createJob,
@@ -203,11 +204,14 @@ export function freeOptions(
   base: SmartVideoOptions,
   guard?: () => void,
   onPlan?: (plan: DirectorPlan) => void,
-  onMusic?: (url: string) => void
+  onMusic?: (url: string) => void,
+  /** The website's text: the script checks look for its offer (script-checks.ts). */
+  siteText = ''
 ): SmartVideoOptions {
   return {
     ...base,
     look: 'whiteboard',
+    checkScript: (plan) => checkFreeScript(plan, siteText),
     stillCamera: true,
     presenter: true,
     adjustPlan: (plan) => {
@@ -374,18 +378,22 @@ function writeLive(leadId: string, jobId: string | null) {
  */
 function freeHooks(lead: FreeVideoLead, watch: Ownership): SmartVideoRunHooks {
   const live = liveRecorder(writeLive(lead.id, lead.job_id));
+  // The website's text, kept from readLink for the script checks.
+  let siteText = '';
   live.reset();
   return {
     readLink: async (link) => {
       if (!(await watch.check())) throw new Error(LOST_LEAD);
-      return readBusinessSite(link);
+      const read = await readBusinessSite(link);
+      siteText = read.brief;
+      return read;
     },
     options: (base, assets) => {
       watch.assert();
       void recordPhotos(lead.id, lead.job_id, assets);
       live.assets(assets);
       // The library track is not saved with the job, so the live page hears about it here (a made song comes as music.mp3).
-      return freeOptions(base, watch.assert, (plan) => live.plan(plan, assets), (url) => live.stored('music.mp3', url));
+      return freeOptions(base, watch.assert, (plan) => live.plan(plan, assets), (url) => live.stored('music.mp3', url), siteText);
     },
     beforeRender: (result) => {
       watch.assert();

@@ -123,7 +123,9 @@ export async function directVideo(
   format: VideoFormat = 'vertical',
   chosenLook: StyleName | null = null,
   /** The automatic listing video: a fixed recipe on top of the general rules. */
-  listing: ListingOptions | null = null
+  listing: ListingOptions | null = null,
+  /** More checks on the script (the free video funnel): a problem sends the plan back; the last try skips them. */
+  extraCheck?: (plan: DirectorPlan) => string | null
 ): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
@@ -144,7 +146,11 @@ export async function directVideo(
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
 
-  const plan = await askDirector(parts, (candidate, lastChance) => checkPlan(candidate, assets, brief, length, false, lastChance, look, listing), length === 'script' ? 480_000 : 280_000);
+  const plan = await askDirector(
+    parts,
+    (candidate, lastChance) => checkPlan(candidate, assets, brief, length, false, lastChance, look, listing) ?? (lastChance ? null : (extraCheck?.(candidate) ?? null)),
+    length === 'script' ? 480_000 : 280_000
+  );
   return listing ? asListingPlan(plan, listingPhotoCount(listing.seconds, photos)) : plan;
 }
 
