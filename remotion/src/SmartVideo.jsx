@@ -1207,10 +1207,14 @@ function drawingBox({ W, H, landscape }, captions, ratio = 1) {
 }
 const ratioOf = (asset) => (asset?.width && asset?.height ? asset.width / asset.height : 1);
 
-// How long the hand draws. Tall frame: under half the scene, because the words wait for it. Wide frame: the
-// words are written meanwhile, so the hand can take its time and be followed by the eye.
+// How long the hand draws. Tall frame: about a third of the scene and never over 2.2 s, because the words wait for
+// it (2026-10-06: at up to 3 s every scene felt slow). Wide frame: the words are written meanwhile, so the hand can
+// take its time and be followed by the eye.
 const drawSeconds = (sceneSeconds, landscape = false) =>
-  landscape ? Math.min(4.6, Math.max(2, sceneSeconds * 0.55)) : Math.min(3, Math.max(1.5, sceneSeconds * 0.4));
+  landscape ? Math.min(4.6, Math.max(2, sceneSeconds * 0.55)) : Math.min(2.2, Math.max(1.2, sceneSeconds * 0.3));
+// How much of a drawing is already there when its scene opens: the first scene (it doubles as the thumbnail) and,
+// in a tall frame, every scene, so the board is never empty while the hand starts (2026-10-06).
+const HEAD_START = { first: 0.35, tall: 0.3 };
 // How loud sfx/marker.mp3 is in each of its 159 frames (5.3 s at 30 fps; 1 = its loudest frame). The hand draws in
 // this rhythm: it moves while a stroke sounds and waits in the gaps, so what is heard is what is seen.
 // The file is a real marker recording played at three quarters of its speed: at full speed it is a hurried,
@@ -1274,9 +1278,10 @@ function useDrawing(background, duration, first) {
   // The box is the picture itself, so the hand never draws over empty board.
   const { x, y, w, h } = drawingBox(frameSize, captions, ratioOf(asset));
   const drawFrames = Math.round(drawSeconds(duration / FPS, frameSize.landscape) * FPS);
-  // The first scene opens with part of the picture already there (it doubles as the thumbnail).
+  // A scene opens with part of the picture already there (see HEAD_START).
   const stroked = drawnShare(frame - DRAW_START, drawFrames);
-  const share = first ? 0.35 + 0.65 * stroked : stroked;
+  const head = first ? HEAD_START.first : frameSize.landscape ? 0 : HEAD_START.tall;
+  const share = head + (1 - head) * stroked;
   if (path) {
     // The hand follows the drawing's own lines.
     const at = share * path.total;
