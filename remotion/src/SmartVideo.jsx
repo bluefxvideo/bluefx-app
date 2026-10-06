@@ -139,7 +139,8 @@ const STYLES = {
   // The hand-drawn explainer: a hand draws each scene's picture in marker, the words are written by hand.
   whiteboard: {
     theme: { bg: '#FAF9F5', bgLight: '#FFFFFF', bgDeep: '#ECEAE3', accent: '#2563EB', accentDark: '#1E40AF', ink: '#1F2430' },
-    fonts: { title: ['Caveat', 'Caveat.ttf', '400 700'], body: ['Caveat', 'Caveat.ttf', '400 700'], extra: [['Marker', 'PermanentMarker.ttf', '400']] },
+    // Montserrat is only for the subtitles: handwriting at subtitle size is hard to read (owner 2026-10-06).
+    fonts: { title: ['Caveat', 'Caveat.ttf', '400 700'], body: ['Caveat', 'Caveat.ttf', '400 700'], extra: [['Marker', 'PermanentMarker.ttf', '400'], ['Montserrat', 'Montserrat.ttf', '100 900']] },
     // Short lines (about 12 letters): a headline in two big lines fills the board better than one long line.
     title: { kind: 'hand', weight: 700, scale: 1.12, chars: 0.8, upper: false },
     grow: 1.7,
@@ -1717,8 +1718,11 @@ function Captions({ words, cuts = [] }) {
   const chunk = chunks[index];
   const pop = spring({ frame: frame - Math.round(chunk[0].start * FPS), fps: FPS, config: { damping: 14, stiffness: 240, mass: 0.5 } });
   const lit = styleName === 'playful' ? theme.bg : styleName === 'elegant' ? theme.accent : styleName === 'bold' ? theme.accent : '#FFD84D';
-  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 76 }[styleName];
+  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64 }[styleName];
   const strip = styleName === 'whiteboard';
+  // The whiteboard's handwriting is for the board; its subtitles are set in a plain bold sans (owner 2026-10-06:
+  // "i hate this font, hard to read").
+  const font = strip ? 'Montserrat' : look.fonts.title[0];
   return (
     <div style={{ position: 'absolute', left: 0, width: W, top: landscape ? H - 200 : 1335, height: landscape ? 160 : 250, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
@@ -1726,8 +1730,8 @@ function Captions({ words, cuts = [] }) {
           display: 'flex',
           gap: size * 0.26,
           transform: `scale(${interpolate(pop, [0, 1], [0.86, 1])})`,
-          fontFamily: `${look.fonts.title[0]}, ${EMOJI}`,
-          fontWeight: styleName === 'elegant' ? 600 : look.title.weight,
+          fontFamily: `${font}, ${EMOJI}`,
+          fontWeight: styleName === 'elegant' ? 600 : strip ? 800 : look.title.weight,
           fontStyle: styleName === 'elegant' ? 'italic' : 'normal',
           fontSize: size,
           lineHeight: 1.1,
