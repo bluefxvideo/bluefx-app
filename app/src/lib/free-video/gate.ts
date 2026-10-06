@@ -2,8 +2,8 @@
  * Free video ad funnel: the quality gate every finished free video ad passes before anyone is emailed.
  *
  * Zero cost: it reads the saved plan and media (what was made, what failed) and probes the stored
- * file with ffprobe and ffmpeg volumedetect. A video ad that fails any check is held for the owner and
- * never emailed. A file check that could not run on our side (the download or ffprobe failed) is not a
+ * file with ffprobe and ffmpeg volumedetect. A video ad that fails any check is never emailed: it is made
+ * again once (runner settleLead), then held for the owner. A file check that could not run on our side (the download or ffprobe failed) is not a
  * verdict: the result is `inconclusive` and the sweep tries again (review F4). Server only; no API calls.
  */
 
@@ -97,6 +97,8 @@ function planChecks(job: GateJob, saved: SavedPlan | null, opts: GateOptions, re
   const shown = new Set(scenes.flatMap(sceneAssetIds));
   const photosShown = [...shown].filter((id) => CLIENT_ASSET.test(id) && assets[id]?.kind === 'image').length;
   const drawings = scenes.filter((scene) => scene.background.type === 'drawing' && scene.background.asset && assets[scene.background.asset]).length;
+  // Scenes that show a picture: a drawing, a taped photo, a gallery, the logo or the presenter.
+  const pictured = scenes.filter((scene) => sceneAssetIds(scene).some((id) => assets[id])).length;
   const animatedPlanned = plan.animate?.length ?? 0;
   const animatedOk = Object.keys(assets).filter((id) => id.endsWith('-motion')).length;
   const reach = lastScreenReaches(plan, opts.domain);
@@ -112,6 +114,7 @@ function planChecks(job: GateJob, saved: SavedPlan | null, opts: GateOptions, re
     animatedPlanned,
     animatedOk,
     drawings,
+    pictured,
     lastScreen: reach.texts.join(' | ').slice(0, 200),
     domainShown: reach.domainShown,
   });
@@ -130,7 +133,9 @@ function planChecks(job: GateJob, saved: SavedPlan | null, opts: GateOptions, re
   if (missing.length) reasons.push(`missing pictures: ${missing.join(', ')}`);
 
   if (plan.style === 'whiteboard') {
-    if (drawings < 3) reasons.push('too few drawings');
+    // The board is not mostly empty. Drawings alone held good ads (owner 2026-10-06): a site with real
+    // photos gets them taped to the board, and the presenter takes the scene of the first drawing.
+    if (pictured < Math.ceil(scenes.length / 2)) reasons.push('too few pictures');
   } else if (photosShown === 0) {
     reasons.push('no website photo shown');
   }
@@ -279,7 +284,7 @@ async function fileChecks(job: GateJob, saved: SavedPlan | null, reasons: string
  * inconclusive = a file check could not run on our side; settleLead then leaves the lead running and the
  * next sweep gates it again, for GATE.inconclusiveMinutes, before holding it (review F4).
  * facts (stored with the lead) = style, format, language, words, photosShown, animatedPlanned,
- * animatedOk, drawings, lastScreen, domainShown, warnings, costUsd, probeSeconds, meanVolumeDb, and a few more.
+ * animatedOk, drawings, pictured, lastScreen, domainShown, warnings, costUsd, probeSeconds, meanVolumeDb, and a few more.
  */
 export async function qualityGate(job: GateJob, saved: SavedPlan | null, opts: GateOptions = {}): Promise<FreeVideoGateResult> {
   const reasons: string[] = [];

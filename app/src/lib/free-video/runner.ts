@@ -423,7 +423,8 @@ interface JobRecord extends JobRow {
  * - Job not final and silent for staleMinutes(): failDeadJob, then the attempt failed (died).
  * - Job 'failed': the attempt failed (unreadable website → rejected at $0).
  * - Job 'done': the quality gate; pass → 'done' and the email (or 'held' with reason 'review' in
- *   review mode); fail → 'held' with the reasons; a gate that could not run its file checks leaves the
+ *   review mode); fail → made again (attemptFailed) while attempts are left, then 'held' with the
+ *   reasons; a gate that could not run its file checks leaves the
  *   lead running for GATE.inconclusiveMinutes so the next sweep tries again (review F4). A paid $99 unlock
  *   waiting for this video ad starts its clean render.
  */
@@ -485,6 +486,11 @@ export async function settleLead(leadId: string): Promise<SettleOutcome> {
     return 'done';
   }
   const reason = gate.pass ? 'review' : gate.reasons.join('; ').slice(0, 500);
+  // A video ad that fails the check is made again once instead of waiting for a person (owner 2026-10-06:
+  // "the final check seems to be very long, do we need it?"). Not when our own file check could not run.
+  if (!gate.pass && !gate.inconclusive && lead.attempts < MAX_ATTEMPTS) {
+    return attemptFailed(lead, `quality check: ${reason}`, job.usage ?? [], false);
+  }
   if (!(await transitionLead(lead.id, guard, { ...patch, status: 'held', reason }))) return 'none';
   console.warn(`⚠️ [free-video] Lead ${lead.id} (${lead.website_domain}) is held: ${reason}`);
   return 'held';
