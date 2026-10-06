@@ -115,7 +115,7 @@ export const RESULT_PREVIEW = {
   checklist: ['A script written from your website', 'An AI presenter, a voice-over and music', 'Vertical, for Reels, TikTok and Shorts', 'Sent to your email'],
   /** A real button: it opens the video with sound. */
   watch: 'Watch with sound',
-  file: '27 seconds',
+  file: '28 seconds',
 } as const;
 
 /** The hero reel and the examples section: every video on the landing page opens one player, with sound. */
@@ -148,16 +148,16 @@ const EXAMPLES_BASE = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/objec
  */
 export const EXAMPLE_VIDEOS = {
   /**
-   * The video in the top card (owner 2026-10-06: "why don't we just make an awesome video ad about the service?"):
-   * a 27 s video ad about the free video ad, made in the ad studio (ad-studio/public/ads/fv-promo, build.py): an AI
-   * presenter (Kling AI Avatar on the narrator's own voice), a real screen recording of this page, real free video
-   * ads in the whiteboard look every free ad uses (pizza shop, home, laser welder, clean renders), the email
-   * notification. Plays muted in a loop; a tap opens heroReel.opens with sound. (hero/promo with the photo-look
-   * ads, hero/listing-reel, hero/pizza-reel and hero/reel are unused.)
+   * The video in the top card (owner 2026-10-07: weak hook and spokesperson in the first one, "make the hero video
+   * with Ray" → "go with dave"): a 28 s video ad about the free video ad, made in the ad studio
+   * (ad-studio/public/ads/fv-promo-v2, build.py, spokesperson.json): Dave, a small-town marketing agency owner,
+   * says the hook and the call to action (LTX 2.5 Fast, his voice converted to the narrator's), the ascentequipment.com
+   * and realtor free video ads without the watermark, this page on a phone, the email notification, subtitles.
+   * Plays muted in a loop; a tap opens heroReel.opens with sound. (hero/promo-wb, the first version, is unused.)
    */
   heroReel: {
-    video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`,
-    poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg`,
+    video: `${EXAMPLES_BASE}/hero/promo-v2.mp4`,
+    poster: `${EXAMPLES_BASE}/hero/promo-v2.jpg`,
     opens: 'promo',
   },
   /** The examples section, in order. */
@@ -166,7 +166,7 @@ export const EXAMPLE_VIDEOS = {
     { id: 'listing', name: 'Home for sale', video: `${EXAMPLES_BASE}/listing/video.mp4`, poster: `${EXAMPLES_BASE}/listing/poster.jpg` },
     { id: 'welder', name: 'Laser welder', video: `${EXAMPLES_BASE}/welder/video.mp4`, poster: `${EXAMPLES_BASE}/welder/poster.jpg` },
     { id: 'realtor', name: 'Real estate agent', video: `${EXAMPLES_BASE}/reel/realtor.mp4`, poster: `${EXAMPLES_BASE}/reel/realtor.jpg` },
-    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`, poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg` },
+    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo-v2.mp4`, poster: `${EXAMPLES_BASE}/hero/promo-v2.jpg` },
   ],
 } as const;
 export type ExampleVideoAd = (typeof EXAMPLE_VIDEOS.ads)[number];
