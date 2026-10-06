@@ -328,7 +328,9 @@ export function shapeFreePlan(directed: DirectorPlan): DirectorPlan {
           .filter((shot, i, all) => backgrounds.has(shot.asset) && all.findIndex((other) => other.asset === shot.asset) === i);
   const shown = shownIds(plan.scenes);
   const drawings = plan.drawings ? plan.drawings.filter((drawing) => shown.has(drawing.id)) : plan.drawings;
-  return { ...plan, animate: animate.length ? animate : null, drawings };
+  // Subtitles on every free video ad, the presenter's opening line included: most people watch with the
+  // sound off (owner 2026-10-06: "we forgot to add subtitles! especially at the opening when the actor speaks").
+  return { ...plan, captions: true, animate: animate.length ? animate : null, drawings };
 }
 
 /** The BlueFX watermark and the 1 s end card; the job's length includes the card (the gate compares it with the file). */

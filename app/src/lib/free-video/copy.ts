@@ -43,15 +43,15 @@ export const LANDING = {
   /** The small label above the headline. */
   pill: 'Free video ad maker',
   h1: 'Get a free video ad for your business',
-  sub: 'Type your website. The Phantom turns the words and photos on it into a video ad with an AI presenter, a voice-over and music.',
+  sub: 'Type your website. The AI Media Machine turns the words and photos on it into a video ad with an AI presenter, a voice-over and music.',
   /** The hand-drawn note pointing at the website field (wide screens only). */
   startHere: 'Start here!',
   /** The small lines under the website field: what it does not cost. */
   trust: ['100% free', 'No credit card', 'No account to create'],
   /** The numbered steps beside the result card, in order. */
   steps: [
-    { title: 'Add your website', text: 'The Phantom reads the words and photos on your website.' },
-    { title: 'The Phantom makes your video ad', text: 'An AI presenter, hand-drawn scenes, the voice-over and the music.' },
+    { title: 'Add your website', text: 'The AI Media Machine reads the words and photos on your website.' },
+    { title: 'The AI Media Machine makes your video ad', text: 'An AI presenter, hand-drawn scenes, subtitles, the voice-over and the music.' },
     { title: 'Get your video ad by email', text: 'Post the video ad on Facebook, Instagram, TikTok and YouTube Shorts.' },
   ],
   /** The blue band at the bottom, with the same website field. */
@@ -70,7 +70,7 @@ export const STICKY = {
    * it, we had the first image with me"): the first pointing photo, cut at the waist and flipped to point right.
    */
   photo: { src: '/free-video/owner-sticky.webp', width: 559, height: 600 },
-  title: 'Try The Phantom on your website',
+  title: 'Try the AI Media Machine on your website',
   text: 'A free video ad with a voice-over and music, by email.',
   /** Phones: scrolls back to the top field and opens the keyboard. */
   start: 'Start',
@@ -97,10 +97,10 @@ export const FAQ = {
   heading: 'Before you start',
   items: [
     { q: 'Is the video ad really free?', a: 'Yes. Every business gets one free video ad. No credit card, and no account to create.' },
-    { q: 'What do I need?', a: 'Only your website address. The Phantom reads the words and photos on your website and writes the video ad from them.' },
+    { q: 'What do I need?', a: 'Only your website address. The AI Media Machine reads the words and photos on your website and writes the video ad from them.' },
     { q: 'What kind of business can use it?', a: 'Any business with its own website: restaurants, real estate agents, local services, online stores and more.' },
-    { q: 'How do I get my video ad?', a: 'By email, as soon as The Phantom finishes it. You can also watch and download the video ad on your video ad page.' },
-    { q: 'Who is behind this?', a: 'BlueFX. We have made videos for businesses since 2009, and 36,000+ customers have used our video tools and templates. The Phantom is one of the tools inside our AI Media Machine.' },
+    { q: 'How do I get my video ad?', a: 'By email, as soon as the AI Media Machine finishes it. You can also watch and download the video ad on your video ad page.' },
+    { q: 'Who is behind this?', a: 'BlueFX. We have made videos for businesses since 2009, and 36,000+ customers have used our video tools and templates. Your free video ad is made by our AI Media Machine.' },
   ],
 } as const;
 
@@ -112,7 +112,7 @@ export const RESULT_PREVIEW = {
   address: 'app.bluefx.net/free-video-ad',
   badge: 'How it works',
   title: 'From your website to a video ad',
-  checklist: ['A script written from your website', 'An AI presenter, a voice-over and music', 'Vertical, for Reels, TikTok and Shorts', 'Sent to your email'],
+  checklist: ['A script written from your website', 'An AI presenter, a voice-over, subtitles and music', 'Vertical, for Reels, TikTok and Shorts', 'Sent to your email'],
   /** A real button: it opens the video with sound. */
   watch: 'Watch with sound',
   file: '27 seconds',
@@ -241,7 +241,7 @@ export const ERRORS = {
   /** normalizeWebsite could not make a public web address out of the text. */
   invalid: 'Please type your website address, for example yourbusiness.com.',
   refusedHost:
-    "Please type your own business website, for example yourbusiness.com. The Phantom can't use pages on Amazon, Zillow, Google, Facebook, Instagram and other big platforms for the free video ad.",
+    "Please type your own business website, for example yourbusiness.com. The AI Media Machine can't use pages on Amazon, Zillow, Google, Facebook, Instagram and other big platforms for the free video ad.",
   notFound: (domain: string) =>
     `We couldn't find ${domain}. Please check the spelling. If your website opens in your browser, copy the address from the address bar and paste the address here.`,
   unreadable: (domain: string) =>
@@ -293,14 +293,14 @@ export const STATUS = {
     ahead <= 0
       ? `Thanks, ${name}. Your video ad for ${domain} is next in line`
       : `Thanks, ${name}. Your video ad for ${domain} is number ${ahead + 1} in line`,
-  makingTitle: (name: string, domain: string) => `Thanks, ${name}. The Phantom is making your video ad for ${domain}`,
+  makingTitle: (name: string, domain: string) => `Thanks, ${name}. The AI Media Machine is making your video ad for ${domain}`,
   eta: (minutes: number) => `Your video ad should be ready in about ${aboutTime(minutes)}.`,
   /** A long queue (the computed wait is past 90 minutes): no exact time. */
   etaBusy: 'Lots of business owners asked for a free video ad today, so your video ad may take a few hours.',
   /** etaMinutes null, etaNote 'paused': new starts are switched off for now (settings.starting = false). */
-  etaPaused: 'The Phantom is taking a short break. Your spot in line is saved.',
+  etaPaused: 'The AI Media Machine is taking a short break. Your spot in line is saved.',
   /** etaMinutes null, etaNote 'capped': the rolling 24 h cap will not reach this video ad today (review F5). */
-  etaCapped: "Today's free video ads are all handed out. Your spot in line is saved, and The Phantom starts on your video ad the moment there's room.",
+  etaCapped: "Today's free video ads are all handed out. Your spot in line is saved, and the AI Media Machine starts on your video ad the moment there's room.",
   closeOk: "You can close this page. We'll email you the link as soon as your video ad is ready.",
   steps: {
     reading: (domain: string) => `Reading ${domain}`,
@@ -359,17 +359,17 @@ export const LIVE = {
   pill: 'Live',
   pillQueued: 'In line',
   readyPill: 'Ready',
-  title: (name: string, domain: string) => `${name}, The Phantom is making your video ad for ${domain}`,
+  title: (name: string, domain: string) => `${name}, the AI Media Machine is making your video ad for ${domain}`,
   emailNote: "We'll also email you the link.",
   readingTitle: (domain: string) => `Reading ${domain}`,
-  readingHint: 'The Phantom is reading the words and the photos on your website.',
+  readingHint: 'The AI Media Machine is reading the words and the photos on your website.',
   photosTitle: (domain: string) => `Found on ${domain}`,
-  photosCount: (count: number) => `${count} ${count === 1 ? 'photo' : 'photos'} The Phantom can use`,
+  photosCount: (count: number) => `${count} ${count === 1 ? 'photo' : 'photos'} the AI Media Machine can use`,
   writingTitle: 'Writing your script',
-  writingHint: (domain: string) => `The Phantom is picking the best facts from ${domain} and writing what the voice will say, scene by scene.`,
+  writingHint: (domain: string) => `The AI Media Machine is picking the best facts from ${domain} and writing what the voice will say, scene by scene.`,
   scriptTitle: 'Your script, scene by scene',
   scriptHint: (look?: string) =>
-    look && LOOK_NAMES[look] ? `Written from your website. The Phantom picked the ${LOOK_NAMES[look]} look for your video ad.` : 'Written from your website.',
+    look && LOOK_NAMES[look] ? `Written from your website. The AI Media Machine picked the ${LOOK_NAMES[look]} look for your video ad.` : 'Written from your website.',
   sceneLabel: (number: number) => `Scene ${number}`,
   drawing: 'The hand is drawing this scene',
   making: 'Making this picture',
@@ -385,11 +385,11 @@ export const LIVE = {
   musicPlay: 'Listen to the music',
   pause: 'Pause',
   renderTitle: 'Putting your video ad together',
-  renderHint: 'The Phantom is joining the scenes, the voice-over and the music.',
+  renderHint: 'The AI Media Machine is joining the scenes, the voice-over and the music.',
   checkTitle: 'Final check',
-  checkHint: 'The Phantom is checking every scene, the sound and the file.',
-  queuedHint: 'While you wait, see how The Phantom makes a video ad.',
-  promoLabel: 'How The Phantom makes a video ad',
+  checkHint: 'The AI Media Machine is checking every scene, the sound and the file.',
+  queuedHint: 'While you wait, see how the AI Media Machine makes a video ad.',
+  promoLabel: 'How the AI Media Machine makes a video ad',
 } as const;
 
 /**
@@ -443,10 +443,10 @@ export const UNLOCK_COPY = {
   /** Under the button once it was clicked: the checkout opened in a new tab. */
   afterClick: 'Finish the payment in the new tab. This page updates by itself as soon as the payment arrives.',
   paidTitle: 'Payment received',
-  paidBody: 'The Phantom is making your clean video ad (about 5 minutes).',
+  paidBody: 'The AI Media Machine is making your clean video ad (about 5 minutes).',
   paidFine: "You can stay here or close this page. We'll email you the link to the clean video ad too.",
   /** Paid before the free video ad was done (possible through the email link). */
-  paidEarly: 'Payment received. The Phantom makes your clean video ad right after your free video ad is ready.',
+  paidEarly: 'Payment received. The AI Media Machine makes your clean video ad right after your free video ad is ready.',
   readyTitle: 'Your clean video ad is ready',
   readyBody: 'Full HD, without the watermark and end card. Download the video ad and post the video ad as your own.',
   readyButton: 'Download the clean video ad',
@@ -461,10 +461,10 @@ export const OFFER_COPY = {
   /** While the visitor waits. */
   headingWaiting: 'Make 100+ video ads a year yourself',
   bodyWaiting:
-    "The Phantom that's making your video ad is one of the tools inside AI Media Machine. Paste a website, a few lines about an offer or a few photos, and The Phantom makes a finished video ad with a voice-over and music in 3 to 7 minutes.",
+    "The AI Media Machine is making your video ad right now. Paste a website, a few lines about an offer or a few photos, and the AI Media Machine makes a finished video ad with a voice-over and music in 3 to 7 minutes.",
   /** Under the finished video ad. */
   heading: 'Or make 100+ video ads a year yourself',
-  body: 'The Phantom that made your video ad is one of the tools inside AI Media Machine.',
+  body: 'The AI Media Machine made your video ad.',
   /** 600 credits a month x 12 / 50 credits per video ad = 144 a year (offer.ts). */
   bullets: [
     '100+ video ads a year, every one without a watermark',
@@ -485,8 +485,8 @@ export const OFFER_COPY = {
   smallPrint: 'Secure checkout by ClickBank.',
   /** Existing customers (isCustomer) see this instead of the ladder. */
   customerTitle: 'You already have AI Media Machine',
-  customerBody: 'Make your next video ad in The Phantom.',
-  customerButton: 'Open The Phantom',
+  customerBody: 'Make your next video ad in the AI Media Machine.',
+  customerButton: 'Open the AI Media Machine',
 } as const;
 
 /**
@@ -532,7 +532,7 @@ export const EMAIL_DRAFTS = [
     body: [
       'Hi {$name},',
       '',
-      'The Phantom just finished your video ad for {$free_video_site}.',
+      'The AI Media Machine just finished your video ad for {$free_video_site}.',
       '',
       '[Button: Watch my video ad → {$free_video_url}]',
       '',
@@ -543,7 +543,7 @@ export const EMAIL_DRAFTS = [
       'Talk soon,',
       'Szilard',
       '',
-      'P.S. Want the video ad without the BlueFX watermark in the middle? Open your video ad page and unlock the clean version. The Phantom makes the clean video ad in about 5 minutes: {$free_video_url}',
+      'P.S. Want the video ad without the BlueFX watermark in the middle? Open your video ad page and unlock the clean version. The AI Media Machine makes the clean video ad in about 5 minutes: {$free_video_url}',
     ].join('\n'),
   },
   {
@@ -581,7 +581,7 @@ export const EMAIL_DRAFTS = [
       '',
       "People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps {$free_video_site} in front of your customers.",
       '',
-      'With AI Media Machine you paste a website, a product page or a few lines about an offer, and The Phantom makes the video ad in 3 to 7 minutes. That adds up to 100+ video ads a year, every one without a watermark, and you can change the images, footage, music, script and voice whenever you like.',
+      'With AI Media Machine you paste a website, a product page or a few lines about an offer, and the video ad is ready in 3 to 7 minutes. That adds up to 100+ video ads a year, every one without a watermark, and you can change the images, footage, music, script and voice whenever you like.',
       '',
       'You also get 12 bonus video tools, like AI Avatar, Clone Studio, Video Swap and ReelEstate.',
       '',
@@ -601,7 +601,7 @@ export const EMAIL_DRAFTS = [
     body: [
       'Hi {$name},',
       '',
-      'Thanks for your order. The Phantom made the clean version of your video ad for {$free_video_site}, without the watermark and end card.',
+      'Thanks for your order. The AI Media Machine made the clean version of your video ad for {$free_video_site}, without the watermark and end card.',
       '',
       '[Button: Download my clean video ad → {$free_video_clean_url}]',
       '',
