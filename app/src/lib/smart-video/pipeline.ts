@@ -176,13 +176,11 @@ async function produce(
   const presenterPhoto =
     presenter && !listing && !horizontal
       ? castPersona(brief)
-          .then((persona) => {
-            console.log(`🎭 Presenter: ${persona}`);
-            return castPresenter(persona);
-          })
-          .then(async (photo) => {
+          .then(async (persona) => {
+            console.log(`🎭 Presenter: ${persona.photo} | hook: ${persona.action}`);
+            const photo = await castPresenter(persona.photo);
             await store(photo, 'presenter.jpg', 'image/jpeg');
-            return photo;
+            return { photo, action: persona.action };
           })
           .catch((error) => {
             console.warn('⚠️ Presenter not cast, the narrator says the first line:', String(error).slice(0, 160));
@@ -197,9 +195,9 @@ async function produce(
   const presenterJob =
     presenterPhoto && firstLine && firstLine.split(/\s+/).length <= PRESENTER_MAX_WORDS
       ? presenterPhoto
-          .then(async (photo) => {
-            if (!photo) return null;
-            const clip = await talkingPresenter(photo, firstLine);
+          .then(async (cast) => {
+            if (!cast) return null;
+            const clip = await talkingPresenter(cast.photo, firstLine, cast.action);
             return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
           })
           .catch((error) => {
@@ -592,7 +590,8 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       const speaker = speakerOf(i);
       if (speaker) {
         const heard = media.clipWords[speaker.asset].filter((w) => w.end > speaker.from - 0.25 && w.start < speaker.to + 0.25);
-        const srcStart = Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
+        // The presenter's clip plays from its first frame: their hook action comes before the first word.
+        const srcStart = speaker.asset === PRESENTER_ASSET ? 0 : Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
         const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + 0.4;
         const tokens = alignScript([scene.narration], heard).sceneTokens[0].map((t) => ({ ...t, time: t.time - srcStart + cursor }));
         cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: 1 });
