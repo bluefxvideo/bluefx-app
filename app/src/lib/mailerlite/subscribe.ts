@@ -24,7 +24,19 @@ export interface MailerLiteSubscribeInput {
   fields?: Record<string, string | number | null>
 }
 
-export async function subscribeToMailerLite(input: MailerLiteSubscribeInput): Promise<{ ok: boolean; status?: number; reason?: string }> {
+export interface MailerLiteSubscribeResult {
+  ok: boolean
+  status?: number
+  reason?: string
+  /**
+   * The subscriber as MailerLite keeps it, on success. `status` is 'active', 'unsubscribed',
+   * 'unconfirmed', 'bounced' or 'junk'. This request never sends `resubscribe`, so someone who
+   * unsubscribed earlier stays unsubscribed.
+   */
+  subscriber?: { id?: string; status?: string }
+}
+
+export async function subscribeToMailerLite(input: MailerLiteSubscribeInput): Promise<MailerLiteSubscribeResult> {
   const apiKey = process.env.MAILERLITE_API_KEY
   if (!apiKey) {
     console.warn('MailerLite: MAILERLITE_API_KEY not set, skipping list sync for', input.email)
@@ -47,9 +59,10 @@ export async function subscribeToMailerLite(input: MailerLiteSubscribeInput): Pr
     ...(groups.length ? { groups } : {}),
   }
 
+  // The timer also covers reading the reply, so a reply that stalls mid-body cannot hang the caller.
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15_000)
     const res = await fetch(`${API_BASE}/subscribers`, {
       method: 'POST',
       headers: {
@@ -60,17 +73,19 @@ export async function subscribeToMailerLite(input: MailerLiteSubscribeInput): Pr
       body: JSON.stringify(body),
       signal: controller.signal,
     })
-    clearTimeout(timeout)
     if (!res.ok) {
       const text = await res.text()
       console.error(`MailerLite: subscribe failed for ${email} (${res.status}): ${text.slice(0, 200)}`)
       return { ok: false, status: res.status, reason: text.slice(0, 200) }
     }
     console.log(`📧 MailerLite: ${res.status === 201 ? 'added' : 'updated'} ${email}${groups.length ? ` → groups ${groups.join(',')}` : ''}`)
-    return { ok: true, status: res.status }
+    const data = await res.json().catch(() => null)
+    return { ok: true, status: res.status, subscriber: { id: data?.data?.id, status: data?.data?.status } }
   } catch (error) {
     console.error('MailerLite: request error for', email, error)
     return { ok: false, reason: error instanceof Error ? error.message : 'request error' }
+  } finally {
+    clearTimeout(timeout)
   }
 }
 

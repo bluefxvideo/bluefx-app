@@ -33,10 +33,40 @@ export interface UsageEntry {
 
 const store = new AsyncLocalStorage<UsageEntry[]>();
 
+// Where a failed job's spend travels: a hidden property on the error itself, read with usageOf().
+const USAGE = Symbol.for('smart-video.usage');
+
+/**
+ * Collects what the job spends. When the job throws, the SAME error is rethrown (messages and logs
+ * stay as they were) carrying the steps already paid for, so a failed video's cost is not lost.
+ * With collectors inside each other, the innermost one wins.
+ */
 export const trackUsage = <T>(job: () => Promise<T>): Promise<{ result: T; usage: UsageEntry[] }> => {
   const entries: UsageEntry[] = [];
-  return store.run(entries, async () => ({ result: await job(), usage: entries }));
+  return store.run(entries, async () => {
+    try {
+      return { result: await job(), usage: entries };
+    } catch (error) {
+      if (error && typeof error === 'object' && !(USAGE in error)) {
+        try {
+          Object.defineProperty(error, USAGE, { value: entries, enumerable: false });
+        } catch {
+          /* a frozen error carries no usage */
+        }
+      }
+      throw error;
+    }
+  });
 };
+
+/**
+ * The steps a failed job had already paid for ([] when the error never passed through trackUsage).
+ * It is the live list: steps still running in parallel after the throw keep adding to it.
+ */
+export function usageOf(error: unknown): UsageEntry[] {
+  if (!error || typeof error !== 'object') return [];
+  return (error as Record<symbol, UsageEntry[] | undefined>)[USAGE] || [];
+}
 
 const add = (step: string, usd: number, detail: string) => store.getStore()?.push({ step, usd, detail });
 

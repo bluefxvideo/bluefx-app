@@ -11,6 +11,7 @@ import {
   generateSound,
   generateVoice,
   pcmToWav,
+  stillCameraPrompt,
   transcribeWords,
   type SpokenWord,
 } from './audio';
@@ -121,6 +122,13 @@ export interface SmartVideoOptions {
    */
   clips?: { charge: (assetId: string) => Promise<boolean>; refund: (assetId: string) => Promise<void> };
   onStage?: (stage: SmartVideoStage) => void;
+  /**
+   * Changes the director's plan before anything is produced, so what it removes is never paid for
+   * (the free video funnel). Unset for paying users. Listing videos ignore it.
+   */
+  adjustPlan?: (plan: DirectorPlan) => DirectorPlan;
+  /** Animated photos keep the camera still and only the scene moves (the free video funnel). Unset for paying users. Listing videos ignore it. */
+  stillCamera?: boolean;
 }
 
 export async function createSmartVideo(
@@ -139,7 +147,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {} }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
   const photos = assets.filter((a) => a.kind === 'image').length;
@@ -151,7 +159,9 @@ async function produce(
   onStage('directing');
   console.log(`🎬 Smart Video: directing (${assets.length} files${listing ? `, listing video of ${listing.seconds} s` : ''})...`);
   const horizontal = format === 'horizontal';
-  const plan = await directVideo(brief, assets, length, format, look, listing);
+  const directed = await directVideo(brief, assets, length, format, look, listing);
+  // Listing videos keep their own recipe.
+  const plan = adjustPlan && !listing ? adjustPlan(directed) : directed;
   console.log(`✅ Plan: ${plan.scenes.length} scenes, style "${plan.style}" (${plan.styleReason}), language ${plan.language}`);
 
   onStage('producing');
@@ -204,7 +214,10 @@ async function produce(
         const generated = original ? null : (await lifestyle).find(([id]) => id === shot.asset);
         const image = original ? original.data : generated ? await loadStored(generated[1].url) : null;
         if (!image) return null;
-        const clip = await animatePhoto(await cropToFrame(image, focusOf(shot.asset), horizontal), shot.prompt, horizontal);
+        const frame = await cropToFrame(image, focusOf(shot.asset), horizontal);
+        const clip = stillCamera
+          ? await animatePhoto(frame, stillCameraPrompt(shot.prompt), horizontal, MOTION_CLIP_SECONDS, true)
+          : await animatePhoto(frame, shot.prompt, horizontal);
         return [shot.asset, await store(clip, `${shot.asset}-motion.mp4`, 'video/mp4')] as const;
       } catch (error) {
         console.warn(`⚠️ Animating ${shot.asset} failed:`, String(error).slice(0, 160));

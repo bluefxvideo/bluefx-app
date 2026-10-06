@@ -253,6 +253,44 @@ export async function generateDrawing(prompt: string): Promise<{ png: Buffer; wi
 
 export const MOTION_CLIP_SECONDS = 6; // the model's shortest clip
 
+// Words that make a clause a camera move, each a whole word in any inflection ("push-in", "pans", "zooming", "swept").
+// "push" is matched alone, which also covers "push in" and "push toward".
+const CAMERA_MOVE = new RegExp(
+  `\\b(?:${[
+    'cameras?',
+    'push(?:es|ed|ing)?',
+    'pull(?:s|ed|ing)?[\\s-]+(?:out|back)',
+    'doll(?:y|ies|ied|ying)',
+    'orbit(?:s|ed|ing)?',
+    'pan(?:s|ned|ning)?',
+    'tilt(?:s|ed|ing)?',
+    'zoom(?:s|ed|ing)?',
+    'track(?:s|ed|ing)?',
+    'cran(?:e|es|ed|ing)',
+    'drones?',
+    'fl(?:y|ies|ying|ew)[\\s-]?(?:through|thru)s?',
+    'glid(?:e|es|ed|ing)',
+    'sweep(?:s|ing)?',
+    'swept',
+  ].join('|')})\\b`,
+  'i'
+);
+
+/**
+ * The director's motion sentence for a clip whose camera must not move: the camera-move clauses go,
+ * what moves inside the scene stays ("leaves swaying"). fal LTX 2.3 Fast cut to another shot in 11 of
+ * 11 clips asked for a camera move and stayed clean in 9 of 9 with a still camera; "Camera: static."
+ * is the wording the Cinematographer's Fast clips send to the same model. Use with exactPrompt = true.
+ */
+export function stillCameraPrompt(prompt: string): string {
+  const kept = prompt
+    .split(/[,;.\n]+/)
+    .map((clause) => clause.replace(/\s+/g, ' ').trim())
+    .filter((clause) => clause && !CAMERA_MOVE.test(clause));
+  const motion = kept.length ? kept.join(', ') : 'Gentle natural motion in the scene';
+  return `${motion}. Camera: static. A locked-off shot, the frame does not move; only small natural motion inside the scene. One continuous shot. Photorealistic, the scene stays exactly as in the image, no new objects, no text.`;
+}
+
 /**
  * Turns a frame-sized still into a short moving clip (fal LTX 2.3 Fast, queue API). Returns the MP4.
  * `exactPrompt` sends the prompt as it is (a listing's proven camera move), without the general additions.

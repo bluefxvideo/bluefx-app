@@ -35,6 +35,14 @@ import {
 
 const FPS = 30;
 const FRAMES = { vertical: { W: 1080, H: 1920, landscape: false }, horizontal: { W: 1920, H: 1080, landscape: true } };
+// The BlueFX watermark and end card (the optional `watermark` prop). The colours are bluefx.svg's own gradient stops;
+// the font has its own family name, so it never shadows or dedupes a look's font.
+const BRAND = { blue: '#29a9e1', deep: '#0d72b9', glow: '#93d6e3', night: '#06213a' };
+const BRAND_FONT = ['BlueFXBrand', 'Montserrat.ttf', '100 900'];
+const BRAND_LOGO = 'brand/bluefx.svg';
+// The end card fades in over the last frames of the final scene, so the dissolve starts from the picture, not a blank frame.
+const END_CARD_FADE = 5;
+const endCardSecondsOf = (wm) => (wm ? Math.max(0, Number(wm.endCardSeconds) || 0) : 0);
 // The frame of this video, and the width of the column the current blocks sit in
 // (the whole frame when vertical; one side of a split scene when horizontal).
 const Frame = createContext(FRAMES.vertical);
@@ -173,11 +181,15 @@ const useTextColor = () => {
 };
 
 // ---------- fonts ----------
-function useFonts(look) {
+// `brand`: also load the watermark and end-card font (only when the video carries the watermark).
+function useFonts(look, brand = false) {
   const [ready, setReady] = useState(false);
   const [handle] = useState(() => delayRender('SmartVideo fonts'));
   useEffect(() => {
-    const wanted = [look.fonts.title, look.fonts.body, ...(look.fonts.extra || [])].filter((f, i, all) => all.findIndex((g) => g[0] === f[0]) === i);
+    const wanted = [
+      ...[look.fonts.title, look.fonts.body, ...(look.fonts.extra || [])].filter((f, i, all) => all.findIndex((g) => g[0] === f[0]) === i),
+      ...(brand ? [BRAND_FONT] : []),
+    ];
     Promise.all(
       wanted.map(([family, file, weight]) =>
         new FontFace(family, `url('${staticFile(`smart-video/fonts/${file}`)}')`, { weight }).load()
@@ -189,7 +201,7 @@ function useFonts(look) {
         continueRender(handle);
       })
       .catch((err) => cancelRender(err));
-  }, [handle, look]);
+  }, [handle, look, brand]);
   return ready;
 }
 
@@ -630,13 +642,15 @@ function Highlight({ block }) {
   const { theme, look } = usePlan();
   const frame = useCurrentFrame();
   const from = useLocalFrame(block.at);
-  const [ref, size] = useFit(look.pill.marker ? 100 : 60, useColumn() - 2 * SIDE - (look.pill.marker ? 110 : 120));
+  // A long line (a web address) needs wider side room, or the ellipse's ends cut through its first and last letters
+  const sideRoom = 0.6 + 0.08 * Math.max(0, block.text.length - 8);
+  const [ref, size] = useFit(look.pill.marker ? 100 : 60, useColumn() - 2 * SIDE - (look.pill.marker ? 110 + 2 * (sideRoom - 0.6) * 60 : 120));
   const pulse = 1 + 0.025 * Math.sin(Math.max(0, frame - from - 18) / 7);
   if (look.pill.marker) {
     // The ellipse is drawn round the words once they are written.
     const drawn = interpolate(frame - from, [10, 26], [0, 1], clamp);
     return (
-      <div style={{ position: 'relative', padding: `${Math.round(size * 0.45)}px ${Math.round(size * 0.6)}px`, fontFamily: MARKER, fontSize: size, color: theme.ink }}>
+      <div style={{ position: 'relative', padding: `${Math.round(size * 0.45)}px ${Math.round(size * sideRoom)}px`, fontFamily: MARKER, fontSize: size, color: theme.ink }}>
         <div ref={ref} style={{ whiteSpace: 'nowrap' }}>{block.text}</div>
         <svg viewBox="0 0 100 40" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', clipPath: `inset(-30% ${(1 - drawn) * 100 - (drawn >= 1 ? 10 : 0)}% -30% -10%)` }}>
           <path
@@ -1728,7 +1742,9 @@ function autoSfx(scenes, landscape) {
   return out;
 }
 
-function Soundtrack({ audio = {}, scenes, duration }) {
+// `fadeEnd` (seconds): where the music finishes fading out when an end card follows the video; the looping music
+// carries over the card. Without it the music fades out at `duration`, as always.
+function Soundtrack({ audio = {}, scenes, duration, fadeEnd }) {
   const { look } = usePlan();
   const { landscape } = useFrame();
   const { voice, music } = audio;
@@ -1739,9 +1755,10 @@ function Soundtrack({ audio = {}, scenes, duration }) {
   const tail = music?.tailVolume ?? 0.4;
   const end = duration * FPS;
   const liftAt = Math.min((music?.liftAt ?? duration - 4) * FPS, end - 90);
+  const fade = (fadeEnd ?? duration) * FPS;
   // Low under the voice, lifts after the last word, fades out over the final 2 s.
   const envelope = (frame) =>
-    interpolate(frame, [0, 5, liftAt, liftAt + 24, end - 60, end], [0, bed, bed, tail, tail, 0], clamp);
+    interpolate(frame, [0, 5, liftAt, liftAt + 24, fade - 60, fade], [0, bed, bed, tail, tail, 0], clamp);
   return (
     <>
       {cuts.map((cut, i) => (
@@ -1770,14 +1787,84 @@ function Soundtrack({ audio = {}, scenes, duration }) {
   );
 }
 
+// ---------- watermark ----------
+// The free video ad's watermark: the BlueFX mark and name, big and see-through in the middle of the frame for the
+// whole video (it stops where the end card starts). It sits above the drawing hand (20), the captions (50) and the
+// transitions (100), so no full-frame photo or crop can hide it, and stays transparent enough that the video ad
+// underneath still reads. The soft dark shadow keeps the white name visible on the whiteboard's light paper too.
+function CenterWatermark({ until, label }) {
+  const frame = useCurrentFrame();
+  const { W, landscape } = useFrame();
+  if (frame >= until) return null;
+  const width = Math.round(W * (landscape ? 0.34 : 0.58));
+  const logo = Math.round(width * 0.34);
+  return (
+    <AbsoluteFill style={{ zIndex: 110, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+      <div
+        style={{
+          width,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: Math.round(width * 0.035),
+          opacity: 0.42,
+          filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.55))',
+        }}
+      >
+        <Img src={staticFile(BRAND_LOGO)} style={{ width: logo, height: logo }} />
+        <span style={{ fontFamily: `${BRAND_FONT[0]}, sans-serif`, fontWeight: 800, fontSize: Math.round(width * 0.25), lineHeight: 1, color: '#FFFFFF', whiteSpace: 'nowrap', letterSpacing: 2 }}>
+          {label}
+        </span>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+// The closing card in BlueFX's own colours. No transition and no sound: the music carries over it and fades out.
+function EndCard() {
+  const frame = useCurrentFrame();
+  const { landscape } = useFrame();
+  const logo = landscape ? 160 : 220;
+  const grow = interpolate(frame, [0, 8], [0.85, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  return (
+    <AbsoluteFill
+      style={{
+        zIndex: 120,
+        opacity: interpolate(frame, [0, END_CARD_FADE], [0, 1], clamp),
+        // Night blue with a soft deep-blue glow behind the logo: on a mostly deep-blue card the blue logo and name sank in.
+        background: `radial-gradient(circle at 50% 43%, ${BRAND.deep}A6 0%, ${BRAND.deep}00 58%), ${BRAND.night}`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: `${BRAND_FONT[0]}, sans-serif`,
+      }}
+    >
+      <Img src={staticFile(BRAND_LOGO)} style={{ width: logo, height: logo, transform: `scale(${grow})` }} />
+      <div style={{ marginTop: landscape ? 22 : 34, fontWeight: 600, fontSize: 52, lineHeight: 1.1, color: LIGHT_TEXT }}>Made with</div>
+      <div style={{ fontWeight: 800, fontSize: 112, lineHeight: 1.05, color: BRAND.blue }}>BlueFX</div>
+    </AbsoluteFill>
+  );
+}
+
 // ---------- composition ----------
-export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful', theme, assets = {}, audio, captions, duration }) => {
+/**
+ * Props: the plan (scenes, format, style, theme, assets, audio, captions, duration) plus
+ * @param {{ label?: string; endCardSeconds?: number }} [watermark] Optional BlueFX branding: a big see-through mark in the middle and,
+ *   when endCardSeconds > 0, an end card that adds endCardSeconds to the video. Left out (the default), the render
+ *   is exactly what it was before the prop existed.
+ */
+export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful', theme, assets = {}, audio, captions, duration, watermark }) => {
   const frameSize = FRAMES[format] || FRAMES.vertical;
   const styleName = STYLES[style] ? style : 'playful';
   const look = STYLES[styleName];
-  const ready = useFonts(look);
+  const endSeconds = endCardSecondsOf(watermark);
+  const ready = useFonts(look, Boolean(watermark));
   const { durationInFrames } = useVideoConfig();
-  const total = duration || durationInFrames / FPS;
+  // The video itself; the end card (if any) comes after it.
+  const total = duration || durationInFrames / FPS - endSeconds;
+  const endAt = Math.round(total * FPS);
+  const cardFrom = Math.max(0, endAt - END_CARD_FADE);
   const merged = { ...look.theme, ...theme };
   const plan = {
     styleName,
@@ -1799,7 +1886,14 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
         {/* `cut`: the scene starts on a plain cut, as footage does; every other scene change is covered by the look's transition. */}
         {scenes.slice(1).map((scene, i) => (scene.cut ? null : <Transition key={i} at={Math.round(scene.start * FPS)} />))}
         {ready && captions?.words?.length > 0 && <Captions words={captions.words} cuts={scenes.filter((scene) => scene.cut).map((scene) => scene.start)} />}
-        <Soundtrack audio={audio} scenes={scenes} duration={total} />
+        {ready && watermark && <CenterWatermark until={endSeconds > 0 ? endAt : Infinity} label={watermark.label || 'BlueFX'} />}
+        {/* The card runs to the composition's last frame, so rounding can never leave a blank frame after it. */}
+        {ready && endSeconds > 0 && (
+          <Sequence from={cardFrom} durationInFrames={Math.max(1, durationInFrames - cardFrom)}>
+            <EndCard />
+          </Sequence>
+        )}
+        <Soundtrack audio={audio} scenes={scenes} duration={total} fadeEnd={endSeconds > 0 ? total + endSeconds : undefined} />
       </AbsoluteFill>
     </Plan.Provider>
     </Frame.Provider>
@@ -1807,7 +1901,7 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
 };
 
 export const smartVideoMetadata = ({ props }) => ({
-  durationInFrames: Math.max(1, Math.ceil((props.duration || 10) * FPS)),
+  durationInFrames: Math.max(1, Math.ceil(((props.duration || 10) + endCardSecondsOf(props.watermark)) * FPS)),
   fps: FPS,
   width: (FRAMES[props.format] || FRAMES.vertical).W,
   height: (FRAMES[props.format] || FRAMES.vertical).H,

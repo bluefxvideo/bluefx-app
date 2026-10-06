@@ -18,9 +18,15 @@ export interface LinkSource {
   imageUrls: string[];
 }
 
+/**
+ * How a page or a photo is fetched. The default is the global fetch; the free video funnel passes a
+ * guarded fetcher that only reaches public addresses.
+ */
+export type PageFetch = (url: string, init?: RequestInit) => Promise<Response>;
+
 const MAX_PHOTOS = 12; // what one video can use; more only costs director tokens
 const MAX_PAGE_TEXT = 6000;
-const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+export const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 async function runActor(actor: string, input: unknown): Promise<any[]> {
   const token = process.env.APIFY_API_TOKEN;
@@ -220,11 +226,11 @@ export async function fromTikTokShop(url: string): Promise<LinkSource> {
 }
 
 /** Every Shopify product page has its data behind `<product url>.js`. Returns null when the page is not Shopify. */
-async function fromShopify(url: string): Promise<LinkSource | null> {
+async function fromShopify(url: string, get: PageFetch = fetch): Promise<LinkSource | null> {
   const page = new URL(url);
   const handle = /\/products\/([^/?#]+)/.exec(page.pathname)?.[1];
   if (!handle) return null;
-  const res = await fetch(`${page.origin}/products/${handle}.js`, {
+  const res = await get(`${page.origin}/products/${handle}.js`, {
     headers: { 'User-Agent': BROWSER_UA },
     signal: AbortSignal.timeout(20_000),
   }).catch(() => null);
@@ -234,7 +240,7 @@ async function fromShopify(url: string): Promise<LinkSource | null> {
   if (!product?.title || !Array.isArray(product.variants)) return null;
 
   // The .js endpoint gives prices in cents without a currency; the page itself names the currency.
-  const html = await fetchHtml(url).catch(() => '');
+  const html = await fetchHtml(url, get).catch(() => '');
   const currency =
     /property="og:price:currency" content="([A-Z]{3})"/.exec(html)?.[1] || /"currency":"([A-Z]{3})"/.exec(html)?.[1] || 'USD';
   const symbol = { USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', AUD: 'A$' }[currency] || `${currency} `;
@@ -298,8 +304,8 @@ export async function fromGoogleMaps(url: string): Promise<LinkSource> {
 
 // ---------- any other page: a business site, a sales page, a blog post ----------
 
-async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, {
+async function fetchHtml(url: string, get: PageFetch = fetch): Promise<string> {
+  const res = await get(url, {
     headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' },
     redirect: 'follow',
     signal: AbortSignal.timeout(25_000),
@@ -416,9 +422,9 @@ function pageImages(html: string, base: URL): string[] {
   return [...new Set(found)].slice(0, 16);
 }
 
-export async function fromWebsite(url: string): Promise<LinkSource> {
+export async function fromWebsite(url: string, get: PageFetch = fetch): Promise<LinkSource> {
   const base = new URL(url);
-  const html = await fetchHtml(url).catch(() => {
+  const html = await fetchHtml(url, get).catch(() => {
     throw new Error('That page could not be opened. Paste its text and add the photos instead.');
   });
   const { facts, type } = structuredFacts(html);
@@ -457,16 +463,23 @@ export async function fromWebsite(url: string): Promise<LinkSource> {
 /**
  * Downloads a link's photos. A page's <img> tags include icons, payment badges and thin banners:
  * anything too small or too stretched to fill a video frame is dropped. One failed download never fails the job.
+ * `maxPixels` drops pictures too big to decode safely (a small file can unpack into gigabytes); the header says so before any decoding.
  */
-export async function downloadLinkPhotos(imageUrls: string[], limit = MAX_PHOTOS): Promise<{ filename: string; data: Buffer }[]> {
+export async function downloadLinkPhotos(
+  imageUrls: string[],
+  limit = MAX_PHOTOS,
+  get: PageFetch = fetch,
+  maxPixels = Infinity,
+): Promise<{ filename: string; data: Buffer }[]> {
   const photos = await Promise.all(
     imageUrls.map(async (url): Promise<Buffer | null> => {
       try {
-        const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA }, signal: AbortSignal.timeout(30_000) });
+        const res = await get(url, { headers: { 'User-Agent': BROWSER_UA }, signal: AbortSignal.timeout(30_000) });
         if (!res.ok || !(res.headers.get('content-type') || '').startsWith('image/')) return null;
         const data = Buffer.from(await res.arrayBuffer());
         const { width = 0, height = 0 } = await sharp(data).metadata();
         if (Math.min(width, height) < 400 || Math.max(width, height) / Math.min(width, height) > 2.6) return null;
+        if (width * height > maxPixels) return null;
         return data;
       } catch {
         return null;
@@ -477,6 +490,30 @@ export async function downloadLinkPhotos(imageUrls: string[], limit = MAX_PHOTOS
     .filter((data): data is Buffer => Boolean(data))
     .slice(0, limit)
     .map((data, i) => ({ filename: `link-${String(i + 1).padStart(2, '0')}.jpg`, data }));
+}
+
+/**
+ * A business's own site for the free video funnel: a Shopify product page or any plain page, read with
+ * the fetcher given (the guarded one). Never an Apify actor, so reading a site costs nothing.
+ */
+export async function fromBusinessSite(url: string, get: PageFetch): Promise<LinkSource> {
+  return (await fromShopify(url, get)) || fromWebsite(url, get);
+}
+
+/**
+ * How much a reader like fromWebsite would get from a page: the length of its text (the same
+ * main / article / body part, cleaned the same way) and the number of facts in its structured data.
+ * fromWebsite gives up on a page under 250 characters with no facts.
+ */
+export function pageReadability(html: string): { textLength: number; facts: number } {
+  const { facts, type } = structuredFacts(html);
+  const pageType = type || (meta(html, 'og:type') === 'article' ? 'article' : 'page');
+  const mainPart = /<main[\s\S]*<\/main>/i.exec(html)?.[0];
+  const articlePart = /<article[\s\S]*<\/article>/i.exec(html)?.[0];
+  const text = htmlToText(
+    (pageType === 'article' ? articlePart || mainPart : mainPart || articlePart) || /<body[\s\S]*<\/body>/i.exec(html)?.[0] || html,
+  );
+  return { textLength: text.length, facts: facts.length };
 }
 
 /** `listingPhotos`: how many photos a home listing brings (the automatic listing video takes more than one general video can use). */

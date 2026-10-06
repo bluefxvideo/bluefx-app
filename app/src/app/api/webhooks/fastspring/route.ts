@@ -4,6 +4,7 @@ import { cancelFastSpringSubscription } from '@/lib/credits/subscription-entitle
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 import { findAuthUser, findAuthUserByEmail } from '@/lib/auth-user-lookup'
+import { freeVideoUnlockIn, handleFreeVideoUnlockEvent } from '@/lib/free-video/unlock'
 
 export const maxDuration = 30 // Allow up to 30s for webhook processing (multiple API calls)
 
@@ -232,6 +233,15 @@ async function processFastSpringEvent(eventType: string, eventData: FastSpringEv
   if (skoolProduct) {
     await logSkoolProductEvent(eventData, eventType, skoolProduct)
     return
+  }
+
+  // The free video ad's $29 unlock (product video-ad-unlock): order.completed, refunds and cancellations
+  // are handled by lib/free-video/unlock.ts, which never creates a user and never touches credits.
+  // Only when the order holds other products too do those go on to the routing below.
+  const freeVideoUnlock = freeVideoUnlockIn(eventData)
+  if (freeVideoUnlock) {
+    await handleFreeVideoUnlockEvent(eventType, eventData)
+    if (freeVideoUnlock === 'only') return
   }
 
   // Route to appropriate handler based on event type
