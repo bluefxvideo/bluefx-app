@@ -51,7 +51,7 @@ export const LANDING = {
   /** The numbered steps beside the result card, in order. */
   steps: [
     { title: 'Add your website', text: 'The AI Media Machine reads the words and photos on your website.' },
-    { title: 'The AI Media Machine makes your video ad', text: 'An AI presenter, hand-drawn scenes, subtitles, the voice-over and the music.' },
+    { title: 'The AI Media Machine makes your video ad', text: 'An AI presenter, hand-drawn scenes, the voice-over and the music.' },
     { title: 'Get your video ad by email', text: 'Post the video ad on Facebook, Instagram, TikTok and YouTube Shorts.' },
   ],
   /** The blue band at the bottom, with the same website field. */
@@ -112,7 +112,7 @@ export const RESULT_PREVIEW = {
   address: 'app.bluefx.net/free-video-ad',
   badge: 'How it works',
   title: 'From your website to a video ad',
-  checklist: ['A script written from your website', 'An AI presenter, a voice-over, subtitles and music', 'Vertical, for Reels, TikTok and Shorts', 'Sent to your email'],
+  checklist: ['A script written from your website', 'An AI presenter, a voice-over and music', 'Vertical, for Reels, TikTok and Shorts', 'Sent to your email'],
   /** A real button: it opens the video with sound. */
   watch: 'Watch with sound',
   file: '27 seconds',

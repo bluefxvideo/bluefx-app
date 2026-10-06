@@ -366,6 +366,8 @@ async function addPresenter(plan: DirectorPlan, media: SmartVideoMedia, job: Pro
       ...plan.scenes[0],
       speaker: { asset: PRESENTER_ASSET, from: 0, to: words[words.length - 1].end + 0.1 },
       background: { type: 'mediaFull', asset: PRESENTER_ASSET, focus: '50% 35%' },
+      // No title over the presenter: the subtitles carry the words and the person and the prop stay clear (owner 2026-10-06).
+      blocks: [],
     };
     console.log(`🎭 The presenter says the first line (${words.length} words, ${words[words.length - 1].end.toFixed(1)} s)`);
   } catch (error) {

@@ -1701,6 +1701,9 @@ function chunkWords(words) {
   return chunks;
 }
 
+// Whether the scene has subtitles: a word belongs to the scene it starts in.
+const subtitled = (words, scene) => words.some((word) => word.start >= scene.start - 0.05 && word.start < scene.end);
+
 function Captions({ words, cuts = [] }) {
   const { W, H, landscape } = useFrame();
   const { theme, look, styleName } = usePlan();
@@ -1919,12 +1922,18 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
         {ready &&
           scenes.map((scene, i) => (
             <Sequence key={i} from={Math.round(scene.start * FPS)} durationInFrames={Math.max(1, Math.round((scene.end - scene.start) * FPS))}>
-              <Scene scene={scene} index={i} first={i === 0} />
+              {/* A scene leaves room for subtitles only when some show in it (a free video ad subtitles only its presenter). */}
+              <Plan.Provider value={plan.captions && !subtitled(captions.words, scene) ? { ...plan, captions: false } : plan}>
+                <Scene scene={scene} index={i} first={i === 0} />
+              </Plan.Provider>
             </Sequence>
           ))}
         {/* `cut`: the scene starts on a plain cut, as footage does; every other scene change is covered by the look's transition. */}
         {scenes.slice(1).map((scene, i) => (scene.cut ? null : <Transition key={i} at={Math.round(scene.start * FPS)} />))}
-        {ready && captions?.words?.length > 0 && <Captions words={captions.words} cuts={scenes.filter((scene) => scene.cut).map((scene) => scene.start)} />}
+        {/* A scene without subtitles starts clean, like a plain cut: the last line before it does not hang on. */}
+        {ready && captions?.words?.length > 0 && (
+          <Captions words={captions.words} cuts={scenes.filter((scene) => scene.cut || !subtitled(captions.words, scene)).map((scene) => scene.start)} />
+        )}
         {ready && watermark && (
           <CenterWatermark until={endSeconds > 0 ? endAt : Infinity} liftFrom={scenes.length > 1 ? Math.round(scenes[scenes.length - 1].start * FPS) : Infinity} label={watermark.label || 'BlueFX'} />
         )}

@@ -15,7 +15,7 @@
  *
  * Steps: normalizeWebsite → precheckSite → readBusinessSite (all through safeFetch) → prepareAssets into
  * remotion/public/smart-video/_test/<job> → createSmartVideo with freeOptions (prints the photo count, the
- * look, the animated photos and their still-camera prompts) → withWatermark → remotion/test-plans/<job>.json
+ * look, the animated photos and their still-camera prompts) → freeRender (presenter subtitles, watermark) → remotion/test-plans/<job>.json
  * (+ .director.json, .media.json, .usage.json) → render + loudness → qualityGate (PASS or HOLD with the
  * reasons) → frames every 0.5 s in remotion/out/frames-free-<job>/ for the full watch.
  * --clean also renders the $29 clean version (the same props without the watermark: render cost only).
@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   // Imported after dotenv: config.ts reads the environment when it loads.
   const { freeNote, isLive, remotionServerUrl, rendersLocally } = await import('@/lib/free-video/config');
   const { qualityGate } = await import('@/lib/free-video/gate');
-  const { freeOptions, realPhotoCount, withWatermark } = await import('@/lib/free-video/runner');
+  const { freeOptions, freeRender, realPhotoCount } = await import('@/lib/free-video/runner');
   const { cleanProps } = await import('@/lib/free-video/unlock');
   const { displayDomain, normalizeWebsite, precheckSite, readBusinessSite } = await import('@/lib/free-video/website');
   const { stillCameraPrompt } = await import('@/lib/smart-video/audio');
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
   const result = await createSmartVideo(brief, assets, storeLive, async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))), options);
   await live.flush();
   keep({ stage: 'rendering' });
-  const marked = withWatermark(result);
+  const marked = freeRender(result);
   const words = result.plan.scenes.reduce((n, scene) => n + scene.narration.split(/\s+/).filter(Boolean).length, 0);
   console.log(`🎬 Plan: style ${result.plan.style}, language ${result.plan.language}, ${result.plan.scenes.length} scenes, ${words} words, ${result.durationSeconds.toFixed(1)} s + 1 s card`);
   for (const shot of result.plan.animate ?? []) console.log(`🎞️ Animated ${shot.asset}: ${stillCameraPrompt(shot.prompt)}`);
