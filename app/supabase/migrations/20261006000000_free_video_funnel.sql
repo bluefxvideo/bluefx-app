@@ -103,6 +103,9 @@ create index if not exists free_video_leads_email_idx on public.free_video_leads
 create unique index if not exists free_video_leads_unlock_order_uniq on public.free_video_leads (unlock_order_id) where unlock_order_id is not null;
 create index if not exists free_video_leads_unlock_idx on public.free_video_leads (unlock_status, clean_claimed_at) where unlock_status in ('paid','rendering');
 alter table public.free_video_leads add column if not exists live jsonb;
+-- When the sweep deleted the lead's working files (cleanup.ts): 31 days after the video ad, unless the clean
+-- version was bought. Added 2026-10-07; without it the hourly cleanup only logs that it cannot read the leads.
+alter table public.free_video_leads add column if not exists files_cleaned_at timestamptz;
 alter table public.free_video_leads enable row level security;
 revoke all on public.free_video_leads from anon, authenticated;
 grant select, insert, update, delete on public.free_video_leads to service_role;

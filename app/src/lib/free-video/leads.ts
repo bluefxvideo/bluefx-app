@@ -20,6 +20,7 @@ import { randomBytes } from 'node:crypto';
 import net from 'node:net';
 import { createAdminClient } from '@/app/supabase/server';
 import { INTAKE, IP_ROWS_PER_DAY, JOB_MINUTES, SETTINGS_CACHE_MS, UNREADABLE } from '@/lib/free-video/config';
+import { unlockOpen } from '@/lib/free-video/cleanup';
 import { ERRORS } from '@/lib/free-video/copy';
 import { isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
@@ -512,7 +513,7 @@ const downloadLink = (fileUrl: string, name: string) => `${fileUrl}?download=${e
 /**
  * Offer 1 on the status page, from the lead row alone.
  * paid / rendering / ready / failed follow the unlock status (ready carries the clean file). Otherwise:
- * 'available' with the checkout link once the video ad is ready, 'unavailable' with the link while it is
+ * 'available' with the checkout link once the video ad is ready (for UNLOCK_DAYS), 'unavailable' with the link while it is
  * still on its way, and 'unavailable' without a link when no video ad will come (unreadable or failed).
  * A refunded unlock is offered again like a new one.
  */
@@ -533,7 +534,8 @@ export function unlockViewOf(lead: FreeVideoLead): FreeVideoUnlockView {
     case 'failed':
       return { state: 'failed' };
     default:
-      if (lead.status === 'done' && lead.video_url) return { state: 'available', checkoutPath: unlockGoUrl(lead.view_token) };
+      // The clean version is rendered from working files that go after FILES_KEEP_DAYS (cleanup.ts): the offer closes first.
+      if (lead.status === 'done' && lead.video_url) return unlockOpen(lead) ? { state: 'available', checkoutPath: unlockGoUrl(lead.view_token) } : { state: 'unavailable' };
       if (lead.status === 'rejected' || lead.status === 'failed') return { state: 'unavailable' };
       return { state: 'unavailable', checkoutPath: unlockGoUrl(lead.view_token) };
   }

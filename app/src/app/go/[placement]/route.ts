@@ -1,5 +1,6 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/free-video/config';
+import { unlockOpen } from '@/lib/free-video/cleanup';
 import { getLeadByToken, markClicked } from '@/lib/free-video/leads';
 import { isPlacement, offerUrl, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
@@ -9,8 +10,8 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
  * - An allow-listed ClickBank placement (fvthank, fvpage, fvmail1-3) → 302 to offerUrl(placement), the
  *   lifetime page with the placement as the ClickBank tid. With a valid t, the click is logged on the lead.
  * - 'fvunlock' (Offer 1, the $29 unlock) → 302 to the lead's FastSpring checkout, ONLY for a valid token of an
- *   existing lead (404 otherwise). A lead that has already paid, or whose video ad will never exist, is sent to
- *   its video ad page instead, so nobody pays twice or pays for nothing.
+ *   existing lead (404 otherwise). A lead that has already paid, whose video ad will never exist, or whose unlock
+ *   closed (30 days, cleanup.ts) is sent to its video ad page instead, so nobody pays twice or pays for nothing.
  * - Anything else → 404. Every target is built here from fixed parts: never an open redirect.
  */
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     const page = `${SITE_URL}/v/${token}`;
     if (lead.unlock_status === 'paid' || lead.unlock_status === 'rendering' || lead.unlock_status === 'ready') return redirect(page);
     if (lead.status === 'rejected' || lead.status === 'failed') return redirect(page);
+    // 30 days after the video ad: the working files the clean version is made from are about to go (cleanup.ts).
+    if (lead.status === 'done' && !unlockOpen(lead)) return redirect(page);
     return redirect(unlockCheckoutUrl(token));
   }
 
