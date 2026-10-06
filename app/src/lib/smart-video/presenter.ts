@@ -1,24 +1,25 @@
-import { animatePhoto, MOTION_CLIP_SECONDS } from './audio';
-import { cropToFrame } from './brand';
-import type { DirectorPlan } from './types';
 import { usage } from './usage';
 
 /**
- * The person who opens a video (owner 2026-10-06, for the free video funnel: "the UGC / person in the video is the
- * coolest", then "no lipsync, just a short"). A small model casts a person who fits the business, GPT Image 2.5
- * makes their photo, and the photo becomes a short moving clip (a warm look into the camera, a smile, a small nod)
- * that plays under the first line of the voice-over. It needs nothing from the voice, so it is made while the
- * voice and the other clips are made. Every step can fail; the video then keeps its own first scene.
+ * The person who opens a free video ad and says its first line on camera, with their own voice and lips (owner
+ * 2026-10-06: "the UGC / person in the video is the coolest", "ultra is good, ... just the intro?", "no lip
+ * movement!!!" about a silent clip, and "let first the script be ready"). A small call casts a person who fits the
+ * business and GPT Image 2.5 makes their photo while the director writes the script; once the script is ready,
+ * Kling O3 Pro (the AI Avatar "Ultra" engine, about 95 s for 5 s) makes them say scene 1 word for word. Every step
+ * can fail: the narrator then says scene 1 as usual.
  */
 
 /** The asset id the presenter's clip goes under. */
 export const PRESENTER_ASSET = 'presenter';
 
-const PERSONA_MODEL = 'gemini-3.6-flash';
+const WRITER_MODEL = 'gemini-3.6-flash';
 const PHOTO_MODEL = 'openai/gpt-image-2.5/flare/text-to-image';
-/** What the person does in the clip: no talking, since the voice-over is not theirs. */
-const PRESENTER_MOTION =
-  'The person looks warmly into the camera, smiles and gives a small nod, with a little natural head and shoulder movement; mouth closed, not talking. Camera: static. A locked-off shot, the frame does not move. One continuous shot. Photorealistic, the scene stays exactly as in the image, no new objects, no text.';
+const CLIP_MODEL = 'fal-ai/kling-video/o3/pro/image-to-video';
+/** The clip engine's limits (seconds) and the pace a person speaks the line at. */
+const CLIP_MIN = 4;
+const CLIP_MAX = 8;
+const WORDS_PER_SECOND = 2.6;
+const CLIP_TIMEOUT_MS = 6 * 60_000;
 
 function key(name: 'FAL_KEY' | 'GOOGLE_GENERATIVE_AI_API_KEY'): string {
   const value = process.env[name];
@@ -26,9 +27,9 @@ function key(name: 'FAL_KEY' | 'GOOGLE_GENERATIVE_AI_API_KEY'): string {
   return value;
 }
 
-/** One sentence that describes the presenter's photo, cast for this business's own customers. */
-async function castPersona(brief: string, plan: DirectorPlan): Promise<string> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${PERSONA_MODEL}:generateContent`, {
+/** The person who opens the video, cast from the website text: one sentence describing their photo (about $0.002). */
+export async function castPersona(brief: string): Promise<string> {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${WRITER_MODEL}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key('GOOGLE_GENERATIVE_AI_API_KEY') },
     body: JSON.stringify({
@@ -36,9 +37,9 @@ async function castPersona(brief: string, plan: DirectorPlan): Promise<string> {
         {
           parts: [
             {
-              text: `A short video ad for this business opens with a friendly ${plan.voice.gender} person looking into the camera, like a creator on social media. Cast them: the kind of person this business's customers would trust, and a natural everyday place to film (in their car, at home, on the street outside, at work). Never the business owner, never a celebrity.
+              text: `A short video ad for this business opens with a friendly person talking to the camera, like a creator on social media. Cast them: the kind of person this business's customers would trust, filmed in a natural everyday place (in their car, at home, on the street outside, at work). Never the business owner, never a celebrity.
 
-Answer JSON only: {"photo": "one sentence describing the photo: age, look, clothes and the place, a vertical smartphone selfie or a phone on a stand at chest height, looking straight into the lens, mouth closed, relaxed smile"}
+Answer JSON only: {"photo": "one sentence describing the photo: gender, age, look, clothes and the place, a vertical smartphone selfie or a phone on a stand at chest height, looking straight into the lens, mouth closed, relaxed smile"}
 
 The business (from its website):
 ${brief.slice(0, 4000)}`,
@@ -48,9 +49,9 @@ ${brief.slice(0, 4000)}`,
       ],
       generationConfig: { responseMimeType: 'application/json', temperature: 0.7 },
     }),
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(45_000),
   });
-  if (!res.ok) throw new Error(`${PERSONA_MODEL} failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(`${WRITER_MODEL} failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
   usage.presenterPersona();
   const json = await res.json();
   const photo = String(JSON.parse(json.candidates?.[0]?.content?.parts?.[0]?.text || '{}').photo || '').trim();
@@ -59,14 +60,12 @@ ${brief.slice(0, 4000)}`,
 }
 
 /** The presenter's vertical photo (about $0.04). */
-export async function castPresenter(brief: string, plan: DirectorPlan): Promise<Buffer> {
-  const persona = await castPersona(brief, plan);
-  console.log(`🎭 Presenter: ${persona}`);
+export async function castPresenter(photo: string): Promise<Buffer> {
   const res = await fetch(`https://fal.run/${PHOTO_MODEL}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
     body: JSON.stringify({
-      prompt: `Photorealistic vertical smartphone photo, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${persona} Nothing written anywhere, no text, no logos, no watermark.`,
+      prompt: `Photorealistic vertical smartphone photo, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
       quality: 'high',
       image_size: { width: 1088, height: 1920 },
       output_format: 'jpeg',
@@ -80,8 +79,43 @@ export async function castPresenter(brief: string, plan: DirectorPlan): Promise<
   return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
 }
 
-/** The presenter's short moving clip: MOTION_CLIP_SECONDS of the photo, still camera (about $0.24). */
-export async function animatePresenter(photo: Buffer): Promise<Buffer> {
-  const frame = await cropToFrame(photo, '50% 35%', false);
-  return animatePhoto(frame, PRESENTER_MOTION, false, MOTION_CLIP_SECONDS, true);
+/** The longest scene 1 the presenter says; a longer one stays with the narrator. */
+export const PRESENTER_MAX_WORDS = 16;
+
+/** The clip length for a line: the engine takes whole seconds. */
+export function clipSecondsFor(line: string): number {
+  const words = line.split(/\s+/).filter(Boolean).length;
+  return Math.min(CLIP_MAX, Math.max(CLIP_MIN, Math.ceil(words / WORDS_PER_SECOND + 1.2)));
+}
+
+/** The presenter saying the line, with their own voice (Kling O3 Pro with sound, $0.14 a second). */
+export async function talkingPresenter(photo: Buffer, line: string): Promise<Buffer> {
+  const seconds = clipSecondsFor(line);
+  const headers = { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` };
+  const prompt = [
+    'The person in the image looks straight into the camera and speaks clearly to the viewer at a natural conversational pace, steady framing, subtle natural head movement.',
+    `They say: "${line.replace(/"/g, "'")}"`,
+    "Audio: only the person's voice with natural room ambience, no background music, no soundtrack, no melody.",
+    'No captions, no subtitles, no on-screen text, no logos.',
+  ].join(' ');
+  const submit = await fetch(`https://queue.fal.run/${CLIP_MODEL}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ prompt, image_url: `data:image/jpeg;base64,${photo.toString('base64')}`, duration: seconds, generate_audio: true, shot_type: 'customize' }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!submit.ok) throw new Error(`Presenter clip submit failed (${submit.status}): ${(await submit.text()).slice(0, 200)}`);
+  const { status_url: statusUrl, response_url: responseUrl } = await submit.json();
+  const deadline = Date.now() + CLIP_TIMEOUT_MS;
+  for (;;) {
+    if (Date.now() > deadline) throw new Error('Presenter clip took too long');
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    const status = await (await fetch(statusUrl, { headers, signal: AbortSignal.timeout(30_000) })).json();
+    if (status.status === 'COMPLETED') break;
+    if (status.status === 'FAILED' || status.error) throw new Error(`Presenter clip failed: ${JSON.stringify(status).slice(0, 200)}`);
+  }
+  const result = await (await fetch(responseUrl, { headers, signal: AbortSignal.timeout(30_000) })).json();
+  if (!result.video?.url) throw new Error('Presenter clip came back without a video');
+  usage.clip(seconds, 'best');
+  return Buffer.from(await (await fetch(result.video.url)).arrayBuffer());
 }

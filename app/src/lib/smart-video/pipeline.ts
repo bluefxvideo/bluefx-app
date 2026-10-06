@@ -19,7 +19,7 @@ import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { tracePng } from './drawing-path';
-import { animatePresenter, castPresenter, PRESENTER_ASSET } from './presenter';
+import { castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, talkingPresenter } from './presenter';
 import {
   LISTING_MAX_PAUSE,
   LISTING_MIN_PHOTOS,
@@ -136,9 +136,10 @@ export interface SmartVideoOptions {
    */
   pickMusic?: (musicPrompt: string, style: string) => Promise<string | null>;
   /**
-   * A person opens the video (presenter.ts): cast, photographed and turned into a short moving clip while the voice
-   * and the other clips are made, then shown full screen in scene 1 under the first line of the voice-over. Any
-   * failure keeps the video's own first scene. The free video funnel; unset for paying users.
+   * A person opens the video and says scene 1 of the script on camera, with their own voice (presenter.ts). They are
+   * cast and photographed while the director writes; their clip is made as soon as the script is ready, beside the
+   * production. A clip that fails or is late leaves scene 1 to the narrator. The free video funnel; unset for paying
+   * users.
    */
   presenter?: boolean;
 }
@@ -171,9 +172,42 @@ async function produce(
   onStage('directing');
   console.log(`🎬 Smart Video: directing (${assets.length} files${listing ? `, listing video of ${listing.seconds} s` : ''})...`);
   const horizontal = format === 'horizontal';
+  // The presenter is cast and photographed while the director writes the script.
+  const presenterPhoto =
+    presenter && !listing && !horizontal
+      ? castPersona(brief)
+          .then((persona) => {
+            console.log(`🎭 Presenter: ${persona}`);
+            return castPresenter(persona);
+          })
+          .then(async (photo) => {
+            await store(photo, 'presenter.jpg', 'image/jpeg');
+            return photo;
+          })
+          .catch((error) => {
+            console.warn('⚠️ Presenter not cast, the narrator says the first line:', String(error).slice(0, 160));
+            return null;
+          })
+      : null;
   const directed = await directVideo(brief, assets, length, format, look, listing);
   // Listing videos keep their own recipe.
   const plan = adjustPlan && !listing ? adjustPlan(directed) : directed;
+  // With the script ready, the presenter records scene 1 word for word, beside the production.
+  const firstLine = plan.scenes[0] && !plan.scenes[0].speaker ? plan.scenes[0].narration.trim() : '';
+  const presenterJob =
+    presenterPhoto && firstLine && firstLine.split(/\s+/).length <= PRESENTER_MAX_WORDS
+      ? presenterPhoto
+          .then(async (photo) => {
+            if (!photo) return null;
+            const clip = await talkingPresenter(photo, firstLine);
+            return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
+          })
+          .catch((error) => {
+            console.warn('⚠️ Presenter clip failed, the narrator says the first line:', String(error).slice(0, 160));
+            return null;
+          })
+      : null;
+  if (presenterJob) console.log(`🎭 Presenter records: "${firstLine}"`);
   console.log(`✅ Plan: ${plan.scenes.length} scenes, style "${plan.style}" (${plan.styleReason}), language ${plan.language}`);
 
   onStage('producing');
@@ -246,20 +280,6 @@ async function produce(
   ).then((pairs) => Object.fromEntries(pairs));
 
   const drawings = makeDrawings(plan.drawings || [], store);
-  // The presenter is cast and filmed while the voice and the other clips are made; a talking clip of the client's
-  // own opening the video needs none.
-  const cast =
-    presenter && !listing && !horizontal && !plan.scenes[0]?.speaker
-      ? castPresenter(brief, plan)
-          .then(async (photo) => {
-            await store(photo, 'presenter.jpg', 'image/jpeg');
-            return store(await animatePresenter(photo), 'presenter.mp4', 'video/mp4');
-          })
-          .catch((error) => {
-            console.warn('⚠️ Presenter failed, keeping the first scene:', String(error).slice(0, 160));
-            return null;
-          })
-      : null;
 
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store, listing ? listingFit(listing, narration.length) : undefined) : null,
@@ -318,33 +338,39 @@ async function produce(
     ]),
   };
   if (listing?.animate) await animateListingPhotos(plan, media, assets, store, clips);
+  if (presenterJob) await addPresenter(plan, media, presenterJob);
   const props = buildProps(plan, media);
-  const presenterClip = cast ? await cast : null;
-  if (presenterClip) addPresenter(props, media, presenterClip);
   return { props, plan, media, durationSeconds: props.duration, warnings: [...clientWarnings(plan), ...softPhotoWarnings(plan, assets)] };
 }
 
+/** How long the finished video waits for a presenter clip that is still being made, before the narrator says scene 1 (Kling O3 Pro took 94 s and 147 s for 5 s on 2026-10-06). */
+const PRESENTER_GRACE_MS = 150_000;
+
 /**
- * The presenter opens the video: their clip fills scene 1 (muted, slowed down when the scene is longer than the clip,
- * like an animated photo) under the first line of the voice-over. The scene keeps its title and pill, minus the
- * drawing hand's underline.
+ * The presenter says scene 1: their clip becomes a person talking in the video's own terms (a speaker scene, as a
+ * client's clip of a person talking): the clip fills the frame with its own sound, and the narrator, who recorded
+ * every line, comes in from scene 2. A clip that failed, came late or says nothing leaves scene 1 to the narrator.
  */
-function addPresenter(props: ReturnType<typeof buildProps>, media: SmartVideoMedia, url: string): void {
-  const first = props.scenes[0];
-  if (!first) return;
-  media.assets[PRESENTER_ASSET] = { url, kind: 'video', portrait: true };
-  props.assets = media.assets;
-  const playbackRate = Math.min(1, Math.max(0.4, (MOTION_CLIP_SECONDS - 0.2) / (first.end - first.start)));
-  props.scenes[0] = {
-    ...first,
-    background: { type: 'mediaFull', asset: PRESENTER_ASSET, focus: '50% 35%', playbackRate },
-    blocks: first.blocks.map((block) => {
-      const kept: Record<string, unknown> = { ...block };
-      delete kept.underlineAt;
-      return kept as typeof block;
-    }),
-  };
-  console.log('🎭 The presenter opens the video');
+async function addPresenter(plan: DirectorPlan, media: SmartVideoMedia, job: Promise<{ clip: Buffer; url: string } | null>): Promise<void> {
+  const made = await Promise.race([job, new Promise<null>((resolve) => setTimeout(() => resolve(null), PRESENTER_GRACE_MS))]);
+  if (!made) {
+    console.warn('⚠️ No presenter clip in time, the narrator says the first line');
+    return;
+  }
+  try {
+    const words = await transcribeWords(await extractAudio(made.clip), plan.language);
+    if (!words.length) throw new Error('nothing was heard in the clip');
+    media.assets[PRESENTER_ASSET] = { url: made.url, kind: 'video', portrait: true };
+    media.clipWords[PRESENTER_ASSET] = words;
+    plan.scenes[0] = {
+      ...plan.scenes[0],
+      speaker: { asset: PRESENTER_ASSET, from: 0, to: words[words.length - 1].end + 0.1 },
+      background: { type: 'mediaFull', asset: PRESENTER_ASSET, focus: '50% 35%' },
+    };
+    console.log(`🎭 The presenter says the first line (${words.length} words, ${words[words.length - 1].end.toFixed(1)} s)`);
+  } catch (error) {
+    console.warn('⚠️ Presenter clip not used, the narrator says the first line:', String(error).slice(0, 160));
+  }
 }
 
 /**
@@ -577,7 +603,8 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
         if (i + 1 < plan.scenes.length && !speakerOf(i + 1)) cursor += HANDOVER_PAUSE;
       } else if (voice) {
         const k = narrated.indexOf(i);
-        const srcStart = k === 0 ? 0 : Math.max(0, (narratorTokens[k][0]?.time ?? 0) - 0.15);
+        // The first narrated scene plays from the top, unless a person opens the video: then the recording's words before it are skipped.
+        const srcStart = k === 0 && i === 0 ? 0 : Math.max(0, (narratorTokens[k][0]?.time ?? 0) - 0.15);
         const srcEnd = k + 1 < narrated.length ? Math.max(srcStart + 0.2, (narratorTokens[k + 1][0]?.time ?? voice.durationSeconds) - 0.15) : voice.durationSeconds;
         const at = cursor + (i === 0 ? VOICE_LEAD : 0);
         const tokens = narratorTokens[k].map((t) => ({ ...t, time: t.time - srcStart + at }));
@@ -635,7 +662,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
         if (media.listing && staged.type === 'number') return { ...staged, still: true };
         // The figures of a home read as figures: "3,225", not "3225".
         if (media.listing && staged.type === 'tiles') return { ...staged, items: staged.items.map((item) => ({ ...item, big: listingFigure(item.big, item.top, plan.language) })) };
-        return startFrom !== undefined && staged.type === 'title' ? { ...staged, size: 's', rotate: 0, anim: undefined } : staged;
+        return startFrom !== undefined && staged.type === 'title' ? { ...staged, size: 's', rotate: 0, anim: undefined, underlineAt: undefined } : staged;
       }),
     };
   });

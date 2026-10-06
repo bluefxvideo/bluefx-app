@@ -373,8 +373,8 @@ export const LIVE = {
   moving: 'Moving',
   /** The on-camera presenter who says the first line. */
   presenterTitle: 'Your presenter',
-  presenterRecording: 'Cast for your business. Now filming their short clip.',
-  presenterReady: 'Opens your video ad.',
+  presenterRecording: 'Cast for your business. Once the script is ready, they record its first line.',
+  presenterReady: 'Says the first line of your video ad.',
   presenterLabel: 'Presenter',
   voiceTitle: 'Your voice-over is recorded',
   voicePlay: 'Listen to your voice-over',
