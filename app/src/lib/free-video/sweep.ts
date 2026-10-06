@@ -2,7 +2,7 @@
  * Free video ad funnel: the sweep the cron runs every 3 minutes (GET /api/cron/free-video), and the
  * watchdog that notices when the cron itself stops.
  *
- * The sweep settles running leads (deploy kills included), retries emails, keeps the $29 clean renders
+ * The sweep settles running leads (deploy kills included), retries emails, keeps the $99 clean renders
  * moving, attributes sales (P1), trips the circuit breaker, and sends the owner one batched, deduped
  * alert. Its report is the live dashboard. The live server handles only real leads and any other server
  * only source='test' ones, the same split the claim function makes, so neither ever settles or emails the
@@ -64,7 +64,7 @@ export interface SweepReport {
   capReached: boolean;
   /** Paying users' Phantom jobs working now (free starts wait at paid_busy_limit, Clone Studio runs count there too). */
   paidBusy: number | null;
-  /** The $29 unlock: paid and waiting for a render, rendering, renders started by this sweep, clean emails retried. */
+  /** The $99 unlock: paid and waiting for a render, rendering, renders started by this sweep, clean emails retried. */
   unlock: { waiting: number; rendering: number; started: number; emailed: number };
   /** P1: leads newly marked as bought. */
   bought: number;
@@ -140,7 +140,7 @@ function emptyReport(dry: boolean): SweepReport {
  * 1. settings.last_sweep_at = now (the watchdog reads it).
  * 2. settleLead for every running lead (SWEEP_BATCH at most).
  * 3. deliverLead for every done lead still owed its email (pending, failed, or 'sending' for 5 min).
- * 4. The $29 unlock: clean renders for paid leads whose video ad is done and for renders whose claim went
+ * 4. The $99 unlock: clean renders for paid leads whose video ad is done and for renders whose claim went
  *    stale (in the background, at most CLEAN_RENDER.maxParallel at once), and the clean email retried.
  * 5. P1: sales from webhook_events → bought_at and the Bought group.
  * 6. The circuit breaker.
@@ -207,7 +207,7 @@ export async function sweepFreeVideos({ dry }: { dry: boolean }): Promise<SweepR
     }
   }
 
-  // 4. The $29 unlock.
+  // 4. The $99 unlock.
   const unlockOwed = await sweepUnlocks(dry, report);
 
   // 5. P1: sales.
@@ -262,7 +262,7 @@ export async function sweepFreeVideos({ dry }: { dry: boolean }): Promise<SweepR
 }
 
 /**
- * The $29 unlock's share of the sweep. Paid leads whose video ad is done, and renders whose claim went
+ * The $99 unlock's share of the sweep. Paid leads whose video ad is done, and renders whose claim went
  * stale (CLEAN_RENDER.staleMinutes), get a clean render in the background: the cron answers long before a
  * render ends, and the guarded claim inside renderCleanVersion keeps two sweeps from rendering one lead
  * twice. Clean emails that did not go out are retried for UNLOCK_EMAIL.retryHours. Returns how many clean
@@ -422,14 +422,14 @@ async function collectAlerts(
     add(
       'unlock',
       `unlock-failed:${lead.id}:${lead.unlock_order_id || 'manual'}:${lead.clean_attempts}`,
-      `The $29 clean video of ${who(lead)} failed ${lead.clean_attempts} times (order ${lead.unlock_order_id || '?'}). Render it again: ${RERENDER_SQL(lead.id)} Or refund the order in FastSpring.`
+      `The $99 clean video of ${who(lead)} failed ${lead.clean_attempts} times (order ${lead.unlock_order_id || '?'}). Render it again: ${RERENDER_SQL(lead.id)} Or refund the order in FastSpring.`
     );
   }
   for (const lead of unlockEmail) {
     add(
       'unlock',
       `unlock-email:${lead.id}`,
-      `The $29 clean video of ${who(lead)} is ready but its email did not go out (MailerLite status ${lead.ml_status || 'unknown'}). The page shows the download: ${viewUrl(lead.view_token)}`
+      `The $99 clean video of ${who(lead)} is ready but its email did not go out (MailerLite status ${lead.ml_status || 'unknown'}). The page shows the download: ${viewUrl(lead.view_token)}`
     );
   }
 
@@ -452,7 +452,7 @@ async function collectAlerts(
     add('setup', `email-setup:${dayKey()}`, `${owedEmails} finished video ads wait for their email: the MailerLite group ids in lib/free-video/config.ts are still empty.`);
   }
   if (isLive() && !ML_GROUP_UNLOCKED && owedUnlockEmails > 0) {
-    add('setup', `unlock-setup:${dayKey()}`, `${owedUnlockEmails} clean $29 video ads wait for their email: ML_GROUP_UNLOCKED in lib/free-video/config.ts is still empty (the pages show the downloads).`);
+    add('setup', `unlock-setup:${dayKey()}`, `${owedUnlockEmails} clean $99 video ads wait for their email: ML_GROUP_UNLOCKED in lib/free-video/config.ts is still empty (the pages show the downloads).`);
   }
 
   const subject =

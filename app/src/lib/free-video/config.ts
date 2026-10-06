@@ -196,8 +196,6 @@ export function isRefusedHost(hostname: string): boolean {
 /** One automatic retry after a failure or a deploy kill, then hold and alert. */
 export const MAX_ATTEMPTS = 2;
 export const RETRY_DELAY_MS = 120_000;
-/** Fewer real (non-flat) prepared photos than this → the whiteboard look. */
-export const MIN_PHOTOS_FOR_PHOTO_LOOK = 3;
 export const MAX_FREE_PHOTOS = 8;
 /** Website photos are downloaded this many at a time, and the download stops once MAX_FREE_PHOTOS usable ones are in (review SEC-6). */
 export const PHOTO_BATCH = 4;
@@ -238,7 +236,7 @@ export const INTAKE = { perIpPerMinute: 5, perIpPerDay: 20, precheckSlots: 3, em
 export const FREE_PLAN = { maxScenes: 8, maxWords: 95, minScenes: 4, maxLifestyleShots: 1 } as const;
 
 /**
- * The $29 clean render: attempts before 'failed' + an owner alert, when a 'rendering' claim counts as dead,
+ * The $99 clean render: attempts before 'failed' + an owner alert, when a 'rendering' claim counts as dead,
  * and how many clean renders one server runs at once.
  */
 export const CLEAN_RENDER = { maxAttempts: 3, staleMinutes: 15, maxParallel: 2 } as const;
@@ -248,7 +246,7 @@ export const UNLOCK_EMAIL = { retryHours: 6, alertAfterMinutes: 30 } as const;
 
 /**
  * The Remotion props every free video ad renders with: the big see-through BlueFX mark in the middle and a 1 s end card
- * (SmartVideo.jsx CenterWatermark + EndCard). The $29 clean version re-renders the saved props without this key.
+ * (SmartVideo.jsx CenterWatermark + EndCard). The $99 clean version re-renders the saved props without this key.
  */
 export const WATERMARK = { label: 'BlueFX', endCardSeconds: END_CARD_SECONDS } as const;
 
@@ -305,17 +303,20 @@ export const SETTINGS_DEFAULTS = {
 
 /**
  * The NOTE FROM THE CLIENT every free job sends to the director, after the website text.
- * - About 70 words clears checkPlan's 65-word floor on the first try, so no extra director call is paid for.
+ * - About 80 words clears checkPlan's 65-word floor on the first try, so no extra director call is paid for
+ *   (2026-10-06: "around 70" came back as 54 to 61 words in 2 of 4 whiteboard tests, one redo $0.10 to $0.12 each).
+ *   FREE_PLAN.maxWords (95) stays above it.
  * - A length written in the client's text wins (director.ts:137).
  * - The visitor's name never goes into the brief.
  * `domain` is the address as people read it (displayDomain: Unicode, not the xn-- form).
  */
 export function freeNote(domain: string): string {
   return [
-    'Make a vertical video ad of about 30 seconds for this business: around 70 words of narration in total, 5 to 7 scenes.',
+    'Make a vertical video ad of about 35 seconds for this business: around 80 words of narration in total, 5 to 7 scenes.',
     'Write the narration and every text on screen in the language of the website.',
     'Lead with what a customer gets. Use only facts from the website.',
     `The last scene shows the website address ${domain} as the highlight.`,
-    'For animated photos, describe only what moves inside the photo; the camera stays still.',
+    'Tape only real photos of the business to the board: its people, place, products or work. Never use a picture that is mostly text, such as a YouTube thumbnail, a banner, a flyer, a screenshot or an ad.',
+    'Give every scene that shows no photo its own drawing, so the board is never empty. When the website has no logo, the last scene gets a drawing too, of something that fits the call to action.',
   ].join('\n');
 }

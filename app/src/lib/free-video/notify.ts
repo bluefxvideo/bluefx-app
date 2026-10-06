@@ -4,7 +4,7 @@
  * The visitor's email is sent by the MailerLite automation 'Free Video Ad', which starts when the
  * subscriber joins the 'Free Video - Ready' group. deliverLead() makes that join in ONE upsert that also
  * sets the fields the email prints ({$free_video_url} and so on), so the email can never go out with an
- * empty link. The $29 clean version works the same way with the 'Free Video - Unlocked' group and
+ * empty link. The $99 clean version works the same way with the 'Free Video - Unlocked' group and
  * {$free_video_clean_url} (deliverUnlock). No resubscribe: someone who unsubscribed earlier gets the
  * video ad on the page only.
  *
@@ -202,7 +202,7 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
 }
 
 /**
- * Emails the $29 clean version once it is ready: ONE upsert that sets free_video_clean_url (the clean file)
+ * Emails the $99 clean version once it is ready: ONE upsert that sets free_video_clean_url (the clean file)
  * plus the page link, site and token, and joins 'Free Video - Unlocked', whose 1-email automation sends it.
  * Then unlock_emailed_at is set (also for a subscriber MailerLite will not mail: 'inactive', the owner is
  * alerted and the page shows the download). Skipped while the group id is empty. A second call is harmless:

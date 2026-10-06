@@ -23,7 +23,6 @@ import {
   isLive,
   localStartAllowed,
   MAX_ATTEMPTS,
-  MIN_PHOTOS_FOR_PHOTO_LOOK,
   remotionServerUrl,
   renderTargetAllowed,
   RETRY_DELAY_MS,
@@ -39,6 +38,7 @@ import { deliverLead } from '@/lib/free-video/notify';
 import { startCleanRender } from '@/lib/free-video/unlock';
 import { displayDomain, isUnreadable, readBusinessSite } from '@/lib/free-video/website';
 import { PHANTOM_EXAMPLES } from '@/lib/smart-video/examples';
+import { libraryTrackUrl } from '@/lib/smart-video/music-library';
 import {
   createJob,
   DEAD_JOB,
@@ -193,16 +193,22 @@ async function runFreeVideoLead(lead: FreeVideoLead): Promise<void> {
 export const realPhotoCount = (assets: SmartAsset[]) => assets.filter((a) => a.kind === 'image' && !a.flatBackground).length;
 
 /**
- * The free job's options, decided after prepareAssets so they see the real photos: the whiteboard look
- * below MIN_PHOTOS_FOR_PHOTO_LOOK real photos (otherwise the director picks), still-camera prompts for
- * animated photos, and shapeFreePlan between the director and the paid production step. `guard` runs
- * before the plan is shaped, so an attempt that lost its lead stops before production (review F1).
+ * The free job's options: every free video ad is a whiteboard video (owner 2026-10-06: the photo looks
+ * depend on the website's pictures, and a website of YouTube thumbnails made a weak ad), with the website's
+ * real photos taped to the board (freeNote keeps thumbnails, banners and screenshots off it). Still-camera
+ * prompts stay on for any animated photo, and shapeFreePlan runs between the director and the paid
+ * production step. `guard` runs before the plan is shaped, so an attempt that lost its lead stops before
+ * production (review F1).
  */
-export function freeOptions(base: SmartVideoOptions, assets: SmartAsset[], guard?: () => void, onPlan?: (plan: DirectorPlan) => void): SmartVideoOptions {
-  const photos = realPhotoCount(assets);
+export function freeOptions(
+  base: SmartVideoOptions,
+  guard?: () => void,
+  onPlan?: (plan: DirectorPlan) => void,
+  onMusic?: (url: string) => void
+): SmartVideoOptions {
   return {
     ...base,
-    look: photos < MIN_PHOTOS_FOR_PHOTO_LOOK ? 'whiteboard' : null,
+    look: 'whiteboard',
     stillCamera: true,
     adjustPlan: (plan) => {
       guard?.();
@@ -210,6 +216,12 @@ export function freeOptions(base: SmartVideoOptions, assets: SmartAsset[], guard
       // The live status page shows the script the moment the director has it, as the job will make it.
       onPlan?.(shaped);
       return shaped;
+    },
+    // A ready-made track from the music library instead of a new song (owner 2026-10-06: $0.08 a video ad saved).
+    pickMusic: async (musicPrompt) => {
+      const url = await libraryTrackUrl(musicPrompt);
+      if (url) onMusic?.(url);
+      return url;
     },
   };
 }
@@ -372,7 +384,8 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): SmartVideoRunHooks {
       watch.assert();
       void recordPhotos(lead.id, lead.job_id, assets);
       live.assets(assets);
-      return freeOptions(base, assets, watch.assert, (plan) => live.plan(plan, assets));
+      // The library track is not saved with the job, so the live page hears about it here (a made song comes as music.mp3).
+      return freeOptions(base, watch.assert, (plan) => live.plan(plan, assets), (url) => live.stored('music.mp3', url));
     },
     beforeRender: (result) => {
       watch.assert();
@@ -403,7 +416,7 @@ interface JobRecord extends JobRow {
  * - Job 'failed': the attempt failed (unreadable website → rejected at $0).
  * - Job 'done': the quality gate; pass → 'done' and the email (or 'held' with reason 'review' in
  *   review mode); fail → 'held' with the reasons; a gate that could not run its file checks leaves the
- *   lead running for GATE.inconclusiveMinutes so the next sweep tries again (review F4). A paid $29 unlock
+ *   lead running for GATE.inconclusiveMinutes so the next sweep tries again (review F4). A paid $99 unlock
  *   waiting for this video ad starts its clean render.
  */
 export async function settleLead(leadId: string): Promise<SettleOutcome> {
@@ -469,7 +482,7 @@ export async function settleLead(leadId: string): Promise<SettleOutcome> {
   return 'held';
 }
 
-/** A $29 unlock paid before the video ad was done: its clean render starts now (read after the 'done' write, so a payment landing at the same moment is seen by one side or the other). */
+/** A $99 unlock paid before the video ad was done: its clean render starts now (read after the 'done' write, so a payment landing at the same moment is seen by one side or the other). */
 async function startWaitingUnlock(leadId: string): Promise<void> {
   try {
     const fresh = await getLead(leadId);

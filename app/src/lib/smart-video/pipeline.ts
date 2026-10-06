@@ -129,6 +129,11 @@ export interface SmartVideoOptions {
   adjustPlan?: (plan: DirectorPlan) => DirectorPlan;
   /** Animated photos keep the camera still and only the scene moves (the free video funnel). Unset for paying users. Listing videos ignore it. */
   stillCamera?: boolean;
+  /**
+   * A ready-made music track for the director's musicPrompt instead of a song made for this video (the free video
+   * funnel's library, music-library.ts). null, or a failure, makes the song as usual. Unset for paying users.
+   */
+  pickMusic?: (musicPrompt: string, style: string) => Promise<string | null>;
 }
 
 export async function createSmartVideo(
@@ -147,7 +152,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
   const photos = assets.filter((a) => a.kind === 'image').length;
@@ -238,8 +243,8 @@ async function produce(
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store, listing ? listingFit(listing, narration.length) : undefined) : null,
     sound.music
-      ? generateMusic(plan.musicPrompt, plan.style)
-          .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
+      ? (pickMusic ? pickMusic(plan.musicPrompt, plan.style).catch(() => null) : Promise.resolve(null))
+          .then((picked) => picked ?? generateMusic(plan.musicPrompt, plan.style).then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg')))
           .catch((error) => {
             console.warn('⚠️ Music failed, rendering without it:', String(error).slice(0, 200));
             return null;
@@ -438,18 +443,23 @@ async function measurePhotos(media: SmartVideoMedia): Promise<void> {
   );
 }
 
-/** Whiteboard drawings, in parallel. One that fails leaves its scene on the plain board rather than failing the video. */
+/** Tries per drawing: the image model sometimes times out once (2026-10-06: a hook scene stayed a plain board). */
+const DRAWING_TRIES = 2;
+
+/** Whiteboard drawings, in parallel, each tried DRAWING_TRIES times. One that still fails leaves its scene on the plain board rather than failing the video. */
 async function makeDrawings(list: { id: string; prompt: string }[], store: StoreFile) {
   const made = await Promise.all(
     list.map(async (d) => {
-      try {
-        const { png, width, height, path } = await generateDrawing(d.prompt);
-        const url = await store(png, `${d.id}-${Date.now().toString(36)}.png`, 'image/png');
-        return [d.id, { url, kind: 'image' as const, width, height, path }] as const;
-      } catch (error) {
-        console.warn(`⚠️ Drawing ${d.id} failed:`, String(error).slice(0, 160));
-        return null;
+      for (let attempt = 1; attempt <= DRAWING_TRIES; attempt++) {
+        try {
+          const { png, width, height, path } = await generateDrawing(d.prompt);
+          const url = await store(png, `${d.id}-${Date.now().toString(36)}.png`, 'image/png');
+          return [d.id, { url, kind: 'image' as const, width, height, path }] as const;
+        } catch (error) {
+          console.warn(`⚠️ Drawing ${d.id} failed (try ${attempt} of ${DRAWING_TRIES}):`, String(error).slice(0, 160));
+        }
       }
+      return null;
     })
   );
   return made.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
@@ -556,6 +566,9 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
   const scenes = plan.scenes.map((scene, i) => {
     const { start, tokens, startFrom } = timed[i];
     const end = i + 1 < timed.length ? timed[i + 1].start : duration;
+    // A drawing that was never made (every try failed) leaves a plain board: its words are written at once instead of
+    // after seconds of a hand drawing nothing (2026-10-06: a realtor ad showed an empty board for 3.5 s).
+    const background = scene.background.type === 'drawing' && !(scene.background.asset && media.assets[scene.background.asset]) ? { type: 'brand' as const } : scene.background;
     const at = (cue: string | null | undefined) => {
       const time = cueTime(tokens, cue);
       return time === null ? undefined : Math.max(start, time - TEXT_LEAD);
@@ -567,7 +580,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       speaker: startFrom !== undefined || undefined,
       // A listing video goes from photo to photo on a plain cut, as footage does: no fade through black between rooms.
       ...(media.listing && i > 0 ? { cut: true } : {}),
-      background: startFrom !== undefined ? { ...scene.background, startFrom, playbackRate: 1 } : motionBackground(scene.background, motionClips, end - start),
+      background: startFrom !== undefined ? { ...background, startFrom, playbackRate: 1 } : motionBackground(background, motionClips, end - start),
       blocks: (startFrom !== undefined ? speakerBlocks(scene.blocks) : scene.blocks).map((block, k, shown) => {
         // The first headline of a scene is on screen from its first frame: no empty openings.
         const opening = k === shown.findIndex((b) => b.type === 'title' || b.type === 'badge');

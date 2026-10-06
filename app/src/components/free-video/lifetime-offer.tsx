@@ -2,6 +2,7 @@ import { OFFER_COPY } from '@/lib/free-video/copy';
 import { goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
+import { StyleReel } from './style-reel';
 
 interface LifetimeOfferProps {
   /** The ClickBank tid of this page: fvthank on the thank-you page, fvpage on /v/<token>. */
@@ -14,7 +15,8 @@ interface LifetimeOfferProps {
 
 /**
  * Offer 2: AI Media Machine lifetime, through /go/<placement> (logs the click, then ClickBank).
- * Existing customers get "Open The Phantom" instead. No hooks, so it renders in server and client trees.
+ * Existing customers get "Open The Phantom" instead. No hooks of its own (StyleReel is a client component), so it
+ * renders in server and client trees.
  */
 export function LifetimeOffer({ placement, token, isCustomer, variant }: LifetimeOfferProps) {
   if (isCustomer) {
@@ -35,6 +37,7 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
       {!waiting && <span className={styles.tag}>{OFFER_COPY.tag}</span>}
       <h2 className={styles.offerTitle}>{waiting ? OFFER_COPY.headingWaiting : OFFER_COPY.heading}</h2>
       <p className={styles.offerText}>{waiting ? OFFER_COPY.bodyWaiting : OFFER_COPY.body}</p>
+      <StyleReel />
       <ul className={styles.ticks}>
         {OFFER_COPY.bullets.map((bullet) => (
           <li key={bullet}>{bullet}</li>

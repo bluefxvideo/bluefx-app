@@ -110,17 +110,22 @@ const SAFE_MUSIC: Record<string, string> = {
   bold: '126 BPM, driving instrumental bed. Instruments: punchy drums, synth bass, electric guitar stabs, claps. Attitude: energetic, confident, motivating.',
   clean: '104 BPM, light instrumental bed. Instruments: muted guitar plucks, soft piano, finger snaps, warm bass. Attitude: optimistic, friendly, tidy.',
 };
-const MUSIC_RULES = ' Steady energy, no build-ups, no drops. No vocals. Sits under a voice-over. About 60 seconds.';
+export const MUSIC_RULES = ' Steady energy, no build-ups, no drops. No vocals. Sits under a voice-over. About 60 seconds.';
+
+/** One take of the music model for exactly this prompt, no fallback (the free music library is made with it). */
+export async function musicTake(text: string): Promise<Buffer> {
+  const json = await gemini(MUSIC_MODEL, { contents: [{ parts: [{ text }] }], generationConfig: { responseModalities: ['AUDIO'] } }, 240_000);
+  const audio = inlineAudio(json).data;
+  usage.music();
+  return audio;
+}
 
 export async function generateMusic(prompt: string, style: string): Promise<Buffer> {
   const attempts = [prompt, prompt, (SAFE_MUSIC[style] || SAFE_MUSIC.clean) + MUSIC_RULES];
   let lastError: unknown;
   for (const text of attempts) {
     try {
-      const json = await gemini(MUSIC_MODEL, { contents: [{ parts: [{ text }] }], generationConfig: { responseModalities: ['AUDIO'] } }, 240_000);
-      const audio = inlineAudio(json).data;
-      usage.music();
-      return audio;
+      return await musicTake(text);
     } catch (error) {
       lastError = error;
       console.warn('⚠️ Music attempt failed:', String(error).slice(0, 120));
@@ -210,13 +215,18 @@ const DRAWING_INK = [31, 36, 48]; // the whiteboard look's ink colour (#1F2430)
  * background and cropped to the drawing, so the renderer's hand draws exactly the lines and
  * never sweeps over empty board. Returns the PNG and its size.
  */
-export async function generateDrawing(prompt: string): Promise<{ png: Buffer; width: number; height: number; path: number[] }> {
+/** The image model's quality for whiteboard drawings (fal GPT Image 2.5 at 1024x1024: low $0.006, medium $0.013, high $0.053). */
+export type DrawingQuality = 'low' | 'medium' | 'high';
+// Medium since 2026-10-06: side by side with high the line art looked the same, it came back faster (fewer timeouts) and costs a quarter.
+export const DRAWING_QUALITY: DrawingQuality = 'medium';
+
+export async function generateDrawing(prompt: string, quality: DrawingQuality = DRAWING_QUALITY): Promise<{ png: Buffer; width: number; height: number; path: number[] }> {
   const res = await fetch('https://fal.run/openai/gpt-image-2.5/flare/text-to-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
     body: JSON.stringify({
       prompt: `Whiteboard drawing, black dry-erase marker line art on a pure white background, hand-drawn look, clean confident lines, no shading, no grey fills, no colour, no words, no letters, no numbers, no logos: ${prompt}`,
-      quality: 'high',
+      quality,
       output_format: 'png',
       num_images: 1,
       image_size: { width: 1024, height: 1024 },

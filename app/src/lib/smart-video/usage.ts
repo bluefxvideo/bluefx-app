@@ -13,11 +13,12 @@ const PRICES = {
   transcriptPerMinute: 0.03, // fal elevenlabs scribe
   soundPerSecond: 0.002, // fal elevenlabs sound effects
   lifestyleShotPerImage: 0.08, // fal nano-banana-2 edit, 1K
-  drawingPerImage: 0.04, // fal gpt-image-2.5 flare text-to-image, 1024x1024 high
+  drawingPerImage: 0.0132, // fal gpt-image-2.5 flare text-to-image, 1024x1024 medium (DRAWING_QUALITY; high was $0.0527)
   motionPerSecond: 0.04, // fal ltx-2.3 image-to-video fast, 1080p
   cutoutPerImage: 0.005, // fal birefnet, compute-second billed; rounded up
   voiceMatchPerMinute: 0.02, // fal chatterbox hd speech-to-speech
   lookPerImage: 0.0003, // gemini-3.5-flash-lite, one small picture and a short answer
+  musicPickPerCall: 0.0003, // gemini-3.5-flash-lite, the library list in, one id out (music-library.ts)
   captionNumbersPerCall: 0.003, // gemini-3.6-flash, the script's lines in, a short list out (thinking included)
   scenePicturePerImage: 0.048, // fal gpt-image-2.5 flare edit, 1080p high (edits run about 20% over text-to-image)
   castPicturePerImage: 0.04, // fal gpt-image-2.5 flare text-to-image, high
@@ -81,6 +82,7 @@ export const usage = {
     add('voice take', ((meta.promptTokenCount || 0) * PRICES.ttsInputPerM + audioTokens * PRICES.ttsAudioPerM) / 1e6, `${seconds.toFixed(0)} s`);
   },
   music: () => add('music', PRICES.musicPerSong, '1 song'),
+  musicPick: () => add('music pick', PRICES.musicPickPerCall, 'library track'),
   transcript: (seconds: number) => add('word timings', (seconds / 60) * PRICES.transcriptPerMinute, `${seconds.toFixed(0)} s`),
   sound: (seconds: number) => add('signature sound', seconds * PRICES.soundPerSecond, `${seconds} s`),
   lifestyleShot: () => add('lifestyle photo', PRICES.lifestyleShotPerImage, '1 image'),

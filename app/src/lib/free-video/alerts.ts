@@ -52,7 +52,7 @@ const RUNBOOK = [
   "  update free_video_leads set status = 'done', email_status = 'pending', updated_at = now() where id = '<lead id>' and status = 'held';",
   'Make a new video ad instead:',
   "  update free_video_leads set status = 'queued', attempts = 0, reason = null, not_before = null, updated_at = now() where id = '<lead id>' and status in ('held','failed');",
-  'Render the $29 clean version again (after a failed clean render):',
+  'Render the $99 clean version again (after a failed clean render):',
   "  update free_video_leads set unlock_status = 'paid', clean_attempts = 0, updated_at = now() where id = '<lead id>' and unlock_status = 'failed';",
   'Pause new starts (running jobs finish):',
   '  update free_video_settings set starting = false, updated_at = now() where id = 1;',

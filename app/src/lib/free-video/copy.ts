@@ -43,7 +43,7 @@ export const LANDING = {
   /** The small label above the headline. */
   pill: 'Free video ad maker',
   h1: 'Get a free video ad for your business',
-  sub: 'Type your website. The Phantom turns the words and photos on it into a video ad with a voice-over and music.',
+  sub: 'Type your website. The Phantom turns the words and photos on it into a hand-drawn video ad with a voice-over and music.',
   /** The hand-drawn note pointing at the website field (wide screens only). */
   startHere: 'Start here!',
   /** The small lines under the website field: what it does not cost. */
@@ -51,7 +51,7 @@ export const LANDING = {
   /** The numbered steps beside the result card, in order. */
   steps: [
     { title: 'Add your website', text: 'The Phantom reads the words and photos on your website.' },
-    { title: 'The Phantom makes your video ad', text: 'The script, the voice-over, the music and the captions.' },
+    { title: 'The Phantom makes your video ad', text: 'The script, the hand-drawn pictures, the voice-over and the music.' },
     { title: 'Get your video ad by email', text: 'Post the video ad on Facebook, Instagram, TikTok and YouTube Shorts.' },
   ],
   /** The blue band at the bottom, with the same website field. */
@@ -150,13 +150,14 @@ export const EXAMPLE_VIDEOS = {
   /**
    * The video in the top card (owner 2026-10-06: "why don't we just make an awesome video ad about the service?"):
    * a 27 s video ad about the free video ad, made in the ad studio (ad-studio/public/ads/fv-promo, build.py): an AI
-   * presenter (Kling AI Avatar on the narrator's own voice), a real screen recording of this page, real Phantom
-   * renders, the email notification. Plays muted in a loop; a tap opens heroReel.opens with sound. (The earlier
-   * clips hero/listing-reel, hero/pizza-reel and hero/reel are unused.)
+   * presenter (Kling AI Avatar on the narrator's own voice), a real screen recording of this page, real free video
+   * ads (whiteboard since 2026-10-06: pizza shop, home, laser welder, clean renders), the email notification. Plays
+   * muted in a loop; a tap opens heroReel.opens with sound. (The earlier clips hero/promo with the photo-look ads,
+   * hero/listing-reel, hero/pizza-reel and hero/reel are unused.)
    */
   heroReel: {
-    video: `${EXAMPLES_BASE}/hero/promo.mp4`,
-    poster: `${EXAMPLES_BASE}/hero/promo.jpg`,
+    video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`,
+    poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg`,
     opens: 'promo',
   },
   /** The examples section, in order. */
@@ -165,7 +166,7 @@ export const EXAMPLE_VIDEOS = {
     { id: 'listing', name: 'Home for sale', video: `${EXAMPLES_BASE}/listing/video.mp4`, poster: `${EXAMPLES_BASE}/listing/poster.jpg` },
     { id: 'welder', name: 'Laser welder', video: `${EXAMPLES_BASE}/welder/video.mp4`, poster: `${EXAMPLES_BASE}/welder/poster.jpg` },
     { id: 'realtor', name: 'Real estate agent', video: `${EXAMPLES_BASE}/reel/realtor.mp4`, poster: `${EXAMPLES_BASE}/reel/realtor.jpg` },
-    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo.mp4`, poster: `${EXAMPLES_BASE}/hero/promo.jpg` },
+    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`, poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg` },
   ],
 } as const;
 export type ExampleVideoAd = (typeof EXAMPLE_VIDEOS.ads)[number];
@@ -481,10 +482,32 @@ export const OFFER_COPY = {
 } as const;
 
 /**
+ * Offer 2's style strip (owner 2026-10-06: "show that with AI Media Machine they unlock multiple video styles"):
+ * 5 s silent loops cut from real examples (AI Avatar, the AI Media Machine sales page's UGC cooking ad, The Phantom,
+ * Video Maker),
+ * 360x640, in smart-video/examples/free-video/styles/<id>.mp4 and .jpg.
+ */
+const STYLE_BASE = `${EXAMPLES_BASE}/styles`;
+export const STYLES = {
+  title: 'Every video style, unlocked',
+  text: 'Your free video ad is a whiteboard ad. With AI Media Machine you make every one of these:',
+  items: (
+    [
+      ['avatar', 'AI avatar'],
+      ['ugc-creator', 'UGC creator'],
+      ['whiteboard', 'Whiteboard'],
+      ['motion', 'Motion graphics'],
+      ['photos', 'Photos that move'],
+      ['beforeafter', 'Before and after'],
+    ] as const
+  ).map(([id, label]) => ({ id, label, video: `${STYLE_BASE}/${id}.mp4`, poster: `${STYLE_BASE}/${id}.jpg` })),
+} as const;
+
+/**
  * The emails. No code sends these: the owner pastes them into MailerLite automations by hand.
  * Merge tags: {$name}, {$free_video_site}, {$free_video_url}, {$free_video_token}, {$free_video_clean_url}.
  * Lines like "[Button: label → url]" become a MailerLite button.
- * Never a buy price in any email: no $29 and no $297. "$700 off" is allowed.
+ * Never a buy price in any email: no $99 and no $297. "$700 off" is allowed.
  *
  * Automation 'Free Video Ad': trigger joins group 'Free Video - Ready'; E1 at once, E2 a day later,
  * E3 two days after E2; E2 and E3 are skipped when free_video_customer = yes; exit on 'Free Video - Bought'.

@@ -64,7 +64,7 @@ export interface FreeVideoSubmitData {
 export type FreeVideoLeadStatus = 'queued' | 'running' | 'held' | 'done' | 'failed' | 'rejected';
 export type FreeVideoSource = 'landing' | 'fb_lead' | 'manual' | 'test';
 export type FreeVideoEmailStatus = 'pending' | 'sending' | 'sent' | 'inactive' | 'failed' | 'skipped';
-/** The $29 unlock on a lead row. paid: payment in, clean render not started; rendering: clean render running; ready: clean file uploaded. */
+/** The $99 unlock on a lead row. paid: payment in, clean render not started; rendering: clean render running; ready: clean file uploaded. */
 export type FreeVideoUnlockStatus = 'none' | 'paid' | 'rendering' | 'ready' | 'failed' | 'refunded';
 
 /** What qualityGate() returns; stored in free_video_leads.gate. */
@@ -133,7 +133,7 @@ export interface FreeVideoLead {
   ip: string | null;
   user_agent: string | null;
   consent_at: string | null;
-  /** Offer 1, the $29 unlock: 'none' until a FastSpring order for the video-ad-unlock product arrives. */
+  /** Offer 1, the $99 unlock: 'none' until a FastSpring order for the video-ad-unlock product arrives. */
   unlock_status: FreeVideoUnlockStatus;
   /** FastSpring order id; unique, so a webhook delivered twice unlocks once. */
   unlock_order_id: string | null;
@@ -227,7 +227,7 @@ export interface FreeVideoView {
   downloadUrl?: string;
   /** An active AI Media Machine customer: Offer 2 swaps to "Open The Phantom". */
   isCustomer: boolean;
-  /** Offer 1, the $29 unlock. */
+  /** Offer 1, the $99 unlock. */
   unlock: FreeVideoUnlockView;
   /** P1 */
   photos?: string[];
@@ -273,7 +273,7 @@ export interface FreeVideoLiveScene {
 /**
  * Offer 1 on the status page.
  * - unavailable: the video ad is not ready yet (the page shows only the teaser line).
- * - available: show the $29 offer.
+ * - available: show the $99 offer.
  * - paid / rendering: payment received, The Phantom is making the clean version.
  * - ready: the clean download.
  * - failed: the clean render failed for good; the owner was alerted.

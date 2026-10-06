@@ -6,7 +6,7 @@
  * Covers: the SSRF guard (address table, refused URLs, redirects re-checked, decoding, size caps, the
  * pre-check and picture modes), the page-complexity check, website normalization and the dedupe keys,
  * the bot timer, the intake attempt limiter, plan shaping and the free limits, usageOf, the quality gate on
- * sample plans and on small local mp4 files made with ffmpeg, the $29 unlock (checkout link, tag, order
+ * sample plans and on small local mp4 files made with ffmpeg, the $99 unlock (checkout link, tag, order
  * parsing, the status-page view), the watermark prop and its clean version, and the copy rules of the emails.
  *
  * Network: only free public GETs (example.com, httpbin.org, nip.io DNS, a speed-test file's headers). A
@@ -21,11 +21,12 @@ import { EMAIL_DRAFTS } from '@/lib/free-video/copy';
 import { lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
 import { offerUrl, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
-import { fakeSavedPlan, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
+import { fakeSavedPlan, freeOptions, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
 import { assertPublicUrl, BlockedUrlError, isPublicAddress, safeFetch, safeFetchWith, sanityCheckHtml } from '@/lib/free-video/safe-fetch';
 import { cleanProps, freeVideoUnlockIn, readUnlockOrder } from '@/lib/free-video/unlock';
 import { asMaterial, displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
 import { stillCameraPrompt } from '@/lib/smart-video/audio';
+import { closestTrack, MUSIC_LIBRARY } from '@/lib/smart-video/music-library';
 import type { SavedPlan } from '@/lib/smart-video/jobs';
 import type { SmartVideoResult } from '@/lib/smart-video/pipeline';
 import type { DirectorPlan } from '@/lib/smart-video/types';
@@ -238,6 +239,11 @@ async function main(): Promise<void> {
   const base = fakeSavedPlan('https://example.com/m.mp3', 'joesplumbing.com').plan;
   const whiteboard: DirectorPlan = { ...base, style: 'whiteboard', animate: [{ asset: 'a1', prompt: 'x' }], drawings: [{ id: 'd1', prompt: 'a house' }, { id: 'd9', prompt: 'unused' }], scenes: base.scenes.map((scene, i) => (i === 0 ? { ...scene, background: { type: 'drawing' as const, asset: 'd1' } } : scene)) };
   const shapedWb = shapeFreePlan(whiteboard);
+  check('every free video ad is a whiteboard video', freeOptions({ length: 'auto', format: 'vertical', look: null }).look === 'whiteboard');
+  check('free video ads take music from the library', typeof freeOptions({ length: 'auto', format: 'vertical', look: null }).pickMusic === 'function');
+  check('music library: unique ids', new Set(MUSIC_LIBRARY.map((t) => t.id)).size === MUSIC_LIBRARY.length);
+  check('music pick fallback: a bouncy ukulele bed → playful-1', closestTrack('120 BPM, bouncy instrumental bed. Instruments: ukulele, glockenspiel, pizzicato strings, hand claps, light kick drum. Attitude: happy, friendly, playful.').id === 'playful-1');
+  check('music pick fallback: slow piano and harp → elegant-1', closestTrack('82 BPM, elegant instrumental bed. Instruments: grand piano, strings, cello, harp. Attitude: refined, calm.').id === 'elegant-1');
   check('whiteboard loses animate', shapedWb.animate === null);
   check('unused drawings are dropped', shapedWb.drawings?.length === 1 && shapedWb.drawings[0].id === 'd1');
   const withLifestyle: DirectorPlan = {
@@ -373,7 +379,7 @@ async function main(): Promise<void> {
   }
 
   // 10. -----------------------------------------------------------------------------------------
-  section('10. The $29 unlock');
+  section('10. The $99 unlock');
   const token = 'AbCdEfGhIjKlMnOpQrSt_-';
   check('the test token has the token shape', FREE_VIDEO_TOKEN_PATTERN.test(token));
   check('checkout link', unlockCheckoutUrl(token) === `https://bluefx.onfastspring.com/video-ad-unlock?tags=freeVideoLead:${token}`, unlockCheckoutUrl(token));
@@ -388,15 +394,15 @@ async function main(): Promise<void> {
     live: false,
     currency: 'EUR',
     payoutCurrency: 'USD',
-    total: 27.5,
-    totalInPayoutCurrency: 31.2,
-    subtotalInPayoutCurrency: 29,
+    total: 92.0,
+    totalInPayoutCurrency: 104.2,
+    subtotalInPayoutCurrency: 99,
     account: { contact: { email: 'Jo@Example.com' } },
-    items: [{ product: 'video-ad-unlock', subtotal: 26.0, subtotalInPayoutCurrency: 29 }],
+    items: [{ product: 'video-ad-unlock', subtotal: 88.0, subtotalInPayoutCurrency: 99 }],
     tags: { freeVideoLead: token },
   };
   const read = readUnlockOrder(order);
-  check('order: id, token, email, amount in the payout currency', read.id === 'ORD123' && read.token === token && read.email === 'jo@example.com' && read.amount === 29 && read.currency === 'USD', JSON.stringify(read));
+  check('order: id, token, email, amount in the payout currency', read.id === 'ORD123' && read.token === token && read.email === 'jo@example.com' && read.amount === 99 && read.currency === 'USD', JSON.stringify(read));
   check('order: the unlock alone → only', freeVideoUnlockIn(order) === 'only');
   check('order: with a credit pack → mixed (the pack keeps its own handling)', freeVideoUnlockIn({ ...order, items: [...order.items, { product: '100-ai-credit-pack' }] }) === 'mixed');
   check('order: the direct product field, any case', freeVideoUnlockIn({ product: { product: 'Video-Ad-Unlock' } }) === 'only' && freeVideoUnlockIn({ product: 'video-ad-unlock' }) === 'only');
@@ -436,7 +442,7 @@ async function main(): Promise<void> {
   for (const email of EMAIL_DRAFTS) {
     const all = `${email.subject}\n${email.body}`;
     check(`${email.id}: no em-dash`, !all.includes('—'));
-    check(`${email.id}: no $297 and no $29`, !all.includes('$297') && !all.includes('$29'));
+    check(`${email.id}: no $297 and no ${UNLOCK.price}`, !all.includes('$297') && !all.includes(UNLOCK.price));
   }
 
   // 13. -----------------------------------------------------------------------------------------

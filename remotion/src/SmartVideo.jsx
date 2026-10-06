@@ -158,7 +158,8 @@ const STYLES = {
   },
 };
 const MARKER = '"Marker", "Caveat", cursive';
-const SFX_VOLUME = { pop: 0.25, whoosh: 0.35, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.26, underline: 0.26, push: 0.22 };
+// The whoosh (every scene change, and the whiteboard hand's push) plays at 30% of its old 0.35 and 0.22 (owner 2026-10-06).
+const SFX_VOLUME = { pop: 0.25, whoosh: 0.105, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.26, underline: 0.26, push: 0.066 };
 // Sounds that reuse another sound's file, and the ones only the whiteboard look plays.
 const SFX_FILE = { underline: 'marker', push: 'whoosh' };
 const WHITEBOARD_ONLY = ['marker', 'underline', 'push'];
@@ -1788,34 +1789,32 @@ function Soundtrack({ audio = {}, scenes, duration, fadeEnd }) {
 }
 
 // ---------- watermark ----------
-// The free video ad's watermark: the BlueFX mark and name, big and see-through in the middle of the frame for the
-// whole video (it stops where the end card starts). It sits above the drawing hand (20), the captions (50) and the
-// transitions (100), so no full-frame photo or crop can hide it, and stays transparent enough that the video ad
-// underneath still reads. The soft dark shadow keeps the white name visible on the whiteboard's light paper too.
+// The free video ad's watermark: the BlueFX name, see-through in the middle of the frame for the whole video (it
+// stops where the end card starts). Text only, about a third of the frame wide (owner 2026-10-06: smaller, no blue
+// logo). It sits above the drawing hand (20), the captions (50) and the transitions (100), so no full-frame photo or
+// crop can hide it, and stays transparent enough that the video ad underneath still reads. The soft dark shadow
+// keeps the white name visible on the whiteboard's light paper too.
 function CenterWatermark({ until, label }) {
   const frame = useCurrentFrame();
   const { W, landscape } = useFrame();
   if (frame >= until) return null;
-  const width = Math.round(W * (landscape ? 0.34 : 0.58));
-  const logo = Math.round(width * 0.34);
   return (
     <AbsoluteFill style={{ zIndex: 110, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-      <div
+      <span
         style={{
-          width,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: Math.round(width * 0.035),
           opacity: 0.42,
           filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.55))',
+          fontFamily: `${BRAND_FONT[0]}, sans-serif`,
+          fontWeight: 800,
+          fontSize: Math.round(W * (landscape ? 0.05 : 0.09)),
+          lineHeight: 1,
+          color: '#FFFFFF',
+          whiteSpace: 'nowrap',
+          letterSpacing: 2,
         }}
       >
-        <Img src={staticFile(BRAND_LOGO)} style={{ width: logo, height: logo }} />
-        <span style={{ fontFamily: `${BRAND_FONT[0]}, sans-serif`, fontWeight: 800, fontSize: Math.round(width * 0.25), lineHeight: 1, color: '#FFFFFF', whiteSpace: 'nowrap', letterSpacing: 2 }}>
-          {label}
-        </span>
-      </div>
+        {label}
+      </span>
     </AbsoluteFill>
   );
 }

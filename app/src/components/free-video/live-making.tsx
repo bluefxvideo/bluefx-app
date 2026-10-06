@@ -19,7 +19,7 @@ interface LiveMakingProps {
   view: FreeVideoView;
   /** "This page stopped checking" with its button, or null. */
   staleNotice: ReactNode;
-  /** The $29 unlock is paid while the free video ad is still being made. */
+  /** The $99 unlock is paid while the free video ad is still being made. */
   paidEarly: ReactNode;
   /** The lifetime offer, shown only while the video ad waits in line. */
   queuedOffer: ReactNode;

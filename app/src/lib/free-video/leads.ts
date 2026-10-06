@@ -441,7 +441,7 @@ export async function transitionLead(
 }
 
 /**
- * The ONLY way a lead's unlock status changes (the $29 clean version): a guarded update where the unlock
+ * The ONLY way a lead's unlock status changes (the $99 clean version): a guarded update where the unlock
  * status is one of guard.from and, when given, clean_attempts and clean_claimed_at are still as read.
  * Returns the updated row, or null when nothing changed. Throws on a database error when `strict` (the
  * payment webhook must fail loudly so FastSpring retries); otherwise logs and returns null.
@@ -623,7 +623,7 @@ export async function recordEvent(event: {
 
 /**
  * /go/<placement>?t=<token>: a 'cta_click' event on the lead, plus clicked_at (set once) for the lifetime
- * offer's placements. The $29 unlock's clicks ('fvunlock') are events only, so clicked_at stays the
+ * offer's placements. The $99 unlock's clicks ('fvunlock') are events only, so clicked_at stays the
  * lifetime offer's metric. Never throws.
  */
 export async function markClicked(token: string, placement: string): Promise<void> {
