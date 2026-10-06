@@ -109,12 +109,11 @@ async function main(): Promise<void> {
   live.assets(assets);
   const options = freeOptions(
     { length: 'auto', format: 'vertical', look: null, sound: { voiceOver: true, music: true }, onStage: (stage) => keep({ stage }) },
-    assets,
     undefined,
     (plan) => live.plan(plan, assets),
     (url) => live.stored('music.mp3', url)
   );
-  console.log(`🖼️ ${realPhotoCount(assets)} real photos of ${assets.length} files → look: ${options.look ?? 'the director picks (photo look)'}`);
+  console.log(`🖼️ ${realPhotoCount(assets)} real photos of ${assets.length} files → look: ${options.look}, presenter: ${options.presenter ? 'yes' : 'no'}`);
 
   const brief = `${read.brief}\n\nNOTE FROM THE CLIENT:\n${freeNote(displayDomain(domain))}`;
   const result = await createSmartVideo(brief, assets, storeLive, async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))), options);

@@ -51,7 +51,7 @@ export const LANDING = {
   /** The numbered steps beside the result card, in order. */
   steps: [
     { title: 'Add your website', text: 'The Phantom reads the words and photos on your website.' },
-    { title: 'The Phantom makes your video ad', text: 'An AI presenter, the script, the voice-over and the music.' },
+    { title: 'The Phantom makes your video ad', text: 'An AI presenter, hand-drawn scenes, the voice-over and the music.' },
     { title: 'Get your video ad by email', text: 'Post the video ad on Facebook, Instagram, TikTok and YouTube Shorts.' },
   ],
   /** The blue band at the bottom, with the same website field. */
@@ -150,14 +150,14 @@ export const EXAMPLE_VIDEOS = {
   /**
    * The video in the top card (owner 2026-10-06: "why don't we just make an awesome video ad about the service?"):
    * a 27 s video ad about the free video ad, made in the ad studio (ad-studio/public/ads/fv-promo, build.py): an AI
-   * presenter (Kling AI Avatar on the narrator's own voice), a real screen recording of this page, real Phantom
-   * photo-look ads (pizza shop, home, laser welder), the email notification. Plays muted in a loop; a tap opens
-   * heroReel.opens with sound. (hero/promo-wb, the version with whiteboard ads from when every free ad was a
-   * whiteboard ad, and hero/listing-reel, hero/pizza-reel and hero/reel are unused.)
+   * presenter (Kling AI Avatar on the narrator's own voice), a real screen recording of this page, real free video
+   * ads in the whiteboard look every free ad uses (pizza shop, home, laser welder, clean renders), the email
+   * notification. Plays muted in a loop; a tap opens heroReel.opens with sound. (hero/promo with the photo-look
+   * ads, hero/listing-reel, hero/pizza-reel and hero/reel are unused.)
    */
   heroReel: {
-    video: `${EXAMPLES_BASE}/hero/promo.mp4`,
-    poster: `${EXAMPLES_BASE}/hero/promo.jpg`,
+    video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`,
+    poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg`,
     opens: 'promo',
   },
   /** The examples section, in order. */
@@ -166,7 +166,7 @@ export const EXAMPLE_VIDEOS = {
     { id: 'listing', name: 'Home for sale', video: `${EXAMPLES_BASE}/listing/video.mp4`, poster: `${EXAMPLES_BASE}/listing/poster.jpg` },
     { id: 'welder', name: 'Laser welder', video: `${EXAMPLES_BASE}/welder/video.mp4`, poster: `${EXAMPLES_BASE}/welder/poster.jpg` },
     { id: 'realtor', name: 'Real estate agent', video: `${EXAMPLES_BASE}/reel/realtor.mp4`, poster: `${EXAMPLES_BASE}/reel/realtor.jpg` },
-    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo.mp4`, poster: `${EXAMPLES_BASE}/hero/promo.jpg` },
+    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`, poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg` },
   ],
 } as const;
 export type ExampleVideoAd = (typeof EXAMPLE_VIDEOS.ads)[number];

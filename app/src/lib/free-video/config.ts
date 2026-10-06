@@ -196,8 +196,6 @@ export function isRefusedHost(hostname: string): boolean {
 /** One automatic retry after a failure or a deploy kill, then hold and alert. */
 export const MAX_ATTEMPTS = 2;
 export const RETRY_DELAY_MS = 120_000;
-/** Fewer real (non-flat) prepared photos than this → the whiteboard look; with more, the director chooses (freeNote). */
-export const MIN_PHOTOS_FOR_PHOTO_LOOK = 3;
 export const MAX_FREE_PHOTOS = 8;
 /** Website photos are downloaded this many at a time, and the download stops once MAX_FREE_PHOTOS usable ones are in (review SEC-6). */
 export const PHOTO_BATCH = 4;
@@ -319,8 +317,7 @@ export function freeNote(domain: string): string {
     'Lead with what a customer gets. Use only facts from the website.',
     'Write scene 1 as one short hook of 6 to 12 words.',
     `The last scene shows the website address ${domain} as the highlight.`,
-    'Use only real photos of the business: its people, place, products or work. Never use a picture that is mostly text, such as a YouTube thumbnail, a banner, a flyer, a screenshot or an ad.',
-    'With at least 3 such photos, make a photo video ad in the bold, clean, elegant or playful style: show the photos full screen and animate the strongest ones. For animated photos, describe only what moves inside the photo; the camera stays still.',
-    'With fewer, make a whiteboard video: tape the real photos it has to the board and give every other scene its own drawing; when the website has no logo, the last scene gets a drawing too.',
+    'Tape only real photos of the business to the board: its people, place, products or work. Never use a picture that is mostly text, such as a YouTube thumbnail, a banner, a flyer, a screenshot or an ad.',
+    'Give every scene that shows no photo its own drawing, so the board is never empty. When the website has no logo, the last scene gets a drawing too, of something that fits the call to action.',
   ].join('\n');
 }
