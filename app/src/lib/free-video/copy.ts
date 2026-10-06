@@ -176,10 +176,13 @@ const REEL_BASE = `${EXAMPLES_BASE}/reel`;
 /**
  * The autoplay row of video ads (owner 2026-10-06: "the top ads we had there on autoplay, those are the best and
  * I like that autoplay way"): the 14 ads from the top of bluefx.net/video-ad/, same order and labels, copied to
- * storage as examples/free-video/reel/<id>.mp4 and .jpg (720x1280 with sound, 0.9 to 4 MB each).
+ * storage as examples/free-video/reel/<id>.mp4 and .jpg (720x1280 with sound, 0.9 to 4 MB each). First comes a
+ * real free video ad as a visitor gets it, watermark included (ascentequipment.com, owner 2026-10-06: "the video
+ * is amazing! lets keep it in the examples section").
  */
 export const REEL_ADS = (
   [
+    { id: 'ascent', tag: 'Manufacturer' },
     { id: 'bbq', tag: 'Restaurant' },
     { id: 'toon', tag: 'Insurance' },
     { id: 'dentalfaq', tag: 'Dentist' },
