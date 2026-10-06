@@ -19,6 +19,7 @@ import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { tracePng } from './drawing-path';
+import { animatePresenter, castPresenter, PRESENTER_ASSET } from './presenter';
 import {
   LISTING_MAX_PAUSE,
   LISTING_MIN_PHOTOS,
@@ -134,6 +135,12 @@ export interface SmartVideoOptions {
    * funnel's library, music-library.ts). null, or a failure, makes the song as usual. Unset for paying users.
    */
   pickMusic?: (musicPrompt: string, style: string) => Promise<string | null>;
+  /**
+   * A person opens the video (presenter.ts): cast, photographed and turned into a short moving clip while the voice
+   * and the other clips are made, then shown full screen in scene 1 under the first line of the voice-over. Any
+   * failure keeps the video's own first scene. The free video funnel; unset for paying users.
+   */
+  presenter?: boolean;
 }
 
 export async function createSmartVideo(
@@ -152,7 +159,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
   const photos = assets.filter((a) => a.kind === 'image').length;
@@ -239,6 +246,20 @@ async function produce(
   ).then((pairs) => Object.fromEntries(pairs));
 
   const drawings = makeDrawings(plan.drawings || [], store);
+  // The presenter is cast and filmed while the voice and the other clips are made; a talking clip of the client's
+  // own opening the video needs none.
+  const cast =
+    presenter && !listing && !horizontal && !plan.scenes[0]?.speaker
+      ? castPresenter(brief, plan)
+          .then(async (photo) => {
+            await store(photo, 'presenter.jpg', 'image/jpeg');
+            return store(await animatePresenter(photo), 'presenter.mp4', 'video/mp4');
+          })
+          .catch((error) => {
+            console.warn('⚠️ Presenter failed, keeping the first scene:', String(error).slice(0, 160));
+            return null;
+          })
+      : null;
 
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store, listing ? listingFit(listing, narration.length) : undefined) : null,
@@ -298,7 +319,32 @@ async function produce(
   };
   if (listing?.animate) await animateListingPhotos(plan, media, assets, store, clips);
   const props = buildProps(plan, media);
+  const presenterClip = cast ? await cast : null;
+  if (presenterClip) addPresenter(props, media, presenterClip);
   return { props, plan, media, durationSeconds: props.duration, warnings: [...clientWarnings(plan), ...softPhotoWarnings(plan, assets)] };
+}
+
+/**
+ * The presenter opens the video: their clip fills scene 1 (muted, slowed down when the scene is longer than the clip,
+ * like an animated photo) under the first line of the voice-over. The scene keeps its title and pill, minus the
+ * drawing hand's underline.
+ */
+function addPresenter(props: ReturnType<typeof buildProps>, media: SmartVideoMedia, url: string): void {
+  const first = props.scenes[0];
+  if (!first) return;
+  media.assets[PRESENTER_ASSET] = { url, kind: 'video', portrait: true };
+  props.assets = media.assets;
+  const playbackRate = Math.min(1, Math.max(0.4, (MOTION_CLIP_SECONDS - 0.2) / (first.end - first.start)));
+  props.scenes[0] = {
+    ...first,
+    background: { type: 'mediaFull', asset: PRESENTER_ASSET, focus: '50% 35%', playbackRate },
+    blocks: first.blocks.map((block) => {
+      const kept: Record<string, unknown> = { ...block };
+      delete kept.underlineAt;
+      return kept as typeof block;
+    }),
+  };
+  console.log('🎭 The presenter opens the video');
 }
 
 /**

@@ -1794,12 +1794,15 @@ function Soundtrack({ audio = {}, scenes, duration, fadeEnd }) {
 // logo). It sits above the drawing hand (20), the captions (50) and the transitions (100), so no full-frame photo or
 // crop can hide it, and stays transparent enough that the video ad underneath still reads. The soft dark shadow
 // keeps the white name visible on the whiteboard's light paper too.
-function CenterWatermark({ until, label }) {
+function CenterWatermark({ until, liftFrom = Infinity, label }) {
   const frame = useCurrentFrame();
-  const { W, landscape } = useFrame();
+  const { W, H, landscape } = useFrame();
   if (frame >= until) return null;
+  // The last scene carries the business's own address in the middle: the mark moves up to the top fifth there, so
+  // the address stays readable (2026-10-06: it covered the website on a clean-look last screen).
+  const lift = interpolate(frame, [liftFrom, liftFrom + 8], [0, 1], clamp);
   return (
-    <AbsoluteFill style={{ zIndex: 110, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+    <AbsoluteFill style={{ zIndex: 110, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', transform: `translateY(${-lift * H * 0.3}px)` }}>
       <span
         style={{
           opacity: 0.42,
@@ -1885,7 +1888,9 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
         {/* `cut`: the scene starts on a plain cut, as footage does; every other scene change is covered by the look's transition. */}
         {scenes.slice(1).map((scene, i) => (scene.cut ? null : <Transition key={i} at={Math.round(scene.start * FPS)} />))}
         {ready && captions?.words?.length > 0 && <Captions words={captions.words} cuts={scenes.filter((scene) => scene.cut).map((scene) => scene.start)} />}
-        {ready && watermark && <CenterWatermark until={endSeconds > 0 ? endAt : Infinity} label={watermark.label || 'BlueFX'} />}
+        {ready && watermark && (
+          <CenterWatermark until={endSeconds > 0 ? endAt : Infinity} liftFrom={scenes.length > 1 ? Math.round(scenes[scenes.length - 1].start * FPS) : Infinity} label={watermark.label || 'BlueFX'} />
+        )}
         {/* The card runs to the composition's last frame, so rounding can never leave a blank frame after it. */}
         {ready && endSeconds > 0 && (
           <Sequence from={cardFrom} durationInFrames={Math.max(1, durationInFrames - cardFrom)}>

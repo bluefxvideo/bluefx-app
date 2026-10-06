@@ -29,7 +29,7 @@ import { stillCameraPrompt } from '@/lib/smart-video/audio';
 import { closestTrack, MUSIC_LIBRARY } from '@/lib/smart-video/music-library';
 import type { SavedPlan } from '@/lib/smart-video/jobs';
 import type { SmartVideoResult } from '@/lib/smart-video/pipeline';
-import type { DirectorPlan } from '@/lib/smart-video/types';
+import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
 import { trackUsage, usage, usageOf } from '@/lib/smart-video/usage';
 import { FREE_VIDEO_TOKEN_PATTERN, FreeVideoLeadSchema, type FreeVideoLead } from '@/types/free-video';
 
@@ -239,8 +239,12 @@ async function main(): Promise<void> {
   const base = fakeSavedPlan('https://example.com/m.mp3', 'joesplumbing.com').plan;
   const whiteboard: DirectorPlan = { ...base, style: 'whiteboard', animate: [{ asset: 'a1', prompt: 'x' }], drawings: [{ id: 'd1', prompt: 'a house' }, { id: 'd9', prompt: 'unused' }], scenes: base.scenes.map((scene, i) => (i === 0 ? { ...scene, background: { type: 'drawing' as const, asset: 'd1' } } : scene)) };
   const shapedWb = shapeFreePlan(whiteboard);
-  check('every free video ad is a whiteboard video', freeOptions({ length: 'auto', format: 'vertical', look: null }).look === 'whiteboard');
-  check('free video ads take music from the library', typeof freeOptions({ length: 'auto', format: 'vertical', look: null }).pickMusic === 'function');
+  const photoAsset = (id: string) => ({ id, kind: 'image' as const, url: `/${id}.jpg`, data: Buffer.from(id), mimeType: 'image/jpeg', width: 800, height: 600 }) as unknown as SmartAsset;
+  const freeBase = { length: 'auto' as const, format: 'vertical' as const, look: null };
+  check('a website with 2 real photos gets a whiteboard video', freeOptions(freeBase, [photoAsset('a1'), photoAsset('a2')]).look === 'whiteboard');
+  check('a website with 3 real photos: the director picks a photo look', freeOptions(freeBase, [photoAsset('a1'), photoAsset('a2'), photoAsset('a3')]).look === null);
+  check('every free video ad opens with the presenter', freeOptions(freeBase, []).presenter === true);
+  check('free video ads take music from the library', typeof freeOptions(freeBase, []).pickMusic === 'function');
   check('music library: unique ids', new Set(MUSIC_LIBRARY.map((t) => t.id)).size === MUSIC_LIBRARY.length);
   check('music pick fallback: a bouncy ukulele bed → playful-1', closestTrack('120 BPM, bouncy instrumental bed. Instruments: ukulele, glockenspiel, pizzicato strings, hand claps, light kick drum. Attitude: happy, friendly, playful.').id === 'playful-1');
   check('music pick fallback: slow piano and harp → elegant-1', closestTrack('82 BPM, elegant instrumental bed. Instruments: grand piano, strings, cello, harp. Attitude: refined, calm.').id === 'elegant-1');

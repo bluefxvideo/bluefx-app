@@ -23,6 +23,7 @@ import {
   isLive,
   localStartAllowed,
   MAX_ATTEMPTS,
+  MIN_PHOTOS_FOR_PHOTO_LOOK,
   remotionServerUrl,
   renderTargetAllowed,
   RETRY_DELAY_MS,
@@ -193,23 +194,26 @@ async function runFreeVideoLead(lead: FreeVideoLead): Promise<void> {
 export const realPhotoCount = (assets: SmartAsset[]) => assets.filter((a) => a.kind === 'image' && !a.flatBackground).length;
 
 /**
- * The free job's options: every free video ad is a whiteboard video (owner 2026-10-06: the photo looks
- * depend on the website's pictures, and a website of YouTube thumbnails made a weak ad), with the website's
- * real photos taped to the board (freeNote keeps thumbnails, banners and screenshots off it). Still-camera
- * prompts stay on for any animated photo, and shapeFreePlan runs between the director and the paid
+ * The free job's options (owner 2026-10-06, after the marketplace research and "the person in the video is the
+ * coolest", then "no lipsync, just a short"): a person opens the video in a short clip (presenter.ts), then a photo video ad of the website's real
+ * photos, moving, when it has MIN_PHOTOS_FOR_PHOTO_LOOK of them; a whiteboard video when it has fewer (freeNote
+ * tells the director what counts as a real photo, so a website of thumbnails still gets a whiteboard video).
+ * Still-camera prompts for animated photos, library music, and shapeFreePlan between the director and the paid
  * production step. `guard` runs before the plan is shaped, so an attempt that lost its lead stops before
  * production (review F1).
  */
 export function freeOptions(
   base: SmartVideoOptions,
+  assets: SmartAsset[],
   guard?: () => void,
   onPlan?: (plan: DirectorPlan) => void,
   onMusic?: (url: string) => void
 ): SmartVideoOptions {
   return {
     ...base,
-    look: 'whiteboard',
+    look: realPhotoCount(assets) < MIN_PHOTOS_FOR_PHOTO_LOOK ? 'whiteboard' : null,
     stillCamera: true,
+    presenter: true,
     adjustPlan: (plan) => {
       guard?.();
       const shaped = shapeFreePlan(plan);
@@ -385,7 +389,7 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): SmartVideoRunHooks {
       void recordPhotos(lead.id, lead.job_id, assets);
       live.assets(assets);
       // The library track is not saved with the job, so the live page hears about it here (a made song comes as music.mp3).
-      return freeOptions(base, watch.assert, (plan) => live.plan(plan, assets), (url) => live.stored('music.mp3', url));
+      return freeOptions(base, assets, watch.assert, (plan) => live.plan(plan, assets), (url) => live.stored('music.mp3', url));
     },
     beforeRender: (result) => {
       watch.assert();

@@ -116,6 +116,18 @@ export function LiveMaking({ view, staleNotice, paidEarly, queuedOffer, onPromoS
 
           {finalStretch && <RenderPanel checking={checking} percent={rendering ? renderPercent : step === 'rendering' ? 0 : 100} images={sceneImages.length ? sceneImages : photos} />}
 
+          {(live.presenterPhoto || live.presenterClip) && (
+            <div className={cn(styles.livePanel, styles.liveIn, styles.presenterPanel)}>
+              <div className={styles.presenterMedia}>
+                <Media url={live.presenterClip ?? (live.presenterPhoto as string)} alt="" />
+              </div>
+              <div>
+                <h2 className={styles.livePanelTitle}>{LIVE.presenterTitle}</h2>
+                <p className={styles.livePanelHint}>{live.presenterClip ? LIVE.presenterReady : LIVE.presenterRecording}</p>
+              </div>
+            </div>
+          )}
+
           {(live.voiceUrl || live.musicUrl) && (
             <div className={cn(styles.livePanel, styles.liveIn)}>
               {live.voiceUrl && <SoundRow title={LIVE.voiceTitle} label={LIVE.voicePlay} src={live.voiceUrl} />}
@@ -174,8 +186,12 @@ export function LiveMaking({ view, staleNotice, paidEarly, queuedOffer, onPromoS
   );
 }
 
-/** A scene's picture now: its moving clip, else a picture The Phantom made, else the website photo; drawing = a whiteboard scene still being drawn. */
-function pictureOf(scene: FreeVideoLiveScene, live: FreeVideoLive): { url?: string; clip?: string; pending: boolean; drawing: boolean } {
+/**
+ * A scene's picture now: its moving clip, else a picture The Phantom made, else the website photo; drawing = a
+ * whiteboard scene still being drawn. Scene 1 shows the presenter instead once they are cast.
+ */
+function pictureOf(scene: FreeVideoLiveScene, live: FreeVideoLive, number = 0): { url?: string; clip?: string; pending: boolean; drawing: boolean } {
+  if (number === 1 && (live.presenterClip || live.presenterPhoto)) return { url: live.presenterPhoto, clip: live.presenterClip, pending: false, drawing: false };
   const id = scene.imageId;
   const clip = id ? live.clips?.[id] : undefined;
   const made = id ? live.made?.[id] : undefined;
@@ -198,7 +214,7 @@ interface SceneCardProps {
 }
 
 function SceneCard({ scene, number, live }: SceneCardProps) {
-  const picture = pictureOf(scene, live);
+  const picture = pictureOf(scene, live, number);
   return (
     <li className={styles.sceneCard} style={{ animationDelay: `${(number - 1) * 140}ms` }}>
       <div className={cn(styles.sceneMedia, picture.drawing && styles.sceneDrawing)}>
@@ -216,7 +232,7 @@ function SceneCard({ scene, number, live }: SceneCardProps) {
           <div className={styles.sceneTitleCard}>{scene.show[0] ?? ''}</div>
         )}
         <span className={styles.sceneNumber}>{LIVE.sceneLabel(number)}</span>
-        {picture.clip && <span className={styles.sceneMoving}>{LIVE.moving}</span>}
+        {picture.clip && <span className={styles.sceneMoving}>{number === 1 && live.presenterClip ? LIVE.presenterLabel : LIVE.moving}</span>}
       </div>
       <div className={styles.sceneText}>
         <p className={styles.sceneSay}>{scene.say}</p>

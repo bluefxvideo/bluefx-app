@@ -63,17 +63,19 @@ export function liveScenes(plan: DirectorPlan, assets: SmartAsset[]): FreeVideoL
   });
 }
 
-export type StoredKind = { kind: 'made'; id: string } | { kind: 'clip'; id: string } | { kind: 'voice' } | { kind: 'music' };
+export type StoredKind = { kind: 'made'; id: string } | { kind: 'clip'; id: string } | { kind: 'voice' } | { kind: 'music' } | { kind: 'presenterPhoto' } | { kind: 'presenterClip' };
 
 /**
  * What a saved file is for the live page, by its name (pipeline.ts and prepare-assets.ts name them):
- * voice.wav, music.mp3, <photo id>-motion.mp4 (a moving clip), <lifestyle shot id>.jpg (a picture The Phantom
- * made), <drawing id>-<time>.png (a whiteboard drawing). null for everything else: the website copies saved
- * before the plan, cut-outs, the signature sound.
+ * voice.wav, music.mp3, presenter.jpg and presenter.mp4 (the on-camera presenter), <photo id>-motion.mp4 (a
+ * moving clip), <lifestyle shot id>.jpg (a picture The Phantom made), <drawing id>-<time>.png (a whiteboard
+ * drawing). null for everything else: the website copies saved before the plan, cut-outs, the signature sound.
  */
 export function classifyStored(name: string, plan: DirectorPlan | null): StoredKind | null {
   if (name === 'voice.wav') return { kind: 'voice' };
   if (name === 'music.mp3') return { kind: 'music' };
+  if (name === 'presenter.jpg') return { kind: 'presenterPhoto' };
+  if (name === 'presenter.mp4') return { kind: 'presenterClip' };
   const motion = /^(.+)-motion\.mp4$/.exec(name);
   if (motion) return { kind: 'clip', id: motion[1] };
   if (!plan || /-cutout\.png$/.test(name)) return null;
@@ -131,6 +133,8 @@ export function liveRecorder(write: (live: FreeVideoLive) => Promise<void>): Liv
       if (!what) return;
       if (what.kind === 'voice') live.voiceUrl = url;
       else if (what.kind === 'music') live.musicUrl = url;
+      else if (what.kind === 'presenterPhoto') live.presenterPhoto = url;
+      else if (what.kind === 'presenterClip') live.presenterClip = url;
       else if (what.kind === 'clip') live.clips = { ...live.clips, [what.id]: url };
       else if (what.kind === 'made') live.made = { ...live.made, [what.id]: url };
       save();

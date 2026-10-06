@@ -43,7 +43,7 @@ export const LANDING = {
   /** The small label above the headline. */
   pill: 'Free video ad maker',
   h1: 'Get a free video ad for your business',
-  sub: 'Type your website. The Phantom turns the words and photos on it into a hand-drawn video ad with a voice-over and music.',
+  sub: 'Type your website. The Phantom turns the words and photos on it into a video ad with an AI presenter, a voice-over and music.',
   /** The hand-drawn note pointing at the website field (wide screens only). */
   startHere: 'Start here!',
   /** The small lines under the website field: what it does not cost. */
@@ -51,7 +51,7 @@ export const LANDING = {
   /** The numbered steps beside the result card, in order. */
   steps: [
     { title: 'Add your website', text: 'The Phantom reads the words and photos on your website.' },
-    { title: 'The Phantom makes your video ad', text: 'The script, the hand-drawn pictures, the voice-over and the music.' },
+    { title: 'The Phantom makes your video ad', text: 'An AI presenter, the script, the voice-over and the music.' },
     { title: 'Get your video ad by email', text: 'Post the video ad on Facebook, Instagram, TikTok and YouTube Shorts.' },
   ],
   /** The blue band at the bottom, with the same website field. */
@@ -112,7 +112,7 @@ export const RESULT_PREVIEW = {
   address: 'app.bluefx.net/free-video-ad',
   badge: 'How it works',
   title: 'From your website to a video ad',
-  checklist: ['A script written from your website', 'A voice-over and music', 'Vertical, for Reels, TikTok and Shorts', 'Sent to your email'],
+  checklist: ['A script written from your website', 'An AI presenter, a voice-over and music', 'Vertical, for Reels, TikTok and Shorts', 'Sent to your email'],
   /** A real button: it opens the video with sound. */
   watch: 'Watch with sound',
   file: '27 seconds',
@@ -150,14 +150,14 @@ export const EXAMPLE_VIDEOS = {
   /**
    * The video in the top card (owner 2026-10-06: "why don't we just make an awesome video ad about the service?"):
    * a 27 s video ad about the free video ad, made in the ad studio (ad-studio/public/ads/fv-promo, build.py): an AI
-   * presenter (Kling AI Avatar on the narrator's own voice), a real screen recording of this page, real free video
-   * ads (whiteboard since 2026-10-06: pizza shop, home, laser welder, clean renders), the email notification. Plays
-   * muted in a loop; a tap opens heroReel.opens with sound. (The earlier clips hero/promo with the photo-look ads,
-   * hero/listing-reel, hero/pizza-reel and hero/reel are unused.)
+   * presenter (Kling AI Avatar on the narrator's own voice), a real screen recording of this page, real Phantom
+   * photo-look ads (pizza shop, home, laser welder), the email notification. Plays muted in a loop; a tap opens
+   * heroReel.opens with sound. (hero/promo-wb, the version with whiteboard ads from when every free ad was a
+   * whiteboard ad, and hero/listing-reel, hero/pizza-reel and hero/reel are unused.)
    */
   heroReel: {
-    video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`,
-    poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg`,
+    video: `${EXAMPLES_BASE}/hero/promo.mp4`,
+    poster: `${EXAMPLES_BASE}/hero/promo.jpg`,
     opens: 'promo',
   },
   /** The examples section, in order. */
@@ -166,7 +166,7 @@ export const EXAMPLE_VIDEOS = {
     { id: 'listing', name: 'Home for sale', video: `${EXAMPLES_BASE}/listing/video.mp4`, poster: `${EXAMPLES_BASE}/listing/poster.jpg` },
     { id: 'welder', name: 'Laser welder', video: `${EXAMPLES_BASE}/welder/video.mp4`, poster: `${EXAMPLES_BASE}/welder/poster.jpg` },
     { id: 'realtor', name: 'Real estate agent', video: `${EXAMPLES_BASE}/reel/realtor.mp4`, poster: `${EXAMPLES_BASE}/reel/realtor.jpg` },
-    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo-wb.mp4`, poster: `${EXAMPLES_BASE}/hero/promo-wb.jpg` },
+    { id: 'promo', name: 'How it works', video: `${EXAMPLES_BASE}/hero/promo.mp4`, poster: `${EXAMPLES_BASE}/hero/promo.jpg` },
   ],
 } as const;
 export type ExampleVideoAd = (typeof EXAMPLE_VIDEOS.ads)[number];
@@ -371,6 +371,11 @@ export const LIVE = {
   drawing: 'The hand is drawing this scene',
   making: 'Making this picture',
   moving: 'Moving',
+  /** The on-camera presenter who says the first line. */
+  presenterTitle: 'Your presenter',
+  presenterRecording: 'Cast for your business. Now filming their short clip.',
+  presenterReady: 'Opens your video ad.',
+  presenterLabel: 'Presenter',
   voiceTitle: 'Your voice-over is recorded',
   voicePlay: 'Listen to your voice-over',
   musicTitle: 'Music made for your video ad',
@@ -490,7 +495,7 @@ export const OFFER_COPY = {
 const STYLE_BASE = `${EXAMPLES_BASE}/styles`;
 export const STYLES = {
   title: 'Every video style, unlocked',
-  text: 'Your free video ad is a whiteboard ad. With AI Media Machine you make every one of these:',
+  text: 'With AI Media Machine you make every one of these, for any business:',
   items: (
     [
       ['avatar', 'AI avatar'],

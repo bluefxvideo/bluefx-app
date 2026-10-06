@@ -255,6 +255,10 @@ export interface FreeVideoLive {
   clips?: Record<string, string>;
   voiceUrl?: string;
   musicUrl?: string;
+  /** The on-camera presenter's photo, as soon as they are cast. */
+  presenterPhoto?: string;
+  /** The presenter saying the first line (the lip-synced clip of scene 1). */
+  presenterClip?: string;
 }
 
 export interface FreeVideoLiveScene {
