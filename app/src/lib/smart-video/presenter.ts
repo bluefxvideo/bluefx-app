@@ -5,8 +5,10 @@ import { usage } from './usage';
  * 2026-10-06: "the UGC / person in the video is the coolest", "ultra is good, ... just the intro?", "no lip
  * movement!!!" about a silent clip, and "let first the script be ready"). A small call casts a person who fits the
  * business and GPT Image 2.5 makes their photo while the director writes the script; once the script is ready,
- * Kling O3 Pro (the AI Avatar "Ultra" engine, about 95 s for 5 s) makes them say scene 1 word for word. Every step
- * can fail: the narrator then says scene 1 as usual.
+ * LTX 2.3 Fast (the AI Avatar "Fast" engine) makes them say scene 1 word for word, with their own voice. The owner
+ * picked it on 2026-10-06 from a race on the same photo and line: Kling O3 Pro 145 s / $0.70, LTX 2.5 Pro 46 s /
+ * $1.02, LTX 2.5 Fast 33 s / $0.78, LTX 2.3 Fast 42 s / $0.24, all with good lip sync. Every step can fail: the
+ * narrator then says scene 1 as usual.
  */
 
 /** The asset id the presenter's clip goes under. */
@@ -14,12 +16,12 @@ export const PRESENTER_ASSET = 'presenter';
 
 const WRITER_MODEL = 'gemini-3.6-flash';
 const PHOTO_MODEL = 'openai/gpt-image-2.5/flare/text-to-image';
-const CLIP_MODEL = 'fal-ai/kling-video/o3/pro/image-to-video';
-/** The clip engine's limits (seconds) and the pace a person speaks the line at. */
-const CLIP_MIN = 4;
+const CLIP_MODEL = 'fal-ai/ltx-2.3/image-to-video/fast';
+/** The clip engine's lengths (seconds, even only) and the pace a person speaks the line at. */
+const CLIP_MIN = 6;
 const CLIP_MAX = 8;
 const WORDS_PER_SECOND = 2.6;
-const CLIP_TIMEOUT_MS = 6 * 60_000;
+const CLIP_TIMEOUT_MS = 4 * 60_000;
 
 function key(name: 'FAL_KEY' | 'GOOGLE_GENERATIVE_AI_API_KEY'): string {
   const value = process.env[name];
@@ -85,10 +87,11 @@ export const PRESENTER_MAX_WORDS = 16;
 /** The clip length for a line: the engine takes whole seconds. */
 export function clipSecondsFor(line: string): number {
   const words = line.split(/\s+/).filter(Boolean).length;
-  return Math.min(CLIP_MAX, Math.max(CLIP_MIN, Math.ceil(words / WORDS_PER_SECOND + 1.2)));
+  const seconds = Math.min(CLIP_MAX, Math.max(CLIP_MIN, Math.ceil(words / WORDS_PER_SECOND + 1.2)));
+  return seconds % 2 ? seconds + 1 : seconds;
 }
 
-/** The presenter saying the line, with their own voice (Kling O3 Pro with sound, $0.14 a second). */
+/** The presenter saying the line, with their own voice (LTX 2.3 Fast with sound, 1080p, $0.04 a second). */
 export async function talkingPresenter(photo: Buffer, line: string): Promise<Buffer> {
   const seconds = clipSecondsFor(line);
   const headers = { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` };
@@ -101,7 +104,7 @@ export async function talkingPresenter(photo: Buffer, line: string): Promise<Buf
   const submit = await fetch(`https://queue.fal.run/${CLIP_MODEL}`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ prompt, image_url: `data:image/jpeg;base64,${photo.toString('base64')}`, duration: seconds, generate_audio: true, shot_type: 'customize' }),
+    body: JSON.stringify({ prompt, image_url: `data:image/jpeg;base64,${photo.toString('base64')}`, duration: seconds, resolution: '1080p', aspect_ratio: '9:16', fps: 25, generate_audio: true }),
     signal: AbortSignal.timeout(60_000),
   });
   if (!submit.ok) throw new Error(`Presenter clip submit failed (${submit.status}): ${(await submit.text()).slice(0, 200)}`);
@@ -116,6 +119,6 @@ export async function talkingPresenter(photo: Buffer, line: string): Promise<Buf
   }
   const result = await (await fetch(responseUrl, { headers, signal: AbortSignal.timeout(30_000) })).json();
   if (!result.video?.url) throw new Error('Presenter clip came back without a video');
-  usage.clip(seconds, 'best');
+  usage.presenterClip(seconds);
   return Buffer.from(await (await fetch(result.video.url)).arrayBuffer());
 }

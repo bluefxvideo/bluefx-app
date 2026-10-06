@@ -89,6 +89,7 @@ export const usage = {
   musicCheck: () => add('music check', PRICES.musicCheckPerTake, 'singing or speech'),
   presenterPersona: () => add('presenter casting', PRICES.presenterPersonaPerCall, '1 call'),
   presenterPhoto: () => add('presenter photo', PRICES.presenterPhotoPerImage, '1 image'),
+  presenterClip: (seconds: number) => add('presenter clip', seconds * PRICES.motionPerSecond, `${seconds} s, LTX 2.3 Fast with sound`),
   transcript: (seconds: number) => add('word timings', (seconds / 60) * PRICES.transcriptPerMinute, `${seconds.toFixed(0)} s`),
   sound: (seconds: number) => add('signature sound', seconds * PRICES.soundPerSecond, `${seconds} s`),
   lifestyleShot: () => add('lifestyle photo', PRICES.lifestyleShotPerImage, '1 image'),

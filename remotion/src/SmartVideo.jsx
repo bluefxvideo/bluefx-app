@@ -158,6 +158,22 @@ const STYLES = {
   },
 };
 const MARKER = '"Marker", "Caveat", cursive';
+// Ticks and stars are drawn as shapes, not typed: the render server's fonts have no ✓, ✔ or ★, so on the live
+// render the whiteboard lists lost their ticks (2026-10-06). A shape looks the same on every machine.
+function Tick({ size, color, weight = 0.15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0, overflow: 'visible', display: 'block' }} aria-hidden="true">
+      <path d="M3 12.8 C5.5 14.6 7.6 16.6 9.4 19 C12.6 13.4 16.2 8.6 21 4.6" fill="none" stroke={color} strokeWidth={24 * weight} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function Star({ size, color }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block' }} aria-hidden="true">
+      <path d="M12 2.4l2.95 6.1 6.65.85-4.9 4.6 1.25 6.6L12 17.3l-5.95 3.25 1.25-6.6-4.9-4.6 6.65-.85z" fill={color} />
+    </svg>
+  );
+}
 // The whoosh (every scene change, and the whiteboard hand's push) plays at 30% of its old 0.35 and 0.22 (owner 2026-10-06).
 const SFX_VOLUME = { pop: 0.25, whoosh: 0.105, ding: 0.3, chaching: 0.35, whistle: 0.55, marker: 0.26, underline: 0.26, push: 0.066 };
 // Sounds that reuse another sound's file, and the ones only the whiteboard look plays.
@@ -613,7 +629,9 @@ function Badge({ block }) {
     return (
       // Marker capitals are loud: kept well under the headline's size, so the headline leads.
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, fontFamily: MARKER, fontSize: size * 0.58, lineHeight: 1.15, color: theme.ink }}>
-        <span style={{ color: theme.accent, fontSize: size * 0.8, lineHeight: 0.9 }}>✓</span>
+        <span style={{ display: 'flex', paddingTop: size * 0.04 }}>
+          <Tick size={size * 0.62} color={theme.accent} />
+        </span>
         <div ref={ref} style={{ whiteSpace: 'pre' }}>{autoBreak(block.text, 14)}</div>
       </div>
     );
@@ -634,7 +652,10 @@ function Badge({ block }) {
         boxShadow: '0 10px 0 rgba(0,0,0,0.15), 0 20px 40px rgba(0,0,0,0.25)',
       }}
     >
-      <div ref={ref} style={{ whiteSpace: 'nowrap' }}>✔ {block.text}</div>
+      <div ref={ref} style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: size * 0.28 }}>
+        <Tick size={size * 0.78} color="#FFFFFF" weight={0.19} />
+        {block.text}
+      </div>
     </div>
   );
 }
@@ -698,7 +719,9 @@ function Chip({ item, index }) {
     return (
       // A long line is written in two: shorter lines let the whole list be written bigger.
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22 }}>
-        <span style={{ fontFamily: MARKER, fontSize: size * 0.95, lineHeight: 1.1, color: theme.accent, width: 60, textAlign: 'center', flexShrink: 0 }}>✓</span>
+        <span style={{ width: 60, flexShrink: 0, display: 'flex', justifyContent: 'center', paddingTop: size * 0.1 }}>
+          <Tick size={size * 0.72} color={theme.accent} />
+        </span>
         <div ref={ref} style={{ fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, lineHeight: 1.05, color: textColor, whiteSpace: 'pre' }}>
           {autoBreak(item.text, HAND_LIST_CHARS)}
         </div>
@@ -853,7 +876,9 @@ function Row({ item }) {
   if (hand) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 22, fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, color: textColor }}>
-        <span style={{ fontFamily: MARKER, fontSize: size * 0.9, color: theme.accent, width: 58, textAlign: 'center', flexShrink: 0 }}>✓</span>
+        <span style={{ width: 58, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+          <Tick size={size * 0.7} color={theme.accent} />
+        </span>
         <span ref={ref} style={{ whiteSpace: 'pre', lineHeight: 1.05 }}>{autoBreak(item.text, HAND_LIST_CHARS)}</span>
       </div>
     );
@@ -893,8 +918,11 @@ function Stars({ block }) {
             const fill = Math.max(0, Math.min(1, rating - i));
             const s = spring({ frame: frame - from - 4 - i * 3, fps: FPS, config: { damping: 11, stiffness: 200, mass: 0.6 } });
             return (
-              <div key={i} style={{ position: 'relative', fontSize: 84, lineHeight: 1, color: 'rgba(140,140,150,0.45)', transform: `scale(${s})` }}>
-                ★<div style={{ position: 'absolute', inset: 0, width: `${fill * 100}%`, overflow: 'hidden', color: '#FFB800' }}>★</div>
+              <div key={i} style={{ position: 'relative', width: 78, height: 78, transform: `scale(${s})` }}>
+                <Star size={78} color="rgba(140,140,150,0.45)" />
+                <div style={{ position: 'absolute', inset: 0, width: `${fill * 100}%`, overflow: 'hidden' }}>
+                  <Star size={78} color="#FFB800" />
+                </div>
               </div>
             );
           })}

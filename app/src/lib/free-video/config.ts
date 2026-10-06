@@ -200,8 +200,8 @@ export const MAX_FREE_PHOTOS = 8;
 /** Website photos are downloaded this many at a time, and the download stops once MAX_FREE_PHOTOS usable ones are in (review SEC-6). */
 export const PHOTO_BATCH = 4;
 export const END_CARD_SECONDS = 1;
-/** Minutes per video ad, for the ETA on the page. */
-export const JOB_MINUTES = 8;
+/** Minutes per video ad, for the ETA on the page (measured 2026-10-06: about 6 with the presenter on Kling, less on LTX). */
+export const JOB_MINUTES = 6;
 /** The claim counts a freshly claimed lead as running for at least this long, even before its job row has a heartbeat. */
 export const CLAIM_GRACE_MINUTES = 3;
 

@@ -475,6 +475,15 @@ export async function queuePosition(lead: Pick<FreeVideoLead, 'created_at' | 'so
   return count ?? 0;
 }
 
+/** How many leads of the same kind are being made right now. */
+async function runningCount(test: boolean): Promise<number> {
+  let query = leadsTable().select('id', { count: 'exact', head: true }).eq('status', 'running');
+  query = test ? query.eq('source', 'test') : query.neq('source', 'test');
+  const { count, error } = await query;
+  if (error) console.warn('⚠️ [free-video] Running count read failed:', error.message);
+  return count ?? 0;
+}
+
 /** Starts and spend of the rolling 24 h window, counted exactly like the claim function. Cached 30 s per process and kind. */
 const usageCache = new Map<boolean, { at: number; started: number; spent: number }>();
 export async function rollingUsage(test: boolean): Promise<{ started: number; spent: number } | null> {
@@ -547,7 +556,9 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
         ? Math.min(settings.daily_starts - usage.started, Math.floor((settings.daily_usd - usage.spent) / Math.max(0.01, settings.est_usd)))
         : Infinity;
       if (position >= left) return { ...base, state: 'queued', position, etaMinutes: null, etaNote: 'capped' };
-      const etaMinutes = (Math.ceil((position + 1) / Math.max(1, settings.max_running)) + 1) * JOB_MINUTES;
+      // The leads ahead in the queue plus the ones being made now (2026-10-06: "next in line" on an idle queue said 16 minutes).
+      const ahead = position + (await runningCount(lead.source === 'test'));
+      const etaMinutes = Math.ceil((ahead + 1) / Math.max(1, settings.max_running)) * JOB_MINUTES;
       return { ...base, state: 'queued', position, etaMinutes };
     }
     case 'running': {
