@@ -88,6 +88,30 @@ export const extractAudio = (video: Buffer) =>
     return stdout;
   });
 
+/**
+ * The integrated loudness (LUFS) of a sound or a clip, from a file's bytes or its URL; null when it cannot be measured
+ * or is silence. The mix uses it so the music sits under the voice whatever the song's mastering (owner 2026-10-07:
+ * "the music is way too loud, louder than the voice-over").
+ */
+export async function measureLufs(input: Buffer | string): Promise<number | null> {
+  const measure = async (source: string) => {
+    const { stderr } = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', source, '-vn', '-af', 'ebur128', '-f', 'null', '-'], {
+      maxBuffer: 64 << 20,
+      timeout: 60_000,
+    });
+    // The summary comes last: "Integrated loudness: I: -22.2 LUFS".
+    const values = [...String(stderr).matchAll(/I:\s+(-?\d+(?:\.\d+)?)\s+LUFS/g)].map((match) => Number(match[1]));
+    const lufs = values[values.length - 1];
+    return Number.isFinite(lufs) && lufs > -60 ? lufs : null;
+  };
+  try {
+    return typeof input === 'string' ? await measure(input) : await withTempFile({ filename: 'sound.mp4', data: input }, measure);
+  } catch (error) {
+    console.warn('⚠️ Loudness not measured:', String(error).slice(0, 160));
+    return null;
+  }
+}
+
 const viaFfmpeg = (file: ClientFile) =>
   withTempFile(file, async (source) => {
     const { stdout } = await run('ffmpeg', ['-v', 'error', '-i', source, '-frames:v', '1', '-f', 'image2pipe', '-c:v', 'png', '-'], {

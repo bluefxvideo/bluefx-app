@@ -31,7 +31,7 @@ import {
   listingVoiceEnd,
   type ListingOptions,
 } from './listing';
-import { extractAudio } from './prepare-assets';
+import { extractAudio, measureLufs } from './prepare-assets';
 import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, StyleName, VideoFormat, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
 
@@ -53,6 +53,9 @@ const MISSING_SCENE_COVERAGE = 0.3;
 const VOICE_PART_WORDS = 130; // a long script is recorded in parts: shorter takes skip less and retake cheaply
 const VOICE_PART_GAP = 0.35; // breath between parts
 const MUSIC_ALONE = 0.4; // music level when nobody speaks over it (the level it lifts to after the last word)
+const VOICE_VOLUME = 1.12; // the renderer's narrator level (SmartVideo.jsx Soundtrack)
+const MUSIC_UNDER_VOICE = 14; // dB the music bed sits under the narrator's measured loudness
+const MUSIC_LIFT = 0.4 / 0.14; // after the last word the music lifts by the renderer's tail over bed (0.4 over 0.14)
 
 const LANGUAGE_NAMES = new Intl.DisplayNames(['en'], { type: 'language' });
 
@@ -78,10 +81,20 @@ export interface SmartVideoMedia {
    * The narrator's recording; null when people in the client's clips say everything.
    * Recorded even with the voice-over off: every picture, text and caption is timed to it.
    */
-  voice: { url: string; words: SpokenWord[]; durationSeconds: number } | null;
+  voice: {
+    url: string;
+    words: SpokenWord[];
+    durationSeconds: number;
+    /** The scenes whose lines the recording holds, in order (the presenter's too: it joins after the recording). Absent on older videos = the narrated scenes. */
+    scenes?: number[];
+    /** Its loudness in LUFS, for the mix. Absent on older videos = the fixed levels. */
+    lufs?: number | null;
+  } | null;
   /** Word timings of what is said in each talking clip, by asset id. */
   clipWords: Record<string, SpokenWord[]>;
   musicUrl: string | null;
+  /** The song's loudness in LUFS, for the mix. Absent on older videos. */
+  musicLufs?: number | null;
   soundUrl: string | null;
   /** The numbers the captions show as digits ("ten eggs" → "10 eggs"), by narration line. Absent on older videos. */
   digits?: Record<string, NumberSpan[]>;
@@ -91,10 +104,11 @@ export interface SmartVideoMedia {
    * What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips.
    * `seconds`: an animated clip's length.
    * `path`: a whiteboard drawing's lines as x0, y0, x1, y1, ... (0 to 1), in the order the hand draws them.
+   * `lufs`: a talking clip's loudness, for the mix.
    */
   assets: Record<
     string,
-    { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number; seconds?: number; path?: number[] }
+    { url: string; kind: 'image' | 'video'; cutoutUrl?: string; portrait?: boolean; width?: number; height?: number; seconds?: number; path?: number[]; lufs?: number | null }
   >;
 }
 
@@ -213,7 +227,9 @@ async function produce(
   onStage('producing');
   // People talking in the client's clips carry their own scenes; the narrator records the rest.
   const speakerClips = [...new Set(plan.scenes.flatMap((scene) => (scene.speaker ? [scene.speaker.asset] : [])))];
-  const narration = plan.scenes.filter((scene) => !scene.speaker).map((scene) => scene.narration);
+  // The lines the narrator records: every scene without a person talking yet (the presenter joins later, addPresenter).
+  const narratedScenes = plan.scenes.map((_, i) => i).filter((i) => !plan.scenes[i].speaker);
+  const narration = narratedScenes.map((i) => plan.scenes[i].narration);
   const languageName = LANGUAGE_NAMES.of(plan.language) || plan.language;
   const logoRole = plan.assets.find((a) => a.role === 'logo' && a.logoOnSolidBackground);
   const logoAsset = logoRole && assets.find((a) => a.id === logoRole.id && a.kind === 'image');
@@ -306,13 +322,16 @@ async function produce(
     showsCaptions(plan, sound) ? captionDigits(plan.scenes.map((scene) => scene.narration), languageName) : {},
   ]);
 
+  // How loud the narrator and the song are: the mix puts the music under the voice whatever the song's mastering.
+  const [voiceLufs, musicLufs] = await Promise.all([voice ? measureLufs(voice.url) : null, musicUrl ? measureLufs(musicUrl) : null]);
   const media: SmartVideoMedia = {
     format,
     sound,
     ...(listing ? { listing } : {}),
-    voice,
+    voice: voice ? { ...voice, scenes: narratedScenes, lufs: voiceLufs } : null,
     clipWords: heardInClips,
     musicUrl,
+    musicLufs,
     soundUrl,
     digits,
     assets: Object.fromEntries([
@@ -360,7 +379,7 @@ async function addPresenter(plan: DirectorPlan, media: SmartVideoMedia, job: Pro
   try {
     const words = await transcribeWords(await extractAudio(made.clip), plan.language);
     if (!words.length) throw new Error('nothing was heard in the clip');
-    media.assets[PRESENTER_ASSET] = { url: made.url, kind: 'video', portrait: true };
+    media.assets[PRESENTER_ASSET] = { url: made.url, kind: 'video', portrait: true, lufs: await measureLufs(made.clip) };
     media.clipWords[PRESENTER_ASSET] = words;
     plan.scenes[0] = {
       ...plan.scenes[0],
@@ -579,7 +598,20 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
     return speaker && media.clipWords?.[speaker.asset] ? speaker : null;
   };
   const narrated = plan.scenes.map((_, i) => i).filter((i) => !speakerOf(i));
-  const narratorTokens = voice ? alignScript(narrated.map((i) => plan.scenes[i].narration), voice.words).sceneTokens : [];
+  // Aligned against every line the recording holds: the presenter joins after the narrator recorded its line too, and
+  // aligning only the narrated lines let a scene's first word match a word of the presenter's line (2026-10-07: "AI
+  // Spartan runs..." started at the "AI" of "ask AI who to hire", so the narrator repeated the presenter's line).
+  const recorded = voice?.scenes ?? narrated;
+  const recordedTokens = voice ? alignScript(recorded.map((i) => plan.scenes[i].narration), voice.words).sceneTokens : [];
+  const narratorTokens = narrated.map((i) => recordedTokens[recorded.indexOf(i)] ?? []);
+  // The mix from measured loudness (owner 2026-10-07: "the music is way too loud, louder than the voice-over"): the music
+  // MUSIC_UNDER_VOICE dB under the narrator, a talking clip at the narrator's level. Older videos keep the fixed levels.
+  const voiceLevel = voice?.lufs != null ? voice.lufs + 20 * Math.log10(VOICE_VOLUME) : null;
+  const bed = voiceLevel !== null && media.musicLufs != null ? Math.min(0.3, Math.max(0.02, 10 ** ((voiceLevel - MUSIC_UNDER_VOICE - media.musicLufs) / 20))) : null;
+  const clipVolume = (id: string) => {
+    const lufs = media.assets[id]?.lufs;
+    return voiceLevel !== null && lufs != null ? Math.min(1, Math.max(0.2, 10 ** ((voiceLevel - lufs) / 20))) : 1;
+  };
   const soundAfter = soundUrl && plan.signatureSound ? Math.min(plan.signatureSound.afterScene, plan.scenes.length - 2) : -1;
 
   // Walk the scenes in order, laying each one's audio on the timeline right after the last.
@@ -598,7 +630,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
         const srcStart = speaker.asset === PRESENTER_ASSET ? 0 : Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
         const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + 0.4;
         const tokens = alignScript([scene.narration], heard).sceneTokens[0].map((t) => ({ ...t, time: t.time - srcStart + cursor }));
-        cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: 1 });
+        cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: clipVolume(speaker.asset) });
         timed.push({ start: cursor, tokens, startFrom: srcStart });
         lastWordEnd = (heard[heard.length - 1]?.end ?? speaker.to) - srcStart + cursor;
         cursor += srcEnd - srcStart;
@@ -687,7 +719,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       music:
         sound.music && musicUrl
           ? // Music that nobody speaks over plays at its full level from the start.
-            { url: musicUrl, liftAt: lastWordEnd + 0.6, ...(heard.length ? {} : { volume: MUSIC_ALONE }) }
+            { url: musicUrl, liftAt: lastWordEnd + 0.6, ...(heard.length ? (bed !== null ? { volume: bed, tailVolume: Math.min(MUSIC_ALONE, bed * MUSIC_LIFT) } : {}) : { volume: MUSIC_ALONE }) }
           : undefined,
       // No voice-over and no music means no sound at all: the pops and whooshes go too.
       sfx: silent ? [] : sfx,
