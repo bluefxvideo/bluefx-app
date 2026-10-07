@@ -653,6 +653,16 @@
 .formAlert .link {
   color: #991b1b;
 }
+.formNote {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: var(--fv-ink);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
 .messageText {
   margin: 0;
 }
@@ -1005,6 +1015,9 @@
   letter-spacing: 1.2px;
   text-transform: uppercase;
   margin: 0;
+}
+.sheetTitle:focus:not(:focus-visible) {
+  outline: none;
 }
 .sheetTitle {
   font-size: 22px;

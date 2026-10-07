@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import styles from '@/components/free-video/free-video.module.css';
 import { ERROR_CODES, problemForCode } from '@/components/free-video/form-errors';
 import { FormMessage } from '@/components/free-video/form-message';
+import { LifetimeOffer } from '@/components/free-video/lifetime-offer';
 import { FreeVideoStatus, type FreeVideoStatusDemo } from '@/components/free-video/free-video-status';
 import { EXAMPLE_VIDEOS } from '@/lib/free-video/copy';
 import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
@@ -110,7 +111,8 @@ const FIXTURES: Fixture[] = [
 ];
 
 /** Where each answer of POST /api/free-video shows on the landing page. */
-function placeOf(field: string | null): string {
+function placeOf(field: string | null, upgrade?: boolean): string {
+  if (upgrade) return 'the step 2 sheet swaps its fields for this note and the AI Media Machine offer (title: One free video ad per business)';
   if (field === 'website') return 'under the website field (the sheet closes)';
   if (field === 'email' || field === 'firstName') return `under ${field} in the step 2 sheet`;
   return 'above the send button in the step 2 sheet';
@@ -148,9 +150,10 @@ export default function FreeVideoPreviewPage() {
             return (
               <div key={code}>
                 <h3>
-                  {code}: {placeOf(problem.field)}
+                  {code}: {placeOf(problem.field, problem.upgrade)}
                 </h3>
-                <FormMessage problem={problem} website={DOMAIN} variant={problem.field === 'email' ? 'field' : 'box'} />
+                <FormMessage problem={problem} website={DOMAIN} variant={problem.upgrade ? 'note' : problem.field === 'email' ? 'field' : 'box'} />
+                {code === 'tooMany' && <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />}
               </div>
             );
           })}

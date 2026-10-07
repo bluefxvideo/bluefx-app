@@ -219,6 +219,8 @@ export const FORM = {
   busy: 'Checking your website...',
   /** Sits under the send button. Sending the form is the consent. */
   consent: "We'll email you the link to your video ad, plus a few short tips on getting more customers with video. You can unsubscribe with one click.",
+  /** The sheet's title over a "one free video ad per business" refusal (the AI Media Machine offer replaces the fields). */
+  upgradeTitle: 'One free video ad per business',
   /** The silent answer to a bot (honeypot filled). Nothing is stored. */
   silentThanks: 'Thanks! Check your inbox.',
   /** The request never reached the server (no connection). */
@@ -246,10 +248,12 @@ export const ERRORS = {
     `We couldn't find ${domain}. Please check the spelling. If your website opens in your browser, copy the address from the address bar and paste the address here.`,
   unreadable: (domain: string) =>
     `We couldn't read ${domain}. Some websites hide their text behind a login, or load the text in a way our reader can't see. Try another page of your website with more text on the page, like your About or Services page.`,
-  duplicateEmail: `This email address already has a free video ad. Look for our email from ${SUPPORT_EMAIL}, and check your spam folder too. If the video ad is still being made, the email arrives as soon as the video ad is ready.`,
+  // One free video ad per business; more come with the AI Media Machine, offered right under the message (owner
+  // 2026-10-07: "this is meant to be free one single time, and if they want more they should upgrade, we need the reason").
+  duplicateEmail: `This email already has its free video ad. The free video ad is one per business. The link to yours is in our email from ${SUPPORT_EMAIL}. To make more video ads, get the AI Media Machine below.`,
   duplicateSite: (domain: string) =>
-    `${domain} already has a free video ad. We make one free video ad for each business website. If you asked for that video ad, look for our email from ${SUPPORT_EMAIL}.`,
-  tooMany: "You've asked for several free video ads today. Please come back tomorrow.",
+    `${domain} already has its free video ad. The free video ad is one per business. To make more video ads, get the AI Media Machine below.`,
+  tooMany: "You've already asked for a free video ad today. The free video ad is one per business. To make more video ads, get the AI Media Machine below.",
   closed: "Today's free video ads are all taken. Please come back tomorrow.",
   paused: 'The free video ad maker is taking a short break. Please try again in an hour.',
   generic: 'Something went wrong on our side. Please try again in a minute.',
@@ -482,6 +486,9 @@ export const OFFER_COPY = {
   headingWaiting: 'Make 100+ video ads a year yourself',
   bodyWaiting:
     "The AI Media Machine is making your video ad right now. Paste a website, a few lines about an offer or a few photos, and the AI Media Machine makes a finished video ad with a voice-over and music in 3 to 7 minutes.",
+  /** Under a refusal on the form (one free video ad per business). */
+  headingUpgrade: 'Make 100+ video ads a year yourself',
+  bodyUpgrade: 'The AI Media Machine makes these video ads. Get your own and make a video ad for every offer, any time, without a watermark.',
   /** Under the finished video ad. */
   heading: 'Change anything, and make 100+ video ads a year',
   body: 'The AI Media Machine made your video ad. Get your own and change anything, any time.',

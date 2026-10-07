@@ -19,7 +19,7 @@
 import { randomBytes } from 'node:crypto';
 import net from 'node:net';
 import { createAdminClient } from '@/app/supabase/server';
-import { INTAKE, IP_ROWS_PER_DAY, JOB_MINUTES, SETTINGS_CACHE_MS, UNREADABLE } from '@/lib/free-video/config';
+import { INTAKE, IP_ROWS_PER_DAY, JOB_MINUTES, OWNER_TEST_EMAILS, SETTINGS_CACHE_MS, UNREADABLE } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
 import { ERRORS } from '@/lib/free-video/copy';
 import { isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
@@ -217,11 +217,11 @@ type InsertOutcome = 'ok' | 'paused' | 'closed' | 'tooMany' | 'duplicateEmail' |
  * Stores a lead through create_free_video_lead(): the per-IP, per-address and daily caps are counted and
  * the row inserted under one lock, so parallel submits cannot all pass the counts (review SEC-2).
  */
-async function insertLead(row: Record<string, unknown>): Promise<{ outcome: InsertOutcome; lead?: FreeVideoLead }> {
+async function insertLead(row: Record<string, unknown>, emailRows: number = INTAKE.emailRowsPerDay): Promise<{ outcome: InsertOutcome; lead?: FreeVideoLead }> {
   const { data, error } = await (createAdminClient() as any).rpc('create_free_video_lead', {
     p_lead: row,
     p_ip_rows: IP_ROWS_PER_DAY,
-    p_email_rows: INTAKE.emailRowsPerDay,
+    p_email_rows: emailRows,
   });
   if (error) throw new Error(`create_free_video_lead failed: ${error.message}`);
   const answer = (data ?? {}) as { outcome?: InsertOutcome; lead?: Record<string, unknown> };
@@ -258,14 +258,28 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
     const email = input.email.trim().toLowerCase();
     const emailKey = emailKeyOf(email);
     const since = isoMinutesAgo(24 * 60);
+    // The owner testing: no caps (the SQL counts per IP only with an ip), and his earlier finished tests of this
+    // address or this site make way. Only leads of an owner address are retired, never a customer's.
+    const ownerTest = OWNER_TEST_EMAILS.includes(email);
+    if (ownerTest) {
+      const retire = { status: 'rejected', reason: 'replaced by a new owner test', updated_at: new Date().toISOString() };
+      const ownerKeys = OWNER_TEST_EMAILS.map(emailKeyOf);
+      const finished = ['done', 'held', 'failed'];
+      const results = await Promise.all([
+        leadsTable().update(retire).eq('email_key', emailKey).in('status', finished),
+        leadsTable().update(retire).eq('website_domain', domain).in('email_key', ownerKeys).in('status', finished),
+      ]);
+      const failed = results.find((result: { error: { message: string } | null }) => result.error);
+      if (failed) throw new Error(failed.error.message);
+    }
     const base = {
       source: meta.source,
-      ref: input.ref || null,
+      ref: input.ref || (ownerTest ? 'owner-test' : null),
       first_name: input.firstName.trim().slice(0, 60),
       email,
       email_key: emailKey,
       website_domain: domain,
-      ip: meta.ip,
+      ip: ownerTest ? null : meta.ip,
       user_agent: meta.userAgent ? meta.userAgent.slice(0, 400) : null,
     };
 
@@ -288,8 +302,8 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
       first(leadsTable().select('id').eq('email_key', emailKey).neq('status', 'rejected').limit(1)),
       first(leadsTable().select('id').eq('website_domain', domain).neq('status', 'rejected').limit(1)),
     ]);
-    if (meta.ip && ipAll >= IP_ROWS_PER_DAY) return fail(429, 'tooMany', ERRORS.tooMany);
-    if (emailRows >= INTAKE.emailRowsPerDay) return fail(429, 'tooMany', ERRORS.tooMany);
+    if (!ownerTest && meta.ip && ipAll >= IP_ROWS_PER_DAY) return fail(429, 'tooMany', ERRORS.tooMany);
+    if (!ownerTest && emailRows >= INTAKE.emailRowsPerDay) return fail(429, 'tooMany', ERRORS.tooMany);
 
     // A marketplace or social page: no video ad, but the visitor asked for one, so the email is kept.
     if (!site.ok) {
@@ -299,7 +313,7 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
       return fail(400, 'refused', site.message, stored.lead);
     }
 
-    if (meta.ip && ipLive >= settings.per_ip_daily) return fail(429, 'tooMany', ERRORS.tooMany);
+    if (!ownerTest && meta.ip && ipLive >= settings.per_ip_daily) return fail(429, 'tooMany', ERRORS.tooMany);
     if (meta.source !== 'test' && dailyLeads >= settings.daily_leads) return fail(503, 'closed', ERRORS.closed);
     if (emailTaken) return fail(409, 'duplicateEmail', ERRORS.duplicateEmail);
     if (siteTaken) return fail(409, 'duplicateSite', ERRORS.duplicateSite(displayDomain(domain)));
@@ -323,8 +337,9 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
       view_token: newViewToken(),
       status: precheck.ok ? 'queued' : 'rejected',
       reason: precheck.ok ? null : `${UNREADABLE}the pre-check could not read ${domain}`,
-      is_customer: isCustomer,
-    });
+      // The owner tests what a visitor sees, not the customer view.
+      is_customer: ownerTest ? false : isCustomer,
+    }, ownerTest ? 1000 : INTAKE.emailRowsPerDay);
     switch (stored.outcome) {
       case 'ok':
         break;

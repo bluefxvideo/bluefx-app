@@ -7,9 +7,10 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
 
 /**
  * GET /go/<placement>?t=<view token>: every offer button of the funnel (pages and emails) goes through here.
- * - An allow-listed ClickBank placement (fvthank, fvpage, fvmail1-3) → 302 to offerUrl(placement), the
- *   lifetime page with the placement as the ClickBank tid. With a valid t, the click is logged on the lead.
- * - 'fvunlock' (Offer 1, the $29 unlock) → 302 to the lead's FastSpring checkout, ONLY for a valid token of an
+ * - An allow-listed ClickBank placement (fvthank, fvpage, fvland, fvmail1-3) → 302 to offerUrl(placement), the
+ *   lifetime page with the placement as the ClickBank tid. With a valid t, the click is logged on the lead (fvland,
+ *   the offer under the form's "one free video ad per business" refusal, has no lead and comes without t).
+ * - 'fvunlock' (Offer 1, the $99 clean video ad) → 302 to the lead's FastSpring checkout, ONLY for a valid token of an
  *   existing lead (404 otherwise). A lead that has already paid, whose video ad will never exist, or whose unlock
  *   closed (30 days, cleanup.ts) is sent to its video ad page instead, so nobody pays twice or pays for nothing.
  * - Anything else → 404. Every target is built here from fixed parts: never an open redirect.

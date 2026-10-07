@@ -5,12 +5,15 @@ import styles from './free-video.module.css';
 import { StyleReel } from './style-reel';
 
 interface LifetimeOfferProps {
-  /** The ClickBank tid of this page: fvthank on the thank-you page, fvpage on /v/<token>. */
+  /** The ClickBank tid of this page: fvthank on the thank-you page, fvpage on /v/<token>, fvland under the form's refusal. */
   placement: (typeof PAGE_PLACEMENTS)[number];
   token: string;
   isCustomer: boolean;
-  /** waiting: "Make 100+ video ads a year yourself" while the video ad is made. ready: the main offer under the finished video ad. */
-  variant: 'waiting' | 'ready';
+  /**
+   * waiting: "Make 100+ video ads a year yourself" while the video ad is made. ready: the main offer under the finished
+   * video ad. upgrade: the same card under the form's "one free video ad per business" refusal.
+   */
+  variant: 'waiting' | 'ready' | 'upgrade';
 }
 
 /**
@@ -32,11 +35,12 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
   }
 
   const waiting = variant === 'waiting';
+  const upgrade = variant === 'upgrade';
   return (
     <div className={cn(styles.offer, !waiting && styles.offerPrimary)}>
       {!waiting && <span className={styles.tag}>{OFFER_COPY.tag}</span>}
-      <h2 className={styles.offerTitle}>{waiting ? OFFER_COPY.headingWaiting : OFFER_COPY.heading}</h2>
-      <p className={styles.offerText}>{waiting ? OFFER_COPY.bodyWaiting : OFFER_COPY.body}</p>
+      <h2 className={styles.offerTitle}>{waiting ? OFFER_COPY.headingWaiting : upgrade ? OFFER_COPY.headingUpgrade : OFFER_COPY.heading}</h2>
+      <p className={styles.offerText}>{waiting ? OFFER_COPY.bodyWaiting : upgrade ? OFFER_COPY.bodyUpgrade : OFFER_COPY.body}</p>
       <StyleReel />
       <ul className={styles.ticks}>
         {OFFER_COPY.bullets.map((bullet) => (
@@ -55,7 +59,8 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
         <span className={styles.priceUnit}>{OFFER_COPY.unit}</span>
         <span className={styles.priceOff}>{OFFER_COPY.off}</span>
       </p>
-      {!waiting && <p className={styles.offerText}>{OFFER_COPY.anchor}</p>}
+      {/* The anchor compares with the $99 clean video ad, which only the ready page offers. */}
+      {variant === 'ready' && <p className={styles.offerText}>{OFFER_COPY.anchor}</p>}
       {/* A new tab, so this page keeps checking on the video ad. */}
       <a className={cn(styles.btn, waiting && styles.btnBlue)} href={goUrl(placement, token)} target="_blank" rel="noopener noreferrer">
         {OFFER_COPY.button}

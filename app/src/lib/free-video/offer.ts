@@ -12,11 +12,11 @@ import { PHANTOM_CREDITS } from '@/lib/smart-video/pricing';
  * ClickBank TID report shows sales per placement: the thank-you page, the video ad page
  * and the 3 automation emails.
  */
-export const PLACEMENTS = ['fvthank', 'fvpage', 'fvmail1', 'fvmail2', 'fvmail3'] as const;
+export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvmail1', 'fvmail2', 'fvmail3'] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
-/** The placements shown on the funnel pages (the status component picks one). */
-export const PAGE_PLACEMENTS = ['fvthank', 'fvpage'] as const satisfies readonly Placement[];
+/** The placements shown on the funnel pages: the thank-you page, /v/<token>, and the form's "one per business" refusal (fvland). */
+export const PAGE_PLACEMENTS = ['fvthank', 'fvpage', 'fvland'] as const satisfies readonly Placement[];
 /** The placements used by the email buttons, in send order (E1, E2, E3). */
 export const EMAIL_PLACEMENTS = ['fvmail1', 'fvmail2', 'fvmail3'] as const satisfies readonly Placement[];
 
@@ -34,7 +34,7 @@ export const OFFER_AFFILIATE = 'bluefx01';
 export const offerUrl = (tid: Placement) => `${OFFER_PAGE_URL}?affiliate=${OFFER_AFFILIATE}&tid=${tid}`;
 
 /** The same-origin link the buttons use: /go logs the click on the lead, then 302s to offerUrl(placement). */
-export const goUrl = (placement: Placement, token: string) => `/go/${placement}?t=${encodeURIComponent(token)}`;
+export const goUrl = (placement: Placement, token: string) => (token ? `/go/${placement}?t=${encodeURIComponent(token)}` : `/go/${placement}`);
 
 /**
  * The owner's price ladder, exactly as the live /lifetime/ page shows it: $997 struck through,

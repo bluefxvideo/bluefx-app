@@ -225,6 +225,12 @@ export const WATCHDOG_MINUTES = 15;
 export const SWEEP_BATCH = 25;
 /** Any 10 rows from one IP in 24 h (rejected ones included) → 429, on top of settings.per_ip_daily. */
 export const IP_ROWS_PER_DAY = 10;
+/**
+ * The owner's own test address (owner 2026-10-07: "let me do the tests for contact@bluefx.net"): no daily caps, the
+ * visitor's view (never the customer one), and a new test retires his earlier finished test of the same address or
+ * site. A real customer's record is never touched: a site another address holds still answers duplicateSite.
+ */
+export const OWNER_TEST_EMAILS: readonly string[] = ['contact@bluefx.net'];
 /** readSettings() caches the settings row this long per process. */
 export const SETTINGS_CACHE_MS = 20_000;
 /** Circuit breaker: over the last 2 h, at least 3 bad results that are at least half of all finished ones → starting = false. */

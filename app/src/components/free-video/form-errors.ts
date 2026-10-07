@@ -17,6 +17,8 @@ export interface FormProblem {
   nextStep?: NextStepKind;
   /** unreadable: the website field is emptied so the visitor types another page. */
   clearWebsite?: boolean;
+  /** One free video ad per business: the AI Media Machine offer shows under the message. */
+  upgrade?: boolean;
 }
 
 /** The answer codes, as FreeVideoErrorCode lists them (types/free-video.ts). */
@@ -87,11 +89,11 @@ export function problemForCode(code: FreeVideoErrorCode | undefined, website: st
     case 'unreadable':
       return { field: 'website', message: ERRORS.unreadable(domain), clearWebsite: true };
     case 'duplicateSite':
-      return { field: 'website', message: ERRORS.duplicateSite(domain), nextStep: 'resend' };
+      return { field: null, message: ERRORS.duplicateSite(domain), nextStep: 'resend', upgrade: true };
     case 'duplicateEmail':
-      return { field: 'email', message: ERRORS.duplicateEmail, nextStep: 'resend' };
+      return { field: null, message: ERRORS.duplicateEmail, nextStep: 'resend', upgrade: true };
     case 'tooMany':
-      return { field: null, message: ERRORS.tooMany };
+      return { field: null, message: ERRORS.tooMany, upgrade: true };
     case 'closed':
       return { field: null, message: ERRORS.closed };
     case 'paused':

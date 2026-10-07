@@ -22,6 +22,7 @@ import type { FreeVideoLeadBody, FreeVideoSubmitData } from '@/types/free-video'
 import { checkEmail, checkFirstName, checkWebsite, domainOf, problemFromAnswer, type FormProblem } from './form-errors';
 import { FormMessage } from './form-message';
 import styles from './free-video.module.css';
+import { LifetimeOffer } from './lifetime-offer';
 
 /** The two website fields on the landing page: the hero and the blue band at the bottom. */
 export type WebsiteFormId = 'top' | 'bottom' | 'sticky';
@@ -120,6 +121,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
 
   // Step 2
   const sheetRef = useRef<HTMLDialogElement>(null);
+  const sheetTitleRef = useRef<HTMLHeadingElement>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const sendRef = useRef<HTMLButtonElement>(null);
@@ -236,7 +238,10 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
     if (opener && opener !== document.body && opener.isConnected) opener.focus();
   }, []);
 
-  /** A website problem goes back to the field it is about; name and email problems stay in the sheet. */
+  /**
+   * A website problem goes back to the field it is about; name and email problems stay in the sheet. One free video ad
+   * per business (upgrade): the sheet swaps its fields for the reason and the AI Media Machine offer.
+   */
   const showProblem = (problem: FormProblem, text: string) => {
     if (problem.field === 'website') {
       const sheet = sheetRef.current;
@@ -253,6 +258,8 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
       return;
     }
     setProblems({ form: problem });
+    // The send button that had the focus goes away with the fields: the title takes it (and scrolls the sheet back up).
+    if (problem.upgrade) window.requestAnimationFrame(() => sheetTitleRef.current?.focus());
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -365,6 +372,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
     [websites, setWebsite, websiteProblem, registerWebsiteInput, startStep2, noteFormStart, openExample, overlayOpen]
   );
 
+  const upgrade = problems.form?.upgrade ? problems.form : null;
   const firstNameError = problems.firstName ? 'fv-first-name-error' : undefined;
   const emailError = problems.email ? 'fv-email-error' : undefined;
 
@@ -386,15 +394,20 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
           <button type="button" className={styles.sheetClose} aria-label={FORM.close} onClick={closeSheet} disabled={sending}>
             <span aria-hidden="true">×</span>
           </button>
-          <p className={styles.stepTag}>{FORM.stepTag}</p>
-          <h2 id="fv-step2-title" className={styles.sheetTitle}>
-            {FORM.sheetTitle(domainOf(website))}
+          {!upgrade && <p className={styles.stepTag}>{FORM.stepTag}</p>}
+          <h2 ref={sheetTitleRef} id="fv-step2-title" className={styles.sheetTitle} tabIndex={-1}>
+            {upgrade ? FORM.upgradeTitle : FORM.sheetTitle(domainOf(website))}
           </h2>
 
           {silentThanks ? (
             <p className={styles.thanksBox} role="status">
               {FORM.silentThanks}
             </p>
+          ) : upgrade ? (
+            <>
+              <FormMessage problem={upgrade} website={website} variant="note" />
+              <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />
+            </>
           ) : (
             <>
               {problems.form && <FormMessage problem={problems.form} website={website} variant="box" />}
