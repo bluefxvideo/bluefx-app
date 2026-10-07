@@ -189,6 +189,11 @@
   font-weight: 600;
   line-height: 1.4;
 }
+/* One phrase per line in the headline and the line above it; a phrase that is too long still wraps evenly. */
+.line {
+  display: block;
+  text-wrap: balance;
+}
 /* The want above the headline: what the free video ad is for. */
 .toolQuestion {
   max-width: 760px;
