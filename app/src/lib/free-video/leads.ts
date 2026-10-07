@@ -418,8 +418,11 @@ export async function customerIdByEmail(email: string): Promise<string | null> {
 /** True when this signed-in account has an active plan (not suspended). A failed read counts as false. */
 export async function isActiveCustomerId(userId: string): Promise<boolean> {
   try {
-    const { data, error } = await (createAdminClient() as any).from('profiles').select('id, is_suspended').eq('id', userId).maybeSingle();
+    const { data, error } = await (createAdminClient() as any).from('profiles').select('id, is_suspended, role, username').eq('id', userId).maybeSingle();
     if (error || !data || data.is_suspended) return false;
+    // An admin uses every tool without a plan (admin-auth.ts). The owner's account only has an old starter row that
+    // ended in 2025, so "Open this video ad in your account" sent him to the sales page (2026-10-07).
+    if (data.role === 'admin' || data.username === 'admin') return true;
     return (await withActivePlan([userId])).length > 0;
   } catch (error) {
     console.warn('⚠️ [free-video] Customer check failed:', String(error).slice(0, 160));
