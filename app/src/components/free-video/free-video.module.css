@@ -194,6 +194,10 @@
   display: block;
   text-wrap: balance;
 }
+/* "free video ad" in the headline: the brand green, darkened to read well on the light card. */
+.titleFree {
+  color: var(--fv-green-dark);
+}
 /* The want above the headline: what the free video ad is for. */
 .toolQuestion {
   max-width: 760px;

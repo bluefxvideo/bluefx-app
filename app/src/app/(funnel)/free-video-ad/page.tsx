@@ -8,7 +8,11 @@ import { cn } from '@/lib/utils';
 export const metadata: Metadata = {
   title: PAGE_META.landingTitle,
   description: LANDING.sub,
-  openGraph: { title: LANDING.h1.join(' '), description: `${LANDING.question.join(' ')} ${LANDING.sub}`, type: 'website' },
+  openGraph: {
+    title: `${LANDING.h1.first} ${LANDING.h1.before}${LANDING.h1.highlight}${LANDING.h1.after}`,
+    description: `${LANDING.question.join(' ')} ${LANDING.sub}`,
+    type: 'website',
+  },
 };
 
 /**
@@ -32,11 +36,12 @@ export default function FreeVideoAdPage() {
             ))}
           </p>
           <h1 id="fv-hero-title" className={styles.toolTitle}>
-            {LANDING.h1.map((line) => (
-              <span key={line} className={styles.line}>
-                {line}
-              </span>
-            ))}
+            <span className={styles.line}>{LANDING.h1.first}</span>
+            <span className={styles.line}>
+              {LANDING.h1.before}
+              <span className={styles.titleFree}>{LANDING.h1.highlight}</span>
+              {LANDING.h1.after}
+            </span>
           </h1>
           <p className={styles.toolSub}>{LANDING.sub}</p>
           <p className={styles.toolWhy}>

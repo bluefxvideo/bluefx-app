@@ -49,9 +49,10 @@ export const LANDING = {
    * goes (sub); an honest reason why it is free. "Business owners and marketers": the lifetime buyers are a mix of small
    * agencies, affiliates, realtors and coaches, not only local businesses (ideal customer research, 2026-09-10).
    */
-  // One phrase per line (owner 2026-10-07: two phrases on one line "looks a bit off").
+  // One phrase per line, and "free video ad" in green (owner 2026-10-07: the two sentences ran into each other with
+  // "no clear delimitation").
   question: ['Business owners and marketers:', 'want more customers from social media?'],
-  h1: ['Type your website.', 'Get a free video ad for your business.'],
+  h1: { first: 'Type your website.', before: 'Get a ', highlight: 'free video ad', after: ' for your business.' },
   sub: 'The AI Media Machine turns the words and photos on your website into a video ad of about 40 seconds, with an AI presenter, a voice-over and music. You get the video ad by email, ready to post on Facebook, Instagram and TikTok.',
   whyFreeLead: 'Why free?',
   whyFree: 'So you can see a video ad made for your own business before you buy anything from us.',
