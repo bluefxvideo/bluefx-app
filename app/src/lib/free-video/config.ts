@@ -199,7 +199,8 @@ export const RETRY_DELAY_MS = 120_000;
 export const MAX_FREE_PHOTOS = 8;
 /** Website photos are downloaded this many at a time, and the download stops once MAX_FREE_PHOTOS usable ones are in (review SEC-6). */
 export const PHOTO_BATCH = 4;
-export const END_CARD_SECONDS = 1;
+/** The end card advertises the free video ad page (owner 2026-10-07), so it stays long enough to read: 2 s. */
+export const END_CARD_SECONDS = 2;
 /** Minutes per video ad, for the ETA on the page (measured 2026-10-06: about 6 with the presenter on Kling, less on LTX). */
 export const JOB_MINUTES = 6;
 /** The claim counts a freshly claimed lead as running for at least this long, even before its job row has a heartbeat. */
@@ -245,12 +246,12 @@ export const CLEAN_RENDER = { maxAttempts: 3, staleMinutes: 15, maxParallel: 2 }
 export const UNLOCK_EMAIL = { retryHours: 6, alertAfterMinutes: 30 } as const;
 
 /**
- * The Remotion props every free video ad renders with: the big see-through BlueFX mark in the middle and a 1 s end card
+ * The Remotion props every free video ad renders with: the big see-through BlueFX mark in the middle and an end card
  * (SmartVideo.jsx CenterWatermark + EndCard). The $99 clean version re-renders the saved props without this key.
  */
 export const WATERMARK = { label: 'BlueFX', endCardSeconds: END_CARD_SECONDS } as const;
 
-/** Quality gate. Lengths include the 1 s end card. */
+/** Quality gate. Lengths include the end card (END_CARD_SECONDS). */
 export const GATE = {
   minSeconds: 22,
   maxSeconds: 52,

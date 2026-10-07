@@ -1883,8 +1883,11 @@ function EndCard() {
       }}
     >
       <Img src={staticFile(BRAND_LOGO)} style={{ width: logo, height: logo, transform: `scale(${grow})` }} />
-      <div style={{ marginTop: landscape ? 22 : 34, fontWeight: 600, fontSize: 52, lineHeight: 1.1, color: LIGHT_TEXT }}>Made with</div>
-      <div style={{ fontWeight: 800, fontSize: 112, lineHeight: 1.05, color: BRAND.blue }}>BlueFX</div>
+      {/* Every posted free video ad advertises the free video ad page to its viewers (owner 2026-10-07). */}
+      <div style={{ marginTop: landscape ? 22 : 34, fontWeight: 600, fontSize: 52, lineHeight: 1.1, color: LIGHT_TEXT }}>Made with the</div>
+      <div style={{ fontWeight: 800, fontSize: 92, lineHeight: 1.05, color: BRAND.blue, textAlign: 'center' }}>AI Media Machine</div>
+      <div style={{ marginTop: landscape ? 30 : 64, fontWeight: 600, fontSize: 40, lineHeight: 1.2, color: LIGHT_TEXT }}>Get your free video ad at</div>
+      <div style={{ fontWeight: 800, fontSize: 46, lineHeight: 1.2, color: '#FFFFFF' }}>app.bluefx.net/free-video-ad</div>
     </AbsoluteFill>
   );
 }

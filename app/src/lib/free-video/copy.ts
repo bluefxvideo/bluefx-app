@@ -338,7 +338,7 @@ export const STATUS = {
   /** Above the lifetime offer while the visitor waits. */
   whileYouWait: 'While you wait',
   /** The waiting page's line about Offer 1. */
-  teaser: `Your free video ad has a BlueFX watermark in the middle. When the video ad is ready, you can unlock the clean version for ${UNLOCK.price}.`,
+  teaser: 'Your free video ad has a BlueFX watermark in the middle. Every video ad you make in your own AI Media Machine comes without it.',
   /** Browser tab titles. */
   tabTitles: {
     queued: 'Your video ad is in line',
@@ -430,15 +430,18 @@ export const DOWNLOAD = {
   cleanFileName: (domain: string) => `${domain}-video-ad.mp4`,
 } as const;
 
-/** Offer 1: the clean video ad, without the watermark (FastSpring, one time). Status pages only. */
+/**
+ * The small offer: this one video ad without the watermark, as it is (FastSpring, one time). Status pages only.
+ * Changes come with the AI Media Machine only (owner 2026-10-07: "i want more that people buy the ai mm ad maker").
+ */
 export const UNLOCK_COPY = {
-  tag: 'Offer 1',
-  title: 'Unlock the full video ad, with no watermark',
+  tag: 'Just this video ad',
+  title: 'Only want this video ad without the watermark?',
   body: (domain: string) =>
-    `The same video ad for ${domain} in full HD, without the BlueFX watermark and end card. Post the video ad as your own on Facebook, Instagram and TikTok.`,
+    `The same video ad for ${domain} in full HD, without the BlueFX watermark and end card, ready to post as it is. To change the video ad, get the AI Media Machine.`,
   price: UNLOCK.price,
   priceUnit: 'one time',
-  button: `Unlock my video ad for ${UNLOCK.price}`,
+  button: `Unlock this video ad for ${UNLOCK.price}`,
   fine: 'Secure checkout by FastSpring. The clean video ad is ready about 5 minutes after you pay, right here on this page and by email.',
   /** Under the button once it was clicked: the checkout opened in a new tab. */
   afterClick: 'Finish the payment in the new tab. This page updates by itself as soon as the payment arrives.',
@@ -455,16 +458,21 @@ export const UNLOCK_COPY = {
   failedBody: 'Making the clean video ad hit a problem. Our team has the details and will email you.',
 } as const;
 
-/** Offer 2: AI Media Machine lifetime (ClickBank). Status pages only; the ladder comes from OFFER (offer.ts). */
+/**
+ * The main offer: AI Media Machine lifetime (ClickBank). Status pages only; the ladder comes from OFFER (offer.ts). On the
+ * ready page it comes first, above the $99 one (owner 2026-10-07: "i want more that people buy the ai mm ad maker").
+ */
 export const OFFER_COPY = {
-  tag: 'Offer 2',
+  tag: 'Best value',
   /** While the visitor waits. */
   headingWaiting: 'Make 100+ video ads a year yourself',
   bodyWaiting:
     "The AI Media Machine is making your video ad right now. Paste a website, a few lines about an offer or a few photos, and the AI Media Machine makes a finished video ad with a voice-over and music in 3 to 7 minutes.",
   /** Under the finished video ad. */
-  heading: 'Or make 100+ video ads a year yourself',
-  body: 'The AI Media Machine made your video ad.',
+  heading: 'Change anything, and make 100+ video ads a year',
+  body: 'The AI Media Machine made your video ad. Get your own and change anything, any time.',
+  /** Under the price on the ready page, next to the $99 offer: how many clean video ads the lifetime price buys. */
+  anchor: `For the price of ${Math.floor(Number(OFFER.now.replace(/\D/g, '')) / Number(UNLOCK.price.replace(/\D/g, '')))} clean video ads you get 100+ video ads a year plus 12 more AI video tools.`,
   /** 600 credits a month x 12 / 50 credits per video ad = 144 a year (offer.ts). */
   bullets: [
     '100+ video ads a year, every one without a watermark',

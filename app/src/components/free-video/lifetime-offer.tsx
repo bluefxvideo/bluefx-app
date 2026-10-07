@@ -9,7 +9,7 @@ interface LifetimeOfferProps {
   placement: (typeof PAGE_PLACEMENTS)[number];
   token: string;
   isCustomer: boolean;
-  /** waiting: "Make 100+ video ads a year yourself" while The Phantom works. ready: "Or make ..." under the finished video ad. */
+  /** waiting: "Make 100+ video ads a year yourself" while the video ad is made. ready: the main offer under the finished video ad. */
   variant: 'waiting' | 'ready';
 }
 
@@ -33,7 +33,7 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
 
   const waiting = variant === 'waiting';
   return (
-    <div className={styles.offer}>
+    <div className={cn(styles.offer, !waiting && styles.offerPrimary)}>
       {!waiting && <span className={styles.tag}>{OFFER_COPY.tag}</span>}
       <h2 className={styles.offerTitle}>{waiting ? OFFER_COPY.headingWaiting : OFFER_COPY.heading}</h2>
       <p className={styles.offerText}>{waiting ? OFFER_COPY.bodyWaiting : OFFER_COPY.body}</p>
@@ -55,8 +55,9 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
         <span className={styles.priceUnit}>{OFFER_COPY.unit}</span>
         <span className={styles.priceOff}>{OFFER_COPY.off}</span>
       </p>
+      {!waiting && <p className={styles.offerText}>{OFFER_COPY.anchor}</p>}
       {/* A new tab, so this page keeps checking on the video ad. */}
-      <a className={cn(styles.btn, styles.btnBlue)} href={goUrl(placement, token)} target="_blank" rel="noopener noreferrer">
+      <a className={cn(styles.btn, waiting && styles.btnBlue)} href={goUrl(placement, token)} target="_blank" rel="noopener noreferrer">
         {OFFER_COPY.button}
       </a>
       <p className={styles.fine}>{OFFER_COPY.smallPrint}</p>

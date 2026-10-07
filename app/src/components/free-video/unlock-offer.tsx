@@ -23,7 +23,7 @@ export function UnlockOffer({ unlock, domain, checkoutPath, clicked, onCheckout,
   switch (unlock.state) {
     case 'available':
       return (
-        <div className={cn(styles.offer, styles.offerPrimary)}>
+        <div className={styles.offer}>
           <span className={styles.tag}>{UNLOCK_COPY.tag}</span>
           <h2 className={styles.offerTitle}>{UNLOCK_COPY.title}</h2>
           <p className={styles.offerText}>{UNLOCK_COPY.body(domain)}</p>
@@ -32,7 +32,7 @@ export function UnlockOffer({ unlock, domain, checkoutPath, clicked, onCheckout,
             <span className={styles.priceUnit}>{UNLOCK_COPY.priceUnit}</span>
           </p>
           {/* A new tab, so this page keeps checking and shows the clean video ad once the payment arrives. */}
-          <a className={styles.btn} href={checkoutPath} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+          <a className={cn(styles.btn, styles.btnBlue)} href={checkoutPath} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
             {UNLOCK_COPY.button}
           </a>
           {clicked && (

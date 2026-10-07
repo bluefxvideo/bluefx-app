@@ -187,6 +187,18 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     const cleanReady = unlock.state === 'ready' && Boolean(unlock.cleanVideoUrl);
     const videoUrl = cleanReady && unlock.cleanVideoUrl ? unlock.cleanVideoUrl : view.videoUrl;
     const freeDownload = view.downloadUrl ?? view.videoUrl;
+    // Paid, being made, ready or stuck: the clean version is theirs and leads the column.
+    const purchased = unlock.state !== 'available' && unlock.state !== 'unavailable';
+    const unlockOffer = (
+      <UnlockOffer
+        unlock={unlock}
+        domain={domain}
+        checkoutPath={unlock.checkoutPath}
+        clicked={unlockClickedAt !== null}
+        onCheckout={onCheckout}
+        onDownload={() => beacon('download')}
+      />
+    );
     return (
       <>
         <section className={styles.liveTop} aria-labelledby="fv-ready-title">
@@ -215,17 +227,11 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
               </div>
               <div>
                 <p className={styles.note}>{placement === 'fvpage' ? STATUS.readyNoteEmail : STATUS.readyNoteThanks}</p>
-                <UnlockOffer
-                  unlock={unlock}
-                  domain={domain}
-                  checkoutPath={unlock.checkoutPath}
-                  clicked={unlockClickedAt !== null}
-                  onCheckout={onCheckout}
-                  onDownload={() => beacon('download')}
-                />
+                {/* A clean version that was paid for comes first; otherwise the $99 offer comes after the AI Media Machine. */}
+                {purchased && unlockOffer}
                 {!cleanReady && (
                   <a
-                    className={cn(styles.btn, styles.btnGhost, unlock.state !== 'unavailable' && styles.btnGap)}
+                    className={cn(styles.btn, styles.btnGhost, purchased && styles.btnGap)}
                     href={freeDownload}
                     onClick={() => beacon('download')}
                   >
@@ -240,6 +246,7 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 />
                 {staleNotice}
                 <LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="ready" />
+                {!purchased && unlockOffer}
               </div>
             </div>
           </div>

@@ -445,8 +445,8 @@ async function main(): Promise<void> {
   section('11. The watermark prop and the clean version');
   const result = { props: { duration: 33, format: 'vertical', scenes: [] }, durationSeconds: 33 } as unknown as SmartVideoResult;
   const marked = withWatermark(result);
-  check('props.watermark is { label: "BlueFX", endCardSeconds: 1 }', JSON.stringify(marked.props.watermark) === JSON.stringify({ label: 'BlueFX', endCardSeconds: 1 }) && JSON.stringify(WATERMARK) === JSON.stringify({ label: 'BlueFX', endCardSeconds: 1 }));
-  check('the job length includes the 1 s card; props.duration does not', marked.durationSeconds === 34 && marked.props.duration === 33);
+  check('props.watermark is { label: "BlueFX", endCardSeconds: 2 }', JSON.stringify(marked.props.watermark) === JSON.stringify({ label: 'BlueFX', endCardSeconds: 2 }) && JSON.stringify(WATERMARK) === JSON.stringify({ label: 'BlueFX', endCardSeconds: 2 }));
+  check('the job length includes the 2 s card; props.duration does not', marked.durationSeconds === 35 && marked.props.duration === 33);
   const clean = cleanProps(marked.props);
   check('the clean props drop only the watermark (original length, no end card)', !('watermark' in clean) && clean.duration === 33 && clean.format === 'vertical' && 'watermark' in marked.props);
   const composition = path.resolve(__dirname, '../../../remotion/src/SmartVideo.jsx');

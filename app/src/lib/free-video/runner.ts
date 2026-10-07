@@ -333,7 +333,7 @@ export function shapeFreePlan(directed: DirectorPlan): DirectorPlan {
   return { ...plan, captions: true, animate: animate.length ? animate : null, drawings };
 }
 
-/** The BlueFX watermark and the 1 s end card; the job's length includes the card (the gate compares it with the file). */
+/** The BlueFX watermark and the end card (END_CARD_SECONDS); the job's length includes the card (the gate compares it with the file). */
 export function withWatermark(result: SmartVideoResult): SmartVideoResult {
   return {
     ...result,
