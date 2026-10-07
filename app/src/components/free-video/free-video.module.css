@@ -217,6 +217,18 @@
   font-size: 19px;
   line-height: 1.5;
 }
+/* The honest reason why the video ad is free (Kennedy): small, under the sub. */
+.toolWhy {
+  max-width: 640px;
+  text-wrap: pretty;
+  margin: 12px auto 0;
+  color: var(--fv-text);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.toolWhy strong {
+  color: var(--fv-ink);
+}
 .formRow {
   position: relative;
   max-width: 720px;

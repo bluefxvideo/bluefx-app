@@ -44,16 +44,20 @@ export const LAYOUT = {
  */
 export const LANDING = {
   /**
-   * The want, above the headline, in place of the old "Free video ad maker" label (owner 2026-10-07: the video ad is the
-   * mechanism, the page needs the outcome; he chose this question over a subheadline). It matches Dave's line in the hero video.
+   * The hero, reviewed in Hormozi's and Kennedy's frameworks and approved by the owner 2026-10-07: the reader called
+   * out, then the want (above the headline); the low effort and the offer (headline); what the video ad is and where it
+   * goes (sub); an honest reason why it is free. "Business owners and marketers": the lifetime buyers are a mix of small
+   * agencies, affiliates, realtors and coaches, not only local businesses (ideal customer research, 2026-09-10).
    */
-  question: 'Want more customers from Facebook, Instagram and TikTok?',
-  h1: 'Get a free video ad for your business',
-  sub: 'Type your website. The AI Media Machine turns the words and photos on it into a video ad with an AI presenter, a voice-over and music.',
+  question: 'Business owners and marketers: want more customers from social media?',
+  h1: 'Type your website. Get a free video ad for your business.',
+  sub: 'The AI Media Machine turns the words and photos on your website into a video ad of about 40 seconds, with an AI presenter, a voice-over and music. You get the video ad by email, ready to post on Facebook, Instagram and TikTok.',
+  whyFreeLead: 'Why free?',
+  whyFree: 'So you can see a video ad made for your own business before you buy anything from us.',
   /** The hand-drawn note pointing at the website field (wide screens only). */
   startHere: 'Start here!',
-  /** The small lines under the website field: what it does not cost. */
-  trust: ['100% free', 'No credit card', 'No account to create'],
+  /** The small lines under the website field: the limit, what it does not cost, and one proof number. */
+  trust: ['One free video ad per business', 'No credit card, no account to create', '36,000+ customers since 2009'],
   /** The numbered steps beside the result card, in order. */
   steps: [
     { title: 'Add your website', text: 'The AI Media Machine reads the words and photos on your website.' },
@@ -211,7 +215,7 @@ export const FORM = {
   /** Step 1. The label is read by screen readers only. */
   website: 'Your business website',
   websitePlaceholder: 'yourbusiness.com',
-  websiteButton: 'Make my free video ad',
+  websiteButton: 'Get my free video ad',
   /** Step 2: a bottom sheet on phones, a centred window from 640 px. */
   stepTag: 'Step 2 of 2',
   sheetTitle: (domain: string) => `Where should we send your video ad for ${domain}?`,

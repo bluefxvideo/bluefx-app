@@ -29,6 +29,9 @@ export default function FreeVideoAdPage() {
             {LANDING.h1}
           </h1>
           <p className={styles.toolSub}>{LANDING.sub}</p>
+          <p className={styles.toolWhy}>
+            <strong>{LANDING.whyFreeLead}</strong> {LANDING.whyFree}
+          </p>
           <div className={styles.formRow}>
             <StartHere />
             <WebsiteForm form="top" />
