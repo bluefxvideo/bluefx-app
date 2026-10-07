@@ -79,6 +79,33 @@
   height: 34px;
   width: auto;
 }
+/* The support address beside the logo on every page (owner 2026-10-07: "clearly visible in case they run into trouble"). */
+.headerHelp {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--fv-white);
+  font-size: 15px;
+  line-height: 1.3;
+  text-align: right;
+  text-decoration: none;
+}
+.headerHelpEmail {
+  font-weight: 700;
+  color: var(--fv-green);
+  white-space: nowrap;
+}
+.headerHelp:hover .headerHelpEmail {
+  text-decoration: underline;
+}
+.headerHelp:focus-visible {
+  outline: 2px solid var(--fv-green);
+  outline-offset: 3px;
+}
+@media (max-width: 420px) {
+  .headerHelp {
+    font-size: 13px;
+  }
+}
 .main {
   flex: 1 0 auto;
 }

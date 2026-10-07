@@ -25,6 +25,8 @@ export const PAGE_META = {
 /** The funnel header and footer. The owner confirms the two links (both answered 200 on 2026-10-05). */
 export const LAYOUT = {
   logoAlt: 'BlueFX',
+  /** Beside the logo on every page, where a visitor who runs into trouble sees it (owner 2026-10-07). */
+  help: 'Need help?',
   questions: 'Questions?',
   privacy: 'Privacy policy',
   privacyUrl: 'https://bluefx.net/privacy-policy/',

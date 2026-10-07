@@ -37,6 +37,9 @@ export default function FunnelLayout({ children }: FunnelLayoutProps) {
       <header className={styles.header}>
         <div className={styles.headerIn}>
           <Image src="/brand/bluefx-logo-white.png" alt={LAYOUT.logoAlt} width={98} height={34} priority className={styles.logo} />
+          <a className={styles.headerHelp} href={`mailto:${SUPPORT_EMAIL}`}>
+            {LAYOUT.help} <span className={styles.headerHelpEmail}>{SUPPORT_EMAIL}</span>
+          </a>
         </div>
       </header>
       <main className={styles.main}>{children}</main>
