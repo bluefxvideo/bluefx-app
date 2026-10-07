@@ -72,13 +72,25 @@ export function WebsiteForm({ form }: WebsiteFormProps) {
  * The silent reel (inside the result card since v8): a 15 s loop of the three examples inside a button. It plays muted
  * while on screen, stays on its poster for visitors who ask for less motion, pauses while the player
  * or the step 2 sheet is open, and a tap opens the full example with sound.
+ * `media`: the screens this reel is for (phones show one under the headline, wider screens the one in the card,
+ * owner 2026-10-07). Elsewhere it stays a poster, so the video file is loaded once.
  */
-export function HeroReel() {
+export function HeroReel({ media }: { media?: string }) {
   const { openExample, overlayOpen } = useLanding();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [motionOk, setMotionOk] = useState(false);
   const [onScreen, setOnScreen] = useState(true);
+  const [forThisScreen, setForThisScreen] = useState(!media);
   const example = EXAMPLE_VIDEOS.ads.find((ad) => ad.id === EXAMPLE_VIDEOS.heroReel.opens) ?? EXAMPLE_VIDEOS.ads[0];
+
+  useEffect(() => {
+    if (!media) return;
+    const query = window.matchMedia(media);
+    const update = () => setForThisScreen(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, [media]);
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -98,37 +110,62 @@ export function HeroReel() {
     const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), { threshold: 0.2 });
     observer.observe(video);
     return () => observer.disconnect();
-  }, []);
+  }, [forThisScreen]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (motionOk && onScreen && !overlayOpen) {
-      // Set before play(): browsers only autoplay a muted video.
-      video.muted = true;
-      void video.play().catch(() => undefined);
-    } else {
+    if (!(motionOk && onScreen && !overlayOpen)) {
       video.pause();
+      return;
     }
-  }, [motionOk, onScreen, overlayOpen]);
+    // Set before play(): browsers only autoplay a muted video.
+    video.muted = true;
+    const play = () => void video.play().catch(() => undefined);
+    play();
+    // A page opened in the background: the browser pauses a silent video until the page is shown (2026-10-07).
+    const onShown = () => {
+      if (document.visibilityState === 'visible') play();
+    };
+    document.addEventListener('visibilitychange', onShown);
+    return () => document.removeEventListener('visibilitychange', onShown);
+  }, [motionOk, onScreen, overlayOpen, forThisScreen]);
 
   return (
     <button type="button" className={styles.reel} aria-label={EXAMPLES.reelLabel} onClick={(event) => openExample(example, event.currentTarget)}>
-      <video
-        ref={videoRef}
-        className={styles.reelVideo}
-        src={EXAMPLE_VIDEOS.heroReel.video}
-        poster={EXAMPLE_VIDEOS.heroReel.poster}
-        muted
-        loop
-        playsInline
-        preload="auto"
-        aria-hidden="true"
-      />
+      {forThisScreen ? (
+        <video
+          ref={videoRef}
+          className={styles.reelVideo}
+          src={EXAMPLE_VIDEOS.heroReel.video}
+          poster={EXAMPLE_VIDEOS.heroReel.poster}
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- the poster of a video that is not loaded on this screen
+        <img className={styles.reelVideo} src={EXAMPLE_VIDEOS.heroReel.poster} alt="" aria-hidden="true" />
+      )}
       <span className={styles.reelChip} aria-hidden="true">
         {EXAMPLES.reelChip}
       </span>
     </button>
+  );
+}
+
+/** Phones see the reel right under the headline, wider screens in the result card; the CSS shows one of the two. */
+const PHONE_SCREEN = '(max-width: 639px)';
+const WIDE_SCREEN = '(min-width: 640px)';
+
+/** The reel under the headline on phones (owner 2026-10-07: "on mobile people first see a whole lot of text, and only see the video later"). */
+export function PhoneReel() {
+  return (
+    <div className={styles.toolReelPhone}>
+      <HeroReel media={PHONE_SCREEN} />
+    </div>
   );
 }
 
@@ -164,7 +201,7 @@ export function ResultPreview() {
         <span className={styles.resultAddress}>{RESULT_PREVIEW.address}</span>
       </div>
       <div className={styles.resultBody}>
-        <HeroReel />
+        <HeroReel media={WIDE_SCREEN} />
         <figcaption className={styles.resultInfo}>
           <span className={styles.resultBadge}>{RESULT_PREVIEW.badge}</span>
           <p className={styles.resultTitle}>{RESULT_PREVIEW.title}</p>

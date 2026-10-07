@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import styles from '@/components/free-video/free-video.module.css';
 import { FreeVideoLanding } from '@/components/free-video/free-video-landing';
-import { AdCarousel, ResultPreview, StartHere, StickyBar, WebsiteForm } from '@/components/free-video/landing-parts';
+import { AdCarousel, PhoneReel, ResultPreview, StartHere, StickyBar, WebsiteForm } from '@/components/free-video/landing-parts';
 import { EXAMPLES, FAQ, LANDING, PAGE_META, PROOF } from '@/lib/free-video/copy';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,7 @@ export default function FreeVideoAdPage() {
               {LANDING.h1.after}
             </span>
           </h1>
+          <PhoneReel />
           <p className={styles.toolSub}>{LANDING.sub}</p>
           <p className={styles.toolWhy}>
             <strong>{LANDING.whyFreeLead}</strong> {LANDING.whyFree}

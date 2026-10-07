@@ -265,6 +265,52 @@
 .toolWhy strong {
   color: var(--fv-ink);
 }
+/* Phones: the headline, then the reel, then the field; the longer text under the field (owner 2026-10-07: "on mobile
+   people first see a whole lot of text, and only see the video later"). The result card's reel shows on wider screens. */
+.toolReelPhone {
+  display: none;
+}
+@media (max-width: 639px) {
+  .toolCard {
+    display: flex;
+    flex-direction: column;
+  }
+  .toolQuestion {
+    order: 1;
+  }
+  .toolTitle {
+    order: 2;
+  }
+  .toolReelPhone {
+    order: 3;
+    display: block;
+    width: 52%;
+    max-width: 200px;
+    margin: 2px auto 0;
+  }
+  .formRow {
+    order: 4;
+    margin-top: 20px;
+  }
+  .toolTrust {
+    order: 5;
+  }
+  .toolWhy {
+    order: 6;
+    margin-top: 18px;
+  }
+  .toolSub {
+    order: 7;
+    margin-top: 10px;
+    font-size: 17px;
+  }
+  .toolGrid {
+    order: 8;
+  }
+  .toolGrid .result {
+    display: none;
+  }
+}
 .formRow {
   position: relative;
   max-width: 720px;
