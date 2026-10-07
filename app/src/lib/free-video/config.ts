@@ -118,7 +118,10 @@ export const ML_GROUP_NAMES = {
 // The ids MailerLite returned when the groups were created (2026-10-06, main account). Empty = not created.
 /** Every queued signup joins this group at submit (never a rejected one). No automation hangs on this group. */
 export const ML_GROUP_LEADS: string = '200567992522638921';
-/** Joining this group triggers the 'Free Video Ad' automation (E1-E3). Joined in the same upsert that sets the fields. */
+/**
+ * Joining this group triggers 'Free Video Ad 1: Your video' (E1) and 'Free Video Ad 2: Follow-up' (E2, E3; it excludes
+ * Bought and exits on it). Joined in the same upsert that sets the fields. Built through the MailerLite connector 2026-10-07.
+ */
 export const ML_GROUP_READY: string = '200567992720819824';
 /** P1: the automation's exit condition, joined when a lead buys. */
 export const ML_GROUP_BOUGHT: string = '200567992985061045';

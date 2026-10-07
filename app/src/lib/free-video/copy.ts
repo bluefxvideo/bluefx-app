@@ -565,10 +565,12 @@ export const STYLES = {
  * Lines like "[Button: label → url]" become a MailerLite button.
  * Never a buy price in any email: no $99 and no $297. "$700 off" is allowed.
  *
- * Automation 'Free Video Ad': trigger joins group 'Free Video - Ready'; E1 at once, E2 a day later,
- * E3 two days after E2; E2 and E3 are skipped when free_video_customer = yes; exit on 'Free Video - Bought'.
- * E1 pitches only the clean version, which customers can buy too, so E1 needs no customer condition.
- * Automation 'Free Video - Unlocked': trigger joins group 'Free Video - Unlocked'; U1 at once.
+ * Built in MailerLite through its connector (2026-10-07), every email as HTML with a plain-text twin:
+ * - 'Free Video Ad 1: Your video' (200681113224479794): joins 'Free Video - Ready' → E1 at once. Everyone.
+ * - 'Free Video Ad 2: Follow-up' (200681121024837514): joins 'Free Video - Ready' → 1 day → E2 → 2 days → E3. Excludes
+ *   'Free Video - Bought' and exits on it (set by hand in the dashboard); existing customers join Bought at delivery.
+ * - 'Free Video - Unlocked' (200681123969238195): joins 'Free Video - Unlocked' → U1 at once.
+ * Sender support@bluefx.net. Every email ends with the reason it was sent and {$unsubscribe}.
  */
 export const EMAIL_DRAFTS = [
   {
@@ -591,7 +593,8 @@ export const EMAIL_DRAFTS = [
       'Talk soon,',
       'Szilard',
       '',
-      'P.S. Want the video ad without the BlueFX watermark in the middle? Open your video ad page and unlock the clean version. The AI Media Machine makes the clean video ad in about 5 minutes: {$free_video_url}',
+      // The video ad page leads with the AI Media Machine and offers the $99 clean version under it (2026-10-07).
+      'P.S. Want to change something in the video ad, or remove the BlueFX watermark? Both are on your video ad page: {$free_video_url}',
     ].join('\n'),
   },
   {
@@ -613,7 +616,9 @@ export const EMAIL_DRAFTS = [
       '',
       'AI Media Machine members make 100+ video ads a year like yours, every one without a watermark. Edits are included: change the images, footage, music, script and voice whenever you like.',
       '',
-      'Lifetime access is $700 off right now: https://app.bluefx.net/go/fvmail2?t={$free_video_token}',
+      'Lifetime access is $700 off right now.',
+      '',
+      '[Button: Get lifetime access → https://app.bluefx.net/go/fvmail2?t={$free_video_token}]',
       '',
       'Szilard',
     ].join('\n'),

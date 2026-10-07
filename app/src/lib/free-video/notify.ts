@@ -166,11 +166,12 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
       return 'skipped';
     }
 
-    // 3. One upsert: the fields and the group travel together.
+    // 3. One upsert: the fields and the groups travel together. An existing AI Media Machine customer also joins Bought:
+    // 'Free Video Ad 1' (the video link) has no exclusion, 'Free Video Ad 2' (the sales follow-up) excludes Bought.
     const result = await subscribeToMailerLite({
       email: lead.email,
       fullName: await nameFor(lead),
-      groups: [ML_GROUP_READY],
+      groups: lead.is_customer && ML_GROUP_BOUGHT ? [ML_GROUP_READY, ML_GROUP_BOUGHT] : [ML_GROUP_READY],
       fields: {
         [ML_FIELDS.url]: viewUrl(lead.view_token),
         [ML_FIELDS.site]: displayDomain(lead.website_domain),
