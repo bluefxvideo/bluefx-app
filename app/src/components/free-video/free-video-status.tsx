@@ -258,7 +258,8 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 />
                 {staleNotice}
                 <LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="ready" />
-                {!purchased && unlockOffer}
+                {/* A customer gets this video ad in the AI Media Machine without the watermark: no $99 offer. */}
+                {!purchased && !view.isCustomer && unlockOffer}
               </div>
             </div>
           </div>

@@ -446,7 +446,7 @@ export function startCleanRender(leadId: string, viaAfter = false): void {
 }
 
 /** The clean file must be what the props describe: their length (no end card), the frame size and a sound track. */
-async function checkCleanFile(data: Buffer, props: Record<string, unknown>): Promise<void> {
+export async function checkCleanFile(data: Buffer, props: Record<string, unknown>): Promise<void> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'free-video-clean-'));
   try {
     const file = path.join(dir, 'clean.mp4');

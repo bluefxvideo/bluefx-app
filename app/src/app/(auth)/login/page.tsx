@@ -5,19 +5,21 @@ import LoginForm from './login-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { afterLoginPath } from '@/lib/after-login'
 
 export const metadata: Metadata = {
   title: 'Sign In - BlueFX',
   description: 'Sign in to your BlueFX account to access your AI-powered tools.',
 }
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   
   if (user) {
-    redirect('/dashboard')
+    redirect(afterLoginPath(next))
   }
 
   return (
@@ -45,7 +47,7 @@ export default async function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <LoginForm />
+            <LoginForm next={next} />
           </CardContent>
         </Card>
 

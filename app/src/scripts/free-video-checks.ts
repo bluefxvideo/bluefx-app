@@ -18,6 +18,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video/config';
 import { EMAIL_DRAFTS } from '@/lib/free-video/copy';
+import { blockedCountry } from '@/lib/free-video/geo';
+import { copyIdOf } from '@/lib/free-video/claim';
+import { afterLoginPath, AFTER_LOGIN_PATH } from '@/lib/after-login';
 import { lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
 import { offerUrl, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
@@ -464,7 +467,38 @@ async function main(): Promise<void> {
   }
 
   // 13. -----------------------------------------------------------------------------------------
-  section('13. freeNote (read by eye)');
+  section('13. The country list (geo.ts, BLOCKED_COUNTRIES)');
+  const countryCases: [string | null, string | undefined, string | null][] = [
+    ['49.36.0.1', undefined, 'India'],
+    ['39.32.0.1', undefined, 'Pakistan'],
+    ['5.255.255.70', undefined, 'Russia'],
+    ['2405:201::1', undefined, 'India'],
+    ['8.8.8.8', 'Asia/Kolkata', 'India'],
+    [null, 'Asia/Manila', 'the Philippines'],
+    ['8.8.8.8', 'America/New_York', null],
+    ['86.120.1.1', 'Europe/Bucharest', null],
+    ['127.0.0.1', undefined, null],
+  ];
+  for (const [ip, tz, want] of countryCases) {
+    const got = blockedCountry(ip, tz)?.name ?? null;
+    check(`${ip ?? 'no IP'} ${tz ?? ''} → ${want ?? 'open'}`, got === want, `got ${got}`);
+  }
+
+  // 14. -----------------------------------------------------------------------------------------
+  section('14. The copy into the buyer\'s account and the landing after login');
+  const leadId = 'd9bd0c50-5cb1-46ed-9686-9eb38ba9e679';
+  const buyer = '11111111-2222-4333-8444-555555555555';
+  check('the copy id is the same for the same lead and account', copyIdOf(leadId, buyer) === copyIdOf(leadId, buyer));
+  check('the copy id differs per account', copyIdOf(leadId, buyer) !== copyIdOf(leadId, '11111111-2222-4333-8444-555555555556'));
+  check('the copy id is a UUID the Phantom accepts', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(copyIdOf(leadId, buyer)));
+  check('after login: The Phantom by default', afterLoginPath(undefined) === AFTER_LOGIN_PATH && AFTER_LOGIN_PATH === '/dashboard/smart-video');
+  check('after login: a path on this site is kept', afterLoginPath('/go/claim?t=abc') === '/go/claim?t=abc');
+  for (const bad of ['//evil.com', '/\\evil.com', 'https://evil.com', 'evil.com', '/ x', '']) {
+    check(`after login: ${JSON.stringify(bad)} goes to The Phantom`, afterLoginPath(bad) === AFTER_LOGIN_PATH);
+  }
+
+  // 15. -----------------------------------------------------------------------------------------
+  section('15. freeNote (read by eye)');
   console.log(freeNote('example.com'));
 
   console.log(`\n${failed ? `${failed} FAIL` : 'all PASS'}${skipped ? `, ${skipped} SKIP` : ''}`);

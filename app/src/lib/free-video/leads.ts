@@ -370,6 +370,31 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
   }
 }
 
+/** The accounts (profile ids) of this email, case-insensitive, suspended accounts left out. Throws on a failed read. */
+async function profileIdsByEmail(email: string): Promise<string[]> {
+  const profiles = (createAdminClient() as any).from('profiles').select('id, is_suspended').limit(5);
+  // ilike with LIKE's own wildcards escaped; PostgREST also reads '*' as a wildcard, so such an address uses eq.
+  const query = email.includes('*') ? profiles.eq('email', email) : profiles.ilike('email', email.replace(/[\\%_]/g, (c: string) => `\\${c}`));
+  const { data, error } = await query;
+  if (error) throw new Error(`profiles: ${error.message}`);
+  return ((data ?? []) as { id: string; is_suspended?: boolean | null }[]).filter((p) => !p.is_suspended).map((p) => p.id);
+}
+
+/** Of these accounts, the ones with an ACTIVE plan: lifetime, or a period that has not ended. Throws on a failed read. */
+async function withActivePlan(userIds: string[]): Promise<string[]> {
+  if (!userIds.length) return [];
+  const { data, error } = await (createAdminClient() as any)
+    .from('user_subscriptions')
+    .select('user_id, plan_type, current_period_end')
+    .in('user_id', userIds)
+    .eq('status', 'active')
+    .limit(10);
+  if (error) throw new Error(`user_subscriptions: ${error.message}`);
+  return ((data ?? []) as { user_id: string; plan_type: string; current_period_end: string | null }[])
+    .filter((sub) => sub.plan_type === 'lifetime' || !sub.current_period_end || Date.parse(sub.current_period_end) > Date.now())
+    .map((sub) => sub.user_id);
+}
+
 /**
  * True when this email belongs to an ACTIVE AI Media Machine customer (review F1): a profile with this
  * email (case-insensitive) that is not suspended and has an 'active' subscription (lifetime, or a period
@@ -378,32 +403,26 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
  */
 async function isExistingCustomer(email: string): Promise<boolean> {
   try {
-    const admin = createAdminClient() as any;
-    const profiles = admin.from('profiles').select('id, is_suspended').limit(5);
-    // ilike with LIKE's own wildcards escaped; PostgREST also reads '*' as a wildcard, so such an address uses eq.
-    const query = email.includes('*') ? profiles.eq('email', email) : profiles.ilike('email', email.replace(/[\\%_]/g, (c) => `\\${c}`));
-    const { data, error } = await query;
-    if (error) {
-      console.warn('⚠️ [free-video] Customer check failed, treating as a new visitor:', error.message);
-      return false;
-    }
-    const ids = ((data ?? []) as { id: string; is_suspended?: boolean | null }[]).filter((p) => !p.is_suspended).map((p) => p.id);
-    if (!ids.length) return false;
-    const { data: subs, error: subError } = await admin
-      .from('user_subscriptions')
-      .select('plan_type, current_period_end')
-      .in('user_id', ids)
-      .eq('status', 'active')
-      .limit(5);
-    if (subError) {
-      console.warn('⚠️ [free-video] Subscription check failed, treating as a new visitor:', subError.message);
-      return false;
-    }
-    return ((subs ?? []) as { plan_type: string; current_period_end: string | null }[]).some(
-      (sub) => sub.plan_type === 'lifetime' || !sub.current_period_end || Date.parse(sub.current_period_end) > Date.now()
-    );
+    return (await withActivePlan(await profileIdsByEmail(email))).length > 0;
   } catch (error) {
     console.warn('⚠️ [free-video] Customer check failed, treating as a new visitor:', String(error).slice(0, 160));
+    return false;
+  }
+}
+
+/** The AI Media Machine account of this email with an active plan (the buyer of a free video ad), or null. Throws on a failed read. */
+export async function customerIdByEmail(email: string): Promise<string | null> {
+  return (await withActivePlan(await profileIdsByEmail(email.trim().toLowerCase())))[0] ?? null;
+}
+
+/** True when this signed-in account has an active plan (not suspended). A failed read counts as false. */
+export async function isActiveCustomerId(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await (createAdminClient() as any).from('profiles').select('id, is_suspended').eq('id', userId).maybeSingle();
+    if (error || !data || data.is_suspended) return false;
+    return (await withActivePlan([userId])).length > 0;
+  } catch (error) {
+    console.warn('⚠️ [free-video] Customer check failed:', String(error).slice(0, 160));
     return false;
   }
 }
@@ -563,7 +582,8 @@ export function unlockViewOf(lead: FreeVideoLead): FreeVideoUnlockView {
  * done → the video; held → checking; failed → failed; rejected → unreadable. unlock = Offer 1.
  */
 export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | null): Promise<FreeVideoView> {
-  const base = { firstName: lead.first_name, domain: displayDomain(lead.website_domain), isCustomer: lead.is_customer, unlock: unlockViewOf(lead) };
+  // A lead whose email bought the AI Media Machine since (bought_at) counts as a customer: its video ad goes into the account.
+  const base = { firstName: lead.first_name, domain: displayDomain(lead.website_domain), isCustomer: lead.is_customer || Boolean(lead.bought_at), unlock: unlockViewOf(lead) };
   switch (lead.status) {
     case 'queued': {
       const position = await queuePosition(lead);

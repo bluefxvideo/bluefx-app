@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 export const metadata: Metadata = {
   title: PAGE_META.landingTitle,
   description: LANDING.sub,
-  openGraph: { title: LANDING.h1, description: LANDING.sub, type: 'website' },
+  openGraph: { title: LANDING.shareTitle, description: LANDING.sub, type: 'website' },
 };
 
 /**

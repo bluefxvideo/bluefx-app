@@ -52,6 +52,9 @@ export default function FunnelLayout({ children }: FunnelLayoutProps) {
             {LAYOUT.terms}
           </a>
           <span>{LAYOUT.copyright}</span>
+          <a href={LAYOUT.geoCreditUrl} target="_blank" rel="noopener noreferrer">
+            {LAYOUT.geoCredit}
+          </a>
         </div>
       </footer>
     </div>

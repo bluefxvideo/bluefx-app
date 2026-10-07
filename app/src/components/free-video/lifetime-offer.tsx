@@ -1,5 +1,5 @@
 import { OFFER_COPY } from '@/lib/free-video/copy';
-import { goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
+import { claimUrl, goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { StyleReel } from './style-reel';
@@ -18,17 +18,19 @@ interface LifetimeOfferProps {
 
 /**
  * Offer 2: AI Media Machine lifetime, through /go/<placement> (logs the click, then ClickBank).
- * Existing customers get "Open The Phantom" instead. No hooks of its own (StyleReel is a client component), so it
+ * Existing customers and buyers get the AI Media Machine instead: under a finished video ad, a button that puts this
+ * video ad in their account (/go/claim); a customer the email did not match finds the same link under the offer. No hooks of its own (StyleReel is a client component), so it
  * renders in server and client trees.
  */
 export function LifetimeOffer({ placement, token, isCustomer, variant }: LifetimeOfferProps) {
+  const claimable = variant === 'ready' && Boolean(token);
   if (isCustomer) {
     return (
       <div className={styles.offer}>
         <h2 className={styles.offerTitle}>{OFFER_COPY.customerTitle}</h2>
-        <p className={styles.offerText}>{OFFER_COPY.customerBody}</p>
-        <a className={cn(styles.btn, styles.btnBlue)} href={PHANTOM_PATH}>
-          {OFFER_COPY.customerButton}
+        <p className={styles.offerText}>{claimable ? OFFER_COPY.customerBodyReady : OFFER_COPY.customerBody}</p>
+        <a className={cn(styles.btn, styles.btnBlue)} href={claimable ? claimUrl(token) : PHANTOM_PATH}>
+          {claimable ? OFFER_COPY.customerButtonReady : OFFER_COPY.customerButton}
         </a>
       </div>
     );
@@ -66,6 +68,13 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
         {OFFER_COPY.button}
       </a>
       <p className={styles.fine}>{OFFER_COPY.smallPrint}</p>
+      {claimable && (
+        <p className={styles.fine}>
+          <a className={styles.link} href={claimUrl(token)}>
+            {OFFER_COPY.alreadyCustomer}
+          </a>
+        </p>
+      )}
     </div>
   );
 }

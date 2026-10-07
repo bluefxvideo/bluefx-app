@@ -56,6 +56,9 @@ export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM
 /** Where an existing customer goes instead of the offer: The Phantom inside the app. */
 export const PHANTOM_PATH = '/dashboard/smart-video';
 
+/** "Open this video ad in the AI Media Machine": a copy of the finished video ad in the signed-in customer's account (claim.ts). */
+export const claimUrl = (token: string) => `/go/claim?t=${encodeURIComponent(token)}`;
+
 /**
  * Offer 1: the $99 unlock (owner 2026-10-06). The owner's FastSpring one-time product video-creation
  * (https://bluefx.onfastspring.com/video-creation, $99). Its path must never contain "credit": the webhook's

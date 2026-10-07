@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
     position: 'bottom-right',
   },
   output: 'standalone',
+  // The free video ad's country check reads data/dbip-country-lite-*.mmdb.gz at runtime (lib/free-video/geo.ts), and the
+  // standalone build only copies files it traced. The key matches every /api/free-video route.
+  outputFileTracingIncludes: {
+    '/api/free-video': ['./data/dbip-country-lite-*.mmdb.gz'],
+  },
   images: {
     domains: ['trjkxgkbkyzthrgkbwfe.supabase.co', 'ihzcmpngyjxraxzmckiv.supabase.co', 'images.unsplash.com', 'replicate.delivery', 'oaidalleapiprodscus.blob.core.windows.net'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

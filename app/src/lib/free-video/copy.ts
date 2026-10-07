@@ -31,6 +31,9 @@ export const LAYOUT = {
   terms: 'Terms',
   termsUrl: 'https://bluefx.net/terms/',
   copyright: '© BlueFX',
+  /** DB-IP's free country database finds the visitor's country (geo.ts); its license (CC BY 4.0) asks for this credit. */
+  geoCredit: 'IP geolocation by DB-IP',
+  geoCreditUrl: 'https://db-ip.com',
 } as const;
 
 /**
@@ -40,10 +43,15 @@ export const LAYOUT = {
  * status pages only. No wait time is promised either, because a busy day puts the video ad in a queue.
  */
 export const LANDING = {
-  /** The small label above the headline. */
-  pill: 'Free video ad maker',
-  h1: 'Get a free video ad for your business',
-  sub: 'Type your website. The AI Media Machine turns the words and photos on it into a video ad with an AI presenter, a voice-over and music.',
+  /**
+   * The headline is the result, the free video ad is how (owner 2026-10-07: "the video ad is a mechanism, why do they
+   * need a video ad?"). The label above it and the button keep the free offer in sight.
+   */
+  pill: 'Free video ad for your business',
+  h1: 'Get more customers from social media',
+  sub: "Type your website. The AI Media Machine makes you a free video ad to post on Facebook, Instagram and TikTok, with an AI presenter, a voice-over and music. You don't film or write anything.",
+  /** Link previews (Facebook, iMessage): the result and the offer in one line. */
+  shareTitle: 'Get more customers from social media with a free video ad',
   /** The hand-drawn note pointing at the website field (wide screens only). */
   startHere: 'Start here!',
   /** The small lines under the website field: what it does not cost. */
@@ -55,7 +63,7 @@ export const LANDING = {
     { title: 'Get your video ad by email', text: 'Post the video ad on Facebook, Instagram, TikTok and YouTube Shorts.' },
   ],
   /** The blue band at the bottom, with the same website field. */
-  bottomHeading: 'Ready for your free video ad?',
+  bottomHeading: 'Ready for more customers from social media?',
 } as const;
 
 /**
@@ -64,14 +72,14 @@ export const LANDING = {
  * Wide screens: the line, the website field and the button. Phones: the line and a button back to the top field.
  */
 export const STICKY = {
-  label: 'Get a free video ad',
+  label: 'Get more customers from social media',
   /**
    * The owner at the bar's left edge, popping up over it and pointing at the line (owner 2026-10-06: "add me onto
    * it, we had the first image with me"): the first pointing photo, cut at the waist and flipped to point right.
    */
   photo: { src: '/free-video/owner-sticky.webp', width: 559, height: 600 },
-  title: 'Try the AI Media Machine on your website',
-  text: 'A free video ad with a voice-over and music, by email.',
+  title: 'Get more customers from social media',
+  text: 'A free video ad made from your website, by email.',
   /** Phones: scrolls back to the top field and opens the keyboard. */
   start: 'Start',
   close: 'Close',
@@ -255,6 +263,8 @@ export const ERRORS = {
     `${domain} already has its free video ad. The free video ad is one per business. To make more video ads, get the AI Media Machine below.`,
   tooMany: "You've already asked for a free video ad today. The free video ad is one per business. To make more video ads, get the AI Media Machine below.",
   closed: "Today's free video ads are all taken. Please come back tomorrow.",
+  /** A visitor in a country on BLOCKED_COUNTRIES (config.ts), found by IP or time zone. */
+  country: (name: string | null) => `We don't offer the free video ad in ${name ?? 'your country'} yet. Please come back later.`,
   paused: 'The free video ad maker is taking a short break. Please try again in an hour.',
   generic: 'Something went wrong on our side. Please try again in a minute.',
 } as const;
@@ -512,10 +522,15 @@ export const OFFER_COPY = {
   off: OFFER.off,
   button: 'Get lifetime access',
   smallPrint: 'Secure checkout by ClickBank.',
-  /** Existing customers (isCustomer) see this instead of the ladder. */
-  customerTitle: 'You already have AI Media Machine',
+  /** Existing customers and buyers (isCustomer) see this instead of the ladder. */
+  customerTitle: 'You already have the AI Media Machine',
   customerBody: 'Make your next video ad in the AI Media Machine.',
   customerButton: 'Open the AI Media Machine',
+  /** The same box under a finished video ad: the video ad goes into the customer's account (claim.ts). */
+  customerBodyReady: 'Open this video ad in your AI Media Machine to change anything and download it without the watermark.',
+  customerButtonReady: 'Open this video ad in the AI Media Machine',
+  /** Under the offer's button: a customer the email did not match (another address, or signed up later). */
+  alreadyCustomer: 'Already have the AI Media Machine? Open this video ad in your account',
 } as const;
 
 /**

@@ -1,6 +1,7 @@
 import { createClient } from '@/app/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { type EmailOtpType } from '@supabase/supabase-js'
+import { AFTER_LOGIN_PATH } from '@/lib/after-login'
 
 export async function GET(request: NextRequest) {
   console.log('🔐 Password reset callback hit with URL:', request.url)
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  const next = searchParams.get('next') ?? AFTER_LOGIN_PATH
   const error = searchParams.get('error')
   const errorDescription = searchParams.get('error_description')
   const errorCode = searchParams.get('error_code')

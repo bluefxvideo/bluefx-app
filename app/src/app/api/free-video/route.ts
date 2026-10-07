@@ -1,6 +1,7 @@
 import { after, NextResponse } from 'next/server';
 import { isLive, LIMITS, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { ERRORS } from '@/lib/free-video/copy';
+import { blockedCountry } from '@/lib/free-video/geo';
 import { clientIp, createLead, takeAttempt, verifyHuman } from '@/lib/free-video/leads';
 import { joinLeadsGroup } from '@/lib/free-video/notify';
 import { kickQueue } from '@/lib/free-video/runner';
@@ -18,6 +19,7 @@ import { createApiError, createApiSuccess, type ApiResponse } from '@/types/vali
  *    per-IP attempt limit, which counts every POST, 400 answers included (review SEC-1) → 429.
  * 3. The body: at most LIMITS.bodyBytes (413), JSON (400), FreeVideoLeadSchema (400 with the field).
  * 4. The bot checks (honeypot, the form's own timer): a silent 200 with token null, nothing stored.
+ * 4b. A country on BLOCKED_COUNTRIES (config.ts), by IP or the browser's time zone (geo.ts) → 403 country, nothing stored.
  * 5. createLead (caps, duplicates, the website pre-check, the insert under one lock).
  * 6. after(): a queued lead joins the MailerLite Leads group, the queue is kicked, the cron watchdog runs.
  *
@@ -94,6 +96,13 @@ export async function POST(req: Request) {
     if (!verifyHuman(parsed.data)) {
       console.log(`⚠️ [free-video] Silent drop (bot check) from ${ip ?? 'unknown'}`);
       return NextResponse.json<Answer>(createApiSuccess({ token: null }), { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    // 4b.
+    const country = blockedCountry(ip, parsed.data.tz);
+    if (country) {
+      console.log(`⚠️ [free-video] Country refused (${country.code}) from ${ip ?? 'unknown'}`);
+      return error(403, 'country', ERRORS.country(country.name));
     }
 
     // 5.

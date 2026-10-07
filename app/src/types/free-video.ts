@@ -30,6 +30,8 @@ export const FreeVideoLeadSchema = z.object({
   elapsedMs: z.number().int().min(0).max(86_400_000).optional().catch(undefined),
   /** Older form: Date.now() when the form mounted, in the visitor's clock. Only used when elapsedMs is missing, and a clock running ahead never drops anyone. */
   startedAt: z.number().int().optional().catch(undefined),
+  /** The browser's time zone (Intl), one of the two country signals (geo.ts). A bad value is dropped. */
+  tz: z.string().trim().max(64).optional().catch(undefined),
   /** Honeypot: a field name no autofill knows; it must stay empty. Any odd value counts as filled. */
   fv_note: z.string().max(200).optional().catch('filled'),
   consent: z.literal(true, { errorMap: () => ({ message: VALIDATION.consent }) }),
@@ -50,6 +52,7 @@ export type FreeVideoErrorCode =
   | 'tooMany'
   | 'closed'
   | 'paused'
+  | 'country'
   | 'generic';
 
 /** The data of a 200 answer from POST /api/free-video. token null = the silent drop for bots. */
@@ -147,6 +150,8 @@ export interface FreeVideoLead {
   clean_claimed_at: string | null;
   clean_ready_at: string | null;
   unlock_emailed_at: string | null;
+  /** Set by the cleanup when the working files were deleted (cleanup.ts). Optional: older reads do not select it. */
+  files_cleaned_at?: string | null;
 }
 
 /** A patch for transitionLead(); id and created_at never change. */
@@ -225,7 +230,7 @@ export interface FreeVideoView {
   videoUrl?: string;
   /** ready: the same file as a download (Content-Disposition: attachment). */
   downloadUrl?: string;
-  /** An active AI Media Machine customer: Offer 2 swaps to "Open The Phantom". */
+  /** An active AI Media Machine customer, or a buyer since: Offer 2 swaps to "Open this video ad in the AI Media Machine" and the $99 offer goes. */
   isCustomer: boolean;
   /** Offer 1, the $99 unlock. */
   unlock: FreeVideoUnlockView;

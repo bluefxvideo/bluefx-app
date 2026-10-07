@@ -33,6 +33,7 @@ import { isoMinutesAgo, leadsTable, readSettings, settingsTable } from '@/lib/fr
 import { addToBoughtGroup, deliverLead, deliverUnlock, viewUrl } from '@/lib/free-video/notify';
 import { type SettleOutcome, settleLead } from '@/lib/free-video/runner';
 import { cleanRendersRunning, startCleanRender } from '@/lib/free-video/unlock';
+import { claimBoughtLeads } from '@/lib/free-video/claim';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
 import { displayDomain } from '@/lib/free-video/website';
 import { jobsTable } from '@/lib/smart-video/jobs';
@@ -69,6 +70,8 @@ export interface SweepReport {
   unlock: { waiting: number; rendering: number; started: number; emailed: number };
   /** P1: leads newly marked as bought. */
   bought: number;
+  /** Bought leads whose video ad this sweep started copying into the buyer's account (claim.ts). */
+  claimed: number;
   /** Once an hour: free video ads whose working files this sweep deleted (cleanup.ts); null in the other sweeps. */
   cleaned: { leads: number; files: number } | null;
   breaker: { bad: number; finished: number; tripped: boolean };
@@ -132,6 +135,7 @@ function emptyReport(dry: boolean): SweepReport {
     paidBusy: null,
     unlock: { waiting: 0, rendering: 0, started: 0, emailed: 0 },
     bought: 0,
+    claimed: 0,
     cleaned: null,
     breaker: { bad: 0, finished: 0, tripped: false },
     alertsNew: 0,
@@ -146,8 +150,9 @@ function emptyReport(dry: boolean): SweepReport {
  * 3. deliverLead for every done lead still owed its email (pending, failed, or 'sending' for 5 min).
  * 4. The $99 unlock: clean renders for paid leads whose video ad is done and for renders whose claim went
  *    stale (in the background, at most CLEAN_RENDER.maxParallel at once), and the clean email retried.
- * 5. P1: sales from webhook_events → bought_at and the Bought group; once an hour (the sweep at minute 0 to 2)
- *    the working files of free video ads FILES_KEEP_DAYS old whose clean version nobody bought (cleanup.ts).
+ * 5. P1: sales from webhook_events → bought_at and the Bought group, then a copy of each bought video ad in the
+ *    buyer's AI Media Machine account (claim.ts); once an hour (the sweep at minute 0 to 2) the working files of
+ *    free video ads FILES_KEEP_DAYS old whose clean version nobody bought (cleanup.ts).
  * 6. The circuit breaker.
  * 7. One batched alert: breaker, held, failed, rejected during the job, email, unlock, stuck, cap; plus any
  *    earlier alert that could not be sent.
@@ -217,6 +222,7 @@ export async function sweepFreeVideos({ dry }: { dry: boolean }): Promise<SweepR
 
   // 5. P1: sales; once an hour, the old working files.
   if (!dry) report.bought = await attributeSales();
+  if (!dry) report.claimed = await claimBoughtLeads(own);
   if (!dry && new Date().getUTCMinutes() < 3) report.cleaned = await cleanWorkingFiles(own, settings.system_user_id);
 
   // Numbers for the report, the cap alert and the breaker.

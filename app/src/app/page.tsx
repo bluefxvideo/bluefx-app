@@ -1,5 +1,6 @@
 import { createClient } from '@/app/supabase/server'
 import { redirect } from 'next/navigation'
+import { AFTER_LOGIN_PATH } from '@/lib/after-login'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -10,5 +11,5 @@ export default async function HomePage() {
     redirect('/login')
   }
   
-  redirect('/dashboard')
+  redirect(AFTER_LOGIN_PATH)
 }

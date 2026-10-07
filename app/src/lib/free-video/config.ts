@@ -231,6 +231,28 @@ export const IP_ROWS_PER_DAY = 10;
  * site. A real customer's record is never touched: a site another address holds still answers duplicateSite.
  */
 export const OWNER_TEST_EMAILS: readonly string[] = ['contact@bluefx.net'];
+/**
+ * Countries the free video ad is not offered in (owner 2026-10-07: "limit countries where I know I won't get clients
+ * from, like India, Pakistan, Russia, maybe a few more"). ISO 3166 alpha-2 code → the name the refusal says. geo.ts
+ * finds the visitor's country from the IP and from the browser's time zone. Remove a line to open a country again.
+ */
+export const BLOCKED_COUNTRIES: Readonly<Record<string, string>> = {
+  IN: 'India',
+  PK: 'Pakistan',
+  BD: 'Bangladesh',
+  NP: 'Nepal',
+  LK: 'Sri Lanka',
+  NG: 'Nigeria',
+  GH: 'Ghana',
+  KE: 'Kenya',
+  EG: 'Egypt',
+  RU: 'Russia',
+  BY: 'Belarus',
+  CN: 'China',
+  VN: 'Vietnam',
+  ID: 'Indonesia',
+  PH: 'the Philippines',
+};
 /** readSettings() caches the settings row this long per process. */
 export const SETTINGS_CACHE_MS = 20_000;
 /** Circuit breaker: over the last 2 h, at least 3 bad results that are at least half of all finished ones → starting = false. */

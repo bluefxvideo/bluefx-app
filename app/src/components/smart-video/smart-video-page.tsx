@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Check,
   Download,
@@ -83,6 +84,31 @@ export function SmartVideoPage() {
     inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     void smart.loadExample(example);
   };
+  // A link can open one of the user's videos (?job=: the free video ad copied in by /go/claim) or fill in the link field
+  // (?link=). Read once, then the address is cleaned so a reload starts fresh. A job id opens only once it is in the
+  // user's own list, so someone else's id (or a wrong one) never leaves the page waiting.
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { history, openJob, setLink } = smart;
+  const wantedJob = useRef<string | null>(null);
+  const paramsRead = useRef(false);
+  useEffect(() => {
+    if (paramsRead.current) return;
+    paramsRead.current = true;
+    const jobParam = params.get('job');
+    const linkParam = params.get('link');
+    if (jobParam && /^[0-9a-f-]{36}$/.test(jobParam)) wantedJob.current = jobParam;
+    if (linkParam) setLink(linkParam.trim().slice(0, 2000));
+    if (jobParam || linkParam) router.replace(pathname, { scroll: false });
+  }, [params, router, pathname, setLink]);
+  useEffect(() => {
+    const wanted = wantedJob.current;
+    if (!wanted || !history.some((item) => item.id === wanted)) return;
+    wantedJob.current = null;
+    openJob(wanted);
+  }, [history, openJob]);
+
   const shownJob = job?.id;
   const uploadingNow = Boolean(smart.uploading);
   useEffect(() => {

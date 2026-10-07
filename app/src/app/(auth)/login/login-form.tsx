@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Mail, Lock, AlertCircle } from 'lucide-react'
 import { signIn } from '@/actions/auth'
 import Link from 'next/link'
+import { afterLoginPath } from '@/lib/after-login'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -20,7 +21,12 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export default function LoginForm() {
+interface LoginFormProps {
+  /** Where to go after signing in (a path on this site, e.g. /go/claim?t=...); The Phantom when absent. */
+  next?: string
+}
+
+export default function LoginForm({ next }: LoginFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [resetSent, setResetSent] = useState(false)
@@ -50,7 +56,7 @@ export default function LoginForm() {
       const result = await signIn(formData)
       
       if (result.success) {
-        router.push('/dashboard')
+        router.push(afterLoginPath(next))
       } else if (result.error?.includes('LEGACY_USER_NEEDS_SETUP')) {
         // Handle legacy user
         await handleLegacyUserSetup(data.email)

@@ -32,6 +32,7 @@ export const ERROR_CODES: readonly FreeVideoErrorCode[] = [
   'tooMany',
   'closed',
   'paused',
+  'country',
   'generic',
 ];
 
@@ -98,6 +99,8 @@ export function problemForCode(code: FreeVideoErrorCode | undefined, website: st
       return { field: null, message: ERRORS.closed };
     case 'paused':
       return { field: null, message: ERRORS.paused };
+    case 'country':
+      return { field: null, message: ERRORS.country(null) };
     default:
       return { field: null, message: ERRORS.generic };
   }
@@ -138,7 +141,8 @@ export function problemFromAnswer(status: number, answer: unknown, website: stri
   }
   const problem = problemForCode(code ?? codeOfStatus(status), website);
   // unreadable: the server's own words, which can name the real cause (a broken security certificate, website.ts).
-  if (problem.clearWebsite && message) return { ...problem, message };
+  // country: the server's words name the country.
+  if ((problem.clearWebsite || code === 'country') && message) return { ...problem, message };
   return problem;
 }
 

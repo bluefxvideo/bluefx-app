@@ -95,6 +95,8 @@ export interface SmartVideoJob {
   usage?: { step: string; usd: number; detail: string }[];
   /** Notes for the client about things only they can fix. */
   warnings?: string[];
+  /** A free video ad copied into the buyer's account (lib/free-video/claim.ts): the free_video_leads id it came from. */
+  freeLeadId?: string;
   error?: string;
 }
 

@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
 import { updatePassword } from '@/actions/auth'
+import { AFTER_LOGIN_PATH } from '@/lib/after-login'
 
 const passwordSchema = z.object({
   password: z
@@ -103,7 +104,7 @@ export default function PasswordSetupForm() {
           // Show success message for legacy user
           router.push('/dashboard?welcome=legacy')
         } else {
-          router.push('/dashboard')
+          router.push(AFTER_LOGIN_PATH)
         }
       } else {
         setError(result.error || 'Failed to set password')

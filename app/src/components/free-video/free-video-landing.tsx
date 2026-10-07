@@ -87,6 +87,15 @@ function hideDialog(dialog: HTMLDialogElement) {
   else dialog.removeAttribute('open');
 }
 
+/** The browser's time zone (Intl), one of the two country signals (lib/free-video/geo.ts). */
+function timeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The data of a 200 answer, or null when the answer is not one. */
 function submitData(answer: unknown): FreeVideoSubmitData | null {
   if (!answer || typeof answer !== 'object') return null;
@@ -118,6 +127,9 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
   const [websiteProblem, setWebsiteProblem] = useState<WebsiteProblem | null>(null);
   const [activeForm, setActiveForm] = useState<WebsiteFormId>('top');
   const websiteInputs = useRef<Record<WebsiteFormId, HTMLInputElement | null>>({ top: null, bottom: null, sticky: null });
+  /** The country name when the free video ad is not offered where the visitor is (GET /api/free-video/country). */
+  const blockedCountry = useRef<string | null>(null);
+  const openedOnce = useRef(false);
 
   // Step 2
   const sheetRef = useRef<HTMLDialogElement>(null);
@@ -201,33 +213,55 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
     beacon('form_start');
   }, [beacon]);
 
-  const startStep2 = useCallback(
-    (form: WebsiteFormId) => {
-      const text = websites[form];
-      const problem = checkWebsite(text);
-      if (problem) {
-        setWebsiteProblem({ form, problem, website: text });
-        websiteInputs.current[form]?.focus();
-        return;
-      }
-      const sheet = sheetRef.current;
-      if (!sheet) return;
-      setWebsiteProblem(null);
-      setActiveForm(form);
-      setProblems({});
-      sheetOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      showDialog(sheet);
-      setSheetOpen(true);
-      // Focus inside the same tap, so a phone opens its keyboard at once.
-      const target = !firstNameRef.current?.value.trim()
-        ? firstNameRef.current
-        : !emailRef.current?.value.trim()
-          ? emailRef.current
-          : sendRef.current;
-      target?.focus();
-    },
-    [websites]
-  );
+  /** Step 1 → step 2 with this website text: checks it and the visitor's country, then opens the sheet. */
+  const openStep2 = useCallback((form: WebsiteFormId, text: string) => {
+    const country = blockedCountry.current;
+    const problem = checkWebsite(text) ?? (country ? { field: 'website' as const, message: ERRORS.country(country) } : null);
+    if (problem) {
+      setWebsiteProblem({ form, problem, website: text });
+      websiteInputs.current[form]?.focus();
+      return;
+    }
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    setWebsiteProblem(null);
+    setActiveForm(form);
+    setProblems({});
+    sheetOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    showDialog(sheet);
+    setSheetOpen(true);
+    // Focus inside the same tap, so a phone opens its keyboard at once.
+    const target = !firstNameRef.current?.value.trim()
+      ? firstNameRef.current
+      : !emailRef.current?.value.trim()
+        ? emailRef.current
+        : sendRef.current;
+    target?.focus();
+  }, []);
+
+  const startStep2 = useCallback((form: WebsiteFormId) => openStep2(form, websites[form]), [websites, openStep2]);
+
+  // Once: the country check, and the website bluefx.net's homepage hands over (?website=), which goes straight to step 2
+  // as soon as the country answer is in (at most 1.5 s). The ref keeps React's dev double-run from doing it twice.
+  useEffect(() => {
+    if (openedOnce.current) return;
+    openedOnce.current = true;
+    const country = fetch(`/api/free-video/country?tz=${encodeURIComponent(timeZone() ?? '')}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((answer: { blocked?: unknown } | null) => {
+        blockedCountry.current = typeof answer?.blocked === 'string' ? answer.blocked : null;
+      })
+      .catch(() => undefined);
+    const params = new URLSearchParams(window.location.search);
+    const handoff = (params.get('website') ?? '').trim().slice(0, 500);
+    if (!handoff) return;
+    params.delete('website');
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+    setWebsites((current) => ({ ...current, top: handoff }));
+    noteFormStart();
+    void Promise.race([country, new Promise((resolve) => window.setTimeout(resolve, 1500))]).then(() => openStep2('top', handoff));
+  }, [noteFormStart, openStep2]);
 
   const closeSheet = useCallback(() => {
     const sheet = sheetRef.current;
@@ -284,6 +318,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
       website: text,
       consent: true,
       fv_note: honeypotRef.current?.value ?? '',
+      tz: timeZone(),
       // The schema accepts 0 to 24 h.
       elapsedMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - mountedAt.current))),
       ...(ref ? { ref } : {}),
