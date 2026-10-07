@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 export const metadata: Metadata = {
   title: PAGE_META.landingTitle,
   description: LANDING.sub,
-  openGraph: { title: LANDING.shareTitle, description: LANDING.sub, type: 'website' },
+  openGraph: { title: LANDING.h1, description: `${LANDING.question} ${LANDING.sub}`, type: 'website' },
 };
 
 /**
@@ -24,7 +24,7 @@ export default function FreeVideoAdPage() {
     <FreeVideoLanding>
       <section className={styles.toolHero} aria-labelledby="fv-hero-title">
         <div className={styles.toolCard}>
-          <p className={styles.pill}>{LANDING.pill}</p>
+          <p className={styles.toolQuestion}>{LANDING.question}</p>
           <h1 id="fv-hero-title" className={styles.toolTitle}>
             {LANDING.h1}
           </h1>

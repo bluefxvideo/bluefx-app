@@ -44,14 +44,12 @@ export const LAYOUT = {
  */
 export const LANDING = {
   /**
-   * The headline is the result, the free video ad is how (owner 2026-10-07: "the video ad is a mechanism, why do they
-   * need a video ad?"). The label above it and the button keep the free offer in sight.
+   * The want, above the headline, in place of the old "Free video ad maker" label (owner 2026-10-07: the video ad is the
+   * mechanism, the page needs the outcome; he chose this question over a subheadline). It matches Dave's line in the hero video.
    */
-  pill: 'Free video ad for your business',
-  h1: 'Get more customers from social media',
-  sub: "Type your website. The AI Media Machine makes you a free video ad to post on Facebook, Instagram and TikTok, with an AI presenter, a voice-over and music. You don't film or write anything.",
-  /** Link previews (Facebook, iMessage): the result and the offer in one line. */
-  shareTitle: 'Get more customers from social media with a free video ad',
+  question: 'Want more customers from Facebook, Instagram and TikTok?',
+  h1: 'Get a free video ad for your business',
+  sub: 'Type your website. The AI Media Machine turns the words and photos on it into a video ad with an AI presenter, a voice-over and music.',
   /** The hand-drawn note pointing at the website field (wide screens only). */
   startHere: 'Start here!',
   /** The small lines under the website field: what it does not cost. */
@@ -63,7 +61,7 @@ export const LANDING = {
     { title: 'Get your video ad by email', text: 'Post the video ad on Facebook, Instagram, TikTok and YouTube Shorts.' },
   ],
   /** The blue band at the bottom, with the same website field. */
-  bottomHeading: 'Ready for more customers from social media?',
+  bottomHeading: 'Ready for your free video ad?',
 } as const;
 
 /**
@@ -72,14 +70,14 @@ export const LANDING = {
  * Wide screens: the line, the website field and the button. Phones: the line and a button back to the top field.
  */
 export const STICKY = {
-  label: 'Get more customers from social media',
+  label: 'Get a free video ad',
   /**
    * The owner at the bar's left edge, popping up over it and pointing at the line (owner 2026-10-06: "add me onto
    * it, we had the first image with me"): the first pointing photo, cut at the waist and flipped to point right.
    */
   photo: { src: '/free-video/owner-sticky.webp', width: 559, height: 600 },
-  title: 'Get more customers from social media',
-  text: 'A free video ad made from your website, by email.',
+  title: 'Try the AI Media Machine on your website',
+  text: 'A free video ad with a voice-over and music, by email.',
   /** Phones: scrolls back to the top field and opens the keyboard. */
   start: 'Start',
   close: 'Close',

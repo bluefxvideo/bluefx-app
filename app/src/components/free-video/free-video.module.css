@@ -189,6 +189,16 @@
   font-weight: 600;
   line-height: 1.4;
 }
+/* The want above the headline: what the free video ad is for. */
+.toolQuestion {
+  max-width: 760px;
+  text-wrap: balance;
+  margin: 0 auto 12px;
+  color: var(--fv-blue);
+  font-size: clamp(19px, 2.4vw, 26px);
+  font-weight: 700;
+  line-height: 1.3;
+}
 .toolTitle {
   max-width: 1040px;
   text-wrap: balance;
