@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { directVideo, reviseVideo } from './director';
+import { directVideo, reviseVideo, type DirectorOptions } from './director';
 import {
   MOTION_CLIP_SECONDS,
   animatePhoto,
@@ -158,6 +158,8 @@ export interface SmartVideoOptions {
   presenter?: boolean;
   /** More checks on the script (the free video funnel, script-checks.ts); unset for paying users. */
   checkScript?: (plan: DirectorPlan) => string | null;
+  /** Another model or looser rules for the director (the free video funnel: Flash, owner 2026-10-07). */
+  director?: DirectorOptions;
 }
 
 export async function createSmartVideo(
@@ -176,7 +178,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false, checkScript }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false, checkScript, director }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
   const photos = assets.filter((a) => a.kind === 'image').length;
@@ -203,7 +205,7 @@ async function produce(
             return null;
           })
       : null;
-  const directed = await directVideo(brief, assets, length, format, look, listing, checkScript);
+  const directed = await directVideo(brief, assets, length, format, look, listing, checkScript, director);
   // Listing videos keep their own recipe.
   const plan = adjustPlan && !listing ? adjustPlan(directed) : directed;
   // With the script ready, the presenter records scene 1 word for word, beside the production.

@@ -379,15 +379,15 @@ async function main(): Promise<void> {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'free-video-checks-'));
   try {
     const clip = path.join(tmp, 'clip.mp4');
-    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=1080x1920:rate=30:duration=3', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-c:a', 'aac', clip]);
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=720x1280:rate=30:duration=3', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-c:a', 'aac', clip]);
     const local = { ...job, videoUrl: clip, durationSeconds: 3 };
     const probed = await qualityGate(local, saved, { domain });
-    check('ffprobe: frame, sound and length of a matching file pass', !probed.reasons.some((r) => /mismatch|no audio|not 1080x1920|too quiet|file check failed/.test(r)), probed.reasons.join('; '));
+    check('ffprobe: frame, sound and length of a matching file pass', !probed.reasons.some((r) => /mismatch|no audio|not \d+x\d+|too quiet|file check failed/.test(r)), probed.reasons.join('; '));
     check('ffprobe: the probe length is read', Math.abs(Number(probed.facts.probeSeconds) - 3) < 0.2, String(probed.facts.probeSeconds));
     const longer = await qualityGate({ ...local, durationSeconds: 4 }, saved, { domain });
     check("a file 1 s short of the job → 'render length mismatch' (the stale-bundle catch)", longer.reasons.includes('render length mismatch'));
     const wide = await qualityGate(local, { ...saved, media: saved.media && { ...saved.media, format: 'horizontal' } }, { domain });
-    check("a vertical file for a horizontal plan → 'not 1920x1080'", wide.reasons.includes('not 1920x1080'));
+    check("a vertical file for a horizontal plan → 'not 1280x720' (720p since 2026-10-07)", wide.reasons.includes('not 1280x720'));
     const down = await qualityGate({ ...job, videoUrl: 'http://127.0.0.1:9/video.mp4' }, saved, { domain });
     check('a download that fails on our side is inconclusive, not a verdict (review F4)', down.inconclusive === true && !down.pass, down.reasons.join('; '));
   } catch (error) {

@@ -7,6 +7,9 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 const PRICES = {
   directorInputPerM: 2.0, // gemini-3.1-pro-preview, prompts <= 200k
   directorOutputPerM: 12.0, // includes thinking tokens
+  // The free video ads' director (gemini-3.6-flash, 2026-10-07): approximate Gemini 3 Flash list prices, to be checked on ai.google.dev/pricing.
+  flashInputPerM: 0.5,
+  flashOutputPerM: 3.0,
   ttsInputPerM: 1.0, // gemini-3.1-flash-tts-preview
   ttsAudioPerM: 20.0, // 25 audio tokens per second
   musicPerSong: 0.08, // lyria-3.5
@@ -76,10 +79,12 @@ export function usageOf(error: unknown): UsageEntry[] {
 const add = (step: string, usd: number, detail: string) => store.getStore()?.push({ step, usd, detail });
 
 export const usage = {
-  director: (meta: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } = {}) => {
+  director: (meta: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } = {}, model = '') => {
     const input = meta.promptTokenCount || 0;
     const output = (meta.candidatesTokenCount || 0) + (meta.thoughtsTokenCount || 0);
-    add('director', (input * PRICES.directorInputPerM + output * PRICES.directorOutputPerM) / 1e6, `${input} in / ${output} out tokens`);
+    const flash = model.includes('flash');
+    const cost = flash ? input * PRICES.flashInputPerM + output * PRICES.flashOutputPerM : input * PRICES.directorInputPerM + output * PRICES.directorOutputPerM;
+    add('director', cost / 1e6, `${input} in / ${output} out tokens${flash ? ` (${model})` : ''}`);
   },
   voice: (meta: { promptTokenCount?: number; candidatesTokenCount?: number } = {}, seconds: number) => {
     const audioTokens = meta.candidatesTokenCount || Math.round(seconds * 25);

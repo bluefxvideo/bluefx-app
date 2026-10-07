@@ -234,6 +234,8 @@ export interface SmartVideoRunHooks {
   beforeRender?: (result: SmartVideoResult) => SmartVideoResult;
   /** Hears about every file the job saves, the moment it is saved (the free video ad's live status page). */
   onStored?: (name: string, url: string) => void;
+  /** Renders smaller than the composition (the free video ads: 720p, about 40% faster). */
+  renderScale?: number;
 }
 
 export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string; path: string }[], hooks: SmartVideoRunHooks = {}): Promise<void> {
@@ -315,7 +317,7 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
     if (job.listing) job = { ...job, clipCharges: [...clipCharges], creditsUsed: (initial.creditsUsed ?? 0) + clipCharges.length * LISTING_CLIP_CREDITS };
     await finish(job, hooks.beforeRender ? hooks.beforeRender(result) : result, brief, (next) => {
       job = next;
-    });
+    }, hooks.renderScale);
   } catch (error) {
     console.error(`❌ Smart Video job ${job.id} failed:`, error);
     // What the job had already spent at the APIs is kept with it (forViewer keeps it off the page).
@@ -343,7 +345,7 @@ export function scriptOf(plan: DirectorPlan): SmartVideoScriptScene[] {
 }
 
 /** Shared ending of a new video and a revision: save the plan, render, level the sound. */
-export async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: string, track: (job: SmartVideoJob) => void): Promise<void> {
+export async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: string, track: (job: SmartVideoJob) => void, renderScale = 1): Promise<void> {
   let job = start;
   const dir = jobDir(job.userId, job.id);
   const { props, plan, media, durationSeconds, usage, warnings } = result;
@@ -377,7 +379,7 @@ export async function finish(start: SmartVideoJob, result: SmartVideoResult, bri
       reported = progress;
       writeJob(job).catch(() => undefined);
     }
-  });
+  }, renderScale);
 
   job = await writeJob(job, { status: 'finishing' });
   const videoUrl = await upload(`${dir}/video.mp4`, await levelLoudness(renderedUrl), 'video/mp4');

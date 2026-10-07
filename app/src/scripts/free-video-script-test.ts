@@ -6,6 +6,9 @@
  * rejected plan prints a ⚠️ line), so a full run of 10 websites costs about $4 to $5 and an --after-only run about $2.50.
  *
  * Run from app/:  FREE_VIDEO_ALLOW_PAID=1 npx tsx src/scripts/free-video-script-test.ts [--after-only=<earlier results .json>]
+ *   [--writer=<model>[:<thinking level>]] [--loose] [--sites=<how many>]
+ * --writer writes the AFTER scripts with another director model or thinking level (the speed test, 2026-10-07: "is there
+ * anything we can do to make the generation shorter?") and prints how long each script took.
  * --after-only writes only the AFTER scripts and compares them with the BEFORE scores of an earlier run (half the cost).
  */
 import { config } from 'dotenv';
@@ -42,6 +45,12 @@ const BEFORE_NOTE = (domain: string) =>
 
 const JUDGE_MODEL = 'gemini-3.6-flash';
 const AFTER_ONLY = process.argv.find((arg) => arg.startsWith('--after-only='))?.split('=')[1];
+const WRITER_ARG = process.argv.find((arg) => arg.startsWith('--writer='))?.split('=')[1];
+const LOOSE = process.argv.includes('--loose');
+const WRITER = WRITER_ARG || LOOSE
+  ? { model: WRITER_ARG?.split(':')[0] || undefined, thinkingLevel: (WRITER_ARG?.split(':')[1] || undefined) as 'minimal' | 'low' | 'medium' | 'high' | undefined, looseRules: LOOSE }
+  : undefined;
+const SITE_COUNT = Number(process.argv.find((arg) => arg.startsWith('--sites='))?.split('=')[1]) || SITES.length;
 
 interface Score {
   hook: number;
@@ -119,22 +128,25 @@ async function main(): Promise<void> {
     ? Object.fromEntries((JSON.parse(fs.readFileSync(AFTER_ONLY, 'utf8')) as { site: string; scoreBefore: Score; scriptBefore: string }[]).map((row) => [row.site, row]))
     : {};
   const rows: Record<string, unknown>[] = [];
-  for (let i = 0; i < SITES.length; i += 5) {
+  const sites = SITES.slice(0, SITE_COUNT);
+  for (let i = 0; i < sites.length; i += 5) {
     await Promise.all(
-      SITES.slice(i, i + 5).map(async (site) => {
+      sites.slice(i, i + 5).map(async (site) => {
         try {
           const normalized = normalizeWebsite(site);
           if (!normalized.ok) throw new Error(normalized.code);
           const read = await readBusinessSite(normalized.url);
           const assets = await prepareAssets(read.files, store);
           const domain = displayDomain(normalized.domain);
-          const write = (note: string, check?: (plan: never) => string | null) =>
-            directVideo(`${read.brief}\n\nNOTE FROM THE CLIENT:\n${note}`, assets, 'auto', 'vertical', 'whiteboard', null, check as never);
+          const write = (note: string, check?: (plan: never) => string | null, writer?: typeof WRITER) =>
+            directVideo(`${read.brief}\n\nNOTE FROM THE CLIENT:\n${note}`, assets, 'auto', 'vertical', 'whiteboard', null, check as never, writer);
           const old = earlier[site];
-          const [before, after] = await Promise.all([
-            old ? null : write(BEFORE_NOTE(domain)),
-            write(freeNote(domain), ((plan: Parameters<typeof checkFreeScript>[0]) => checkFreeScript(plan, read.brief)) as never),
-          ]);
+          const started = Date.now();
+          const timedAfter = write(freeNote(domain), ((plan: Parameters<typeof checkFreeScript>[0]) => checkFreeScript(plan, read.brief)) as never, WRITER).then((plan) => ({
+            plan,
+            seconds: Math.round((Date.now() - started) / 100) / 10,
+          }));
+          const [before, { plan: after, seconds }] = await Promise.all([old ? null : write(BEFORE_NOTE(domain)), timedAfter]);
           const scriptBefore = old ? old.scriptBefore : scriptOf(before!);
           const [scoreBefore, scoreAfter] = await Promise.all([old ? old.scoreBefore : judge(read.brief, scriptBefore), judge(read.brief, scriptOf(after))]);
           rows.push({
@@ -146,8 +158,10 @@ async function main(): Promise<void> {
             scoreAfter,
             scriptBefore,
             scriptAfter: scriptOf(after),
+            afterSeconds: seconds,
+            writer: WRITER_ARG ?? 'director (default)',
           });
-          console.log(`${site}: before ${total(scoreBefore)}/10 → after ${total(scoreAfter)}/10`);
+          console.log(`${site}: before ${total(scoreBefore)}/10 → after ${total(scoreAfter)}/10 (${seconds} s)`);
         } catch (error) {
           console.log(`❌ ${site}: ${String(error).slice(0, 160)}`);
         }
@@ -158,7 +172,10 @@ async function main(): Promise<void> {
   const mean = (key: 'before' | 'after') => (done.reduce((sum, r) => sum + (r[key] as number), 0) / Math.max(1, done.length)).toFixed(1);
   const keys = ['hook', 'specific', 'no_filler', 'offer', 'cta'] as const;
   const sum = (key: (typeof keys)[number], side: 'scoreBefore' | 'scoreAfter') => done.reduce((n, r) => n + ((r[side] as Score)[key] || 0), 0);
-  console.log(`\nAVERAGE: before ${mean('before')}/10 → after ${mean('after')}/10 on ${done.length} websites`);
+  const seconds = done.map((r) => r.afterSeconds as number).sort((a, b) => a - b);
+  console.log(`\nWRITER: ${WRITER_ARG ?? 'director (default)'}${LOOSE ? ' with the looser rules' : ''}`);
+  console.log(`AVERAGE: before ${mean('before')}/10 → after ${mean('after')}/10 on ${done.length} websites`);
+  console.log(`TIME per script: average ${(seconds.reduce((a, b) => a + b, 0) / Math.max(1, seconds.length)).toFixed(1)} s, median ${seconds[Math.floor(seconds.length / 2)] ?? 0} s, slowest ${seconds[seconds.length - 1] ?? 0} s`);
   console.log(`PER POINT (max ${2 * done.length}): ${keys.map((key) => `${key} ${sum(key, 'scoreBefore')}→${sum(key, 'scoreAfter')}`).join(', ')}`);
   const out = path.resolve(__dirname, `../../../remotion/test-plans/script-test-${Date.now()}.json`);
   fs.writeFileSync(out, JSON.stringify(rows, null, 1));

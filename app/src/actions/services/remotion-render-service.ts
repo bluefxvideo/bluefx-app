@@ -23,6 +23,8 @@ export interface RenderRequest {
   codec?: string;
   quality?: number;
   userId?: string;
+  /** A smaller output with the same layout (the free video ads render at 720p: 2/3). */
+  scale?: number;
 }
 
 export interface RenderStartResult {
@@ -85,6 +87,7 @@ export async function startRemotionRender(
       codec: request.codec || 'h264',
       quality: request.quality || 80,
       userId: request.userId || null,
+      ...(request.scale && request.scale !== 1 ? { scale: request.scale } : {}),
       async: true, // always async — return immediately
     };
 

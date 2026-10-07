@@ -396,7 +396,10 @@ app.post("/render", async (req, res) => {
       userId = null,
       listingId = null,
       async = false,
+      // A smaller output (the free video ads render at 720p: 2/3), the same layout. 1 = the composition's own size.
+      scale = 1,
     } = req.body;
+    const renderScale = Number.isFinite(Number(scale)) && Number(scale) >= 0.25 && Number(scale) <= 1 ? Number(scale) : 1;
 
     console.log("\n🎬 ===== RENDER REQUEST STARTED =====");
     console.log("📝 Request details:", {
@@ -495,7 +498,8 @@ app.post("/render", async (req, res) => {
         filename,
         userId,
         listingId,
-        renderStartTime
+        renderStartTime,
+        renderScale
       );
       
       return; // Exit early for async mode
@@ -537,6 +541,7 @@ app.post("/render", async (req, res) => {
         codec,
         outputLocation,
         inputProps: syncLocalProps,
+        ...(renderScale !== 1 ? { scale: renderScale } : {}),
         jpegQuality: quality,
         logLevel: "verbose",
         concurrency: syncConcurrency,
@@ -1077,7 +1082,8 @@ async function performBackgroundRender(
   filename,
   userId,
   listingId,
-  renderStartTime
+  renderStartTime,
+  scale = 1
 ) {
   let tempDir = null;
   let renderAborted = false;
@@ -1133,6 +1139,7 @@ async function performBackgroundRender(
       codec,
       outputLocation,
       inputProps: localInputProps,
+      ...(scale !== 1 ? { scale } : {}),
       jpegQuality: quality,
       logLevel: "verbose",
       concurrency: effectiveConcurrency,

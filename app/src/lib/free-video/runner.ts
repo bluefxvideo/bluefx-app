@@ -17,7 +17,9 @@ import {
   END_CARD_SECONDS,
   fakeFailMode,
   fakeMode,
+  FREE_DIRECTOR,
   FREE_PLAN,
+  FREE_RENDER_SCALE,
   freeNote,
   GATE,
   isLive,
@@ -212,6 +214,8 @@ export function freeOptions(
     ...base,
     look: 'whiteboard',
     checkScript: (plan) => checkFreeScript(plan, siteText),
+    // Flash with the looser rules: the script in about 45 s instead of 2-3 minutes (owner 2026-10-07).
+    director: FREE_DIRECTOR,
     stillCamera: true,
     presenter: true,
     adjustPlan: (plan) => {
@@ -418,6 +422,8 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): SmartVideoRunHooks {
       return freeRender(result);
     },
     onStored: (name, url) => live.stored(name, url),
+    // 720p: the render about 40% faster (owner 2026-10-07); the $99 clean version renders at 1080p from the saved props.
+    renderScale: FREE_RENDER_SCALE,
   };
 }
 

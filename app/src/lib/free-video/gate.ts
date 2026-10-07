@@ -16,7 +16,7 @@ import { domainToUnicode } from 'node:url';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
-import { GATE } from '@/lib/free-video/config';
+import { FREE_RENDER_SCALE, GATE } from '@/lib/free-video/config';
 import type { SavedPlan } from '@/lib/smart-video/jobs';
 import type { DirectorPlan } from '@/lib/smart-video/types';
 import type { FreeVideoGateResult } from '@/types/free-video';
@@ -220,8 +220,11 @@ export async function probeFile(file: string): Promise<FileProbe> {
   };
 }
 
-/** The frame size of a free video ad in this format. */
-export const frameOf = (format: string | undefined) => (format === 'horizontal' ? { width: 1920, height: 1080 } : { width: 1080, height: 1920 });
+/** The frame size of a free video ad in this format: 1080p scaled by FREE_RENDER_SCALE (720p since 2026-10-07). */
+export const frameOf = (format: string | undefined) => {
+  const [width, height] = format === 'horizontal' ? [1920, 1080] : [1080, 1920];
+  return { width: Math.round(width * FREE_RENDER_SCALE), height: Math.round(height * FREE_RENDER_SCALE) };
+};
 
 /** The file checks: length against the job (catches a stale Remotion bundle), audio, frame size, file size, loudness. */
 async function fileChecks(job: GateJob, saved: SavedPlan | null, reasons: string[], facts: Record<string, unknown>): Promise<boolean> {

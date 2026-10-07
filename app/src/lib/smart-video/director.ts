@@ -4,6 +4,15 @@ import { asListingPlan, checkListingPlan, listingPhotoCount, listingRecipe, type
 import { usage } from './usage';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
+/**
+ * How one caller wants the director to work (the free video funnel, owner 2026-10-07): another model or thinking level,
+ * and looser taste rules (a taped photo counts as a picture, one block is enough for a scene). Absent = the usual director.
+ */
+export interface DirectorOptions {
+  model?: string;
+  thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high';
+  looseRules?: boolean;
+}
 // Takes over when the director's model is overloaded: stable, sees images and video, writes JSON.
 const DIRECTOR_STAND_IN = 'gemini-2.5-pro';
 
@@ -125,7 +134,9 @@ export async function directVideo(
   /** The automatic listing video: a fixed recipe on top of the general rules. */
   listing: ListingOptions | null = null,
   /** More checks on the script (the free video funnel): a problem sends the plan back; the last try skips them. */
-  extraCheck?: (plan: DirectorPlan) => string | null
+  extraCheck?: (plan: DirectorPlan) => string | null,
+  /** Another model, thinking level or looser rules (the free video funnel); absent = the usual director. */
+  writer?: DirectorOptions
 ): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
@@ -148,8 +159,10 @@ export async function directVideo(
 
   const plan = await askDirector(
     parts,
-    (candidate, lastChance) => checkPlan(candidate, assets, brief, length, false, lastChance, look, listing) ?? (lastChance ? null : (extraCheck?.(candidate) ?? null)),
-    length === 'script' ? 480_000 : 280_000
+    (candidate, lastChance) =>
+      checkPlan(candidate, assets, brief, length, false, lastChance, look, listing, writer?.looseRules) ?? (lastChance ? null : (extraCheck?.(candidate) ?? null)),
+    length === 'script' ? 480_000 : 280_000,
+    writer
   );
   return listing ? asListingPlan(plan, listingPhotoCount(listing.seconds, photos)) : plan;
 }
@@ -170,7 +183,7 @@ const BUSY_WAITS_MS = [3000, 8000, 20000];
  * (2026-10-01: two edits died on it within two seconds). A busy answer is retried three times,
  * then the stand-in model takes the call (two retries of its own); only when both are down does the job fail, in plain words.
  */
-async function generate(key: string, body: string, timeoutMs: number): Promise<any> {
+async function generate(key: string, body: string, timeoutMs: number, model = DIRECTOR_MODEL): Promise<any> {
   const call = (model: string) =>
     fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
@@ -178,22 +191,27 @@ async function generate(key: string, body: string, timeoutMs: number): Promise<a
       body,
       signal: AbortSignal.timeout(timeoutMs),
     });
-  for (const model of [DIRECTOR_MODEL, DIRECTOR_STAND_IN]) {
+  for (const current of [model, DIRECTOR_STAND_IN]) {
     // 2026-10-01: every Gemini model refused a quarter to all of its calls for a while, so the stand-in is retried too.
-    const waits = model === DIRECTOR_MODEL ? BUSY_WAITS_MS : BUSY_WAITS_MS.slice(0, 2);
+    const waits = current === model ? BUSY_WAITS_MS : BUSY_WAITS_MS.slice(0, 2);
     for (let attempt = 0; attempt <= waits.length; attempt++) {
-      const res = await call(model);
+      const res = await call(current);
       if (res.ok) return res.json();
       const detail = (await res.text()).slice(0, 300);
       if (!BUSY.has(res.status)) throw new Error(`Director call failed (${res.status}): ${detail}`);
-      console.warn(`⚠️ Director model ${model} is busy (${res.status}), attempt ${attempt + 1}`);
+      console.warn(`⚠️ Director model ${current} is busy (${res.status}), attempt ${attempt + 1}`);
       if (attempt < waits.length) await new Promise((resolve) => setTimeout(resolve, waits[attempt]));
     }
   }
   throw new Error("The AI model that plans the video is overloaded right now. That is on Google's side and usually passes within minutes: please try again.");
 }
 
-async function askDirector(parts: unknown[], check: (plan: DirectorPlan, lastChance: boolean) => string | null, timeoutMs: number): Promise<DirectorPlan> {
+async function askDirector(
+  parts: unknown[],
+  check: (plan: DirectorPlan, lastChance: boolean) => string | null,
+  timeoutMs: number,
+  writer?: DirectorOptions
+): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
   let feedback = '';
@@ -203,11 +221,16 @@ async function askDirector(parts: unknown[], check: (plan: DirectorPlan, lastCha
       key,
       JSON.stringify({
         contents: [{ parts: feedback ? [...parts, { text: feedback }] : parts }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.6 },
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.6,
+          ...(writer?.thinkingLevel ? { thinkingConfig: { thinkingLevel: writer.thinkingLevel } } : {}),
+        },
       }),
-      timeoutMs
+      timeoutMs,
+      writer?.model
     );
-    usage.director(json.usageMetadata);
+    usage.director(json.usageMetadata, writer?.model ?? DIRECTOR_MODEL);
     const text: string = (json.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('');
 
     try {
@@ -287,7 +310,9 @@ function checkPlan(
   revision: boolean,
   lastChance = false,
   look: StyleName | null = null,
-  listing: ListingOptions | null = null
+  listing: ListingOptions | null = null,
+  /** The free video funnel's looser taste rules (DirectorOptions.looseRules). */
+  loose = false
 ): string | null {
   // The look the client picked is a promise, like their exact words.
   if (look && plan.style !== look) return `the client chose the look "${look}": "style" must be "${look}".`;
@@ -314,7 +339,8 @@ function checkPlan(
     // With captions on, a full-frame scene is told to carry just a title: that must pass.
     // A drawing carries its scene the way a full-frame photo does.
     // A listing's room photos carry no text at all.
-    const minimum = listing && scene.background.type === 'mediaFull' ? 0 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
+    // Looser rules (free video ads): a title alone carries a scene; each extra required block cost a 30-70 s rewrite.
+    const minimum = listing && scene.background.type === 'mediaFull' ? 0 : loose ? 1 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
   // A listing video has its own recipe; the general taste rules below (word floor, file spread) do not fit it.
@@ -349,7 +375,12 @@ function checkPlan(
   }
   if (plan.style === 'whiteboard') {
     const drawn = plan.scenes.filter((scene) => scene.background.type === 'drawing');
-    if (drawn.length < Math.ceil(plan.scenes.length / 2)) return 'a whiteboard video draws most of its scenes: give at least half of them a "drawing" background.';
+    // Looser rules (free video ads): a photo taped to the board, a gallery, the logo or a person talking is a picture too.
+    const pictured = loose ? plan.scenes.filter((scene) => scene.background.type === 'drawing' || scene.speaker || scene.blocks.some((b) => ['media', 'gallery', 'logo'].includes(b.type))) : drawn;
+    if (pictured.length < Math.ceil(plan.scenes.length / 2))
+      return loose
+        ? 'a whiteboard video shows a picture in most scenes: give at least half of them a "drawing" background or a photo taped to the board.'
+        : 'a whiteboard video draws most of its scenes: give at least half of them a "drawing" background.';
     const twice = drawn.map((scene) => scene.background.asset).find((id, k, all) => all.indexOf(id) !== k);
     if (twice) return `drawing "${twice}" is used in two scenes; every drawing scene gets its own drawing.`;
     if (plan.scenes.some((scene) => !scene.speaker && ['mediaFull', 'mediaBlur'].includes(scene.background.type)))

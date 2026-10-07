@@ -13,8 +13,8 @@ import { checkRemotionProgress, startRemotionRender } from '@/actions/services/r
 const run = promisify(execFile);
 
 /** Renders the props and returns where the render server keeps the result. */
-export async function renderSmartVideo(props: Record<string, unknown>, onProgress: (percent: number) => void): Promise<string> {
-  const started = await startRemotionRender({ compositionId: 'SmartVideo', inputProps: props });
+export async function renderSmartVideo(props: Record<string, unknown>, onProgress: (percent: number) => void, scale = 1): Promise<string> {
+  const started = await startRemotionRender({ compositionId: 'SmartVideo', inputProps: props, scale });
   if (!started.success || !started.renderId) {
     // The cause ("fetch failed", a status code) means nothing to the person waiting for a video.
     console.error('❌ The render did not start:', started.error);

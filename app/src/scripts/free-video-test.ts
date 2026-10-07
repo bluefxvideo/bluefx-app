@@ -42,9 +42,9 @@ const storeLocal = async (data: Buffer, name: string) => {
 };
 
 /** The worktree's composition, rendered by the Remotion CLI, then levelled to -14 LUFS exactly like levelLoudness. */
-function renderLocal(propsFile: string, output: string): void {
+function renderLocal(propsFile: string, output: string, scale = 2 / 3): void {
   const raw = output.replace(/\.mp4$/, '.raw.mp4');
-  execFileSync('npx', ['remotion', 'render', 'src/Root.jsx', 'SmartVideo', raw, `--props=${propsFile}`, '--codec=h264', '--crf=20', '--concurrency=10', '--log=error'], {
+  execFileSync('npx', ['remotion', 'render', 'src/Root.jsx', 'SmartVideo', raw, `--props=${propsFile}`, '--codec=h264', '--crf=20', '--concurrency=10', `--scale=${scale}`, '--log=error'], {
     cwd: REMOTION,
     stdio: 'inherit',
   });
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
     fs.writeFileSync(cleanFile, JSON.stringify(cleanProps(marked.props), null, 2));
     const cleanOutput = path.join(OUT, `free-${job}-clean.mp4`);
     console.log('🔄 Rendering the $29 clean version (no watermark, no end card)...');
-    renderLocal(cleanFile, cleanOutput);
+    renderLocal(cleanFile, cleanOutput, 1);
     const cleanGate = await qualityGate({ videoUrl: cleanOutput, durationSeconds: result.durationSeconds }, { plan: result.plan, props: cleanProps(marked.props), media: result.media }, { domain });
     const fileReasons = cleanGate.reasons.filter((reason) => /mismatch|audio|not 1080|too quiet|file/.test(reason));
     console.log(fileReasons.length ? `⚠️ Clean file: ${fileReasons.join('; ')}` : `✅ Clean file: ${cleanGate.facts.probeSeconds} s → ${cleanOutput}`);
