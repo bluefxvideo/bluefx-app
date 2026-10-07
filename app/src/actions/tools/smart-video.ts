@@ -7,12 +7,13 @@ import { ZodError } from 'zod';
 import { createAdminClient, createClient } from '@/app/supabase/server';
 import { transcribeWords } from '@/lib/smart-video/audio';
 import { reviseSmartVideo, type SmartVideoMedia } from '@/lib/smart-video/pipeline';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingOptions } from '@/lib/smart-video/listing';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import {
   BUCKET,
   DEAD_JOB,
+  chargePresenter,
   createJob,
   download,
   failAndRefund,
@@ -147,6 +148,15 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       return createApiError(`Add at least ${LISTING_MIN_PHOTOS} photos of the home, or paste the listing link`);
     }
     const credits = listing ? LISTING_CREDITS : phantomCredits(parsed.brief, parsed.length === 'script');
+    // The AI presenter opens vertical Phantom videos only (presenter.ts films 9:16); it is charged on its own.
+    const presenter = parsed.presenter && !listing && parsed.format !== 'horizontal';
+    if (presenter) {
+      const needed = credits + PHANTOM_PRESENTER_CREDITS;
+      const balance = await availableCredits(userId);
+      if (balance < needed) {
+        return createApiError(`This video needs ${needed} credits: ${credits} for the video and ${PHANTOM_PRESENTER_CREDITS} for the AI presenter. You have ${balance}.`);
+      }
+    }
     if (listing) {
       // The clips are charged photo by photo while the video is made: the balance has to cover all of them now.
       const photos = listingPhotoCount(listing.seconds, (parsed.link ? listingLinkPhotos(parsed.uploads.length) : 0) + parsed.uploads.length);
@@ -158,6 +168,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     }
     const chargeError = await charge(userId, parsed.jobId, credits, listing ? 'listing-video' : 'smart-video');
     if (chargeError) return createApiError(chargeError);
+    const presenterPaid = presenter ? await chargePresenter(userId, parsed.jobId) : false;
 
     const now = new Date().toISOString();
     const job = await createJob({
@@ -171,8 +182,9 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       look: parsed.look,
       voiceOver: parsed.voiceOver,
       music: parsed.music,
+      ...(presenterPaid ? { presenter: true } : {}),
       ...(listing ? { listing } : {}),
-      creditsUsed: credits,
+      creditsUsed: credits + (presenterPaid ? PHANTOM_PRESENTER_CREDITS : 0),
       createdAt: now,
       updatedAt: now,
     });

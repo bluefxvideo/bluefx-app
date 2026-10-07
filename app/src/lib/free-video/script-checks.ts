@@ -4,45 +4,8 @@
  * the same way it gets one back for too few words. The director's last try skips these checks (pipeline.ts
  * checkScript), so a free video ad never fails over wording. Pure: the offline checks and the script test use it.
  */
+import { EMPTY_PHRASES, sceneText, STOCK_OPENER } from '@/lib/smart-video/script-rules';
 import type { DirectorPlan } from '@/lib/smart-video/types';
-
-/** Phrases that say nothing a customer can check. Each one sends the plan back once. */
-const EMPTY_PHRASES = [
-  'expert guidance',
-  'ready to help',
-  'here to help',
-  'look no further',
-  'at your service',
-  'trusted partner',
-  'second to none',
-  'one-stop shop',
-  'one stop shop',
-  'top-notch',
-  'top notch',
-  'world-class',
-  'world class',
-  'state-of-the-art',
-  'cutting-edge',
-  "we've got you covered",
-  'we have you covered',
-  'take it to the next level',
-  'exceptional service',
-  'unmatched',
-  'unparalleled',
-  'we pride ourselves',
-  'find your paradise',
-  'quality service',
-  'your satisfaction is our',
-  'every step of the way',
-  'tradition meets',
-  'to perfection',
-  'true taste of',
-  'dream home',
-  'look your best',
-];
-
-// The openers every ad uses: scene 1 starting with one of these goes back once (owner 2026-10-06, "hook rule").
-const STOCK_OPENER = /^\s*(?:(?:are you|do you|still)\s+)?(?:looking for|searching for|in need of|need an?|need some|craving|want an?|welcome to|introducing|discover)\b/i;
 
 // Offers a website makes in so many words: "free roof inspection", "free estimate", "20% off", "new patient special".
 const FREE_THING =
@@ -71,17 +34,6 @@ function offerWord(offer: string): string {
   if (free) return free[1].replace(/s$/, '');
   if (/new (?:patient|client|customer|member)/.test(offer)) return offer.split(' ')[1].replace(/s$/, '');
   return offer;
-}
-
-type Scene = DirectorPlan['scenes'][number];
-
-/** Everything a scene says and shows, lowercased. */
-function sceneText(scene: Scene): string {
-  const shown = scene.blocks.flatMap((block) => {
-    const b = block as { text?: string; items?: { text?: string }[] };
-    return [b.text ?? '', ...(b.items ?? []).map((item) => item.text ?? '')];
-  });
-  return [scene.narration, ...shown].join(' ').toLowerCase();
 }
 
 /**

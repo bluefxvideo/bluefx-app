@@ -12,7 +12,7 @@ import {
 } from '@/actions/tools/smart-video';
 import { cleanLink } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingLength } from '@/lib/smart-video/listing';
 import type { PhantomExample } from '@/lib/smart-video/examples';
 import { urlToFile } from '@/lib/url-to-file';
@@ -45,6 +45,9 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   // The soundtrack: a narrator and music, each of which the client can switch off
   const [voiceOver, setVoiceOver] = useState(true);
   const [music, setMusic] = useState(true);
+  // An AI presenter opens the video and says the first line: on by default, vertical Phantom videos only.
+  const [presenter, setPresenter] = useState(true);
+  const withPresenter = !isListing && format === 'vertical' && presenter;
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -123,6 +126,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         look,
         voiceOver,
         music,
+        presenter: withPresenter,
         ...(isListing ? { listing: { seconds: listingSeconds, ...(instructions.trim() ? { instructions: instructions.trim() } : {}) } } : {}),
         link: cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
@@ -136,7 +140,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, look, voiceOver, music, files, queryClient, isListing, listingSeconds, instructions]);
+  }, [brief, link, exactWords, format, look, voiceOver, music, withPresenter, files, queryClient, isListing, listingSeconds, instructions]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
@@ -265,6 +269,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     setVoiceOver,
     music,
     setMusic,
+    presenter,
+    setPresenter,
     files,
     addFiles,
     replaceFiles: setFiles,
@@ -274,7 +280,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     // The app was updated while this tab was open: its requests no longer reach the server until a reload.
     stalePage: isStalePageError(jobError?.message) || isStalePageError(historyError?.message),
     uploading,
-    credits: isListing ? LISTING_CREDITS : phantomCredits(brief, exactWords),
+    credits: isListing ? LISTING_CREDITS : phantomCredits(brief, exactWords) + (withPresenter ? PHANTOM_PRESENTER_CREDITS : 0),
     revise,
     revising,
     isBusy: Boolean(uploading) || revising || isRunning(job) || (Boolean(jobId) && !job),

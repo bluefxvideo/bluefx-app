@@ -21,6 +21,8 @@ import { EMAIL_DRAFTS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { copyIdOf } from '@/lib/free-video/claim';
 import { afterLoginPath, AFTER_LOGIN_PATH } from '@/lib/after-login';
+import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
+import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
 import { offerUrl, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
@@ -498,7 +500,17 @@ async function main(): Promise<void> {
   }
 
   // 15. -----------------------------------------------------------------------------------------
-  section('15. freeNote (read by eye)');
+  section('15. The Phantom: script rules and the presenter price');
+  const scene = (narration: string, title = '') => ({ narration, speaker: null, background: { type: 'brand', asset: null, focus: null }, blocks: title ? [{ type: 'title', text: title, tone: 'light', cue: null }] : [] });
+  const planOf = (...lines: string[]) => ({ scenes: lines.map((line) => scene(line)) }) as unknown as Parameters<typeof checkAdScript>[0];
+  check('a stock opener goes back', (checkAdScript(planOf('Looking for a plumber in Tampa?', 'Call Joe today.')) ?? '').includes('Looking for'));
+  check('an empty phrase goes back', (checkAdScript(planOf('This is the storm damage most homeowners never see.', 'Our top-notch crew fixes it.')) ?? '').includes('top-notch'));
+  check('a specific script passes', checkAdScript(planOf('This is the storm damage most homeowners never see.', 'Book your free roof inspection at the website on screen.')) === null);
+  check('the director reads the hook rule with the rewrite rule', SCRIPT_RULES.includes('6 to 12 words') && SCRIPT_RULES.includes('Looking for'));
+  check('the presenter costs 10 credits', PHANTOM_PRESENTER_CREDITS === 10);
+
+  // 16. -----------------------------------------------------------------------------------------
+  section('16. freeNote (read by eye)');
   console.log(freeNote('example.com'));
 
   console.log(`\n${failed ? `${failed} FAIL` : 'all PASS'}${skipped ? `, ${skipped} SKIP` : ''}`);

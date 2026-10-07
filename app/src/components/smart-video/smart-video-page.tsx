@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_EDIT_FILES, SMART_VIDEO_MAX_FILE_MB, type SmartVideoJob, type SmartVideoJobStatus } from '@/types/smart-video';
 import { cleanLink, describeLink } from '@/lib/smart-video/link';
-import { PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
+import { PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
 import { PhantomExamples, PhantomTips } from './phantom-examples';
@@ -281,6 +281,25 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
           </p>
         </div>
         <Switch id="smart-exact" checked={smart.exactWords} onCheckedChange={smart.setExactWords} disabled={smart.isBusy} />
+      </div>
+
+      <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+        <div className="space-y-1">
+          <Label htmlFor="smart-presenter">AI presenter</Label>
+          <p className="text-xs text-muted-foreground">
+            {smart.format === 'horizontal'
+              ? 'For vertical videos only.'
+              : smart.presenter
+                ? `A person opens the video and says the first line on camera, then the narrator takes over. ${PHANTOM_PRESENTER_CREDITS} credits more, given back if the presenter cannot be made.`
+                : 'Off: the video starts with the first scene.'}
+          </p>
+        </div>
+        <Switch
+          id="smart-presenter"
+          checked={smart.presenter && smart.format !== 'horizontal'}
+          onCheckedChange={smart.setPresenter}
+          disabled={smart.isBusy || smart.format === 'horizontal'}
+        />
       </div>
 
       <div className="space-y-2">

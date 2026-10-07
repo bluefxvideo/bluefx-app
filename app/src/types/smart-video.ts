@@ -22,6 +22,8 @@ export const SmartVideoStartSchema = z.object({
   // The soundtrack: a narrator reading the script, and music. Both on unless the client switches one off.
   voiceOver: z.boolean().default(true),
   music: z.boolean().default(true),
+  // A person opens the video and says the first line (vertical Phantom videos only; PHANTOM_PRESENTER_CREDITS more).
+  presenter: z.boolean().default(false),
   // ReelEstate's automatic listing video: the chosen length (every photo becomes a moving clip),
   // and what the client wants done differently, in their own words.
   listing: z
@@ -76,6 +78,8 @@ export interface SmartVideoJob {
   /** The soundtrack the client chose. Absent on older videos = on. */
   voiceOver?: boolean;
   music?: boolean;
+  /** An AI presenter was asked for and paid for (PHANTOM_PRESENTER_CREDITS under presenterReference): it says scene 1. */
+  presenter?: boolean;
   /** Set on ReelEstate's automatic listing videos. */
   listing?: ListingOptions;
   /** Listing video: the photos whose animation was charged (6 credits each), by asset id. */

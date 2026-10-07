@@ -10,6 +10,11 @@ export const PHANTOM_CREDITS = 50;
 export const PHANTOM_EXTRA_MINUTE_CREDITS = 20;
 /** A change to a finished video from a note. */
 export const PHANTOM_REVISION_CREDITS = 10;
+/**
+ * The AI presenter who opens a vertical video and says the first line (presenter.ts: about $0.58 at the APIs, the same
+ * rate as ReelEstate's animated photos). Charged on its own and given back when the presenter does not make it into the video.
+ */
+export const PHANTOM_PRESENTER_CREDITS = 10;
 
 /** The automatic listing video (ReelEstate): the video itself, plus each photo that becomes a moving clip. */
 export const LISTING_CREDITS = 25;

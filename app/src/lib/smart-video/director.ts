@@ -2,6 +2,7 @@ import { DirectorPlanSchema, type DirectorPlan, type SmartAsset, type VideoForma
 import type { StyleName } from './types';
 import { asListingPlan, checkListingPlan, listingPhotoCount, listingRecipe, type ListingOptions } from './listing';
 import { usage } from './usage';
+import { SCRIPT_RULES } from './script-rules';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
 /**
@@ -113,7 +114,7 @@ function describe(asset: SmartAsset): string {
 /** One multimodal call: the director sees the brief and every file, and returns the whole plan. */
 const LENGTH_RULES: Record<VideoLength, string> = {
   auto:
-    "The client's text is RAW MATERIAL, not a script, even when it is written like one. Rewrite it into the strongest ad you can: find the hook, lead with what the viewer gains, reorder, cut repetition and trivia, turn specs into results. You decide the length: as short as the content allows, as long as it needs. Typical: product 25 to 40 seconds; announcement or tour 40 to 60 seconds; up to 90 seconds only when the viewer truly needs that much to decide. Never pad. About 2.3 words per second, 5 to 10 scenes.",
+    "The client's text is RAW MATERIAL, not a script, even when it is written like one. Rewrite it into the strongest ad you can: find the hook, lead with what the viewer gains, reorder, cut repetition and trivia, turn specs into results. You decide the length: as short as the content allows, as long as it needs. Typical: product 25 to 40 seconds; announcement or tour 40 to 60 seconds; up to 90 seconds only when the viewer truly needs that much to decide. Never pad. About 2.3 words per second, 5 to 10 scenes. " + SCRIPT_RULES,
   script:
     "The client's text IS the script and they want all of it. Narrate it faithfully and in order, in their wording: do not cut, summarise or reorder content. Adapt only what speech needs: numbers, units and symbols as spoken words, list items turned into flowing sentences, headings dropped or folded into the next sentence, contact details shown on screen instead of read out. Ignore stage directions such as \"(3 minutes)\". Use as many scenes as the script needs (up to 28): one idea per scene and at most about 30 words (12 seconds) each, so the picture changes often; split a long list over two scenes with different files. The format recipes still guide what each scene shows.",
 };

@@ -2,7 +2,9 @@ import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { createSmartVideo, type SmartVideoMedia, type SmartVideoOptions, type SmartVideoResult } from '@/lib/smart-video/pipeline';
-import { LISTING_CLIP_CREDITS } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
+import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
+import { checkAdScript } from '@/lib/smart-video/script-rules';
 import { listingLinkPhotos } from '@/lib/smart-video/listing';
 import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
@@ -185,6 +187,28 @@ export async function refundClip(job: SmartVideoJob, assetId: string): Promise<n
   return refund.refunded ? (refund.amount ?? 0) : 0;
 }
 
+/** The AI presenter's own charge, under its own reference like a listing clip (never under the job id). */
+export const presenterReference = (jobId: string) => `${jobId}-presenter`;
+
+export async function chargePresenter(userId: string, jobId: string): Promise<boolean> {
+  const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
+    p_user_id: userId,
+    p_amount: PHANTOM_PRESENTER_CREDITS,
+    p_operation: 'phantom-presenter',
+    p_metadata: { batch_id: presenterReference(jobId), video: jobId },
+  });
+  const charged = !error && Boolean((data as { success?: boolean } | null)?.success);
+  if (!charged) console.warn(`⚠️ The presenter of job ${jobId} was not charged, the video goes without one:`, error?.message || data);
+  return charged;
+}
+
+/** Gives the presenter's credits back (the presenter did not make it into the video, or the video failed). */
+export async function refundPresenter(job: SmartVideoJob): Promise<number> {
+  if (!job.presenter) return 0;
+  const refund = await refundFailedGeneration({ userId: job.userId, referenceIds: [presenterReference(job.id)], operation: 'Phantom AI presenter' });
+  return refund.refunded ? (refund.amount ?? 0) : 0;
+}
+
 /**
  * The animated photos a listing video was charged for, read from the ledger: a job that died
  * between a charge and its next save still gets every credit back.
@@ -217,6 +241,7 @@ export async function failAndRefund(job: SmartVideoJob, reason: string): Promise
     const clip = await refundFailedGeneration({ userId: job.userId, referenceIds: [reference], operation: 'listing photo animation' }).catch(() => null);
     if (clip?.refunded) returned += clip.amount ?? 0;
   }
+  returned += await refundPresenter(job).catch(() => 0);
   const error = returned > 0 ? `${reason} ${refundSentence(returned)}` : reason;
   return writeJob(job, { status: 'failed', error });
 }
@@ -278,6 +303,9 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
       look: job.look && job.look !== 'auto' ? job.look : null,
       sound: soundOf(job),
       listing: job.listing ?? null,
+      presenter: Boolean(job.presenter),
+      // A rewritten script gets the hook and specifics checks (script-rules.ts); exact words and listings keep theirs.
+      checkScript: job.length !== 'script' && !job.listing ? checkAdScript : undefined,
       clips: job.listing?.animate
         ? {
             // Every charge is saved with the job at once: a job that dies half-way still knows what to give back.
@@ -315,6 +343,14 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
     );
     // What a listing video cost in the end: its own price plus the photos that were animated
     if (job.listing) job = { ...job, clipCharges: [...clipCharges], creditsUsed: (initial.creditsUsed ?? 0) + clipCharges.length * LISTING_CLIP_CREDITS };
+    // A paid presenter who did not make it into the video (a first line too long to say, a clip that failed): credits back.
+    if (job.presenter && result.plan.scenes[0]?.speaker?.asset !== PRESENTER_ASSET) {
+      const back = await refundPresenter(job).catch(() => 0);
+      job = { ...job, presenter: false, creditsUsed: Math.max(0, (job.creditsUsed ?? 0) - back) };
+      result.warnings.push(
+        `The AI presenter could not be made for this video, so the narrator says the first line.${back ? ` ${refundSentence(back)}` : ''}`
+      );
+    }
     await finish(job, hooks.beforeRender ? hooks.beforeRender(result) : result, brief, (next) => {
       job = next;
     }, hooks.renderScale);
