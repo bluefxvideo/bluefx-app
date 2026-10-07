@@ -101,6 +101,9 @@ export interface SmartVideoJob {
   warnings?: string[];
   /** A free video ad copied into the buyer's account (lib/free-video/claim.ts): the free_video_leads id it came from. */
   freeLeadId?: string;
+  /** The copy's free (marked) file, shown while the clean version renders, and the website it was made from. */
+  freePreviewUrl?: string;
+  freeSite?: string;
   error?: string;
 }
 

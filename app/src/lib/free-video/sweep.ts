@@ -33,7 +33,7 @@ import { isoMinutesAgo, leadsTable, readSettings, settingsTable } from '@/lib/fr
 import { addToBoughtGroup, deliverLead, deliverUnlock, viewUrl } from '@/lib/free-video/notify';
 import { type SettleOutcome, settleLead } from '@/lib/free-video/runner';
 import { cleanRendersRunning, startCleanRender } from '@/lib/free-video/unlock';
-import { claimBoughtLeads } from '@/lib/free-video/claim';
+import { copyLeadsToAccounts } from '@/lib/free-video/claim';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
 import { displayDomain } from '@/lib/free-video/website';
 import { jobsTable } from '@/lib/smart-video/jobs';
@@ -222,7 +222,7 @@ export async function sweepFreeVideos({ dry }: { dry: boolean }): Promise<SweepR
 
   // 5. P1: sales; once an hour, the old working files.
   if (!dry) report.bought = await attributeSales();
-  if (!dry) report.claimed = await claimBoughtLeads(own);
+  if (!dry) report.claimed = await copyLeadsToAccounts(own);
   if (!dry && new Date().getUTCMinutes() < 3) report.cleaned = await cleanWorkingFiles(own, settings.system_user_id);
 
   // Numbers for the report, the cap alert and the breaker.

@@ -530,8 +530,8 @@ export const OFFER_COPY = {
   customerTitle: 'You already have the AI Media Machine',
   customerBody: 'Make your next video ad in the AI Media Machine.',
   customerButton: 'Open the AI Media Machine',
-  /** The same box under a finished video ad: the video ad goes into the customer's account (claim.ts). */
-  customerBodyReady: 'Open this video ad in your AI Media Machine to change anything and download it without the watermark.',
+  /** The same box under a finished video ad: the sweep puts the video ad into the customer's account by itself (claim.ts). */
+  customerBodyReady: 'This video ad goes into your AI Media Machine too, without the watermark. Open it there to change anything.',
   customerButtonReady: 'Open this video ad in the AI Media Machine',
   /** Under the offer's button: a customer the email did not match (another address, or signed up later). */
   alreadyCustomer: 'Already have the AI Media Machine? Open this video ad in your account',

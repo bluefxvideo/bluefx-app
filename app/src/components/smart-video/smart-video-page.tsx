@@ -571,6 +571,26 @@ function OutputPanel({
             </div>
           )}
         </div>
+      ) : job.freeLeadId ? (
+        // A free video ad copied in: the same video ad, only the mark comes off (owner 2026-10-07: the making steps
+        // looked like the video ad being made again).
+        <div className="space-y-3">
+          {job.freePreviewUrl && (
+            <video
+              src={job.freePreviewUrl}
+              controls
+              playsInline
+              className={cn('mx-auto rounded-lg bg-black', job.format === 'horizontal' ? 'w-full aspect-video' : 'max-h-[640px] aspect-[9/16]')}
+            />
+          )}
+          <div className="flex items-center gap-3 text-sm">
+            <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+            <span className="flex-1">
+              Your free video ad{job.freeSite ? ` for ${job.freeSite}` : ''}: removing the BlueFX watermark. About 2 minutes.
+            </span>
+            <span className="text-xs text-muted-foreground">{job.renderProgress ?? 0}%</span>
+          </div>
+        </div>
       ) : (
         <>
           <PhantomMark className="w-28 h-28 mx-auto" active />

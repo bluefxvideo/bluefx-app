@@ -12,8 +12,8 @@
  *    checked and stored as video.mp4, and the row is done. A lead that has its $99 clean version gets that file instead;
  *    a lead whose working files are already gone (cleanup.ts, after 30 days) gets the free file, which is all there is.
  *
- * Callers: the sweep, for a lead whose email bought the AI Media Machine (claimBoughtLeads), and /go/claim?t=<token>
- * for a signed-in customer (the button on the video ad page).
+ * Callers: the sweep, for a lead whose email bought the AI Media Machine or already has it (copyLeadsToAccounts), and
+ * /go/claim?t=<token> for a signed-in customer (the button on the video ad page).
  */
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -111,6 +111,10 @@ export async function claimFreeVideo(lead: FreeVideoLead, userId: string, viaAft
     videoUrl: undefined,
     error: undefined,
     freeLeadId: lead.id,
+    // The Phantom plays the free file with one line while the mark comes off (owner 2026-10-07: the making steps looked
+    // like the video ad being made again).
+    freePreviewUrl: lead.video_url ?? undefined,
+    freeSite: lead.website_domain,
     createdAt: now,
     updatedAt: now,
   };
@@ -201,17 +205,28 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
 
 /**
  * The sweep's share: every finished lead whose email bought the AI Media Machine in the last 3 days (attributeSales set
- * bought_at) gets its copy in that account, once the account exists. Returns how many copies were started.
+ * bought_at), and every lead of an existing customer that finished in the last 3 days (owner 2026-10-07: "if I have
+ * the same email address I should have it all in my dashboard"), gets its copy in that account, once the account
+ * exists. Returns how many copies were started.
  */
-export async function claimBoughtLeads(own: (query: any) => any): Promise<number> {
+export async function copyLeadsToAccounts(own: (query: any) => any): Promise<number> {
   const since = new Date(Date.now() - 3 * 24 * 60 * 60_000).toISOString();
-  const { data, error } = await own(leadsTable().select('*').eq('status', 'done').not('bought_at', 'is', null).gt('bought_at', since)).limit(50);
+  const [bought, customers] = await Promise.all([
+    own(leadsTable().select('*').eq('status', 'done').not('bought_at', 'is', null).gt('bought_at', since)).limit(50),
+    own(leadsTable().select('*').eq('status', 'done').eq('is_customer', true).gt('finished_at', since)).limit(50),
+  ]);
+  const error = bought.error ?? customers.error;
   if (error) {
-    console.error('❌ [free-video] Sweep: bought leads not read:', error.message);
+    console.error('❌ [free-video] Sweep: leads to copy not read:', error.message);
     return 0;
   }
+  const leads = new Map<string, FreeVideoLead>();
+  for (const row of [...(bought.data ?? []), ...(customers.data ?? [])] as Record<string, unknown>[]) {
+    const lead = asLead(row);
+    leads.set(lead.id, lead);
+  }
   let started = 0;
-  for (const lead of ((data ?? []) as Record<string, unknown>[]).map(asLead)) {
+  for (const lead of leads.values()) {
     try {
       const userId = await customerIdByEmail(lead.email);
       if (!userId) continue;
@@ -221,7 +236,7 @@ export async function claimBoughtLeads(own: (query: any) => any): Promise<number
       await claimFreeVideo(lead, userId);
       started++;
     } catch (failure) {
-      console.error(`❌ [free-video] Sweep: copying lead ${lead.id} to its buyer failed:`, failure);
+      console.error(`❌ [free-video] Sweep: copying lead ${lead.id} to its account failed:`, failure);
     }
   }
   return started;
