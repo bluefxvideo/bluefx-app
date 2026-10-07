@@ -220,10 +220,13 @@ export async function probeFile(file: string): Promise<FileProbe> {
   };
 }
 
-/** The frame size of a free video ad in this format: 1080p scaled by FREE_RENDER_SCALE (720p since 2026-10-07). */
-export const frameOf = (format: string | undefined) => {
+/**
+ * The frame size of a video in this format: 1080p scaled by `scale`. A free video ad renders at FREE_RENDER_SCALE
+ * (720p since 2026-10-07); its clean versions (the $99 one and the copy in a buyer's account) render at full HD, scale 1.
+ */
+export const frameOf = (format: string | undefined, scale = FREE_RENDER_SCALE) => {
   const [width, height] = format === 'horizontal' ? [1920, 1080] : [1080, 1920];
-  return { width: Math.round(width * FREE_RENDER_SCALE), height: Math.round(height * FREE_RENDER_SCALE) };
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
 };
 
 /** The file checks: length against the job (catches a stale Remotion bundle), audio, frame size, file size, loudness. */

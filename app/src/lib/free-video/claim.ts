@@ -29,6 +29,9 @@ import type { SmartVideoJob } from '@/types/smart-video';
 /** The finished video files of a job folder: never copied, the copy gets its own video.mp4. */
 const FINISHED_FILE = /^(video\.mp4|clean-.+\.mp4)$/;
 
+/** The line a copy carries when the free (marked) file stood in for its clean render. */
+const MARKED_COPY = 'This copy still shows the BlueFX mark. Edit it once to make a version without the mark.';
+
 /** The copy's job id: a UUID made from the lead and the account, the same every time. */
 export function copyIdOf(leadId: string, userId: string): string {
   const h = createHash('sha256').update(`free-video-copy:${leadId}:${userId}`).digest('hex');
@@ -65,7 +68,10 @@ export async function claimFreeVideo(lead: FreeVideoLead, userId: string, viaAft
   const existing = await readJob(userId, copyId);
   if (existing) {
     const dead = existing.status === 'failed' || (existing.status !== 'done' && Date.parse(existing.updatedAt) < Date.now() - STALE_AFTER_MS);
-    if (dead && !finishing.has(copyId)) startFinish(lead, existing, viaAfter);
+    // A copy that got the marked free file is rendered clean again on the next click, while the working files exist
+    // (2026-10-07: every clean render failed its frame check for a day, so the owner's copy kept the mark).
+    const marked = existing.status === 'done' && Boolean(existing.warnings?.includes(MARKED_COPY)) && !lead.files_cleaned_at;
+    if ((dead || marked) && !finishing.has(copyId)) startFinish(lead, existing, viaAfter);
     return copyId;
   }
 
@@ -142,21 +148,25 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
   const settings = await readSettings(true);
   const freeDir = jobDir(settings?.system_user_id ?? '', lead.job_id ?? '');
   const toDir = jobDir(job.userId, job.id);
+  // A finished copy rendered again (it had the marked file) saves under a new name: the CDN may still hold video.mp4.
+  const target = initial.status === 'done' ? `clean-${Date.now().toString(36)}.mp4` : 'video.mp4';
   const copyFree = async () => {
     await copyFile(`${freeDir}/video.mp4`, `${toDir}/video.mp4`);
     return publicUrl(`${toDir}/video.mp4`);
   };
   try {
     let videoUrl: string;
+    // The free file's length includes the 2 s end card; a clean version is the plan's own length.
+    let durationSeconds = lead.duration_seconds ?? job.durationSeconds;
     const warnings: string[] = [];
     if (lead.clean_video_url) {
       // The $99 clean version exists.
-      await copyFile(`${freeDir}/${path.basename(new URL(lead.clean_video_url).pathname)}`, `${toDir}/video.mp4`);
-      videoUrl = publicUrl(`${toDir}/video.mp4`);
+      await copyFile(`${freeDir}/${path.basename(new URL(lead.clean_video_url).pathname)}`, `${toDir}/${target}`);
+      videoUrl = publicUrl(`${toDir}/${target}`);
     } else if (lead.files_cleaned_at || fakeMode() || !renderTargetAllowed()) {
       // The working files are gone (or this server may not render): the free file is all there is.
       videoUrl = await copyFree();
-      warnings.push('This copy still shows the BlueFX mark. Edit it once to make a version without the mark.');
+      warnings.push(MARKED_COPY);
     } else {
       const { data: row } = await jobsTable().select('plan').eq('id', job.id).eq('user_id', job.userId).maybeSingle();
       const props = (row?.plan as { props?: Record<string, unknown> } | undefined)?.props;
@@ -170,14 +180,16 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
         });
         const data = await levelLoudness(rendered);
         await checkCleanFile(data, props);
-        videoUrl = await upload(`${toDir}/video.mp4`, data, 'video/mp4');
+        videoUrl = await upload(`${toDir}/${target}`, data, 'video/mp4');
+        durationSeconds = Number(props.duration) || durationSeconds;
       } catch (error) {
         console.error(`❌ [free-video] Clean render of copy ${job.id} failed, the free file stands in:`, error);
         videoUrl = await copyFree();
-        warnings.push('This copy still shows the BlueFX mark. Edit it once to make a version without the mark.');
+        warnings.push(MARKED_COPY);
       }
     }
-    job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100, durationSeconds: lead.duration_seconds ?? job.durationSeconds, ...(warnings.length ? { warnings } : {}) });
+    // warnings is always written, so a clean render again clears the "still shows the BlueFX mark" line.
+    job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100, durationSeconds, warnings: warnings.length ? warnings : undefined });
     console.log(`✅ [free-video] Copy ${job.id} of lead ${lead.id} is ready in account ${job.userId}`);
   } catch (error) {
     console.error(`❌ [free-video] Copy ${job.id} of lead ${lead.id} failed:`, error);

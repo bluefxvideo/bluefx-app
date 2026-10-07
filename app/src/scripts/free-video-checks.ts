@@ -23,13 +23,13 @@ import { copyIdOf } from '@/lib/free-video/claim';
 import { afterLoginPath, AFTER_LOGIN_PATH } from '@/lib/after-login';
 import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
 import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
-import { lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
+import { frameOf, lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
 import { offerUrl, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
 import { fakeSavedPlan, freeOptions, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
 import { checkFreeScript, websiteOffers } from '@/lib/free-video/script-checks';
 import { assertPublicUrl, BlockedUrlError, isPublicAddress, safeFetch, safeFetchWith, sanityCheckHtml } from '@/lib/free-video/safe-fetch';
-import { cleanProps, freeVideoUnlockIn, readUnlockOrder } from '@/lib/free-video/unlock';
+import { checkCleanFile, cleanProps, freeVideoUnlockIn, readUnlockOrder } from '@/lib/free-video/unlock';
 import { asMaterial, displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
 import { stillCameraPrompt } from '@/lib/smart-video/audio';
 import { closestTrack, MUSIC_LIBRARY } from '@/lib/smart-video/music-library';
@@ -508,6 +508,26 @@ async function main(): Promise<void> {
   check('a specific script passes', checkAdScript(planOf('This is the storm damage most homeowners never see.', 'Book your free roof inspection at the website on screen.')) === null);
   check('the director reads the hook rule with the rewrite rule', SCRIPT_RULES.includes('6 to 12 words') && SCRIPT_RULES.includes('Looking for'));
   check('the presenter costs 10 credits', PHANTOM_PRESENTER_CREDITS === 10);
+
+  // 17. -----------------------------------------------------------------------------------------
+  section('17. The clean render is checked at full HD');
+  check('a free video ad is 720x1280, a clean version 1080x1920', JSON.stringify(frameOf('vertical')) === JSON.stringify({ width: 720, height: 1280 }) && JSON.stringify(frameOf('vertical', 1)) === JSON.stringify({ width: 1080, height: 1920 }));
+  const cleanDir = fs.mkdtempSync(path.join(os.tmpdir(), 'free-video-clean-check-'));
+  try {
+    // A clean render comes back at renderSmartVideo's default scale; the 720p check failed every one of them (2026-10-07).
+    const clip = (size: string) => {
+      const file = path.join(cleanDir, `${size}.mp4`);
+      execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', `testsrc2=size=${size}:rate=30`, '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', '2', '-c:v', 'libx264', '-b:v', '4M', '-c:a', 'aac', '-shortest', file]);
+      return fs.readFileSync(file);
+    };
+    const passes = (data: Buffer) => checkCleanFile(data, { duration: 2, format: 'vertical' }).then(() => true, () => false);
+    check('a full HD clean file passes checkCleanFile', await passes(clip('1080x1920')));
+    check('a 720p clean file does not', !(await passes(clip('720x1280'))));
+  } catch (error) {
+    skip('checkCleanFile on real files', `ffmpeg: ${String(error).slice(0, 80)}`);
+  } finally {
+    fs.rmSync(cleanDir, { recursive: true, force: true });
+  }
 
   // 16. -----------------------------------------------------------------------------------------
   section('16. freeNote (read by eye)');

@@ -453,7 +453,9 @@ export async function checkCleanFile(data: Buffer, props: Record<string, unknown
     await fs.writeFile(file, data);
     const probe = await probeFile(file);
     const expected = Number(props.duration);
-    const { width, height } = frameOf(typeof props.format === 'string' ? props.format : undefined);
+    // Full HD: the clean render runs at renderSmartVideo's default scale. Checked against the free video ad's 720p,
+    // every clean render failed from 3fe62c4 until 2026-10-07 evening (a copy fell back to the marked file).
+    const { width, height } = frameOf(typeof props.format === 'string' ? props.format : undefined, 1);
     const problems = [
       Number.isFinite(expected) && Math.abs(probe.seconds - expected) > GATE.probeTolerance ? `length ${probe.seconds.toFixed(2)} s instead of ${expected} s` : null,
       probe.width !== width || probe.height !== height ? `frame ${probe.width}x${probe.height}` : null,
