@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
 import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
@@ -116,7 +116,9 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     // Fresh until a poll replaces it: the server rendered the first view a moment ago.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    refetchIntervalInBackground: false,
+    // Also while the visitor is on another tab: the tab's title turns to "ready" and brings them back (owner 2026-10-07:
+    // "keep the person on the page ... so they see the finished video"). Browsers slow hidden tabs down, which is fine.
+    refetchIntervalInBackground: true,
     retry: (failures, error) => !(error instanceof LeadGoneError) && failures < 2,
     refetchInterval: (current) => {
       if (current.state.error instanceof LeadGoneError || !current.state.data) return false;
@@ -173,6 +175,16 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
   useEffect(() => {
     if (!isDemo && tabTitle) document.title = tabTitle;
   }, [isDemo, tabTitle]);
+
+  // A soft two-note chime the moment the video ad turns ready on this page (the browser may keep it silent until the
+  // visitor has tapped something on the page; then nothing plays).
+  const lastState = useRef(view.state);
+  useEffect(() => {
+    const before = lastState.current;
+    lastState.current = view.state;
+    if (isDemo || view.state !== 'ready' || (before !== 'making' && before !== 'queued' && before !== 'checking')) return;
+    chime();
+  }, [isDemo, view.state]);
 
   const onCheckout = useCallback(() => {
     setUnlockClickedAt(Date.now());
@@ -344,4 +356,28 @@ function StaleNotice({ onCheck }: StaleNoticeProps) {
       </button>
     </div>
   );
+}
+
+/** Two short soft notes through Web Audio; silent when the browser does not allow sound yet. */
+function chime(): void {
+  try {
+    const Context = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Context) return;
+    const audio = new Context();
+    [660, 880].forEach((frequency, index) => {
+      const at = audio.currentTime + index * 0.18;
+      const tone = audio.createOscillator();
+      const level = audio.createGain();
+      tone.frequency.value = frequency;
+      level.gain.setValueAtTime(0.0001, at);
+      level.gain.exponentialRampToValueAtTime(0.16, at + 0.02);
+      level.gain.exponentialRampToValueAtTime(0.0001, at + 0.36);
+      tone.connect(level).connect(audio.destination);
+      tone.start(at);
+      tone.stop(at + 0.4);
+    });
+    window.setTimeout(() => void audio.close(), 1500);
+  } catch {
+    /* no sound on this page */
+  }
 }

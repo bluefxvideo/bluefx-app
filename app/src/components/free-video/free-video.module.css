@@ -1757,6 +1757,98 @@
   font-size: 13px;
   line-height: 1.5;
 }
+/* The stage: one phone-shaped frame in the first screen of the live page, showing the best real picture so far and
+   the newest step (owner 2026-10-07: "keep the person on the page ... so they see something nice"). */
+.stage {
+  position: relative;
+  width: min(100%, calc(min(52vh, 460px) * 9 / 16));
+  aspect-ratio: 9 / 16;
+  margin: 2px auto 16px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 35%, #12385f 0%, #071a2e 72%);
+  box-shadow: 0 18px 40px rgba(6, 33, 58, 0.28);
+}
+.stage .phone {
+  max-width: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.stageMedia {
+  position: absolute;
+  inset: 0;
+  animation: fvFade 0.6s ease;
+}
+.stagePan .liveMedia {
+  animation: fvStagePan 6s ease-out both;
+}
+@keyframes fvStagePan {
+  from { transform: scale(1.12); }
+  to { transform: scale(1); }
+}
+.stage .liveScan {
+  top: 46%;
+  left: 14%;
+  right: 14%;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0 6px, transparent 6px 12px);
+}
+.stageLabel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--fv-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+.stageCaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  gap: 4px;
+  padding: 48px 14px 14px;
+  background: linear-gradient(to bottom, rgba(4, 14, 26, 0), rgba(4, 14, 26, 0.88) 55%);
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.stageCaptionSmall {
+  display: block;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 600;
+}
+.stageTyped::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: currentColor;
+  animation: fvPulse 1s steps(1) infinite;
+}
+.stageStep {
+  margin: 10px 0 6px;
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stagePan .liveMedia,
+  .stageMedia,
+  .stageTyped::after {
+    animation: none;
+  }
+}
 .liveStage {
   padding: 18px 12px 48px;
 }

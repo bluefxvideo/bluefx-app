@@ -344,7 +344,7 @@ export const STATUS = {
     queued: 'Your video ad is in line',
     making: (step: number) => `Making your video ad (${step}/5)`,
     checking: 'Your video ad is getting a final check',
-    ready: 'Your video ad is ready',
+    ready: '✅ Your video ad is ready',
   },
 } as const;
 
@@ -390,6 +390,20 @@ export const LIVE = {
   checkHint: 'The AI Media Machine is checking every scene, the sound and the file.',
   queuedHint: 'While you wait, see how the AI Media Machine makes a video ad.',
   promoLabel: 'How the AI Media Machine makes a video ad',
+  /**
+   * The stage at the top of the live page: the best picture so far and the newest step, so the first screen always shows
+   * something real (owner 2026-10-07: "keep the person on the page ... so they see something nice").
+   */
+  stageReading: (domain: string) => `Reading ${domain}`,
+  stagePhotos: (domain: string, count: number) => `Found on ${domain}: ${count} ${count === 1 ? 'photo' : 'photos'}`,
+  stageWebsiteLabel: 'From your website',
+  stagePresenterLabel: 'Your presenter',
+  stagePresenterCast: 'Meet your presenter',
+  stagePresenterRehearsing: 'Getting ready to say your opening line',
+  stageOpensWith: 'Your video ad opens with',
+  stageRender: (percent: number) => `Putting your video ad together: ${percent}%`,
+  stageCheck: 'Final check, almost there',
+  progressLine: (step: number, total: number, name: string) => `Step ${step} of ${total}: ${name}`,
 } as const;
 
 /**

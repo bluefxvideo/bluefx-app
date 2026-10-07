@@ -18,7 +18,8 @@ const base: Omit<FreeVideoView, 'state'> = {
 /** The real run's steps, sped up (seconds on this page; the real run took 205). */
 function viewAt(second: number): FreeVideoView {
   if (second < 3) return { ...base, state: 'making', step: 'reading', live: {} };
-  if (second < 9) return { ...base, state: 'making', step: 'directing', live: LIVE_DEMO.photos };
+  if (second < 6) return { ...base, state: 'making', step: 'directing', live: LIVE_DEMO.photos };
+  if (second < 9) return { ...base, state: 'making', step: 'directing', live: LIVE_DEMO.cast };
   if (second < 14) return { ...base, state: 'making', step: 'producing', live: LIVE_DEMO.script };
   if (second < 18) return { ...base, state: 'making', step: 'producing', live: LIVE_DEMO.music };
   if (second < 21) return { ...base, state: 'making', step: 'producing', live: LIVE_DEMO.clips };

@@ -10,7 +10,7 @@ export const LIVE_DEMO_DOMAIN = "joespizzanyc.com";
 export const LIVE_DEMO_VIDEO =
   "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/live-demo/video.mp4";
 
-export const LIVE_DEMO: Record<
+const RECORDED: Record<
   "photos" | "script" | "voice" | "music" | "clips",
   FreeVideoLive
 > = {
@@ -230,4 +230,19 @@ export const LIVE_DEMO: Record<
     musicUrl:
       "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/live-demo/music.mp3",
   },
+};
+
+const DEMO_BASE = "https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/live-demo";
+/** The presenter came later than this run: their photo and clip are from the ascentequipment.com free video ad (2026-10-06), copied next to the run's files. */
+const PRESENTER_PHOTO = { presenterPhoto: `${DEMO_BASE}/presenter.jpg` };
+const PRESENTER_CLIP = { ...PRESENTER_PHOTO, presenterClip: `${DEMO_BASE}/presenter.mp4` };
+
+/** The run step by step, in the order a free video ad makes its pieces now: photos, the presenter cast, the script, the voice-over, the presenter's clip. */
+export const LIVE_DEMO: Record<"photos" | "cast" | "script" | "voice" | "music" | "clips", FreeVideoLive> = {
+  photos: RECORDED.photos,
+  cast: { ...RECORDED.photos, ...PRESENTER_PHOTO },
+  script: { ...RECORDED.script, ...PRESENTER_PHOTO },
+  voice: { ...RECORDED.voice, ...PRESENTER_PHOTO },
+  music: { ...RECORDED.music, ...PRESENTER_CLIP },
+  clips: { ...RECORDED.clips, ...PRESENTER_CLIP },
 };

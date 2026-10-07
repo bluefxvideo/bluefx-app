@@ -58,6 +58,7 @@ const liveView = (id: string, view: Partial<FreeVideoView>): FreeVideoView =>
 const FIXTURES: Fixture[] = [
   { id: 'live-1', label: 'LIVE 1: reading the website (nothing found yet)', placement: 'fvthank', view: liveView('live-1', { step: 'reading', live: {} }) },
   { id: 'live-2', label: 'LIVE 2: website photos found, writing the script', placement: 'fvthank', view: liveView('live-2', { step: 'directing', live: LIVE_DEMO.photos }) },
+  { id: 'live-2b', label: 'LIVE 2b: the presenter is cast, still writing the script', placement: 'fvthank', view: liveView('live-2b', { step: 'directing', live: LIVE_DEMO.cast }) },
   { id: 'live-3', label: 'LIVE 3: the script is in, pictures and sound being made', placement: 'fvthank', view: liveView('live-3', { step: 'producing', live: LIVE_DEMO.script }) },
   { id: 'live-3b', label: 'LIVE 3b: the voice-over and the music are in', placement: 'fvthank', view: liveView('live-3b', { step: 'producing', live: LIVE_DEMO.music }) },
   { id: 'live-3c', label: 'LIVE 3c: the moving clips are in', placement: 'fvthank', view: liveView('live-3c', { step: 'producing', live: LIVE_DEMO.clips }) },

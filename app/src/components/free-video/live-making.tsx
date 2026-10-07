@@ -10,8 +10,8 @@ import styles from './free-video.module.css';
 
 /** FREE_VIDEO_STEP_OF (types/free-video.ts), repeated here so the page bundle does not load zod. */
 const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
-/** About how many minutes are left when each step starts (a job takes about 8). */
-const MINUTES_LEFT: Record<SmartVideoJobStatus, number> = { reading: 8, directing: 7, producing: 5, rendering: 2, finishing: 1, done: 1, failed: 1 };
+/** About how many minutes are left when each step starts (a job takes about 4: measured 3 min 46 s on 2026-10-07). */
+const MINUTES_LEFT: Record<SmartVideoJobStatus, number> = { reading: 4, directing: 4, producing: 3, rendering: 2, finishing: 1, done: 1, failed: 1 };
 /** A computed wait above this shows the "busy day" line instead of a time. */
 const BUSY_ETA_MINUTES = 90;
 
@@ -75,22 +75,22 @@ export function LiveMaking({ view, staleNotice, paidEarly, queuedOffer, onPromoS
           <h1 id="fv-live-title" className={styles.liveTitle}>
             {title}
           </h1>
+          <Stage
+            domain={domain}
+            live={live}
+            queued={queued}
+            checking={checking}
+            rendering={rendering}
+            renderPercent={renderPercent}
+            finalStretch={finalStretch}
+            photos={photos}
+            sceneImages={sceneImages}
+            onPromoSound={onPromoSound}
+          />
           <div className={styles.bar} role="progressbar" aria-label={STATUS.progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
             <span className={styles.barFill} style={{ width: `${percent}%` }} />
           </div>
-          <ol className={styles.liveSteps}>
-            {lines.map((line, index) => {
-              const number = index + 1;
-              const done = number < current;
-              const now = number === current;
-              return (
-                <li key={number} className={cn(styles.liveStep, done && styles.isDone, now && styles.isNow)} aria-current={now ? 'step' : undefined}>
-                  <span className={styles.dot} aria-hidden="true" />
-                  <span>{line}</span>
-                </li>
-              );
-            })}
-          </ol>
+          {!queued && <p className={styles.stageStep}>{LIVE.progressLine(current, lines.length, lines[Math.max(0, current - 1)] ?? lines[0])}</p>}
           <p className={styles.liveEta}>
             {eta} <span className={styles.liveEmail}>{LIVE.emailNote}</span>
           </p>
@@ -104,15 +104,7 @@ export function LiveMaking({ view, staleNotice, paidEarly, queuedOffer, onPromoS
 
       <section className={styles.liveStage}>
         <div className={styles.liveColumn}>
-          {queued && (
-            <div className={styles.livePanel}>
-              <p className={styles.livePanelHint}>{LIVE.queuedHint}</p>
-              <div className={styles.livePromo}>
-                <VideoAdPlayer src={EXAMPLE_VIDEOS.heroReel.video} label={LIVE.promoLabel} onPlayWithSound={onPromoSound} />
-              </div>
-              {queuedOffer}
-            </div>
-          )}
+          {queued && <div className={styles.livePanel}>{queuedOffer}</div>}
 
           {finalStretch && <RenderPanel checking={checking} percent={rendering ? renderPercent : step === 'rendering' ? 0 : 100} images={sceneImages.length ? sceneImages : photos} />}
 
@@ -184,6 +176,98 @@ export function LiveMaking({ view, staleNotice, paidEarly, queuedOffer, onPromoS
       </section>
     </>
   );
+}
+
+interface StageProps {
+  domain: string;
+  live: FreeVideoLive;
+  queued: boolean;
+  checking: boolean;
+  rendering: boolean;
+  renderPercent: number;
+  /** Rendering, finishing or the final check. */
+  finalStretch: boolean;
+  photos: string[];
+  sceneImages: string[];
+  onPromoSound?: () => void;
+}
+
+/**
+ * The stage at the top of the live page (owner 2026-10-07: "keep the person on the page ... so they see something
+ * nice"): one phone-shaped frame in the first screen. The picture is the best one so far (the presenter's clip, their
+ * photo, the scene pictures while the video ad is put together, the website's photos); the caption is the newest step
+ * (reading, the photos found, the opening line typing out, the render percent). While the video ad waits in line it
+ * plays the "how it works" video ad. Everything shown is real: nothing appears before the job made it.
+ */
+function Stage({ domain, live, queued, checking, rendering, renderPercent, finalStretch, photos, sceneImages, onPromoSound }: StageProps) {
+  const presenter = live.presenterClip ?? live.presenterPhoto;
+  const turns = presenter ? [] : finalStretch && sceneImages.length ? sceneImages : photos;
+  const [turn, setTurn] = useState(0);
+  useEffect(() => {
+    if (turns.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => setTurn((value) => value + 1), 1700);
+    return () => window.clearInterval(timer);
+  }, [turns.length]);
+
+  if (queued) {
+    return (
+      <div className={styles.stage}>
+        {/* No label on it: the video ad's own headline sits at the top. */}
+        <VideoAdPlayer src={EXAMPLE_VIDEOS.heroReel.video} label={LIVE.promoLabel} onPlayWithSound={onPromoSound} />
+      </div>
+    );
+  }
+
+  const picture = presenter ?? (turns.length ? turns[turn % turns.length] : null);
+  const hook = live.scenes?.[0]?.say;
+  let caption: ReactNode;
+  if (checking || (finalStretch && !rendering)) caption = LIVE.stageCheck;
+  else if (rendering) caption = LIVE.stageRender(Math.round(renderPercent));
+  else if (hook)
+    caption = (
+      <>
+        <span className={styles.stageCaptionSmall}>{LIVE.stageOpensWith}</span>
+        <TypedLine text={`“${hook}”`} />
+      </>
+    );
+  else if (live.presenterPhoto)
+    caption = (
+      <>
+        {LIVE.stagePresenterCast}
+        <span className={styles.stageCaptionSmall}>{LIVE.stagePresenterRehearsing}</span>
+      </>
+    );
+  else if (photos.length) caption = LIVE.stagePhotos(domain, photos.length);
+  else caption = LIVE.stageReading(domain);
+
+  return (
+    <div className={styles.stage} aria-hidden="true">
+      {picture ? (
+        <div key={picture} className={cn(styles.stageMedia, !presenter && styles.stagePan)}>
+          <Media url={picture} alt="" />
+        </div>
+      ) : (
+        <span className={styles.liveScan} />
+      )}
+      {(presenter || photos.length > 0) && <span className={styles.stageLabel}>{presenter ? LIVE.stagePresenterLabel : LIVE.stageWebsiteLabel}</span>}
+      <div className={styles.stageCaption}>{caption}</div>
+    </div>
+  );
+}
+
+/** A line that types itself out once (all at once for visitors who ask for less motion). */
+function TypedLine({ text }: { text: string }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setShown(text.length);
+      return;
+    }
+    setShown(0);
+    const timer = window.setInterval(() => setShown((value) => (value >= text.length ? value : value + 1)), 38);
+    return () => window.clearInterval(timer);
+  }, [text]);
+  return <span className={styles.stageTyped}>{text.slice(0, shown)}</span>;
 }
 
 /**

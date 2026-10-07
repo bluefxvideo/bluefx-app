@@ -201,8 +201,16 @@ export const MAX_FREE_PHOTOS = 8;
 export const PHOTO_BATCH = 4;
 /** The end card advertises the free video ad page (owner 2026-10-07), so it stays long enough to read: 2 s. */
 export const END_CARD_SECONDS = 2;
-/** Minutes per video ad, for the ETA on the page (measured 2026-10-06: about 6 with the presenter on Kling, less on LTX). */
-export const JOB_MINUTES = 6;
+/** Minutes per video ad, for the ETA on the page (measured 2026-10-07: 3 min 46 s with the presenter on LTX 2.5 Fast; Flash and 720p take about 1.5 off). */
+export const JOB_MINUTES = 3;
+/**
+ * The free video ads' script writer (owner 2026-10-07: "go, flash + 720p + looser rules"). The 10-website test: Pro
+ * 8.6/10 in 156 s on average (rewrites cost 30-70 s each), Pro with low thinking 7.6 in 78 s, gemini-3.6-flash 8.1 in
+ * 44 s. Looser rules: a photo taped to the board counts as a picture, one block carries a scene.
+ */
+export const FREE_DIRECTOR = { model: 'gemini-3.6-flash', looseRules: true } as const;
+/** Free video ads render at 720p (2/3 of 1080p): about 40% faster and a third smaller. The $99 clean version stays at 1080p. */
+export const FREE_RENDER_SCALE = 2 / 3;
 /** The claim counts a freshly claimed lead as running for at least this long, even before its job row has a heartbeat. */
 export const CLAIM_GRACE_MINUTES = 3;
 
