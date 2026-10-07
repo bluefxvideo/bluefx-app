@@ -7,8 +7,9 @@ import { AdminUserTable } from '@/components/admin/admin-user-table';
 import { ActivityFeedPanel } from '@/components/admin/activity-feed-panel';
 import { TopOffersSyncPanel } from '@/components/admin/top-offers-sync-panel';
 import { PlatformUsagePanel } from '@/components/admin/platform-usage-panel';
+import { FreeVideoLeadsPanel } from '@/components/admin/free-video-leads-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Activity, Database, BarChart3 } from 'lucide-react';
+import { Users, Activity, Database, BarChart3, Clapperboard } from 'lucide-react';
 
 /**
  * Admin Page
@@ -132,6 +133,10 @@ export default function AdminPage() {
               <Database className="w-4 h-4" />
               Top Offers
             </TabsTrigger>
+            <TabsTrigger value="free-video-ads" className="flex items-center gap-2">
+              <Clapperboard className="w-4 h-4" />
+              Free Video Ads
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="usage">
@@ -148,6 +153,10 @@ export default function AdminPage() {
 
           <TabsContent value="top-offers">
             <TopOffersSyncPanel />
+          </TabsContent>
+
+          <TabsContent value="free-video-ads">
+            <FreeVideoLeadsPanel />
           </TabsContent>
         </Tabs>
       )}
