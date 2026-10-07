@@ -45,6 +45,10 @@ const TEXT_LEAD = 0.12; // text lands just before its word
 const SCENE_LEAD = 0.3; // a scene opens just before its first word
 const SOUND_GAP = 0.9; // room made in the voice for the signature sound
 const HANDOVER_PAUSE = 0.45; // a breath between a person talking and the narrator
+// The AI presenter hands over faster (owner 2026-10-07: "a pause ... at the moment she finishes the sentence"): the
+// clip stops just after the last word and the narrator follows about half a second after it.
+const PRESENTER_TAIL = 0.25;
+const PRESENTER_HANDOVER = 0.2;
 const TAIL = 4.2; // music-only ending that holds the contact card
 const VOICE_TAKES = 3;
 // Spoken numbers come back as digits, so a faithful take still misses some words.
@@ -614,7 +618,10 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
     const lufs = media.assets[id]?.lufs;
     return voiceLevel !== null && lufs != null ? Math.min(1, Math.max(0.2, 10 ** ((voiceLevel - lufs) / 20))) : 1;
   };
-  const soundAfter = soundUrl && plan.signatureSound ? Math.min(plan.signatureSound.afterScene, plan.scenes.length - 2) : -1;
+  let soundAfter = soundUrl && plan.signatureSound ? Math.min(plan.signatureSound.afterScene, plan.scenes.length - 2) : -1;
+  // Right after the presenter, the sound's room stacked on the handover: 1.9 s of silence after her last word
+  // (2026-10-07). The sound follows the next scene instead, or stays out when that scene is the last one.
+  if (soundAfter >= 0 && speakerOf(soundAfter)?.asset === PRESENTER_ASSET) soundAfter = soundAfter + 1 <= plan.scenes.length - 2 ? soundAfter + 1 : -1;
 
   // Walk the scenes in order, laying each one's audio on the timeline right after the last.
   // `pause`: a beat of music after each narrated scene (a listing video uses it to reach its length).
@@ -629,15 +636,16 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       if (speaker) {
         const heard = media.clipWords[speaker.asset].filter((w) => w.end > speaker.from - 0.25 && w.start < speaker.to + 0.25);
         // The presenter's clip plays from its first frame: their hook action comes before the first word.
-        const srcStart = speaker.asset === PRESENTER_ASSET ? 0 : Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
-        const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + 0.4;
+        const presenter = speaker.asset === PRESENTER_ASSET;
+        const srcStart = presenter ? 0 : Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
+        const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + (presenter ? PRESENTER_TAIL : 0.4);
         const tokens = alignScript([scene.narration], heard).sceneTokens[0].map((t) => ({ ...t, time: t.time - srcStart + cursor }));
         cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: clipVolume(speaker.asset) });
         timed.push({ start: cursor, tokens, startFrom: srcStart });
         lastWordEnd = (heard[heard.length - 1]?.end ?? speaker.to) - srcStart + cursor;
         cursor += srcEnd - srcStart;
         // The narrator never starts on the speaker's heels.
-        if (i + 1 < plan.scenes.length && !speakerOf(i + 1)) cursor += HANDOVER_PAUSE;
+        if (i + 1 < plan.scenes.length && !speakerOf(i + 1)) cursor += presenter ? PRESENTER_HANDOVER : HANDOVER_PAUSE;
       } else if (voice) {
         const k = narrated.indexOf(i);
         // The first narrated scene plays from the top, unless a person opens the video: then the recording's words before it are skipped.
@@ -729,12 +737,13 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
     },
     captions: showsCaptions(plan, sound)
       ? {
-          // A word ends where the next begins (or after a beat).
-          words: spoken.map((word, n) => ({
-            text: word.raw,
-            start: word.time,
-            end: Math.max(word.time + 0.12, Math.min(spoken[n + 1]?.time ?? lastWordEnd, word.time + 0.9)),
-          })),
+          // A word ends where the next begins (or after a beat), and never after its scene: the next scene may have no
+          // room for subtitles (the presenter's last word ran onto a free video ad's whiteboard once the handover got short).
+          words: spoken.map((word, n) => {
+            const sceneEnd = scenes.find((scene) => word.time >= scene.start && word.time < scene.end)?.end ?? Infinity;
+            const end = Math.min(spoken[n + 1]?.time ?? lastWordEnd, word.time + 0.9, sceneEnd);
+            return { text: word.raw, start: word.time, end: Math.max(word.time + 0.12, end) };
+          }),
         }
       : undefined,
     scenes,
