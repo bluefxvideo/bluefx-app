@@ -517,7 +517,8 @@ export const OFFER_COPY = {
   unit: 'one time',
   /** The badge. */
   off: OFFER.off,
-  button: 'Get lifetime access',
+  /** Says what you get (the Hormozi review: "lifetime access" to what?). The emails keep their own button text. */
+  button: 'Get the AI Media Machine',
   smallPrint: 'Secure checkout by ClickBank.',
   /** Existing customers and buyers (isCustomer) see this instead of the ladder. */
   customerTitle: 'You already have the AI Media Machine',
@@ -560,10 +561,16 @@ export const STYLES = {
 export const OFFER_READY = {
   heading: `Get this video ad without the watermark, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   headingLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
-  body: 'Own the AI Media Machine, the AI that made this video ad, for one payment. Type what to change in this video ad, or paste a link and get a new video ad in a few minutes.',
-  bodyLater: 'Own the AI Media Machine, the AI that made this video ad, for one payment. Paste a link and get a new video ad in a few minutes.',
-  deadline: (when: string) => `Buy by ${when} to get this video ad without the watermark.`,
-  fine: '30-day money-back guarantee. Secure checkout by ClickBank.',
+  body: 'Own the AI that made this video ad, for one payment, and make a new video ad any time in a few minutes.',
+  /**
+   * The 3-day bonus, named and valued at the $99 the clean video ad sold for (owner 2026-10-08: "the word buy seems
+   * harsh", then the Hormozi review: a fast-action bonus says what you get, what it is worth and until when).
+   */
+  bonusTitle: `Free bonus: this video ad without the watermark (${UNLOCK.price} value)`,
+  bonusLine: (when: string) => `Yours when you get the AI Media Machine by ${when}.`,
+  /** Before the browser has printed the exact time (useDeadline): true on every visit. */
+  bonusLineSoon: 'Yours when you get the AI Media Machine within 3 days of getting your video ad.',
+  fine: 'One payment. 30-day money-back guarantee. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',
 } as const;
 

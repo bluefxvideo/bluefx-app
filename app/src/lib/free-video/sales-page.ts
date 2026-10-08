@@ -1,21 +1,21 @@
 /**
  * The AI Media Machine offer under the finished free video ad. Owner 2026-10-08: the whole lifetime page here was "too
- * much info, too many directions"; the first focused version was "much better, but it still needs work and clarity,
- * ask alex hormozi". So the page reads in his order: the promise (more video ads like the one above), how the next
- * video ad gets made (three steps, almost no effort), proof (video ads made with the AI Media Machine), then one offer
- * box (what you get, the price against a freelancer, the birthday price, the real deadline, the guarantee), the
- * founder, five questions, one last button.
+ * much info, too many directions"; then "it still needs work and clarity, ask alex hormozi"; then "rethink, ask alex
+ * to review the page". The page now reads: the outcome first ("Want more customers from social media?"), how the next
+ * video ad gets made (three steps), video ads made with the AI Media Machine, then one offer box: what you get, the
+ * 3-day bonus named and valued (shown in full once, a short reminder elsewhere), a freelancer against the AI Media
+ * Machine in money and time, the birthday price, one button, what happens after the click, the guarantee; then the
+ * founder, five questions, the last button.
  *
  * One number everywhere: 10 video ads a month. A free video ad opens with an AI presenter (runner.ts presenter: true),
  * and in the AI Media Machine that is PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS = 60 of the 600 monthly credits;
- * without a presenter it is 12 (the FAQ says so). The deadline is real: the 3-day bonus (offer.ts CLEAN_COPY_HOURS,
- * owner 2026-10-08 "i love the deadline but its too long, 24h or 3 days"), enforced in claim.ts, shown as the day and
- * hour in the visitor's own time. The freelancer price is the owner's own estimate from bluefx.net/video-ad ($600 to
- * $1,500 per video ad). The examples row is exactly the lifetime page's 9 vertical videos, in its order (owner: "show
- * the exact ones that we have on the ai mm page"). No timer, no reviews, BlueFX since 2009.
+ * without a presenter it is 12 (the FAQ says so). The deadline is real: the 3-day bonus (offer.ts CLEAN_COPY_HOURS),
+ * enforced in claim.ts, shown as the day and hour in the visitor's own time. The bonus is valued at the $99 the clean
+ * video ad sold for. The freelancer numbers are the owner's own (bluefx.net/video-ad, the lifetime page). The examples
+ * row is exactly the lifetime page's 9 vertical videos, in its order. No timer, no reviews, BlueFX since 2009.
  */
 import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
-import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, VIDEO_ADS_LIKE_FREE_PER_MONTH, VIDEO_ADS_PER_MONTH } from './offer';
+import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH, VIDEO_ADS_PER_MONTH } from './offer';
 
 const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/aimm';
 
@@ -59,10 +59,10 @@ export const SALES_PAGE = {
   /** The id the short offer's link beside the video ad jumps to. */
   anchor: 'everything-you-get',
   bridge: {
-    kicker: (domain: string) => `The AI Media Machine made the video ad above for ${domain} in a few minutes.`,
-    title: (domain: string) => `Make ${WITH_PRESENTER} more video ads for ${domain} every month`,
-    text: (domain: string) =>
-      `People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps ${domain} in front of your customers.`,
+    /** The outcome first, in the owner's own proven words ("Want more clients from social media?"), then the vehicle. */
+    kicker: 'Want more customers from social media?',
+    title: (domain: string) => `Post a fresh video ad for ${domain} every week`,
+    text: "People stop noticing an ad after they've seen the same ad a few times. The AI Media Machine made the video ad above in a few minutes, and every new video ad takes a few minutes too.",
   },
   steps: {
     title: 'How the next video ad gets made',
@@ -90,27 +90,41 @@ export const SALES_PAGE = {
   },
   offer: {
     title: 'Everything you get',
-    /** The first line only while the 3-day bonus runs (the view's cleanUntil). */
-    items: (domain: string, bonus: boolean) => [
-      ...(bonus ? [`${BONUS_DAYS}-day bonus: this video ad for ${domain}, without the watermark and ready to change, in your account`] : []),
+    items: [
       `${WITH_PRESENTER} new video ads every month, for life`,
       'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice',
       '12 more AI tools: talking avatars with 200+ presenters, voice-overs in 57 voices or your own cloned voice, music, thumbnails and logos',
       'Daily YouTube tutorials, a private community and help from me',
     ],
-    compare: [
-      `A freelancer charges ${FREELANCER} or more for one video ad.`,
-      `Here, ${FIRST_YEAR} video ads in the first year cost ${OFFER.now} once: about ${PER_VIDEO_AD} a video ad.`,
-    ],
+    /** The 3-day bonus (offer.ts CLEAN_COPY_HOURS), shown once in full: named, valued, with its end. */
+    bonus: {
+      tag: (when: string | null) => (when ? `Free bonus until ${when}` : `Free bonus for ${BONUS_DAYS} days`),
+      title: (domain: string) => `This video ad for ${domain}, without the watermark (${UNLOCK.price} value)`,
+      text: 'Get the AI Media Machine by then and this video ad is in your account within about 10 minutes, ready to post or change. After that, this video ad goes into your account with the watermark.',
+    },
+    /** Money and time, against what a business owner knows: a freelancer (the owner's numbers, bluefx.net/video-ad and the lifetime page). */
+    compare: {
+      them: { name: 'A freelancer', lines: [`${FREELANCER} or more per video ad`, 'Days of waiting for each video ad'] },
+      us: { name: 'The AI Media Machine', lines: [`About ${PER_VIDEO_AD} per video ad`, 'A few minutes per video ad'] },
+      note: `${FIRST_YEAR} video ads in the first year for ${OFFER.now}, once.`,
+    },
     tag: '40th birthday price',
     was: OFFER.was,
     now: OFFER.now,
     unit: 'one payment',
     why: `I turned 40 this year, so the lifetime license is ${OFFER.off}.`,
-    deadline: (when: string) =>
-      `Buy by ${when} and this video ad goes into your account without the watermark, ready to change. After that, this video ad goes in with the watermark.`,
-    guarantee: '30-day money-back guarantee: email me within 30 days for any reason and you get every cent back.',
-    fine: 'Secure checkout by ClickBank.',
+    /** What happens after the click: the checkout, the login email, the first win. */
+    next: {
+      title: 'What happens when you click',
+      steps: (bonus: boolean) => [
+        "Check out on ClickBank's secure page, with the email you gave us here.",
+        'Your login link arrives by email.',
+        bonus
+          ? 'This video ad is in your AI Media Machine within about 10 minutes, without the watermark.'
+          : 'Paste a link and your first new video ad is ready in a few minutes.',
+      ],
+    },
+    guarantee: '30-day money-back guarantee: try the AI Media Machine for 30 days. If the AI Media Machine is not for you, email me and you get every cent back.',
   },
   founder: {
     photo: `${MEDIA}/founder.jpg`,
@@ -126,7 +140,7 @@ export const SALES_PAGE = {
       {
         q: 'What happens to my free video ad?',
         a: bonus
-          ? `Buy within ${BONUS_DAYS} days of getting your video ad${when ? ` (by ${when})` : ''} with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Bought with another email? Come back to this page and use the link under the offer beside your video ad.`
+          ? `Get the AI Media Machine within ${BONUS_DAYS} days of getting your video ad${when ? ` (until ${when})` : ''}, with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Used another email? Come back to this page and use the link under the offer beside your video ad.`
           : `The ${BONUS_DAYS}-day bonus for this video ad has passed, so this video ad goes into your account with the watermark. Change anything in the video ad and the new version comes without the watermark, like every new video ad you make.`,
       },
       {
@@ -149,6 +163,7 @@ export const SALES_PAGE = {
   },
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
+    reminder: (when: string) => `Free bonus until ${when}: this video ad without the watermark.`,
     line: `One payment of ${OFFER.now}. Regular price ${OFFER.was}.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */

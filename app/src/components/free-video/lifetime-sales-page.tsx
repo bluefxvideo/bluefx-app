@@ -35,11 +35,11 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
       <div className={styles.spBlock}>
         <div className={styles.spInner}>
-          <p className={styles.spKicker}>{bridge.kicker(domain)}</p>
+          <p className={styles.spKicker}>{bridge.kicker}</p>
           <h2 id="fv-sales-title" className={styles.spTitle}>
             {bridge.title(domain)}
           </h2>
-          <p className={styles.spLead}>{bridge.text(domain)}</p>
+          <p className={styles.spLead}>{bridge.text}</p>
         </div>
       </div>
 
@@ -80,14 +80,28 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
           <div className={styles.spOffer}>
             <h2 className={styles.spOfferTitle}>{offer.title}</h2>
             <ul className={styles.ticks}>
-              {offer.items(domain, bonus).map((item) => (
+              {offer.items.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
+            {bonus && (
+              <div className={styles.spBonus}>
+                <p className={styles.spBonusTag}>{offer.bonus.tag(when)}</p>
+                <p className={styles.spBonusTitle}>{offer.bonus.title(domain)}</p>
+                <p className={styles.spBonusText}>{offer.bonus.text}</p>
+              </div>
+            )}
             <div className={styles.spCompare}>
-              <p>{offer.compare[0]}</p>
-              <p className={styles.spStrong}>{offer.compare[1]}</p>
+              {[offer.compare.them, offer.compare.us].map((side, index) => (
+                <div key={side.name} className={cn(styles.spCompareSide, index === 1 && styles.spCompareUs)}>
+                  <p className={styles.spCompareName}>{side.name}</p>
+                  {side.lines.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              ))}
             </div>
+            <p className={styles.spCompareNote}>{offer.compare.note}</p>
             <div className={styles.spPrice}>
               <span className={styles.spPriceTag}>{offer.tag}</span>
               <p className={styles.spPriceRow}>
@@ -103,12 +117,18 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               <p className={styles.spPriceUnit}>{offer.unit}</p>
               <p className={styles.spPriceWhy}>{offer.why}</p>
             </div>
-            {bonus && when && <p className={styles.spDeadline}>{offer.deadline(when)}</p>}
             <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
               {OFFER_COPY.button}
             </OfferButton>
+            <div className={styles.spNext}>
+              <p className={styles.spNextTitle}>{offer.next.title}</p>
+              <ol>
+                {offer.next.steps(bonus).map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </div>
             <p className={styles.spGuarantee}>{offer.guarantee}</p>
-            <p className={styles.fine}>{offer.fine}</p>
           </div>
         </div>
       </div>
@@ -149,7 +169,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
       <div className={styles.spClose}>
         <div className={styles.spInner}>
           <h2 className={styles.spCloseTitle}>{close.title(domain)}</h2>
-          {bonus && when && <p className={styles.spCloseDeadline}>{offer.deadline(when)}</p>}
+          {bonus && when && <p className={styles.spCloseDeadline}>{close.reminder(when)}</p>}
           <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
             {OFFER_COPY.button}
           </OfferButton>

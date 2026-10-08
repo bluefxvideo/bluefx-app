@@ -51,7 +51,7 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
       {/* One offer on the ready page, so no "best value" tag there (the $99 offer is gone). */}
       {!ready && <span className={styles.tag}>{OFFER_COPY.tag}</span>}
       <h2 className={styles.offerTitle}>{ready ? (cleanUntil ? OFFER_READY.heading : OFFER_READY.headingLater) : OFFER_COPY.headingUpgrade}</h2>
-      <p className={styles.offerText}>{ready ? (cleanUntil ? OFFER_READY.body : OFFER_READY.bodyLater) : OFFER_COPY.bodyUpgrade}</p>
+      <p className={styles.offerText}>{ready ? OFFER_READY.body : OFFER_COPY.bodyUpgrade}</p>
       {/* The ready page shows the styles and everything else in the sales page under the video ad. */}
       {!ready && <StyleReel />}
       {!ready && (
@@ -73,7 +73,13 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
         <span className={styles.priceUnit}>{OFFER_COPY.unit}</span>
         <span className={styles.priceOff}>{OFFER_COPY.off}</span>
       </p>
-      {ready && when && <p className={styles.offerDeadline}>{OFFER_READY.deadline(when)}</p>}
+      {/* The 3-day bonus, named and valued; the exact end appears once the browser knows its time zone. */}
+      {ready && cleanUntil && (
+        <div className={styles.offerBonus}>
+          <p className={styles.offerBonusTitle}>{OFFER_READY.bonusTitle}</p>
+          <p className={styles.offerBonusLine}>{when ? OFFER_READY.bonusLine(when) : OFFER_READY.bonusLineSoon}</p>
+        </div>
+      )}
       {/* A new tab, so this page keeps checking on the video ad. The click is the pixel's InitiateCheckout. */}
       <OfferButton className={styles.btn} href={goUrl(placement, token)}>
         {OFFER_COPY.button}

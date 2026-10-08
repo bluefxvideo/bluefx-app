@@ -1440,16 +1440,25 @@
   padding: 4px 10px;
   border-radius: 999px;
 }
-/* The ready card's date: this video ad goes into a buyer's account clean until its project files are deleted. */
-.offerDeadline {
+/* The ready card's 3-day bonus, named and valued: green like the "$700 off" badge, a gift with a real end. */
+.offerBonus {
   margin: 0 0 14px;
   padding: 10px 12px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: #f1f8e9;
+  border: 1px solid #c5e1a5;
   border-radius: 8px;
-  color: #991b1b;
+}
+.offerBonusTitle {
+  margin: 0;
+  color: #33691e;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.offerBonusLine {
+  margin: 2px 0 0;
+  color: #33691e;
   font-size: 14px;
-  font-weight: 600;
   line-height: 1.45;
 }
 .offerStatus {
@@ -1730,20 +1739,6 @@
   line-height: 1.2;
   text-align: center;
 }
-.spCompare {
-  margin: 20px 0 0;
-  padding: 14px 16px;
-  background: var(--fv-soft);
-  border: 1px solid var(--fv-line);
-  border-radius: 10px;
-  color: var(--fv-text);
-  font-size: 16px;
-  line-height: 1.5;
-  text-align: center;
-}
-.spCompare p {
-  margin: 0;
-}
 .spPrice {
   margin: 22px 0 0;
   text-align: center;
@@ -1791,24 +1786,96 @@
   font-size: 15px;
   line-height: 1.5;
 }
-/* The real deadline: this video ad goes into a buyer's account clean only until its project files are deleted. */
-.spDeadline {
-  margin: 18px 0;
-  padding: 12px 14px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+/* The 3-day bonus, in full once (offer.ts CLEAN_COPY_HOURS): a green box, a gift with a real end. */
+.spBonus {
+  margin: 20px 0 0;
+  padding: 14px 16px;
+  background: #f1f8e9;
+  border: 1px dashed #7cb342;
   border-radius: 10px;
-  color: #991b1b;
+}
+.spBonusTag {
+  margin: 0 0 4px;
+  color: #33691e;
+  font-size: 14px;
+  font-weight: 800;
+}
+.spBonusTitle {
+  margin: 0 0 4px;
+  color: var(--fv-ink);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.spBonusText {
+  margin: 0;
+  color: var(--fv-text);
   font-size: 15px;
-  font-weight: 600;
   line-height: 1.5;
+}
+/* A freelancer against the AI Media Machine, in money and time. */
+.spCompare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 20px 0 0;
+}
+.spCompareSide {
+  padding: 12px 14px;
+  background: var(--fv-soft);
+  border: 1px solid var(--fv-line);
+  border-radius: 10px;
+  color: var(--fv-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.spCompareSide p {
+  margin: 0 0 4px;
+}
+.spCompareUs {
+  background: #ffffff;
+  border: 2px solid var(--fv-green);
+  color: var(--fv-ink);
+  font-weight: 600;
+}
+.spCompareName {
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+.spCompareNote {
+  margin: 8px 0 0;
+  color: var(--fv-muted);
+  font-size: 14px;
   text-align: center;
 }
 .spOffer .spBtn {
   margin-top: 18px;
 }
-.spDeadline + .spBtn {
-  margin-top: 0;
+/* What happens after the click: the checkout, the login email, the first win. */
+.spNext {
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  background: var(--fv-soft);
+  border-radius: 10px;
+}
+.spNextTitle {
+  margin: 0 0 6px;
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+.spNext ol {
+  margin: 0;
+  padding-left: 20px;
+  list-style: decimal;
+  color: var(--fv-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.spNext li {
+  margin: 2px 0;
 }
 .spGuarantee {
   margin: 14px 0 0;
@@ -1919,7 +1986,7 @@
 .spCloseDeadline {
   max-width: 560px;
   margin: 0 auto 18px;
-  color: #fecaca;
+  color: #c5e1a5;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.5;
