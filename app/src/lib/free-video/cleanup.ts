@@ -1,12 +1,14 @@
 /**
  * Free video ads keep only their video (owner 2026-10-06: "free ads delete their working files after 30 days
- * unless someone paid for the clean version").
+ * unless someone paid for the clean version"; 2026-10-08: the working files are what expires, "we cannot keep them on
+ * the server ... more than three days": the 3 days the page's timer and the emails promise, CLEAN_COPY_HOURS).
  *
  * The $99 clean version is rendered from the working files (the presenter clip, the photos, the drawings, the
  * voice-over, the music), so the unlock closes UNLOCK_DAYS after the video ad was finished (unlockOpen: the offer
  * leaves the page and /go/fvunlock no longer opens the checkout), and the files go FILES_KEEP_DAYS after it, one
- * day later, so a checkout opened on the last day still renders. The video the lead's page plays stays, so the
- * emailed link keeps working. A lead whose clean version was paid for keeps everything.
+ * day later, so a checkout opened on the last day still renders (and a sale in the last minute is copied, files and
+ * all, before they go). The video the lead's page plays stays, so the emailed link keeps working. A lead whose clean
+ * version was paid for, or who bought the AI Media Machine, keeps everything.
  *
  * The sweep runs this once an hour (the sweep at minute 0 to 2), CLEANUP_BATCH leads at a time. A lead is marked
  * with files_cleaned_at, a column the owner adds with the SQL line in the free video migration; until then the
@@ -15,8 +17,8 @@
 import { createAdminClient } from '@/app/supabase/server';
 import type { FreeVideoLeadStatus, FreeVideoUnlockStatus } from '@/types/free-video';
 
-export const UNLOCK_DAYS = 30;
-export const FILES_KEEP_DAYS = 31;
+export const UNLOCK_DAYS = 3;
+export const FILES_KEEP_DAYS = 4;
 const CLEANUP_BATCH = 20;
 const DAY_MS = 86_400_000;
 const BUCKET = 'script-videos';
@@ -86,6 +88,7 @@ export async function cleanWorkingFiles(own: (query: any) => any, systemUserId: 
       .is('files_cleaned_at', null)
       .in('status', FINISHED)
       .in('unlock_status', UNPAID)
+      .is('bought_at', null)
       .lt('finished_at', new Date(Date.now() - FILES_KEEP_DAYS * DAY_MS).toISOString())
   )
     .order('finished_at', { ascending: true })
@@ -115,7 +118,8 @@ export async function cleanWorkingFiles(own: (query: any) => any, systemUserId: 
         .update({ files_cleaned_at: new Date().toISOString(), photos: [], live: null })
         .eq('id', lead.id)
         .is('files_cleaned_at', null)
-        .in('unlock_status', UNPAID);
+        .in('unlock_status', UNPAID)
+        .is('bought_at', null);
       if (markError) throw new Error(`lead not marked: ${markError.message}`);
       report.leads++;
       report.files += doomed.length;

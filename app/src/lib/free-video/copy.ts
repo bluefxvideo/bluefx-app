@@ -551,12 +551,13 @@ export const STYLES = {
 /**
  * The live countdown to the end of the 3-day bonus (owner 2026-10-08: "i also want a timer and the thing that expires,
  * to have at least some sort of urgency"), in the bonus box beside the video ad, in the offer box and on the last band.
- * The deadline is real: claim.ts gives the clean copy only to a buyer who pays before it.
+ * The deadline is real: claim.ts gives the clean copy only to a buyer who pays before it, and cleanup.ts deletes the
+ * working files a day after it (owner: the working files are what expires, "not just the video").
  */
 export const BONUS_TIMER = {
   units: ['days', 'hours', 'min', 'sec'],
   label: 'Time left until the free bonus ends',
-  ended: 'The free bonus has ended: this video ad keeps the watermark.',
+  ended: 'The free bonus has ended: the working files of this video ad are being deleted, and the watermark stays.',
 } as const;
 
 /**
@@ -583,11 +584,13 @@ export const OFFER_READY = {
    * The 3-day bonus, named and valued at the $99 the clean video ad sold for (owner 2026-10-08: "the word buy seems
    * harsh", then the Hormozi review: a fast-action bonus says what you get, what it is worth and until when).
    */
-  bonusTitle: `Free bonus: this video ad without the watermark (${UNLOCK.price} value)`,
+  bonusTitle: `Free bonus: this video ad without the watermark, ready to change (${UNLOCK.price} value)`,
   /** Under the countdown: the deadline and what the visitor loses after it. */
-  bonusLine: (when: string) => `Get the AI Media Machine by ${when}, or this video ad keeps the BlueFX watermark.`,
+  bonusLine: (when: string) =>
+    `Get the AI Media Machine by ${when}. After that, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
-  bonusLineSoon: 'Get the AI Media Machine within 3 days of getting your video ad, or this video ad keeps the BlueFX watermark.',
+  bonusLineSoon:
+    "Get the AI Media Machine within 3 days of getting your video ad. After that, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.",
   /** The guarantee sits in PaymentTrust right above. */
   fine: 'One payment. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',

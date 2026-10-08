@@ -29,19 +29,22 @@ async function main(): Promise<void> {
   console.log('== unlock window');
   const now = Date.now();
   const done = (daysAgo: number) => ({ status: 'done', video_url: `${BASE}/smart-video/${USER}/${JOB_B}/video.mp4`, finished_at: new Date(now - daysAgo * DAY).toISOString() });
-  check('open 29 days after the video ad', unlockOpen(done(29), now));
+  check(`open ${UNLOCK_DAYS - 1} days after the video ad`, unlockOpen(done(UNLOCK_DAYS - 1), now));
   check(`closed after ${UNLOCK_DAYS} days`, !unlockOpen(done(UNLOCK_DAYS + 0.01), now));
   check('closed when the video ad is not done', !unlockOpen({ ...done(1), status: 'held' }, now));
   check('open without a finish time (nothing says it is old)', unlockOpen({ ...done(1), finished_at: null }, now));
   check('the files outlive the unlock by a day', FILES_KEEP_DAYS === UNLOCK_DAYS + 1);
+  const { CLEAN_COPY_HOURS } = await import('@/lib/free-video/offer');
+  check('the files outlive the 3-day bonus (a last-minute sale still gets them)', FILES_KEEP_DAYS * 24 > CLEAN_COPY_HOURS);
+  check('the unlock closes with the bonus', UNLOCK_DAYS * 24 === CLEAN_COPY_HOURS);
 
   const lead = (daysAgo: number, unlock_status = 'none') =>
     ({ ...done(daysAgo), unlock_status, view_token: 'gHAMS8DxumgdZBxF6Evflg', website_domain: 'example.com', clean_video_url: null }) as never;
   const fresh = unlockViewOf(lead(2));
   check('the page offers the unlock 2 days after', fresh.state === 'available' && 'checkoutPath' in fresh && Boolean(fresh.checkoutPath));
-  const old = unlockViewOf(lead(31));
-  check('the page hides the unlock after 31 days (no checkout link)', old.state === 'unavailable' && !('checkoutPath' in old && old.checkoutPath));
-  check('a paid unlock still shows as paid after 31 days', unlockViewOf(lead(31, 'paid')).state === 'paid');
+  const old = unlockViewOf(lead(FILES_KEEP_DAYS));
+  check(`the page hides the unlock after ${FILES_KEEP_DAYS} days (no checkout link)`, old.state === 'unavailable' && !('checkoutPath' in old && old.checkoutPath));
+  check(`a paid unlock still shows as paid after ${FILES_KEEP_DAYS} days`, unlockViewOf(lead(FILES_KEEP_DAYS, 'paid')).state === 'paid');
 
   console.log('== which files go');
   const video = `${BASE}/smart-video/${USER}/${JOB_B}/video.mp4`;
