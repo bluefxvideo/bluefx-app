@@ -616,25 +616,27 @@ export const EMAIL_DRAFTS = [
     automation: 'Free Video Ad',
     placement: 'fvmail2',
     send: '1 day after E1',
-    subject: '3 places to post your video ad today',
+    // Owner 2026-10-08: buyers ask 3 questions (does it work, for me, can I use it myself) and the free video ad
+    // already answered all 3.
+    subject: '{$name}, 3 questions your video ad already answered',
     body: [
       'Hi {$name},',
       '',
-      'Here are 3 places to post your video ad for {$free_video_site} today:',
+      'Before anyone buys software like the AI Media Machine, they want 3 answers. Your free video ad gave you all 3:',
       '',
-      '1) a Reel on Instagram',
-      '2) a post on your Facebook page, pinned to the top',
-      '3) TikTok or YouTube Shorts',
+      '1) Does the software work? You watched the finished video ad.',
+      '2) Will the software work for my business? The video ad is about {$free_video_site}.',
+      '3) Can I use the software myself? All you did was type your website.',
       '',
-      "Here's your video ad again: {$free_video_url}",
+      "Every video ad in the AI Media Machine starts the same way: paste a link, and the video ad is ready in a few minutes. That's 10 new video ads like yours every month.",
       '',
-      "People stop noticing an ad after they've seen the same ad a few times, so plan a fresh video ad every week. With the AI Media Machine you make 10 new video ads like yours every month, and you change the music, a photo or a line of the script by typing what to change.",
-      '',
-      'Your free bonus runs 2 more days: get the AI Media Machine by then, and your video ad goes into your account without the watermark. Lifetime access is $700 off right now too.',
+      'Your free bonus runs 2 more days: get the AI Media Machine by then, and your video ad goes into your account without the watermark.',
       '',
       '[Button: Get the AI Media Machine → https://app.bluefx.net/go/fvmail2?t={$free_video_token}]',
       '',
       'Szilard',
+      '',
+      "P.S. Here's your video ad again: {$free_video_url}",
     ].join('\n'),
   },
   {
@@ -643,27 +645,23 @@ export const EMAIL_DRAFTS = [
     placement: 'fvmail3',
     /** 1 day after E2 (was 2): the 3-day bonus would be over by day 3 (owner 2026-10-08). */
     send: '1 day after E2',
-    // The last-day email (owner 2026-10-08: "twist the knife on loosing the ad/project a little ... as well as the
-    // lifetime offer"): every loss is true. After the bonus a buyer's copy keeps the mark (claim.ts), the working files
-    // go after FILES_KEEP_DAYS (cleanup.ts), and the lifetime page says the license returns to $997 once the birthday
-    // price ends (no date given, so none is promised here).
-    subject: '{$name}, 1 day left to get your video ad without the watermark',
+    // The last-day email, kept simple (owner 2026-10-08: "we give 3 days, not 30 on the page, also its hard to
+    // comprehend"): one deadline, one loss, one button.
+    subject: '{$name}, your free bonus ends tomorrow',
     body: [
       'Hi {$name},',
       '',
       'Your free bonus ends tomorrow.',
       '',
-      'Until then, your video ad for {$free_video_site} goes into your AI Media Machine without the watermark, with the whole project behind it: the script, the voice-over, the music and the pictures, ready to change.',
+      'Get the AI Media Machine before then, and your video ad for {$free_video_site} goes into your account without the watermark, ready to post or change. After tomorrow, the video ad keeps the watermark.',
       '',
-      'After tomorrow, the video ad goes in with the watermark. And 30 days after the video ad was made, the project files are deleted for good.',
+      'You already know the AI Media Machine works for your business, and that you can use it: you made your first video ad by typing your website.',
       '',
-      'Lifetime access is $700 off right now, my 40th-birthday price. When the birthday price is gone, the lifetime license is back at $997.',
+      'Lifetime access is $700 off right now.',
       '',
       '[Button: Get the AI Media Machine → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
       '',
       'Szilard',
-      '',
-      'P.S. You have 30 days to ask for your money back. The free bonus has 1 day.',
     ].join('\n'),
   },
   {

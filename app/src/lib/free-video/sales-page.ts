@@ -1,8 +1,9 @@
 /**
  * The AI Media Machine offer under the finished free video ad. Owner 2026-10-08: the whole lifetime page here was "too
  * much info, too many directions"; then "it still needs work and clarity, ask alex hormozi"; then "rethink, ask alex
- * to review the page". The page now reads: the outcome first ("Want more customers from social media?"), how the next
- * video ad gets made (three steps), video ads made with the AI Media Machine, then one offer box: what you get, the
+ * to review the page". The page now reads: the outcome first ("Want more customers from social media?"), the 3 questions
+ * the free video ad already answered (it works, for your business, and you can use it yourself), video ads made with
+ * the AI Media Machine, then one offer box: what you get, the
  * 3-day bonus named and valued (shown in full once, a short reminder elsewhere), a freelancer against the AI Media
  * Machine in money and time, the birthday price, one button, what happens after the click, the guarantee; then the
  * founder, five questions, the last button.
@@ -62,14 +63,25 @@ export const SALES_PAGE = {
     /** The outcome first, in the owner's own proven words ("Want more clients from social media?"), then the vehicle. */
     kicker: 'Want more customers from social media?',
     title: (domain: string) => `Post a fresh video ad for ${domain} every week`,
-    text: "People stop noticing an ad after they've seen the same ad a few times. The AI Media Machine made the video ad above in a few minutes, and every new video ad takes a few minutes too.",
+    text: (domain: string) => `People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps ${domain} in front of your customers.`,
   },
-  steps: {
-    title: 'How the next video ad gets made',
-    items: [
-      { title: 'Paste a link', text: 'Your website or a product page. A few lines about an offer, or a few photos, work too.' },
-      { title: 'The AI Media Machine makes the video ad', text: 'The script, the presenter, the voice-over, the music and the pictures, in a few minutes.' },
-      { title: 'Post the video ad', text: 'Vertical for Reels and TikTok, horizontal for YouTube and Facebook, ready to download.' },
+  /**
+   * The 3 questions every buyer of software asks, and the free video ad already answered all 3 (owner 2026-10-08:
+   * "people first like to see proof, can a software actually deliver? next can it create the result for them? and the
+   * biggest one can they actually use the software themself ... with the free vid we prove all 3 concerns").
+   */
+  questions: {
+    title: 'Your free video ad already answered 3 questions',
+    items: (domain: string) => [
+      {
+        q: 'Does the AI Media Machine work?',
+        a: 'You watched the finished video ad above: the script, the presenter, the voice-over, the music and the pictures.',
+      },
+      { q: 'Will the AI Media Machine work for my business?', a: `The video ad is about ${domain}, made from your own website.` },
+      {
+        q: 'Can I use the AI Media Machine myself?',
+        a: 'You typed one website address. Every video ad in the AI Media Machine starts the same way: paste a link, and the video ad is ready in a few minutes.',
+      },
     ],
   },
   proof: {

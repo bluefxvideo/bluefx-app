@@ -21,8 +21,9 @@ interface LifetimeSalesPageProps {
 
 /**
  * The AI Media Machine offer under the finished video ad, never before it is ready (owner 2026-10-08: "it should be
- * shown only once the result is visible"), in Hormozi's order: the promise, the three steps, proof, one offer box with
- * the price, the 3-day bonus and the guarantee, the founder, five questions, one last button. Copy in
+ * shown only once the result is visible"), in Hormozi's order: the promise, the 3 questions the free video ad already
+ * answered, proof, one offer box with the price, the 3-day bonus and the guarantee, the founder, five questions, one
+ * last button. Copy in
  * lib/free-video/sales-page.ts. Every button opens ClickBank's checkout through /go (OfferButton fires the pixel's
  * InitiateCheckout). The deadline lines appear once the page runs in the browser (useDeadline).
  */
@@ -30,7 +31,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   const href = goUrl(placement, token);
   const bonus = Boolean(cleanUntil);
   const when = useDeadline(cleanUntil);
-  const { bridge, steps, proof, offer, founder, faq, close, legal } = SALES_PAGE;
+  const { bridge, questions, proof, offer, founder, faq, close, legal } = SALES_PAGE;
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
       <div className={styles.spBlock}>
@@ -39,21 +40,21 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
           <h2 id="fv-sales-title" className={styles.spTitle}>
             {bridge.title(domain)}
           </h2>
-          <p className={styles.spLead}>{bridge.text}</p>
+          <p className={styles.spLead}>{bridge.text(domain)}</p>
         </div>
       </div>
 
       <div className={cn(styles.spBlock, styles.spSoft)}>
         <div className={styles.spInnerWide}>
-          <h2 className={styles.spTitle}>{steps.title}</h2>
+          <h2 className={styles.spTitle}>{questions.title}</h2>
           <ol className={styles.spSteps}>
-            {steps.items.map((step, index) => (
-              <li key={step.title} className={styles.spStep}>
-                <span className={styles.spStepNumber} aria-hidden="true">
-                  {index + 1}
+            {questions.items(domain).map((item) => (
+              <li key={item.q} className={styles.spStep}>
+                <span className={cn(styles.spStepNumber, styles.spStepCheck)} aria-hidden="true">
+                  ✓
                 </span>
-                <h3 className={styles.spStepTitle}>{step.title}</h3>
-                <p className={styles.spStepText}>{step.text}</p>
+                <h3 className={styles.spStepTitle}>{item.q}</h3>
+                <p className={styles.spStepText}>{item.a}</p>
               </li>
             ))}
           </ol>

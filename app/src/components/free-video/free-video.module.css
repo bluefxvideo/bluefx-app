@@ -1567,6 +1567,10 @@
   color: #ffffff;
   font-weight: 800;
 }
+/* The 3 questions: a green tick where the steps had numbers, each one already answered. */
+.spStepCheck {
+  background: var(--fv-green);
+}
 .spStepTitle {
   margin: 0 0 6px;
   color: var(--fv-ink);
