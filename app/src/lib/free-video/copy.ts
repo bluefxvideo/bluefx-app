@@ -682,18 +682,19 @@ export const EMAIL_DRAFTS = [
     send: '1 day after E2',
     // The last-day email: one deadline, one loss, one button, said with a smile (owner 2026-10-08).
     subject: '{$name}, your free bonus ends tomorrow',
-    // Owner 2026-10-08: what expires is the working files, "not just the video"; they go after 30 days, so after the
-    // bonus they CAN be deleted any time.
+    // Owner 2026-10-08: the working files are what matters, "not just the video"; the version that said "I can delete
+    // those working files any time" was "evil", so E3 names them as something the reader gets, and the watermark is
+    // the only loss.
     body: [
       'Hey {$name},',
       '',
       'Quick one: your free bonus ends tomorrow.',
       '',
-      'Get the AI Media Machine before then, and your video ad for {$free_video_site} goes into your account without the watermark, together with the working files: the presenter clip, the voice-over, the drawings and the music. Want a new first line or other music? Type the change, and the AI Media Machine remakes your video ad in a few minutes.',
+      'Get the AI Media Machine before then, and your video ad for {$free_video_site} goes into your account without the watermark. You also get everything your video ad was made from: the presenter clip, the voice-over, the drawings and the music. So when you want a new first line or other music, you type the change, and the AI Media Machine remakes your video ad in a few minutes.',
       '',
-      'After tomorrow, your video ad keeps the BlueFX watermark, and I can delete those working files any time. Then nobody can change your video ad anymore. Great advertising for me, less great for you.',
+      'After tomorrow, your video ad keeps the BlueFX watermark. Great advertising for me, less great for you :-)',
       '',
-      'And lifetime access is still $700 off, my 40th-birthday price. Apparently I only turn 40 once :-)',
+      'And lifetime access is still $700 off, my 40th-birthday price. Apparently I only turn 40 once.',
       '',
       '[Link: Get The AI Media Machine Here → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
       '',
