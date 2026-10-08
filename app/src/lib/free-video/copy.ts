@@ -575,7 +575,7 @@ export const OFFER_READY = {
 /**
  * The emails. No code sends these: the owner pastes them into MailerLite automations by hand.
  * Merge tags: {$name}, {$free_video_site}, {$free_video_url}, {$free_video_token}, {$free_video_clean_url}.
- * Lines like "[Button: label → url]" become a MailerLite button.
+ * Lines like "[Link: Label → url]" become a bold underlined link in the owner's list-email look ("[Button: label → url]" in U1).
  * Never a buy price in any email: no $99 and no $297. "$700 off" is allowed.
  *
  * Built in MailerLite through its connector (2026-10-07), every email as HTML with a plain-text twin:
@@ -592,23 +592,29 @@ export const EMAIL_DRAFTS = [
     automation: 'Free Video Ad',
     placement: 'fvmail1',
     send: 'immediately',
+    // The owner-approved E1 that went live 2026-10-08 10:30, with the new page's offer: the 3-day bonus, 10 video ads like
+    // yours a month, "$700 off" as on the page's badge, and the page's button words.
     subject: '{$name}, your video ad for {$free_video_site} is ready',
     body: [
-      'Hi {$name},',
+      'Hey {$name},',
       '',
-      'The AI Media Machine just finished your video ad for {$free_video_site}.',
+      'Your video ad for {$free_video_site} is ready:',
       '',
-      '[Button: Watch my video ad → {$free_video_url}]',
+      '[Link: Watch Your Video Ad Here → {$free_video_url}]',
       '',
-      'You can download the free version of the video ad on that page.',
+      'What do you think?',
       '',
-      "Here's my tip: post the video ad as an Instagram Reel and as a TikTok on the same day, then boost whichever post gets more views.",
+      'Want to change something in your video ad? A new first line, your logo, a different photo or other music? Want the BlueFX watermark gone?',
       '',
-      'Talk soon,',
+      'Free bonus for the next 3 days: get the AI Media Machine, and your video ad for {$free_video_site} goes into your account without the watermark. Type the change you want, and the AI Media Machine makes the new version of your video ad in a few minutes.',
+      '',
+      'With the AI Media Machine you also make 10 new video ads like yours every month: one for every offer you run, and one for every business that pays you to make their video ad.',
+      '',
+      'Lifetime access is $700 off right now:',
+      '',
+      '[Link: Get The AI Media Machine Here → https://app.bluefx.net/go/fvmail1?t={$free_video_token}]',
+      '',
       'Szilard',
-      '',
-      // The 3-day bonus starts with this email (offer.ts CLEAN_COPY_HOURS, owner 2026-10-08).
-      'P.S. A free bonus for the next 3 days: get the AI Media Machine, and your video ad goes into your account without the watermark, ready to change. The details are on your video ad page: {$free_video_url}',
     ].join('\n'),
   },
   {
@@ -636,7 +642,7 @@ export const EMAIL_DRAFTS = [
       '',
       'Free bonus, 2 more days: get the AI Media Machine and your video ad goes in without the watermark.',
       '',
-      '[Button: Get the AI Media Machine → https://app.bluefx.net/go/fvmail2?t={$free_video_token}]',
+      '[Link: Get The AI Media Machine Here → https://app.bluefx.net/go/fvmail2?t={$free_video_token}]',
       '',
       'Szilard',
       '',
@@ -662,7 +668,7 @@ export const EMAIL_DRAFTS = [
       '',
       "And lifetime access is still $700 off, my 40th-birthday price. Apparently I only turn 40 once :-)",
       '',
-      '[Button: Get the AI Media Machine → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
+      '[Link: Get The AI Media Machine Here → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
       '',
       'Talk soon,',
       'Szilard',
