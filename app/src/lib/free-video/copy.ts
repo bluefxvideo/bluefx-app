@@ -587,10 +587,10 @@ export const OFFER_READY = {
   bonusTitle: `Free bonus: this video ad without the watermark, ready to change (${UNLOCK.price} value)`,
   /** Under the countdown: the deadline and what the visitor loses after it. */
   bonusLine: (when: string) =>
-    `Get the AI Media Machine by ${when}. After that, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.`,
+    `Get the AI Media Machine by ${when}. After the timer expires, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
   bonusLineSoon:
-    "Get the AI Media Machine within 3 days of getting your video ad. After that, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.",
+    "Get the AI Media Machine within 3 days of getting your video ad. After the timer expires, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.",
   /** The guarantee sits in PaymentTrust right above. */
   fine: 'One payment. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',

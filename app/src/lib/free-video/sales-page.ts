@@ -158,7 +158,8 @@ export const SALES_PAGE = {
     bonus: {
       tag: (when: string | null) => (when ? `Free bonus until ${when}` : `Free bonus for ${BONUS_DAYS} days`),
       title: (domain: string) => `This video ad for ${domain}, without the watermark and ready to change (${UNLOCK.price} value)`,
-      text: "Get the AI Media Machine by then and this video ad goes into your account within about 10 minutes, with the working files of the video ad: the presenter clip, the voice-over, the drawings and the music. Change anything, any time. After that, we delete the working files, and the video ad can't be changed anymore.",
+      // Owner 2026-10-08: no "within about 10 minutes" here ("needed to say??"), and "After the timer expires".
+      text: "Get the AI Media Machine by then and this video ad goes into your account with the working files of the video ad: the presenter clip, the voice-over, the drawings and the music. Change anything, any time. After the timer expires, we delete the working files, and the video ad can't be changed anymore.",
     },
     tag: '40th birthday price',
     was: OFFER.was,
@@ -229,7 +230,7 @@ export const SALES_PAGE = {
   },
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
-    reminder: (when: string) => `Free bonus until ${when}: this video ad without the watermark, ready to change. After that, we delete the working files.`,
+    reminder: (when: string) => `Free bonus until ${when}: this video ad without the watermark, ready to change. After the timer expires, we delete the working files.`,
     line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads every month, for life: under ${UNDER} per video ad.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */
