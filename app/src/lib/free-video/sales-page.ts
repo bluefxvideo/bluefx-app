@@ -75,12 +75,12 @@ export const SALES_PAGE = {
     items: (domain: string) => [
       {
         q: 'Does the AI Media Machine work?',
-        a: 'You watched the finished video ad above: the script, the presenter, the voice-over, the music and the pictures.',
+        a: 'The AI Media Machine wrote the script, cast the presenter, recorded the voice-over and picked the music for the video ad above, in a few minutes.',
       },
       { q: 'Will the AI Media Machine work for my business?', a: `The video ad is about ${domain}, made from your own website.` },
       {
         q: 'Can I use the AI Media Machine myself?',
-        a: 'You typed one website address. Every video ad in the AI Media Machine starts the same way: paste a link, and the video ad is ready in a few minutes.',
+        a: 'You already did: you typed one website address. Every video ad in the AI Media Machine starts that way, and the next video ad is ready in a few minutes.',
       },
     ],
   },
