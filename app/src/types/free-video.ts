@@ -32,6 +32,8 @@ export const FreeVideoLeadSchema = z.object({
   startedAt: z.number().int().optional().catch(undefined),
   /** The browser's time zone (Intl), one of the two country signals (geo.ts). A bad value is dropped. */
   tz: z.string().trim().max(64).optional().catch(undefined),
+  /** The Facebook click id of the landing address (?fbclid=), for the Conversions API when the pixel set no _fbc cookie (meta.ts). A bad value is dropped. */
+  fbclid: z.string().trim().max(500).regex(/^[\w.-]{10,500}$/).optional().catch(undefined),
   /** Honeypot: a field name no autofill knows; it must stay empty. Any odd value counts as filled. */
   fv_note: z.string().max(200).optional().catch('filled'),
   consent: z.literal(true, { errorMap: () => ({ message: VALIDATION.consent }) }),
@@ -58,6 +60,8 @@ export type FreeVideoErrorCode =
 /** The data of a 200 answer from POST /api/free-video. token null = the silent drop for bots. */
 export interface FreeVideoSubmitData {
   token: string | null;
+  /** The pixel's Lead event id, the same one the server sends (pixel.ts leadEventId). Only with a token. */
+  eventId?: string;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -317,8 +321,11 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
 export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
-/** Events only the server writes (the /go route logs each offer click). */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click';
+/**
+ * Events only the server writes: the /go route logs each offer click; meta.ts saves a lead's Facebook ids ('meta_ids',
+ * meta {fbc, fbp}) and the outcome of every Conversions API send ('capi', meta {name, id, ok, error}).
+ */
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),

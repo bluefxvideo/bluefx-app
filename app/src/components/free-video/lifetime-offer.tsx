@@ -2,6 +2,7 @@ import { OFFER_COPY } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
+import { OfferButton } from './offer-button';
 import { StyleReel } from './style-reel';
 
 interface LifetimeOfferProps {
@@ -19,8 +20,8 @@ interface LifetimeOfferProps {
 /**
  * Offer 2: AI Media Machine lifetime, through /go/<placement> (logs the click, then ClickBank).
  * Existing customers and buyers get the AI Media Machine instead: under a finished video ad, a button that puts this
- * video ad in their account (/go/claim); a customer the email did not match finds the same link under the offer. No hooks of its own (StyleReel is a client component), so it
- * renders in server and client trees.
+ * video ad in their account (/go/claim); a customer the email did not match finds the same link under the offer. No hooks of its own (StyleReel and
+ * OfferButton are client components), so it renders in server and client trees.
  */
 export function LifetimeOffer({ placement, token, isCustomer, variant }: LifetimeOfferProps) {
   const claimable = variant === 'ready' && Boolean(token);
@@ -63,10 +64,10 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
       </p>
       {/* The anchor compares with the $99 clean video ad, which only the ready page offers. */}
       {variant === 'ready' && <p className={styles.offerText}>{OFFER_COPY.anchor}</p>}
-      {/* A new tab, so this page keeps checking on the video ad. */}
-      <a className={cn(styles.btn, waiting && styles.btnBlue)} href={goUrl(placement, token)} target="_blank" rel="noopener noreferrer">
+      {/* A new tab, so this page keeps checking on the video ad. The click is the pixel's InitiateCheckout. */}
+      <OfferButton className={cn(styles.btn, waiting && styles.btnBlue)} href={goUrl(placement, token)}>
         {OFFER_COPY.button}
-      </a>
+      </OfferButton>
       <p className={styles.fine}>{OFFER_COPY.smallPrint}</p>
       {claimable && (
         <p className={styles.fine}>

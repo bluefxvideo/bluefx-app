@@ -3,18 +3,22 @@ import { createClient } from '@/app/supabase/server';
 import { claimFreeVideo } from '@/lib/free-video/claim';
 import { SITE_URL } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
-import { getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
+import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
+import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
 import { isPlacement, offerUrl, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
+import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
 
 /**
  * GET /go/<placement>?t=<view token>: every offer button of the funnel (pages and emails) goes through here.
  * - An allow-listed ClickBank placement (fvthank, fvpage, fvland, fvmail1-3) → 302 to offerUrl(placement), the
  *   lifetime page with the placement as the ClickBank tid. With a valid t, the click is logged on the lead (fvland,
- *   the offer under the form's "one free video ad per business" refusal, has no lead and comes without t).
+ *   the offer under the form's "one free video ad per business" refusal, has no lead and comes without t). Every such
+ *   click is an InitiateCheckout for Facebook (meta.ts), with the page button's event id from ?e= when it sent one.
  * - 'fvunlock' (Offer 1, the $99 clean video ad) → 302 to the lead's FastSpring checkout, ONLY for a valid token of an
  *   existing lead (404 otherwise). A lead that has already paid, whose video ad will never exist, or whose unlock
- *   closed (30 days, cleanup.ts) is sent to its video ad page instead, so nobody pays twice or pays for nothing.
+ *   closed (30 days, cleanup.ts) is sent to its video ad page instead, so nobody pays twice or pays for nothing. The
+ *   click saves the browser's Facebook ids on the lead, for the Purchase the payment sends later.
  * - 'claim' ("Open this video ad in the AI Media Machine") → a signed-in customer gets a copy of the finished video ad
  *   in their Phantom videos (claim.ts) and lands on it; signed out → the login page, back here after; not a customer
  *   → the lifetime offer; a video ad that is not finished → its page.
@@ -43,7 +47,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
       return new NextResponse('Please try again in a minute.', { status: 503, headers: NO_STORE });
     }
     if (!lead) return notFound();
-    after(() => markClicked(token, UNLOCK.placement));
+    const facts = requestFacts(req, clientIp(req));
+    const clicked = lead;
+    after(async () => {
+      await markClicked(token, UNLOCK.placement);
+      await rememberCheckoutIds(clicked, facts, UNLOCK.placement);
+    });
     const page = `${SITE_URL}/v/${token}`;
     if (lead.unlock_status === 'paid' || lead.unlock_status === 'rendering' || lead.unlock_status === 'ready') return redirect(page);
     if (lead.status === 'rejected' || lead.status === 'failed') return redirect(page);
@@ -74,6 +83,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
   }
 
   if (!isPlacement(placement)) return notFound();
-  if (validToken) after(() => markClicked(token, placement));
+  const facts = requestFacts(req, clientIp(req));
+  const eventId = req.nextUrl.searchParams.get(CHECKOUT_EVENT_PARAM);
+  after(async () => {
+    if (validToken) await markClicked(token, placement);
+    await trackCheckout({ token: validToken ? token : null, placement, eventId, facts });
+  });
   return redirect(offerUrl(placement));
 }

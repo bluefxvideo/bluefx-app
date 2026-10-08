@@ -8,7 +8,8 @@
  *
  * - order.completed → handleFreeVideoUnlock(): the lead is found (tag first, else the newest lead of the
  *   buyer's email), the order is confirmed with the FastSpring API when the keys are there, and the lead
- *   becomes unlock_status 'paid' with its order id (unique, so a webhook delivered twice unlocks once).
+ *   becomes unlock_status 'paid' with its order id (unique, so a webhook delivered twice unlocks once). The
+ *   payment goes to Facebook as a Purchase with the click id saved on the lead (meta.ts).
  * - renderCleanVersion(): the saved props of the finished video ad, without the watermark, rendered again
  *   (render cost only, no AI calls) and stored at an unguessable name next to video.mp4, then emailed.
  * - order.canceled, return.created and refund events → unlock_status 'refunded' plus an owner alert.
@@ -20,6 +21,7 @@
 
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { after } from 'next/server';
@@ -29,6 +31,7 @@ import { alertOwner, type AlertItem } from '@/lib/free-video/alerts';
 import { CLEAN_RENDER, fakeMode, GATE, isLive, renderTargetAllowed, remotionServerUrl } from '@/lib/free-video/config';
 import { frameOf, probeFile } from '@/lib/free-video/gate';
 import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUnlock } from '@/lib/free-video/leads';
+import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
 import { UNLOCK } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
@@ -357,6 +360,15 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     return 'second-payment';
   }
   console.log(`✅ [free-video] Lead ${lead.id} (${lead.website_domain}) unlocked by order ${order.id}${order.live === false ? ' (a FastSpring test order)' : ''}`);
+  // Facebook's Purchase, once per order: only this first application of the order gets here.
+  const paidLead = updated;
+  const orderId = order.id;
+  const buyerIp = typeof raw.ipAddress === 'string' && net.isIP(raw.ipAddress.trim()) ? raw.ipAddress.trim() : null;
+  inBackground(
+    'Meta Purchase',
+    () => trackPurchase(paidLead, { id: orderId, amount: order.amount, currency: order.currency, email: order.email, ip: buyerIp }),
+    true
+  );
   if (updated.status === 'done') startCleanRender(updated.id, true);
   else if (updated.status === 'failed' || updated.status === 'rejected') {
     alertLater(

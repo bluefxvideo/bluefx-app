@@ -3,7 +3,9 @@ import { isLive, LIMITS, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config
 import { ERRORS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { clientIp, createLead, takeAttempt, verifyHuman } from '@/lib/free-video/leads';
+import { requestFacts, trackLead } from '@/lib/free-video/meta';
 import { joinLeadsGroup } from '@/lib/free-video/notify';
+import { leadEventId } from '@/lib/free-video/pixel';
 import { kickQueue } from '@/lib/free-video/runner';
 import { sweepWatchdog } from '@/lib/free-video/sweep';
 import { FreeVideoLeadSchema, type FreeVideoErrorCode, type FreeVideoSubmitData } from '@/types/free-video';
@@ -21,10 +23,11 @@ import { createApiError, createApiSuccess, type ApiResponse } from '@/types/vali
  * 4. The bot checks (honeypot, the form's own timer): a silent 200 with token null, nothing stored.
  * 4b. A country on BLOCKED_COUNTRIES (config.ts), by IP or the browser's time zone (geo.ts) → 403 country, nothing stored.
  * 5. createLead (caps, duplicates, the website pre-check, the insert under one lock).
- * 6. after(): a queued lead joins the MailerLite Leads group, the queue is kicked, the cron watchdog runs.
+ * 6. after(): a queued lead joins the MailerLite Leads group, the queue is kicked, the cron watchdog runs, and the
+ *    Lead goes to Facebook's Conversions API with the visitor's click id (meta.ts).
  *
  * Answers ApiResponse<FreeVideoSubmitData>; an error carries details.code (FreeVideoErrorCode) and, for a
- * form field, details.field.
+ * form field, details.field. A queued lead's answer carries the pixel's Lead event id, the one the server sends too.
  */
 export const dynamic = 'force-dynamic';
 
@@ -113,17 +116,26 @@ export async function POST(req: Request) {
     });
 
     // 6. A rejected lead (unreadable or refused website) never goes to MailerLite (review SEC-3); its row keeps the email.
+    // Nor to Facebook: a Lead is a request the AI Media Machine is going to make.
     const queued = result.ok ? result.lead : null;
+    const facts = requestFacts(req, ip, parsed.data.fbclid);
     after(async () => {
       if (queued) {
-        await joinLeadsGroup(queued);
-        await kickQueue();
+        await Promise.all([
+          trackLead(queued, facts, parsed.data.tz),
+          (async () => {
+            await joinLeadsGroup(queued);
+            await kickQueue();
+          })(),
+        ]);
       }
       await sweepWatchdog();
     });
 
     if (!result.ok) return error(result.status, result.code, result.message);
-    return NextResponse.json<Answer>(createApiSuccess({ token: result.lead.view_token }), { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json<Answer>(createApiSuccess({ token: result.lead.view_token, eventId: leadEventId(result.lead.id) }), {
+      headers: { 'Cache-Control': 'no-store' },
+    });
   } catch (failure) {
     console.error('❌ free-video POST', failure);
     return error(503, 'paused', ERRORS.paused);

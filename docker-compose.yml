@@ -75,6 +75,9 @@ services:
       - MAILERLITE_GROUPS=${MAILERLITE_GROUPS}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - CRON_SECRET_TOKEN=${CRON_SECRET_TOKEN}
+      # Free video ad → Meta Conversions API (app/src/lib/free-video/meta.ts). The test code is normally empty.
+      - META_CAPI_TOKEN=${META_CAPI_TOKEN}
+      - META_TEST_EVENT_CODE=${META_TEST_EVENT_CODE}
 
       # Social publishing OAuth
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}

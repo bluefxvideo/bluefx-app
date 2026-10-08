@@ -17,6 +17,7 @@ import {
 } from 'react';
 import { refTagFromUrl, useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { ERRORS, EXAMPLES, FORM, type ExampleVideoAd } from '@/lib/free-video/copy';
+import { clickIdFromUrl, PIXEL_DATA, trackPixel } from '@/lib/free-video/pixel';
 import { cn } from '@/lib/utils';
 import type { FreeVideoLeadBody, FreeVideoSubmitData } from '@/types/free-video';
 import { checkEmail, checkFirstName, checkWebsite, domainOf, problemFromAnswer, type FormProblem } from './form-errors';
@@ -101,8 +102,9 @@ function submitData(answer: unknown): FreeVideoSubmitData | null {
   if (!answer || typeof answer !== 'object') return null;
   const body = answer as { success?: unknown; data?: unknown };
   if (body.success !== true || !body.data || typeof body.data !== 'object') return null;
-  const token = (body.data as { token?: unknown }).token;
-  return token === null || typeof token === 'string' ? { token } : null;
+  const { token, eventId } = body.data as { token?: unknown; eventId?: unknown };
+  if (token !== null && typeof token !== 'string') return null;
+  return { token, ...(typeof eventId === 'string' ? { eventId } : {}) };
 }
 
 interface FreeVideoLandingProps {
@@ -312,6 +314,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
     setSending(true);
     const slowTimer = window.setTimeout(() => setSlow(true), 1000);
     const ref = refTagFromUrl();
+    const fbclid = clickIdFromUrl();
     const body: SubmitBody = {
       firstName: firstName.trim(),
       email: email.trim(),
@@ -322,6 +325,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
       // The schema accepts 0 to 24 h.
       elapsedMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - mountedAt.current))),
       ...(ref ? { ref } : {}),
+      ...(fbclid ? { fbclid } : {}),
     };
     let leaving = false;
     try {
@@ -334,6 +338,8 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
       const data = res.ok ? submitData(answer) : null;
       if (data?.token && VIEW_TOKEN.test(data.token)) {
         leaving = true;
+        // The Lead, with the id the server sends to the Conversions API too, so Facebook counts it once.
+        if (data.eventId) trackPixel('Lead', PIXEL_DATA.lead, data.eventId);
         router.push(`/free-video-ad/thanks/${data.token}`);
         return;
       }
