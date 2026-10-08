@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
 import { PaymentTrust } from './payment-trust';
-import { useDeadline } from './sales-page-media';
+import { BonusTimer, useBonusEnded, useDeadline } from './sales-page-media';
 import { StyleReel } from './style-reel';
 
 interface LifetimeOfferProps {
@@ -34,6 +34,7 @@ interface LifetimeOfferProps {
 export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUntil }: LifetimeOfferProps) {
   const claimable = variant === 'ready' && Boolean(token);
   const when = useDeadline(cleanUntil);
+  const ended = useBonusEnded(cleanUntil);
   if (isCustomer) {
     return (
       <div className={styles.offer}>
@@ -47,11 +48,13 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
   }
 
   const ready = variant === 'ready';
+  /** The 3-day bonus runs: the view has its end and the page has not seen it pass. */
+  const bonus = Boolean(cleanUntil) && !ended;
   return (
     <div className={cn(styles.offer, styles.offerPrimary)}>
       {/* One offer on the ready page, so no "best value" tag there (the $99 offer is gone). */}
       {!ready && <span className={styles.tag}>{OFFER_COPY.tag}</span>}
-      <h2 className={styles.offerTitle}>{ready ? (cleanUntil ? OFFER_READY.heading : OFFER_READY.headingLater) : OFFER_COPY.headingUpgrade}</h2>
+      <h2 className={styles.offerTitle}>{ready ? (bonus ? OFFER_READY.heading : OFFER_READY.headingLater) : OFFER_COPY.headingUpgrade}</h2>
       <p className={styles.offerText}>{ready ? OFFER_READY.body : OFFER_COPY.bodyUpgrade}</p>
       {/* The ready page shows the styles and everything else in the sales page under the video ad. */}
       {!ready && <StyleReel />}
@@ -78,7 +81,8 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
       {ready && cleanUntil && (
         <div className={styles.offerBonus}>
           <p className={styles.offerBonusTitle}>{OFFER_READY.bonusTitle}</p>
-          <p className={styles.offerBonusLine}>{when ? OFFER_READY.bonusLine(when) : OFFER_READY.bonusLineSoon}</p>
+          <BonusTimer until={cleanUntil} />
+          {!ended && <p className={styles.offerBonusLine}>{when ? OFFER_READY.bonusLine(when) : OFFER_READY.bonusLineSoon}</p>}
         </div>
       )}
       {/* A new tab, so this page keeps checking on the video ad. The click is the pixel's InitiateCheckout. */}

@@ -549,6 +549,17 @@ export const STYLES = {
 } as const;
 
 /**
+ * The live countdown to the end of the 3-day bonus (owner 2026-10-08: "i also want a timer and the thing that expires,
+ * to have at least some sort of urgency"), in the bonus box beside the video ad, in the offer box and on the last band.
+ * The deadline is real: claim.ts gives the clean copy only to a buyer who pays before it.
+ */
+export const BONUS_TIMER = {
+  units: ['days', 'hours', 'min', 'sec'],
+  label: 'Time left until the free bonus ends',
+  ended: 'The free bonus has ended: this video ad keeps the watermark.',
+} as const;
+
+/**
  * Under every button of the lifetime offer, as on the lifetime page's price box (owner 2026-10-08: "under the buttons
  * add the credit card logos and the guarantee text"): the cards ClickBank's checkout takes, then the guarantee in the
  * lifetime page's words, its middle part bold.
@@ -573,9 +584,10 @@ export const OFFER_READY = {
    * harsh", then the Hormozi review: a fast-action bonus says what you get, what it is worth and until when).
    */
   bonusTitle: `Free bonus: this video ad without the watermark (${UNLOCK.price} value)`,
-  bonusLine: (when: string) => `Yours when you get the AI Media Machine by ${when}.`,
+  /** Under the countdown: the deadline and what the visitor loses after it. */
+  bonusLine: (when: string) => `Get the AI Media Machine by ${when}, or this video ad keeps the BlueFX watermark.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
-  bonusLineSoon: 'Yours when you get the AI Media Machine within 3 days of getting your video ad.',
+  bonusLineSoon: 'Get the AI Media Machine within 3 days of getting your video ad, or this video ad keeps the BlueFX watermark.',
   /** The guarantee sits in PaymentTrust right above. */
   fine: 'One payment. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',

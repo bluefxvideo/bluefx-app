@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
 import { PaymentTrust } from './payment-trust';
-import { useDeadline, VideoWall } from './sales-page-media';
+import { BonusTimer, useBonusEnded, useDeadline, VideoWall } from './sales-page-media';
 
 interface LifetimeSalesPageProps {
   /** The ClickBank vtid of this page: fvthank on the thank-you page, fvpage on /v/<token>. */
@@ -31,8 +31,10 @@ interface LifetimeSalesPageProps {
  */
 export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: LifetimeSalesPageProps) {
   const href = goUrl(placement, token);
-  const bonus = Boolean(cleanUntil);
   const when = useDeadline(cleanUntil);
+  const ended = useBonusEnded(cleanUntil);
+  /** The 3-day bonus runs: the view has its end and the page has not seen it pass. */
+  const bonus = Boolean(cleanUntil) && !ended;
   const { bridge, questions, proof, math, offer, founder, faq, close, legal } = SALES_PAGE;
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
@@ -136,11 +138,12 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
                 <li key={item}>{item}</li>
               ))}
             </ul>
-            {bonus && (
+            {cleanUntil && (
               <div className={styles.spBonus}>
-                <p className={styles.spBonusTag}>{offer.bonus.tag(when)}</p>
+                {!ended && <p className={styles.spBonusTag}>{offer.bonus.tag(when)}</p>}
+                <BonusTimer until={cleanUntil} />
                 <p className={styles.spBonusTitle}>{offer.bonus.title(domain)}</p>
-                <p className={styles.spBonusText}>{offer.bonus.text}</p>
+                {!ended && <p className={styles.spBonusText}>{offer.bonus.text}</p>}
               </div>
             )}
             <div className={styles.spPrice}>
@@ -218,6 +221,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
         <div className={styles.spInner}>
           <h2 className={styles.spCloseTitle}>{close.title(domain)}</h2>
           {bonus && when && <p className={styles.spCloseDeadline}>{close.reminder(when)}</p>}
+          {cleanUntil && <BonusTimer until={cleanUntil} dark />}
           <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
             {OFFER_COPY.button}
           </OfferButton>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BONUS_TIMER } from '@/lib/free-video/copy';
 import { deadlineLabel } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
@@ -32,6 +33,69 @@ export function useDeadline(iso?: string): string | null {
     setLabel(iso ? deadlineLabel(iso) : null);
   }, [iso]);
   return label;
+}
+
+/**
+ * True once the 3-day bonus has run out while the page is open (false on the server, in the first render and without a
+ * bonus): the offer then reads like a visit after the bonus, and the timers say it has ended.
+ */
+export function useBonusEnded(iso?: string): boolean {
+  const [ended, setEnded] = useState(false);
+  useEffect(() => {
+    if (!iso) return;
+    const left = Date.parse(iso) - Date.now();
+    if (left <= 0) {
+      setEnded(true);
+      return;
+    }
+    // The bonus is 3 days, well under setTimeout's limit of about 24.8 days.
+    const timer = window.setTimeout(() => setEnded(true), left);
+    return () => window.clearTimeout(timer);
+  }, [iso]);
+  return ended;
+}
+
+/** The time left until iso, once a second: null on the server and in the first render (both must match). */
+function useCountdown(iso: string) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [iso]);
+  if (now === null) return null;
+  const left = Math.max(0, Date.parse(iso) - now);
+  const seconds = Math.floor(left / 1000);
+  return {
+    parts: [Math.floor(seconds / 86400), Math.floor((seconds % 86400) / 3600), Math.floor((seconds % 3600) / 60), seconds % 60],
+    ended: left === 0,
+  };
+}
+
+interface BonusTimerProps {
+  /** The end of the 3-day bonus (the view's cleanUntil). */
+  until: string;
+  /** On the navy closing band. */
+  dark?: boolean;
+}
+
+/**
+ * The 3-day bonus counting down: days, hours, minutes and seconds in four boxes. Dashes until the page runs in the
+ * browser; at zero it says the bonus has ended.
+ */
+export function BonusTimer({ until, dark = false }: BonusTimerProps) {
+  const left = useCountdown(until);
+  if (left?.ended) return <p className={cn(styles.timerEnded, dark && styles.timerDark)}>{BONUS_TIMER.ended}</p>;
+  return (
+    <div className={cn(styles.timer, dark && styles.timerDark)} role="timer" aria-label={BONUS_TIMER.label}>
+      {BONUS_TIMER.units.map((unit, index) => (
+        <span key={unit} className={styles.timerBox}>
+          <b className={styles.timerNumber}>{left ? String(left.parts[index]).padStart(2, '0') : '--'}</b>
+          <span className={styles.timerUnit}>{unit}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 interface VideoWallProps {

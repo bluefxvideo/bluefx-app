@@ -107,6 +107,12 @@ const FIXTURES: Fixture[] = [
   },
   { id: 'ready-unlock-failed', label: 'ready, the clean render failed for good', placement: 'fvpage', view: ready('ready-unlock-failed', { unlock: { state: 'failed' } }) },
   {
+    id: 'ready-ending',
+    label: 'ready, the 3-day bonus ends 20 seconds after this page loads: watch the timers reach zero',
+    placement: 'fvthank',
+    view: ready('ready-ending', { cleanUntil: new Date(Date.now() + 20_000).toISOString() }),
+  },
+  {
     id: 'ready-late',
     label: 'ready, /v/ page visited after the 3-day bonus: no deadline, the offer leads with the new video ads',
     placement: 'fvpage',
@@ -134,7 +140,10 @@ interface FreeVideoPreviewPageProps {
 export default async function FreeVideoPreviewPage({ searchParams }: FreeVideoPreviewPageProps) {
   if (process.env.NODE_ENV === 'production') notFound();
   const { only } = await searchParams;
-  const fixtures = only ? FIXTURES.filter((fixture) => fixture.id === only) : FIXTURES;
+  const fixtures = (only ? FIXTURES.filter((fixture) => fixture.id === only) : FIXTURES).map((fixture) =>
+    // Ends 20 seconds after this request, so the timers can be watched reaching zero.
+    fixture.id === 'ready-ending' ? { ...fixture, view: { ...fixture.view, cleanUntil: new Date(Date.now() + 20_000).toISOString() } } : fixture,
+  );
 
   return (
     <>
