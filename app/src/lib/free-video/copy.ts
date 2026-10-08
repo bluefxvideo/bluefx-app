@@ -692,7 +692,7 @@ export const EMAIL_DRAFTS = [
       '',
       'With the AI Media Machine, you pay once and make 10 video ads like yours every month, for life. So each video ad costs you under $3, and you wait about 3 minutes.',
       '',
-      'So: $600 and 14 days, or under $3 and about 3 minutes.',
+      'Pretty easy choice: $600 and 14 days, or under $3 and about 3 minutes.',
       '',
       'Lifetime access is still $700 off, my 40th-birthday price.',
       '',
