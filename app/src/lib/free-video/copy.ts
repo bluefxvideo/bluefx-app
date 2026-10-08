@@ -582,7 +582,8 @@ export const OFFER_READY = {
  *
  * Built in MailerLite through its connector (2026-10-07), every email as HTML with a plain-text twin:
  * - 'Free Video Ad 1: Your video' (200681113224479794): joins 'Free Video - Ready' → E1 at once. Everyone.
- * - 'Free Video Ad 2: Follow-up' (200681121024837514): joins 'Free Video - Ready' → 1 day → E2 → 2 days → E3. Excludes
+ * - 'Free Video Ad 2: Follow-up' (200681121024837514): joins 'Free Video - Ready' → 1 day → E2 → 1 day → E3 (2 days until
+ *   2026-10-08: the 3-day bonus now ends before day 3, so E3 is its last-day email). Excludes
  *   'Free Video - Bought' and exits on it (set by hand in the dashboard); existing customers join Bought at delivery.
  * - 'Free Video - Unlocked' (200681123969238195): joins 'Free Video - Unlocked' → U1 at once.
  * Sender support@bluefx.net. Every email ends with the reason it was sent and {$unsubscribe}.
@@ -608,8 +609,8 @@ export const EMAIL_DRAFTS = [
       'Talk soon,',
       'Szilard',
       '',
-      // The video ad page leads with the AI Media Machine and offers the $99 clean version under it (2026-10-07).
-      'P.S. Want to change something in the video ad, or remove the BlueFX watermark? Both are on your video ad page: {$free_video_url}',
+      // The 3-day bonus starts with this email (offer.ts CLEAN_COPY_HOURS, owner 2026-10-08).
+      'P.S. A free bonus for the next 3 days: get the AI Media Machine, and your video ad goes into your account without the watermark, ready to change. The details are on your video ad page: {$free_video_url}',
     ].join('\n'),
   },
   {
@@ -629,11 +630,11 @@ export const EMAIL_DRAFTS = [
       '',
       "Here's your video ad again: {$free_video_url}",
       '',
-      'AI Media Machine members make 100+ video ads a year like yours, every one without a watermark. Edits are included: change the images, footage, music, script and voice whenever you like.',
+      "People stop noticing an ad after they've seen the same ad a few times, so plan a fresh video ad every week. With the AI Media Machine you make 10 new video ads like yours every month, and you change the music, a photo or a line of the script by typing what to change.",
       '',
-      'Lifetime access is $700 off right now.',
+      'Your free bonus runs 2 more days: get the AI Media Machine by then, and your video ad goes into your account without the watermark. Lifetime access is $700 off right now too.',
       '',
-      '[Button: Get lifetime access → https://app.bluefx.net/go/fvmail2?t={$free_video_token}]',
+      '[Button: Get the AI Media Machine → https://app.bluefx.net/go/fvmail2?t={$free_video_token}]',
       '',
       'Szilard',
     ].join('\n'),
@@ -642,18 +643,17 @@ export const EMAIL_DRAFTS = [
     id: 'E3',
     automation: 'Free Video Ad',
     placement: 'fvmail3',
-    send: '2 days after E2',
-    subject: '{$name}, 100+ video ads a year for {$free_video_site}',
+    /** 1 day after E2 (was 2): the 3-day bonus would be over by day 3 (owner 2026-10-08). */
+    send: '1 day after E2',
+    subject: '{$name}, 1 day left on your free bonus',
     body: [
       'Hi {$name},',
       '',
-      "People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps {$free_video_site} in front of your customers.",
+      'The free bonus for your video ad ends tomorrow. Get the AI Media Machine before then, and your video ad for {$free_video_site} goes into your account without the watermark, ready to post or change.',
       '',
-      'With AI Media Machine you paste a website, a product page or a few lines about an offer, and the video ad is ready in 3 to 7 minutes. That adds up to 100+ video ads a year, every one without a watermark, and you can change the images, footage, music, script and voice whenever you like.',
+      "People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps {$free_video_site} in front of your customers. With the AI Media Machine you paste a website, a product page or a few lines about an offer, and the next video ad is ready in a few minutes. That's 10 new video ads like yours every month.",
       '',
-      'You also get 12 bonus video tools, like AI Avatar, Clone Studio, Video Swap and ReelEstate.',
-      '',
-      '[Button: Get lifetime access → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
+      '[Button: Get the AI Media Machine → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
       '',
       'Szilard',
       '',
