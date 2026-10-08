@@ -66,6 +66,13 @@ export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM
 export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS));
 
 /**
+ * What one video ad like the free one costs in the first year: the lifetime price over 12 months of
+ * VIDEO_ADS_LIKE_FREE_PER_MONTH, to the nearest 50 cents ($297 / 120 = "$2.50"). The owner's own reply to a price
+ * objection (2026-10-08: "just under $3 when we break down the math") turned into the page's number.
+ */
+export const PRICE_PER_VIDEO_AD = `$${(Math.round((Number(OFFER.now.replace(/\D/g, '')) / (VIDEO_ADS_LIKE_FREE_PER_MONTH * 12)) * 2) / 2).toFixed(2)}`;
+
+/**
  * The 3-day bonus (owner 2026-10-08: "i love the deadline but its too long, 24h or 3 days"): a lead who buys the AI
  * Media Machine within CLEAN_COPY_HOURS of the free video ad being ready gets this video ad in the account without the
  * watermark (claim.ts renders the copy clean); a later buyer gets the watermarked file, which one edit makes clean.

@@ -16,18 +16,16 @@
  * lifetime page). The examples row is exactly the lifetime page's 9 vertical videos, in its order. No timer, no
  * reviews, BlueFX since 2009.
  */
-import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
-import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
+import { PHANTOM_CREDITS, PHANTOM_EXTRA_MINUTE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
+import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, PRICE_PER_VIDEO_AD, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
 
 const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/aimm';
-
-const usd = (price: string) => Number(price.replace(/\D/g, ''));
 
 /** Video ads a month like the free one, with its AI presenter: the one number the page uses. */
 const WITH_PRESENTER = VIDEO_ADS_LIKE_FREE_PER_MONTH;
 const FIRST_YEAR = WITH_PRESENTER * 12;
-/** $297 over the first year's 120 video ads, to the nearest 50 cents: about $2.50 each. */
-const PER_VIDEO_AD = `$${(Math.round((usd(OFFER.now) / FIRST_YEAR) * 2) / 2).toFixed(2)}`;
+/** $297 over the first year's 120 video ads: about $2.50 each (offer.ts). */
+const PER_VIDEO_AD = PRICE_PER_VIDEO_AD;
 /** The low end of what a freelancer charges for one video ad (the owner's comparison on bluefx.net/video-ad). */
 const FREELANCER = '$600';
 
@@ -167,9 +165,16 @@ export const SALES_PAGE = {
         claim: true,
       },
       {
-        q: 'How many video ads can I make?',
-        // One number, as everywhere on the page (owner 2026-10-08: the 12-without-a-presenter line "complicates the offer").
-        a: `${LIFETIME_MONTHLY_CREDITS} credits arrive every month. A video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS} credits, so that's ${WITH_PRESENTER} video ads a month. A change to a video ad takes ${PHANTOM_REVISION_CREDITS}.`,
+        // A lead's own words (2026-10-08: "your prices are too high. People are struggling financially these days"),
+        // answered with the owner's math from his reply.
+        q: `Isn't ${OFFER.now} a lot right now?`,
+        a: `Money is tight for a lot of people right now, so here's the math. ${LIFETIME_MONTHLY_CREDITS} credits arrive every month, and a video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS}: that's ${WITH_PRESENTER} video ads a month, ${FIRST_YEAR} in the first year, for one payment of ${OFFER.now}. About ${PER_VIDEO_AD} a video ad. A freelancer charges ${FREELANCER} or more for one. A change to a video ad takes ${PHANTOM_REVISION_CREDITS} credits.`,
+      },
+      {
+        // The same lead: "I wish the videos were longer by at least 90 seconds". Exact-words scripts follow their own
+        // length (pricing.ts phantomCredits: each started minute after the first costs PHANTOM_EXTRA_MINUTE_CREDITS).
+        q: 'Can my video ads be longer?',
+        a: `Yes. Your free video ad is about 40 seconds. In the AI Media Machine you can write your own script, and the video ad runs as long as the script: each extra minute takes ${PHANTOM_EXTRA_MINUTE_CREDITS} credits.`,
       },
       {
         q: 'Do I need to be technical?',
