@@ -1,5 +1,6 @@
-import { OFFER_COPY } from '@/lib/free-video/copy';
+import { OFFER_COPY, OFFER_READY } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
+import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
@@ -11,10 +12,11 @@ interface LifetimeOfferProps {
   token: string;
   isCustomer: boolean;
   /**
-   * waiting: "Make 100+ video ads a year yourself" while the video ad is made. ready: the main offer under the finished
-   * video ad. upgrade: the same card under the form's "one free video ad per business" refusal.
+   * ready: the short offer beside the finished video ad, which links down to the whole sales page under it (OfferDetails).
+   * upgrade: "Make 100+ video ads a year yourself" under the form's "one free video ad per business" refusal. Nothing
+   * offers anything while the video ad is made (owner 2026-10-08: only "once the result is visible").
    */
-  variant: 'waiting' | 'ready' | 'upgrade';
+  variant: 'ready' | 'upgrade';
 }
 
 /**
@@ -37,19 +39,21 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
     );
   }
 
-  const waiting = variant === 'waiting';
-  const upgrade = variant === 'upgrade';
+  const ready = variant === 'ready';
   return (
-    <div className={cn(styles.offer, !waiting && styles.offerPrimary)}>
-      {!waiting && <span className={styles.tag}>{OFFER_COPY.tag}</span>}
-      <h2 className={styles.offerTitle}>{waiting ? OFFER_COPY.headingWaiting : upgrade ? OFFER_COPY.headingUpgrade : OFFER_COPY.heading}</h2>
-      <p className={styles.offerText}>{waiting ? OFFER_COPY.bodyWaiting : upgrade ? OFFER_COPY.bodyUpgrade : OFFER_COPY.body}</p>
-      <StyleReel />
-      <ul className={styles.ticks}>
-        {OFFER_COPY.bullets.map((bullet) => (
-          <li key={bullet}>{bullet}</li>
-        ))}
-      </ul>
+    <div className={cn(styles.offer, styles.offerPrimary)}>
+      <span className={styles.tag}>{OFFER_COPY.tag}</span>
+      <h2 className={styles.offerTitle}>{ready ? OFFER_READY.heading : OFFER_COPY.headingUpgrade}</h2>
+      <p className={styles.offerText}>{ready ? OFFER_READY.body : OFFER_COPY.bodyUpgrade}</p>
+      {/* The ready page shows the styles and everything else in the sales page under the video ad. */}
+      {!ready && <StyleReel />}
+      {!ready && (
+        <ul className={styles.ticks}>
+          {OFFER_COPY.bullets.map((bullet) => (
+            <li key={bullet}>{bullet}</li>
+          ))}
+        </ul>
+      )}
       <p className={styles.price}>
         <s className={styles.priceWas}>
           <span className={styles.srOnly}>{OFFER_COPY.wasLabel} </span>
@@ -63,12 +67,19 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
         <span className={styles.priceOff}>{OFFER_COPY.off}</span>
       </p>
       {/* The anchor compares with the $99 clean video ad, which only the ready page offers. */}
-      {variant === 'ready' && <p className={styles.offerText}>{OFFER_COPY.anchor}</p>}
+      {ready && <p className={styles.offerText}>{OFFER_COPY.anchor}</p>}
       {/* A new tab, so this page keeps checking on the video ad. The click is the pixel's InitiateCheckout. */}
-      <OfferButton className={cn(styles.btn, waiting && styles.btnBlue)} href={goUrl(placement, token)}>
+      <OfferButton className={styles.btn} href={goUrl(placement, token)}>
         {OFFER_COPY.button}
       </OfferButton>
-      <p className={styles.fine}>{OFFER_COPY.smallPrint}</p>
+      <p className={styles.fine}>{ready ? OFFER_READY.fine : OFFER_COPY.smallPrint}</p>
+      {ready && (
+        <p className={styles.fine}>
+          <a className={styles.link} href={`#${SALES_PAGE.anchor}`}>
+            {OFFER_READY.seeAll}
+          </a>
+        </p>
+      )}
       {claimable && (
         <p className={styles.fine}>
           <a className={styles.link} href={claimUrl(token)}>

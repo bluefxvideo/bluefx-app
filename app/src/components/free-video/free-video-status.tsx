@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
 import { LifetimeOffer } from './lifetime-offer';
+import { LifetimeSalesPage } from './lifetime-sales-page';
 import { LiveMaking } from './live-making';
 import { SaveToPhotos } from './save-to-photos';
 import { UnlockOffer } from './unlock-offer';
@@ -264,6 +265,9 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
             </div>
           </div>
         </section>
+        {/* The whole AI Media Machine sales page under the finished video ad, never while it is made (owner 2026-10-08).
+            Not for customers: they already have it. */}
+        {!view.isCustomer && <LifetimeSalesPage placement={placement} token={token} />}
       </>
     );
   }
@@ -322,7 +326,6 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
           <p className={styles.liveTeaser}>{STATUS.teaser}</p>
         )
       }
-      queuedOffer={<LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="waiting" />}
       onPromoSound={() => beacon('video_play')}
     />
   );

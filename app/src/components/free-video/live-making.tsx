@@ -21,8 +21,6 @@ interface LiveMakingProps {
   staleNotice: ReactNode;
   /** The $99 unlock is paid while the free video ad is still being made. */
   paidEarly: ReactNode;
-  /** The lifetime offer, shown only while the video ad waits in line. */
-  queuedOffer: ReactNode;
   onPromoSound?: () => void;
 }
 
@@ -31,9 +29,10 @@ interface LiveMakingProps {
  * visitor watches The Phantom make the video ad. Each panel appears the moment its piece exists, newest
  * on top: putting it together, the voice-over and the music, the script scene by scene (each card gets its
  * picture, drawing or moving clip as it is made), the photos found on the website. Nothing here is a
- * stand-in: a piece the job has not made yet is a labelled placeholder.
+ * stand-in: a piece the job has not made yet is a labelled placeholder. No offer either: the AI Media Machine offer
+ * waits until the video ad is ready (owner 2026-10-08), so nobody reads this page as bait.
  */
-export function LiveMaking({ view, staleNotice, paidEarly, queuedOffer, onPromoSound }: LiveMakingProps) {
+export function LiveMaking({ view, staleNotice, paidEarly, onPromoSound }: LiveMakingProps) {
   const domain = view.domain;
   const live: FreeVideoLive = view.live ?? {};
   const checking = view.state === 'checking';
@@ -104,8 +103,6 @@ export function LiveMaking({ view, staleNotice, paidEarly, queuedOffer, onPromoS
 
       <section className={styles.liveStage}>
         <div className={styles.liveColumn}>
-          {queued && <div className={styles.livePanel}>{queuedOffer}</div>}
-
           {finalStretch && <RenderPanel checking={checking} percent={rendering ? renderPercent : step === 'rendering' ? 0 : 100} images={sceneImages.length ? sceneImages : photos} />}
 
           {(live.presenterPhoto || live.presenterClip) && (

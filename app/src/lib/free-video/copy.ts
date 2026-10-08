@@ -498,16 +498,9 @@ export const UNLOCK_COPY = {
  */
 export const OFFER_COPY = {
   tag: 'Best value',
-  /** While the visitor waits. */
-  headingWaiting: 'Make 100+ video ads a year yourself',
-  bodyWaiting:
-    "The AI Media Machine is making your video ad right now. Paste a website, a few lines about an offer or a few photos, and the AI Media Machine makes a finished video ad with a voice-over and music in 3 to 7 minutes.",
   /** Under a refusal on the form (one free video ad per business). */
   headingUpgrade: 'Make 100+ video ads a year yourself',
   bodyUpgrade: 'The AI Media Machine makes these video ads. Get your own and make a video ad for every offer, any time, without a watermark.',
-  /** Under the finished video ad. */
-  heading: 'Change anything, and make 100+ video ads a year',
-  body: 'The AI Media Machine made your video ad. Get your own and change anything, any time.',
   /** Under the price on the ready page, next to the $99 offer: how many clean video ads the lifetime price buys. */
   anchor: `For the price of ${Math.floor(Number(OFFER.now.replace(/\D/g, '')) / Number(UNLOCK.price.replace(/\D/g, '')))} clean video ads you get 100+ video ads a year plus 12 more AI video tools.`,
   /** 600 credits a month x 12 / 50 credits per video ad = 144 a year (offer.ts). */
@@ -559,6 +552,17 @@ export const STYLES = {
       ['beforeafter', 'Before and after'],
     ] as const
   ).map(([id, label]) => ({ id, label, video: `${STYLE_BASE}/${id}.mp4`, poster: `${STYLE_BASE}/${id}.jpg` })),
+} as const;
+
+/**
+ * The short offer beside the finished video ad (LifetimeOffer 'ready'). The whole AI Media Machine sales page follows
+ * under the video ad (sales-page.ts, OfferDetails); seeAll jumps there.
+ */
+export const OFFER_READY = {
+  heading: 'Change anything in this video ad, and make 100+ more',
+  body: 'Get the AI Media Machine and this video ad goes into your account without the watermark. Type what to change, like the music, a photo or a line of the script, and the new version is ready in a few minutes.',
+  fine: '30-day money-back guarantee. Secure checkout by ClickBank.',
+  seeAll: 'See everything you get',
 } as const;
 
 /**

@@ -87,7 +87,7 @@ const FIXTURES: Fixture[] = [
     placement: 'fvpage',
     view: waiting('making-paid', { state: 'making', step: 'producing', unlock: { state: 'paid' } }),
   },
-  { id: 'making-customer', label: 'making, existing customer (Offer 2 becomes Open the AI Media Machine)', placement: 'fvthank', view: waiting('making-customer', { state: 'making', step: 'directing', isCustomer: true }) },
+  { id: 'making-customer', label: 'making, existing customer (no offer while the video ad is made, for anyone)', placement: 'fvthank', view: waiting('making-customer', { state: 'making', step: 'directing', isCustomer: true }) },
   { id: 'making-stale', label: 'making, the page stopped checking after 90 min', placement: 'fvthank', view: waiting('making-stale', { state: 'making', step: 'rendering', progress: 80 }), demo: { stale: true } },
   { id: 'checking', label: 'checking: held for the final check', placement: 'fvthank', view: waiting('checking', { state: 'checking' }) },
   { id: 'ready', label: 'ready, unlock available (thank-you page, iPhone help shown)', placement: 'fvthank', view: ready('ready'), demo: { iphone: true } },
@@ -118,8 +118,15 @@ function placeOf(field: string | null, upgrade?: boolean): string {
   return 'above the send button in the step 2 sheet';
 }
 
-export default function FreeVideoPreviewPage() {
+interface FreeVideoPreviewPageProps {
+  /** ?only=<fixture id> shows that one state (or only=form-messages), for full-page screenshots. */
+  searchParams: Promise<{ only?: string }>;
+}
+
+export default async function FreeVideoPreviewPage({ searchParams }: FreeVideoPreviewPageProps) {
   if (process.env.NODE_ENV === 'production') notFound();
+  const { only } = await searchParams;
+  const fixtures = only ? FIXTURES.filter((fixture) => fixture.id === only) : FIXTURES;
 
   return (
     <>
@@ -133,7 +140,7 @@ export default function FreeVideoPreviewPage() {
         <a href="#form-messages">form-messages</a>
       </nav>
 
-      {FIXTURES.map((fixture) => (
+      {fixtures.map((fixture) => (
         <section key={fixture.id} id={fixture.id}>
           <p className={styles.devLabel}>
             {fixture.id}: {fixture.label} [{fixture.placement}]
@@ -142,23 +149,25 @@ export default function FreeVideoPreviewPage() {
         </section>
       ))}
 
-      <section id="form-messages">
-        <p className={styles.devLabel}>form-messages: every answer code of POST /api/free-video, as the landing page shows it</p>
-        <div className={styles.devMessages}>
-          {ERROR_CODES.map((code) => {
-            const problem = problemForCode(code, DOMAIN);
-            return (
-              <div key={code}>
-                <h3>
-                  {code}: {placeOf(problem.field, problem.upgrade)}
-                </h3>
-                <FormMessage problem={problem} website={DOMAIN} variant={problem.upgrade ? 'note' : problem.field === 'email' ? 'field' : 'box'} />
-                {code === 'tooMany' && <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {(!only || only === 'form-messages') && (
+        <section id="form-messages">
+          <p className={styles.devLabel}>form-messages: every answer code of POST /api/free-video, as the landing page shows it</p>
+          <div className={styles.devMessages}>
+            {ERROR_CODES.map((code) => {
+              const problem = problemForCode(code, DOMAIN);
+              return (
+                <div key={code}>
+                  <h3>
+                    {code}: {placeOf(problem.field, problem.upgrade)}
+                  </h3>
+                  <FormMessage problem={problem} website={DOMAIN} variant={problem.upgrade ? 'note' : problem.field === 'email' ? 'field' : 'box'} />
+                  {code === 'tooMany' && <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </>
   );
 }
