@@ -27,7 +27,7 @@ const FIRST_YEAR = WITH_PRESENTER * 12;
 /** $297 over the first year's 120 video ads: $2.48 each, "under $3" in round words (offer.ts). */
 const PER_VIDEO_AD = PRICE_PER_VIDEO_AD;
 const UNDER = PRICE_PER_VIDEO_AD_UNDER;
-/** The low end of what a freelancer charges for one video ad (the owner's comparison on bluefx.net/video-ad). */
+/** A Top Rated Fiverr seller's price for one 60-second whiteboard video, like the free video ad (the owner's screenshot). */
 const FREELANCER = '$600';
 
 /**
@@ -76,7 +76,7 @@ export const SALES_PAGE = {
     items: (domain: string) => [
       {
         q: 'Does this thing actually work?',
-        a: 'The AI Media Machine wrote the script, cast the presenter, recorded the voice-over and picked the music for the video ad above, in a few minutes.',
+        a: 'The AI Media Machine wrote the script, cast the presenter, recorded the voice-over and picked the music for the video ad above, in about 3 minutes.',
       },
       {
         q: 'Will this thing work for MY business, or only for the pizza shop in the demo?',
@@ -84,7 +84,7 @@ export const SALES_PAGE = {
       },
       {
         q: 'Can I run this thing myself, or will I end up calling my nephew?',
-        a: 'You already did: you typed one website address. Your nephew can relax. Every new video ad starts the same way, and the next video ad is ready in a few minutes.',
+        a: 'You already did: you typed one website address. Your nephew can relax. Every new video ad starts the same way, and the next video ad is ready in about 3 minutes.',
       },
     ],
   },
@@ -114,21 +114,31 @@ export const SALES_PAGE = {
     title: `Under ${UNDER} per video ad`,
     lead: `Your one payment of ${OFFER.now} already includes ${WITH_PRESENTER} new video ads every month, for life. There is no charge per video ad.`,
     them: {
-      name: 'A freelancer',
-      price: `${FREELANCER}+`,
-      per: 'for one video ad',
-      time: 'Days of waiting for each video ad',
+      name: 'A freelancer on Fiverr',
+      price: FREELANCER,
+      per: 'for one 60-second whiteboard video',
+      time: '14 days of waiting',
       /**
-       * A real Fiverr gig's price table with the seller's name and photo hidden. Fiverr shows a human check to scripts,
-       * so the owner takes the screenshot; set { src, width, height, caption } and the card shows it.
+       * The owner's screenshot of a real Fiverr gig (2026-10-08): a Top Rated seller's 60-second whiteboard animation
+       * video, Basic package $600, 14-day delivery, script, voice-over and music included. Cropped to the package box,
+       * so the seller's name, photo and client logos stay off the page. Every free video ad is a whiteboard video ad
+       * (runner.ts look: 'whiteboard'), so the comparison is like for like.
        */
-      snapshot: null as { src: string; width: number; height: number; caption: string } | null,
+      snapshot: {
+        src: `${MEDIA}/fiverr-whiteboard-600.jpg`,
+        width: 830,
+        height: 968,
+        caption: "A Top Rated seller's 60-second whiteboard video on Fiverr, October 2026",
+      } as { src: string; width: number; height: number; caption: string } | null,
     },
     us: {
       name: 'The AI Media Machine',
       price: `Under ${UNDER}`,
       per: 'per video ad, all included',
-      time: 'A few minutes per video ad',
+      /** Owner 2026-10-08: "3 min waiting time". Free video ads take 2.8 min from start to finish (median of 19; 3 in 4 within 3.2 min). */
+      time: 'About 3 minutes of waiting',
+      /** Line for line against the Fiverr package box beside it. */
+      includes: ['Script writing', 'Voice-over', 'Music', 'An AI presenter', 'Changes: type what to change', `${WITH_PRESENTER} new video ads every month`],
     },
     sum: [
       `${OFFER.now} ÷ ${FIRST_YEAR} video ads in the first year = ${PER_VIDEO_AD} per video ad.`,
@@ -162,7 +172,7 @@ export const SALES_PAGE = {
         'Your login link arrives by email.',
         bonus
           ? 'This video ad is in your AI Media Machine within about 10 minutes, without the watermark.'
-          : 'Paste a link and your first new video ad is ready in a few minutes.',
+          : 'Paste a link and your first new video ad is ready in about 3 minutes.',
       ],
     },
     guarantee: '30-day money-back guarantee: try the AI Media Machine for 30 days. If the AI Media Machine is not for you, email me and you get every cent back.',
@@ -194,7 +204,7 @@ export const SALES_PAGE = {
         // A lead's own words (2026-10-08: "your prices are too high. People are struggling financially these days"),
         // answered with the owner's math from his reply.
         q: `Isn't ${OFFER.now} a lot right now?`,
-        a: `Money is tight for a lot of people right now, so here's the math. ${LIFETIME_MONTHLY_CREDITS} credits arrive every month, and a video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS}: that's ${WITH_PRESENTER} video ads a month, ${FIRST_YEAR} in the first year, all included in one payment of ${OFFER.now}. Under ${UNDER} a video ad, with no charge per video ad. A freelancer charges ${FREELANCER} or more for one. A change to a video ad takes ${PHANTOM_REVISION_CREDITS} credits.`,
+        a: `Money is tight for a lot of people right now, so here's the math. ${LIFETIME_MONTHLY_CREDITS} credits arrive every month, and a video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS}: that's ${WITH_PRESENTER} video ads a month, ${FIRST_YEAR} in the first year, all included in one payment of ${OFFER.now}. Under ${UNDER} a video ad, with no charge per video ad. On Fiverr, a 60-second whiteboard video like yours costs ${FREELANCER}. A change to a video ad takes ${PHANTOM_REVISION_CREDITS} credits.`,
       },
       {
         // The same lead: "I wish the videos were longer by at least 90 seconds". Exact-words scripts follow their own

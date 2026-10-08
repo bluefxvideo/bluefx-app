@@ -559,7 +559,7 @@ export const STYLES = {
 export const OFFER_READY = {
   heading: `Get this video ad without the watermark, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   headingLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
-  body: 'Own the AI that made this video ad, for one payment, and make a new video ad any time in a few minutes.',
+  body: 'Own the AI that made this video ad, for one payment, and make a new video ad any time in about 3 minutes.',
   /**
    * Under the price: what the one payment already covers, then the price per video ad (owner 2026-10-08: "the $2.5
    * might feel like they need to pay in addition to the 297").
@@ -692,11 +692,11 @@ export const EMAIL_DRAFTS = [
       '',
       "Here's some math I did this week.",
       '',
-      'A freelancer charges $600 or more for one video ad like yours, and you wait a few days for the video ad.',
+      'On Fiverr, a Top Rated seller charges $600 for a 60-second whiteboard video like yours, and you wait 14 days for the video.',
       '',
-      "With the AI Media Machine, the same kind of video ad comes in under $3. That's 10 new video ads like yours every month, all included in one payment, and after the first year your video ads cost nothing more.",
+      "With the AI Media Machine, the same kind of video ad costs under $3, and you wait about 3 minutes. That's 10 new video ads like yours every month, all included in one payment, and after the first year your video ads cost nothing more.",
       '',
-      "So it's $600 per video ad, or under $3. I'd pick the one that lets you post a fresh video ad every week.",
+      "So: $600 and 14 days, or under $3 and about 3 minutes. I'd pick the one that lets you post a fresh video ad every week.",
       '',
       'Lifetime access is still $700 off, my 40th-birthday price.',
       '',

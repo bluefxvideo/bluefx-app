@@ -1755,6 +1755,7 @@
 @media (min-width: 760px) {
   .spMath {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: start;
     gap: 18px;
   }
 }
@@ -1779,7 +1780,8 @@
   font-weight: 800;
 }
 .spMathSnapshot {
-  margin: 0 0 14px;
+  max-width: 360px;
+  margin: 18px auto 0;
 }
 .spMathSnapshot img {
   display: block;
@@ -1814,10 +1816,28 @@
   font-size: 17px;
   font-weight: 700;
 }
+/* The wait, as a pill on each side: 14 days against about 3 minutes (owner 2026-10-08: "3 min waiting time"). */
 .spMathTime {
-  margin: 10px 0 0;
-  color: var(--fv-text);
+  display: inline-block;
+  margin: 12px 0 0;
+  padding: 5px 14px;
+  border-radius: 999px;
   font-size: 15px;
+  font-weight: 700;
+}
+.spMathTimeThem {
+  background: #fdecea;
+  color: #b3261e;
+}
+.spMathTimeUs {
+  background: #dcedc8;
+  color: #33691e;
+}
+/* Our side, line for line against the Fiverr package box. */
+.spMathIncludes {
+  max-width: 280px;
+  margin: 18px auto 0;
+  text-align: left;
 }
 .spMathVs {
   align-self: center;
@@ -1838,6 +1858,11 @@
 }
 .spMathSum strong {
   color: var(--fv-ink);
+}
+/* The button under the math. */
+.spCta {
+  margin-top: 28px;
+  text-align: center;
 }
 
 /* The offer box: what you get, the freelancer comparison, the price, the deadline, the button, the guarantee. */

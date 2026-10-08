@@ -85,15 +85,15 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
           <div className={styles.spMath}>
             <div className={styles.spMathThem}>
               <p className={styles.spMathName}>{math.them.name}</p>
+              <p className={cn(styles.spMathPrice, styles.spMathPriceThem)}>{math.them.price}</p>
+              <p className={styles.spMathPer}>{math.them.per}</p>
+              <p className={cn(styles.spMathTime, styles.spMathTimeThem)}>{math.them.time}</p>
               {math.them.snapshot && (
                 <figure className={styles.spMathSnapshot}>
-                  <Image src={math.them.snapshot.src} alt={math.them.snapshot.caption} width={math.them.snapshot.width} height={math.them.snapshot.height} sizes="(min-width: 760px) 440px, 92vw" />
+                  <Image src={math.them.snapshot.src} alt={math.them.snapshot.caption} width={math.them.snapshot.width} height={math.them.snapshot.height} sizes="(min-width: 760px) 400px, 92vw" />
                   <figcaption>{math.them.snapshot.caption}</figcaption>
                 </figure>
               )}
-              <p className={cn(styles.spMathPrice, styles.spMathPriceThem)}>{math.them.price}</p>
-              <p className={styles.spMathPer}>{math.them.per}</p>
-              <p className={styles.spMathTime}>{math.them.time}</p>
             </div>
             <p className={styles.spMathVs} aria-hidden="true">
               vs
@@ -102,7 +102,12 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               <p className={styles.spMathName}>{math.us.name}</p>
               <p className={cn(styles.spMathPrice, styles.spMathPriceUs)}>{math.us.price}</p>
               <p className={styles.spMathPer}>{math.us.per}</p>
-              <p className={styles.spMathTime}>{math.us.time}</p>
+              <p className={cn(styles.spMathTime, styles.spMathTimeUs)}>{math.us.time}</p>
+              <ul className={cn(styles.ticks, styles.spMathIncludes)}>
+                {math.us.includes.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
             </div>
           </div>
           <p className={styles.spMathSum}>
