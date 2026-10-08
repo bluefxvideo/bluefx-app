@@ -73,7 +73,6 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
         <span className={styles.priceUnit}>{OFFER_COPY.unit}</span>
         <span className={styles.priceOff}>{OFFER_COPY.off}</span>
       </p>
-      {ready && <p className={styles.offerPerVideo}>{OFFER_READY.perVideo}</p>}
       {/* The 3-day bonus, named and valued; the exact end appears once the browser knows its time zone. */}
       {ready && cleanUntil && (
         <div className={styles.offerBonus}>

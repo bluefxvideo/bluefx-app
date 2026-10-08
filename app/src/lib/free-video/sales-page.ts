@@ -15,17 +15,18 @@
  * valued at the $99 the clean video ad sold for. The freelancer numbers are the owner's own (bluefx.net/video-ad, the
  * lifetime page). The examples row is exactly the lifetime page's 9 vertical videos, in its order. No timer, no
  * reviews, BlueFX since 2009.
+ *
+ * The math uses 3 numbers (owner 2026-10-08, after his girlfriend got lost in "10, 297, 3 ... so its 10 or 100 or
+ * ??"): $297 once, 10 video ads every month, so under $3 per video ad, against $600 for 1 video ad on Fiverr. No
+ * division, no video ads per year and no credits on the page.
  */
-import { PHANTOM_CREDITS, PHANTOM_EXTRA_MINUTE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
-import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, PRICE_PER_VIDEO_AD, PRICE_PER_VIDEO_AD_UNDER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
+import { CLEAN_COPY_HOURS, OFFER, PRICE_PER_VIDEO_AD_UNDER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
 
 const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/aimm';
 
 /** Video ads a month like the free one, with its AI presenter: the one number the page uses. */
 const WITH_PRESENTER = VIDEO_ADS_LIKE_FREE_PER_MONTH;
-const FIRST_YEAR = WITH_PRESENTER * 12;
-/** $297 over the first year's 120 video ads: $2.48 each, "under $3" in round words (offer.ts). */
-const PER_VIDEO_AD = PRICE_PER_VIDEO_AD;
+/** $297 over a year of those: "under $3" (offer.ts). */
 const UNDER = PRICE_PER_VIDEO_AD_UNDER;
 /** A Top Rated Fiverr seller's price for one 60-second whiteboard video, like the free video ad (the owner's screenshot). */
 const FREELANCER = '$600';
@@ -105,18 +106,20 @@ export const SALES_PAGE = {
     wideNote: 'Made on a laptop in an afternoon, with no camera crew, no actors and no studio.',
   },
   /**
-   * The price per video ad, big and spelled out (owner 2026-10-08: "highlight it, in an entire section contrasting it
-   * with $600 per video and showing a snapshot of it on the fiver seller ... big, clearly explained"), and plain that
-   * the one payment covers every video ad ("the $2.5 might feel like they need to pay in addition to the 297").
+   * The price per video ad, big, against a freelancer's $600 (owner 2026-10-08: "highlight it, in an entire section
+   * contrasting it with $600 per video and showing a snapshot of it on the fiver seller ... big, clearly explained").
+   * Same day his girlfriend got lost in "10, 297, 3 ... so its 10 or 100 or ??", and $297 against $600 "lost the
+   * power": the title and the cards keep under $3 against $600, and the lead explains under $3 in 3 lines, one number
+   * each, with no division and no video ads per year.
    */
   math: {
     eyebrow: 'The math',
     title: `Under ${UNDER} per video ad`,
-    lead: `Your one payment of ${OFFER.now} already includes ${WITH_PRESENTER} new video ads every month, for life. There is no charge per video ad.`,
+    lead: [`You pay ${OFFER.now} once.`, `You make ${WITH_PRESENTER} video ads every month, for life.`, `So each video ad costs you under ${UNDER}.`],
     them: {
       name: 'A freelancer on Fiverr',
       price: FREELANCER,
-      per: 'for one 60-second whiteboard video',
+      per: 'for 1 video ad',
       time: '14 days of waiting',
       /**
        * The owner's screenshot of a real Fiverr gig (2026-10-08): a Top Rated seller's 60-second whiteboard animation
@@ -138,19 +141,15 @@ export const SALES_PAGE = {
       /** Owner 2026-10-08: "3 min waiting time". Free video ads take 2.8 min from start to finish (median of 19; 3 in 4 within 3.2 min). */
       time: 'About 3 minutes of waiting',
       /** Line for line against the Fiverr package box beside it. */
-      includes: ['Script writing', 'Voice-over', 'Music', 'An AI presenter', 'Changes: type what to change', `${WITH_PRESENTER} new video ads every month`],
+      includes: ['Script writing', 'Voice-over', 'Music', 'An AI presenter', 'Changes: type what to change'],
     },
-    sum: [
-      `${OFFER.now} ÷ ${FIRST_YEAR} video ads in the first year = ${PER_VIDEO_AD} per video ad.`,
-      'From the second year on, your video ads cost nothing more.',
-    ],
   },
   offer: {
     title: 'Everything you get',
     items: [
       `${WITH_PRESENTER} new video ads every month, for life`,
       'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice',
-      '12 more AI tools: talking avatars with 200+ presenters, voice-overs in 57 voices or your own cloned voice, music, thumbnails and logos',
+      'More AI tools: talking avatars, voice-overs (even in your own cloned voice), music, thumbnails and logos',
       'Daily YouTube tutorials, a private community and help from me',
     ],
     /** The 3-day bonus (offer.ts CLEAN_COPY_HOURS), shown once in full: named, valued, with its end. */
@@ -204,13 +203,14 @@ export const SALES_PAGE = {
         // A lead's own words (2026-10-08: "your prices are too high. People are struggling financially these days"),
         // answered with the owner's math from his reply.
         q: `Isn't ${OFFER.now} a lot right now?`,
-        a: `Money is tight for a lot of people right now, so here's the math. ${LIFETIME_MONTHLY_CREDITS} credits arrive every month, and a video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS}: that's ${WITH_PRESENTER} video ads a month, ${FIRST_YEAR} in the first year, all included in one payment of ${OFFER.now}. Under ${UNDER} a video ad, with no charge per video ad. On Fiverr, a 60-second whiteboard video like yours costs ${FREELANCER}. A change to a video ad takes ${PHANTOM_REVISION_CREDITS} credits.`,
+        a: `Money is tight for a lot of people right now. On Fiverr, 1 video ad like yours costs ${FREELANCER}. Your one payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads like yours every month, for life. That's under ${UNDER} per video ad.`,
       },
       {
         // The same lead: "I wish the videos were longer by at least 90 seconds". Exact-words scripts follow their own
-        // length (pricing.ts phantomCredits: each started minute after the first costs PHANTOM_EXTRA_MINUTE_CREDITS).
+        // length (pricing.ts phantomCredits: each started minute after the first costs PHANTOM_EXTRA_MINUTE_CREDITS); the
+        // answer names no credits (3 numbers only, see the top).
         q: 'Can my video ads be longer?',
-        a: `Yes. Your free video ad is about 40 seconds. In the AI Media Machine you can write your own script, and the video ad runs as long as the script: each extra minute takes ${PHANTOM_EXTRA_MINUTE_CREDITS} credits.`,
+        a: `Yes. Your free video ad is about 40 seconds. In the AI Media Machine you can write your own script, and the video ad runs as long as the script. A longer video ad uses more of your monthly credits.`,
       },
       {
         q: 'Do I need to be technical?',
@@ -218,7 +218,7 @@ export const SALES_PAGE = {
       },
       {
         q: 'Is this really one payment?',
-        a: `Yes. Pay ${OFFER.now} once and you own the AI Media Machine for life, with ${LIFETIME_MONTHLY_CREDITS} fresh credits every month. There is no subscription, no renewal and nothing to cancel, and you have 30 days to get your money back.`,
+        a: `Yes. Pay ${OFFER.now} once and you own the AI Media Machine for life, with ${WITH_PRESENTER} new video ads every month. There is no subscription, no renewal and nothing to cancel, and you have 30 days to get your money back.`,
       },
       {
         q: 'What if I need more credits?',
@@ -229,7 +229,7 @@ export const SALES_PAGE = {
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
     reminder: (when: string) => `Free bonus until ${when}: this video ad without the watermark.`,
-    line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads a month: under ${UNDER} per video ad. Regular price ${OFFER.was}.`,
+    line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads every month, for life: under ${UNDER} per video ad.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */
   legal: {

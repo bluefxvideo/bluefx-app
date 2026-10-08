@@ -11,7 +11,7 @@
  * Server code relies on VALIDATION (types/free-video.ts) and on ERRORS: keep those keys and signatures.
  */
 
-import { OFFER, PRICE_PER_VIDEO_AD_UNDER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
+import { OFFER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
 
 export const SUPPORT_EMAIL = 'support@bluefx.net';
 
@@ -561,11 +561,6 @@ export const OFFER_READY = {
   headingLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   body: 'Own the AI that made this video ad, for one payment, and make a new video ad any time in about 3 minutes.',
   /**
-   * Under the price: what the one payment already covers, then the price per video ad (owner 2026-10-08: "the $2.5
-   * might feel like they need to pay in addition to the 297").
-   */
-  perVideo: `Your ${OFFER.now} covers ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month, for life: under ${PRICE_PER_VIDEO_AD_UNDER} per video ad.`,
-  /**
    * The 3-day bonus, named and valued at the $99 the clean video ad sold for (owner 2026-10-08: "the word buy seems
    * harsh", then the Hormozi review: a fast-action bonus says what you get, what it is worth and until when).
    */
@@ -685,18 +680,19 @@ export const EMAIL_DRAFTS = [
     placement: 'fvmail4',
     send: '2 days after E3',
     // The math email, after the 3-day bonus (owner 2026-10-08: "we can actually make new emails with these"): a
-    // freelancer's $600 against under $3 a video ad, all included. No buy price: the page shows it.
+    // freelancer's $600 against under $3 a video ad, explained like the page (pay once, 10 a month, so under $3). No
+    // buy price: the page shows it.
     subject: '{$name}, $600 or under $3?',
     body: [
       'Hey {$name},',
       '',
-      "Here's some math I did this week.",
+      'I checked what a video ad like yours costs on Fiverr.',
       '',
-      'On Fiverr, a Top Rated seller charges $600 for a 60-second whiteboard video like yours, and you wait 14 days for the video.',
+      'A Top Rated seller charges $600 for one whiteboard video like yours, and you wait 14 days for the video.',
       '',
-      "With the AI Media Machine, the same kind of video ad costs under $3, and you wait about 3 minutes. That's 10 new video ads like yours every month, all included in one payment, and after the first year your video ads cost nothing more.",
+      'With the AI Media Machine, you pay once and make 10 video ads like yours every month, for life. So each video ad costs you under $3, and you wait about 3 minutes.',
       '',
-      "So: $600 and 14 days, or under $3 and about 3 minutes. I'd pick the one that lets you post a fresh video ad every week.",
+      'So: $600 and 14 days, or under $3 and about 3 minutes.',
       '',
       'Lifetime access is still $700 off, my 40th-birthday price.',
       '',

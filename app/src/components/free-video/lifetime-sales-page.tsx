@@ -81,7 +81,11 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
         <div className={styles.spInnerWide}>
           <p className={styles.eyebrow}>{math.eyebrow}</p>
           <h2 className={styles.spMathTitle}>{math.title}</h2>
-          <p className={styles.spLead}>{math.lead}</p>
+          <p className={cn(styles.spLead, styles.spMathLead)}>
+            <span>{math.lead[0]}</span>
+            <span>{math.lead[1]}</span>
+            <strong>{math.lead[2]}</strong>
+          </p>
           <div className={styles.spMath}>
             <div className={styles.spMathThem}>
               <p className={styles.spMathName}>{math.them.name}</p>
@@ -110,11 +114,6 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               </ul>
             </div>
           </div>
-          <p className={styles.spMathSum}>
-            {math.sum[0]}
-            <br />
-            <strong>{math.sum[1]}</strong>
-          </p>
           <div className={styles.spCta}>
             <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
               {OFFER_COPY.button}

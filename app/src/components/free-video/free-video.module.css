@@ -1440,14 +1440,6 @@
   padding: 4px 10px;
   border-radius: 999px;
 }
-/* The ready card's price per video ad, right under the price. */
-.offerPerVideo {
-  margin: -6px 0 14px;
-  color: var(--fv-ink);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.45;
-}
 /* The ready card's 3-day bonus, named and valued: green like the "$700 off" badge, a gift with a real end. */
 .offerBonus {
   margin: 0 0 14px;
@@ -1848,18 +1840,20 @@
   font-weight: 800;
   text-transform: uppercase;
 }
-.spMathSum {
-  max-width: 640px;
-  margin: 24px auto 0;
-  color: var(--fv-text);
-  font-size: 18px;
-  line-height: 1.6;
-  text-align: center;
+/* Under the title: $297 once, 10 a month, so under $3, one line each. */
+.spMathLead {
+  margin-bottom: 26px;
+  line-height: 1.7;
 }
-.spMathSum strong {
+.spMathLead span,
+.spMathLead strong {
+  display: block;
+  text-wrap: balance;
+}
+.spMathLead strong {
   color: var(--fv-ink);
 }
-/* The button under the math. */
+/* The button under the comparison. */
 .spCta {
   margin-top: 28px;
   text-align: center;
