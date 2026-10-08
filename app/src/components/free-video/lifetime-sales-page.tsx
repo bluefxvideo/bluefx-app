@@ -22,8 +22,8 @@ interface LifetimeSalesPageProps {
 /**
  * The AI Media Machine offer under the finished video ad, never before it is ready (owner 2026-10-08: "it should be
  * shown only once the result is visible"), in Hormozi's order: the promise, the 3 questions the free video ad already
- * answered, proof, one offer box with the price, the 3-day bonus and the guarantee, the founder, five questions, one
- * last button. Copy in
+ * answered, proof, the math (under $3 per video ad against a freelancer's $600), one offer box with the price, the
+ * 3-day bonus and the guarantee, the founder, the questions, one last button. Copy in
  * lib/free-video/sales-page.ts. Every button opens ClickBank's checkout through /go (OfferButton fires the pixel's
  * InitiateCheckout). The deadline lines appear once the page runs in the browser (useDeadline).
  */
@@ -31,7 +31,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   const href = goUrl(placement, token);
   const bonus = Boolean(cleanUntil);
   const when = useDeadline(cleanUntil);
-  const { bridge, questions, proof, offer, founder, faq, close, legal } = SALES_PAGE;
+  const { bridge, questions, proof, math, offer, founder, faq, close, legal } = SALES_PAGE;
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
       <div className={styles.spBlock}>
@@ -77,6 +77,47 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
         </div>
       </div>
 
+      <div className={styles.spBlock}>
+        <div className={styles.spInnerWide}>
+          <p className={styles.eyebrow}>{math.eyebrow}</p>
+          <h2 className={styles.spMathTitle}>{math.title}</h2>
+          <p className={styles.spLead}>{math.lead}</p>
+          <div className={styles.spMath}>
+            <div className={styles.spMathThem}>
+              <p className={styles.spMathName}>{math.them.name}</p>
+              {math.them.snapshot && (
+                <figure className={styles.spMathSnapshot}>
+                  <Image src={math.them.snapshot.src} alt={math.them.snapshot.caption} width={math.them.snapshot.width} height={math.them.snapshot.height} sizes="(min-width: 760px) 440px, 92vw" />
+                  <figcaption>{math.them.snapshot.caption}</figcaption>
+                </figure>
+              )}
+              <p className={cn(styles.spMathPrice, styles.spMathPriceThem)}>{math.them.price}</p>
+              <p className={styles.spMathPer}>{math.them.per}</p>
+              <p className={styles.spMathTime}>{math.them.time}</p>
+            </div>
+            <p className={styles.spMathVs} aria-hidden="true">
+              vs
+            </p>
+            <div className={styles.spMathUs}>
+              <p className={styles.spMathName}>{math.us.name}</p>
+              <p className={cn(styles.spMathPrice, styles.spMathPriceUs)}>{math.us.price}</p>
+              <p className={styles.spMathPer}>{math.us.per}</p>
+              <p className={styles.spMathTime}>{math.us.time}</p>
+            </div>
+          </div>
+          <p className={styles.spMathSum}>
+            {math.sum[0]}
+            <br />
+            <strong>{math.sum[1]}</strong>
+          </p>
+          <div className={styles.spCta}>
+            <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
+              {OFFER_COPY.button}
+            </OfferButton>
+          </div>
+        </div>
+      </div>
+
       <div className={cn(styles.spBlock, styles.spSoft)}>
         <div className={styles.spInner}>
           <div className={styles.spOffer}>
@@ -93,17 +134,6 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
                 <p className={styles.spBonusText}>{offer.bonus.text}</p>
               </div>
             )}
-            <div className={styles.spCompare}>
-              {[offer.compare.them, offer.compare.us].map((side, index) => (
-                <div key={side.name} className={cn(styles.spCompareSide, index === 1 && styles.spCompareUs)}>
-                  <p className={styles.spCompareName}>{side.name}</p>
-                  {side.lines.map((line) => (
-                    <p key={line}>{line}</p>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <p className={styles.spCompareNote}>{offer.compare.note}</p>
             <div className={styles.spPrice}>
               <span className={styles.spPriceTag}>{offer.tag}</span>
               <p className={styles.spPriceRow}>

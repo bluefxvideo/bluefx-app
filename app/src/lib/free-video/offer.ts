@@ -67,10 +67,12 @@ export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS
 
 /**
  * What one video ad like the free one costs in the first year: the lifetime price over 12 months of
- * VIDEO_ADS_LIKE_FREE_PER_MONTH, to the nearest 50 cents ($297 / 120 = "$2.50"). The owner's own reply to a price
- * objection (2026-10-08: "just under $3 when we break down the math") turned into the page's number.
+ * VIDEO_ADS_LIKE_FREE_PER_MONTH ($297 / 120 = $2.48), and the page's round number, "under $3" (the owner's own words in
+ * a reply, 2026-10-08: "just under $3 when we break down the math"). Every video ad is included in the one payment.
  */
-export const PRICE_PER_VIDEO_AD = `$${(Math.round((Number(OFFER.now.replace(/\D/g, '')) / (VIDEO_ADS_LIKE_FREE_PER_MONTH * 12)) * 2) / 2).toFixed(2)}`;
+const PER_VIDEO_AD_USD = Number(OFFER.now.replace(/\D/g, '')) / (VIDEO_ADS_LIKE_FREE_PER_MONTH * 12);
+export const PRICE_PER_VIDEO_AD = `$${(Math.round(PER_VIDEO_AD_USD * 100) / 100).toFixed(2)}`;
+export const PRICE_PER_VIDEO_AD_UNDER = `$${Math.ceil(PER_VIDEO_AD_USD)}`;
 
 /**
  * The 3-day bonus (owner 2026-10-08: "i love the deadline but its too long, 24h or 3 days"): a lead who buys the AI

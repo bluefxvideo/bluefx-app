@@ -11,7 +11,7 @@
  * Server code relies on VALIDATION (types/free-video.ts) and on ERRORS: keep those keys and signatures.
  */
 
-import { OFFER, PRICE_PER_VIDEO_AD, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
+import { OFFER, PRICE_PER_VIDEO_AD_UNDER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
 
 export const SUPPORT_EMAIL = 'support@bluefx.net';
 
@@ -560,8 +560,11 @@ export const OFFER_READY = {
   heading: `Get this video ad without the watermark, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   headingLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   body: 'Own the AI that made this video ad, for one payment, and make a new video ad any time in a few minutes.',
-  /** Under the price: the price per video ad (owner 2026-10-08, after a lead said "your prices are too high"). */
-  perVideo: `About ${PRICE_PER_VIDEO_AD} per video ad: ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month, for life.`,
+  /**
+   * Under the price: what the one payment already covers, then the price per video ad (owner 2026-10-08: "the $2.5
+   * might feel like they need to pay in addition to the 297").
+   */
+  perVideo: `Your ${OFFER.now} covers ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month, for life: under ${PRICE_PER_VIDEO_AD_UNDER} per video ad.`,
   /**
    * The 3-day bonus, named and valued at the $99 the clean video ad sold for (owner 2026-10-08: "the word buy seems
    * harsh", then the Hormozi review: a fast-action bonus says what you get, what it is worth and until when).

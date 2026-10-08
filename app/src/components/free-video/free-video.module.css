@@ -1735,6 +1735,111 @@
   font-size: 14px;
 }
 
+/* The math: under $3 per video ad against a freelancer's $600, big (owner 2026-10-08). */
+.spMathTitle {
+  margin: 0 0 12px;
+  color: var(--fv-ink);
+  font-size: clamp(34px, 7vw, 56px);
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  text-wrap: balance;
+}
+.spMath {
+  display: grid;
+  gap: 14px;
+  align-items: stretch;
+  max-width: 880px;
+  margin: 28px auto 0;
+}
+@media (min-width: 760px) {
+  .spMath {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+.spMathThem,
+.spMathUs {
+  padding: 24px 20px;
+  border-radius: 14px;
+  text-align: center;
+}
+.spMathThem {
+  background: var(--fv-soft);
+  border: 1px solid var(--fv-line);
+}
+.spMathUs {
+  background: #f1f8e9;
+  border: 2px solid var(--fv-green);
+}
+.spMathName {
+  margin: 0 0 10px;
+  color: var(--fv-ink);
+  font-size: 18px;
+  font-weight: 800;
+}
+.spMathSnapshot {
+  margin: 0 0 14px;
+}
+.spMathSnapshot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--fv-line);
+  border-radius: 10px;
+}
+.spMathSnapshot figcaption {
+  margin-top: 6px;
+  color: var(--fv-muted);
+  font-size: 12px;
+}
+.spMathPrice {
+  margin: 0;
+  font-size: clamp(44px, 9vw, 64px);
+  font-weight: 900;
+  line-height: 1.05;
+}
+.spMathPriceThem {
+  color: var(--fv-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--fv-red);
+  text-decoration-thickness: 4px;
+}
+.spMathPriceUs {
+  color: #33691e;
+}
+.spMathPer {
+  margin: 4px 0 0;
+  color: var(--fv-ink);
+  font-size: 17px;
+  font-weight: 700;
+}
+.spMathTime {
+  margin: 10px 0 0;
+  color: var(--fv-text);
+  font-size: 15px;
+}
+.spMathVs {
+  align-self: center;
+  justify-self: center;
+  margin: 0;
+  color: var(--fv-muted);
+  font-size: 18px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.spMathSum {
+  max-width: 640px;
+  margin: 24px auto 0;
+  color: var(--fv-text);
+  font-size: 18px;
+  line-height: 1.6;
+  text-align: center;
+}
+.spMathSum strong {
+  color: var(--fv-ink);
+}
+
 /* The offer box: what you get, the freelancer comparison, the price, the deadline, the button, the guarantee. */
 .spOffer {
   padding: 26px 22px;
@@ -1825,42 +1930,6 @@
   color: var(--fv-text);
   font-size: 15px;
   line-height: 1.5;
-}
-/* A freelancer against the AI Media Machine, in money and time. */
-.spCompare {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 20px 0 0;
-}
-.spCompareSide {
-  padding: 12px 14px;
-  background: var(--fv-soft);
-  border: 1px solid var(--fv-line);
-  border-radius: 10px;
-  color: var(--fv-muted);
-  font-size: 14px;
-  line-height: 1.45;
-}
-.spCompareSide p {
-  margin: 0 0 4px;
-}
-.spCompareUs {
-  background: #ffffff;
-  border: 2px solid var(--fv-green);
-  color: var(--fv-ink);
-  font-weight: 600;
-}
-.spCompareName {
-  color: var(--fv-ink);
-  font-size: 15px;
-  font-weight: 800;
-}
-.spCompareNote {
-  margin: 8px 0 0;
-  color: var(--fv-muted);
-  font-size: 14px;
-  text-align: center;
 }
 .spOffer .spBtn {
   margin-top: 18px;

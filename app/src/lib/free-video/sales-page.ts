@@ -17,15 +17,16 @@
  * reviews, BlueFX since 2009.
  */
 import { PHANTOM_CREDITS, PHANTOM_EXTRA_MINUTE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
-import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, PRICE_PER_VIDEO_AD, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
+import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, PRICE_PER_VIDEO_AD, PRICE_PER_VIDEO_AD_UNDER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
 
 const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/aimm';
 
 /** Video ads a month like the free one, with its AI presenter: the one number the page uses. */
 const WITH_PRESENTER = VIDEO_ADS_LIKE_FREE_PER_MONTH;
 const FIRST_YEAR = WITH_PRESENTER * 12;
-/** $297 over the first year's 120 video ads: about $2.50 each (offer.ts). */
+/** $297 over the first year's 120 video ads: $2.48 each, "under $3" in round words (offer.ts). */
 const PER_VIDEO_AD = PRICE_PER_VIDEO_AD;
+const UNDER = PRICE_PER_VIDEO_AD_UNDER;
 /** The low end of what a freelancer charges for one video ad (the owner's comparison on bluefx.net/video-ad). */
 const FREELANCER = '$600';
 
@@ -103,6 +104,37 @@ export const SALES_PAGE = {
     ],
     wideNote: 'Made on a laptop in an afternoon, with no camera crew, no actors and no studio.',
   },
+  /**
+   * The price per video ad, big and spelled out (owner 2026-10-08: "highlight it, in an entire section contrasting it
+   * with $600 per video and showing a snapshot of it on the fiver seller ... big, clearly explained"), and plain that
+   * the one payment covers every video ad ("the $2.5 might feel like they need to pay in addition to the 297").
+   */
+  math: {
+    eyebrow: 'The math',
+    title: `Under ${UNDER} per video ad`,
+    lead: `Your one payment of ${OFFER.now} already includes ${WITH_PRESENTER} new video ads every month, for life. There is no charge per video ad.`,
+    them: {
+      name: 'A freelancer',
+      price: `${FREELANCER}+`,
+      per: 'for one video ad',
+      time: 'Days of waiting for each video ad',
+      /**
+       * A real Fiverr gig's price table with the seller's name and photo hidden. Fiverr shows a human check to scripts,
+       * so the owner takes the screenshot; set { src, width, height, caption } and the card shows it.
+       */
+      snapshot: null as { src: string; width: number; height: number; caption: string } | null,
+    },
+    us: {
+      name: 'The AI Media Machine',
+      price: `Under ${UNDER}`,
+      per: 'per video ad, all included',
+      time: 'A few minutes per video ad',
+    },
+    sum: [
+      `${OFFER.now} ÷ ${FIRST_YEAR} video ads in the first year = ${PER_VIDEO_AD} per video ad.`,
+      'From the second year on, your video ads cost nothing more.',
+    ],
+  },
   offer: {
     title: 'Everything you get',
     items: [
@@ -116,12 +148,6 @@ export const SALES_PAGE = {
       tag: (when: string | null) => (when ? `Free bonus until ${when}` : `Free bonus for ${BONUS_DAYS} days`),
       title: (domain: string) => `This video ad for ${domain}, without the watermark (${UNLOCK.price} value)`,
       text: 'Get the AI Media Machine by then and this video ad is in your account within about 10 minutes, ready to post or change. After that, this video ad goes into your account with the watermark.',
-    },
-    /** Money and time, against what a business owner knows: a freelancer (the owner's numbers, bluefx.net/video-ad and the lifetime page). */
-    compare: {
-      them: { name: 'A freelancer', lines: [`${FREELANCER} or more per video ad`, 'Days of waiting for each video ad'] },
-      us: { name: 'The AI Media Machine', lines: [`About ${PER_VIDEO_AD} per video ad`, 'A few minutes per video ad'] },
-      note: `${FIRST_YEAR} video ads in the first year for ${OFFER.now}, once.`,
     },
     tag: '40th birthday price',
     was: OFFER.was,
@@ -168,7 +194,7 @@ export const SALES_PAGE = {
         // A lead's own words (2026-10-08: "your prices are too high. People are struggling financially these days"),
         // answered with the owner's math from his reply.
         q: `Isn't ${OFFER.now} a lot right now?`,
-        a: `Money is tight for a lot of people right now, so here's the math. ${LIFETIME_MONTHLY_CREDITS} credits arrive every month, and a video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS}: that's ${WITH_PRESENTER} video ads a month, ${FIRST_YEAR} in the first year, for one payment of ${OFFER.now}. About ${PER_VIDEO_AD} a video ad. A freelancer charges ${FREELANCER} or more for one. A change to a video ad takes ${PHANTOM_REVISION_CREDITS} credits.`,
+        a: `Money is tight for a lot of people right now, so here's the math. ${LIFETIME_MONTHLY_CREDITS} credits arrive every month, and a video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS}: that's ${WITH_PRESENTER} video ads a month, ${FIRST_YEAR} in the first year, all included in one payment of ${OFFER.now}. Under ${UNDER} a video ad, with no charge per video ad. A freelancer charges ${FREELANCER} or more for one. A change to a video ad takes ${PHANTOM_REVISION_CREDITS} credits.`,
       },
       {
         // The same lead: "I wish the videos were longer by at least 90 seconds". Exact-words scripts follow their own
@@ -193,7 +219,7 @@ export const SALES_PAGE = {
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
     reminder: (when: string) => `Free bonus until ${when}: this video ad without the watermark.`,
-    line: `One payment of ${OFFER.now}, about ${PER_VIDEO_AD} per video ad. Regular price ${OFFER.was}.`,
+    line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads a month: under ${UNDER} per video ad. Regular price ${OFFER.was}.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */
   legal: {
