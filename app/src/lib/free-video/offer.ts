@@ -12,13 +12,13 @@ import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pr
  * business" note and the 3 automation emails. A page button's value rides to ClickBank's checkout as the vendor tracking
  * id (vtid), so ClickBank's reports show sales per placement.
  */
-export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvmail1', 'fvmail2', 'fvmail3'] as const;
+export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
 /** The placements shown on the funnel pages: the thank-you page, /v/<token>, and the form's "one per business" refusal (fvland). */
 export const PAGE_PLACEMENTS = ['fvthank', 'fvpage', 'fvland'] as const satisfies readonly Placement[];
 /** The placements used by the email buttons, in send order (E1, E2, E3). They open the lead's own video ad page, where the offer sits under the video ad. */
-export const EMAIL_PLACEMENTS = ['fvmail1', 'fvmail2', 'fvmail3'] as const satisfies readonly Placement[];
+export const EMAIL_PLACEMENTS = ['fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const satisfies readonly Placement[];
 
 export function isEmailPlacement(value: string): value is (typeof EMAIL_PLACEMENTS)[number] {
   return (EMAIL_PLACEMENTS as readonly string[]).includes(value);
