@@ -176,7 +176,6 @@ export const SALES_PAGE = {
           : 'Paste a link and your first new video ad is ready in about 3 minutes.',
       ],
     },
-    guarantee: '30-day money-back guarantee: try the AI Media Machine for 30 days. If the AI Media Machine is not for you, email me and you get every cent back.',
   },
   founder: {
     photo: `${MEDIA}/founder.jpg`,

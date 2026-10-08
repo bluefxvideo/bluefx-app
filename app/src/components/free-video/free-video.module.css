@@ -1983,13 +1983,49 @@
 .spNext li {
   margin: 2px 0;
 }
-.spGuarantee {
-  margin: 14px 0 0;
-  color: var(--fv-ink);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.5;
+/* The card logos and the guarantee under every offer button, as on the lifetime page (payment-trust.tsx). */
+.trust {
+  margin-top: 12px;
   text-align: center;
+}
+.trustCards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.trustCards svg {
+  display: block;
+  width: auto;
+  height: 26px;
+  border: 1px solid var(--fv-line);
+  border-radius: 5px;
+}
+.trustGuarantee {
+  margin: 10px 0 0;
+  color: var(--fv-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+.trustGuarantee strong {
+  color: #33691e;
+}
+/* In the short offer card everything reads from the left. */
+.offer .trust {
+  text-align: left;
+}
+.offer .trustCards {
+  justify-content: flex-start;
+}
+.trustDark .trustCards svg {
+  border-color: transparent;
+}
+.trustDark .trustGuarantee {
+  color: #c7d3e3;
+}
+.trustDark .trustGuarantee strong {
+  color: #c5e1a5;
 }
 .spOffer .fine {
   text-align: center;

@@ -7,6 +7,7 @@ import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
+import { PaymentTrust } from './payment-trust';
 import { useDeadline, VideoWall } from './sales-page-media';
 
 interface LifetimeSalesPageProps {
@@ -23,7 +24,8 @@ interface LifetimeSalesPageProps {
  * The AI Media Machine offer under the finished video ad, never before it is ready (owner 2026-10-08: "it should be
  * shown only once the result is visible"), in Hormozi's order: the promise, the 3 questions the free video ad already
  * answered, proof, the math (under $3 per video ad against a freelancer's $600), one offer box with the price, the
- * 3-day bonus and the guarantee, the founder, the questions, one last button. Copy in
+ * 3-day bonus and the guarantee, the founder, the questions, one last button. Under every button: the card logos and the
+ * guarantee (PaymentTrust), as on the lifetime page. Copy in
  * lib/free-video/sales-page.ts. Every button opens ClickBank's checkout through /go (OfferButton fires the pixel's
  * InitiateCheckout). The deadline lines appear once the page runs in the browser (useDeadline).
  */
@@ -120,6 +122,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
             <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
               {OFFER_COPY.button}
             </OfferButton>
+            <PaymentTrust />
           </div>
         </div>
       </div>
@@ -158,6 +161,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
             <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
               {OFFER_COPY.button}
             </OfferButton>
+            <PaymentTrust />
             <div className={styles.spNext}>
               <p className={styles.spNextTitle}>{offer.next.title}</p>
               <ol>
@@ -166,7 +170,6 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
                 ))}
               </ol>
             </div>
-            <p className={styles.spGuarantee}>{offer.guarantee}</p>
           </div>
         </div>
       </div>
@@ -218,6 +221,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
           <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
             {OFFER_COPY.button}
           </OfferButton>
+          <PaymentTrust dark />
           <p className={styles.spCloseLine}>{close.line}</p>
         </div>
       </div>

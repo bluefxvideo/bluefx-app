@@ -6,6 +6,7 @@ import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
+import { PaymentTrust } from './payment-trust';
 import { useDeadline } from './sales-page-media';
 import { StyleReel } from './style-reel';
 
@@ -84,6 +85,7 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
       <OfferButton className={styles.btn} href={goUrl(placement, token)}>
         {OFFER_COPY.button}
       </OfferButton>
+      <PaymentTrust />
       <p className={styles.fine}>{ready ? OFFER_READY.fine : OFFER_COPY.smallPrint}</p>
       {ready && (
         <p className={styles.fine}>

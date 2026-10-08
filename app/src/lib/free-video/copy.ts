@@ -549,6 +549,17 @@ export const STYLES = {
 } as const;
 
 /**
+ * Under every button of the lifetime offer, as on the lifetime page's price box (owner 2026-10-08: "under the buttons
+ * add the credit card logos and the guarantee text"): the cards ClickBank's checkout takes, then the guarantee in the
+ * lifetime page's words, its middle part bold.
+ */
+export const PAYMENT_TRUST = {
+  cardsLabel: 'Pay with Visa, Mastercard, American Express, Discover or PayPal',
+  // A no-break hyphen keeps "money-back" on one line.
+  guarantee: ['Your purchase is backed by our ', '100% money\u2011back guarantee', ': full refund within 30 days.'],
+} as const;
+
+/**
  * The short offer beside the finished video ad (LifetimeOffer 'ready'); the offer under the video ad follows
  * (sales-page.ts) and seeAll jumps there. While the 3-day bonus runs (the view's cleanUntil) the card leads with this
  * video ad without the watermark and the deadline; after that, with the new video ads.
@@ -565,7 +576,8 @@ export const OFFER_READY = {
   bonusLine: (when: string) => `Yours when you get the AI Media Machine by ${when}.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
   bonusLineSoon: 'Yours when you get the AI Media Machine within 3 days of getting your video ad.',
-  fine: 'One payment. 30-day money-back guarantee. Secure checkout by ClickBank.',
+  /** The guarantee sits in PaymentTrust right above. */
+  fine: 'One payment. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',
 } as const;
 
