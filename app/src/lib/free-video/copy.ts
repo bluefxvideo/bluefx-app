@@ -456,9 +456,6 @@ export const DOWNLOAD = {
   saveToPhotosBusy: 'Getting the video ad ready...',
   saveToPhotosAgain: 'Tap again to save the video ad',
   saveToPhotosHint: "Opens your iPhone's Share menu. Choose Save Video, and the video ad shows up in Photos.",
-  /** iPhones without the Share menu for files: Safari puts a download in Files, not in Photos. */
-  iphoneTip:
-    "On an iPhone: tap Download, then tap the download arrow in Safari's address bar and open the video ad. Tap Share, then Save Video, and the video ad shows up in Photos.",
   /** The same names the download links use (leads.ts). */
   fileName: (domain: string) => `${domain}-video-ad-free.mp4`,
   cleanFileName: (domain: string) => `${domain}-video-ad.mp4`,

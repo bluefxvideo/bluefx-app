@@ -81,7 +81,7 @@ export interface FreeVideoStatusDemo {
   stale?: boolean;
   /** Show the note under the unlock button that appears after the click. */
   unlockClicked?: boolean;
-  /** Show the iPhone help under the download button on any device. */
+  /** Show the Save to Photos button on any device that can share files. */
   iphone?: boolean;
 }
 

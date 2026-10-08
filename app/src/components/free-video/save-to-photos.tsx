@@ -9,13 +9,13 @@ interface SaveToPhotosProps {
   /** The video ad file on screen (the free or the clean version). */
   url: string;
   fileName: string;
-  /** Dev preview only: show the iPhone help on any device. */
+  /** Dev preview only: show the Save to Photos button on any device that can share files. */
   forceIphone?: boolean;
   /** The Share menu was used (the download event). */
   onSaved?: () => void;
 }
 
-type SaveMode = 'none' | 'tip' | 'share';
+type SaveMode = 'none' | 'share';
 type SaveStep = 'idle' | 'loading' | 'again';
 
 function isIphoneOrIpad(): boolean {
@@ -35,8 +35,9 @@ function canShareVideoFiles(): boolean {
 /**
  * Getting the video ad into Photos on an iPhone (review finding F7): Safari puts a download in Files,
  * where Instagram, Facebook and TikTok can't find the video ad. iOS 15 and later get a "Save to Photos"
- * button that opens the Share menu with the file (Save Video is in that menu); older iPhones get a
- * short how-to. Other phones and computers see nothing here: their downloads work as they are.
+ * button that opens the Share menu with the file (Save Video is in that menu). Where that cannot work (older iPhones, in-app
+ * browsers like Facebook's) the button stays away and the Download button is the way: the old how-to about Safari's address
+ * bar is gone (owner 2026-10-08: "remove"). Other phones and computers see nothing here: their downloads work as they are.
  */
 export function SaveToPhotos({ url, fileName, forceIphone = false, onSaved }: SaveToPhotosProps) {
   const [mode, setMode] = useState<SaveMode>('none');
@@ -45,7 +46,7 @@ export function SaveToPhotos({ url, fileName, forceIphone = false, onSaved }: Sa
 
   useEffect(() => {
     if (!forceIphone && !isIphoneOrIpad()) return;
-    setMode(canShareVideoFiles() ? 'share' : 'tip');
+    if (canShareVideoFiles()) setMode('share');
   }, [forceIphone]);
 
   const share = async (file: File) => {
@@ -62,7 +63,7 @@ export function SaveToPhotos({ url, fileName, forceIphone = false, onSaved }: Sa
         setStep('again');
       } else {
         setStep('idle');
-        setMode('tip');
+        setMode('none');
       }
     }
   };
@@ -82,12 +83,11 @@ export function SaveToPhotos({ url, fileName, forceIphone = false, onSaved }: Sa
       await share(file);
     } catch {
       setStep('idle');
-      setMode('tip');
+      setMode('none');
     }
   };
 
   if (mode === 'none') return null;
-  if (mode === 'tip') return <p className={styles.fine}>{DOWNLOAD.iphoneTip}</p>;
   return (
     <div className={styles.btnGap}>
       <button
