@@ -193,7 +193,7 @@ export const SALES_PAGE = {
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
     reminder: (when: string) => `Free bonus until ${when}: this video ad without the watermark.`,
-    line: `One payment of ${OFFER.now}. Regular price ${OFFER.was}.`,
+    line: `One payment of ${OFFER.now}, about ${PER_VIDEO_AD} per video ad. Regular price ${OFFER.was}.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */
   legal: {
