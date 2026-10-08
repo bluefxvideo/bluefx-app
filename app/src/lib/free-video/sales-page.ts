@@ -159,7 +159,7 @@ export const SALES_PAGE = {
       tag: (when: string | null) => (when ? `Free bonus until ${when}` : `Free bonus for ${BONUS_DAYS} days`),
       title: (domain: string) => `Your video ad for ${domain}, without the watermark and ready to change (${UNLOCK.price} value)`,
       // Owner 2026-10-08: no "within about 10 minutes" here ("needed to say??"), and "After the timer expires".
-      text: "Get the AI Media Machine by then and your video ad goes into your account with all the working files: the presenter clip, the voice-over, the drawings and the music. Change anything, any time. After the timer expires, we delete the working files, and your video ad can't be changed anymore.",
+      text: "Get the AI Media Machine by then and your video ad goes into your account with all the working files: the presenter clip, the voice-over, the drawings and the music. Change anything, any time. After the timer expires, the working files can be deleted any time, and then your video ad can't be changed anymore.",
     },
     tag: '40th birthday price',
     was: OFFER.was,
@@ -197,8 +197,8 @@ export const SALES_PAGE = {
       {
         q: 'What happens to my free video ad?',
         a: bonus
-          ? `Get the AI Media Machine within ${BONUS_DAYS} days of getting your video ad${when ? ` (until ${when})` : ''}, with the email you used here, and your video ad shows up in your AI Media Machine within about 10 minutes, without the watermark and with all the working files (presenter clip, voice-over, drawings, music), ready to change. After that, we delete the working files: your downloaded video ad stays yours, with the watermark, but nobody can change your video ad anymore. Paid with another email, or already have the AI Media Machine? Sign in with that account here:`
-          : `The ${BONUS_DAYS}-day bonus for your video ad has passed, so we delete the working files of your video ad (presenter clip, voice-over, drawings, music), and nobody can change your video ad anymore. Your video ad above stays yours to download, with the watermark, and every new video ad you make in the AI Media Machine comes without a watermark. Already have the AI Media Machine? Sign in here:`,
+          ? `Get the AI Media Machine within ${BONUS_DAYS} days of getting your video ad${when ? ` (until ${when})` : ''}, with the email you used here, and your video ad shows up in your AI Media Machine within about 10 minutes, without the watermark and with all the working files (presenter clip, voice-over, drawings, music), ready to change. After that, the working files can be deleted any time: your downloaded video ad stays yours, with the watermark, but then nobody can change your video ad anymore. Paid with another email, or already have the AI Media Machine? Sign in with that account here:`
+          : `The ${BONUS_DAYS}-day bonus for your video ad has passed, so the working files of your video ad (presenter clip, voice-over, drawings, music) can be deleted any time, and then nobody can change your video ad anymore. Your video ad above stays yours to download, with the watermark, and every new video ad you make in the AI Media Machine comes without a watermark. Already have the AI Media Machine? Sign in here:`,
         claim: true,
       },
       {
@@ -230,7 +230,7 @@ export const SALES_PAGE = {
   },
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
-    reminder: (when: string) => `Free bonus until ${when}: your video ad without the watermark, ready to change. After the timer expires, we delete the working files.`,
+    reminder: (when: string) => `Free bonus until ${when}: your video ad without the watermark, ready to change. After the timer expires, the working files can be deleted any time.`,
     line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads every month, for life: under ${UNDER} per video ad.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */

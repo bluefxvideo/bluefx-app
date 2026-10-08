@@ -552,13 +552,13 @@ export const STYLES = {
 /**
  * The live countdown to the end of the 3-day bonus (owner 2026-10-08: "i also want a timer and the thing that expires,
  * to have at least some sort of urgency"), in the bonus box beside the video ad, in the offer box and on the last band.
- * The deadline is real: claim.ts gives the clean copy only to a buyer who pays before it, and cleanup.ts deletes the
- * working files a day after it (owner: the working files are what expires, "not just the video").
+ * The deadline is real: claim.ts gives the clean copy only to a buyer who pays before it. After it the working files
+ * can go any time (cleanup.ts deletes them after 30 days; the owner can shorten that), which is what the copy says.
  */
 export const BONUS_TIMER = {
   units: ['days', 'hours', 'min', 'sec'],
   label: 'Time left until the free bonus ends',
-  ended: 'The free bonus has ended: the working files of your video ad are being deleted, and the watermark stays.',
+  ended: 'The free bonus has ended: your video ad keeps the watermark, and the working files can be deleted any time.',
 } as const;
 
 /**
@@ -588,10 +588,10 @@ export const OFFER_READY = {
   bonusTitle: `Free bonus: your video ad without the watermark, ready to change (${UNLOCK.price} value)`,
   /** Under the countdown: the deadline and what the visitor loses after it. */
   bonusLine: (when: string) =>
-    `Get the AI Media Machine by ${when}. After the timer expires, we delete the working files of your video ad (presenter clip, voice-over, drawings, music), and your video ad can't be changed anymore.`,
+    `Get the AI Media Machine by ${when}. After the timer expires, the working files of your video ad (presenter clip, voice-over, drawings, music) can be deleted any time, and then your video ad can't be changed anymore.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
   bonusLineSoon:
-    "Get the AI Media Machine within 3 days of getting your video ad. After the timer expires, we delete the working files of your video ad (presenter clip, voice-over, drawings, music), and your video ad can't be changed anymore.",
+    "Get the AI Media Machine within 3 days of getting your video ad. After the timer expires, the working files of your video ad (presenter clip, voice-over, drawings, music) can be deleted any time, and then your video ad can't be changed anymore.",
   /** The guarantee sits in PaymentTrust right above. */
   fine: 'One payment. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',
@@ -682,16 +682,18 @@ export const EMAIL_DRAFTS = [
     send: '1 day after E2',
     // The last-day email: one deadline, one loss, one button, said with a smile (owner 2026-10-08).
     subject: '{$name}, your free bonus ends tomorrow',
+    // Owner 2026-10-08: what expires is the working files, "not just the video"; they go after 30 days, so after the
+    // bonus they CAN be deleted any time.
     body: [
       'Hey {$name},',
       '',
       'Quick one: your free bonus ends tomorrow.',
       '',
-      'Get the AI Media Machine before then, and your video ad for {$free_video_site} goes into your account without the watermark, ready to post or change.',
+      'Get the AI Media Machine before then, and your video ad for {$free_video_site} goes into your account without the watermark, together with the working files: the presenter clip, the voice-over, the drawings and the music. Want a new first line or other music? Type the change, and the AI Media Machine remakes your video ad in a few minutes.',
       '',
-      'After tomorrow, the video ad keeps the BlueFX watermark. Great advertising for me, less great for you.',
+      'After tomorrow, your video ad keeps the BlueFX watermark, and I can delete those working files any time. Then nobody can change your video ad anymore. Great advertising for me, less great for you.',
       '',
-      "And lifetime access is still $700 off, my 40th-birthday price. Apparently I only turn 40 once :-)",
+      'And lifetime access is still $700 off, my 40th-birthday price. Apparently I only turn 40 once :-)',
       '',
       '[Link: Get The AI Media Machine Here → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
       '',

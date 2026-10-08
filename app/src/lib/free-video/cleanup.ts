@@ -1,7 +1,7 @@
 /**
  * Free video ads keep only their video (owner 2026-10-06: "free ads delete their working files after 30 days
- * unless someone paid for the clean version"; 2026-10-08: the working files are what expires, "we cannot keep them on
- * the server ... more than three days": the 3 days the page's timer and the emails promise, CLEAN_COPY_HOURS).
+ * unless someone paid for the clean version"; 2026-10-08: "we dont actully delete the working fies only after 30
+ * days", while the page and E3 say that after the 3-day bonus the working files can be deleted any time).
  *
  * The $99 clean version is rendered from the working files (the presenter clip, the photos, the drawings, the
  * voice-over, the music), so the unlock closes UNLOCK_DAYS after the video ad was finished (unlockOpen: the offer
@@ -17,8 +17,8 @@
 import { createAdminClient } from '@/app/supabase/server';
 import type { FreeVideoLeadStatus, FreeVideoUnlockStatus } from '@/types/free-video';
 
-export const UNLOCK_DAYS = 3;
-export const FILES_KEEP_DAYS = 4;
+export const UNLOCK_DAYS = 30;
+export const FILES_KEEP_DAYS = 31;
 const CLEANUP_BATCH = 20;
 const DAY_MS = 86_400_000;
 const BUCKET = 'script-videos';

@@ -36,7 +36,6 @@ async function main(): Promise<void> {
   check('the files outlive the unlock by a day', FILES_KEEP_DAYS === UNLOCK_DAYS + 1);
   const { CLEAN_COPY_HOURS } = await import('@/lib/free-video/offer');
   check('the files outlive the 3-day bonus (a last-minute sale still gets them)', FILES_KEEP_DAYS * 24 > CLEAN_COPY_HOURS);
-  check('the unlock closes with the bonus', UNLOCK_DAYS * 24 === CLEAN_COPY_HOURS);
 
   const lead = (daysAgo: number, unlock_status = 'none') =>
     ({ ...done(daysAgo), unlock_status, view_token: 'gHAMS8DxumgdZBxF6Evflg', website_domain: 'example.com', clean_video_url: null }) as never;
