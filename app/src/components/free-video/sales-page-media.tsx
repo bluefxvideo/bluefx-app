@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 
-/** False for visitors who ask for less motion: their clips stay on the poster until they tap one. */
+/** False for visitors who ask for less motion: their video ads stay on the poster until they tap one. */
 function useMotionOk(): boolean {
   const [motionOk, setMotionOk] = useState(false);
   useEffect(() => {
@@ -22,7 +22,7 @@ function useMotionOk(): boolean {
 }
 
 interface VideoWallProps {
-  items: readonly { video: string; poster: string }[];
+  items: readonly { video: string; poster: string; label: string }[];
   soundOn: string;
   soundOff: string;
   previous: string;
@@ -30,8 +30,9 @@ interface VideoWallProps {
 }
 
 /**
- * The lifetime page's strip of vertical example videos: the ones on screen play as silent loops, a tap turns one clip's
- * sound on (and every other clip's off), and nothing loads before the strip is near. Arrows scroll it on wider screens.
+ * A row of vertical video ads, as at the top of the lifetime page: the ones on screen play as silent loops, a tap turns
+ * one video ad's sound on (and every other one's off), and nothing loads before the row is near. Phones swipe through
+ * the row; wider screens get arrows.
  */
 export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWallProps) {
   const stripRef = useRef<HTMLDivElement>(null);
@@ -92,31 +93,40 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
   };
 
   return (
-    <div className={styles.spWall}>
+    <div className={styles.spWallWrap}>
       <button type="button" className={cn(styles.spWallArrow, styles.spWallArrowLeft)} aria-label={previous} onClick={() => scroll(-1)}>
         ‹
       </button>
-      <div ref={stripRef} className={styles.spWallStrip}>
+      <div ref={stripRef} className={styles.spWall}>
         {items.map((item, index) => (
-          <div key={item.video} className={styles.spWallItem} data-index={index}>
-            <video
-              ref={(video) => {
-                videos.current[index] = video;
-              }}
-              className={styles.spWallVideo}
-              src={item.video}
-              poster={item.poster}
-              muted
-              loop
-              playsInline
-              preload="none"
-              aria-hidden="true"
-              onClick={() => toggle(index)}
-            />
-            <button type="button" className={styles.spSound} aria-label={sound === index ? soundOff : soundOn} aria-pressed={sound === index} onClick={() => toggle(index)}>
-              <SpeakerIcon on={sound === index} />
-            </button>
-          </div>
+          <figure key={item.video} className={styles.spWallTile}>
+            <div className={styles.spWallItem} data-index={index}>
+              <video
+                ref={(video) => {
+                  videos.current[index] = video;
+                }}
+                className={styles.spWallVideo}
+                src={item.video}
+                poster={item.poster}
+                muted
+                loop
+                playsInline
+                preload="none"
+                aria-hidden="true"
+                onClick={() => toggle(index)}
+              />
+              <button
+                type="button"
+                className={styles.spSound}
+                aria-label={`${sound === index ? soundOff : soundOn}: ${item.label}`}
+                aria-pressed={sound === index}
+                onClick={() => toggle(index)}
+              >
+                <SpeakerIcon on={sound === index} />
+              </button>
+            </div>
+            <figcaption className={styles.spWallLabel}>{item.label}</figcaption>
+          </figure>
         ))}
       </div>
       <button type="button" className={cn(styles.spWallArrow, styles.spWallArrowRight)} aria-label={next} onClick={() => scroll(1)}>
@@ -128,7 +138,17 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
 
 function SpeakerIcon({ on }: { on: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
       {on ? (
         <>
@@ -143,39 +163,4 @@ function SpeakerIcon({ on }: { on: boolean }) {
       )}
     </svg>
   );
-}
-
-interface DemoLoopProps {
-  video: string;
-  poster: string;
-  label: string;
-}
-
-/** One tool's demo (the lifetime page's GIF, as a small MP4): a silent loop while it is on screen. */
-export function DemoLoop({ video, poster, label }: DemoLoopProps) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const motionOk = useMotionOk();
-  const [onScreen, setOnScreen] = useState(false);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), { threshold: 0.4 });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    if (motionOk && onScreen) {
-      // Set before play(): browsers only autoplay a muted video.
-      element.muted = true;
-      void element.play().catch(() => undefined);
-    } else {
-      element.pause();
-    }
-  }, [motionOk, onScreen]);
-
-  return <video ref={ref} className={styles.spDemo} src={video} poster={poster} width={600} height={336} muted loop playsInline preload="none" aria-label={label} />;
 }

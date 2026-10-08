@@ -90,8 +90,8 @@ const FIXTURES: Fixture[] = [
   { id: 'making-customer', label: 'making, existing customer (no offer while the video ad is made, for anyone)', placement: 'fvthank', view: waiting('making-customer', { state: 'making', step: 'directing', isCustomer: true }) },
   { id: 'making-stale', label: 'making, the page stopped checking after 90 min', placement: 'fvthank', view: waiting('making-stale', { state: 'making', step: 'rendering', progress: 80 }), demo: { stale: true } },
   { id: 'checking', label: 'checking: held for the final check', placement: 'fvthank', view: waiting('checking', { state: 'checking' }) },
-  { id: 'ready', label: 'ready, unlock available (thank-you page, iPhone help shown)', placement: 'fvthank', view: ready('ready'), demo: { iphone: true } },
-  { id: 'ready-clicked', label: 'ready, unlock button clicked (waiting for the payment)', placement: 'fvthank', view: ready('ready-clicked'), demo: { unlockClicked: true } },
+  { id: 'ready', label: 'ready (thank-you page, iPhone help shown; the $99 offer is off the page since 2026-10-08)', placement: 'fvthank', view: ready('ready'), demo: { iphone: true } },
+  { id: 'ready-clicked', label: 'ready, the $99 button was clicked in a tab opened before the offer came off (looks like ready)', placement: 'fvthank', view: ready('ready-clicked'), demo: { unlockClicked: true } },
   { id: 'ready-paid', label: 'ready, unlock paid', placement: 'fvthank', view: ready('ready-paid', { unlock: { state: 'paid' } }) },
   { id: 'ready-rendering', label: 'ready, unlock rendering the clean version', placement: 'fvpage', view: ready('ready-rendering', { unlock: { state: 'rendering' } }) },
   {

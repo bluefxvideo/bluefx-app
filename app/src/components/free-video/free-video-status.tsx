@@ -240,7 +240,8 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
               </div>
               <div>
                 <p className={styles.note}>{placement === 'fvpage' ? STATUS.readyNoteEmail : STATUS.readyNoteThanks}</p>
-                {/* A clean version that was paid for comes first; otherwise the $99 offer comes after the AI Media Machine. */}
+                {/* A clean version paid for earlier comes first. The $99 offer itself is off the page (owner 2026-10-08: "the $99
+                    offer is just in the way"); /go/fvunlock still opens its checkout for a tab that was open before. */}
                 {purchased && unlockOffer}
                 {!cleanReady && (
                   <a
@@ -259,15 +260,13 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 />
                 {staleNotice}
                 <LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="ready" />
-                {/* A customer gets this video ad in the AI Media Machine without the watermark: no $99 offer. */}
-                {!purchased && !view.isCustomer && unlockOffer}
               </div>
             </div>
           </div>
         </section>
-        {/* The whole AI Media Machine sales page under the finished video ad, never while it is made (owner 2026-10-08).
-            Not for customers: they already have it. */}
-        {!view.isCustomer && <LifetimeSalesPage placement={placement} token={token} />}
+        {/* The AI Media Machine offer under the finished video ad, never while it is made (owner 2026-10-08). Not for
+            customers: they already have it. */}
+        {!view.isCustomer && <LifetimeSalesPage placement={placement} token={token} domain={domain} />}
       </>
     );
   }

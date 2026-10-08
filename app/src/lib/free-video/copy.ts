@@ -501,8 +501,6 @@ export const OFFER_COPY = {
   /** Under a refusal on the form (one free video ad per business). */
   headingUpgrade: 'Make 100+ video ads a year yourself',
   bodyUpgrade: 'The AI Media Machine makes these video ads. Get your own and make a video ad for every offer, any time, without a watermark.',
-  /** Under the price on the ready page, next to the $99 offer: how many clean video ads the lifetime price buys. */
-  anchor: `For the price of ${Math.floor(Number(OFFER.now.replace(/\D/g, '')) / Number(UNLOCK.price.replace(/\D/g, '')))} clean video ads you get 100+ video ads a year plus 12 more AI video tools.`,
   /** 600 credits a month x 12 / 50 credits per video ad = 144 a year (offer.ts). */
   bullets: [
     '100+ video ads a year, every one without a watermark',

@@ -66,8 +66,6 @@ export function LifetimeOffer({ placement, token, isCustomer, variant }: Lifetim
         <span className={styles.priceUnit}>{OFFER_COPY.unit}</span>
         <span className={styles.priceOff}>{OFFER_COPY.off}</span>
       </p>
-      {/* The anchor compares with the $99 clean video ad, which only the ready page offers. */}
-      {ready && <p className={styles.offerText}>{OFFER_COPY.anchor}</p>}
       {/* A new tab, so this page keeps checking on the video ad. The click is the pixel's InitiateCheckout. */}
       <OfferButton className={styles.btn} href={goUrl(placement, token)}>
         {OFFER_COPY.button}
