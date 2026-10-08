@@ -522,8 +522,8 @@ export const OFFER_COPY = {
   customerBody: 'Make your next video ad in the AI Media Machine.',
   customerButton: 'Open the AI Media Machine',
   /** The same box under a finished video ad: the sweep puts the video ad into the customer's account by itself (claim.ts). */
-  customerBodyReady: 'This video ad goes into your AI Media Machine too, without the watermark. Open it there to change anything.',
-  customerButtonReady: 'Open this video ad in the AI Media Machine',
+  customerBodyReady: 'Your video ad goes into your AI Media Machine too, without the watermark. Open your video ad there to change anything.',
+  customerButtonReady: 'Open your video ad in the AI Media Machine',
 } as const;
 
 /**
@@ -557,7 +557,7 @@ export const STYLES = {
 export const BONUS_TIMER = {
   units: ['days', 'hours', 'min', 'sec'],
   label: 'Time left until the free bonus ends',
-  ended: 'The free bonus has ended: the working files of this video ad are being deleted, and the watermark stays.',
+  ended: 'The free bonus has ended: the working files of your video ad are being deleted, and the watermark stays.',
 } as const;
 
 /**
@@ -577,20 +577,20 @@ export const PAYMENT_TRUST = {
  * video ad without the watermark and the deadline; after that, with the new video ads.
  */
 export const OFFER_READY = {
-  heading: `Get this video ad without the watermark, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
+  heading: `Get your video ad without the watermark, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   headingLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
-  body: 'Own the AI that made this video ad, for one payment, and make a new video ad any time in about 3 minutes.',
+  body: 'Own the AI that made your video ad, for one payment, and make a new video ad any time in about 3 minutes.',
   /**
    * The 3-day bonus, named and valued at the $99 the clean video ad sold for (owner 2026-10-08: "the word buy seems
    * harsh", then the Hormozi review: a fast-action bonus says what you get, what it is worth and until when).
    */
-  bonusTitle: `Free bonus: this video ad without the watermark, ready to change (${UNLOCK.price} value)`,
+  bonusTitle: `Free bonus: your video ad without the watermark, ready to change (${UNLOCK.price} value)`,
   /** Under the countdown: the deadline and what the visitor loses after it. */
   bonusLine: (when: string) =>
-    `Get the AI Media Machine by ${when}. After the timer expires, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.`,
+    `Get the AI Media Machine by ${when}. After the timer expires, we delete the working files of your video ad (presenter clip, voice-over, drawings, music), and your video ad can't be changed anymore.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
   bonusLineSoon:
-    "Get the AI Media Machine within 3 days of getting your video ad. After the timer expires, we delete the working files of this video ad (presenter clip, voice-over, drawings, music), and the video ad can't be changed anymore.",
+    "Get the AI Media Machine within 3 days of getting your video ad. After the timer expires, we delete the working files of your video ad (presenter clip, voice-over, drawings, music), and your video ad can't be changed anymore.",
   /** The guarantee sits in PaymentTrust right above. */
   fine: 'One payment. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',
