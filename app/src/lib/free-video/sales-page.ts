@@ -9,22 +9,22 @@
  * founder, five questions, the last button.
  *
  * One number everywhere: 10 video ads a month. A free video ad opens with an AI presenter (runner.ts presenter: true),
- * and in the AI Media Machine that is PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS = 60 of the 600 monthly credits;
- * without a presenter it is 12 (the FAQ says so). The deadline is real: the 3-day bonus (offer.ts CLEAN_COPY_HOURS),
- * enforced in claim.ts, shown as the day and hour in the visitor's own time. The bonus is valued at the $99 the clean
- * video ad sold for. The freelancer numbers are the owner's own (bluefx.net/video-ad, the lifetime page). The examples
- * row is exactly the lifetime page's 9 vertical videos, in its order. No timer, no reviews, BlueFX since 2009.
+ * and in the AI Media Machine that is PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS = 60 of the 600 monthly credits (the
+ * 12 without a presenter stays off the page: it complicates the offer). The deadline is real: the 3-day bonus
+ * (offer.ts CLEAN_COPY_HOURS), enforced in claim.ts, shown as the day and hour in the visitor's own time. The bonus is
+ * valued at the $99 the clean video ad sold for. The freelancer numbers are the owner's own (bluefx.net/video-ad, the
+ * lifetime page). The examples row is exactly the lifetime page's 9 vertical videos, in its order. No timer, no
+ * reviews, BlueFX since 2009.
  */
 import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
-import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH, VIDEO_ADS_PER_MONTH } from './offer';
+import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, UNLOCK, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
 
 const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/aimm';
 
 const usd = (price: string) => Number(price.replace(/\D/g, ''));
 
-/** Video ads a month like the free one (with its AI presenter), and without a presenter. */
+/** Video ads a month like the free one, with its AI presenter: the one number the page uses. */
 const WITH_PRESENTER = VIDEO_ADS_LIKE_FREE_PER_MONTH;
-const WITHOUT_PRESENTER = VIDEO_ADS_PER_MONTH;
 const FIRST_YEAR = WITH_PRESENTER * 12;
 /** $297 over the first year's 120 video ads, to the nearest 50 cents: about $2.50 each. */
 const PER_VIDEO_AD = `$${(Math.round((usd(OFFER.now) / FIRST_YEAR) * 2) / 2).toFixed(2)}`;
@@ -168,7 +168,8 @@ export const SALES_PAGE = {
       },
       {
         q: 'How many video ads can I make?',
-        a: `${LIFETIME_MONTHLY_CREDITS} credits arrive every month. A video ad with an AI presenter, like yours, takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS} credits: ${WITH_PRESENTER} video ads a month. Without the presenter a video ad takes ${PHANTOM_CREDITS}: ${WITHOUT_PRESENTER} a month. A change to a video ad takes ${PHANTOM_REVISION_CREDITS}.`,
+        // One number, as everywhere on the page (owner 2026-10-08: the 12-without-a-presenter line "complicates the offer").
+        a: `${LIFETIME_MONTHLY_CREDITS} credits arrive every month. A video ad like yours takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS} credits, so that's ${WITH_PRESENTER} video ads a month. A change to a video ad takes ${PHANTOM_REVISION_CREDITS}.`,
       },
       {
         q: 'Do I need to be technical?',
