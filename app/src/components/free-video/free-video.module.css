@@ -1650,12 +1650,6 @@
   color: #ffffff;
   cursor: pointer;
 }
-.spWallLabel {
-  margin-top: 8px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 700;
-}
 .spWallArrow {
   display: none;
 }
@@ -1706,9 +1700,6 @@
   .spWide {
     grid-template-columns: 1fr 1fr;
   }
-}
-.spWideTile {
-  margin: 0;
 }
 .spWideVideo {
   display: block;

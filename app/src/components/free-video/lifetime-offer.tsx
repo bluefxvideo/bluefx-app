@@ -1,9 +1,12 @@
+'use client';
+
 import { OFFER_COPY, OFFER_READY } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
-import { deadlineDate, SALES_PAGE } from '@/lib/free-video/sales-page';
+import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
+import { useDeadline } from './sales-page-media';
 import { StyleReel } from './style-reel';
 
 interface LifetimeOfferProps {
@@ -17,8 +20,8 @@ interface LifetimeOfferProps {
    * offers anything while the video ad is made (owner 2026-10-08: only "once the result is visible").
    */
   variant: 'ready' | 'upgrade';
-  /** ready: until when this video ad still goes into a buyer's account clean (the view's editableUntil), if it does. */
-  editableUntil?: string;
+  /** ready: the end of the 3-day bonus (the view's cleanUntil), while it runs. */
+  cleanUntil?: string;
 }
 
 /**
@@ -27,8 +30,9 @@ interface LifetimeOfferProps {
  * video ad in their account (/go/claim); a customer the email did not match finds the same link under the offer. No hooks of its own (StyleReel and
  * OfferButton are client components), so it renders in server and client trees.
  */
-export function LifetimeOffer({ placement, token, isCustomer, variant, editableUntil }: LifetimeOfferProps) {
+export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUntil }: LifetimeOfferProps) {
   const claimable = variant === 'ready' && Boolean(token);
+  const when = useDeadline(cleanUntil);
   if (isCustomer) {
     return (
       <div className={styles.offer}>
@@ -46,8 +50,8 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, editableU
     <div className={cn(styles.offer, styles.offerPrimary)}>
       {/* One offer on the ready page, so no "best value" tag there (the $99 offer is gone). */}
       {!ready && <span className={styles.tag}>{OFFER_COPY.tag}</span>}
-      <h2 className={styles.offerTitle}>{ready ? (editableUntil ? OFFER_READY.heading : OFFER_READY.headingLater) : OFFER_COPY.headingUpgrade}</h2>
-      <p className={styles.offerText}>{ready ? (editableUntil ? OFFER_READY.body : OFFER_READY.bodyLater) : OFFER_COPY.bodyUpgrade}</p>
+      <h2 className={styles.offerTitle}>{ready ? (cleanUntil ? OFFER_READY.heading : OFFER_READY.headingLater) : OFFER_COPY.headingUpgrade}</h2>
+      <p className={styles.offerText}>{ready ? (cleanUntil ? OFFER_READY.body : OFFER_READY.bodyLater) : OFFER_COPY.bodyUpgrade}</p>
       {/* The ready page shows the styles and everything else in the sales page under the video ad. */}
       {!ready && <StyleReel />}
       {!ready && (
@@ -69,7 +73,7 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, editableU
         <span className={styles.priceUnit}>{OFFER_COPY.unit}</span>
         <span className={styles.priceOff}>{OFFER_COPY.off}</span>
       </p>
-      {ready && editableUntil && <p className={styles.offerDeadline}>{OFFER_READY.deadline(deadlineDate(editableUntil))}</p>}
+      {ready && when && <p className={styles.offerDeadline}>{OFFER_READY.deadline(when)}</p>}
       {/* A new tab, so this page keeps checking on the video ad. The click is the pixel's InitiateCheckout. */}
       <OfferButton className={styles.btn} href={goUrl(placement, token)}>
         {OFFER_COPY.button}

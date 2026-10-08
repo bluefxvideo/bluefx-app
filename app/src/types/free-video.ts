@@ -234,8 +234,8 @@ export interface FreeVideoView {
   videoUrl?: string;
   /** ready: the same file as a download (Content-Disposition: attachment). */
   downloadUrl?: string;
-  /** ready: until when a buyer gets this video ad clean and ready to change (cleanup.ts editableUntil); absent once past. */
-  editableUntil?: string;
+  /** ready: until when a buyer gets this video ad in the account without the watermark (offer.ts cleanCopyUntil); absent once past. */
+  cleanUntil?: string;
   /** An active AI Media Machine customer, or a buyer since: Offer 2 swaps to "Open this video ad in the AI Media Machine" and the $99 offer goes. */
   isCustomer: boolean;
   /** Offer 1, the $99 unlock. */

@@ -20,13 +20,12 @@ import { FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video
 import { EMAIL_DRAFTS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { copyIdOf } from '@/lib/free-video/claim';
-import { editableUntil } from '@/lib/free-video/cleanup';
 import { afterLoginPath, AFTER_LOGIN_PATH } from '@/lib/after-login';
 import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
 import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { frameOf, lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
-import { checkoutUrl, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
+import { checkoutUrl, cleanCopyEarned, cleanCopyUntil, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
 import { fakeSavedPlan, freeOptions, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
 import { checkFreeScript, websiteOffers } from '@/lib/free-video/script-checks';
 import { assertPublicUrl, BlockedUrlError, isPublicAddress, safeFetch, safeFetchWith, sanityCheckHtml } from '@/lib/free-video/safe-fetch';
@@ -440,14 +439,20 @@ async function main(): Promise<void> {
   const lead = (patch: Partial<FreeVideoLead>): FreeVideoLead =>
     ({ view_token: token, status: 'done', video_url: 'https://cdn.example/video.mp4', website_domain: domain, unlock_status: 'none', clean_video_url: null, ...patch }) as FreeVideoLead;
   check('view: done → available with the checkout path', JSON.stringify(unlockViewOf(lead({}))) === JSON.stringify({ state: 'available', checkoutPath: `/go/fvunlock?t=${token}` }));
-  // The thank-you offer's deadline (cleanup.ts editableUntil): 30 days after the video ad was finished, never past.
-  const day = 86_400_000;
-  const finished = (daysAgo: number) => ({ status: 'done', video_url: 'https://x/video.mp4', finished_at: new Date(Date.now() - daysAgo * day).toISOString() });
-  const until = editableUntil(finished(7));
-  check('deadline: a video ad finished 7 days ago stays editable for 23 more days', Boolean(until) && Math.round((Date.parse(until ?? '') - Date.now()) / day) === 23);
-  check('deadline: none after 30 days', editableUntil(finished(31)) === null);
-  check('deadline: none once the working files are deleted', editableUntil({ ...finished(2), files_cleaned_at: new Date().toISOString() }) === null);
-  check('deadline: none without a finish time', editableUntil({ status: 'done', video_url: 'https://x/video.mp4', finished_at: null }) === null);
+  // The 3-day bonus (offer.ts): the deadline the page shows, and the rule claim.ts renders by.
+  const hour = 3_600_000;
+  const finished = (hoursAgo: number) => ({ status: 'done', video_url: 'https://x/video.mp4', finished_at: new Date(Date.now() - hoursAgo * hour).toISOString() });
+  const until = cleanCopyUntil(finished(25));
+  check('bonus: a video ad ready 25 hours ago has 47 hours left', Boolean(until) && Math.round((Date.parse(until ?? '') - Date.now()) / hour) === 47);
+  check('bonus: no deadline after 72 hours', cleanCopyUntil(finished(73)) === null);
+  check('bonus: no deadline once the working files are deleted', cleanCopyUntil({ ...finished(2), files_cleaned_at: new Date().toISOString() }) === null);
+  check('bonus: no deadline without a finish time', cleanCopyUntil({ status: 'done', video_url: 'https://x/video.mp4', finished_at: null }) === null);
+  const readyAt = '2026-10-08T12:00:00.000Z';
+  const sale = (at: string | null, isCustomer = false) => ({ is_customer: isCustomer, bought_at: at, finished_at: readyAt });
+  check('bonus: a sale 71 hours after the video ad gets the clean copy', cleanCopyEarned(sale('2026-10-11T11:00:00.000Z')));
+  check('bonus: a sale 73 hours after gets the marked copy', !cleanCopyEarned(sale('2026-10-11T13:00:00.000Z')));
+  check('bonus: an existing customer always gets the clean copy', cleanCopyEarned(sale('2026-10-20T00:00:00.000Z', true)));
+  check('bonus: a claim from the page without a matched sale gets the clean copy', cleanCopyEarned(sale(null)));
   check('view: queued → unavailable with the checkout path', unlockViewOf(lead({ status: 'queued', video_url: null })).state === 'unavailable' && Boolean(unlockViewOf(lead({ status: 'queued' })).checkoutPath));
   check('view: rejected → unavailable without a link', unlockViewOf(lead({ status: 'rejected' })).checkoutPath === undefined);
   check('view: paid / rendering / failed', unlockViewOf(lead({ unlock_status: 'paid' })).state === 'paid' && unlockViewOf(lead({ unlock_status: 'rendering' })).state === 'rendering' && unlockViewOf(lead({ unlock_status: 'failed' })).state === 'failed');

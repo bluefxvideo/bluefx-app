@@ -554,15 +554,15 @@ export const STYLES = {
 
 /**
  * The short offer beside the finished video ad (LifetimeOffer 'ready'); the offer under the video ad follows
- * (sales-page.ts) and seeAll jumps there. While this video ad can still go into a buyer's account clean (the view's
- * editableUntil) the card leads with that and its date; after that, with the new video ads.
+ * (sales-page.ts) and seeAll jumps there. While the 3-day bonus runs (the view's cleanUntil) the card leads with this
+ * video ad without the watermark and the deadline; after that, with the new video ads.
  */
 export const OFFER_READY = {
   heading: `Get this video ad without the watermark, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   headingLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
   body: 'Own the AI Media Machine, the AI that made this video ad, for one payment. Type what to change in this video ad, or paste a link and get a new video ad in a few minutes.',
   bodyLater: 'Own the AI Media Machine, the AI that made this video ad, for one payment. Paste a link and get a new video ad in a few minutes.',
-  deadline: (date: string) => `Buy by ${date} to get this video ad without the watermark.`,
+  deadline: (when: string) => `Buy by ${when} to get this video ad without the watermark.`,
   fine: '30-day money-back guarantee. Secure checkout by ClickBank.',
   seeAll: 'See everything you get',
 } as const;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { deadlineLabel } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 
@@ -21,6 +22,18 @@ function useMotionOk(): boolean {
   return motionOk;
 }
 
+/**
+ * The 3-day bonus deadline in the visitor's own time ("Saturday, October 11 at 2:15 PM"), or null: on the server and in
+ * the first render (only the browser knows the time zone, and both renders must match), and when there is no bonus.
+ */
+export function useDeadline(iso?: string): string | null {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    setLabel(iso ? deadlineLabel(iso) : null);
+  }, [iso]);
+  return label;
+}
+
 interface VideoWallProps {
   items: readonly { video: string; poster: string; label: string }[];
   soundOn: string;
@@ -30,9 +43,9 @@ interface VideoWallProps {
 }
 
 /**
- * A row of vertical video ads, as at the top of the lifetime page: the ones on screen play as silent loops, a tap turns
- * one video ad's sound on (and every other one's off), and nothing loads before the row is near. Phones swipe through
- * the row; wider screens get arrows.
+ * A row of vertical video ads, as at the top of the lifetime page (no captions; the labels are for screen readers): the
+ * ones on screen play as silent loops, a tap turns one video ad's sound on (and every other one's off), and nothing
+ * loads before the row is near. Phones swipe through the row; wider screens get arrows.
  */
 export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWallProps) {
   const stripRef = useRef<HTMLDivElement>(null);
@@ -99,7 +112,7 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
       </button>
       <div ref={stripRef} className={styles.spWall}>
         {items.map((item, index) => (
-          <figure key={item.video} className={styles.spWallTile}>
+          <div key={item.video} className={styles.spWallTile}>
             <div className={styles.spWallItem} data-index={index}>
               <video
                 ref={(video) => {
@@ -125,8 +138,7 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
                 <SpeakerIcon on={sound === index} />
               </button>
             </div>
-            <figcaption className={styles.spWallLabel}>{item.label}</figcaption>
-          </figure>
+          </div>
         ))}
       </div>
       <button type="button" className={cn(styles.spWallArrow, styles.spWallArrowRight)} aria-label={next} onClick={() => scroll(1)}>

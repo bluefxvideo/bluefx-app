@@ -10,7 +10,8 @@
  *    account, so a second claim (the sweep and a click at the same moment) finds the same row and copies nothing twice.
  * 3. In the background: the saved plan is rendered again without the watermark (as the $99 clean version is), levelled,
  *    checked and stored as video.mp4, and the row is done. A lead that has its $99 clean version gets that file instead;
- *    a lead whose working files are already gone (cleanup.ts, after 30 days) gets the free file, which is all there is.
+ *    a lead whose working files are already gone (cleanup.ts, after 30 days) gets the free file, which is all there is,
+ *    and so does a buyer who bought after the 3-day bonus (offer.ts cleanCopyEarned): one edit makes that copy clean.
  *
  * Callers: the sweep, for a lead whose email bought the AI Media Machine or already has it (copyLeadsToAccounts), and
  * /go/claim?t=<token> for a signed-in customer (the button on the video ad page).
@@ -20,6 +21,7 @@ import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
 import { fakeMode, renderTargetAllowed } from '@/lib/free-video/config';
 import { asLead, customerIdByEmail, leadsTable, readSettings } from '@/lib/free-video/leads';
+import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { checkCleanFile, cleanProps, inBackground } from '@/lib/free-video/unlock';
 import { BUCKET, jobDir, jobsTable, publicUrl, readJob, STALE_AFTER_MS, touchJob, upload, withRetry, writeJob } from '@/lib/smart-video/jobs';
 import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
@@ -70,7 +72,8 @@ export async function claimFreeVideo(lead: FreeVideoLead, userId: string, viaAft
     const dead = existing.status === 'failed' || (existing.status !== 'done' && Date.parse(existing.updatedAt) < Date.now() - STALE_AFTER_MS);
     // A copy that got the marked free file is rendered clean again on the next click, while the working files exist
     // (2026-10-07: every clean render failed its frame check for a day, so the owner's copy kept the mark).
-    const marked = existing.status === 'done' && Boolean(existing.warnings?.includes(MARKED_COPY)) && !lead.files_cleaned_at;
+    // Never for a buyer after the 3-day bonus: that copy keeps the mark until its owner edits it.
+    const marked = existing.status === 'done' && Boolean(existing.warnings?.includes(MARKED_COPY)) && !lead.files_cleaned_at && cleanCopyEarned(lead);
     if ((dead || marked) && !finishing.has(copyId)) startFinish(lead, existing, viaAfter);
     return copyId;
   }
@@ -167,8 +170,9 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
       // The $99 clean version exists.
       await copyFile(`${freeDir}/${path.basename(new URL(lead.clean_video_url).pathname)}`, `${toDir}/${target}`);
       videoUrl = publicUrl(`${toDir}/${target}`);
-    } else if (lead.files_cleaned_at || fakeMode() || !renderTargetAllowed()) {
-      // The working files are gone (or this server may not render): the free file is all there is.
+    } else if (lead.files_cleaned_at || fakeMode() || !renderTargetAllowed() || !cleanCopyEarned(lead)) {
+      // The working files are gone (or this server may not render), or the sale came after the 3-day bonus: the free
+      // file it is.
       videoUrl = await copyFree();
       warnings.push(MARKED_COPY);
     } else {

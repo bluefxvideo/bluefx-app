@@ -1,11 +1,13 @@
+'use client';
+
 import Image from 'next/image';
 import { OFFER_COPY, SUPPORT_EMAIL } from '@/lib/free-video/copy';
 import { goUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
-import { deadlineDate, SALES_PAGE } from '@/lib/free-video/sales-page';
+import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
-import { VideoWall } from './sales-page-media';
+import { useDeadline, VideoWall } from './sales-page-media';
 
 interface LifetimeSalesPageProps {
   /** The ClickBank vtid of this page: fvthank on the thank-you page, fvpage on /v/<token>. */
@@ -13,20 +15,21 @@ interface LifetimeSalesPageProps {
   token: string;
   /** The lead's website, as the page above shows it. */
   domain: string;
-  /** Until when this video ad still goes into a buyer's account clean (the view's editableUntil), if it does. */
-  editableUntil?: string;
+  /** The end of the 3-day bonus (the view's cleanUntil), while it runs. */
+  cleanUntil?: string;
 }
 
 /**
  * The AI Media Machine offer under the finished video ad, never before it is ready (owner 2026-10-08: "it should be
  * shown only once the result is visible"), in Hormozi's order: the promise, the three steps, proof, one offer box with
- * the price, the deadline and the guarantee, the founder, five questions, one last button. Copy in
+ * the price, the 3-day bonus and the guarantee, the founder, five questions, one last button. Copy in
  * lib/free-video/sales-page.ts. Every button opens ClickBank's checkout through /go (OfferButton fires the pixel's
- * InitiateCheckout). No hooks of its own.
+ * InitiateCheckout). The deadline lines appear once the page runs in the browser (useDeadline).
  */
-export function LifetimeSalesPage({ placement, token, domain, editableUntil }: LifetimeSalesPageProps) {
+export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: LifetimeSalesPageProps) {
   const href = goUrl(placement, token);
-  const date = editableUntil ? deadlineDate(editableUntil) : null;
+  const bonus = Boolean(cleanUntil);
+  const when = useDeadline(cleanUntil);
   const { bridge, steps, proof, offer, founder, faq, close, legal } = SALES_PAGE;
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
@@ -65,10 +68,7 @@ export function LifetimeSalesPage({ placement, token, domain, editableUntil }: L
           <p className={styles.spWideTitle}>{proof.wideTitle}</p>
           <div className={styles.spWide}>
             {proof.wide.map((item) => (
-              <figure key={item.video} className={styles.spWideTile}>
-                <video className={styles.spWideVideo} src={item.video} poster={item.poster} controls playsInline preload="none" aria-label={item.label} />
-                <figcaption className={styles.spWallLabel}>{item.label}</figcaption>
-              </figure>
+              <video key={item.video} className={styles.spWideVideo} src={item.video} poster={item.poster} controls playsInline preload="none" aria-label={item.label} />
             ))}
           </div>
           <p className={styles.spWideNote}>{proof.wideNote}</p>
@@ -80,7 +80,7 @@ export function LifetimeSalesPage({ placement, token, domain, editableUntil }: L
           <div className={styles.spOffer}>
             <h2 className={styles.spOfferTitle}>{offer.title}</h2>
             <ul className={styles.ticks}>
-              {offer.items(domain, Boolean(date)).map((item) => (
+              {offer.items(domain, bonus).map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
@@ -103,7 +103,7 @@ export function LifetimeSalesPage({ placement, token, domain, editableUntil }: L
               <p className={styles.spPriceUnit}>{offer.unit}</p>
               <p className={styles.spPriceWhy}>{offer.why}</p>
             </div>
-            {date && <p className={styles.spDeadline}>{offer.deadline(date)}</p>}
+            {bonus && when && <p className={styles.spDeadline}>{offer.deadline(when)}</p>}
             <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
               {OFFER_COPY.button}
             </OfferButton>
@@ -136,7 +136,7 @@ export function LifetimeSalesPage({ placement, token, domain, editableUntil }: L
         <div className={styles.spInner}>
           <h2 className={styles.spTitle}>{faq.title}</h2>
           <div className={styles.faq}>
-            {faq.items(date).map((item) => (
+            {faq.items(bonus, when).map((item) => (
               <details key={item.q} className={styles.faqItem}>
                 <summary>{item.q}</summary>
                 <p>{item.a}</p>
@@ -149,7 +149,7 @@ export function LifetimeSalesPage({ placement, token, domain, editableUntil }: L
       <div className={styles.spClose}>
         <div className={styles.spInner}>
           <h2 className={styles.spCloseTitle}>{close.title(domain)}</h2>
-          {date && <p className={styles.spCloseDeadline}>{offer.deadline(date)}</p>}
+          {bonus && when && <p className={styles.spCloseDeadline}>{offer.deadline(when)}</p>}
           <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
             {OFFER_COPY.button}
           </OfferButton>

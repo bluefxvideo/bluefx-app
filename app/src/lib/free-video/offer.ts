@@ -65,6 +65,34 @@ export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM
  */
 export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS));
 
+/**
+ * The 3-day bonus (owner 2026-10-08: "i love the deadline but its too long, 24h or 3 days"): a lead who buys the AI
+ * Media Machine within CLEAN_COPY_HOURS of the free video ad being ready gets this video ad in the account without the
+ * watermark (claim.ts renders the copy clean); a later buyer gets the watermarked file, which one edit makes clean.
+ * Existing customers, and a signed-in customer claiming from the page with another email, always get it clean. 72
+ * hours, so the day-1 email still lands inside the window.
+ */
+export const CLEAN_COPY_HOURS = 72;
+const HOUR_MS = 3_600_000;
+
+/** Until when this video ad goes into a buyer's account clean, as an ISO time; null when unknown, past or cleaned up. */
+export function cleanCopyUntil(
+  lead: { status: string; video_url: string | null; finished_at: string | null; files_cleaned_at?: string | null },
+  now = Date.now()
+): string | null {
+  if (lead.status !== 'done' || !lead.video_url || !lead.finished_at || lead.files_cleaned_at) return null;
+  const until = Date.parse(lead.finished_at) + CLEAN_COPY_HOURS * HOUR_MS;
+  return Number.isFinite(until) && until > now ? new Date(until).toISOString() : null;
+}
+
+/** Whether a copy of this lead's video ad is rendered clean (see CLEAN_COPY_HOURS). An unknown time counts for the buyer. */
+export function cleanCopyEarned(lead: { is_customer: boolean; bought_at: string | null; finished_at: string | null }): boolean {
+  if (lead.is_customer || !lead.bought_at || !lead.finished_at) return true;
+  const bought = Date.parse(lead.bought_at);
+  const finished = Date.parse(lead.finished_at);
+  return !Number.isFinite(bought) || !Number.isFinite(finished) || bought <= finished + CLEAN_COPY_HOURS * HOUR_MS;
+}
+
 /** Where an existing customer goes instead of the offer: The Phantom inside the app. */
 export const PHANTOM_PATH = '/dashboard/smart-video';
 

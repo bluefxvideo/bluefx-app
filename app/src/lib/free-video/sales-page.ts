@@ -8,13 +8,14 @@
  *
  * One number everywhere: 10 video ads a month. A free video ad opens with an AI presenter (runner.ts presenter: true),
  * and in the AI Media Machine that is PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS = 60 of the 600 monthly credits;
- * without a presenter it is 12 (the FAQ says so). The deadline is real: a buyer gets this video ad clean and ready to
- * change only while its working files exist (cleanup.ts editableUntil). The freelancer price is the owner's own
- * estimate from bluefx.net/video-ad ($600 to $1,500 per video ad). No timer, no reviews, BlueFX since 2009.
+ * without a presenter it is 12 (the FAQ says so). The deadline is real: the 3-day bonus (offer.ts CLEAN_COPY_HOURS,
+ * owner 2026-10-08 "i love the deadline but its too long, 24h or 3 days"), enforced in claim.ts, shown as the day and
+ * hour in the visitor's own time. The freelancer price is the owner's own estimate from bluefx.net/video-ad ($600 to
+ * $1,500 per video ad). The examples row is exactly the lifetime page's 9 vertical videos, in its order (owner: "show
+ * the exact ones that we have on the ai mm page"). No timer, no reviews, BlueFX since 2009.
  */
 import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
-import { EXAMPLE_VIDEOS } from './copy';
-import { LIFETIME_MONTHLY_CREDITS, OFFER, VIDEO_ADS_LIKE_FREE_PER_MONTH, VIDEO_ADS_PER_MONTH } from './offer';
+import { CLEAN_COPY_HOURS, LIFETIME_MONTHLY_CREDITS, OFFER, VIDEO_ADS_LIKE_FREE_PER_MONTH, VIDEO_ADS_PER_MONTH } from './offer';
 
 const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/aimm';
 
@@ -29,12 +30,10 @@ const PER_VIDEO_AD = `$${(Math.round((usd(OFFER.now) / FIRST_YEAR) * 2) / 2).toF
 /** The low end of what a freelancer charges for one video ad (the owner's comparison on bluefx.net/video-ad). */
 const FREELANCER = '$600';
 
-/** The landing page's examples the AI Media Machine made from a link (EXAMPLE_VIDEOS), by id. */
-const LINK_ADS = Object.fromEntries(EXAMPLE_VIDEOS.ads.map((ad) => [ad.id, { video: ad.video, poster: ad.poster, label: ad.name }])) as Record<
-  (typeof EXAMPLE_VIDEOS.ads)[number]['id'],
-  { video: string; poster: string; label: string }
->;
-/** The 9 vertical videos at the top of the lifetime page, in its order (copies of ~/Downloads/lifetime-page-videos). */
+/**
+ * The 9 vertical videos at the top of the lifetime page, in its order (copies of ~/Downloads/lifetime-page-videos). The
+ * labels are for screen readers only: the lifetime page shows the videos without captions.
+ */
 const WALL = [
   'Cooking video',
   'AI creator',
@@ -47,8 +46,14 @@ const WALL = [
   'Phone-style ad',
 ].map((label, index) => ({ video: `${MEDIA}/wall-${index + 1}.mp4`, poster: `${MEDIA}/wall-${index + 1}.jpg`, label }));
 
-/** "November 7": the deadline as a date (UTC, so the server and the browser print the same day). */
-export const deadlineDate = (iso: string) => new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(iso));
+/**
+ * "Saturday, October 11 at 2:15 PM": the bonus deadline in the visitor's own time zone. Only the browser knows that zone,
+ * so the page prints it after it starts (useDeadline), never on the server.
+ */
+export const deadlineLabel = (iso: string) =>
+  new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
+
+const BONUS_DAYS = CLEAN_COPY_HOURS / 24;
 
 export const SALES_PAGE = {
   /** The id the short offer's link beside the video ad jumps to. */
@@ -74,12 +79,8 @@ export const SALES_PAGE = {
     soundOff: 'Turn the sound off',
     previous: 'Earlier video ads',
     next: 'More video ads',
-    /**
-     * The landing page's Phantom renders (made from a link, no watermark) between the vertical videos from the top of
-     * the lifetime page (owner 2026-10-08: "lets have the ai mm videos from the top also in the examples showing, those
-     * are very cool"), so a phone's first two tiles show one of each. The reel's studio-made ads stay off.
-     */
-    items: [LINK_ADS.pizza, WALL[1], LINK_ADS.listing, WALL[5], LINK_ADS.welder, WALL[6], WALL[0], WALL[2], WALL[3], WALL[4], WALL[7], WALL[8]],
+    /** Exactly the lifetime page's row, in its order (owner 2026-10-08). */
+    items: WALL,
     wideTitle: 'Also made with the AI Media Machine',
     wide: [
       { video: `${MEDIA}/wide-1.mp4`, poster: `${MEDIA}/wide-1.jpg`, label: 'Cinematic AI product ad' },
@@ -89,9 +90,9 @@ export const SALES_PAGE = {
   },
   offer: {
     title: 'Everything you get',
-    /** The first line only while this video ad can still go into a buyer's account clean (editableUntil). */
-    items: (domain: string, withThisVideoAd: boolean) => [
-      ...(withThisVideoAd ? [`This video ad for ${domain}, without the watermark and ready to change, in your account`] : []),
+    /** The first line only while the 3-day bonus runs (the view's cleanUntil). */
+    items: (domain: string, bonus: boolean) => [
+      ...(bonus ? [`${BONUS_DAYS}-day bonus: this video ad for ${domain}, without the watermark and ready to change, in your account`] : []),
       `${WITH_PRESENTER} new video ads every month, for life`,
       'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice',
       '12 more AI tools: talking avatars with 200+ presenters, voice-overs in 57 voices or your own cloned voice, music, thumbnails and logos',
@@ -106,8 +107,8 @@ export const SALES_PAGE = {
     now: OFFER.now,
     unit: 'one payment',
     why: `I turned 40 this year, so the lifetime license is ${OFFER.off}.`,
-    deadline: (date: string) =>
-      `Buy by ${date} and this video ad goes into your account without the watermark, ready to change. After ${date} the project files of this video ad are deleted.`,
+    deadline: (when: string) =>
+      `Buy by ${when} and this video ad goes into your account without the watermark, ready to change. After that, this video ad goes in with the watermark.`,
     guarantee: '30-day money-back guarantee: email me within 30 days for any reason and you get every cent back.',
     fine: 'Secure checkout by ClickBank.',
   },
@@ -121,12 +122,12 @@ export const SALES_PAGE = {
   },
   faq: {
     title: 'Questions',
-    items: (date: string | null) => [
+    items: (bonus: boolean, when: string | null) => [
       {
         q: 'What happens to my free video ad?',
-        a: date
-          ? `Buy by ${date} with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Bought with another email? Come back to this page and use the link under the offer beside your video ad.`
-          : 'The project files of a free video ad are kept for 30 days, and that time has passed, so this video ad goes into your account as it is. Every new video ad you make in the AI Media Machine comes without the watermark.',
+        a: bonus
+          ? `Buy within ${BONUS_DAYS} days of getting your video ad${when ? ` (by ${when})` : ''} with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Bought with another email? Come back to this page and use the link under the offer beside your video ad.`
+          : `The ${BONUS_DAYS}-day bonus for this video ad has passed, so this video ad goes into your account with the watermark. Change anything in the video ad and the new version comes without the watermark, like every new video ad you make.`,
       },
       {
         q: 'How many video ads can I make?',

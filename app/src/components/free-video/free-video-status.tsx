@@ -259,14 +259,14 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                   onSaved={() => beacon('download')}
                 />
                 {staleNotice}
-                <LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="ready" editableUntil={view.editableUntil} />
+                <LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="ready" cleanUntil={view.cleanUntil} />
               </div>
             </div>
           </div>
         </section>
         {/* The AI Media Machine offer under the finished video ad, never while it is made (owner 2026-10-08). Not for
             customers: they already have it. */}
-        {!view.isCustomer && <LifetimeSalesPage placement={placement} token={token} domain={domain} editableUntil={view.editableUntil} />}
+        {!view.isCustomer && <LifetimeSalesPage placement={placement} token={token} domain={domain} cleanUntil={view.cleanUntil} />}
       </>
     );
   }
