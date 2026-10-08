@@ -49,6 +49,13 @@ const HANDOVER_PAUSE = 0.45; // a breath between a person talking and the narrat
 // clip stops just after the last word and the narrator follows about half a second after it.
 const PRESENTER_TAIL = 0.25;
 const PRESENTER_HANDOVER = 0.2;
+/**
+ * A presenter who stays silent longer than this before the first word starts PRESENTER_LEAD before it (owner
+ * 2026-10-08, after Brian of callfuel.rocks: "the voice sync with the avatar was a bit off in the beginning"). LTX often
+ * holds the action for 2-3 s and moves the lips with no sound before the line; a quick action plays in full.
+ */
+const PRESENTER_MAX_WAIT = 1.5;
+const PRESENTER_LEAD = 0.15;
 const TAIL = 4.2; // music-only ending that holds the contact card
 const VOICE_TAKES = 3;
 // Spoken numbers come back as digits, so a faithful take still misses some words.
@@ -151,8 +158,9 @@ export interface SmartVideoOptions {
   /**
    * A ready-made music track for the director's musicPrompt instead of a song made for this video (the free video
    * funnel's library, music-library.ts). null, or a failure, makes the song as usual. Unset for paying users.
+   * `script` is every line of the video ad, so the pick fits what the business sells, not only the look.
    */
-  pickMusic?: (musicPrompt: string, style: string) => Promise<string | null>;
+  pickMusic?: (musicPrompt: string, style: string, script: string) => Promise<string | null>;
   /**
    * A person opens the video and says scene 1 of the script on camera, with their own voice (presenter.ts). They are
    * cast and photographed while the director writes; their clip is made as soon as the script is ready, beside the
@@ -306,7 +314,7 @@ async function produce(
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store, listing ? listingFit(listing, narration.length) : undefined) : null,
     sound.music
-      ? (pickMusic ? pickMusic(plan.musicPrompt, plan.style).catch(() => null) : Promise.resolve(null))
+      ? (pickMusic ? pickMusic(plan.musicPrompt, plan.style, plan.scenes.map((scene) => scene.narration).join(' ')).catch(() => null) : Promise.resolve(null))
           .then((picked) => picked ?? generateMusic(plan.musicPrompt, plan.style).then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg')))
           .catch((error) => {
             console.warn('⚠️ Music failed, rendering without it:', String(error).slice(0, 200));
@@ -635,9 +643,15 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       const speaker = speakerOf(i);
       if (speaker) {
         const heard = media.clipWords[speaker.asset].filter((w) => w.end > speaker.from - 0.25 && w.start < speaker.to + 0.25);
-        // The presenter's clip plays from its first frame: their hook action comes before the first word.
+        // The presenter's clip plays from its first frame (their hook action comes before the first word), unless the
+        // first word comes after PRESENTER_MAX_WAIT: then it starts just before that word.
         const presenter = speaker.asset === PRESENTER_ASSET;
-        const srcStart = presenter ? 0 : Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
+        const firstWord = heard[0]?.start ?? 0;
+        const srcStart = presenter
+          ? firstWord > PRESENTER_MAX_WAIT
+            ? firstWord - PRESENTER_LEAD
+            : 0
+          : Math.max(0, (heard[0]?.start ?? speaker.from) - 0.35);
         const srcEnd = (heard[heard.length - 1]?.end ?? speaker.to) + (presenter ? PRESENTER_TAIL : 0.4);
         const tokens = alignScript([scene.narration], heard).sceneTokens[0].map((t) => ({ ...t, time: t.time - srcStart + cursor }));
         cuts.push({ url: media.assets[speaker.asset].url, at: cursor, srcStart, srcEnd, volume: clipVolume(speaker.asset) });

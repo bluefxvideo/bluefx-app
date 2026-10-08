@@ -226,8 +226,8 @@ export function freeOptions(
       return shaped;
     },
     // A ready-made track from the music library instead of a new song (owner 2026-10-06: $0.08 a video ad saved).
-    pickMusic: async (musicPrompt) => {
-      const url = await libraryTrackUrl(musicPrompt);
+    pickMusic: async (musicPrompt, _style, script) => {
+      const url = await libraryTrackUrl(musicPrompt, script);
       if (url) onMusic?.(url);
       return url;
     },

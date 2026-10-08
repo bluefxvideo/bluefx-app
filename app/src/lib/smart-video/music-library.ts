@@ -116,12 +116,19 @@ export function closestTrack(musicPrompt: string, tracks: LibraryTrack[] = MUSIC
   return best;
 }
 
-/** The library track that fits the director's music prompt: one small model call (about $0.0003), else closestTrack. */
-export async function pickLibraryTrack(musicPrompt: string, tracks: LibraryTrack[] = MUSIC_LIBRARY): Promise<LibraryTrack> {
+/**
+ * The library track that fits the director's music prompt: one small model call (about $0.0003), else closestTrack.
+ * With the video ad's `script`, what the business sells and the mood of the message come first (owner 2026-10-08: an AI
+ * receptionist ad about $8,700 of missed calls got the playful whistling track because the whiteboard look asked for
+ * "playful"; the lead wrote back "the music in the background didn't work for me").
+ */
+export async function pickLibraryTrack(musicPrompt: string, tracks: LibraryTrack[] = MUSIC_LIBRARY, script = ''): Promise<LibraryTrack> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) return closestTrack(musicPrompt, tracks);
   const list = tracks.map((t) => `${t.id}: ${t.bpm} BPM. ${t.heard || t.prompt}`).join('\n');
-  const prompt = `A video ad needs this background music:\n${musicPrompt}\n\nPick the closest track from this list. Tempo and mood matter most, then the instruments. Answer with the id only.\n\n${list}`;
+  const prompt = script.trim()
+    ? `A video ad says this:\n"${script.trim()}"\n\nThe script writer asked for this background music:\n${musicPrompt}\n\nPick the track from this list that fits what the business sells and the mood of the message first: business software, AI, and money or time problems sound confident and modern; food, families and local services sound warm; luxury sounds elegant. The playful tracks (playful-1, playful-2) fit only businesses for children, pets, toys or parties, even when the request asks for playful music. Then match the tempo, then the instruments. Answer with the id only.\n\n${list}`
+    : `A video ad needs this background music:\n${musicPrompt}\n\nPick the closest track from this list. Tempo and mood matter most, then the instruments. Answer with the id only.\n\n${list}`;
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${PICK_MODEL}:generateContent`, {
       method: 'POST',
@@ -141,8 +148,8 @@ export async function pickLibraryTrack(musicPrompt: string, tracks: LibraryTrack
 }
 
 /** The picked track's address, checked to be in storage (a missing file would break the render): null when it is not. */
-export async function libraryTrackUrl(musicPrompt: string): Promise<string | null> {
-  const picked = await pickLibraryTrack(musicPrompt);
+export async function libraryTrackUrl(musicPrompt: string, script = ''): Promise<string | null> {
+  const picked = await pickLibraryTrack(musicPrompt, MUSIC_LIBRARY, script);
   const url = libraryUrl(picked.id);
   try {
     const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(10_000) });
