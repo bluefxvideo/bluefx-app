@@ -2,7 +2,9 @@
  * The daily numbers of the free video ad's Facebook test (owner 2026-10-08: "Report daily: spend, cost per free video
  * request, $99 unlocks, lifetime sales"). Read only: nothing is written anywhere.
  *
- * A lead from the ads carries ref fb-<ad name> (the ads' URL parameter ref=fb-{{ad.name}}). Days are Ads Manager days in
+ * A lead from the ads carries ref fb-<placement> (the ad's URL parameter ref=fb-{{placement}}, e.g. fb-Facebook_Mobile_Feed or
+ * fb-Instagram_Reels), so the requests split by placement from our own records: a placement with clicks but no requests is
+ * where cheap junk clicks come from. Days are Ads Manager days in
  * the ad account's time zone (TZ below), so the spend Ads Manager shows for a day and the requests of that day match.
  * Spend is not in our database: pass it from Ads Manager with --spend (that day) and --spend-total (since --start).
  * Lifetime sales are the sweep's attribution (bought_at: a ClickBank or FastSpring sale to the lead's email after the
@@ -20,13 +22,6 @@ config({ path: path.resolve(__dirname, '../../.env.local') });
 /** The ad account's time zone (Ads Manager → Settings). */
 const TZ = 'America/Los_Angeles';
 const DEFAULT_START = '2026-10-09';
-/** Ad name → ad set, for the split (the ad names in Ads Manager, used in ref=fb-{{ad.name}}). */
-const AD_SETS: Record<string, 'owners' | 'realtors'> = {
-  'FV-dave': 'owners',
-  'FV-static-owners': 'owners',
-  'FV-dave-realtor': 'realtors',
-  'FV-static-realtors': 'realtors',
-};
 
 const arg = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1];
 const money = (n: number) => `$${n.toFixed(2)}`;
@@ -87,8 +82,7 @@ async function main(): Promise<void> {
   if (error) throw new Error(error.message);
   const leads = ((data ?? []) as LeadRow[]).filter((l) => !OWNER_TEST_EMAILS.includes(l.email));
   const inDay = (iso: string | null) => Boolean(iso && iso >= from && iso < to);
-  const adOf = (l: LeadRow) => (l.ref ?? '').replace(/^fb-/, '');
-  const setOf = (l: LeadRow) => AD_SETS[adOf(l)] ?? 'other';
+  const placementOf = (l: LeadRow) => (l.ref ?? '').replace(/^fb-/, '') || 'unknown';
   const paid = (l: LeadRow) => ['paid', 'rendering', 'ready', 'failed'].includes(l.unlock_status);
 
   const summarize = (rows: LeadRow[], window: (l: LeadRow, field: 'created_at' | 'unlocked_at' | 'bought_at') => boolean) => {
@@ -96,19 +90,17 @@ async function main(): Promise<void> {
     const unreadable = rows.filter((l) => window(l, 'created_at') && l.status === 'rejected');
     const unlocks = rows.filter((l) => paid(l) && window(l, 'unlocked_at'));
     const sales = rows.filter((l) => window(l, 'bought_at'));
-    const byAd: Record<string, number> = {};
-    for (const l of requests) byAd[adOf(l)] = (byAd[adOf(l)] ?? 0) + 1;
+    const byPlacement: Record<string, number> = {};
+    for (const l of requests) byPlacement[placementOf(l)] = (byPlacement[placementOf(l)] ?? 0) + 1;
     return {
       requests: requests.length,
-      owners: requests.filter((l) => setOf(l) === 'owners').length,
-      realtors: requests.filter((l) => setOf(l) === 'realtors').length,
       unreadable: unreadable.length,
       videosMade: requests.filter((l) => l.status === 'done').length,
       unlocks: unlocks.length,
       unlockRevenue: unlocks.reduce((n, l) => n + Number(l.unlock_amount ?? 0), 0),
       lifetimeSales: sales.length,
       saleRefs: sales.map((l) => l.sale_ref),
-      byAd,
+      byPlacement,
     };
   };
   const dayNumbers = summarize(leads, (l, f) => inDay(l[f]));
@@ -129,8 +121,8 @@ async function main(): Promise<void> {
   const lines = [
     `Facebook test, ${label} (Pacific day)`,
     `Spend: ${spend === null ? 'not given' : money(spend)}`,
-    `Free video requests from the ads: ${dayNumbers.requests} (owners ${dayNumbers.owners}, realtors ${dayNumbers.realtors}), ${perRequest(spend, dayNumbers.requests)}`,
-    ...(Object.keys(dayNumbers.byAd).length ? [`  by ad: ${Object.entries(dayNumbers.byAd).map(([ad, n]) => `${ad} ${n}`).join(', ')}`] : []),
+    `Free video requests from the ads: ${dayNumbers.requests}, ${perRequest(spend, dayNumbers.requests)}`,
+    ...(Object.keys(dayNumbers.byPlacement).length ? [`  by placement: ${Object.entries(dayNumbers.byPlacement).map(([where, n]) => `${where} ${n}`).join(', ')}`] : []),
     ...(dayNumbers.unreadable ? [`Websites we could not read (no video ad made): ${dayNumbers.unreadable}`] : []),
     `$99 unlocks: ${dayNumbers.unlocks}${dayNumbers.unlocks ? ` (${money(dayNumbers.unlockRevenue)})` : ''}`,
     `Lifetime sales: ${dayNumbers.lifetimeSales}${dayNumbers.lifetimeSales ? ` (${dayNumbers.saleRefs.join(', ')})` : ''}`,
