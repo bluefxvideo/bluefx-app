@@ -479,7 +479,9 @@ async function main(): Promise<void> {
   for (const email of EMAIL_DRAFTS) {
     const all = `${email.subject}\n${email.body}`;
     check(`${email.id}: no em-dash`, !all.includes('—'));
-    check(`${email.id}: no $297 and no ${UNLOCK.price}`, !all.includes('$297') && !all.includes(UNLOCK.price));
+    // Whole prices only: the regular price $997 may appear, and it contains "$99".
+    const price = (amount: string) => new RegExp(`${amount.replace('$', '\\$')}(?![\\d,.]*\\d)`).test(all);
+    check(`${email.id}: no $297 and no ${UNLOCK.price}`, !price('$297') && !price(UNLOCK.price));
   }
 
   // 13. -----------------------------------------------------------------------------------------

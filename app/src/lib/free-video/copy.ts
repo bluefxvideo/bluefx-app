@@ -527,8 +527,6 @@ export const OFFER_COPY = {
   /** The same box under a finished video ad: the sweep puts the video ad into the customer's account by itself (claim.ts). */
   customerBodyReady: 'This video ad goes into your AI Media Machine too, without the watermark. Open it there to change anything.',
   customerButtonReady: 'Open this video ad in the AI Media Machine',
-  /** Under the offer's button: a customer the email did not match (another address, or signed up later). */
-  alreadyCustomer: 'Already have the AI Media Machine? Open this video ad in your account',
 } as const;
 
 /**
@@ -645,19 +643,27 @@ export const EMAIL_DRAFTS = [
     placement: 'fvmail3',
     /** 1 day after E2 (was 2): the 3-day bonus would be over by day 3 (owner 2026-10-08). */
     send: '1 day after E2',
-    subject: '{$name}, 1 day left on your free bonus',
+    // The last-day email (owner 2026-10-08: "twist the knife on loosing the ad/project a little ... as well as the
+    // lifetime offer"): every loss is true. After the bonus a buyer's copy keeps the mark (claim.ts), the working files
+    // go after FILES_KEEP_DAYS (cleanup.ts), and the lifetime page says the license returns to $997 once the birthday
+    // price ends (no date given, so none is promised here).
+    subject: '{$name}, 1 day left to get your video ad without the watermark',
     body: [
       'Hi {$name},',
       '',
-      'The free bonus for your video ad ends tomorrow. Get the AI Media Machine before then, and your video ad for {$free_video_site} goes into your account without the watermark, ready to post or change.',
+      'Your free bonus ends tomorrow.',
       '',
-      "People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps {$free_video_site} in front of your customers. With the AI Media Machine you paste a website, a product page or a few lines about an offer, and the next video ad is ready in a few minutes. That's 10 new video ads like yours every month.",
+      'Until then, your video ad for {$free_video_site} goes into your AI Media Machine without the watermark, with the whole project behind it: the script, the voice-over, the music and the pictures, ready to change.',
+      '',
+      'After tomorrow, the video ad goes in with the watermark. And 30 days after the video ad was made, the project files are deleted for good.',
+      '',
+      'Lifetime access is $700 off right now, my 40th-birthday price. When the birthday price is gone, the lifetime license is back at $997.',
       '',
       '[Button: Get the AI Media Machine → https://app.bluefx.net/go/fvmail3?t={$free_video_token}]',
       '',
       'Szilard',
       '',
-      'P.S. Lifetime access is $700 off right now, and you have 30 days to ask for your money back.',
+      'P.S. You have 30 days to ask for your money back. The free bonus has 1 day.',
     ].join('\n'),
   },
   {

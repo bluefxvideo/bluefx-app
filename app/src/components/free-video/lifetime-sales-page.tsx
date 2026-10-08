@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { OFFER_COPY, SUPPORT_EMAIL } from '@/lib/free-video/copy';
-import { goUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
+import { claimUrl, goUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
@@ -160,6 +160,13 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               <details key={item.q} className={styles.faqItem}>
                 <summary>{item.q}</summary>
                 <p>{item.a}</p>
+                {'claim' in item && token && (
+                  <p>
+                    <a className={styles.link} href={claimUrl(token)}>
+                      {faq.claim}
+                    </a>
+                  </p>
+                )}
               </details>
             ))}
           </div>

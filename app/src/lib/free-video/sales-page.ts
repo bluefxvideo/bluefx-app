@@ -136,12 +136,18 @@ export const SALES_PAGE = {
   },
   faq: {
     title: 'Questions',
+    /**
+     * The way in for a buyer who paid with another email, or a customer the email did not match (/go/claim): under the
+     * first answer, off the offer card (owner 2026-10-08: "maybe we dont need it on the page").
+     */
+    claim: 'Open this video ad in your AI Media Machine',
     items: (bonus: boolean, when: string | null) => [
       {
         q: 'What happens to my free video ad?',
         a: bonus
-          ? `Get the AI Media Machine within ${BONUS_DAYS} days of getting your video ad${when ? ` (until ${when})` : ''}, with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Used another email? Come back to this page and use the link under the offer beside your video ad.`
-          : `The ${BONUS_DAYS}-day bonus for this video ad has passed, so this video ad goes into your account with the watermark. Change anything in the video ad and the new version comes without the watermark, like every new video ad you make.`,
+          ? `Get the AI Media Machine within ${BONUS_DAYS} days of getting your video ad${when ? ` (until ${when})` : ''}, with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Paid with another email, or already have the AI Media Machine? Sign in with that account here:`
+          : `The ${BONUS_DAYS}-day bonus for this video ad has passed, so this video ad goes into your account with the watermark. Change anything in the video ad and the new version comes without the watermark, like every new video ad you make. Already have the AI Media Machine? Sign in here:`,
+        claim: true,
       },
       {
         q: 'How many video ads can I make?',

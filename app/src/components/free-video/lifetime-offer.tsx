@@ -92,13 +92,6 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
           </a>
         </p>
       )}
-      {claimable && (
-        <p className={styles.fine}>
-          <a className={styles.link} href={claimUrl(token)}>
-            {OFFER_COPY.alreadyCustomer}
-          </a>
-        </p>
-      )}
     </div>
   );
 }
