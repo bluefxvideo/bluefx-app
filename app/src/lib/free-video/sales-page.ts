@@ -114,6 +114,8 @@ export const SALES_PAGE = {
    */
   math: {
     eyebrow: 'The math',
+    /** For screen readers, before a row the Fiverr package does not have. */
+    missingLabel: 'Not included:',
     title: `Under ${UNDER} per video ad`,
     lead: [`You pay ${OFFER.now} once.`, `You make ${WITH_PRESENTER} video ads every month, for life.`, `So each video ad costs you under ${UNDER}.`],
     them: {
@@ -121,18 +123,28 @@ export const SALES_PAGE = {
       price: FREELANCER,
       per: 'for 1 video ad',
       time: '14 days of waiting',
+      /** The gig's Basic package, row for row against ours: no AI presenter, 2 revisions. */
+      includes: [
+        { text: 'Script writing', has: true },
+        { text: 'Voice-over', has: true },
+        { text: 'Music', has: true },
+        { text: 'An AI presenter', has: false },
+        { text: '2 rounds of changes', has: true },
+      ],
       /**
        * The owner's screenshot of a real Fiverr gig (2026-10-08): a Top Rated seller's 60-second whiteboard animation
        * video, Basic package $600, 14-day delivery, script, voice-over and music included. Cropped to the package box,
        * so the seller's name, photo and client logos stay off the page. Every free video ad is a whiteboard video ad
-       * (runner.ts look: 'whiteboard'), so the comparison is like for like.
+       * (runner.ts look: 'whiteboard'), so the comparison is like for like. One tap away (label): shown open, the
+       * screenshot made the $600 card taller than ours (owner 2026-10-08: "should be equal or bigger").
        */
       snapshot: {
+        label: 'See the $600 gig on Fiverr',
         src: `${MEDIA}/fiverr-whiteboard-600.jpg`,
         width: 830,
         height: 968,
-        caption: "A Top Rated seller's 60-second whiteboard video on Fiverr, October 2026",
-      } as { src: string; width: number; height: number; caption: string } | null,
+        caption: "The $600 Fiverr gig: a Top Rated seller's 60-second whiteboard video, October 2026",
+      } as { label: string; src: string; width: number; height: number; caption: string } | null,
     },
     us: {
       name: 'The AI Media Machine',
@@ -140,7 +152,7 @@ export const SALES_PAGE = {
       per: 'per video ad, all included',
       /** Owner 2026-10-08: "3 min waiting time". Free video ads take 2.8 min from start to finish (median of 19; 3 in 4 within 3.2 min). */
       time: 'About 3 minutes of waiting',
-      /** Line for line against the Fiverr package box beside it. */
+      /** Row for row against the Fiverr card beside it. */
       includes: ['Script writing', 'Voice-over', 'Music', 'An AI presenter', 'Changes: type what to change'],
     },
   },

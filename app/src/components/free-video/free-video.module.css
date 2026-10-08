@@ -1737,6 +1737,7 @@
   text-align: center;
   text-wrap: balance;
 }
+/* Two cards of the same height with the same rows. The green card is lifted: taller frame, same rows, a shadow. */
 .spMath {
   display: grid;
   gap: 14px;
@@ -1747,8 +1748,13 @@
 @media (min-width: 760px) {
   .spMath {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: start;
     gap: 18px;
+  }
+  /* .spMath in front: wins over the phone padding of .spMathUs further down. */
+  .spMath .spMathUs {
+    margin: -14px 0;
+    padding-top: 38px;
+    padding-bottom: 38px;
   }
 }
 .spMathThem,
@@ -1762,8 +1768,11 @@
   border: 1px solid var(--fv-line);
 }
 .spMathUs {
+  padding-top: 30px;
+  padding-bottom: 30px;
   background: #f1f8e9;
-  border: 2px solid var(--fv-green);
+  border: 3px solid var(--fv-green);
+  box-shadow: 0 14px 34px rgba(51, 105, 30, 0.18);
 }
 .spMathName {
   margin: 0 0 10px;
@@ -1771,9 +1780,26 @@
   font-size: 18px;
   font-weight: 800;
 }
+/* The Fiverr screenshot behind a small link at the bottom of the Fiverr card. */
+.spMathProof {
+  margin-top: 16px;
+}
+.spMathProof summary {
+  display: inline-block;
+  cursor: pointer;
+  color: var(--fv-muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  list-style: none;
+}
+.spMathProof summary::-webkit-details-marker {
+  display: none;
+}
 .spMathSnapshot {
-  max-width: 360px;
-  margin: 18px auto 0;
+  max-width: 300px;
+  margin: 12px auto 0;
 }
 .spMathSnapshot img {
   display: block;
@@ -1801,6 +1827,7 @@
 }
 .spMathPriceUs {
   color: #33691e;
+  font-size: clamp(50px, 10vw, 72px);
 }
 .spMathPer {
   margin: 4px 0 0;
@@ -1840,6 +1867,18 @@
   font-weight: 800;
   text-transform: uppercase;
 }
+/* The Fiverr rows: grey ticks, and a red cross before what the package does not have. */
+.spMathIncludesThem li::before {
+  color: var(--fv-muted);
+}
+.spMathIncludesThem li.spMathMissing {
+  color: var(--fv-muted);
+}
+.spMathIncludesThem li.spMathMissing::before {
+  content: "\2717";
+  content: "\2717" / "";
+  color: var(--fv-red);
+}
 /* Under the title: $297 once, 10 a month, so under $3, one line each. */
 .spMathLead {
   margin-bottom: 26px;
@@ -1855,7 +1894,7 @@
 }
 /* The button under the comparison. */
 .spCta {
-  margin-top: 28px;
+  margin-top: 40px;
   text-align: center;
 }
 

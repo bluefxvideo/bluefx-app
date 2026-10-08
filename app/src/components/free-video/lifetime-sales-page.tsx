@@ -92,11 +92,22 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               <p className={cn(styles.spMathPrice, styles.spMathPriceThem)}>{math.them.price}</p>
               <p className={styles.spMathPer}>{math.them.per}</p>
               <p className={cn(styles.spMathTime, styles.spMathTimeThem)}>{math.them.time}</p>
+              <ul className={cn(styles.ticks, styles.spMathIncludes, styles.spMathIncludesThem)}>
+                {math.them.includes.map((row) => (
+                  <li key={row.text} className={row.has ? undefined : styles.spMathMissing}>
+                    {!row.has && <span className={styles.srOnly}>{math.missingLabel} </span>}
+                    {row.text}
+                  </li>
+                ))}
+              </ul>
               {math.them.snapshot && (
-                <figure className={styles.spMathSnapshot}>
-                  <Image src={math.them.snapshot.src} alt={math.them.snapshot.caption} width={math.them.snapshot.width} height={math.them.snapshot.height} sizes="(min-width: 760px) 400px, 92vw" />
-                  <figcaption>{math.them.snapshot.caption}</figcaption>
-                </figure>
+                <details className={styles.spMathProof}>
+                  <summary>{math.them.snapshot.label}</summary>
+                  <figure className={styles.spMathSnapshot}>
+                    <Image src={math.them.snapshot.src} alt={math.them.snapshot.caption} width={math.them.snapshot.width} height={math.them.snapshot.height} sizes="(min-width: 760px) 320px, 80vw" />
+                    <figcaption>{math.them.snapshot.caption}</figcaption>
+                  </figure>
+                </details>
               )}
             </div>
             <p className={styles.spMathVs} aria-hidden="true">
