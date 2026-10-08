@@ -8,36 +8,43 @@
 import { PHANTOM_CREDITS } from '@/lib/smart-video/pricing';
 
 /**
- * Every place an offer button can sit. Each value is also the ClickBank tid, so the
- * ClickBank TID report shows sales per placement: the thank-you page, the video ad page
- * and the 3 automation emails.
+ * Every place an offer button can sit: the thank-you page, the video ad page, the form's "one free video ad per
+ * business" note and the 3 automation emails. A page button's value rides to ClickBank's checkout as the vendor tracking
+ * id (vtid), so ClickBank's reports show sales per placement.
  */
 export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvmail1', 'fvmail2', 'fvmail3'] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
 /** The placements shown on the funnel pages: the thank-you page, /v/<token>, and the form's "one per business" refusal (fvland). */
 export const PAGE_PLACEMENTS = ['fvthank', 'fvpage', 'fvland'] as const satisfies readonly Placement[];
-/** The placements used by the email buttons, in send order (E1, E2, E3). */
+/** The placements used by the email buttons, in send order (E1, E2, E3). They open the lead's own video ad page, where the offer sits under the video ad. */
 export const EMAIL_PLACEMENTS = ['fvmail1', 'fvmail2', 'fvmail3'] as const satisfies readonly Placement[];
+
+export function isEmailPlacement(value: string): value is (typeof EMAIL_PLACEMENTS)[number] {
+  return (EMAIL_PLACEMENTS as readonly string[]).includes(value);
+}
 
 /** True for an allow-listed placement; /go/<placement> answers 404 for anything else, so it is never an open redirect. */
 export function isPlacement(value: string): value is Placement {
   return (PLACEMENTS as readonly string[]).includes(value);
 }
 
-/** The live lifetime page (ClickBank vendor bluefx02). Its hop.min.js forwards affiliate and tid to the checkout. */
-export const OFFER_PAGE_URL = 'https://ai.bluefx.net/lifetime/';
-/** The owner's own ClickBank nickname, the same one his YouTube links use. */
-export const OFFER_AFFILIATE = 'bluefx01';
+/**
+ * ClickBank's checkout for the AI Media Machine lifetime deal (vendor bluefx02), the same link the lifetime page's buy
+ * buttons use. The offer card on the funnel pages already shows what the buyer gets, the price and the guarantee, so its
+ * button opens this checkout directly (owner 2026-10-08: sending people on to the lifetime page told them a different
+ * story and added a step). No affiliate nickname: these come in as the vendor's own sales.
+ */
+export const LIFETIME_CHECKOUT_URL = 'https://bluefx02.pay.clickbank.net/?cbitems=1&cbfid=55851&template=aimmbt';
 
-/** Where every offer click lands, with the placement as the ClickBank tid. */
-export const offerUrl = (tid: Placement) => `${OFFER_PAGE_URL}?affiliate=${OFFER_AFFILIATE}&tid=${tid}`;
+/** The checkout with the placement as ClickBank's vendor tracking id (vtid: letters, digits and underscores). */
+export const checkoutUrl = (placement: Placement) => `${LIFETIME_CHECKOUT_URL}&vtid=${placement}`;
 
-/** The same-origin link the buttons use: /go logs the click on the lead, then 302s to offerUrl(placement). */
+/** The same-origin link the buttons use: /go logs the click on the lead, then 302s to checkoutUrl(placement) (an email button: to the video ad page). */
 export const goUrl = (placement: Placement, token: string) => (token ? `/go/${placement}?t=${encodeURIComponent(token)}` : `/go/${placement}`);
 
 /**
- * The owner's price ladder, exactly as the live /lifetime/ page shows it: $997 struck through,
+ * The owner's price ladder, exactly as the live ai.bluefx.net/lifetime/ page shows it: $997 struck through,
  * $297, and the "$700 off" badge. Funnel pages only. Emails never print the buy price
  * ("$700 off" is the only number an email may carry).
  */

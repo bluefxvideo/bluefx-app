@@ -25,7 +25,7 @@ import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
 import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { frameOf, lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
-import { offerUrl, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
+import { checkoutUrl, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
 import { fakeSavedPlan, freeOptions, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
 import { checkFreeScript, websiteOffers } from '@/lib/free-video/script-checks';
 import { assertPublicUrl, BlockedUrlError, isPublicAddress, safeFetch, safeFetchWith, sanityCheckHtml } from '@/lib/free-video/safe-fetch';
@@ -408,7 +408,7 @@ async function main(): Promise<void> {
   check('checkout link', unlockCheckoutUrl(token) === `https://bluefx.onfastspring.com/${UNLOCK.product}?tags=freeVideoLead:${token}`, unlockCheckoutUrl(token));
   check('the token travels as a FastSpring tag (no : or , inside)', !/[:,]/.test(token) && unlockCheckoutUrl(token).endsWith(`${UNLOCK.tagKey}:${token}`));
   check('button link', unlockGoUrl(token) === `/go/fvunlock?t=${token}`);
-  check('the lifetime offer links stay ClickBank', offerUrl('fvthank') === 'https://ai.bluefx.net/lifetime/?affiliate=bluefx01&tid=fvthank');
+  check("the lifetime offer opens ClickBank's checkout with the placement as vtid", checkoutUrl('fvthank') === 'https://bluefx02.pay.clickbank.net/?cbitems=1&cbfid=55851&template=aimmbt&vtid=fvthank');
   const order = {
     id: 'ORD123',
     order: 'ORD123',
