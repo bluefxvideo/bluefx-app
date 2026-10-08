@@ -451,7 +451,8 @@ export const PLAYER = {
 
 /** The download buttons and saving the video ad to Photos on an iPhone. */
 export const DOWNLOAD = {
-  free: 'Download the free version (with watermark)',
+  /** Owner 2026-10-08: "call it free sample not version". */
+  free: 'Download the free sample (with watermark)',
   saveToPhotos: 'Save to Photos',
   saveToPhotosBusy: 'Getting the video ad ready...',
   saveToPhotosAgain: 'Tap again to save the video ad',
