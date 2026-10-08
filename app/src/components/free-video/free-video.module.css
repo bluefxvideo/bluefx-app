@@ -1780,39 +1780,6 @@
   font-size: 18px;
   font-weight: 800;
 }
-/* The Fiverr screenshot behind a small link at the bottom of the Fiverr card. */
-.spMathProof {
-  margin-top: 16px;
-}
-.spMathProof summary {
-  display: inline-block;
-  cursor: pointer;
-  color: var(--fv-muted);
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  list-style: none;
-}
-.spMathProof summary::-webkit-details-marker {
-  display: none;
-}
-.spMathSnapshot {
-  max-width: 300px;
-  margin: 12px auto 0;
-}
-.spMathSnapshot img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--fv-line);
-  border-radius: 10px;
-}
-.spMathSnapshot figcaption {
-  margin-top: 6px;
-  color: var(--fv-muted);
-  font-size: 12px;
-}
 .spMathPrice {
   margin: 0;
   font-size: clamp(44px, 9vw, 64px);

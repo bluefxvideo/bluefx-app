@@ -28,7 +28,11 @@ const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public
 const WITH_PRESENTER = VIDEO_ADS_LIKE_FREE_PER_MONTH;
 /** $297 over a year of those: "under $3" (offer.ts). */
 const UNDER = PRICE_PER_VIDEO_AD_UNDER;
-/** A Top Rated Fiverr seller's price for one 60-second whiteboard video, like the free video ad (the owner's screenshot). */
+/**
+ * A Top Rated Fiverr seller's Basic package for one 60-second whiteboard video, like the free video ad: $600, 14-day
+ * delivery, 2 revisions, no presenter (the owner's screenshot, 2026-10-08; the screenshot itself is off the page, owner:
+ * "take it out").
+ */
 const FREELANCER = '$600';
 
 /**
@@ -131,20 +135,6 @@ export const SALES_PAGE = {
         { text: 'An AI presenter', has: false },
         { text: '2 rounds of changes', has: true },
       ],
-      /**
-       * The owner's screenshot of a real Fiverr gig (2026-10-08): a Top Rated seller's 60-second whiteboard animation
-       * video, Basic package $600, 14-day delivery, script, voice-over and music included. Cropped to the package box,
-       * so the seller's name, photo and client logos stay off the page. Every free video ad is a whiteboard video ad
-       * (runner.ts look: 'whiteboard'), so the comparison is like for like. One tap away (label): shown open, the
-       * screenshot made the $600 card taller than ours (owner 2026-10-08: "should be equal or bigger").
-       */
-      snapshot: {
-        label: 'See the $600 gig on Fiverr',
-        src: `${MEDIA}/fiverr-whiteboard-600.jpg`,
-        width: 830,
-        height: 968,
-        caption: "The $600 Fiverr gig: a Top Rated seller's 60-second whiteboard video, October 2026",
-      } as { label: string; src: string; width: number; height: number; caption: string } | null,
     },
     us: {
       name: 'The AI Media Machine',

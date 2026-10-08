@@ -100,15 +100,6 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
                   </li>
                 ))}
               </ul>
-              {math.them.snapshot && (
-                <details className={styles.spMathProof}>
-                  <summary>{math.them.snapshot.label}</summary>
-                  <figure className={styles.spMathSnapshot}>
-                    <Image src={math.them.snapshot.src} alt={math.them.snapshot.caption} width={math.them.snapshot.width} height={math.them.snapshot.height} sizes="(min-width: 760px) 320px, 80vw" />
-                    <figcaption>{math.them.snapshot.caption}</figcaption>
-                  </figure>
-                </details>
-              )}
             </div>
             <p className={styles.spMathVs} aria-hidden="true">
               vs
