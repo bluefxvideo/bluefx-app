@@ -1440,6 +1440,18 @@
   padding: 4px 10px;
   border-radius: 999px;
 }
+/* The ready card's date: this video ad goes into a buyer's account clean until its project files are deleted. */
+.offerDeadline {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
 .offerStatus {
   display: flex;
   gap: 12px;
@@ -1453,8 +1465,8 @@
 }
 
 /* ---------- the AI Media Machine offer under the finished video ad (owner 2026-10-08) ----------
- * lifetime-sales-page.tsx: built on the video ad above it, one offer and one button label. White and light-gray
- * blocks, navy bands for the video ads made from a link and for the last button, green buttons. */
+ * lifetime-sales-page.tsx, in Hormozi's order: the promise, three steps, proof, one offer box, the founder, questions,
+ * the last button. White and light-gray blocks, navy bands for the video ads and for the last button, green buttons. */
 
 .sp {
   color: var(--fv-ink);
@@ -1514,149 +1526,47 @@
   font-weight: 800;
 }
 
-/* The stack: every piece with its price struck through in red, or "included". */
-.spStack {
-  margin: 24px 0 0;
+/* Three steps: one column on phones, three across on wider screens. */
+.spSteps {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0 0;
   padding: 0;
   list-style: none;
+}
+@media (min-width: 760px) {
+  .spSteps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+.spStep {
+  padding: 20px 18px;
   background: #ffffff;
   border: 1px solid var(--fv-line);
   border-radius: 12px;
 }
-/* Phones: the price under each line; wider screens: a price column on the right. */
-.spStackItem {
-  display: grid;
-  gap: 6px;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--fv-line);
-}
-.spStackItem:last-child {
-  border-bottom: 0;
-}
-.spStackTitle {
-  margin: 0 0 4px;
-  color: var(--fv-ink);
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-.spStackTitle::before {
-  content: "\2713";
-  content: "\2713" / "";
-  margin-right: 8px;
-  color: var(--fv-green);
+.spStepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: var(--fv-blue);
+  color: #ffffff;
   font-weight: 800;
 }
-.spStackText {
-  margin: 0;
-  color: var(--fv-text);
-  font-size: 15px;
-  line-height: 1.5;
-}
-.spStackValue {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 8px;
-  margin: 0;
-}
-@media (min-width: 560px) {
-  .spStackItem {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 14px;
-  }
-  .spStackValue {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: flex-end;
-    max-width: 124px;
-    text-align: right;
-  }
-}
-.spStackValue s,
-.spStackTotal s,
-.spPriceWas s {
-  color: var(--fv-ink);
-  font-weight: 800;
-  text-decoration-color: var(--fv-red);
-  text-decoration-thickness: 2px;
-}
-.spStackValue s {
-  font-size: 17px;
-  white-space: nowrap;
-}
-.spStackNote {
-  color: var(--fv-muted);
-  font-size: 12px;
-  line-height: 1.35;
-}
-.spIncluded {
-  color: #33691e;
-  font-size: 15px;
-  font-weight: 800;
-}
-.spStackTotal {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 14px;
-  margin: 14px 0 0;
-  padding: 0 18px;
+.spStepTitle {
+  margin: 0 0 6px;
   color: var(--fv-ink);
   font-size: 18px;
   font-weight: 800;
+  line-height: 1.3;
 }
-.spStackTotal s {
-  font-size: 24px;
-  text-decoration-thickness: 3px;
-}
-
-/* The price box: the birthday tag, the license struck through big, today's price, the button. */
-.spPrice {
-  max-width: 460px;
-  margin: 28px auto 0;
-  padding: 26px 22px;
-  background: #ffffff;
-  border: 2px solid var(--fv-green);
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-}
-.spPriceTag {
-  display: inline-block;
-  margin: 0 0 12px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: #f1f8e9;
-  color: #33691e;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-.spPriceWas {
+.spStepText {
   margin: 0;
-  color: var(--fv-muted);
-  font-size: 20px;
-}
-.spPriceWas s {
-  font-size: 30px;
-  text-decoration-thickness: 3px;
-}
-.spPriceNow {
-  margin: 2px 0 6px;
-  color: var(--fv-ink);
-  font-size: clamp(42px, 9vw, 56px);
-  font-weight: 800;
-  line-height: 1.1;
-}
-.spPriceLine {
-  margin: 0 0 18px;
-  color: var(--fv-text);
-}
-.spPriceWhy {
-  margin: 14px 0 0;
   color: var(--fv-text);
   font-size: 15px;
   line-height: 1.5;
@@ -1813,24 +1723,136 @@
   font-size: 14px;
 }
 
-/* The guarantee with the owner's face. */
+/* The offer box: what you get, the freelancer comparison, the price, the deadline, the button, the guarantee. */
+.spOffer {
+  padding: 26px 22px;
+  background: #ffffff;
+  border: 2px solid var(--fv-green);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+.spOfferTitle {
+  margin: 0 0 16px;
+  color: var(--fv-ink);
+  font-size: clamp(24px, 4.4vw, 30px);
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+.spCompare {
+  margin: 20px 0 0;
+  padding: 14px 16px;
+  background: var(--fv-soft);
+  border: 1px solid var(--fv-line);
+  border-radius: 10px;
+  color: var(--fv-text);
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: center;
+}
+.spCompare p {
+  margin: 0;
+}
+.spPrice {
+  margin: 22px 0 0;
+  text-align: center;
+}
+.spPriceTag {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #f1f8e9;
+  color: #33691e;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.spPriceRow {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0;
+}
+.spPriceWas {
+  color: var(--fv-muted);
+  font-size: 30px;
+  font-weight: 800;
+  text-decoration-color: var(--fv-red);
+  text-decoration-thickness: 3px;
+}
+.spPriceNow {
+  color: var(--fv-ink);
+  font-size: clamp(46px, 10vw, 60px);
+  font-weight: 800;
+  line-height: 1.05;
+}
+.spPriceUnit {
+  margin: 2px 0 0;
+  color: var(--fv-muted);
+  font-size: 15px;
+}
+.spPriceWhy {
+  margin: 8px 0 0;
+  color: var(--fv-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+/* The real deadline: this video ad goes into a buyer's account clean only until its project files are deleted. */
+.spDeadline {
+  margin: 18px 0;
+  padding: 12px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+.spOffer .spBtn {
+  margin-top: 18px;
+}
+.spDeadline + .spBtn {
+  margin-top: 0;
+}
 .spGuarantee {
+  margin: 14px 0 0;
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+.spOffer .fine {
+  text-align: center;
+}
+/* The offer box's list: a bit larger than the default ticks. */
+.spOffer .ticks li {
+  font-size: 17px;
+}
+
+/* The founder: his face, who he is, his line about the risk. */
+.spFounder {
   display: grid;
-  gap: 20px;
+  gap: 18px;
   justify-items: center;
   text-align: center;
 }
 @media (min-width: 640px) {
-  .spGuarantee {
-    grid-template-columns: 160px minmax(0, 1fr);
-    align-items: start;
+  .spFounder {
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: center;
     justify-items: start;
     text-align: left;
   }
 }
 .spFace {
-  width: 140px;
-  height: 140px;
+  width: 130px;
+  height: 130px;
   object-fit: cover;
   object-position: 50% 28%;
   border: 4px solid #ffffff;
@@ -1839,33 +1861,26 @@
 }
 @media (min-width: 640px) {
   .spFace {
-    width: 160px;
-    height: 160px;
+    width: 150px;
+    height: 150px;
   }
 }
-.spGuaranteeTitle {
-  margin: 0 0 10px;
-  color: var(--fv-ink);
-  font-size: clamp(22px, 4vw, 28px);
-  font-weight: 800;
-  line-height: 1.25;
-}
-.spGuaranteeText {
-  margin: 0 0 12px;
-  color: var(--fv-text);
-  font-size: 16px;
-  line-height: 1.6;
-}
 .spName {
-  margin: 16px 0 0;
+  margin: 0;
   color: var(--fv-ink);
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 800;
 }
 .spRole {
   margin: 2px 0 10px;
   color: var(--fv-muted);
   font-size: 14px;
+}
+.spFounderText {
+  margin: 0 0 10px;
+  color: var(--fv-text);
+  font-size: 16px;
+  line-height: 1.6;
 }
 .spFacts {
   display: flex;
@@ -1908,6 +1923,15 @@
   margin: 12px 0 0;
   color: #c7d3e3;
   font-size: 14px;
+}
+
+.spCloseDeadline {
+  max-width: 560px;
+  margin: 0 auto 18px;
+  color: #fecaca;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 /* ClickBank's retailer notice, as on the lifetime page. */

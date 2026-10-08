@@ -34,6 +34,20 @@ export function unlockOpen(lead: { status: string; video_url: string | null; fin
   return !lead.finished_at || now - Date.parse(lead.finished_at) < UNLOCK_DAYS * DAY_MS;
 }
 
+/**
+ * Until when a buyer of the AI Media Machine gets this video ad clean and ready to change (claim.ts renders the copy from
+ * the working files): UNLOCK_DAYS after it was finished, a day before the files go. The thank-you offer shows the date
+ * as its deadline (owner 2026-10-08, the Hormozi pass: a real reason to buy now). Null when unknown or past.
+ */
+export function editableUntil(
+  lead: { status: string; video_url: string | null; finished_at: string | null; files_cleaned_at?: string | null },
+  now = Date.now()
+): string | null {
+  if (lead.status !== 'done' || !lead.video_url || !lead.finished_at || lead.files_cleaned_at) return null;
+  const until = Date.parse(lead.finished_at) + UNLOCK_DAYS * DAY_MS;
+  return Number.isFinite(until) && until > now ? new Date(until).toISOString() : null;
+}
+
 /** The object path inside the bucket of a public storage URL ('smart-video/<user>/<job>/video.mp4'), or null. */
 export function storagePathOf(url: string | null): string | null {
   if (!url) return null;

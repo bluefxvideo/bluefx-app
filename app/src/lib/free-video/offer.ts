@@ -5,7 +5,7 @@
  * Client-safe: no process.env and no server imports. The page components import this file.
  */
 
-import { PHANTOM_CREDITS } from '@/lib/smart-video/pricing';
+import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 
 /**
  * Every place an offer button can sit: the thank-you page, the video ad page, the form's "one free video ad per
@@ -57,8 +57,13 @@ export const OFFER = { was: '$997', now: '$297', off: '$700 off' } as const;
  * 600 whenever that period has lapsed (every dashboard visit calls /api/credits/ensure).
  */
 export const LIFETIME_MONTHLY_CREDITS = 600;
-/** 600 / 50 credits per Phantom video ad = 12 video ads a month: the number the offer copy uses. */
+/** 600 / 50 credits per Phantom video ad = 12 video ads a month without an AI presenter. */
 export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM_CREDITS);
+/**
+ * 600 / 60 = 10 video ads a month like the free one, which opens with an AI presenter (runner.ts presenter: true, 10
+ * credits more): the number the thank-you offer uses (owner 2026-10-08, one number everywhere).
+ */
+export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS));
 
 /** Where an existing customer goes instead of the offer: The Phantom inside the app. */
 export const PHANTOM_PATH = '/dashboard/smart-video';

@@ -20,6 +20,7 @@ import { FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video
 import { EMAIL_DRAFTS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { copyIdOf } from '@/lib/free-video/claim';
+import { editableUntil } from '@/lib/free-video/cleanup';
 import { afterLoginPath, AFTER_LOGIN_PATH } from '@/lib/after-login';
 import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
 import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
@@ -439,6 +440,14 @@ async function main(): Promise<void> {
   const lead = (patch: Partial<FreeVideoLead>): FreeVideoLead =>
     ({ view_token: token, status: 'done', video_url: 'https://cdn.example/video.mp4', website_domain: domain, unlock_status: 'none', clean_video_url: null, ...patch }) as FreeVideoLead;
   check('view: done → available with the checkout path', JSON.stringify(unlockViewOf(lead({}))) === JSON.stringify({ state: 'available', checkoutPath: `/go/fvunlock?t=${token}` }));
+  // The thank-you offer's deadline (cleanup.ts editableUntil): 30 days after the video ad was finished, never past.
+  const day = 86_400_000;
+  const finished = (daysAgo: number) => ({ status: 'done', video_url: 'https://x/video.mp4', finished_at: new Date(Date.now() - daysAgo * day).toISOString() });
+  const until = editableUntil(finished(7));
+  check('deadline: a video ad finished 7 days ago stays editable for 23 more days', Boolean(until) && Math.round((Date.parse(until ?? '') - Date.now()) / day) === 23);
+  check('deadline: none after 30 days', editableUntil(finished(31)) === null);
+  check('deadline: none once the working files are deleted', editableUntil({ ...finished(2), files_cleaned_at: new Date().toISOString() }) === null);
+  check('deadline: none without a finish time', editableUntil({ status: 'done', video_url: 'https://x/video.mp4', finished_at: null }) === null);
   check('view: queued → unavailable with the checkout path', unlockViewOf(lead({ status: 'queued', video_url: null })).state === 'unavailable' && Boolean(unlockViewOf(lead({ status: 'queued' })).checkoutPath));
   check('view: rejected → unavailable without a link', unlockViewOf(lead({ status: 'rejected' })).checkoutPath === undefined);
   check('view: paid / rendering / failed', unlockViewOf(lead({ unlock_status: 'paid' })).state === 'paid' && unlockViewOf(lead({ unlock_status: 'rendering' })).state === 'rendering' && unlockViewOf(lead({ unlock_status: 'failed' })).state === 'failed');

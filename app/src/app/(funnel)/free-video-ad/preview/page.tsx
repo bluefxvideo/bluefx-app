@@ -49,6 +49,8 @@ const ready = (id: string, extra: Partial<FreeVideoView> = {}): FreeVideoView =>
   videoUrl: FREE_FILE,
   downloadUrl: `${FREE_FILE}?download=${DOMAIN}-video-ad-free.mp4`,
   unlock: { state: 'available', checkoutPath: unlockGoUrl(tokenOf(id)) },
+  // Made a week ago: 23 days left to get this video ad clean into an account (cleanup.ts editableUntil).
+  editableUntil: new Date(Date.now() + 23 * 86_400_000).toISOString(),
   ...extra,
 });
 
@@ -104,6 +106,12 @@ const FIXTURES: Fixture[] = [
     demo: { iphone: true },
   },
   { id: 'ready-unlock-failed', label: 'ready, the clean render failed for good', placement: 'fvpage', view: ready('ready-unlock-failed', { unlock: { state: 'failed' } }) },
+  {
+    id: 'ready-late',
+    label: 'ready, /v/ page visited more than 30 days later: the project files are gone, no deadline, the offer leads with the new video ads',
+    placement: 'fvpage',
+    view: ready('ready-late', { editableUntil: undefined, unlock: { state: 'unavailable' } }),
+  },
   { id: 'ready-customer', label: 'ready, existing customer or buyer, /v/ page: Open this video ad in the AI Media Machine (no $99 offer)', placement: 'fvpage', view: ready('ready-customer', { isCustomer: true }) },
   { id: 'ready-stale', label: 'ready, clean version rendering, the page stopped checking', placement: 'fvthank', view: ready('ready-stale', { unlock: { state: 'rendering' } }), demo: { stale: true } },
   { id: 'unreadable', label: 'unreadable: the website could not be read', placement: 'fvthank', view: waiting('unreadable', { state: 'unreadable', unlock: { state: 'unavailable' } }) },

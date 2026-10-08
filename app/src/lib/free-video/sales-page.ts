@@ -1,30 +1,33 @@
 /**
- * The AI Media Machine offer under the finished free video ad. Owner 2026-10-08, after the whole lifetime page was
- * ported here (commit 6fc5e29): "too much info, too many directions and not connecting strongly with the initial
- * result we gave them ... look at this page as alex hormozi". So: one buyer (a business owner holding a video ad), one
- * problem (one video ad wears out), one offer, one button label. Their video ad and their domain carry the page; the
- * stack prices each piece (the clean video ad at the $99 it sold for, 144 a year at that price, the other tools at
- * what they rent for); then the birthday price, video ads the AI Media Machine made from a link, the guarantee with
- * the owner's face, five questions, one last button. Lines reused from the lifetime page and the E3 email where they
- * say the same thing. No timer, no reviews, BlueFX since 2009 (owner: "2009 is ok").
+ * The AI Media Machine offer under the finished free video ad. Owner 2026-10-08: the whole lifetime page here was "too
+ * much info, too many directions"; the first focused version was "much better, but it still needs work and clarity,
+ * ask alex hormozi". So the page reads in his order: the promise (more video ads like the one above), how the next
+ * video ad gets made (three steps, almost no effort), proof (video ads made with the AI Media Machine), then one offer
+ * box (what you get, the price against a freelancer, the birthday price, the real deadline, the guarantee), the
+ * founder, five questions, one last button.
+ *
+ * One number everywhere: 10 video ads a month. A free video ad opens with an AI presenter (runner.ts presenter: true),
+ * and in the AI Media Machine that is PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS = 60 of the 600 monthly credits;
+ * without a presenter it is 12 (the FAQ says so). The deadline is real: a buyer gets this video ad clean and ready to
+ * change only while its working files exist (cleanup.ts editableUntil). The freelancer price is the owner's own
+ * estimate from bluefx.net/video-ad ($600 to $1,500 per video ad). No timer, no reviews, BlueFX since 2009.
  */
-import { PHANTOM_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
-import { STYLE_NAMES } from '@/lib/smart-video/types';
+import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { EXAMPLE_VIDEOS } from './copy';
-import { LIFETIME_MONTHLY_CREDITS, OFFER, UNLOCK, VIDEO_ADS_PER_MONTH } from './offer';
+import { LIFETIME_MONTHLY_CREDITS, OFFER, VIDEO_ADS_LIKE_FREE_PER_MONTH, VIDEO_ADS_PER_MONTH } from './offer';
 
 const MEDIA = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/aimm';
 
 const usd = (price: string) => Number(price.replace(/\D/g, ''));
-const money = (amount: number) => `$${amount.toLocaleString('en-US')}`;
 
-/** What the 12 other tools rent for elsewhere per month, as the lifetime page's "Everything You Own" table lists them. */
-const TOOLS_MONTHLY = [59, 99, 100, 29, 28, 10, 11, 10, 49, 20, 30, 15].reduce((sum, price) => sum + price, 0);
-const VIDEO_ADS_PER_YEAR = VIDEO_ADS_PER_MONTH * 12;
-/** 144 video ads at the $99 the clean video ad sold for. */
-const VIDEO_ADS_VALUE = VIDEO_ADS_PER_YEAR * usd(UNLOCK.price);
-const FIRST_YEAR_VALUE = usd(UNLOCK.price) + VIDEO_ADS_VALUE + TOOLS_MONTHLY * 12;
-const LOOKS = STYLE_NAMES.join(', ').replace(/, (\w+)$/, ' or $1');
+/** Video ads a month like the free one (with its AI presenter), and without a presenter. */
+const WITH_PRESENTER = VIDEO_ADS_LIKE_FREE_PER_MONTH;
+const WITHOUT_PRESENTER = VIDEO_ADS_PER_MONTH;
+const FIRST_YEAR = WITH_PRESENTER * 12;
+/** $297 over the first year's 120 video ads, to the nearest 50 cents: about $2.50 each. */
+const PER_VIDEO_AD = `$${(Math.round((usd(OFFER.now) / FIRST_YEAR) * 2) / 2).toFixed(2)}`;
+/** The low end of what a freelancer charges for one video ad (the owner's comparison on bluefx.net/video-ad). */
+const FREELANCER = '$600';
 
 /** The landing page's examples the AI Media Machine made from a link (EXAMPLE_VIDEOS), by id. */
 const LINK_ADS = Object.fromEntries(EXAMPLE_VIDEOS.ads.map((ad) => [ad.id, { video: ad.video, poster: ad.poster, label: ad.name }])) as Record<
@@ -44,60 +47,25 @@ const WALL = [
   'Phone-style ad',
 ].map((label, index) => ({ video: `${MEDIA}/wall-${index + 1}.mp4`, poster: `${MEDIA}/wall-${index + 1}.jpg`, label }));
 
+/** "November 7": the deadline as a date (UTC, so the server and the browser print the same day). */
+export const deadlineDate = (iso: string) => new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(iso));
+
 export const SALES_PAGE = {
   /** The id the short offer's link beside the video ad jumps to. */
   anchor: 'everything-you-get',
   bridge: {
-    kicker: 'The AI Media Machine made the video ad above in a few minutes.',
-    title: (domain: string) => `Make ${VIDEO_ADS_PER_MONTH} more video ads for ${domain} every month`,
+    kicker: (domain: string) => `The AI Media Machine made the video ad above for ${domain} in a few minutes.`,
+    title: (domain: string) => `Make ${WITH_PRESENTER} more video ads for ${domain} every month`,
     text: (domain: string) =>
-      `People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps ${domain} in front of your customers, and with the AI Media Machine the next video ad takes a few minutes: paste a link, type a few lines about an offer or add a few photos.`,
+      `People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps ${domain} in front of your customers.`,
   },
-  stack: {
-    title: 'Everything you get with the AI Media Machine',
-    items: (domain: string) => [
-      {
-        title: `Your video ad for ${domain}, without the watermark`,
-        text: 'The video ad shows up in your AI Media Machine account within about 10 minutes, ready to post.',
-        value: UNLOCK.price,
-      },
-      {
-        title: 'Any change to that video ad',
-        text: 'Type what to change, like the music, a photo, a line of the script or the voice, and the new version is ready in a few minutes.',
-        value: 'included',
-      },
-      {
-        title: `${VIDEO_ADS_PER_MONTH} new video ads every month, for life`,
-        text: `${VIDEO_ADS_PER_YEAR} video ads a year, made from a website, a product page, a few lines about an offer or a few photos, ready to post on Facebook, Instagram, TikTok and YouTube.`,
-        value: `${money(VIDEO_ADS_VALUE)} a year`,
-        note: `${VIDEO_ADS_PER_YEAR} video ads at ${UNLOCK.price} each`,
-      },
-      {
-        title: `${STYLE_NAMES.length} looks, 2 sizes and an AI presenter`,
-        text: `Pick ${LOOKS}, vertical for Reels and TikTok or horizontal for YouTube, and add an AI presenter who speaks your script when you want a face in the video ad.`,
-        value: 'included',
-      },
-      {
-        title: '12 more AI tools',
-        text: 'Talking AI avatars with 200+ presenters, voice-overs in 57 voices or your own cloned voice, music for every video ad, thumbnails and logos.',
-        value: `${money(TOOLS_MONTHLY * 12)} a year`,
-        note: `what the same tools rent for elsewhere, ${money(TOOLS_MONTHLY)} a month`,
-      },
-      {
-        title: 'Help from a real person',
-        text: 'Daily YouTube tutorials, a private community and support from me, not a chatbot.',
-        value: 'included',
-      },
+  steps: {
+    title: 'How the next video ad gets made',
+    items: [
+      { title: 'Paste a link', text: 'Your website or a product page. A few lines about an offer, or a few photos, work too.' },
+      { title: 'The AI Media Machine makes the video ad', text: 'The script, the presenter, the voice-over, the music and the pictures, in a few minutes.' },
+      { title: 'Post the video ad', text: 'Vertical for Reels and TikTok, horizontal for YouTube and Facebook, ready to download.' },
     ],
-    total: ['Total value in the first year', money(FIRST_YEAR_VALUE)],
-  },
-  price: {
-    tag: '40th Birthday Deal',
-    was: ['Lifetime license', OFFER.was],
-    now: `Just ${OFFER.now}`,
-    line: 'One payment. Everything above, forever.',
-    why: `I turned 40 this year, so for my birthday the lifetime license is ${OFFER.off}: ${OFFER.now}, once.`,
-    fine: '30-day money-back guarantee. Secure checkout by ClickBank.',
   },
   proof: {
     title: 'Video ads made with the AI Media Machine',
@@ -111,20 +79,7 @@ export const SALES_PAGE = {
      * the lifetime page (owner 2026-10-08: "lets have the ai mm videos from the top also in the examples showing, those
      * are very cool"), so a phone's first two tiles show one of each. The reel's studio-made ads stay off.
      */
-    items: [
-      LINK_ADS.pizza,
-      WALL[1],
-      LINK_ADS.listing,
-      WALL[5],
-      LINK_ADS.welder,
-      WALL[6],
-      WALL[0],
-      WALL[2],
-      WALL[3],
-      WALL[4],
-      WALL[7],
-      WALL[8],
-    ],
+    items: [LINK_ADS.pizza, WALL[1], LINK_ADS.listing, WALL[5], LINK_ADS.welder, WALL[6], WALL[0], WALL[2], WALL[3], WALL[4], WALL[7], WALL[8]],
     wideTitle: 'Also made with the AI Media Machine',
     wide: [
       { video: `${MEDIA}/wide-1.mp4`, poster: `${MEDIA}/wide-1.jpg`, label: 'Cinematic AI product ad' },
@@ -132,27 +87,50 @@ export const SALES_PAGE = {
     ],
     wideNote: 'Made on a laptop in an afternoon, with no camera crew, no actors and no studio.',
   },
-  guarantee: {
-    title: '30-day money-back guarantee',
-    text: [
-      "If you don't save time, create content you're proud of, and see the potential, email me within 30 days and I'll refund every cent. There's nothing to cancel, because there's no subscription.",
-      'You risk nothing. I risk my reputation built over 18 years and 36,000 customers.',
+  offer: {
+    title: 'Everything you get',
+    /** The first line only while this video ad can still go into a buyer's account clean (editableUntil). */
+    items: (domain: string, withThisVideoAd: boolean) => [
+      ...(withThisVideoAd ? [`This video ad for ${domain}, without the watermark and ready to change, in your account`] : []),
+      `${WITH_PRESENTER} new video ads every month, for life`,
+      'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice',
+      '12 more AI tools: talking avatars with 200+ presenters, voice-overs in 57 voices or your own cloned voice, music, thumbnails and logos',
+      'Daily YouTube tutorials, a private community and help from me',
     ],
+    compare: [
+      `A freelancer charges ${FREELANCER} or more for one video ad.`,
+      `Here, ${FIRST_YEAR} video ads in the first year cost ${OFFER.now} once: about ${PER_VIDEO_AD} a video ad.`,
+    ],
+    tag: '40th birthday price',
+    was: OFFER.was,
+    now: OFFER.now,
+    unit: 'one payment',
+    why: `I turned 40 this year, so the lifetime license is ${OFFER.off}.`,
+    deadline: (date: string) =>
+      `Buy by ${date} and this video ad goes into your account without the watermark, ready to change. After ${date} the project files of this video ad are deleted.`,
+    guarantee: '30-day money-back guarantee: email me within 30 days for any reason and you get every cent back.',
+    fine: 'Secure checkout by ClickBank.',
+  },
+  founder: {
     photo: `${MEDIA}/founder.jpg`,
     name: 'Szilard Gyorfi',
     role: 'Founder of BlueFX, making videos for businesses since 2009',
+    text: "I've spent over $60,000 of my own money on Facebook ads, testing what gets people to click, watch and buy. The AI Media Machine is the same system I use every day.",
+    risk: 'You risk nothing. I risk my reputation built over 18 years and 36,000 customers.',
     facts: ['18 years in marketing', '$60K+ of my own money spent testing video ads', '36,000+ customers'],
   },
   faq: {
     title: 'Questions',
-    items: [
+    items: (date: string | null) => [
       {
         q: 'What happens to my free video ad?',
-        a: 'Buy with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Bought with another email? Come back to this page and use the link under the offer beside your video ad.',
+        a: date
+          ? `Buy by ${date} with the email you used here, and this video ad shows up in your AI Media Machine within about 10 minutes, without the watermark, ready to change. Bought with another email? Come back to this page and use the link under the offer beside your video ad.`
+          : 'The project files of a free video ad are kept for 30 days, and that time has passed, so this video ad goes into your account as it is. Every new video ad you make in the AI Media Machine comes without the watermark.',
       },
       {
         q: 'How many video ads can I make?',
-        a: `${LIFETIME_MONTHLY_CREDITS} credits arrive every month. A video ad like yours takes ${PHANTOM_CREDITS} credits, so that is ${VIDEO_ADS_PER_MONTH} video ads a month, ${VIDEO_ADS_PER_YEAR} a year. A change to a video ad takes ${PHANTOM_REVISION_CREDITS}.`,
+        a: `${LIFETIME_MONTHLY_CREDITS} credits arrive every month. A video ad with an AI presenter, like yours, takes ${PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS} credits: ${WITH_PRESENTER} video ads a month. Without the presenter a video ad takes ${PHANTOM_CREDITS}: ${WITHOUT_PRESENTER} a month. A change to a video ad takes ${PHANTOM_REVISION_CREDITS}.`,
       },
       {
         q: 'Do I need to be technical?',

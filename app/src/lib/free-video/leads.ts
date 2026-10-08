@@ -20,7 +20,7 @@ import { randomBytes } from 'node:crypto';
 import net from 'node:net';
 import { createAdminClient } from '@/app/supabase/server';
 import { INTAKE, IP_ROWS_PER_DAY, JOB_MINUTES, OWNER_TEST_EMAILS, SETTINGS_CACHE_MS, UNREADABLE } from '@/lib/free-video/config';
-import { unlockOpen } from '@/lib/free-video/cleanup';
+import { editableUntil, unlockOpen } from '@/lib/free-video/cleanup';
 import { ERRORS } from '@/lib/free-video/copy';
 import { isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
@@ -618,15 +618,18 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
         ...(lead.live ? { live: lead.live } : {}),
       };
     }
-    case 'done':
+    case 'done': {
+      const until = editableUntil(lead);
       return lead.video_url
         ? {
             ...base,
             state: 'ready',
             videoUrl: lead.video_url,
             downloadUrl: downloadLink(lead.video_url, `${displayDomain(lead.website_domain)}-video-ad-free.mp4`),
+            ...(until ? { editableUntil: until } : {}),
           }
         : { ...base, state: 'checking' };
+    }
     case 'held':
       return { ...base, state: 'checking', ...(lead.live ? { live: lead.live } : {}) };
     case 'failed':
