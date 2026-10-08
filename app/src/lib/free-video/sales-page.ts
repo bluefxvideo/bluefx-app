@@ -71,16 +71,21 @@ export const SALES_PAGE = {
    * biggest one can they actually use the software themself ... with the free vid we prove all 3 concerns").
    */
   questions: {
-    title: 'Your free video ad already answered 3 questions',
+    /** Told from Szilard's side with a little humor, like E2 (owner 2026-10-08: "feels like i am talking down on them"). */
+    title: "3 questions I'd ask if I were you",
+    lead: 'Funny thing: your free video ad already answered all 3.',
     items: (domain: string) => [
       {
-        q: 'Does the AI Media Machine work?',
+        q: 'Does this thing actually work?',
         a: 'The AI Media Machine wrote the script, cast the presenter, recorded the voice-over and picked the music for the video ad above, in a few minutes.',
       },
-      { q: 'Will the AI Media Machine work for my business?', a: `The video ad is about ${domain}, made from your own website.` },
       {
-        q: 'Can I use the AI Media Machine myself?',
-        a: 'You already did: you typed one website address. Every video ad in the AI Media Machine starts that way, and the next video ad is ready in a few minutes.',
+        q: 'Will this thing work for MY business, or only for the pizza shop in the demo?',
+        a: `The video ad above is about ${domain}, made from your own website.`,
+      },
+      {
+        q: 'Can I run this thing myself, or will I end up calling my nephew?',
+        a: 'You already did: you typed one website address. Your nephew can relax. Every new video ad starts the same way, and the next video ad is ready in a few minutes.',
       },
     ],
   },

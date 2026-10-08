@@ -47,6 +47,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
       <div className={cn(styles.spBlock, styles.spSoft)}>
         <div className={styles.spInnerWide}>
           <h2 className={styles.spTitle}>{questions.title}</h2>
+          <p className={styles.spLead}>{questions.lead}</p>
           <ol className={styles.spSteps}>
             {questions.items(domain).map((item) => (
               <li key={item.q} className={styles.spStep}>
