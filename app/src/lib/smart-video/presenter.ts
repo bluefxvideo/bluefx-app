@@ -6,7 +6,8 @@ import { usage } from './usage';
  * movement!!!" about a silent clip, and "let first the script be ready"). A small call casts a person who fits the
  * business, with a place, a prop and a first-second action (the visual hook: a realtor jingles keys by a SOLD sign, a
  * barber clicks his clippers on), and GPT Image 2.5 makes their photo while the director writes the script; once the
- * script is ready, LTX 2.5 Fast at 720p makes them do the action and say scene 1 word for word, with their own voice.
+ * script is ready, LTX 2.5 Fast at 720p makes them say scene 1 word for word from the first frame while doing the action,
+ * with their own voice.
  * The owner picked it on 2026-10-06 after races on the same photos and lines (Kling O3 Pro 145 s / $0.70; LTX 2.5
  * Fast about 30 s / $0.54 at 720p; LTX 2.3 Fast about 40 s / $0.24 but more slips at the end of a clip). Every step
  * can fail: the narrator then says scene 1 as usual.
@@ -33,7 +34,7 @@ function key(name: 'FAL_KEY' | 'GOOGLE_GENERATIVE_AI_API_KEY'): string {
 export interface Persona {
   /** One sentence describing the photo: the person, the clothes, the place, the prop and the framing. */
   photo: string;
-  /** What the person does in the first second, before speaking: the visual hook. */
+  /** What the person does while saying the first words: the visual hook. */
   action: string;
 }
 
@@ -52,9 +53,9 @@ export async function castPersona(brief: string): Promise<Persona> {
 - The person: someone this business's customers would trust: a customer enjoying what the business offers, or someone at work in the trade. Never the business owner, never a celebrity. Modest everyday clothes.
 - The place: where it happens, so the business is clear at a glance (in their car with the food, at the counter, in the shop, at the job, on the street outside).
 - The prop: one thing in their hand or right beside them that shows the business (house keys and a SOLD sign, a taco, hair clippers, a coffee mug at a spotless counter). No words or logos on it, except a short real-world sign like SOLD.
-- The action: one small movement in the first second, before they speak: they look up from the prop surprised, hold it up to the lens, click it on, take a sip. Then they face the camera and talk.
+- The action: one small movement they make while they say their first words, from the very first second, never a silent pause before talking: they hold the prop up to the lens, click it on, point at it, take a sip. They keep facing the camera and talk.
 
-Answer JSON only: {"photo": "one sentence describing the photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the first-second movement, then they look into the camera"}
+Answer JSON only: {"photo": "one sentence describing the photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the movement they make while saying their first words"}
 
 The business (from its website):
 ${brief.slice(0, 4000)}`,
@@ -110,9 +111,13 @@ export function clipSecondsFor(line: string): number {
 export async function talkingPresenter(photo: Buffer, line: string, action = ''): Promise<Buffer> {
   const seconds = clipSecondsFor(line);
   const headers = { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` };
+  // Talking from the first frame while doing the action (owner 2026-10-08 on a 3-clip test: "pretty damn good, all of
+  // the videos ... are better"): before, LTX held the action silently for 2-3 s and moved the lips with no sound. A clip
+  // that still waits is cut just before its first word in buildProps.
   const prompt = [
-    action,
-    'Then the person looks straight into the camera and speaks clearly to the viewer at a natural conversational pace, steady framing, subtle natural head movement. They stay in frame and keep facing the camera until the end of the clip.',
+    'The person is already talking from the very first frame: the first word starts within the first half second, with no silent pause before it.',
+    action ? `While they say the first words: ${action}` : '',
+    'They speak clearly to the viewer at a natural conversational pace, looking into the camera, steady framing, subtle natural head movement. They stay in frame and keep facing the camera until the end of the clip.',
     `They say: "${line.replace(/"/g, "'")}"`,
     "Audio: only the person's voice with natural room ambience, no background music, no soundtrack, no melody.",
     'No captions, no subtitles, no on-screen text, no logos.',
