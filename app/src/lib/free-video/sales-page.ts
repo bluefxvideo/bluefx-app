@@ -119,6 +119,8 @@ export const SALES_PAGE = {
       { q: 'Can I pick my own presenter?', a: 'Yes. Choose one of 246 presenters, or use your own photo, and put your presenter in your video ad.' },
       { q: 'Can I choose how they speak, even the accent?', a: 'Yes. Pick one of 60 voices, with Australian and Indian English accents among them, or clone your own voice.' },
       { q: 'Can I change the music, the photos or add my logo?', a: 'Yes. Ask for other music, add your own photos and your logo, and they go into your video ad.' },
+      /** The sixth card fills the row on a desktop (layout review 2026-10-09); true today: uploaded clips and photos go in. */
+      { q: 'Can I use my own video clips?', a: 'Yes. Upload your own clips and photos, and the AI Media Machine builds the video ad around them.' },
     ],
     facesTitle: '246 presenters to choose from',
     facesNote: 'Or use your own photo.',
