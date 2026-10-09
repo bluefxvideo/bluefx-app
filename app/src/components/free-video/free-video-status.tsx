@@ -242,7 +242,8 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 />
               </div>
               <div>
-                <p className={styles.note}>{placement === 'fvpage' ? STATUS.readyNoteEmail : STATUS.readyNoteThanks}</p>
+                {/* The email's page has no note (owner 2026-10-09: "remove Bookmark this page"); the thank-you page says the link is on its way. */}
+                {placement !== 'fvpage' && <p className={styles.note}>{STATUS.readyNoteThanks}</p>}
                 {/* A clean version paid for earlier comes first. The $99 offer itself is off the page (owner 2026-10-08: "the $99
                     offer is just in the way"); /go/fvunlock still opens its checkout for a tab that was open before. */}
                 {purchased && unlockOffer}

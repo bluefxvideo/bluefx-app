@@ -336,8 +336,6 @@ export const STATUS = {
   readyTitle: (domain: string) => `Your video ad for ${domain} is ready`,
   /** The note above the offers on the thank-you page. */
   readyNoteThanks: "We're emailing you the link to this page too, so you can come back any time.",
-  /** The same note on /v/<token>, which the visitor reached from that email. */
-  readyNoteEmail: 'Bookmark this page to come back to your video ad any time.',
   checkingTitle: (domain: string) => `Your video ad for ${domain} is getting a final check`,
   checking: "Our team is giving your video ad a final check. We'll email you the link as soon as the video ad is ready.",
   failedTitle: (domain: string) => `We hit a problem with your video ad for ${domain}`,
