@@ -84,7 +84,7 @@ export interface FreeVideoSubmitData {
 // ---------------------------------------------------------------------------------------------
 
 export type FreeVideoLeadStatus = 'queued' | 'running' | 'held' | 'done' | 'failed' | 'rejected';
-export type FreeVideoSource = 'landing' | 'fb_lead' | 'manual' | 'test';
+export type FreeVideoSource = 'landing' | 'fb_lead' | 'manual' | 'test' | 'email_reply';
 export type FreeVideoEmailStatus = 'pending' | 'sending' | 'sent' | 'inactive' | 'failed' | 'skipped';
 /** The $99 unlock on a lead row. paid: payment in, clean render not started; rendering: clean render running; ready: clean file uploaded. */
 export type FreeVideoUnlockStatus = 'none' | 'paid' | 'rendering' | 'ready' | 'failed' | 'refunded';
