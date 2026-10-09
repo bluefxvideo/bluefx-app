@@ -3,8 +3,9 @@
  * a free job uses.
  *
  * Every request here goes through safeFetch (public addresses only, pinned DNS, capped bodies), and the
- * site is read with fromBusinessSite, which never starts an Apify actor. A site that cannot be read
- * fails before any paid call, so it costs $0. Server only.
+ * site is read with fromBusinessSite, which never starts an Apify actor. Only a site that plain reading
+ * cannot open (a security wall, a page built in the browser) is read once in a real browser
+ * (readWithBrowser: Apify, about $0.002). A site that cannot be read fails before any AI call. Server only.
  */
 
 import { domainToUnicode } from 'node:url';
@@ -134,8 +135,9 @@ async function precheckOnce(url: string, domain: string): Promise<PrecheckTry> {
     return done(pass);
   }
 
-  // 401/403: the site blocks automatic readers. 404/410: the page is gone.
-  if (res.status === 401 || res.status === 403) return done(unreadable);
+  // 401/403: the site blocks automatic readers; the job reads it in a real browser when it can (readWithBrowser).
+  // 404/410: the page is gone.
+  if (res.status === 401 || res.status === 403) return done(browserReady() ? pass : unreadable);
   if (res.status === 404 || res.status === 410) return done(notFound);
   // A timeout, a 429 or a 5xx passes: the job reads the site again, and a real failure there still costs $0.
   if (res.status === 429 || res.status >= 500) return done(pass);
@@ -146,7 +148,8 @@ async function precheckOnce(url: string, domain: string): Promise<PrecheckTry> {
 
   try {
     const { textLength, facts } = pageReadability(await res.text());
-    return done(textLength < 250 && facts === 0 ? unreadable : pass);
+    // Almost no text: a page built in the browser, which the job's browser read may still get.
+    return done(textLength < 250 && facts === 0 && !browserReady() ? unreadable : pass);
   } catch {
     // The reader itself throws on this page (for example an HTML entity beyond Unicode), so the job would too.
     return done(unreadable);
@@ -223,9 +226,120 @@ export async function readBusinessSite(url: string): Promise<{ brief: string; fi
   };
   let attempt = await read(url);
   if ('error' in attempt && url.startsWith('https://') && isTlsOrRefused(attempt.network)) attempt = await read(httpVersion(url));
-  if ('error' in attempt) throw new Error(UNREADABLE + messageOf(attempt.error));
+  if ('error' in attempt) {
+    const browser = await readWithBrowser(url);
+    if (!browser) throw new Error(UNREADABLE + messageOf(attempt.error));
+    console.log(`🔄 [free-video] ${new URL(url).hostname} read in a browser (the plain read failed: ${messageOf(attempt.error).slice(0, 80)})`);
+    attempt = { site: browser };
+  }
   const files = await downloadPhotos(attempt.site.imageUrls);
   return { brief: asMaterial(attempt.site.brief), files };
+}
+
+/** Whether readWithBrowser can run here (a Firecrawl key or an Apify token). */
+const browserReady = () => Boolean(process.env.FIRECRAWL_API_KEY || process.env.APIFY_API_TOKEN);
+
+/**
+ * A page read once in a real browser, only after the free plain read failed (owner 2026-10-09: "we had a pretty
+ * serious lead and the site was unreadable"): Firecrawl first, which got past the security wall in front of
+ * bellmanfinancial.info (a Wix site behind Cloudflare that answered 403 to every plain request, and to Apify's browser
+ * too), then Apify's browser, which reads pages built in the browser. About $0.002 a page. null when neither gets 250
+ * characters of text. The photos it names are still fetched through safeFetch (downloadPhotos).
+ */
+async function readWithBrowser(url: string): Promise<LinkSource | null> {
+  return (await readWithFirecrawl(url)) ?? (await readWithApifyBrowser(url));
+}
+
+/** Firecrawl's scrape (FIRECRAWL_API_KEY): markdown of the page, its own proxy when a site blocks the plain one. */
+async function readWithFirecrawl(url: string): Promise<LinkSource | null> {
+  const key = process.env.FIRECRAWL_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.firecrawl.dev/v2/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ url, formats: ['markdown'], onlyMainContent: true, proxy: 'auto', timeout: 60_000 }),
+      signal: AbortSignal.timeout(80_000),
+    });
+    if (!res.ok) throw new Error(`Firecrawl answered ${res.status}`);
+    const json = (await res.json()) as {
+      data?: { markdown?: string; metadata?: { statusCode?: number; url?: string; sourceURL?: string; title?: string; description?: string } };
+    };
+    const meta = json.data?.metadata;
+    const status = Number(meta?.statusCode ?? 200);
+    if (!(status >= 200 && status < 300)) return null;
+    return pageFromMarkdown(String(json.data?.markdown || ''), meta?.url || meta?.sourceURL || url, meta?.title, meta?.description);
+  } catch (error) {
+    console.warn(`⚠️ [free-video] Firecrawl read of ${new URL(url).hostname} failed:`, messageOf(error).slice(0, 120));
+    return null;
+  }
+}
+
+/** Apify's rag-web-browser in Playwright (APIFY_API_TOKEN): renders a page built in the browser (a manus.space portfolio). */
+async function readWithApifyBrowser(url: string): Promise<LinkSource | null> {
+  const token = process.env.APIFY_API_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch('https://api.apify.com/v2/acts/apify~rag-web-browser/run-sync-get-dataset-items?timeout=75', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query: url, maxResults: 1, outputFormats: ['markdown'], scrapingTool: 'browser-playwright', dynamicContentWaitSecs: 8 }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!res.ok) throw new Error(`Apify answered ${res.status}`);
+    const items: unknown = await res.json();
+    const item = (Array.isArray(items) ? items[0] : null) as {
+      crawl?: { httpStatusCode?: number };
+      metadata?: { url?: string; title?: string; description?: string };
+      markdown?: string;
+    } | null;
+    const status = Number(item?.crawl?.httpStatusCode);
+    if (!item || !(status >= 200 && status < 300)) return null;
+    return pageFromMarkdown(String(item.markdown || ''), item.metadata?.url || url, item.metadata?.title, item.metadata?.description);
+  } catch (error) {
+    console.warn(`⚠️ [free-video] Browser read of ${new URL(url).hostname} failed:`, messageOf(error).slice(0, 120));
+    return null;
+  }
+}
+
+/** A browser's markdown of a page as the brief fromWebsite would write, with the photos it shows; null under 250 characters. */
+function pageFromMarkdown(markdown: string, pageUrl: string, title?: string, description?: string): LinkSource | null {
+  let page: URL;
+  try {
+    page = new URL(pageUrl);
+  } catch {
+    return null;
+  }
+  const imageUrls = [
+    ...new Set(
+      [...markdown.matchAll(/!\[[^\]]*\]\(([^)\s]+)/g)].flatMap((m) => {
+        try {
+          const src = new URL(m[1], page);
+          return src.protocol === 'https:' || src.protocol === 'http:' ? [src.href] : [];
+        } catch {
+          return [];
+        }
+      })
+    ),
+  ].slice(0, 16);
+  const text = markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n\s*\n+/g, '\n\n')
+    .trim();
+  if (text.length < 250) return null;
+  const host = page.hostname;
+  const shortUrl = `${host.replace(/^www\./, '')}${page.pathname.length > 1 && page.pathname.length < 40 ? page.pathname.replace(/\/$/, '') : ''}`;
+  const brief = [
+    `WEB PAGE from ${host}. Address to show viewers: ${shortUrl}`,
+    title ? `Page title: ${title}` : '',
+    description ? `Summary: ${description}` : '',
+    `\nText of the page:\n${text.slice(0, 6000)}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return { brief, imageUrls };
 }
 
 /** True for a job error that came from readBusinessSite: the website, not The Phantom, failed. */
