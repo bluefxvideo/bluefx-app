@@ -587,9 +587,20 @@ export const OFFER_READY = {
    * result they just got, the promise, then two lines from me with their name, with the problem (one video ad wears
    * out) folded in. No pronoun for the video ad (owner's rule).
    */
-  headline: 'You just got a $600 video ad in 3 minutes, for free. Now make a new video ad every week for under $3.',
-  letter: (name: string, domain: string) =>
-    `${name}, Szilard here. My AI Media Machine made the video ad above from your website, with nobody typing a word of the script. One video ad wears out, though: people stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps ${domain} in front of your customers. Here's how to make a fresh video ad for under $3.`,
+  headline: { first: 'You just got a $600 video ad in 3 minutes, for free.', second: 'Now make a new video ad every week for under $3.' },
+  /** Like my emails: "Hey {name}," short lines, "Szilard" (owner 2026-10-09: "just Szilard", "break up the text"). */
+  letter: {
+    greeting: (name: string) => `Hey ${name},`,
+    lines: (domain: string) => [
+      'My AI Media Machine made the video ad above from your website. Nobody typed a word of the script.',
+      "One video ad wears out, though. People stop noticing an ad after they've seen the same ad a few times.",
+      `A fresh video ad every week keeps ${domain} in front of your customers.`,
+      "Here's how to make a fresh video ad for under $3.",
+    ],
+    signature: 'Szilard',
+    /** Under my photo. */
+    photoLabel: 'Szilard Gyorfi, founder of BlueFX',
+  },
   title: 'Like your video ad?',
   text: `Get your video ad without the watermark and ready to change, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month.`,
   /** After the 3-day bonus. */

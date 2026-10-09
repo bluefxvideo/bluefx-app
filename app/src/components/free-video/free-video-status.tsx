@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
@@ -9,6 +11,7 @@ import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
 import { LifetimeOffer } from './lifetime-offer';
+import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { LifetimeSalesPage } from './lifetime-sales-page';
 import { LiveMaking } from './live-making';
 import { SaveToPhotos } from './save-to-photos';
@@ -262,8 +265,20 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 {/* The headline and the letter (Kennedy review 2026-10-09), then the offer box. */}
                 {!view.isCustomer && (
                   <>
-                    <h2 className={styles.readyHeadline}>{OFFER_READY.headline}</h2>
-                    <p className={styles.readyLetter}>{OFFER_READY.letter(view.firstName, domain)}</p>
+                    <h2 className={styles.readyHeadline}>
+                      <span>{OFFER_READY.headline.first}</span> <span className={styles.readyHeadlineAccent}>{OFFER_READY.headline.second}</span>
+                    </h2>
+                    <div className={styles.readyFounder}>
+                      <Image className={styles.readyFace} src={SALES_PAGE.founder.photo} alt={SALES_PAGE.founder.name} width={1920} height={1080} sizes="72px" />
+                      <span className={styles.readyFounderLabel}>{OFFER_READY.letter.photoLabel}</span>
+                    </div>
+                    <div className={styles.readyLetter}>
+                      <p>{OFFER_READY.letter.greeting(view.firstName)}</p>
+                      {OFFER_READY.letter.lines(domain).map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
+                      <p>{OFFER_READY.letter.signature}</p>
+                    </div>
                   </>
                 )}
                 <LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="ready" cleanUntil={view.cleanUntil} />

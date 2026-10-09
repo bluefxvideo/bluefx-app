@@ -3286,17 +3286,54 @@ p.timerDark {
 
 /* The headline and the letter under the video ad (Kennedy review 2026-10-09). */
 .readyHeadline {
-  margin: 22px 0 10px;
+  margin: 24px 0 16px;
   color: var(--fv-ink);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.readyHeadline span {
+  display: block;
+}
+.readyHeadlineAccent {
+  margin-top: 6px;
+  color: var(--fv-green);
+}
+@media (min-width: 760px) {
+  .readyHeadline {
+    font-size: 32px;
+  }
+}
+/* My photo over the letter. */
+.readyFounder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.readyFace {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  object-position: 50% 28%;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+}
+.readyFounderLabel {
+  color: var(--fv-text);
+  font-size: 14px;
+  font-weight: 700;
 }
 .readyLetter {
   margin: 0 0 18px;
   color: var(--fv-text);
   font-size: 16px;
   line-height: 1.55;
+}
+.readyLetter p {
+  margin: 0 0 12px;
 }
 /* The anchor under the price, and the named guarantee at the point of purchase. */
 .spPriceAnchor {
