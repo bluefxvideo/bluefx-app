@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import { OFFER_COPY, OFFER_READY } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
@@ -55,6 +57,7 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
   if (ready) {
     return (
       <div className={cn(styles.offer, styles.offerPrimary)}>
+        <Image className={styles.offerProduct} src={OFFER_READY.image.src} alt={OFFER_READY.image.alt} width={816} height={632} sizes="220px" />
         <h2 className={styles.offerTitle}>{OFFER_READY.title}</h2>
         <p className={styles.offerText}>{bonus ? OFFER_READY.text : OFFER_READY.textLater}</p>
         {/* The 3-day bonus, named and valued; the exact end appears once the browser knows its time zone. */}

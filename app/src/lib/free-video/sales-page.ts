@@ -129,6 +129,24 @@ export const SALES_PAGE = {
     /** 24 presenters of the AI Avatar library (avatar_templates), cropped square around the face (public/free-video/avatars). */
     faces: Array.from({ length: 24 }, (_, i) => `/free-video/avatars/${String(i + 1).padStart(2, '0')}.webp`),
   },
+  /**
+   * Customers in their own words (owner 2026-10-09: "we have plenty of testimonials, use them ... add also 5 stars to
+   * each"): quoted word for word from bluefx.net/video-ad and bluefx.net/testimonials, the ones about video work and
+   * saved time. Photos from the video-ad page where it has one; initials otherwise.
+   */
+  reviews: {
+    title: 'What BlueFX customers say',
+    lead: '36,000+ customers since 2009.',
+    starsLabel: '5 out of 5 stars',
+    items: [
+      { quote: 'The video project is contributing to sales for us, approaching US$ 1 million per year.', name: 'Alex Goad', role: 'Net Frontier Marketing', photo: '/free-video/testimonials/alex-goad.jpg' },
+      { quote: 'Given a good brief and some content, even stills, this guy has a skill to turn ideas into motion-video reality. So impressed we are now working together on another 3 videos.', name: 'Steve Kane', role: 'Megaled Ltd.', photo: '/free-video/testimonials/steve-kane.jpg' },
+      { quote: "BlueFX is atomic power for business and I can't recommend him enough. Szilard is a hero. My advice: get unstuck and contact him right away.", name: 'Gregory Green', role: 'President, Slide E Digitizing' },
+      { quote: "I have several marketing agencies, I got a video production company\u2026 it saves me countless hours\u2026 Any place I can get a shortcut to guard and protect my time it's worth a fortune.", name: 'Deryck Jones', role: 'Marketing agency owner' },
+      { quote: "It's all high quality, we use it almost daily for our video marketing company here at BigDeal.solutions.", name: 'Bucky Helms', role: 'BigDeal.solutions' },
+      { quote: "Can't express enough how much I have appreciated the professionalism and top-shelf work pushed out by BlueFX.", name: 'Tony Monaco', role: 'Director of Sales & Marketing' },
+    ],
+  },
   proof: {
     title: 'Video ads made with the AI Media Machine',
     text: 'Tap a video ad for the sound.',
@@ -151,7 +169,7 @@ export const SALES_PAGE = {
     /** For screen readers, before a row the Fiverr package does not have. */
     missingLabel: 'Not included:',
     title: `Under ${UNDER} per video ad`,
-    lead: [`You pay ${OFFER.now} once.`, `You make ${WITH_PRESENTER} video ads every month, for life.`, `So each video ad costs you under ${UNDER}.`],
+    lead: [`You pay ${OFFER.now} once.`, `You get ${WITH_PRESENTER} video ads every month, for life.`, `So each video ad costs you under ${UNDER}.`],
     them: {
       name: 'A freelancer',
       /** Who Fiverr is, for readers who never hired online (owner 2026-10-09: "many wont know about it ... explain the context"). */
@@ -282,7 +300,7 @@ export const SALES_PAGE = {
     ],
   },
   close: {
-    title: (domain: string) => `Make the next video ad for ${domain} today`,
+    title: (domain: string) => `Get the next video ad for ${domain} today`,
     reminder: (when: string) => `Free bonus ends ${when}. After that, the watermark stays on your video ad.`,
     /**
      * A P.S. with an admission about the product (Kennedy review 2026-10-09; owner: an admission, never what the free

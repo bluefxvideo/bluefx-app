@@ -3379,3 +3379,81 @@ p.timerDark {
   }
 }
 
+/* Customers in their own words, 5 stars each. */
+.spReviews {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 760px) {
+  .spReviews {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+.spReview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 18px;
+  background: #ffffff;
+  border: 1px solid var(--fv-line);
+  border-radius: 12px;
+  text-align: left;
+}
+.spReviewNearPrice {
+  margin: 0 0 18px;
+}
+.spStars {
+  color: #f5b301;
+  font-size: 18px;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+.spReviewQuote {
+  flex: 1;
+  margin: 0;
+  color: var(--fv-ink);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.spReviewWho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fv-text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.spReviewWho b {
+  color: var(--fv-ink);
+}
+.spReviewFace,
+.spReviewInitials {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.spReviewInitials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fv-blue);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* The product shot in the offer box beside the video ad. */
+.offerProduct {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 10px;
+}
+
