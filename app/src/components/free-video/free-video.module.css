@@ -3200,12 +3200,12 @@ p.timerDark {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 .spStackValue {
   color: var(--fv-green);
   font-size: 14px;
   font-weight: 800;
-  white-space: nowrap;
 }
 .spStackTotal {
   display: flex;
