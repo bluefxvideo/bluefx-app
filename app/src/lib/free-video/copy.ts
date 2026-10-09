@@ -590,9 +590,9 @@ export const OFFER_READY = {
   letter: {
     greeting: (name: string) => `Hey ${name},`,
     lines: (domain: string) => [
-      'My AI Media Machine made the video ad above from your website. Nobody typed a word of the script.',
+      'My AI Media Machine made the video ad above from your website. Nobody typed a word of the script. A freelancer would charge you $600 for a video ad like this.',
       "One video ad wears out, though. People stop noticing an ad after they've seen the same ad a few times.",
-      `A fresh video ad every week keeps ${domain} in front of your customers.`,
+      `A fresh video ad every week keeps ${domain} in front of your customers and brings new ones in.`,
       "Here's how to make a fresh video ad for under $3.",
     ],
     signature: 'Szilard',

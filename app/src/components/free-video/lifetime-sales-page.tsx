@@ -150,6 +150,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
       <div className={cn(styles.spBlock, styles.spSoft)}>
         <div className={styles.spInner}>
           <div id={SALES_PAGE.stackAnchor} className={styles.spOffer}>
+            <Image className={styles.spProduct} src={offer.image.src} alt={offer.image.alt} width={300} height={300} sizes="(min-width: 760px) 180px, 150px" />
             <h2 className={styles.spOfferTitle}>{offer.title}</h2>
             <ul className={styles.ticks}>
               {offer.items.map((item) => (

@@ -180,6 +180,8 @@ export const SALES_PAGE = {
   },
   offer: {
     title: 'Everything you get',
+    /** The product shot over the stack (owner 2026-10-09): the dashboard on a laptop and the box, 300 px square. */
+    image: { src: '/free-video/aimm-product.jpg', alt: 'The AI Media Machine: the video dashboard on a laptop, and the box' },
     /**
      * Each piece with what it WOULD cost elsewhere (owner 2026-10-09: "$600 each from a freelancer" could read as a
      * freelancer making them, so every value starts with "Would cost you"), then the total (Hormozi review 2026-10-09, owner: "all"): the $600 a
@@ -267,7 +269,7 @@ export const SALES_PAGE = {
       },
       {
         q: 'Do I need to be technical?',
-        a: 'No. If you can paste a link and click a button, you can make video ads with the AI Media Machine. The AI writes the script and makes the voice-over, the pictures and the music.',
+        a: 'No. If you can paste a link and click a button, you can make video ads with the AI Media Machine. The AI writes the script and makes the voice-over, the pictures and the music. The AI Media Machine runs in your browser. Nothing to install.',
       },
       {
         q: 'Is this really one payment?',
