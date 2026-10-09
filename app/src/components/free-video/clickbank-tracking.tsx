@@ -9,7 +9,9 @@ const SCRIPT_ID = 'fv-clickbank-hop';
  * ClickBank's script puts ?hopId= in the address with history.pushState("", "", url): a string state, which Next's
  * patched pushState throws on (the console says "Browser version does not allow adding query params" and the address
  * keeps no hopId; seen live 2026-10-09). An object state goes through, and the router follows the new address without
- * a reload, so the form keeps its state.
+ * a reload, so the form keeps its state. Installed a tick after mount: React runs this component's effect before the
+ * app router's, which installs Next's patch, and a wrapper put in first ends up under the patch instead of over it
+ * (seen live 2026-10-09 too).
  */
 function allowStringState() {
   const history = window.history;
@@ -28,18 +30,22 @@ function allowStringState() {
  */
 export function ClickBankTracking() {
   useEffect(() => {
-    try {
-      if (window.location.hostname !== CLICKBANK_HOST || document.getElementById(SCRIPT_ID)) return;
-      allowStringState();
-      (window as Window & { clickbank?: { vendor: string } }).clickbank = { vendor: CLICKBANK_VENDOR };
-      const script = document.createElement('script');
-      script.id = SCRIPT_ID;
-      script.src = CLICKBANK_SCRIPT_URL;
-      script.async = true;
-      document.head.appendChild(script);
-    } catch {
-      // Attribution never breaks a page.
-    }
+    if (typeof window === 'undefined' || window.location.hostname !== CLICKBANK_HOST) return;
+    const timer = window.setTimeout(() => {
+      try {
+        if (document.getElementById(SCRIPT_ID)) return;
+        allowStringState();
+        (window as Window & { clickbank?: { vendor: string } }).clickbank = { vendor: CLICKBANK_VENDOR };
+        const script = document.createElement('script');
+        script.id = SCRIPT_ID;
+        script.src = CLICKBANK_SCRIPT_URL;
+        script.async = true;
+        document.head.appendChild(script);
+      } catch {
+        // Attribution never breaks a page.
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
   return null;
 }
