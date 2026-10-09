@@ -255,7 +255,8 @@ export const SALES_PAGE = {
     },
   },
   founder: {
-    photo: `${MEDIA}/founder.jpg`,
+    /** The square portrait the owner picked 2026-10-09 ("my face is more easy to see"), 600 px. */
+    photo: `${MEDIA}/founder-2.jpg`,
     name: 'Szilard Gyorfi',
     role: 'Founder of BlueFX, making videos for businesses since 2009',
     text: "I've spent my own money on Facebook ads for years, testing what gets people to click, watch and buy. The AI Media Machine is the same system I use every day.",
