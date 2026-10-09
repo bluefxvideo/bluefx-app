@@ -588,7 +588,8 @@ export const OFFER_READY = {
   // "for free" invited "so why pay?"; a free sample sets up the purchase (owner 2026-10-09).
   headline: {
     first: 'The AI Media Machine just built you a free sample: a $600 video ad in 3 minutes.',
-    second: 'Now unlock the full version and get a new video ad every week for under $3.',
+    // "unlock the full version" named neither thing they get (Kennedy; owner 2026-10-09: "might sound good").
+    second: 'Now get your video ad without the watermark, plus a new video ad every week, for under $3.',
     /** The deck under the headline answers the objection Johnny raised (Kennedy + Hormozi review, owner picked it 2026-10-09). */
     deck: 'You can change anything in your video ad: the presenter, the voice, the words, the photos.',
   },
