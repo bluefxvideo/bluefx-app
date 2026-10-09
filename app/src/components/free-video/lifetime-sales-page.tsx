@@ -69,7 +69,14 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
             {reviews.items.map((item) => (
               <li key={item.name} className={styles.spReview}>
                 <Stars label={reviews.starsLabel} />
-                {'video' in item && <ReviewVideo vimeo={item.video.vimeo} poster={item.video.poster} vertical={item.video.vertical} label={reviews.play(item.name)} />}
+                {'video' in item && (
+                  <ReviewVideo
+                    src={'youtube' in item.video ? `https://www.youtube-nocookie.com/embed/${item.video.youtube}?autoplay=1&rel=0` : `https://player.vimeo.com/video/${item.video.vimeo}?autoplay=1&title=0&byline=0&portrait=0`}
+                    poster={item.video.poster}
+                    vertical={item.video.vertical}
+                    label={reviews.play(item.name)}
+                  />
+                )}
                 <blockquote className={styles.spReviewQuote}>&ldquo;{item.quote}&rdquo;</blockquote>
                 <div className={styles.spReviewWho}>
                   <Image className={styles.spReviewFace} src={item.photo} alt="" width={240} height={240} sizes="48px" />
@@ -339,15 +346,15 @@ function Stars({ label }: { label: string }) {
   );
 }
 
-/** A customer's video testimonial: the poster with a play button, and Vimeo's player once tapped (autoplay, public video). */
-function ReviewVideo({ vimeo, poster, vertical, label }: { vimeo: string; poster: string; vertical: boolean; label: string }) {
+/** A customer's video testimonial: the poster with a play button, and the Vimeo or YouTube player once tapped (autoplay, public video). */
+function ReviewVideo({ src, poster, vertical, label }: { src: string; poster: string; vertical: boolean; label: string }) {
   const [playing, setPlaying] = useState(false);
   return (
     <div className={cn(styles.spReviewVideo, vertical && styles.spReviewVideoTall)}>
       {playing ? (
         <iframe
           className={styles.spReviewPlayer}
-          src={`https://player.vimeo.com/video/${vimeo}?autoplay=1&title=0&byline=0&portrait=0`}
+          src={src}
           title={label}
           allow="autoplay; fullscreen; picture-in-picture"
           allowFullScreen

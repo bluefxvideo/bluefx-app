@@ -140,13 +140,13 @@ export const SALES_PAGE = {
     starsLabel: '5 out of 5 stars',
     play: (name: string) => `Play ${name}'s video`,
     /**
-     * The four with a video keep the video (owner 2026-10-09: "keep the video, and also the face of the person in the
-     * little circle"): Vimeo players, public, the same ones bluefx.net/video-ad embeds; faces cut from their thumbnails.
+     * The five with a video keep the video (owner 2026-10-09: "keep the video, and also the face of the person in the
+     * little circle"): the public Vimeo and YouTube players bluefx.net/video-ad embeds; faces cut from their thumbnails.
      */
     items: [
       { quote: 'The video project is contributing to sales for us, approaching US$ 1 million per year.', name: 'Alex Goad', role: 'Net Frontier Marketing', photo: '/free-video/testimonials/alex-goad.jpg' },
       { quote: 'Given a good brief and some content, even stills, this guy has a skill to turn ideas into motion-video reality. So impressed we are now working together on another 3 videos.', name: 'Steve Kane', role: 'Megaled Ltd.', photo: '/free-video/testimonials/steve-kane.jpg' },
-      { quote: "BlueFX is atomic power for business and I can't recommend him enough. Szilard is a hero. My advice: get unstuck and contact him right away.", name: 'Gregory Green', role: 'President, Slide E Digitizing', photo: '/free-video/testimonials/gregory-green.jpg' },
+      { quote: "BlueFX is atomic power for business and I can't recommend him enough. Szilard is a hero. My advice: get unstuck and contact him right away.", name: 'Gregory Green', role: 'President, Slide E Digitizing', photo: '/free-video/testimonials/gregory-green.jpg', video: { youtube: 'V2UpR-Z_rIU', poster: '/free-video/testimonials/gregory-green-video.jpg', vertical: false } },
       { quote: "I have several marketing agencies, I got a video production company\u2026 it saves me countless hours\u2026 Any place I can get a shortcut to guard and protect my time it's worth a fortune.", name: 'Deryck Jones', role: 'Marketing agency owner', photo: '/free-video/testimonials/deryck-jones.jpg', video: { vimeo: '517463516', poster: '/free-video/testimonials/deryck-jones-video.jpg', vertical: false } },
       { quote: "It's all high quality, we use it almost daily for our video marketing company here at BigDeal.solutions.", name: 'Bucky Helms', role: 'BigDeal.solutions', photo: '/free-video/testimonials/bucky-helms.jpg', video: { vimeo: '517463589', poster: '/free-video/testimonials/bucky-helms-video.jpg', vertical: false } },
       { quote: 'The videos are fantastic and are easy to use.', name: "Francis D'Costa", role: 'Insurance advisor', photo: '/free-video/testimonials/francis-dcosta.jpg', video: { vimeo: '517463537', poster: '/free-video/testimonials/francis-dcosta-video.jpg', vertical: true } },
