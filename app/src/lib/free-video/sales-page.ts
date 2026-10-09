@@ -185,19 +185,20 @@ export const SALES_PAGE = {
   offer: {
     title: 'Everything you get',
     /**
-     * Each piece with what it costs elsewhere, then the total (Hormozi review 2026-10-09, owner: "all"): the $600 a
+     * Each piece with what it WOULD cost elsewhere (owner 2026-10-09: "$600 each from a freelancer" could read as a
+     * freelancer making them, so every value starts with "Would cost you"), then the total (Hormozi review 2026-10-09, owner: "all"): the $600 a
      * video ad on Fiverr of the math section, the $75 a round of changes, and the lifetime page's own "Real-World Value
      * ... as a subscription elsewhere" for avatars ($29), voice-overs ($11) and music ($10). The community has no price
      * anywhere, so none is made up for it.
      */
     items: [
-      { text: `${WITH_PRESENTER} new video ads every month, for life`, value: '$600 each from a freelancer' },
-      { text: 'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice', value: '$75 a round from a freelancer' },
-      { text: 'More AI tools: talking avatars, voice-overs (even in your own cloned voice), music, thumbnails and logos', value: '$50+ a month elsewhere' },
+      { text: `${WITH_PRESENTER} new video ads every month, for life`, value: 'Would cost you $600 each from a freelancer' },
+      { text: 'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice', value: 'Would cost you $75 a round from a freelancer' },
+      { text: 'More AI tools: talking avatars, voice-overs (even in your own cloned voice), music, thumbnails and logos', value: 'Would cost you $50+ a month in other subscriptions' },
       { text: 'Daily YouTube tutorials, a private community and help from me', value: 'Included' },
     ],
     /** The comparison the reader makes (Hormozi review 2026-10-09: "$6,000 a month on Fiverr" reads as a stretch). */
-    totalLabel: `${WITH_PRESENTER} video ads a month from a freelancer`,
+    totalLabel: `What a freelancer would charge for ${WITH_PRESENTER} video ads a month`,
     total: '$6,000',
     yoursLabel: 'Your price, once',
     yours: OFFER.now,
