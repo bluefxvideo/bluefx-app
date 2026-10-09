@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Image from 'next/image';
 import type { ReactNode } from 'react';
 import styles from '@/components/free-video/free-video.module.css';
+import { ClickBankTracking } from '@/components/free-video/clickbank-tracking';
 import { MetaPixel } from '@/components/free-video/meta-pixel';
 import { LAYOUT, SUPPORT_EMAIL } from '@/lib/free-video/copy';
 
@@ -31,12 +32,14 @@ interface FunnelLayoutProps {
 /**
  * The root layout forces the app's dark theme, so this layout paints its own light page: every color
  * comes from free-video.module.css, never from the shadcn theme tokens. No auth calls. The BlueFx pixel
- * loads here for every funnel page (MetaPixel decides in the browser whether it may).
+ * loads here for every funnel page (MetaPixel decides in the browser whether it may), and so does ClickBank's
+ * attribution script (ClickBankTracking, live site only).
  */
 export default function FunnelLayout({ children }: FunnelLayoutProps) {
   return (
     <div className={styles.root}>
       <MetaPixel />
+      <ClickBankTracking />
       <header className={styles.header}>
         <div className={styles.headerIn}>
           <Image src="/brand/bluefx-logo-white.png" alt={LAYOUT.logoAlt} width={98} height={34} priority className={styles.logo} />

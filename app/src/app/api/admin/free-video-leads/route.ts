@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient, createClient } from '@/app/supabase/server';
+import { hopLabel } from '@/lib/free-video/clickbank';
+import { savedHops } from '@/lib/free-video/clickbank-hops';
 import { OWNER_TEST_EMAILS } from '@/lib/free-video/config';
 
 /**
@@ -80,6 +82,9 @@ export async function GET(request: NextRequest) {
       for (const copy of (copies ?? []) as { freeLeadId: string | null }[]) if (copy.freeLeadId) copied.add(copy.freeLeadId);
     }
 
+    // Which affiliate sent each lead (ClickBank Direct Offer Tracking, clickbank-hops.ts).
+    const hops = await savedHops(leads.map((lead) => lead.id));
+
     // The summary covers every lead of the last 7 days, whatever the filter shows.
     const weekAgo = new Date(Date.now() - 7 * DAY_MS).toISOString();
     const { data: week, error: weekError } = await admin
@@ -111,6 +116,7 @@ export async function GET(request: NextRequest) {
         ...lead,
         test: lead.source === 'test' || OWNER_TEST_EMAILS.includes(lead.email),
         inAccount: copied.has(lead.id),
+        affiliate: hopLabel(hops.get(lead.id)),
       })),
     });
   } catch (error) {

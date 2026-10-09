@@ -1,6 +1,7 @@
 import { after, NextResponse } from 'next/server';
 import { isLive, LIMITS, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { ERRORS } from '@/lib/free-video/copy';
+import { saveHop } from '@/lib/free-video/clickbank-hops';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { clientIp, createLead, takeAttempt, verifyHuman } from '@/lib/free-video/leads';
 import { requestFacts, trackLead } from '@/lib/free-video/meta';
@@ -23,8 +24,9 @@ import { createApiError, createApiSuccess, type ApiResponse } from '@/types/vali
  * 4. The bot checks (honeypot, the form's own timer): a silent 200 with token null, nothing stored.
  * 4b. A country on BLOCKED_COUNTRIES (config.ts), by IP or the browser's time zone (geo.ts) → 403 country, nothing stored.
  * 5. createLead (caps, duplicates, the website pre-check, the insert under one lock).
- * 6. after(): a queued lead joins the MailerLite Leads group, the queue is kicked, the cron watchdog runs, and the
- *    Lead goes to Facebook's Conversions API with the visitor's click id (meta.ts).
+ * 6. after(): a queued lead joins the MailerLite Leads group, the queue is kicked, the cron watchdog runs, the
+ *    Lead goes to Facebook's Conversions API with the visitor's click id (meta.ts), and the visit's ClickBank
+ *    affiliate hop, when there is one, is kept on the lead for its checkout clicks (clickbank-hops.ts).
  *
  * Answers ApiResponse<FreeVideoSubmitData>; an error carries details.code (FreeVideoErrorCode) and, for a
  * form field, details.field. A queued lead's answer carries the pixel's Lead event id, the one the server sends too.
@@ -123,6 +125,7 @@ export async function POST(req: Request) {
       if (queued) {
         await Promise.all([
           trackLead(queued, facts, parsed.data.tz),
+          parsed.data.cb ? saveHop(queued.id, parsed.data.cb, 'landing') : Promise.resolve(),
           (async () => {
             await joinLeadsGroup(queued);
             await kickQueue();

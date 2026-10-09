@@ -16,6 +16,7 @@ import {
   type SyntheticEvent,
 } from 'react';
 import { refTagFromUrl, useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
+import { hopFromBrowser } from '@/lib/free-video/clickbank';
 import { ERRORS, EXAMPLES, FORM, type ExampleVideoAd } from '@/lib/free-video/copy';
 import { clickIdFromUrl, PIXEL_DATA, trackPixel } from '@/lib/free-video/pixel';
 import { cn } from '@/lib/utils';
@@ -315,6 +316,8 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
     const slowTimer = window.setTimeout(() => setSlow(true), 1000);
     const ref = refTagFromUrl();
     const fbclid = clickIdFromUrl();
+    // ClickBank's affiliate attribution of this visit, kept on the lead for the checkout clicks (clickbank.ts).
+    const cb = hopFromBrowser();
     const body: SubmitBody = {
       firstName: firstName.trim(),
       email: email.trim(),
@@ -326,6 +329,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
       elapsedMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - mountedAt.current))),
       ...(ref ? { ref } : {}),
       ...(fbclid ? { fbclid } : {}),
+      ...(cb ? { cb } : {}),
     };
     let leaving = false;
     try {

@@ -1,6 +1,8 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/supabase/server';
 import { claimFreeVideo } from '@/lib/free-video/claim';
+import { hopFromSearchParams, withHop } from '@/lib/free-video/clickbank';
+import { savedHopByToken } from '@/lib/free-video/clickbank-hops';
 import { SITE_URL } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
 import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
@@ -26,6 +28,9 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
  *   in their Phantom videos (claim.ts) and lands on it; signed out → the login page, back here after; not a customer
  *   → the lifetime offer; a video ad that is not finished → its page.
  * - Anything else → 404. Every target is built here from fixed parts: never an open redirect.
+ * - A checkout link carries the affiliate's ClickBank hop (clickbank.ts): the hopId and vq ClickBank's script appended
+ *   to the button's link in the same browser, else the hop saved when the lead came in (a click from the emails on
+ *   another device). ClickBank credits the affiliate from the hopId on the order form.
  */
 export const dynamic = 'force-dynamic';
 
@@ -94,14 +99,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
       after(() => markClicked(token, placement));
       return redirect(`${SITE_URL}/v/${token}`);
     }
-    return redirect(checkoutUrl(placement));
+    return redirect(withHop(checkoutUrl(placement), hopFromSearchParams(req.nextUrl.searchParams)));
   }
 
   const facts = requestFacts(req, clientIp(req));
   const eventId = req.nextUrl.searchParams.get(CHECKOUT_EVENT_PARAM);
+  const hop = hopFromSearchParams(req.nextUrl.searchParams) ?? (validToken ? await savedHopByToken(token) : undefined);
   after(async () => {
     if (validToken) await markClicked(token, placement);
     await trackCheckout({ token: validToken ? token : null, placement, eventId, facts });
   });
-  return redirect(checkoutUrl(placement));
+  return redirect(withHop(checkoutUrl(placement), hop));
 }

@@ -11,6 +11,19 @@ export const FREE_VIDEO_TOKEN_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 /** A newsletter or campaign tag from ?ref= (or ?utm_campaign=). */
 export const FREE_VIDEO_REF_PATTERN = /^[\w.-]{0,60}$/;
 
+/**
+ * ClickBank's attribution held by the browser (lib/free-video/clickbank.ts): the affiliate's nickname or the encrypted
+ * shield of a Direct Tracking Link, the hopId ClickBank's script put in the address, and its vq cookie. Every value is
+ * optional and a bad one is dropped: attribution never blocks a visitor.
+ */
+export const ClickBankHopSchema = z.object({
+  affiliate: z.string().trim().max(30).regex(/^[A-Za-z0-9_]{1,30}$/).optional().catch(undefined),
+  shield: z.string().trim().max(80).regex(/^[A-Za-z0-9]{1,80}$/).optional().catch(undefined),
+  hopId: z.string().trim().max(80).regex(/^[A-Za-z0-9._-]{4,80}$/).optional().catch(undefined),
+  vq: z.string().trim().max(200).regex(/^[A-Za-z0-9.]{4,200}$/).optional().catch(undefined),
+});
+export type ClickBankHop = z.infer<typeof ClickBankHopSchema>;
+
 export const FreeVideoLeadSchema = z.object({
   firstName: z
     .string()
@@ -34,6 +47,8 @@ export const FreeVideoLeadSchema = z.object({
   tz: z.string().trim().max(64).optional().catch(undefined),
   /** The Facebook click id of the landing address (?fbclid=), for the Conversions API when the pixel set no _fbc cookie (meta.ts). A bad value is dropped. */
   fbclid: z.string().trim().max(500).regex(/^[\w.-]{10,500}$/).optional().catch(undefined),
+  /** ClickBank's affiliate attribution of the visit (clickbank.ts); a bad value is dropped. */
+  cb: ClickBankHopSchema.optional().catch(undefined),
   /** Honeypot: a field name no autofill knows; it must stay empty. Any odd value counts as filled. */
   fv_note: z.string().max(200).optional().catch('filled'),
   consent: z.literal(true, { errorMap: () => ({ message: VALIDATION.consent }) }),
@@ -327,7 +342,7 @@ export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
  * Events only the server writes: the /go route logs each offer click; meta.ts saves a lead's Facebook ids ('meta_ids',
  * meta {fbc, fbp}) and the outcome of every Conversions API send ('capi', meta {name, id, ok, error}).
  */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi';
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),

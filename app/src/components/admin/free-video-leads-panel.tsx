@@ -30,6 +30,8 @@ interface FreeVideoLeadRow {
   unlock_status: string;
   test: boolean;
   inAccount: boolean;
+  /** The ClickBank affiliate who sent the lead (nickname, or "shield" for an encrypted link); null without one. */
+  affiliate: string | null;
 }
 
 interface Summary {
@@ -199,7 +201,9 @@ export function FreeVideoLeadsPanel() {
                             {lead.inAccount && <Badge variant="outline">In their account</Badge>}
                           </div>
                         </td>
-                        <td className="py-3 pr-4 text-xs text-muted-foreground">{lead.ref || lead.source}</td>
+                        <td className="py-3 pr-4 text-xs text-muted-foreground">
+                          {lead.affiliate ? <Badge variant="outline">Affiliate {lead.affiliate}</Badge> : lead.ref || lead.source}
+                        </td>
                         <td className="py-3 pr-4 text-right whitespace-nowrap">${(Number(lead.est_cost_usd) || 0).toFixed(2)}</td>
                         <td className="py-3">
                           <a
