@@ -117,7 +117,7 @@ const greet = (first: string) => (first === 'there' ? 'Hey there,' : `Hey ${firs
 /** The answers sent back in the reply's own Gmail thread, from support@bluefx.net. */
 export const INBOUND_REPLY = {
   queued: (first: string, domain: string, link: string) =>
-    `${greet(first)}\n\nGot it! Your video ad for ${domain} is being made right now.\n\nYou can watch it come together here:\n${link}\n\nIt's usually ready in about 3 minutes, and I'll email you when it's done.\n\nSzilard`,
+    `${greet(first)}\n\nGot it! Your video ad for ${domain} is being made right now.\n\nYou can watch it come together here:\n${link}\n\nIt's usually ready in about 3 minutes.\n\nSzilard`,
   already: (first: string, link: string) =>
     `${greet(first)}\n\nGood news, you already have your free video ad. Here's the link again:\n${link}\n\nSzilard`,
   siteTaken: (first: string, domain: string) =>

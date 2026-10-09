@@ -104,6 +104,12 @@ export async function POST(req: Request) {
 
     if (result.ok) {
       const lead = result.lead;
+      // The in-thread answer already carries the watch link; no "your video is ready" email (owner 2026-10-10).
+      const { error: skipError } = await leadsTable()
+        .update({ email_status: 'skipped', updated_at: new Date().toISOString() })
+        .eq('id', lead.id)
+        .eq('email_status', 'pending');
+      if (skipError) console.warn(`⚠️ [free-video inbound] Could not skip the ready email for ${lead.id}: ${skipError.message}`);
       after(async () => {
         await joinLeadsGroup(lead);
         await kickQueue();

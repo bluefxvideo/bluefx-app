@@ -57,13 +57,25 @@ function processReplies() {
         console.warn(`App error for ${reply.getFrom()}; will retry next minute.`);
         continue;
       }
-      if (data.reply) reply.reply(data.reply);
+      if (data.reply) reply.reply(data.reply, { htmlBody: toHtml(data.reply) });
       thread.addLabel(done);
       console.log(`${reply.getFrom()} → ${data.action}${data.domain ? ' (' + data.domain + ')' : ''}`);
     }
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * The answer as simple HTML, so Gmail does not hard-wrap long lines (plain text breaks at ~76 characters).
+ * Blank line = new paragraph, single line break kept, links clickable.
+ */
+function toHtml(text) {
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text
+    .split(/\n{2,}/)
+    .map((p) => '<p>' + esc(p).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>').replace(/\n/g, '<br>') + '</p>')
+    .join('');
 }
 
 /** Run once by hand: authorizes Gmail access and starts the every-minute schedule. */
