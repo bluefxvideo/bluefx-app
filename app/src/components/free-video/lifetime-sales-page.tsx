@@ -38,6 +38,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   /** The 3-day bonus runs: the view has its end and the page has not seen it pass. */
   const bonus = Boolean(cleanUntil) && !ended;
   const { questions, reviews, changes, proof, math, offer, founder, faq, close, legal } = SALES_PAGE;
+  const nearPrice = reviews.items.find((item) => item.name === reviews.nearPrice);
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
       <div className={cn(styles.spBlock, styles.spSoft)}>
@@ -212,18 +213,20 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
                 {!ended && <p className={styles.spBonusText}>{offer.bonus.text}</p>}
               </div>
             )}
-            <div className={cn(styles.spReview, styles.spReviewNearPrice)}>
-              <Stars label={reviews.starsLabel} />
-              <blockquote className={styles.spReviewQuote}>&ldquo;{reviews.items[0].quote}&rdquo;</blockquote>
-              <div className={styles.spReviewWho}>
-                <Image className={styles.spReviewFace} src={reviews.items[0].photo} alt="" width={240} height={240} sizes="48px" />
-                <span>
-                  <b>{reviews.items[0].name}</b>
-                  <br />
-                  {reviews.items[0].role}
-                </span>
+            {nearPrice && (
+              <div className={cn(styles.spReview, styles.spReviewNearPrice)}>
+                <Stars label={reviews.starsLabel} />
+                <blockquote className={styles.spReviewQuote}>&ldquo;{nearPrice.quote}&rdquo;</blockquote>
+                <div className={styles.spReviewWho}>
+                  <Image className={styles.spReviewFace} src={nearPrice.photo} alt="" width={240} height={240} sizes="48px" />
+                  <span>
+                    <b>{nearPrice.name}</b>
+                    <br />
+                    {nearPrice.role}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
             <div className={styles.spPrice}>
               <span className={styles.spPriceTag}>{offer.tag}</span>
               <p className={styles.spPriceRow}>

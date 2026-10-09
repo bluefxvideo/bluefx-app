@@ -138,6 +138,8 @@ export const SALES_PAGE = {
     title: 'What BlueFX customers say',
     lead: '36,000+ customers since 2009.',
     starsLabel: '5 out of 5 stars',
+    /** The one quote above the price (owner 2026-10-09: Dov's 45% "more believable" than Alex's $1 million). */
+    nearPrice: 'Dov Rom',
     play: (name: string) => `Play ${name}'s video`,
     /**
      * The five with a video keep the video (owner 2026-10-09: "keep the video, and also the face of the person in the
@@ -151,7 +153,7 @@ export const SALES_PAGE = {
       { quote: "It's all high quality, we use it almost daily for our video marketing company here at BigDeal.solutions.", name: 'Bucky Helms', role: 'BigDeal.solutions', photo: '/free-video/testimonials/bucky-helms.jpg', video: { vimeo: '517463589', poster: '/free-video/testimonials/bucky-helms-video.jpg', vertical: false } },
       { quote: 'The videos are fantastic and are easy to use.', name: "Francis D'Costa", role: 'Insurance advisor', photo: '/free-video/testimonials/francis-dcosta.jpg', video: { vimeo: '517463537', poster: '/free-video/testimonials/francis-dcosta-video.jpg', vertical: true } },
       { quote: "It's so easy to use and I don't need to learn too much to edit video.", name: 'Sambath Sim', role: 'Entrepreneur', photo: '/free-video/testimonials/sambath-sim.jpg', video: { vimeo: '517463570', poster: '/free-video/testimonials/sambath-sim-video.jpg', vertical: true } },
-      { quote: 'I rarely give public endorsements, but my experience with BlueFx was so positive that I am compelled to share it.', name: 'Dov Rom', role: 'President, Ascent Equipment, the business in the clip above', photo: '/free-video/testimonials/dov-rom.jpg' },
+      { quote: 'I rarely give public endorsements, but my experience with BlueFx was so positive that I am compelled to share it. Within just a few weeks of launching, we have seen a 45% increase in organic traffic.', name: 'Dov Rom', role: 'President, Ascent Equipment. His video ad is in the clip above.', photo: '/free-video/testimonials/dov-rom.jpg' },
       { quote: "Can't express enough how much I have appreciated the professionalism and top-shelf work pushed out by BlueFX.", name: 'Tony Monaco', role: 'Director of Sales & Marketing', photo: '/free-video/testimonials/tony-monaco.jpg' },
     ],
   },
