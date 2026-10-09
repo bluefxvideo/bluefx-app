@@ -3283,3 +3283,48 @@ p.timerDark {
   font-size: 13px;
   line-height: 1.4;
 }
+
+/* The headline and the letter under the video ad (Kennedy review 2026-10-09). */
+.readyHeadline {
+  margin: 22px 0 10px;
+  color: var(--fv-ink);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.readyLetter {
+  margin: 0 0 18px;
+  color: var(--fv-text);
+  font-size: 16px;
+  line-height: 1.55;
+}
+/* The anchor under the price, and the named guarantee at the point of purchase. */
+.spPriceAnchor {
+  margin: 8px 0 0;
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+.spPriceGuarantee {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 2px solid var(--fv-green);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--fv-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.spPriceGuarantee b {
+  color: var(--fv-ink);
+}
+/* The P.S. at the close. */
+.spPs {
+  max-width: 560px;
+  margin: 22px auto 0;
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1.55;
+  text-align: left;
+}
+

@@ -582,6 +582,14 @@ export const OFFER_READY = {
    * The box beside the finished video ad (Hormozi review 2026-10-09, owner: "all"): value before price, so no price
    * here. The bonus and its timer stay; the button leads down to the stack with the price (SALES_PAGE.stackAnchor).
    */
+  /**
+   * The headline and the letter under the video ad (Kennedy review 2026-10-09, owner: "now thats a headline!"): the
+   * result they just got, the promise, then two lines from me with their name, with the problem (one video ad wears
+   * out) folded in. No pronoun for the video ad (owner's rule).
+   */
+  headline: 'You just got a $600 video ad in 3 minutes, for free. Now make a new video ad every week for under $3.',
+  letter: (name: string, domain: string) =>
+    `${name}, Szilard here. My AI Media Machine made the video ad above from your website, with nobody typing a word of the script. One video ad wears out, though: people stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps ${domain} in front of your customers. Here's how to make a fresh video ad for under $3.`,
   title: 'Like your video ad?',
   text: `Get your video ad without the watermark and ready to change, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month.`,
   /** After the 3-day bonus. */
@@ -594,9 +602,9 @@ export const OFFER_READY = {
    */
   bonusTitle: `Free bonus: your video ad without the watermark, ready to change (${UNLOCK.price} value)`,
   /** Under the countdown: the deadline only; what expires is explained once, in the stack (Hormozi review 2026-10-09). */
-  bonusLine: (when: string) => `Ends ${when}.`,
+  bonusLine: (when: string) => `Ends ${when}. After that, the watermark stays on your video ad.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
-  bonusLineSoon: 'Ends 3 days after your video ad was made.',
+  bonusLineSoon: 'Ends 3 days after your video ad was made. After that, the watermark stays on your video ad.',
 } as const;
 
 /**

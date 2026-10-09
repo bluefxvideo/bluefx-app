@@ -65,12 +65,6 @@ export const SALES_PAGE = {
   anchor: 'everything-you-get',
   /** The id of the stack with the price, where the button beside the video ad jumps (Hormozi review 2026-10-09: value before price). */
   stackAnchor: 'what-you-get',
-  bridge: {
-    /** The outcome first, in the owner's own proven words ("Want more clients from social media?"), then the vehicle. */
-    kicker: 'Want more customers from social media?',
-    title: (domain: string) => `Post a fresh video ad for ${domain} every week`,
-    text: (domain: string) => `People stop noticing an ad after they've seen the same ad a few times. A fresh video ad every week keeps ${domain} in front of your customers.`,
-  },
   /**
    * The 3 questions every buyer of software asks, and the free video ad already answered all 3 (owner 2026-10-08:
    * "people first like to see proof, can a software actually deliver? next can it create the result for them? and the
@@ -192,7 +186,7 @@ export const SALES_PAGE = {
      * anywhere, so none is made up for it.
      */
     items: [
-      { text: `${WITH_PRESENTER} new video ads every month, for life`, value: 'Would cost you $600 each from a freelancer' },
+      { text: `${WITH_PRESENTER} new video ads every month, for life: a video ad for every offer, every holiday special, every slow week`, value: 'Would cost you $600 each from a freelancer' },
       { text: 'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice', value: 'Would cost you $75 a round from a freelancer' },
       { text: 'More AI tools: talking avatars, voice-overs (even in your own cloned voice), music, thumbnails and logos', value: 'Would cost you $50+ a month in other subscriptions' },
       { text: 'Daily YouTube tutorials, a private community and help from me', value: 'Included' },
@@ -207,13 +201,15 @@ export const SALES_PAGE = {
       tag: (when: string | null) => (when ? `Free bonus until ${when}` : `Free bonus for ${BONUS_DAYS} days`),
       title: (domain: string) => `Your video ad for ${domain}, without the watermark and ready to change (${UNLOCK.price} value)`,
       // Owner 2026-10-08: no "within about 10 minutes" here ("needed to say??"), and "After the timer expires".
-      text: "Get the AI Media Machine by then and your video ad goes into your account with all the working files: the presenter clip, the voice-over, the drawings and the music. Change anything, any time. After the timer expires, the working files can be deleted any time, and then your video ad can't be changed anymore.",
+      text: "Get the AI Media Machine by then and your video ad goes into your account with all the working files: the presenter clip, the voice-over, the drawings and the music. Change anything, any time. After the timer expires, the working files can be deleted any time. Then the watermark stays on your video ad, and your video ad can't be changed anymore.",
     },
     tag: '40th birthday price',
     was: OFFER.was,
     now: OFFER.now,
     unit: 'one payment',
     why: `I turned 40 this year, so the lifetime license is ${OFFER.off}.`,
+    /** The anchor at the price (Kennedy review 2026-10-09). */
+    anchor: `A freelancer charges ${FREELANCER} for ONE video ad.`,
     /** What happens after the click: the checkout, the login email, the first win. */
     next: {
       title: 'What happens when you click',
@@ -283,7 +279,10 @@ export const SALES_PAGE = {
   },
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
-    reminder: (when: string) => `Free bonus ends ${when}`,
+    reminder: (when: string) => `Free bonus ends ${when}. After that, the watermark stays on your video ad.`,
+    /** A P.S. with an admission about the product (Kennedy review 2026-10-09; owner: an admission, never what the free video ad cost me). */
+    ps: (when: string | null) =>
+      `P.S. The AI Media Machine isn't perfect. Now and then a line comes out wrong, like a typo copied from a website. That's what the changes are for: type the fix, and the new version is ready in about 3 minutes. The watermark comes off the minute you're in. After ${when ?? 'the timer expires'}, the watermark stays.`,
     line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads every month, for life: under ${UNDER} per video ad.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */

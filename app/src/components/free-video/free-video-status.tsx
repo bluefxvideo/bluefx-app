@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
-import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
+import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY, OFFER_READY } from '@/lib/free-video/copy';
 import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
@@ -259,6 +259,13 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                   onSaved={() => beacon('download')}
                 />
                 {staleNotice}
+                {/* The headline and the letter (Kennedy review 2026-10-09), then the offer box. */}
+                {!view.isCustomer && (
+                  <>
+                    <h2 className={styles.readyHeadline}>{OFFER_READY.headline}</h2>
+                    <p className={styles.readyLetter}>{OFFER_READY.letter(view.firstName, domain)}</p>
+                  </>
+                )}
                 <LifetimeOffer placement={placement} token={token} isCustomer={view.isCustomer} variant="ready" cleanUntil={view.cleanUntil} />
               </div>
             </div>

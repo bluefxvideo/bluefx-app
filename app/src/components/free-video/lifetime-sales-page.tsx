@@ -35,22 +35,14 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   const ended = useBonusEnded(cleanUntil);
   /** The 3-day bonus runs: the view has its end and the page has not seen it pass. */
   const bonus = Boolean(cleanUntil) && !ended;
-  const { bridge, questions, changes, proof, math, offer, founder, faq, close, legal } = SALES_PAGE;
+  const { questions, changes, proof, math, offer, founder, faq, close, legal } = SALES_PAGE;
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
-      <div className={styles.spBlock}>
-        <div className={styles.spInner}>
-          <p className={styles.spKicker}>{bridge.kicker}</p>
-          <h2 id="fv-sales-title" className={styles.spTitle}>
-            {bridge.title(domain)}
-          </h2>
-          <p className={styles.spLead}>{bridge.text(domain)}</p>
-        </div>
-      </div>
-
       <div className={cn(styles.spBlock, styles.spSoft)}>
         <div className={styles.spInnerWide}>
-          <h2 className={styles.spTitle}>{questions.title}</h2>
+          <h2 id="fv-sales-title" className={styles.spTitle}>
+            {questions.title}
+          </h2>
           <p className={styles.spLead}>{questions.lead}</p>
           <ol className={styles.spSteps}>
             {questions.items(domain).map((item) => (
@@ -199,7 +191,11 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               </p>
               <p className={styles.spPriceUnit}>{offer.unit}</p>
               <p className={styles.spPriceWhy}>{offer.why}</p>
+              <p className={styles.spPriceAnchor}>{offer.anchor}</p>
             </div>
+            <p className={styles.spPriceGuarantee}>
+              <b>{founder.guarantee.name}:</b> {founder.guarantee.text}
+            </p>
             <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
               {OFFER_COPY.button}
             </OfferButton>
@@ -270,6 +266,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
           </OfferButton>
           <PaymentTrust dark />
           <p className={styles.spCloseLine}>{close.line}</p>
+          <p className={styles.spPs}>{close.ps(bonus ? when : null)}</p>
         </div>
       </div>
 
