@@ -280,9 +280,12 @@ export const SALES_PAGE = {
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
     reminder: (when: string) => `Free bonus ends ${when}. After that, the watermark stays on your video ad.`,
-    /** A P.S. with an admission about the product (Kennedy review 2026-10-09; owner: an admission, never what the free video ad cost me). */
+    /**
+     * A P.S. with an admission about the product (Kennedy review 2026-10-09; owner: an admission, never what the free
+     * video ad cost me, and "big visual problems that the ad may have for the client", not a typo).
+     */
     ps: (when: string | null) =>
-      `P.S. The AI Media Machine isn't perfect. Now and then a line comes out wrong, like a typo copied from a website. That's what the changes are for: type the fix, and the new version is ready in about 3 minutes. The watermark comes off the minute you're in. After ${when ?? 'the timer expires'}, the watermark stays.`,
+      `P.S. The AI Media Machine isn't perfect. Maybe the presenter isn't who you'd want speaking for your business, or the AI used a photo from your website you'd never have chosen. That's what the changes are for: type what you want instead, and the new version is ready in about 3 minutes. The watermark comes off the minute you're in. After ${when ?? 'the timer expires'}, the watermark stays.`,
     line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads every month, for life: under ${UNDER} per video ad.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */
