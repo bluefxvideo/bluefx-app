@@ -585,7 +585,8 @@ export const OFFER_READY = {
    * result they just got, the promise, then two lines from me with their name, with the problem (one video ad wears
    * out) folded in. No pronoun for the video ad (owner's rule).
    */
-  headline: { first: 'You just got a $600 video ad in 3 minutes, for free.', second: 'Now get a new video ad every week for under $3.' },
+  // "for free" invited "so why pay?"; a free sample sets up the purchase (owner 2026-10-09).
+  headline: { first: 'Your free sample of the AI Media Machine: a $600 video ad in 3 minutes.', second: 'Now get a new video ad every week for under $3.' },
   /** Like my emails: "Hey {name}," short lines, "Szilard" (owner 2026-10-09: "just Szilard", "break up the text"). */
   letter: {
     greeting: (name: string) => `Hey ${name},`,

@@ -138,13 +138,21 @@ export const SALES_PAGE = {
     title: 'What BlueFX customers say',
     lead: '36,000+ customers since 2009.',
     starsLabel: '5 out of 5 stars',
+    play: (name: string) => `Play ${name}'s video`,
+    /**
+     * The four with a video keep the video (owner 2026-10-09: "keep the video, and also the face of the person in the
+     * little circle"): Vimeo players, public, the same ones bluefx.net/video-ad embeds; faces cut from their thumbnails.
+     */
     items: [
       { quote: 'The video project is contributing to sales for us, approaching US$ 1 million per year.', name: 'Alex Goad', role: 'Net Frontier Marketing', photo: '/free-video/testimonials/alex-goad.jpg' },
       { quote: 'Given a good brief and some content, even stills, this guy has a skill to turn ideas into motion-video reality. So impressed we are now working together on another 3 videos.', name: 'Steve Kane', role: 'Megaled Ltd.', photo: '/free-video/testimonials/steve-kane.jpg' },
-      { quote: "BlueFX is atomic power for business and I can't recommend him enough. Szilard is a hero. My advice: get unstuck and contact him right away.", name: 'Gregory Green', role: 'President, Slide E Digitizing' },
-      { quote: "I have several marketing agencies, I got a video production company\u2026 it saves me countless hours\u2026 Any place I can get a shortcut to guard and protect my time it's worth a fortune.", name: 'Deryck Jones', role: 'Marketing agency owner' },
-      { quote: "It's all high quality, we use it almost daily for our video marketing company here at BigDeal.solutions.", name: 'Bucky Helms', role: 'BigDeal.solutions' },
-      { quote: "Can't express enough how much I have appreciated the professionalism and top-shelf work pushed out by BlueFX.", name: 'Tony Monaco', role: 'Director of Sales & Marketing' },
+      { quote: "BlueFX is atomic power for business and I can't recommend him enough. Szilard is a hero. My advice: get unstuck and contact him right away.", name: 'Gregory Green', role: 'President, Slide E Digitizing', photo: '/free-video/testimonials/gregory-green.jpg' },
+      { quote: "I have several marketing agencies, I got a video production company\u2026 it saves me countless hours\u2026 Any place I can get a shortcut to guard and protect my time it's worth a fortune.", name: 'Deryck Jones', role: 'Marketing agency owner', photo: '/free-video/testimonials/deryck-jones.jpg', video: { vimeo: '517463516', poster: '/free-video/testimonials/deryck-jones-video.jpg', vertical: false } },
+      { quote: "It's all high quality, we use it almost daily for our video marketing company here at BigDeal.solutions.", name: 'Bucky Helms', role: 'BigDeal.solutions', photo: '/free-video/testimonials/bucky-helms.jpg', video: { vimeo: '517463589', poster: '/free-video/testimonials/bucky-helms-video.jpg', vertical: false } },
+      { quote: 'The videos are fantastic and are easy to use.', name: "Francis D'Costa", role: 'Insurance advisor', photo: '/free-video/testimonials/francis-dcosta.jpg', video: { vimeo: '517463537', poster: '/free-video/testimonials/francis-dcosta-video.jpg', vertical: true } },
+      { quote: "It's so easy to use and I don't need to learn too much to edit video.", name: 'Sambath Sim', role: 'Entrepreneur', photo: '/free-video/testimonials/sambath-sim.jpg', video: { vimeo: '517463570', poster: '/free-video/testimonials/sambath-sim-video.jpg', vertical: true } },
+      { quote: 'I rarely give public endorsements, but my experience with BlueFx was so positive that I am compelled to share it.', name: 'Dov Rom', role: 'President, Ascent Equipment, the business in the clip above', photo: '/free-video/testimonials/dov-rom.jpg' },
+      { quote: "Can't express enough how much I have appreciated the professionalism and top-shelf work pushed out by BlueFX.", name: 'Tony Monaco', role: 'Director of Sales & Marketing', photo: '/free-video/testimonials/tony-monaco.jpg' },
     ],
   },
   proof: {

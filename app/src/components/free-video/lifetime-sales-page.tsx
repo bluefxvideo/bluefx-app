@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import Image from 'next/image';
 import { OFFER_COPY, SUPPORT_EMAIL } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
@@ -67,15 +69,10 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
             {reviews.items.map((item) => (
               <li key={item.name} className={styles.spReview}>
                 <Stars label={reviews.starsLabel} />
+                {'video' in item && <ReviewVideo vimeo={item.video.vimeo} poster={item.video.poster} vertical={item.video.vertical} label={reviews.play(item.name)} />}
                 <blockquote className={styles.spReviewQuote}>&ldquo;{item.quote}&rdquo;</blockquote>
                 <div className={styles.spReviewWho}>
-                  {'photo' in item ? (
-                    <Image className={styles.spReviewFace} src={item.photo} alt="" width={225} height={225} sizes="48px" />
-                  ) : (
-                    <span className={styles.spReviewInitials} aria-hidden="true">
-                      {initials(item.name)}
-                    </span>
-                  )}
+                  <Image className={styles.spReviewFace} src={item.photo} alt="" width={240} height={240} sizes="48px" />
                   <span>
                     <b>{item.name}</b>
                     <br />
@@ -212,7 +209,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               <Stars label={reviews.starsLabel} />
               <blockquote className={styles.spReviewQuote}>&ldquo;{reviews.items[0].quote}&rdquo;</blockquote>
               <div className={styles.spReviewWho}>
-                <Image className={styles.spReviewFace} src={reviews.items[0].photo} alt="" width={225} height={225} sizes="48px" />
+                <Image className={styles.spReviewFace} src={reviews.items[0].photo} alt="" width={240} height={240} sizes="48px" />
                 <span>
                   <b>{reviews.items[0].name}</b>
                   <br />
@@ -342,11 +339,28 @@ function Stars({ label }: { label: string }) {
   );
 }
 
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+/** A customer's video testimonial: the poster with a play button, and Vimeo's player once tapped (autoplay, public video). */
+function ReviewVideo({ vimeo, poster, vertical, label }: { vimeo: string; poster: string; vertical: boolean; label: string }) {
+  const [playing, setPlaying] = useState(false);
+  return (
+    <div className={cn(styles.spReviewVideo, vertical && styles.spReviewVideoTall)}>
+      {playing ? (
+        <iframe
+          className={styles.spReviewPlayer}
+          src={`https://player.vimeo.com/video/${vimeo}?autoplay=1&title=0&byline=0&portrait=0`}
+          title={label}
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      ) : (
+        <button type="button" className={styles.spReviewPlay} onClick={() => setPlaying(true)} aria-label={label}>
+          <Image className={styles.spReviewPoster} src={poster} alt="" width={vertical ? 640 : 640} height={vertical ? 1138 : 360} sizes="(min-width: 760px) 340px, 100vw" />
+          <span className={styles.spReviewPlayIcon} aria-hidden="true">
+            &#9654;
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
 
