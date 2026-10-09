@@ -1900,7 +1900,11 @@ function EndCard() {
  *   when endCardSeconds > 0, an end card that adds endCardSeconds to the video. Left out (the default), the render
  *   is exactly what it was before the prop existed.
  */
-export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful', theme, assets = {}, audio, captions, duration, watermark }) => {
+// Languages written right to left: the whole video flips, so a subtitle line (one flex row of words) and every text
+// read in order (2026-10-09, the first Arabic free video ad, yaserfolio).
+const RTL_LANGUAGES = new Set(['ar', 'he', 'fa', 'ur']);
+
+export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful', theme, assets = {}, audio, captions, duration, watermark, language }) => {
   const frameSize = FRAMES[format] || FRAMES.vertical;
   const styleName = STYLES[style] ? style : 'playful';
   const look = STYLES[styleName];
@@ -1922,7 +1926,7 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
   return (
     <Frame.Provider value={frameSize}>
     <Plan.Provider value={plan}>
-      <AbsoluteFill style={{ background: plan.theme.bg }}>
+      <AbsoluteFill style={{ background: plan.theme.bg, direction: RTL_LANGUAGES.has(String(language || '').slice(0, 2)) ? 'rtl' : 'ltr' }}>
         {ready &&
           scenes.map((scene, i) => (
             <Sequence key={i} from={Math.round(scene.start * FPS)} durationInFrames={Math.max(1, Math.round((scene.end - scene.start) * FPS))}>

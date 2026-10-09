@@ -736,6 +736,8 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
     duration,
     format: media.format || 'vertical',
     style: plan.style,
+    // The render flips right to left for Arabic, Hebrew, Persian and Urdu (SmartVideo.jsx).
+    language: plan.language,
     theme: buildTheme(plan.style, plan.theme),
     assets: media.assets,
     audio: {
