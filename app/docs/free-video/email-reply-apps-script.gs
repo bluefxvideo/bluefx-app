@@ -9,12 +9,12 @@
  *   4. labels the thread "free-video-done" so it is never handled twice.
  * Replies with no website (or anything the app chooses not to answer) stay in the inbox for Szilard.
  *
- * Setup: see email-reply-campaign.md next to this file. Fill INBOUND_KEY with FREE_VIDEO_INBOUND_KEY.
+ * Setup: see email-reply-campaign.md next to this file. The script holds no secret: it proves it runs as
+ * support@bluefx.net with Google's identity token (needs the appsscript.json scopes in this folder).
  */
 
 const SUBJECT = 'Can I make you a video?';               // the broadcast subject, exactly as sent
 const CAMPAIGN = 'video-email-1';                        // shows as the lead's ref in the admin panel
-const INBOUND_KEY = 'PASTE_FREE_VIDEO_INBOUND_KEY_HERE';
 const ENDPOINT = 'https://app.bluefx.net/api/free-video/inbound';
 const OUR_ADDRESSES = ['support@bluefx.net', 'contact@bluefx.net'];
 const DONE_LABEL = 'free-video-done';
@@ -37,14 +37,15 @@ function processReplies() {
         thread.addLabel(done);
         continue;
       }
-      const res = UrlFetchApp.fetch(`${ENDPOINT}?key=${encodeURIComponent(INBOUND_KEY)}&ref=${encodeURIComponent(CAMPAIGN)}`, {
+      const res = UrlFetchApp.fetch(`${ENDPOINT}?ref=${encodeURIComponent(CAMPAIGN)}`, {
         method: 'post',
         contentType: 'application/json',
+        headers: { Authorization: `Bearer ${ScriptApp.getIdentityToken()}` },
         payload: JSON.stringify({ from: reply.getFrom(), subject: reply.getSubject(), text: reply.getPlainBody() }),
         muteHttpExceptions: true,
       });
       const code = res.getResponseCode();
-      if (code === 401) throw new Error('The app refused the key: check INBOUND_KEY.');
+      if (code === 401) throw new Error('The app refused this account: run the script as support@bluefx.net.');
       let data = {};
       try {
         data = JSON.parse(res.getContentText());

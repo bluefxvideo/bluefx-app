@@ -16,7 +16,7 @@ import { FREE_VIDEO_REF_PATTERN } from '@/types/free-video';
  * in the same Gmail thread when it is not null, then labels the message as processed.
  *
  * Server to server, so the form's browser checks (origin, per-IP limit, bot timer, IP country gate) do not apply:
- * the shared key FREE_VIDEO_INBOUND_KEY is the gate. createLead still applies the daily caps, one video per address
+ * the gate is the shared key FREE_VIDEO_INBOUND_KEY, or a Google identity token of a GOOGLE_SENDERS account. createLead still applies the daily caps, one video per address
  * and per domain, and the website pre-check; a queued lead then runs exactly like a form lead.
  *
  * Once the key is right it always answers 200 with { ok, action, reply, link?, domain? }, so n8n never retries.
@@ -24,6 +24,9 @@ import { FREE_VIDEO_REF_PATTERN } from '@/types/free-video';
 export const dynamic = 'force-dynamic';
 
 const BODY_CAP = 300_000;
+
+/** Google accounts whose Apps Script may post here with their own identity token instead of the key. */
+const GOOGLE_SENDERS = ['support@bluefx.net'];
 
 function keyMatches(given: string | null): boolean {
   const expected = process.env.FREE_VIDEO_INBOUND_KEY;
@@ -33,12 +36,36 @@ function keyMatches(given: string | null): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/**
+ * The Gmail Apps Script sends `Authorization: Bearer <ScriptApp.getIdentityToken()>`, so the script holds no
+ * secret. Google's tokeninfo checks the signature and expiry; the token must name a verified GOOGLE_SENDERS address.
+ */
+async function googleSenderOk(req: Request): Promise<boolean> {
+  const token = (req.headers.get('authorization') || '').match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!token) return false;
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return false;
+    const t = (await res.json()) as { iss?: string; email?: string; email_verified?: string | boolean; exp?: string };
+    return (
+      (t.iss === 'accounts.google.com' || t.iss === 'https://accounts.google.com') &&
+      String(t.email_verified) === 'true' &&
+      GOOGLE_SENDERS.includes(String(t.email || '').toLowerCase()) &&
+      Number(t.exp) * 1000 > Date.now()
+    );
+  } catch {
+    return false;
+  }
+}
+
 type Answer = { ok: boolean; action: string; reply: string | null; link?: string; domain?: string; detail?: string };
 const answer = (body: Answer, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
-  if (!keyMatches(url.searchParams.get('key') ?? req.headers.get('x-inbound-key'))) {
+  if (!keyMatches(url.searchParams.get('key') ?? req.headers.get('x-inbound-key')) && !(await googleSenderOk(req))) {
     return answer({ ok: false, action: 'unauthorized', reply: null }, 401);
   }
   const refParam = (url.searchParams.get('ref') || 'email-reply').slice(0, 60);
