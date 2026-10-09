@@ -3306,6 +3306,13 @@ p.timerDark {
   }
 }
 /* My photo over the letter. */
+/* The deck under the headline: the change promise, small and grey (owner picked it 2026-10-09). */
+.readyDeck {
+  margin: 0 0 18px;
+  color: var(--fv-text);
+  font-size: 17px;
+  line-height: 1.45;
+}
 .readyFounder {
   display: flex;
   align-items: center;
@@ -3363,6 +3370,10 @@ p.timerDark {
   font-size: 15px;
   line-height: 1.55;
   text-align: left;
+}
+/* The P.P.S. sits right under the P.S. */
+.spPps {
+  margin-top: 12px;
 }
 
 /* The product shot over the stack. */

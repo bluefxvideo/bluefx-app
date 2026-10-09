@@ -317,6 +317,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
           <PaymentTrust dark />
           <p className={styles.spCloseLine}>{close.line}</p>
           <p className={styles.spPs}>{close.ps(bonus ? when : null)}</p>
+          <p className={cn(styles.spPs, styles.spPps)}>{close.pps}</p>
         </div>
       </div>
 

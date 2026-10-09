@@ -320,6 +320,8 @@ export const SALES_PAGE = {
     ps: (when: string | null) =>
       `P.S. The AI Media Machine isn't perfect. Maybe the presenter isn't who you'd want speaking for your business, or the AI used a photo from your website you'd never have chosen. That's what the changes are for: type what you want instead, and the new version is ready in about 3 minutes. The watermark comes off the minute you're in. After ${when ?? 'the timer expires'}, the watermark stays.`,
     line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads every month, for life: under ${UNDER} per video ad.`,
+    /** A second P.S. for the other tools: the stack carries their value, this is the reminder at the decision (Kennedy; owner picked it 2026-10-09). */
+    pps: `P.P.S. The ${WITH_PRESENTER} video ads a month are the main thing. Talking avatars, voice-overs, music, thumbnails and logos come with them, included.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */
   legal: {

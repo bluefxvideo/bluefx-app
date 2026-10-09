@@ -269,6 +269,7 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                     <h2 className={styles.readyHeadline}>
                       <span>{OFFER_READY.headline.first}</span> <span className={styles.readyHeadlineAccent}>{OFFER_READY.headline.second}</span>
                     </h2>
+                    <p className={styles.readyDeck}>{OFFER_READY.headline.deck}</p>
                     <div className={styles.readyFounder}>
                       <Image className={styles.readyFace} src={SALES_PAGE.founder.photo} alt={SALES_PAGE.founder.name} width={1920} height={1080} sizes="72px" />
                       <span className={styles.readyFounderLabel}>{OFFER_READY.letter.photoLabel}</span>
