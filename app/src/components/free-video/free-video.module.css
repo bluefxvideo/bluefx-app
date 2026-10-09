@@ -3368,13 +3368,14 @@ p.timerDark {
 /* The product shot over the stack. */
 .spProduct {
   display: block;
-  width: 150px;
+  width: 100%;
+  max-width: 300px;
   height: auto;
-  margin: 0 auto 10px;
+  margin: 0 auto 8px;
 }
 @media (min-width: 760px) {
   .spProduct {
-    width: 180px;
+    max-width: 360px;
   }
 }
 

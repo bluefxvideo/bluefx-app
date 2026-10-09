@@ -180,7 +180,7 @@ export const SALES_PAGE = {
   },
   offer: {
     title: 'Everything you get',
-    /** The product shot over the stack (owner 2026-10-09): the dashboard on a laptop and the box, 300 px square. */
+    /** The product shot over the stack (owner 2026-10-09): the dashboard on a laptop and the box, remade at 816 px with GPT Image 2.5 from his 300 px original. */
     image: { src: '/free-video/aimm-product.jpg', alt: 'The AI Media Machine: the video dashboard on a laptop, and the box' },
     /**
      * Each piece with what it WOULD cost elsewhere (owner 2026-10-09: "$600 each from a freelancer" could read as a
