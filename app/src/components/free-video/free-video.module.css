@@ -3129,3 +3129,149 @@ p.timerDark {
   font-size: 13px;
   cursor: pointer;
 }
+
+/* What a buyer can change (SALES_PAGE.changes): a typed change, the lead's questions, the presenters to pick from. */
+.spDemo {
+  max-width: 300px;
+  margin: 22px auto 0;
+}
+.spDemoVideo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  border-radius: 18px;
+  background: #000000;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+}
+.spDemoCaption {
+  margin: 10px 0 0;
+  color: var(--fv-text);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+}
+.spFaces {
+  margin: 28px 0 0;
+  text-align: center;
+}
+.spFacesTitle {
+  margin: 0 0 12px;
+  color: var(--fv-ink);
+  font-size: 20px;
+  font-weight: 800;
+}
+.spFacesGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+.spFacesImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.spFacesMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: var(--fv-blue);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 800;
+}
+.spFacesNote {
+  margin: 10px 0 0;
+  color: var(--fv-text);
+  font-size: 15px;
+}
+
+/* The stack: every piece with what it costs elsewhere, then the total (Hormozi review 2026-10-09). */
+.spStackItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.spStackValue {
+  color: var(--fv-green);
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.spStackTotal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 2px solid var(--fv-line);
+  color: var(--fv-ink);
+  font-size: 16px;
+  font-weight: 700;
+}
+.spStackTotal b {
+  color: var(--fv-green);
+  font-size: 20px;
+  font-weight: 800;
+}
+/* The named guarantee in the founder block. */
+.spGuarantee {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border: 2px solid var(--fv-green);
+  border-radius: 12px;
+  background: #ffffff;
+}
+.spGuaranteeName {
+  margin: 0 0 4px;
+  color: var(--fv-ink);
+  font-size: 17px;
+  font-weight: 800;
+}
+.spGuaranteeName::before {
+  content: '✓ ';
+  color: var(--fv-green);
+}
+.spGuaranteeText {
+  margin: 0;
+  color: var(--fv-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* The change section sits on the blue band, its cards numbered, so it reads apart from the 3 green-ticked questions. */
+.spChanges {
+  background: var(--fv-blue);
+  color: #ffffff;
+}
+.spChanges .spKicker,
+.spChanges .spTitle,
+.spChanges .spLead,
+.spChanges .spFacesTitle,
+.spChanges .spFacesNote,
+.spChanges .spDemoCaption {
+  color: #ffffff;
+}
+.spChanges .spKicker {
+  opacity: 0.85;
+}
+.spChangeCard {
+  border-color: transparent;
+}
+/* "Your price, once" under the Fiverr total. */
+.spStackYours {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 0;
+}

@@ -63,6 +63,8 @@ const BONUS_DAYS = CLEAN_COPY_HOURS / 24;
 export const SALES_PAGE = {
   /** The id the short offer's link beside the video ad jumps to. */
   anchor: 'everything-you-get',
+  /** The id of the stack with the price, where the button beside the video ad jumps (Hormozi review 2026-10-09: value before price). */
+  stackAnchor: 'what-you-get',
   bridge: {
     /** The outcome first, in the owner's own proven words ("Want more clients from social media?"), then the vehicle. */
     kicker: 'Want more customers from social media?',
@@ -93,6 +95,44 @@ export const SALES_PAGE = {
       },
     ],
   },
+  /**
+   * What a buyer can change, in the words of a lead who could not find an edit button on the free video ad (Johnny,
+   * teaminsightplus.com, 2026-10-09: "I did not see a way to edit anything ... I would prefer to pick my own [avatar]
+   * along with how he speaks and any accents he has ... a typo I saw"). Owner: "the questions he had are the things that
+   * would get people to buy, they need to be featured on the page ... images of the multitude of avatars". Every answer
+   * is true today: note edits (wording, typos, voice, music, photos, logo), the AI Avatar tool (246 presenters or your own
+   * photo, 60 voices, voice cloning) whose clip goes into the video ad with an edit.
+   */
+  changes: {
+    /** Changes come with the paid AI Media Machine, never the free sample (owner 2026-10-09: "they might think that they can do this in the free version"). */
+    kicker: 'With the AI Media Machine',
+    title: 'Want to change something in your video ad?',
+    lead: 'The video ad above is your free sample. With the AI Media Machine you can change anything: type what you want, and the new version is ready in about 3 minutes.',
+    /**
+     * A real change (Hormozi review 2026-10-09: show, don't tell; owner: "pick a more visual thing, maybe changing the
+     * avatar"): the ascentequipment.com free video ad's opening, then the same line said by another presenter (cast with
+     * castPresenter + talkingPresenter), rendered clean; the note typed over the free sample.
+     */
+    demo: {
+      video: `${MEDIA}/edit-demo.mp4`,
+      poster: `${MEDIA}/edit-demo.jpg`,
+      label: 'A real change typed in the AI Media Machine: a different presenter says the same opening line',
+      caption: 'A real change: one sentence typed, and the same video ad opens with a new presenter about 3 minutes later.',
+    },
+    items: [
+      { q: 'Can I change the wording?', a: 'Yes. Type what your video ad should say instead, one line or the whole script.' },
+      { q: 'Can I fix a typo that came from my website?', a: 'Yes. Type "change X to Y", and the voice-over and the text on screen change with it.' },
+      { q: 'Can I pick my own presenter?', a: 'Yes. Choose one of 246 presenters, or use your own photo, and put your presenter in your video ad.' },
+      { q: 'Can I choose how they speak, even the accent?', a: 'Yes. Pick one of 60 voices, with Australian and Indian English accents among them, or clone your own voice.' },
+      { q: 'Can I change the music, the photos or add my logo?', a: 'Yes. Ask for other music, add your own photos and your logo, and they go into your video ad.' },
+    ],
+    facesTitle: '246 presenters to choose from',
+    facesNote: 'Or use your own photo.',
+    /** The 246 presenters minus the 24 faces shown. */
+    more: '+222',
+    /** 24 presenters of the AI Avatar library (avatar_templates), cropped square around the face (public/free-video/avatars). */
+    faces: Array.from({ length: 24 }, (_, i) => `/free-video/avatars/${String(i + 1).padStart(2, '0')}.webp`),
+  },
   proof: {
     title: 'Video ads made with the AI Media Machine',
     text: 'Tap a video ad for the sound.',
@@ -102,12 +142,6 @@ export const SALES_PAGE = {
     next: 'More video ads',
     /** Exactly the lifetime page's row, in its order (owner 2026-10-08). */
     items: WALL,
-    wideTitle: 'Also made with the AI Media Machine',
-    wide: [
-      { video: `${MEDIA}/wide-1.mp4`, poster: `${MEDIA}/wide-1.jpg`, label: 'Cinematic AI product ad' },
-      { video: `${MEDIA}/wide-2.mp4`, poster: `${MEDIA}/wide-2.jpg`, label: 'Cinematic AI brand ad' },
-    ],
-    wideNote: 'Made on a laptop in an afternoon, with no camera crew, no actors and no studio.',
   },
   /**
    * The price per video ad, big, against a freelancer's $600 (owner 2026-10-08: "highlight it, in an entire section
@@ -143,17 +177,28 @@ export const SALES_PAGE = {
       /** Owner 2026-10-08: "3 min waiting time". Free video ads take 2.8 min from start to finish (median of 19; 3 in 4 within 3.2 min). */
       time: 'About 3 minutes of waiting',
       /** Row for row against the Fiverr card beside it. */
-      includes: ['Script writing', 'Voice-over', 'Music', 'An AI presenter', 'Changes: type what to change'],
+      includes: ['Changes: type what to change', 'Script writing', 'Voice-over', 'Music', 'An AI presenter'],
     },
   },
   offer: {
     title: 'Everything you get',
+    /**
+     * Each piece with what it costs elsewhere, then the total (Hormozi review 2026-10-09, owner: "all"): the $600 a
+     * video ad on Fiverr of the math section, the $75 a round of changes, and the lifetime page's own "Real-World Value
+     * ... as a subscription elsewhere" for avatars ($29), voice-overs ($11) and music ($10). The community has no price
+     * anywhere, so none is made up for it.
+     */
     items: [
-      `${WITH_PRESENTER} new video ads every month, for life`,
-      'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice',
-      'More AI tools: talking avatars, voice-overs (even in your own cloned voice), music, thumbnails and logos',
-      'Daily YouTube tutorials, a private community and help from me',
+      { text: `${WITH_PRESENTER} new video ads every month, for life`, value: '$600 each on Fiverr' },
+      { text: 'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice', value: '$75 a round on Fiverr' },
+      { text: 'More AI tools: talking avatars, voice-overs (even in your own cloned voice), music, thumbnails and logos', value: '$50+ a month elsewhere' },
+      { text: 'Daily YouTube tutorials, a private community and help from me', value: 'Included' },
     ],
+    /** The comparison the reader makes (Hormozi review 2026-10-09: "$6,000 a month on Fiverr" reads as a stretch). */
+    totalLabel: `${WITH_PRESENTER} video ads a month on Fiverr`,
+    total: '$6,000',
+    yoursLabel: 'Your price, once',
+    yours: OFFER.now,
     /** The 3-day bonus (offer.ts CLEAN_COPY_HOURS), shown once in full: named, valued, with its end. */
     bonus: {
       tag: (when: string | null) => (when ? `Free bonus until ${when}` : `Free bonus for ${BONUS_DAYS} days`),
@@ -182,8 +227,13 @@ export const SALES_PAGE = {
     photo: `${MEDIA}/founder.jpg`,
     name: 'Szilard Gyorfi',
     role: 'Founder of BlueFX, making videos for businesses since 2009',
-    text: "I've spent over $60,000 of my own money on Facebook ads, testing what gets people to click, watch and buy. The AI Media Machine is the same system I use every day.",
-    risk: 'You risk nothing. I risk my reputation built over 18 years and 36,000 customers.',
+    text: "I've spent my own money on Facebook ads for years, testing what gets people to click, watch and buy. The AI Media Machine is the same system I use every day.",
+    risk: 'You risk nothing. I risk my reputation.',
+    /** The named guarantee (Hormozi review 2026-10-09): the same 30-day refund ClickBank gives, with a name, in my words. */
+    guarantee: {
+      name: 'The 10 Video Ads Guarantee',
+      text: "Make your first 10 video ads. If you don't love them, email me within 30 days and you get every penny back.",
+    },
     facts: ['18 years in marketing', '$60K+ of my own money spent testing video ads', '36,000+ customers'],
   },
   faq: {
@@ -230,7 +280,7 @@ export const SALES_PAGE = {
   },
   close: {
     title: (domain: string) => `Make the next video ad for ${domain} today`,
-    reminder: (when: string) => `Free bonus until ${when}: your video ad without the watermark, ready to change. After the timer expires, the working files can be deleted any time.`,
+    reminder: (when: string) => `Free bonus ends ${when}`,
     line: `One payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads every month, for life: under ${UNDER} per video ad.`,
   },
   /** ClickBank sells the lifetime license, so its retailer notice goes with the offer (as on the lifetime page). */

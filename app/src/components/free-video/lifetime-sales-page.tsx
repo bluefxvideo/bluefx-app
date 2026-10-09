@@ -35,7 +35,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   const ended = useBonusEnded(cleanUntil);
   /** The 3-day bonus runs: the view has its end and the page has not seen it pass. */
   const bonus = Boolean(cleanUntil) && !ended;
-  const { bridge, questions, proof, math, offer, founder, faq, close, legal } = SALES_PAGE;
+  const { bridge, questions, changes, proof, math, offer, founder, faq, close, legal } = SALES_PAGE;
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
       <div className={styles.spBlock}>
@@ -66,18 +66,49 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
         </div>
       </div>
 
+      {/* What a buyer can change, a lead's own questions, with the presenters to pick from (SALES_PAGE.changes). */}
+      <div className={cn(styles.spBlock, styles.spChanges)}>
+        <div className={styles.spInnerWide}>
+          <p className={styles.spKicker}>{changes.kicker}</p>
+          <h2 className={styles.spTitle}>{changes.title}</h2>
+          <p className={styles.spLead}>{changes.lead}</p>
+          <figure className={styles.spDemo}>
+            <video className={styles.spDemoVideo} src={changes.demo.video} poster={changes.demo.poster} autoPlay muted loop playsInline controls preload="metadata" aria-label={changes.demo.label} />
+            <figcaption className={styles.spDemoCaption}>{changes.demo.caption}</figcaption>
+          </figure>
+          <ol className={styles.spSteps}>
+            {changes.items.map((item, i) => (
+              <li key={item.q} className={cn(styles.spStep, styles.spChangeCard)}>
+                <span className={styles.spStepNumber} aria-hidden="true">
+                  {i + 1}
+                </span>
+                <h3 className={styles.spStepTitle}>{item.q}</h3>
+                <p className={styles.spStepText}>{item.a}</p>
+              </li>
+            ))}
+          </ol>
+          <div className={styles.spFaces}>
+            <p className={styles.spFacesTitle}>{changes.facesTitle}</p>
+            <ul className={styles.spFacesGrid}>
+              {changes.faces.map((src) => (
+                <li key={src}>
+                  <Image className={styles.spFacesImg} src={src} alt="" width={240} height={240} sizes="80px" />
+                </li>
+              ))}
+              <li className={styles.spFacesMore} aria-hidden="true">
+                {changes.more}
+              </li>
+            </ul>
+            <p className={styles.spFacesNote}>{changes.facesNote}</p>
+          </div>
+        </div>
+      </div>
+
       <div className={styles.spProof}>
         <div className={styles.spInnerWide}>
           <h2 className={styles.spProofTitle}>{proof.title}</h2>
           <p className={styles.spProofText}>{proof.text}</p>
           <VideoWall items={proof.items} soundOn={proof.soundOn} soundOff={proof.soundOff} previous={proof.previous} next={proof.next} />
-          <p className={styles.spWideTitle}>{proof.wideTitle}</p>
-          <div className={styles.spWide}>
-            {proof.wide.map((item) => (
-              <video key={item.video} className={styles.spWideVideo} src={item.video} poster={item.poster} controls playsInline preload="none" aria-label={item.label} />
-            ))}
-          </div>
-          <p className={styles.spWideNote}>{proof.wideNote}</p>
         </div>
       </div>
 
@@ -120,24 +151,31 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               </ul>
             </div>
           </div>
-          <div className={styles.spCta}>
-            <OfferButton className={cn(styles.btn, styles.spBtn)} href={href}>
-              {OFFER_COPY.button}
-            </OfferButton>
-            <PaymentTrust />
-          </div>
         </div>
       </div>
 
       <div className={cn(styles.spBlock, styles.spSoft)}>
         <div className={styles.spInner}>
-          <div className={styles.spOffer}>
+          <div id={SALES_PAGE.stackAnchor} className={styles.spOffer}>
             <h2 className={styles.spOfferTitle}>{offer.title}</h2>
             <ul className={styles.ticks}>
               {offer.items.map((item) => (
-                <li key={item}>{item}</li>
+                <li key={item.text}>
+                  <span className={styles.spStackItem}>
+                    <span>{item.text}</span>
+                    <span className={styles.spStackValue}>{item.value}</span>
+                  </span>
+                </li>
               ))}
             </ul>
+            <p className={styles.spStackTotal}>
+              <span>{offer.totalLabel}</span>
+              <b>{offer.total}</b>
+            </p>
+            <p className={cn(styles.spStackTotal, styles.spStackYours)}>
+              <span>{offer.yoursLabel}</span>
+              <b>{offer.yours}</b>
+            </p>
             {cleanUntil && (
               <div className={styles.spBonus}>
                 {!ended && <p className={styles.spBonusTag}>{offer.bonus.tag(when)}</p>}
@@ -186,6 +224,10 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               <p className={styles.spRole}>{founder.role}</p>
               <p className={styles.spFounderText}>{founder.text}</p>
               <p className={cn(styles.spFounderText, styles.spStrong)}>{founder.risk}</p>
+              <div className={styles.spGuarantee}>
+                <p className={styles.spGuaranteeName}>{founder.guarantee.name}</p>
+                <p className={styles.spGuaranteeText}>{founder.guarantee.text}</p>
+              </div>
               <ul className={styles.spFacts}>
                 {founder.facts.map((fact) => (
                   <li key={fact}>{fact}</li>

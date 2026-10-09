@@ -578,23 +578,25 @@ export const PAYMENT_TRUST = {
  * video ad without the watermark and the deadline; after that, with the new video ads.
  */
 export const OFFER_READY = {
-  heading: `Get your video ad without the watermark, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
-  headingLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month`,
-  body: 'Own the AI that made your video ad, for one payment, and make a new video ad any time in about 3 minutes.',
+  /**
+   * The box beside the finished video ad (Hormozi review 2026-10-09, owner: "all"): value before price, so no price
+   * here. The bonus and its timer stay; the button leads down to the stack with the price (SALES_PAGE.stackAnchor).
+   */
+  title: 'Like your video ad?',
+  text: `Get your video ad without the watermark and ready to change, plus ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month.`,
+  /** After the 3-day bonus. */
+  textLater: `Make ${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month with the AI that made your video ad.`,
+  /** The button names what the box promises (owner 2026-10-09: "see what you get" felt strange), and leads to the price. */
+  seeButton: 'Remove the watermark and change anything',
   /**
    * The 3-day bonus, named and valued at the $99 the clean video ad sold for (owner 2026-10-08: "the word buy seems
    * harsh", then the Hormozi review: a fast-action bonus says what you get, what it is worth and until when).
    */
   bonusTitle: `Free bonus: your video ad without the watermark, ready to change (${UNLOCK.price} value)`,
-  /** Under the countdown: the deadline and what the visitor loses after it. */
-  bonusLine: (when: string) =>
-    `Get the AI Media Machine by ${when}. After the timer expires, the working files of your video ad (presenter clip, voice-over, drawings, music) can be deleted any time, and then your video ad can't be changed anymore.`,
+  /** Under the countdown: the deadline only; what expires is explained once, in the stack (Hormozi review 2026-10-09). */
+  bonusLine: (when: string) => `Ends ${when}.`,
   /** Before the browser has printed the exact time (useDeadline): true on every visit. */
-  bonusLineSoon:
-    "Get the AI Media Machine within 3 days of getting your video ad. After the timer expires, the working files of your video ad (presenter clip, voice-over, drawings, music) can be deleted any time, and then your video ad can't be changed anymore.",
-  /** The guarantee sits in PaymentTrust right above. */
-  fine: 'One payment. Secure checkout by ClickBank.',
-  seeAll: 'See everything you get',
+  bonusLineSoon: 'Ends 3 days after your video ad was made.',
 } as const;
 
 /**
