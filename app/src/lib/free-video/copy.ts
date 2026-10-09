@@ -586,7 +586,7 @@ export const OFFER_READY = {
    * out) folded in. No pronoun for the video ad (owner's rule).
    */
   // "for free" invited "so why pay?"; a free sample sets up the purchase (owner 2026-10-09).
-  headline: { first: 'The AI Media Machine just built you a free sample: a $600 video ad in 3 minutes.', second: 'Now get a new video ad every week for under $3.' },
+  headline: { first: 'The AI Media Machine just built you a free sample: a $600 video ad in 3 minutes.', second: 'Now unlock the full version and get a new video ad every week for under $3.' },
   /** Like my emails: "Hey {name}," short lines, "Szilard" (owner 2026-10-09: "just Szilard", "break up the text"). */
   letter: {
     greeting: (name: string) => `Hey ${name},`,
