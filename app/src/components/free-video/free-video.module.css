@@ -3275,3 +3275,11 @@ p.timerDark {
   padding-top: 6px;
   border-top: 0;
 }
+
+/* Under the freelancer's price: who Fiverr is, for readers who never hired online. */
+.spMathNote {
+  margin: 4px 0 0;
+  color: var(--fv-text);
+  font-size: 13px;
+  line-height: 1.4;
+}

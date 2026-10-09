@@ -126,6 +126,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               <p className={styles.spMathName}>{math.them.name}</p>
               <p className={cn(styles.spMathPrice, styles.spMathPriceThem)}>{math.them.price}</p>
               <p className={styles.spMathPer}>{math.them.per}</p>
+              <p className={styles.spMathNote}>{math.them.note}</p>
               <p className={cn(styles.spMathTime, styles.spMathTimeThem)}>{math.them.time}</p>
               <ul className={cn(styles.ticks, styles.spMathIncludes, styles.spMathIncludesThem)}>
                 {math.them.includes.map((row) => (

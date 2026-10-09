@@ -157,7 +157,9 @@ export const SALES_PAGE = {
     title: `Under ${UNDER} per video ad`,
     lead: [`You pay ${OFFER.now} once.`, `You make ${WITH_PRESENTER} video ads every month, for life.`, `So each video ad costs you under ${UNDER}.`],
     them: {
-      name: 'A freelancer on Fiverr',
+      name: 'A freelancer',
+      /** Who Fiverr is, for readers who never hired online (owner 2026-10-09: "many wont know about it ... explain the context"). */
+      note: 'The going rate on Fiverr, the biggest website for hiring freelancers, for 1 video ad like yours.',
       price: FREELANCER,
       per: 'for 1 video ad',
       time: '14 days of waiting',
@@ -189,13 +191,13 @@ export const SALES_PAGE = {
      * anywhere, so none is made up for it.
      */
     items: [
-      { text: `${WITH_PRESENTER} new video ads every month, for life`, value: '$600 each on Fiverr' },
-      { text: 'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice', value: '$75 a round on Fiverr' },
+      { text: `${WITH_PRESENTER} new video ads every month, for life`, value: '$600 each from a freelancer' },
+      { text: 'Changes to any video ad: type what to change, like the music, a photo, a line of the script or the voice', value: '$75 a round from a freelancer' },
       { text: 'More AI tools: talking avatars, voice-overs (even in your own cloned voice), music, thumbnails and logos', value: '$50+ a month elsewhere' },
       { text: 'Daily YouTube tutorials, a private community and help from me', value: 'Included' },
     ],
     /** The comparison the reader makes (Hormozi review 2026-10-09: "$6,000 a month on Fiverr" reads as a stretch). */
-    totalLabel: `${WITH_PRESENTER} video ads a month on Fiverr`,
+    totalLabel: `${WITH_PRESENTER} video ads a month from a freelancer`,
     total: '$6,000',
     yoursLabel: 'Your price, once',
     yours: OFFER.now,
@@ -255,7 +257,7 @@ export const SALES_PAGE = {
         // A lead's own words (2026-10-08: "your prices are too high. People are struggling financially these days"),
         // answered with the owner's math from his reply.
         q: `Isn't ${OFFER.now} a lot right now?`,
-        a: `Money is tight for a lot of people right now. On Fiverr, 1 video ad like yours costs ${FREELANCER}. Your one payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads like yours every month, for life. That's under ${UNDER} per video ad.`,
+        a: `Money is tight for a lot of people right now. A freelancer charges ${FREELANCER} for 1 video ad like yours (the going rate on Fiverr, the biggest website for hiring freelancers). Your one payment of ${OFFER.now} covers ${WITH_PRESENTER} video ads like yours every month, for life. That's under ${UNDER} per video ad.`,
       },
       {
         // The same lead: "I wish the videos were longer by at least 90 seconds". Exact-words scripts follow their own
