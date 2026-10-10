@@ -76,6 +76,247 @@ async function logSkoolProductEvent(data: FastSpringEventData, eventType: string
   console.log('Skool product ' + product + ' ' + eventType + ' for ' + (email || ref) + ' - logged only, fulfilled in Skool')
 }
 
+// "Your Video Ad Website" (sold on the ClickBank OTO1 page through the FastSpring popup storefront) is a
+// done-for-you website that BlueFX builds and hosts for the buyer. It is NOT an AI Media Machine plan, so
+// its events must never create an app user, change a plan, grant credits or suspend an account. Without
+// this branch they fall through to the plan handlers: subscription.activated makes a "yearly" starter
+// plan with 600 credits for a new email (or, for an existing subscriber, moves their account onto the
+// website subscription and cancels their real one in FastSpring), and the website's cancellation, or the
+// 3-pay plan's deactivation after its last payment, suspends the buyer's app account. Like
+// SKOOL_PRODUCTS: every event of these products is logged in webhook_events (event_type
+// VIDEO_AD_WEBSITE) for history, then the webhook stops. The website itself is fulfilled by hand.
+//
+// To add a product: put its FastSpring product path here, lowercased. Every path that CONTAINS
+// WEBSITE_PRODUCT_MARKER counts too, so a renamed variant or an add-on such as 'portfolio-website-setup'
+// is already safe before anyone lists it here.
+const WEBSITE_PRODUCTS = new Set([
+  'portfolio-website',      // yearly: $300 setup fee + $97 for year 1 ($397 today), then $97 a year
+  'portfolio-website-split', // 3 monthly payments of $139, then renews into portfolio-website-yearly
+  'portfolio-website-yearly', // $97 a year, the renewal the split plan renews into
+])
+const WEBSITE_PRODUCT_MARKER = 'portfolio-website'
+const WEBSITE_EVENT_TYPE = 'VIDEO_AD_WEBSITE'
+
+/** A FastSpring product field as a path: a string, or an object with .product (expanded webhooks). */
+function productPathOf(product: unknown): string {
+  if (typeof product === 'string') return product.trim()
+  if (product && typeof product === 'object') {
+    const path = (product as { product?: unknown }).product
+    if (typeof path === 'string') return path.trim()
+  }
+  return ''
+}
+
+function isWebsiteProductPath(path: string): boolean {
+  const p = path.trim().toLowerCase()
+  return p !== '' && (WEBSITE_PRODUCTS.has(p) || p.includes(WEBSITE_PRODUCT_MARKER))
+}
+
+/** A subscription field as an id: a string, or an object with .id / .subscription (expanded webhooks). */
+function subscriptionIdOf(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (value && typeof value === 'object') {
+    const sub = value as { id?: unknown; subscription?: unknown }
+    if (typeof sub.id === 'string') return sub.id.trim()
+    if (typeof sub.subscription === 'string') return sub.subscription.trim()
+  }
+  return ''
+}
+
+const fieldOf = (value: unknown, key: string): unknown =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined
+
+type WebsiteMatch =
+  | { scope: 'only'; products: string[]; subscriptionId: string; matchedBy: string }
+  /** An order that also holds other products: `rest` is the same event without the website items. */
+  | { scope: 'mixed'; products: string[]; subscriptionId: string; matchedBy: string; rest: FastSpringEventData }
+
+/**
+ * The website products the event itself names. Orders and returns are judged by their items (an
+ * order can mix products); subscription events by their own product (data.product, or
+ * data.subscription.product when expanded). No lookups, never throws.
+ */
+function websiteProductsIn(data: FastSpringEventData): WebsiteMatch | null {
+  const own = productPathOf(data.product) || productPathOf(fieldOf(fieldOf(data, 'subscription'), 'product'))
+  const items: unknown[] = Array.isArray(data.items) ? data.items : []
+  const itemPath = (item: unknown) => productPathOf(fieldOf(item, 'product'))
+  const websiteItems = items.filter(item => isWebsiteProductPath(itemPath(item)))
+  const ownIsWebsite = isWebsiteProductPath(own)
+  if (!ownIsWebsite && websiteItems.length === 0) return null
+
+  const products = [...new Set([...(ownIsWebsite ? [own] : []), ...websiteItems.map(itemPath)].map(p => p.toLowerCase()))]
+  const subscriptionId =
+    subscriptionIdOf(fieldOf(data, 'subscription')) ||
+    websiteItems.map(item => subscriptionIdOf(fieldOf(item, 'subscription'))).find(Boolean) ||
+    ''
+  // Other products: items that name a product that is not a website product (an item with no product
+  // path at all is not an order for anything, so it never makes an order "mixed").
+  const otherItems = items.filter(item => itemPath(item) !== '' && !isWebsiteProductPath(itemPath(item)))
+  if (websiteItems.length === 0 || otherItems.length === 0) {
+    return { scope: 'only', products, subscriptionId, matchedBy: 'product' }
+  }
+  // Mixed order: the other products keep their normal handling, with the website items (and a
+  // top-level product that names one) taken out, so nothing downstream ever sees them.
+  const rest: FastSpringEventData = { ...data, items: otherItems as FastSpringEventData['items'] }
+  if (ownIsWebsite) delete rest.product
+  return { scope: 'mixed', products, subscriptionId, matchedBy: 'product', rest }
+}
+
+/** True when the event names any product at all (top level, expanded subscription, or an item). */
+function namesAnyProduct(data: FastSpringEventData): boolean {
+  if (productPathOf(data.product) || productPathOf(fieldOf(fieldOf(data, 'subscription'), 'product'))) return true
+  const items: unknown[] = Array.isArray(data.items) ? data.items : []
+  return items.some(item => productPathOf(fieldOf(item, 'product')) !== '')
+}
+
+interface WebsiteLookups {
+  /** Website product paths already logged for this subscription id, or null when none was logged. */
+  loggedWebsiteProducts(subscriptionId: string): Promise<string[] | null>
+  /** True when an app plan (user_subscriptions) is billed by this subscription id. */
+  isAppSubscription(subscriptionId: string): Promise<boolean>
+  /** The subscription's product path from the FastSpring API, or null when it cannot be read. */
+  fastSpringProduct(subscriptionId: string): Promise<string | null>
+}
+
+/**
+ * Whether a FastSpring event belongs to a website product. Most events name their product. A
+ * non-expanded subscription.charge.completed / charge.failed (what this store sends) carries only
+ * the subscription id, so it is matched through the website events logged at purchase, then, for a
+ * subscription that no app plan uses, through the FastSpring API.
+ */
+async function websiteEventIn(data: FastSpringEventData, lookups: WebsiteLookups): Promise<WebsiteMatch | null> {
+  const named = websiteProductsIn(data)
+  if (named) return named
+  if (namesAnyProduct(data)) return null
+  const subscriptionId = subscriptionIdOf(fieldOf(data, 'subscription'))
+  if (!subscriptionId) return null
+
+  const logged = await lookups.loggedWebsiteProducts(subscriptionId)
+  if (logged) return { scope: 'only', products: logged, subscriptionId, matchedBy: 'subscription logged before' }
+  if (await lookups.isAppSubscription(subscriptionId)) return null
+  const product = await lookups.fastSpringProduct(subscriptionId)
+  if (product && isWebsiteProductPath(product)) {
+    return { scope: 'only', products: [product.toLowerCase()], subscriptionId, matchedBy: 'FastSpring API' }
+  }
+  return null
+}
+
+const websiteLookups: WebsiteLookups = {
+  async loggedWebsiteProducts(subscriptionId) {
+    const supabase = createAdminClient()
+    const { data: rows, error } = await supabase
+      .from('webhook_events')
+      .select('payload')
+      .eq('processor', 'fastspring')
+      .eq('event_type', WEBSITE_EVENT_TYPE)
+      .eq('payload->>subscriptionId', subscriptionId)
+      .limit(1)
+    if (error) {
+      console.error('❌ Website product lookup failed (webhook_events):', error.message)
+      return null
+    }
+    if (!rows || rows.length === 0) return null
+    const products: unknown = fieldOf(rows[0]?.payload, 'products')
+    return Array.isArray(products) ? products.filter((p): p is string => typeof p === 'string') : []
+  },
+
+  async isAppSubscription(subscriptionId) {
+    const supabase = createAdminClient()
+    const { data: rows, error } = await supabase
+      .from('user_subscriptions')
+      .select('id')
+      .eq('fastspring_subscription_id', subscriptionId)
+      .limit(1)
+    if (error) {
+      console.error('❌ Website product lookup failed (user_subscriptions):', error.message)
+      return false
+    }
+    return Boolean(rows && rows.length > 0)
+  },
+
+  async fastSpringProduct(subscriptionId) {
+    const username = process.env.FASTSPRING_USERNAME
+    const apiKey = process.env.FASTSPRING_API_KEY
+    if (!username || !apiKey) {
+      console.warn('⚠️ FastSpring API credentials not configured: cannot read the product of subscription', subscriptionId)
+      return null
+    }
+    try {
+      const auth = Buffer.from(`${username}:${apiKey}`).toString('base64')
+      const res = await fetch(`https://api.fastspring.com/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+        headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!res.ok) {
+        console.error(`❌ FastSpring API ${res.status} reading subscription ${subscriptionId}`)
+        return null
+      }
+      const json: unknown = await res.json()
+      const sub = Array.isArray(fieldOf(json, 'subscriptions')) ? (fieldOf(json, 'subscriptions') as unknown[])[0] : json
+      return productPathOf(fieldOf(sub, 'product')) || null
+    } catch (apiError) {
+      console.error('❌ FastSpring API error reading subscription', subscriptionId, apiError)
+      return null
+    }
+  },
+}
+
+/**
+ * Log a website-product event for history, then do nothing else. The event_id prefix keeps these
+ * rows apart from the plan handlers' `${id}_${eventType}` duplicate keys, which a mixed order's other
+ * products still need. A database error is logged, not thrown: the row is history only.
+ */
+async function logWebsiteProductEvent(data: FastSpringEventData, eventType: string, match: WebsiteMatch) {
+  const supabase = createAdminClient()
+  const orderRef = fieldOf(data, 'order')
+  const ref =
+    data.id ||
+    (typeof fieldOf(data, 'return') === 'string' ? (fieldOf(data, 'return') as string) : '') ||
+    (typeof orderRef === 'string' ? orderRef : subscriptionIdOf(orderRef)) ||
+    data.reference ||
+    match.subscriptionId ||
+    String(Date.now())
+  const changed = fieldOf(data, 'changed') ?? fieldOf(data, 'timestamp')
+  const eventId = `video_ad_website_${ref}_${eventType}` + (typeof changed === 'number' || typeof changed === 'string' ? `_${changed}` : '')
+  const email = (typeof data.account === 'object' ? data.account?.contact?.email : undefined) || data.customer?.email || ''
+  const accountId = typeof data.account === 'string' ? data.account : (data.account?.id || '')
+  const who = email || accountId || ref
+
+  const { data: existing } = await supabase
+    .from('webhook_events')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('processor', 'fastspring')
+    .limit(1)
+  if (existing && existing.length > 0) {
+    console.log(`🔄 Video ad website ${eventType} for ${who} already logged (${eventId}): no app change`)
+    return
+  }
+
+  const { error } = await supabase
+    .from('webhook_events')
+    .insert({
+      event_id: eventId,
+      event_type: WEBSITE_EVENT_TYPE,
+      processor: 'fastspring',
+      payload: {
+        data,
+        eventType,
+        products: match.products,
+        scope: match.scope,
+        matchedBy: match.matchedBy,
+        subscriptionId: match.subscriptionId,
+        email,
+        accountId,
+        note: 'Video ad website product - logged only, no app user, plan, credit or suspension change',
+      } as unknown as Json
+    })
+  if (error && error.code !== '23505') {
+    console.error(`❌ Video ad website ${eventType} for ${who} not logged in webhook_events:`, error.message)
+  }
+  console.log(`✅ Video ad website ${match.products.join(', ') || 'product'} ${eventType} for ${who} (${match.scope}, matched by ${match.matchedBy}): logged only, no app account, plan or credit change`)
+}
+
 // FastSpring webhook payload interfaces
 interface FastSpringContact {
   email?: string
@@ -224,6 +465,16 @@ async function processFastSpringEvent(eventType: string, eventData: FastSpringEv
     customerEmail: typeof eventData.account === 'object' ? eventData.account?.contact?.email : undefined,
     items: eventData.items
   })
+
+  // Video ad website products (see WEBSITE_PRODUCTS): log and stop, for every event type. Checked
+  // first, so no handler below ever sees one. A mixed order goes on without its website items.
+  const website = await websiteEventIn(eventData, websiteLookups)
+  if (website) {
+    await logWebsiteProductEvent(eventData, eventType, website)
+    if (website.scope === 'only') return
+    await processFastSpringEvent(eventType, website.rest)
+    return
+  }
 
   // Skool-fulfilled products (AI Creators Club): log and acknowledge. These are
   // real FastSpring subscriptions, so they fire the full subscription lifecycle,
