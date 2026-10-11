@@ -70,7 +70,9 @@ const GA_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_
 const TRACKED_PARAMS = [...GA_PARAMS, 'fbclid', 'gad_source', 'gbraid', 'wbraid', 'msclkid', 'hopId', 'affiliate', 'tid', 'shield', 'vq'];
 
 /** A query value that is safe in an address Google or Microsoft may see: words, digits and a little punctuation, never an @ or a slash. */
-const SAFE_VALUE = /^[\w .,:+()|~-]{1,100}$/;
+// Up to 512: Facebook's newer click ids (fbclid with _aem_) run 150 to 200 characters; the character set still keeps out
+// emails (@), paths (/) and encoded text.
+const SAFE_VALUE = /^[\w .,:+()|~-]{1,512}$/;
 
 /** A view token in a path (FREE_VIDEO_TOKEN_PATTERN). */
 const TOKEN_PART = /^[A-Za-z0-9_-]{22}$/;
