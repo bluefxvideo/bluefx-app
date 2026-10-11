@@ -261,6 +261,8 @@ export interface FreeVideoView {
   script?: string[];
   /** making / checking: everything the job has made so far, shown the moment it exists. */
   live?: FreeVideoLive;
+  /** ready: "Why this ad works", 3 to 5 short lines shown folded under the video ad (owner 2026-10-11). */
+  whyItWorks?: string[];
 }
 
 /**
@@ -285,6 +287,11 @@ export interface FreeVideoLive {
   presenterPhoto?: string;
   /** The presenter saying the first line (the lip-synced clip of scene 1). */
   presenterClip?: string;
+  /**
+   * "Why this ad works": 3 to 5 short lines under the finished video ad (why-it-works.ts). Kept here so no new column
+   * is needed; the cleanup keeps it when it drops the rest of the record.
+   */
+  whyItWorks?: string[];
 }
 
 export interface FreeVideoLiveScene {

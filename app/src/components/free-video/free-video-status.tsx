@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
-import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY, OFFER_READY } from '@/lib/free-video/copy';
+import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY, OFFER_READY, WHY_IT_WORKS } from '@/lib/free-video/copy';
 import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
@@ -240,6 +240,7 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                   onPlayWithSound={() => beacon('video_play')}
                   onComplete={() => beacon('video_complete')}
                 />
+                {view.whyItWorks?.length ? <WhyItWorks lines={view.whyItWorks} /> : null}
               </div>
               <div>
                 {/* No "we're emailing you the link" note on either page (owner 2026-10-11: "why say this? they have to stay on
@@ -367,6 +368,20 @@ function Band({ title, narrow = false }: BandProps) {
         <h1 className={styles.bandTitle}>{title}</h1>
       </div>
     </div>
+  );
+}
+
+/** "Why this ad works", folded under the video ad so it never pushes the offer down (owner 2026-10-11). */
+function WhyItWorks({ lines }: { lines: string[] }) {
+  return (
+    <details className={styles.whyWorks}>
+      <summary>{WHY_IT_WORKS.summary}</summary>
+      <ul>
+        {lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

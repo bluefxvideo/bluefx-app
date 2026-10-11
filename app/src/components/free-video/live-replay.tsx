@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LIVE_DEMO, LIVE_DEMO_DOMAIN, LIVE_DEMO_VIDEO } from '@/lib/free-video/live-demo';
+import { LIVE_DEMO, LIVE_DEMO_DOMAIN, LIVE_DEMO_VIDEO, LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
 import { unlockGoUrl } from '@/lib/free-video/offer';
 import type { FreeVideoView } from '@/types/free-video';
 import { FreeVideoStatus } from './free-video-status';
@@ -31,6 +31,7 @@ function viewAt(second: number): FreeVideoView {
     videoUrl: LIVE_DEMO_VIDEO,
     downloadUrl: LIVE_DEMO_VIDEO,
     unlock: { state: 'available', checkoutPath: unlockGoUrl(TOKEN) },
+    whyItWorks: LIVE_DEMO_WHY,
   };
 }
 

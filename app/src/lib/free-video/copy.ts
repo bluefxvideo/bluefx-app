@@ -444,6 +444,14 @@ export const PLAYER = {
   loadError: "The video ad didn't load. Please reload the page, or use the download button.",
 } as const;
 
+/**
+ * "Why this ad works" under the finished video ad: one quiet line until it is opened (owner 2026-10-11: "somewhere
+ * discreet, so it's not messing up the sales flow"). The lines themselves come from why-it-works.ts.
+ */
+export const WHY_IT_WORKS = {
+  summary: 'Why this ad works',
+} as const;
+
 /** The download buttons and saving the video ad to Photos on an iPhone. */
 export const DOWNLOAD = {
   /** Owner 2026-10-08: "call it free sample not version". */

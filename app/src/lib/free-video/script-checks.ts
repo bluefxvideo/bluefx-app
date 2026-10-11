@@ -36,6 +36,12 @@ function offerWord(offer: string): string {
   return offer;
 }
 
+/** The website's offer the script names, or null (why-it-works.ts quotes it). */
+export function namedOffer(plan: DirectorPlan, siteText: string): string | null {
+  const all = plan.scenes.map(sceneText).join(' ');
+  return websiteOffers(siteText).find((offer) => all.includes(offerWord(offer))) ?? null;
+}
+
 /**
  * The first problem with a free video ad's script, written for the director, or null. `siteText` is the website's
  * text as the reader got it.
@@ -54,9 +60,8 @@ export function checkFreeScript(plan: DirectorPlan, siteText: string): string | 
   }
   const offers = websiteOffers(siteText);
   if (offers.length) {
-    const all = plan.scenes.map(sceneText).join(' ');
     const last = sceneText(plan.scenes[plan.scenes.length - 1]);
-    const named = offers.find((offer) => all.includes(offerWord(offer)));
+    const named = namedOffer(plan, siteText);
     if (!named) {
       return `the website offers "${offers[0]}", and the script never names it. It is the reason to act: name it in the middle of the video and close on it in the last scene with a clear action, for example "Book your ${offers[0]} at the website on screen."`;
     }

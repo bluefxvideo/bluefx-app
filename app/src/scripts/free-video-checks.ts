@@ -27,7 +27,10 @@ import { frameOf, lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
 import { checkoutUrl, cleanCopyEarned, cleanCopyUntil, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
 import { fakeSavedPlan, freeOptions, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
-import { checkFreeScript, websiteOffers } from '@/lib/free-video/script-checks';
+import { checkFreeScript, namedOffer, websiteOffers } from '@/lib/free-video/script-checks';
+import { adFacts, cleanWhy, fallbackWhy, WHY_MAX, WHY_MAX_CHARS, WHY_MIN, whyItWorks, whyItWorksOf, whyPrompt } from '@/lib/free-video/why-it-works';
+import { LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
+import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
 import { assertPublicUrl, BlockedUrlError, isPublicAddress, safeFetch, safeFetchWith, sanityCheckHtml } from '@/lib/free-video/safe-fetch';
 import { checkCleanFile, cleanProps, freeVideoUnlockIn, readUnlockOrder } from '@/lib/free-video/unlock';
 import { asMaterial, displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
@@ -35,7 +38,7 @@ import { stillCameraPrompt } from '@/lib/smart-video/audio';
 import { closestTrack, MUSIC_LIBRARY } from '@/lib/smart-video/music-library';
 import type { SavedPlan } from '@/lib/smart-video/jobs';
 import type { SmartVideoResult } from '@/lib/smart-video/pipeline';
-import type { DirectorPlan } from '@/lib/smart-video/types';
+import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
 import { trackUsage, usage, usageOf } from '@/lib/smart-video/usage';
 import { FREE_VIDEO_TOKEN_PATTERN, FreeVideoLeadSchema, type FreeVideoLead } from '@/types/free-video';
 
@@ -543,6 +546,62 @@ async function main(): Promise<void> {
     skip('checkCleanFile on real files', `ffmpeg: ${String(error).slice(0, 80)}`);
   } finally {
     fs.rmSync(cleanDir, { recursive: true, force: true });
+  }
+
+  // 18. -----------------------------------------------------------------------------------------
+  section('18. Why this ad works (why-it-works.ts)');
+  {
+    const cleaned = cleanWhy([
+      '- It opens with a question — a real one',
+      'It opens with a question, a real one.',
+      'This ad will get you more customers this month.',
+      'Ads like this bring 30% more calls.',
+      'x'.repeat(WHY_MAX_CHARS + 1),
+      42,
+      '**It ends with the website on screen**',
+      'Short.',
+    ]);
+    check('cleanWhy: the bullet mark and the long dash go, the repeat goes', cleaned[0] === 'It opens with a question, a real one.' && cleaned.filter((line) => line.startsWith('It opens')).length === 1, JSON.stringify(cleaned));
+    check('cleanWhy: promises, numbers of results, too long, too short and non-text lines are dropped', cleaned.length === 2 && !cleaned.some((line) => /more customers|30%|x{50}|^Short/.test(line)), JSON.stringify(cleaned));
+    check('cleanWhy: markdown goes and a line ends with a full stop', cleaned[1] === 'It ends with the website on screen.', cleaned[1]);
+    check('cleanWhy: at most WHY_MAX lines, and nothing from a non-list', cleanWhy(Array.from({ length: 9 }, (_, i) => `Point number ${i} names the hook.`)).length === WHY_MAX && cleanWhy('a string').length === 0);
+
+    const saved = fakeSavedPlan('https://example.com/music.mp3', 'roofer.com');
+    const plan: DirectorPlan = {
+      ...saved.plan,
+      style: 'whiteboard',
+      scenes: saved.plan.scenes.map((scene, i) =>
+        i === 0 ? { ...scene, narration: 'This is the storm damage most homeowners never see.', speaker: { asset: PRESENTER_ASSET, from: 0, to: 3 } } : i === 1 ? { ...scene, narration: 'Book your free roof inspection today.' } : scene
+      ),
+    };
+    const asset = (id: string, flat = false) => ({ id, filename: `${id}.jpg`, kind: 'image', data: Buffer.from(id), mimeType: 'image/jpeg', url: `https://example.com/${id}.jpg`, ...(flat ? { flatBackground: '#ffffff' } : {}) }) as SmartAsset;
+    const siteText = 'Roofing in Tampa. Book your free roof inspection. Free roof inspection for storm damage.';
+    const result = { plan, props: {}, media: saved.media, durationSeconds: 32.4, usage: [], warnings: [] } as SmartVideoResult;
+    const facts = adFacts(result, [asset('a1'), asset('a2'), asset('a3', true), asset('a9')], siteText, 'roofer.com');
+    check('adFacts: the presenter, the website photos shown (a flat logo and an unshown photo do not count), the offer, the length', facts.presenter && facts.photos === 2 && facts.offer === 'free roof inspection' && facts.seconds === 32 && facts.look === 'whiteboard', JSON.stringify(facts));
+    check('namedOffer: null when the script never names the offer', namedOffer(saved.plan, siteText) === null);
+    const noPresenter = adFacts({ ...result, plan: { ...plan, scenes: plan.scenes.map((scene, i) => (i === 0 ? { ...scene, speaker: null } : scene)) } }, [], '', 'roofer.com');
+    check('adFacts: no presenter, no photos, no offer', !noPresenter.presenter && noPresenter.photos === 0 && noPresenter.offer === null);
+
+    const fallback = fallbackWhy(plan, facts);
+    check('fallbackWhy: WHY_MIN to WHY_MAX lines, the hook first, the website named, no long dash', fallback.length >= WHY_MIN && fallback.length <= WHY_MAX && fallback[0].includes('storm damage') && fallback.some((line) => line.includes('roofer.com')) && !fallback.some((line) => /[—–]/.test(line)), JSON.stringify(fallback));
+    check('fallbackWhy: every line passes cleanWhy unchanged', JSON.stringify(cleanWhy(fallback)) === JSON.stringify(fallback));
+    const bare = fallbackWhy({ ...plan, scenes: [{ ...plan.scenes[0], narration: 'x' }] }, { ...noPresenter, seconds: 0 });
+    check('fallbackWhy: still WHY_MIN lines with nothing but a hook and the website', bare.length >= WHY_MIN - 1 && bare.length <= WHY_MAX, JSON.stringify(bare));
+    const prompt = whyPrompt(plan, facts);
+    check('whyPrompt: the facts, every scene, the no-promise rule and the JSON shape', prompt.includes('free roof inspection') && prompt.includes('roofer.com') && prompt.includes(`${plan.scenes.length}. Voice:`) && prompt.includes('Never promise') && prompt.includes('{"points"'));
+    check('the demo list passes cleanWhy unchanged', JSON.stringify(cleanWhy(LIVE_DEMO_WHY)) === JSON.stringify(LIVE_DEMO_WHY));
+
+    // No key: no call, the facts' list (offline and safe).
+    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    try {
+      check('whyItWorks without the Google key falls back to the facts', JSON.stringify(await whyItWorks(plan, facts)) === JSON.stringify(fallback));
+    } finally {
+      if (key !== undefined) process.env.GOOGLE_GENERATIVE_AI_API_KEY = key;
+    }
+
+    check('whyItWorksOf: text lines only, at most WHY_MAX, undefined for none', JSON.stringify(whyItWorksOf({ live: { whyItWorks: ['a', 7, ' ', 'b', 'c', 'd', 'e', 'f'] as unknown as string[] } })) === JSON.stringify(['a', 'b', 'c', 'd', 'e']) && whyItWorksOf({ live: null }) === undefined && whyItWorksOf({ live: { whyItWorks: [] } }) === undefined && whyItWorksOf({ live: { whyItWorks: 'x' as unknown as string[] } }) === undefined);
   }
 
   // 16. -----------------------------------------------------------------------------------------

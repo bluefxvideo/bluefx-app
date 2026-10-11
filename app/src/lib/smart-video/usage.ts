@@ -31,6 +31,7 @@ const PRICES = {
   castPicturePerImage: 0.04, // fal gpt-image-2.5 flare text-to-image, high
   pictureCheckPerPicture: 0.004, // gemini-3.6-flash, three to six small pictures in, a short verdict out (estimate)
   clipPerSecond: { best: 0.14, standard: 0.084 }, // fal kling o3: pro with sound, standard without (measured 2026-10-01)
+  adNotesPerCall: 0.002, // gemini-3.6-flash, the free video ad's script in, five short lines out (why-it-works.ts, estimate)
 };
 
 export interface UsageEntry {
@@ -77,6 +78,12 @@ export function usageOf(error: unknown): UsageEntry[] {
 }
 
 const add = (step: string, usd: number, detail: string) => store.getStore()?.push({ step, usd, detail });
+
+/**
+ * "Why this ad works" under a free video ad (why-it-works.ts). Its call starts after the job's collector has closed
+ * and the job's usage is saved before the call ends, so the runner adds this entry itself when it starts the call.
+ */
+export const AD_NOTES_USAGE: UsageEntry = { step: 'why it works', usd: PRICES.adNotesPerCall, detail: '1 call' };
 
 export const usage = {
   director: (meta: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } = {}, model = '') => {

@@ -8,7 +8,7 @@ import { FreeVideoStatus, type FreeVideoStatusDemo } from '@/components/free-vid
 import { EXAMPLE_VIDEOS } from '@/lib/free-video/copy';
 import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import type { FreeVideoView } from '@/types/free-video';
-import { LIVE_DEMO, LIVE_DEMO_DOMAIN, LIVE_DEMO_VIDEO } from '@/lib/free-video/live-demo';
+import { LIVE_DEMO, LIVE_DEMO_DOMAIN, LIVE_DEMO_VIDEO, LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
 
 /**
  * DEV ONLY: every state of the status page, rendered from fixtures, so each one can be checked in a
@@ -36,6 +36,13 @@ const CLEAN_FILE = EXAMPLE_VIDEOS.ads[1].video;
 const tokenOf = (id: string) => `preview${id.replace(/[^A-Za-z0-9]/g, '')}xxxxxxxxxxxxxxxxxxxxxx`.slice(0, 22);
 
 const base = { firstName: 'Joe', domain: DOMAIN, isCustomer: false };
+/** "Why this ad works" as the facts' list reads (why-it-works.ts fallbackWhy) for a made-up ad. */
+const WHY = [
+  'It opens with a line made to stop the scroll: "This is the storm damage most homeowners never see."',
+  'A person says that first line to the camera, and a face is what makes people stop scrolling.',
+  `It shows 5 real photos from ${DOMAIN}, so viewers see the actual business, not stock pictures.`,
+  `It ends with ${DOMAIN} on screen, so viewers know exactly where to go next.`,
+];
 
 const waiting = (id: string, view: Omit<FreeVideoView, 'firstName' | 'domain' | 'isCustomer' | 'unlock'> & Partial<FreeVideoView>): FreeVideoView => ({
   ...base,
@@ -51,6 +58,7 @@ const ready = (id: string, extra: Partial<FreeVideoView> = {}): FreeVideoView =>
   unlock: { state: 'available', checkoutPath: unlockGoUrl(tokenOf(id)) },
   // Ready a day ago: 47 hours of the 3-day bonus left (offer.ts cleanCopyUntil).
   cleanUntil: new Date(Date.now() + 47 * 3_600_000).toISOString(),
+  whyItWorks: WHY,
   ...extra,
 });
 
@@ -71,7 +79,7 @@ const FIXTURES: Fixture[] = [
     id: 'live-ready',
     label: 'LIVE ready: the real free video ad of that run',
     placement: 'fvthank',
-    view: ready('live-ready', { domain: LIVE_DEMO_DOMAIN, videoUrl: LIVE_DEMO_VIDEO, downloadUrl: LIVE_DEMO_VIDEO }),
+    view: ready('live-ready', { domain: LIVE_DEMO_DOMAIN, videoUrl: LIVE_DEMO_VIDEO, downloadUrl: LIVE_DEMO_VIDEO, whyItWorks: LIVE_DEMO_WHY }),
   },
   { id: 'queued-next', label: 'queued: next in line, ETA 16 min', placement: 'fvthank', view: waiting('queued-next', { state: 'queued', position: 0, etaMinutes: 16 }) },
   { id: 'queued-6th', label: 'queued: number 6 in line, ETA 32 min', placement: 'fvthank', view: waiting('queued-6th', { state: 'queued', position: 5, etaMinutes: 32 }) },

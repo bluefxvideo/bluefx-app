@@ -35,10 +35,11 @@ import {
 import { qualityGate } from '@/lib/free-video/gate';
 import { asLead, getLead, leadsTable, readSettings, transitionLead } from '@/lib/free-video/leads';
 import { liveRecorder } from '@/lib/free-video/live';
-import { LIVE_DEMO } from '@/lib/free-video/live-demo';
+import { LIVE_DEMO, LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
 import { deliverLead } from '@/lib/free-video/notify';
 import { startCleanRender } from '@/lib/free-video/unlock';
 import { displayDomain, isUnreadable, readBusinessSite } from '@/lib/free-video/website';
+import { adFacts, fallbackWhy, whyItWorks } from '@/lib/free-video/why-it-works';
 import { PHANTOM_EXAMPLES } from '@/lib/smart-video/examples';
 import { checkFreeScript } from '@/lib/free-video/script-checks';
 import { libraryTrackUrl } from '@/lib/smart-video/music-library';
@@ -58,6 +59,7 @@ import {
 } from '@/lib/smart-video/jobs';
 import type { SmartVideoMedia, SmartVideoOptions, SmartVideoResult } from '@/lib/smart-video/pipeline';
 import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
+import { AD_NOTES_USAGE } from '@/lib/smart-video/usage';
 import type { FreeVideoLead, FreeVideoLeadStatus, FreeVideoLive } from '@/types/free-video';
 import type { SmartVideoJob } from '@/types/smart-video';
 
@@ -180,7 +182,15 @@ async function runFreeVideoLead(lead: FreeVideoLead): Promise<void> {
     else if (!renderTargetAllowed()) {
       // .env.local points at PROD Remotion: a local run must export REMOTION_SERVER_URL=http://localhost:<port>.
       await failAndRefund(job, `Off the live server a free video ad renders only on a local Remotion server (now ${remotionServerUrl()}).`);
-    } else await runSmartVideoJob(job, [], freeHooks(lead, watch));
+    } else {
+      const free = freeHooks(lead, watch);
+      try {
+        await runSmartVideoJob(job, [], free.hooks);
+      } finally {
+        // "Why this ad works" is saved while the lead is still running (writeLive), so it is there when the page turns ready.
+        await free.notesSaved();
+      }
+    }
   } finally {
     watch?.stop();
     await settleLead(lead.id).catch((error) => console.error(`❌ [free-video] Settling lead ${lead.id} failed:`, error));
@@ -393,17 +403,23 @@ function writeLive(leadId: string, jobId: string | null) {
   };
 }
 
+/** How long a finished job waits for the model's "why this ad works" before the lead settles (the facts' list is already saved). */
+const NOTES_WAIT_MS = 15_000;
+
 /**
  * The hooks of a free job. Each paid step first checks that this attempt still owns its lead (review F1).
  * They also feed the live status page: the website photos, the plan, then every picture, clip, voice-over
- * and music file the moment it is saved.
+ * and music file the moment it is saved, and "why this ad works" for the finished page. notesSaved() resolves
+ * once that list is saved, or after NOTES_WAIT_MS.
  */
-function freeHooks(lead: FreeVideoLead, watch: Ownership): SmartVideoRunHooks {
+function freeHooks(lead: FreeVideoLead, watch: Ownership): { hooks: SmartVideoRunHooks; notesSaved: () => Promise<void> } {
   const live = liveRecorder(writeLive(lead.id, lead.job_id));
-  // The website's text, kept from readLink for the script checks.
+  // The website's text, kept from readLink for the script checks; the photos the job kept, for the notes.
   let siteText = '';
+  let kept: SmartAsset[] = [];
+  let notes: Promise<void> | null = null;
   live.reset();
-  return {
+  const hooks: SmartVideoRunHooks = {
     readLink: async (link) => {
       if (!(await watch.check())) throw new Error(LOST_LEAD);
       const read = await readBusinessSite(link);
@@ -412,6 +428,7 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): SmartVideoRunHooks {
     },
     options: (base, assets) => {
       watch.assert();
+      kept = assets;
       void recordPhotos(lead.id, lead.job_id, assets);
       live.assets(assets);
       // The library track is not saved with the job, so the live page hears about it here (a made song comes as music.mp3).
@@ -419,12 +436,34 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): SmartVideoRunHooks {
     },
     beforeRender: (result) => {
       watch.assert();
-      return freeRender(result);
+      // The list from the facts right away, then the model's while the video renders (why-it-works.ts). A free video
+      // ad never fails over its notes.
+      try {
+        const facts = adFacts(result, kept, siteText, displayDomain(lead.website_domain));
+        const fallback = fallbackWhy(result.plan, facts);
+        live.whyItWorks(fallback);
+        notes = whyItWorks(result.plan, facts).then((lines) => {
+          if (lines.join('\n') !== fallback.join('\n')) live.whyItWorks(lines);
+        });
+      } catch (error) {
+        console.warn(`⚠️ [free-video] Lead ${lead.id}: why-it-works skipped:`, String(error).slice(0, 160));
+      }
+      const rendered = freeRender(result);
+      return { ...rendered, usage: [...rendered.usage, AD_NOTES_USAGE] };
     },
     onStored: (name, url) => live.stored(name, url),
     // 720p: the render about 40% faster (owner 2026-10-07); the $99 clean version renders at 1080p from the saved props.
     renderScale: FREE_RENDER_SCALE,
   };
+  const notesSaved = async () => {
+    if (notes) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([notes, new Promise<void>((resolve) => (timer = setTimeout(resolve, NOTES_WAIT_MS)))]);
+      clearTimeout(timer);
+    }
+    await live.flush();
+  };
+  return { hooks, notesSaved };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -671,7 +710,7 @@ async function runFakeJob(start: SmartVideoJob, domain: string, live: (record: F
   await pause();
   await live(LIVE_DEMO.music);
   await pause();
-  await live(LIVE_DEMO.clips);
+  await live({ ...LIVE_DEMO.clips, whyItWorks: LIVE_DEMO_WHY });
   if (mode === 'dead') return;
   if (mode === 'error') {
     await failAndRefund({ ...job, usage: [{ step: 'director', usd: 0.1, detail: 'fake' }] }, 'Fake failure');

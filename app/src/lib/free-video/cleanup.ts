@@ -15,7 +15,8 @@
  * read fails, is logged, and nothing is deleted.
  */
 import { createAdminClient } from '@/app/supabase/server';
-import type { FreeVideoLeadStatus, FreeVideoUnlockStatus } from '@/types/free-video';
+import { whyItWorksOf } from '@/lib/free-video/why-it-works';
+import type { FreeVideoLeadStatus, FreeVideoLive, FreeVideoUnlockStatus } from '@/types/free-video';
 
 export const UNLOCK_DAYS = 30;
 export const FILES_KEEP_DAYS = 31;
@@ -66,6 +67,7 @@ interface CleanupLead {
   job_id: string | null;
   job_ids: string[] | null;
   video_url: string | null;
+  live: FreeVideoLive | null;
 }
 
 export interface CleanupReport {
@@ -84,7 +86,7 @@ export async function cleanWorkingFiles(own: (query: any) => any, systemUserId: 
   const leads = admin.from('free_video_leads');
   const { data, error } = await own(
     leads
-      .select('id, status, job_id, job_ids, video_url')
+      .select('id, status, job_id, job_ids, video_url, live')
       .is('files_cleaned_at', null)
       .in('status', FINISHED)
       .in('unlock_status', UNPAID)
@@ -112,10 +114,12 @@ export async function cleanWorkingFiles(own: (query: any) => any, systemUserId: 
         const { error: removeError } = await storage.remove(doomed.slice(i, i + 500));
         if (removeError) throw new Error(`files not deleted: ${removeError.message}`);
       }
-      // The status page shows no deleted file: the photos and the live record point at the working files.
+      // The status page shows no deleted file: the photos and the live record point at the working files. "Why this ad
+      // works" points at none and stays under the video ad.
+      const why = whyItWorksOf(lead);
       const { error: markError } = await admin
         .from('free_video_leads')
-        .update({ files_cleaned_at: new Date().toISOString(), photos: [], live: null })
+        .update({ files_cleaned_at: new Date().toISOString(), photos: [], live: why ? { whyItWorks: why } : null })
         .eq('id', lead.id)
         .is('files_cleaned_at', null)
         .in('unlock_status', UNPAID)

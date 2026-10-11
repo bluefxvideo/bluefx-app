@@ -2262,6 +2262,65 @@ p.timerDark {
     grid-template-columns: 320px 1fr;
   }
 }
+/* "Why this ad works" under the finished video ad: one quiet line until opened, so the offer keeps its place
+   (owner 2026-10-11: "somewhere discreet, so it's not messing up the sales flow"). */
+.whyWorks {
+  max-width: 320px;
+  margin: 12px auto 0;
+  color: var(--fv-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.whyWorks summary {
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 4px 2px;
+  cursor: pointer;
+  list-style: none;
+  text-decoration: underline;
+  text-decoration-color: var(--fv-line);
+  text-underline-offset: 3px;
+}
+.whyWorks summary::-webkit-details-marker {
+  display: none;
+}
+/* A drawn chevron: arrow characters turn into emoji on some phones. */
+.whyWorks summary::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-3px) rotate(45deg);
+  transition: transform 0.15s ease;
+}
+.whyWorks[open] summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+.whyWorks summary:hover {
+  color: var(--fv-text);
+}
+.whyWorks summary:focus-visible {
+  outline: 2px solid var(--fv-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.whyWorks ul {
+  margin: 8px 0 0;
+  padding: 12px 14px 12px 30px;
+  background: var(--fv-soft);
+  border: 1px solid var(--fv-line);
+  border-radius: 8px;
+  color: var(--fv-text);
+  text-align: left;
+  list-style: disc;
+}
+.whyWorks li + li {
+  margin-top: 6px;
+}
 .phone {
   position: relative;
   width: 100%;

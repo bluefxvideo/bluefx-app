@@ -24,6 +24,7 @@ import { unlockOpen } from '@/lib/free-video/cleanup';
 import { ERRORS } from '@/lib/free-video/copy';
 import { cleanCopyUntil, isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
+import { whyItWorksOf } from '@/lib/free-video/why-it-works';
 import { jobsTable } from '@/lib/smart-video/jobs';
 import {
   FREE_VIDEO_TOKEN_PATTERN,
@@ -620,6 +621,7 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
     }
     case 'done': {
       const until = cleanCopyUntil(lead);
+      const why = whyItWorksOf(lead);
       return lead.video_url
         ? {
             ...base,
@@ -627,6 +629,7 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
             videoUrl: lead.video_url,
             downloadUrl: downloadLink(lead.video_url, `${displayDomain(lead.website_domain)}-video-ad-free.mp4`),
             ...(until ? { cleanUntil: until } : {}),
+            ...(why ? { whyItWorks: why } : {}),
           }
         : { ...base, state: 'checking' };
     }

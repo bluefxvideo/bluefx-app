@@ -94,6 +94,8 @@ export interface LiveRecorder {
   plan: (plan: DirectorPlan, assets: SmartAsset[]) => void;
   /** A file the job saved. */
   stored: (name: string, url: string) => void;
+  /** "Why this ad works" for the finished page (why-it-works.ts). */
+  whyItWorks: (lines: string[]) => void;
   /** The record now (a copy). */
   snapshot: () => FreeVideoLive;
   /** Resolves once every write so far has finished. */
@@ -137,6 +139,11 @@ export function liveRecorder(write: (live: FreeVideoLive) => Promise<void>): Liv
       else if (what.kind === 'presenterClip') live.presenterClip = url;
       else if (what.kind === 'clip') live.clips = { ...live.clips, [what.id]: url };
       else if (what.kind === 'made') live.made = { ...live.made, [what.id]: url };
+      save();
+    },
+    whyItWorks: (lines) => {
+      if (!lines.length) return;
+      live.whyItWorks = [...lines];
       save();
     },
     snapshot: copy,

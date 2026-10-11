@@ -246,3 +246,12 @@ export const LIVE_DEMO: Record<"photos" | "cast" | "script" | "voice" | "music" 
   music: { ...RECORDED.music, ...PRESENTER_CLIP },
   clips: { ...RECORDED.clips, ...PRESENTER_CLIP },
 };
+
+/** "Why this ad works" for the demo run (why-it-works.ts writes the list of a real one): the previews and the $0 fake run show it. */
+export const LIVE_DEMO_WHY: string[] = [
+  "A person says the first line to the camera, and a face is what makes people stop scrolling.",
+  "It names a real place, Greenwich Village, so locals know at once this is their neighborhood spot.",
+  "It backs the slice with facts from the website: opened in 1975 by Joe, who came from Naples.",
+  "It shows the shop's own photos, so viewers see the real counter and slices, not stock pictures.",
+  "It ends with joespizzanyc.com on screen and one clear action: order your slice now.",
+];
