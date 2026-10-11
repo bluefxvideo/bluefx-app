@@ -144,6 +144,18 @@ export const ML_FIELDS = {
 } as const;
 
 // ---------------------------------------------------------------------------------------------
+// Measurement
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The Microsoft Clarity project that records the opt-in page /free-video-ad (session recordings and heatmaps). Empty:
+ * Clarity never loads. The owner fills it in once the project exists (clarity.microsoft.com, the project's Settings >
+ * Overview > Project ID: about ten lowercase letters and digits). A Clarity id is public: every page that runs Clarity
+ * shows it. The funnel layout hands it to FunnelTracking; lib/free-video/analytics.ts says when Clarity runs.
+ */
+export const CLARITY_PROJECT_ID: string = 'yw7btj04u8'; // Clarity project "BlueFX Free Video Ad" (app.bluefx.net), created 2026-10-11
+
+// ---------------------------------------------------------------------------------------------
 // Owner alerts (Brevo)
 // ---------------------------------------------------------------------------------------------
 
@@ -237,6 +249,27 @@ export const IP_ROWS_PER_DAY = 10;
  * (daily_starts, daily_usd, and daily_leads in the SQL insert) still count his video ads, so the funnel's spend stays capped.
  */
 export const OWNER_TEST_EMAILS: readonly string[] = ['contact@bluefx.net'];
+/**
+ * The owner's test addresses the admin funnel numbers leave out (owner 2026-10-11: "except my test accounts
+ * contact@bluefx.net and sziliblue@gmail.com"). funnel-stats.ts compares them by emailKeyOf (website.ts), the same key
+ * as the one-lead-per-address rule: a +tag, Gmail dots and googlemail.com all count as the same inbox.
+ * Only the statistics read this list: the owner privileges above stay on OWNER_TEST_EMAILS alone.
+ */
+export const STATS_EXCLUDED_EMAILS: readonly string[] = [...OWNER_TEST_EMAILS, 'sziliblue@gmail.com', 'support@bluefx.net'];
+/**
+ * Visits to the opt-in page the admin funnel numbers leave out because they were link checks, not people: every browser
+ * with a landing_view or form_start between from and to (ISO, to exclusive) whose tag (?ref=) matches. Add a line when
+ * a batch of new links was checked without ?internal=1.
+ */
+export const STATS_EXCLUDED_VISITS: readonly { from: string; to: string; tag: RegExp; why: string }[] = [
+  {
+    // 40 new browsers, two per link at about one link a minute, each pair with one form_start 17 s later, never seen again.
+    from: '2026-10-09T20:04:00Z',
+    to: '2026-10-09T20:24:00Z',
+    tag: /^ytc?-/,
+    why: 'the check of the new YouTube description and pinned comment links',
+  },
+];
 /**
  * Countries the free video ad is not offered in (owner 2026-10-07: "limit countries where I know I won't get clients
  * from, like India, Pakistan, Russia, maybe a few more"). ISO 3166 alpha-2 code → the name the refusal says. geo.ts

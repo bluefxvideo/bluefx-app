@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { isInternalVisit } from '@/lib/free-video/internal-visit';
 import type { FreeVideoEvent } from '@/types/free-video';
 
 const ENDPOINT = '/api/free-video/event';
@@ -20,8 +21,8 @@ function newVisitorId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
 }
 
-/** The visitor id kept in localStorage 'fv_vid'. Every storage read and write is guarded. */
-function visitorId(): string {
+/** The visitor id kept in localStorage 'fv_vid' (also put on the offer buttons' links, offer-button.tsx). Every storage read and write is guarded. */
+export function visitorId(): string {
   try {
     const saved = window.localStorage.getItem(VISITOR_KEY);
     if (saved && saved.length <= 40) return saved;
@@ -53,12 +54,13 @@ interface FreeVideoBeaconOptions {
 /**
  * Fire-and-forget page events for the free video ad funnel (landing_view, form_start, video_play,
  * video_complete, download). Sends navigator.sendBeacon to /api/free-video/event, with fetch
- * keepalive as the fallback. Never throws and never waits; a failed event is simply lost.
+ * keepalive as the fallback. Never throws and never waits; a failed event is simply lost. The owner's own browser
+ * (internal-visit.ts) sends nothing.
  */
 export function useFreeVideoBeacon(token?: string, { disabled = false }: FreeVideoBeaconOptions = {}) {
   return useCallback(
     (event: FreeVideoEvent) => {
-      if (disabled || typeof window === 'undefined') return;
+      if (disabled || typeof window === 'undefined' || isInternalVisit()) return;
       try {
         const ref = refTagFromUrl();
         const body = JSON.stringify({ e: event, v: visitorId(), ...(token ? { t: token } : {}), ...(ref ? { ref } : {}) });

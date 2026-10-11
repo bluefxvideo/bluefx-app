@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { useEffect, useState } from 'react';
+import { isInternalVisit } from '@/lib/free-video/internal-visit';
 import { META_PIXEL_ID, pixelMode } from '@/lib/free-video/pixel';
 
 /** Meta's standard base code (fbevents.js), then init and the PageView. Later page changes inside the app count as PageViews by themselves. */
@@ -13,13 +14,13 @@ const DEBUG_CODE = `window.fbq=window.fbq||function(){console.log('[fbq]',...arg
 /**
  * The BlueFx pixel on every funnel page (the layout renders it). Decided after mount, in the browser: only on
  * app.bluefx.net and never for a visitor whose time zone is in Europe (see pixel.ts); the localStorage flag
- * fv_pixel_debug=1 logs the calls instead (local checks).
+ * fv_pixel_debug=1 logs the calls instead (local checks). Never for the owner's own browser (internal-visit.ts).
  */
 export function MetaPixel() {
   const [mode, setMode] = useState<'live' | 'debug' | null>(null);
 
   useEffect(() => {
-    setMode(pixelMode());
+    setMode(isInternalVisit() ? null : pixelMode());
   }, []);
 
   if (!mode) return null;

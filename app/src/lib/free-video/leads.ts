@@ -678,9 +678,9 @@ export async function recordEvent(event: {
 /**
  * /go/<placement>?t=<token>: a 'cta_click' event on the lead, plus clicked_at (set once) for the lifetime
  * offer's placements. The $99 unlock's clicks ('fvunlock') are events only, so clicked_at stays the
- * lifetime offer's metric. Never throws.
+ * lifetime offer's metric. visitorId: the clicking browser, when the page's button sent it (?vid=). Never throws.
  */
-export async function markClicked(token: string, placement: string): Promise<void> {
+export async function markClicked(token: string, placement: string, visitorId: string | null = null): Promise<void> {
   try {
     const lead = await getLeadByToken(token);
     if (!lead) return;
@@ -688,7 +688,7 @@ export async function markClicked(token: string, placement: string): Promise<voi
       const { error } = await leadsTable().update({ clicked_at: new Date().toISOString() }).eq('id', lead.id).is('clicked_at', null);
       if (error) console.warn('⚠️ [free-video] clicked_at not saved:', error.message);
     }
-    await recordEvent({ event: 'cta_click', leadId: lead.id, placement, ref: lead.ref });
+    await recordEvent({ event: 'cta_click', leadId: lead.id, visitorId, placement, ref: lead.ref });
   } catch (error) {
     console.warn('⚠️ [free-video] markClicked failed:', String(error).slice(0, 160));
   }

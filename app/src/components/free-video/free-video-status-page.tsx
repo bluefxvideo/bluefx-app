@@ -1,7 +1,9 @@
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { cache } from 'react';
 import { STATUS } from '@/lib/free-video/copy';
+import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { getLeadByToken, markViewed, readSettings, toView } from '@/lib/free-video/leads';
 import type { PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
@@ -16,6 +18,8 @@ interface FreeVideoStatusPageProps {
   token: string;
   /** fvthank: the thank-you page right after the form. fvpage: /v/<token>, the link in the email. */
   placement: (typeof PAGE_PLACEMENTS)[number];
+  /** The address carries ?internal=1: the owner's own visit, never an open. */
+  internal?: boolean;
 }
 
 /**
@@ -23,7 +27,7 @@ interface FreeVideoStatusPageProps {
  * the visitor's name and domain) and hands over to the polling client component. An unknown token is a
  * 404. On /v/ the first visit is recorded after the response (the email click-through metric).
  */
-export async function FreeVideoStatusPage({ token, placement }: FreeVideoStatusPageProps) {
+export async function FreeVideoStatusPage({ token, placement, internal = false }: FreeVideoStatusPageProps) {
   const pagePath = placement === 'fvpage' ? `/v/${token}` : `/free-video-ad/thanks/${token}`;
 
   let lead: Awaited<ReturnType<typeof loadLead>>;
@@ -43,7 +47,8 @@ export async function FreeVideoStatusPage({ token, placement }: FreeVideoStatusP
     return <LoadError pagePath={pagePath} />;
   }
 
-  if (placement === 'fvpage') {
+  // The owner's own browser (the fv_internal cookie the admin panel sets, or ?internal=1, internal-visit.ts) never counts as an open.
+  if (placement === 'fvpage' && !internal && !hasInternalCookie((await headers()).get('cookie'))) {
     const viewed = lead;
     after(() => markViewed(viewed));
   }

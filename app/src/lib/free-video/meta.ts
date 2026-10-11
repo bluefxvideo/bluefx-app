@@ -14,7 +14,8 @@
  * lead. The /go/fvunlock click saves the cookies of the browser that goes to the checkout too.
  *
  * Who is skipped: visitors from the EU/EEA, the UK and Switzerland (they would need a cookie banner first; the ads do not
- * target them), the owner's own tests, and every server but the live one. META_TEST_EVENT_CODE sends every event to
+ * target them), the owner's own tests, the Lead and InitiateCheckout of a request from the owner's own browser (the
+ * fv_internal cookie, internal-visit.ts), and every server but the live one. META_TEST_EVENT_CODE sends every event to
  * Events Manager → Test events instead (then a local server sends too, its test leads and the owner's tests included).
  * Every send leaves a 'capi' row (ok, or the error) in free_video_events.
  *
@@ -29,6 +30,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import net from 'node:net';
 import { isLive, OWNER_TEST_EMAILS, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { countryOfIp } from '@/lib/free-video/geo';
+import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { eventsTable, getLeadByToken, recordEvent } from '@/lib/free-video/leads';
 import { UNLOCK } from '@/lib/free-video/offer';
 import { CHECKOUT_EVENT_ID, europeanTimeZone, leadEventId, META_PIXEL_ID, PIXEL_DATA, purchaseEventId } from '@/lib/free-video/pixel';
@@ -50,6 +52,8 @@ export interface RequestFacts {
   /** The page the request came from (the Referer header), or null. */
   referer: string | null;
   ids: MetaIds;
+  /** The owner's own browser (the fv_internal cookie, internal-visit.ts): no event, unless META_TEST_EVENT_CODE is set. */
+  internal?: boolean;
 }
 
 /** _fbc: fb.<subdomain index>.<creation ms>.<fbclid>; _fbp: fb.<subdomain index>.<creation ms>.<random number>. */
@@ -80,6 +84,9 @@ const isOwnerTest = (lead: Pick<FreeVideoLead, 'email' | 'ref'>) => OWNER_TEST_E
 /** A lead whose events may go to Facebook: a visitor's, or with a test code any lead (they land in Test events only). */
 const sendableLead = (lead: Pick<FreeVideoLead, 'email' | 'ref' | 'source'>) =>
   Boolean(testEventCode()) || (lead.source !== 'test' && !isOwnerTest(lead));
+
+/** A request from the owner's own browser, which sends nothing (with a test code it does: Test events only). */
+const internalRequest = (facts: RequestFacts) => Boolean(facts.internal) && !testEventCode();
 
 // ---------------------------------------------------------------------------------------------
 // The ids
@@ -122,6 +129,7 @@ export function requestFacts(req: Request, ip: string | null, fbclid?: string | 
     userAgent: req.headers.get('user-agent')?.slice(0, 400) || null,
     referer: req.headers.get('referer'),
     ids: metaIdsOf(req, fbclid),
+    internal: hasInternalCookie(req.headers.get('cookie')),
   };
 }
 
@@ -276,7 +284,7 @@ export async function sendMetaEvent(event: MetaServerEvent): Promise<boolean> {
 /** A free video ad request was queued: Lead, with the event id the browser got (leadEventId). Saves the lead's ids first. */
 export async function trackLead(lead: FreeVideoLead, facts: RequestFacts, timeZone?: string | null): Promise<void> {
   try {
-    if (!sendableLead(lead) || !trackable(facts.ip, timeZone)) return;
+    if (internalRequest(facts) || !sendableLead(lead) || !trackable(facts.ip, timeZone)) return;
     await saveIds(lead.id, facts.ids, 'lead');
     await sendMetaEvent({
       name: 'Lead',
@@ -311,7 +319,7 @@ export async function rememberCheckoutIds(lead: FreeVideoLead, facts: RequestFac
 export async function trackCheckout(input: { token: string | null; placement: string; eventId: string | null; facts: RequestFacts }): Promise<void> {
   try {
     const { facts } = input;
-    if (!trackable(facts.ip)) return;
+    if (internalRequest(facts) || !trackable(facts.ip)) return;
     const lead = input.token ? await getLeadByToken(input.token) : null;
     if (lead && (!sendableLead(lead) || !trackable(lead.ip))) return;
     const saved = lead ? await savedIds(lead.id) : {};

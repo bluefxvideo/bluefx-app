@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 
 interface VideoAdPageProps {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ internal?: string | string[] }>;
 }
 
 export async function generateMetadata({ params }: VideoAdPageProps): Promise<Metadata> {
@@ -20,7 +21,9 @@ export async function generateMetadata({ params }: VideoAdPageProps): Promise<Me
 }
 
 /** The video ad page the email links to (free_video_url): the same live status as the thank-you page. noindex via the layout. */
-export default async function VideoAdPage({ params }: VideoAdPageProps) {
+export default async function VideoAdPage({ params, searchParams }: VideoAdPageProps) {
   const { token } = await params;
-  return <FreeVideoStatusPage token={token} placement="fvpage" />;
+  // ?internal=1 (the owner's link, internal-visit.ts) is no open even in a browser that has no fv_internal cookie yet.
+  const { internal } = await searchParams;
+  return <FreeVideoStatusPage token={token} placement="fvpage" internal={internal === '1'} />;
 }

@@ -14,11 +14,19 @@ interface FormMessageProps {
   variant: 'field' | 'box' | 'note';
 }
 
-/** One form message plus its next step (a mailto link to support), announced to screen readers when it appears. */
+/**
+ * One form message plus its next step (a mailto link to support), announced to screen readers when it appears.
+ * data-clarity-mask: a message and its mailto link can quote the visitor's website, which never goes to Clarity.
+ */
 export function FormMessage({ problem, website, id, variant }: FormMessageProps) {
   const next = problem.nextStep;
   return (
-    <div id={id} role="alert" className={variant === 'box' ? styles.formAlert : variant === 'note' ? styles.formNote : styles.fieldError}>
+    <div
+      id={id}
+      role="alert"
+      className={variant === 'box' ? styles.formAlert : variant === 'note' ? styles.formNote : styles.fieldError}
+      data-clarity-mask="true"
+    >
       <p className={styles.messageText}>{problem.message}</p>
       {next === 'resend' && (
         <p className={styles.nextStep}>

@@ -3,11 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/app/supabase/client';
+import { markInternalBrowser } from '@/lib/free-video/internal-visit';
 import { AdminUserTable } from '@/components/admin/admin-user-table';
 import { ActivityFeedPanel } from '@/components/admin/activity-feed-panel';
 import { TopOffersSyncPanel } from '@/components/admin/top-offers-sync-panel';
 import { PlatformUsagePanel } from '@/components/admin/platform-usage-panel';
 import { FreeVideoLeadsPanel } from '@/components/admin/free-video-leads-panel';
+import { FreeVideoFunnelPanel } from '@/components/admin/free-video-funnel-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Activity, Database, BarChart3, Clapperboard } from 'lucide-react';
 
@@ -45,6 +47,8 @@ export default function AdminPage() {
       }
       
       setIsAdmin(true);
+      // An admin's browser never counts on the free video ad funnel (the fv_internal cookie, internal-visit.ts).
+      markInternalBrowser();
       
       // Fetch all users from API endpoint
       try {
@@ -155,7 +159,8 @@ export default function AdminPage() {
             <TopOffersSyncPanel />
           </TabsContent>
 
-          <TabsContent value="free-video-ads">
+          <TabsContent value="free-video-ads" className="space-y-4">
+            <FreeVideoFunnelPanel />
             <FreeVideoLeadsPanel />
           </TabsContent>
         </Tabs>

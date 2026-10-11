@@ -8,6 +8,7 @@ import { unlockOpen } from '@/lib/free-video/cleanup';
 import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
 import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
 import { checkoutUrl, isEmailPlacement, isPlacement, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
+import { CLICK_VISITOR_PARAM, VISITOR_ID_PATTERN } from '@/lib/free-video/internal-visit';
 import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
 
@@ -104,9 +105,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
 
   const facts = requestFacts(req, clientIp(req));
   const eventId = req.nextUrl.searchParams.get(CHECKOUT_EVENT_PARAM);
+  const clicker = req.nextUrl.searchParams.get(CLICK_VISITOR_PARAM);
+  const visitorId = clicker && VISITOR_ID_PATTERN.test(clicker) ? clicker : null;
   const hop = hopFromSearchParams(req.nextUrl.searchParams) ?? (validToken ? await savedHopByToken(token) : undefined);
   after(async () => {
-    if (validToken) await markClicked(token, placement);
+    // The owner's own browser (the fv_internal cookie, internal-visit.ts) never counts as an offer click on the lead.
+    if (validToken && !facts.internal) await markClicked(token, placement, visitorId);
     await trackCheckout({ token: validToken ? token : null, placement, eventId, facts });
   });
   return redirect(withHop(checkoutUrl(placement), hop));

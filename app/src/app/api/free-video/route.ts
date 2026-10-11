@@ -3,6 +3,7 @@ import { isLive, LIMITS, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config
 import { ERRORS } from '@/lib/free-video/copy';
 import { saveHop } from '@/lib/free-video/clickbank-hops';
 import { blockedCountry } from '@/lib/free-video/geo';
+import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { clientIp, createLead, takeAttempt, verifyHuman } from '@/lib/free-video/leads';
 import { requestFacts, trackLead } from '@/lib/free-video/meta';
 import { joinLeadsGroup } from '@/lib/free-video/notify';
@@ -110,8 +111,10 @@ export async function POST(req: Request) {
       return error(403, 'country', ERRORS.country(country.name));
     }
 
-    // 5.
-    const result = await createLead(parsed.data, {
+    // 5. An opt-in from a browser marked internal (the owner testing with any address, internal-visit.ts) is stored with
+    // ref 'owner-test', which the admin numbers leave out (funnel-stats.ts) and the Conversions API skips (meta.ts).
+    const input = hasInternalCookie(req.headers.get('cookie')) ? { ...parsed.data, ref: 'owner-test' } : parsed.data;
+    const result = await createLead(input, {
       source: isLive() ? 'landing' : 'test',
       ip,
       userAgent: req.headers.get('user-agent'),

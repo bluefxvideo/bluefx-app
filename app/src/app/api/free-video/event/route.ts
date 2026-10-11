@@ -1,5 +1,6 @@
 import { after } from 'next/server';
 import { isLive, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
+import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { clientIp, getLeadByToken, markPlayed, recordEvent } from '@/lib/free-video/leads';
 import { FREE_VIDEO_REF_PATTERN, FREE_VIDEO_TOKEN_PATTERN, FreeVideoEventSchema, type FreeVideoEvent } from '@/types/free-video';
 
@@ -10,7 +11,7 @@ import { FREE_VIDEO_REF_PATTERN, FREE_VIDEO_TOKEN_PATTERN, FreeVideoEventSchema,
  * Always answers 204 with no body, whatever happens: a beacon never shows an error. Allow-listed events only;
  * bots, foreign origins and more than EVENTS_PER_MINUTE events a minute from one IP are dropped. An event about
  * a video ad needs a valid token; landing_view and form_start may come without one. video_play also sets the
- * lead's played_at (once).
+ * lead's played_at (once). The owner's own browser (the fv_internal cookie, internal-visit.ts) is dropped: nothing stored.
  */
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,7 @@ async function readSmall(req: Request): Promise<string | null> {
 export async function POST(req: Request) {
   try {
     if (!sameOrigin(req.headers.get('origin'))) return noContent();
+    if (hasInternalCookie(req.headers.get('cookie'))) return noContent();
     if (BOT.test(req.headers.get('user-agent') || '')) return noContent();
     if (!allowed(clientIp(req) ?? 'local')) return noContent();
     const text = await readSmall(req);
