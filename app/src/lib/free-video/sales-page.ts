@@ -52,6 +52,25 @@ const WALL = [
 ].map((label, index) => ({ video: `${MEDIA}/wall-${index + 1}.mp4`, poster: `${MEDIA}/wall-${index + 1}.jpg`, label }));
 
 /**
+ * One video ad per kind of business, with a caption (the owner's picks from the examples gallery, 2026-10-11: "UGC, real
+ * estate, before after etc", gallery cards 23, 13, 16, 59, 70, 18, 57). Light copies (540 px wide tall ones, 960 px
+ * wide ones, ~2-4 MB like the wall) in the same storage folder, named more-<id>. The note says what went in.
+ */
+const byBusiness = (items: { id: string; label: string; note: string }[]) =>
+  items.map(({ id, label, note }) => ({ video: `${MEDIA}/more-${id}.mp4`, poster: `${MEDIA}/more-${id}.jpg`, label, note }));
+const BY_BUSINESS = byBusiness([
+  { id: 'realtor', label: 'Realtor ad', note: 'With a presenter on camera' },
+  { id: 'bakery', label: 'Bakery', note: 'The owner talks on camera' },
+  { id: 'landscaping', label: 'Landscaping', note: 'A happy customer on camera' },
+  { id: 'honey', label: 'Honey brand', note: 'Made from a script' },
+  { id: 'kitchen', label: 'Kitchen gadget', note: 'Made from a product link' },
+]);
+const BY_BUSINESS_WIDE = byBusiness([
+  { id: 'realestate', label: 'Real estate listing', note: 'Made from 7 listing photos' },
+  { id: 'product', label: 'Amazon product ad', note: 'Made from 4 product photos' },
+]);
+
+/**
  * "Saturday, October 11 at 2:15 PM": the bonus deadline in the visitor's own time zone. Only the browser knows that zone,
  * so the page prints it after it starts (useDeadline), never on the server.
  */
@@ -164,7 +183,12 @@ export const SALES_PAGE = {
     soundOff: 'Turn the sound off',
     previous: 'Earlier video ads',
     next: 'More video ads',
-    /** Exactly the lifetime page's row, in its order (owner 2026-10-08). */
+    /** First: one video ad per kind of business, with captions (owner 2026-10-11), tall ones in a row, wide ones under. */
+    businessTitle: 'One for every kind of business',
+    business: BY_BUSINESS,
+    businessWide: BY_BUSINESS_WIDE,
+    /** Then exactly the lifetime page's row, in its order (owner 2026-10-08), under its own small title. */
+    wallTitle: 'Creator videos, recipes and product ads',
     items: WALL,
   },
   /**

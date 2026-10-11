@@ -24,9 +24,10 @@ interface LifetimeSalesPageProps {
 
 /**
  * The AI Media Machine offer under the finished video ad, never before it is ready (owner 2026-10-08: "it should be
- * shown only once the result is visible"), in Hormozi's order: the promise, the 3 questions the free video ad already
- * answered, proof, the math (under $3 per video ad against a freelancer's $600), one offer box with the price, the
- * 3-day bonus and the guarantee, the founder, the questions, one last button. Under every button: the card logos and the
+ * shown only once the result is visible"), in the owner's order (2026-10-11): what a buyer can change in the video ad,
+ * the kinds of video ads (proof), the math (under $3 per video ad against a freelancer's $600), one offer box with the
+ * price, the 3-day bonus and the guarantee, then the objections (the 3 questions), trust (customers), the founder, the
+ * questions, one last button. Under every button: the card logos and the
  * guarantee (PaymentTrust), as on the lifetime page. Copy in
  * lib/free-video/sales-page.ts. Every button opens ClickBank's checkout through /go (OfferButton fires the pixel's
  * InitiateCheckout). The deadline lines appear once the page runs in the browser (useDeadline).
@@ -41,63 +42,11 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   const nearPrice = reviews.items.find((item) => item.name === reviews.nearPrice);
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
-      <div className={cn(styles.spBlock, styles.spSoft)}>
-        <div className={styles.spInnerWide}>
-          <h2 id="fv-sales-title" className={styles.spTitle}>
-            {questions.title}
-          </h2>
-          <p className={styles.spLead}>{questions.lead}</p>
-          <ol className={styles.spSteps}>
-            {questions.items(domain).map((item) => (
-              <li key={item.q} className={styles.spStep}>
-                <span className={cn(styles.spStepNumber, styles.spStepCheck)} aria-hidden="true">
-                  ✓
-                </span>
-                <h3 className={styles.spStepTitle}>{item.q}</h3>
-                <p className={styles.spStepText}>{item.a}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
-
-      {/* Customers in their own words, 5 stars each (SALES_PAGE.reviews). */}
-      <div className={styles.spBlock}>
-        <div className={styles.spInnerWide}>
-          <h2 className={styles.spTitle}>{reviews.title}</h2>
-          <p className={styles.spLead}>{reviews.lead}</p>
-          <ul className={styles.spReviews}>
-            {reviews.items.map((item) => (
-              <li key={item.name} className={styles.spReview}>
-                <Stars label={reviews.starsLabel} />
-                {'video' in item && (
-                  <ReviewVideo
-                    src={'youtube' in item.video ? `https://www.youtube-nocookie.com/embed/${item.video.youtube}?autoplay=1&rel=0` : `https://player.vimeo.com/video/${item.video.vimeo}?autoplay=1&title=0&byline=0&portrait=0`}
-                    poster={item.video.poster}
-                    vertical={item.video.vertical}
-                    label={reviews.play(item.name)}
-                  />
-                )}
-                <blockquote className={styles.spReviewQuote}>&ldquo;{item.quote}&rdquo;</blockquote>
-                <div className={styles.spReviewWho}>
-                  <Image className={styles.spReviewFace} src={item.photo} alt="" width={240} height={240} sizes="48px" />
-                  <span>
-                    <b>{item.name}</b>
-                    <br />
-                    {item.role}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
       {/* What a buyer can change, a lead's own questions, with the presenters to pick from (SALES_PAGE.changes). */}
       <div className={cn(styles.spBlock, styles.spChanges)}>
         <div className={styles.spInnerWide}>
           <p className={styles.spKicker}>{changes.kicker}</p>
-          <h2 className={styles.spTitle}>{changes.title}</h2>
+          <h2 id="fv-sales-title" className={styles.spTitle}>{changes.title}</h2>
           <p className={styles.spLead}>{changes.lead}</p>
           <figure className={styles.spDemo}>
             <video className={styles.spDemoVideo} src={changes.demo.video} poster={changes.demo.poster} autoPlay muted loop playsInline controls preload="metadata" aria-label={changes.demo.label} />
@@ -135,6 +84,11 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
         <div className={styles.spInnerWide}>
           <h2 className={styles.spProofTitle}>{proof.title}</h2>
           <p className={styles.spProofText}>{proof.text}</p>
+          <h3 className={styles.spRowTitle}>{proof.businessTitle}</h3>
+          <VideoWall items={proof.business} captions soundOn={proof.soundOn} soundOff={proof.soundOff} previous={proof.previous} next={proof.next} />
+          <div className={styles.spRowGap} />
+          <VideoWall items={proof.businessWide} captions wide soundOn={proof.soundOn} soundOff={proof.soundOff} previous={proof.previous} next={proof.next} />
+          <h3 className={styles.spRowTitle}>{proof.wallTitle}</h3>
           <VideoWall items={proof.items} soundOn={proof.soundOn} soundOff={proof.soundOff} previous={proof.previous} next={proof.next} />
         </div>
       </div>
@@ -259,6 +213,59 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
               </ol>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* The 3 questions every software buyer asks, as the objections after the price (owner 2026-10-11). */}
+      <div className={styles.spBlock}>
+        <div className={styles.spInnerWide}>
+          <h2 className={styles.spTitle}>
+            {questions.title}
+          </h2>
+          <p className={styles.spLead}>{questions.lead}</p>
+          <ol className={styles.spSteps}>
+            {questions.items(domain).map((item) => (
+              <li key={item.q} className={styles.spStep}>
+                <span className={cn(styles.spStepNumber, styles.spStepCheck)} aria-hidden="true">
+                  ✓
+                </span>
+                <h3 className={styles.spStepTitle}>{item.q}</h3>
+                <p className={styles.spStepText}>{item.a}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+
+      {/* Customers in their own words, 5 stars each (SALES_PAGE.reviews): trust, right after the objections. */}
+      <div className={cn(styles.spBlock, styles.spSoft)}>
+        <div className={styles.spInnerWide}>
+          <h2 className={styles.spTitle}>{reviews.title}</h2>
+          <p className={styles.spLead}>{reviews.lead}</p>
+          <ul className={styles.spReviews}>
+            {reviews.items.map((item) => (
+              <li key={item.name} className={styles.spReview}>
+                <Stars label={reviews.starsLabel} />
+                {'video' in item && (
+                  <ReviewVideo
+                    src={'youtube' in item.video ? `https://www.youtube-nocookie.com/embed/${item.video.youtube}?autoplay=1&rel=0` : `https://player.vimeo.com/video/${item.video.vimeo}?autoplay=1&title=0&byline=0&portrait=0`}
+                    poster={item.video.poster}
+                    vertical={item.video.vertical}
+                    label={reviews.play(item.name)}
+                  />
+                )}
+                <blockquote className={styles.spReviewQuote}>&ldquo;{item.quote}&rdquo;</blockquote>
+                <div className={styles.spReviewWho}>
+                  <Image className={styles.spReviewFace} src={item.photo} alt="" width={240} height={240} sizes="48px" />
+                  <span>
+                    <b>{item.name}</b>
+                    <br />
+                    {item.role}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 

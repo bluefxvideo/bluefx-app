@@ -91,7 +91,7 @@ export function LiveMaking({ view, staleNotice, paidEarly, onPromoSound }: LiveM
           </div>
           {!queued && <p className={styles.stageStep}>{LIVE.progressLine(current, lines.length, lines[Math.max(0, current - 1)] ?? lines[0])}</p>}
           <p className={styles.liveEta}>
-            {eta} <span className={styles.liveEmail}>{LIVE.emailNote}</span>
+            {eta}
           </p>
           <p className={styles.srOnly} aria-live="polite">
             {spoken}

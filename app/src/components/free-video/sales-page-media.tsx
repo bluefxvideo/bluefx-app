@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { BONUS_TIMER } from '@/lib/free-video/copy';
 import { deadlineLabel } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
@@ -99,24 +99,34 @@ export function BonusTimer({ until, dark = false }: BonusTimerProps) {
 }
 
 interface VideoWallProps {
-  items: readonly { video: string; poster: string; label: string }[];
+  items: readonly { video: string; poster: string; label: string; note?: string }[];
   soundOn: string;
   soundOff: string;
   previous: string;
   next: string;
+  /** Show each label (and note) under its video ad. Without it the labels are for screen readers only. */
+  captions?: boolean;
+  /** 16:9 video ads instead of 9:16 ones. */
+  wide?: boolean;
 }
 
+/** One wall turning its sound on tells the others on the page to turn theirs off: one video ad speaks at a time. */
+const WALL_SOUND_EVENT = 'fv-wall-sound';
+
 /**
- * A row of vertical video ads, as at the top of the lifetime page (no captions; the labels are for screen readers): the
- * ones on screen play as silent loops, a tap turns one video ad's sound on (and every other one's off), and nothing
- * loads before the row is near. Phones swipe through the row; wider screens get arrows.
+ * A row of video ads, as at the top of the lifetime page: the ones on screen play as silent loops, a tap turns one video
+ * ad's sound on (and every other one's off, on every wall of the page), and nothing loads before the row is near. Phones
+ * swipe through the row; wider screens get arrows when the row is wider than the screen. With captions, each label and
+ * note shows under its video ad.
  */
-export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWallProps) {
+export function VideoWall({ items, soundOn, soundOff, previous, next, captions = false, wide = false }: VideoWallProps) {
+  const wallId = useId();
   const stripRef = useRef<HTMLDivElement>(null);
   const videos = useRef<(HTMLVideoElement | null)[]>([]);
   const visible = useRef(new Set<number>());
   const motionOk = useMotionOk();
   const [sound, setSound] = useState<number | null>(null);
+  const [scrollable, setScrollable] = useState(true);
 
   const sync = useCallback(() => {
     videos.current.forEach((video, index) => {
@@ -151,6 +161,25 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
     return () => observer.disconnect();
   }, []);
 
+  // Another wall started its sound: this one goes quiet.
+  useEffect(() => {
+    const quiet = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== wallId) setSound(null);
+    };
+    window.addEventListener(WALL_SOUND_EVENT, quiet);
+    return () => window.removeEventListener(WALL_SOUND_EVENT, quiet);
+  }, [wallId]);
+
+  // Arrows only when the row is wider than the screen (two wide video ads side by side fit on a desktop).
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const measure = () => setScrollable(strip.scrollWidth > strip.clientWidth + 2);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
   const toggle = (index: number) => {
     const video = videos.current[index];
     if (!video) return;
@@ -162,6 +191,7 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
     video.muted = false;
     void video.play().catch(() => undefined);
     setSound(index);
+    window.dispatchEvent(new CustomEvent(WALL_SOUND_EVENT, { detail: wallId }));
   };
 
   const scroll = (direction: 1 | -1) => {
@@ -171,13 +201,15 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
 
   return (
     <div className={styles.spWallWrap}>
-      <button type="button" className={cn(styles.spWallArrow, styles.spWallArrowLeft)} aria-label={previous} onClick={() => scroll(-1)}>
-        ‹
-      </button>
+      {scrollable && (
+        <button type="button" className={cn(styles.spWallArrow, styles.spWallArrowLeft)} aria-label={previous} onClick={() => scroll(-1)}>
+          ‹
+        </button>
+      )}
       <div ref={stripRef} className={styles.spWall}>
         {items.map((item, index) => (
-          <div key={item.video} className={styles.spWallTile}>
-            <div className={styles.spWallItem} data-index={index}>
+          <div key={item.video} className={cn(styles.spWallTile, wide && styles.spWallTileWide)}>
+            <div className={cn(styles.spWallItem, wide && styles.spWallItemWide)} data-index={index}>
               <video
                 ref={(video) => {
                   videos.current[index] = video;
@@ -202,12 +234,20 @@ export function VideoWall({ items, soundOn, soundOff, previous, next }: VideoWal
                 <SpeakerIcon on={sound === index} />
               </button>
             </div>
+            {captions && (
+              <p className={styles.spWallCaption}>
+                <b className={styles.spWallLabel}>{item.label}</b>
+                {item.note && <span className={styles.spWallNote}>{item.note}</span>}
+              </p>
+            )}
           </div>
         ))}
       </div>
-      <button type="button" className={cn(styles.spWallArrow, styles.spWallArrowRight)} aria-label={next} onClick={() => scroll(1)}>
-        ›
-      </button>
+      {scrollable && (
+        <button type="button" className={cn(styles.spWallArrow, styles.spWallArrowRight)} aria-label={next} onClick={() => scroll(1)}>
+          ›
+        </button>
+      )}
     </div>
   );
 }

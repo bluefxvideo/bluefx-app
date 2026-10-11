@@ -334,8 +334,6 @@ export const STATUS = {
   nowLabel: (step: string) => `Now: ${step}`,
   progressLabel: 'How far your video ad is',
   readyTitle: (domain: string) => `Your video ad for ${domain} is ready`,
-  /** The note above the offers on the thank-you page. */
-  readyNoteThanks: "We're emailing you the link to this page too, so you can come back any time.",
   checkingTitle: (domain: string) => `Your video ad for ${domain} is getting a final check`,
   checking: "Our team is giving your video ad a final check. We'll email you the link as soon as the video ad is ready.",
   failedTitle: (domain: string) => `We hit a problem with your video ad for ${domain}`,
@@ -378,7 +376,6 @@ export const LIVE = {
   pillQueued: 'In line',
   readyPill: 'Ready',
   title: (name: string, domain: string) => `${name}, the AI Media Machine is making your video ad for ${domain}`,
-  emailNote: "We'll also email you the link.",
   readingTitle: (domain: string) => `Reading ${domain}`,
   readingHint: 'The AI Media Machine is reading the words and the photos on your website.',
   photosTitle: (domain: string) => `Found on ${domain}`,
