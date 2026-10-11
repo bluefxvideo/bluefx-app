@@ -230,8 +230,11 @@ export const SWEEP_BATCH = 25;
 export const IP_ROWS_PER_DAY = 10;
 /**
  * The owner's own test address (owner 2026-10-07: "let me do the tests for contact@bluefx.net"): no daily caps, the
- * visitor's view (never the customer one), and a new test retires his earlier finished test of the same address or
- * site. A real customer's record is never touched: a site another address holds still answers duplicateSite.
+ * visitor's view (never the customer one), and as many video ads as he likes, several at once, each page kept (owner
+ * 2026-10-11: "so that I don't have a limit on the nr of ads I can make"; leads.ts createLead gives each of his leads its
+ * own email key). A new test of the same site retires his earlier finished one of that site. A real customer's record is
+ * never touched: a site another address holds still answers duplicateSite. The global rolling caps in the settings row
+ * (daily_starts, daily_usd, and daily_leads in the SQL insert) still count his video ads, so the funnel's spend stays capped.
  */
 export const OWNER_TEST_EMAILS: readonly string[] = ['contact@bluefx.net'];
 /**

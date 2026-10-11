@@ -257,21 +257,18 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
     if (!settings.accepting) return fail(503, 'closed', ERRORS.closed);
 
     const email = input.email.trim().toLowerCase();
-    const emailKey = emailKeyOf(email);
-    const since = isoMinutesAgo(24 * 60);
-    // The owner testing: no caps (the SQL counts per IP only with an ip), and his earlier finished tests of this
-    // address or this site make way. Only leads of an owner address are retired, never a customer's.
+    // The owner testing: no caps (the SQL counts per IP only with an ip), and as many video ads as he likes, several at
+    // once, each page kept (owner 2026-10-11: "so that I don't have a limit on the nr of ads I can make"). Each of his
+    // leads gets its own email key, so the one-lead-per-address index never stops him and nothing of his is retired
+    // for a new address; only his own earlier finished test of the SAME site makes way (the one-lead-per-site index).
+    // A site a customer holds still answers duplicateSite.
     const ownerTest = OWNER_TEST_EMAILS.includes(email);
+    const emailKey = ownerTest ? `${emailKeyOf(email)}#${randomBytes(6).toString('hex')}` : emailKeyOf(email);
+    const since = isoMinutesAgo(24 * 60);
     if (ownerTest) {
       const retire = { status: 'rejected', reason: 'replaced by a new owner test', updated_at: new Date().toISOString() };
-      const ownerKeys = OWNER_TEST_EMAILS.map(emailKeyOf);
-      const finished = ['done', 'held', 'failed'];
-      const results = await Promise.all([
-        leadsTable().update(retire).eq('email_key', emailKey).in('status', finished),
-        leadsTable().update(retire).eq('website_domain', domain).in('email_key', ownerKeys).in('status', finished),
-      ]);
-      const failed = results.find((result: { error: { message: string } | null }) => result.error);
-      if (failed) throw new Error(failed.error.message);
+      const { error } = await leadsTable().update(retire).eq('website_domain', domain).in('email', [...OWNER_TEST_EMAILS]).in('status', ['done', 'held', 'failed']);
+      if (error) throw new Error(error.message);
     }
     const base = {
       source: meta.source,
@@ -315,7 +312,7 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
     }
 
     if (!ownerTest && meta.ip && ipLive >= settings.per_ip_daily) return fail(429, 'tooMany', ERRORS.tooMany);
-    if (meta.source !== 'test' && dailyLeads >= settings.daily_leads) return fail(503, 'closed', ERRORS.closed);
+    if (!ownerTest && meta.source !== 'test' && dailyLeads >= settings.daily_leads) return fail(503, 'closed', ERRORS.closed);
     if (emailTaken) return fail(409, 'duplicateEmail', ERRORS.duplicateEmail);
     if (siteTaken) return fail(409, 'duplicateSite', ERRORS.duplicateSite(displayDomain(domain)));
 
