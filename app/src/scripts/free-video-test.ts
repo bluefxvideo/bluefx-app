@@ -67,6 +67,8 @@ async function main(): Promise<void> {
   const { createSmartVideo } = await import('@/lib/smart-video/pipeline');
   const { prepareAssets } = await import('@/lib/smart-video/prepare-assets');
   const { liveRecorder } = await import('@/lib/free-video/live');
+  const { adFacts, fallbackWhy, whyItWorks } = await import('@/lib/free-video/why-it-works');
+  const { AD_NOTES_USAGE } = await import('@/lib/smart-video/usage');
 
   if (isLive()) throw new Error('This helper never runs as the live server.');
   if (!rendersLocally()) {
@@ -121,6 +123,14 @@ async function main(): Promise<void> {
   await live.flush();
   keep({ stage: 'rendering' });
   const marked = freeRender(result);
+  // "Why this ad works" as the runner makes it: the list from the facts at once, then the model's (one paid call).
+  const facts = adFacts(result, assets, read.brief, displayDomain(domain));
+  live.whyItWorks(fallbackWhy(result.plan, facts));
+  const why = await whyItWorks(result.plan, facts);
+  live.whyItWorks(why);
+  await live.flush();
+  result.usage.push(AD_NOTES_USAGE);
+  console.log(`📝 Why this ad works:\n${why.map((line) => `   - ${line}`).join('\n')}`);
   const words = result.plan.scenes.reduce((n, scene) => n + scene.narration.split(/\s+/).filter(Boolean).length, 0);
   console.log(`🎬 Plan: style ${result.plan.style}, language ${result.plan.language}, ${result.plan.scenes.length} scenes, ${words} words, ${result.durationSeconds.toFixed(1)} s + 1 s card`);
   for (const shot of result.plan.animate ?? []) console.log(`🎞️ Animated ${shot.asset}: ${stillCameraPrompt(shot.prompt)}`);

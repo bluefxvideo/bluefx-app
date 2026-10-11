@@ -446,10 +446,23 @@ export const PLAYER = {
 
 /**
  * "Why this ad works" under the finished video ad: one quiet line until it is opened (owner 2026-10-11: "somewhere
- * discreet, so it's not messing up the sales flow"). The lines themselves come from why-it-works.ts.
+ * discreet, so it's not messing up the sales flow"). The model writes the points of each video ad (why-it-works.ts);
+ * the lines below are the list from the facts, used until those arrive or when the call fails. Each line starts
+ * with what the video ad does, so none needs "it".
  */
 export const WHY_IT_WORKS = {
   summary: 'Why this ad works',
+  hook: (line: string) => `Opens with a line made to stop the scroll: "${line}"`,
+  hookPlain: 'Opens with a line made to stop the scroll, before anything else.',
+  presenter: 'Has an AI presenter say that first line to the camera, and a face is what makes people stop scrolling.',
+  photos: (count: number, domain: string) =>
+    `Shows ${count === 1 ? 'a real photo' : `${count} real photos`} from ${domain}, so viewers see the actual business, not stock pictures.`,
+  offer: (offer: string) => `Names the website's own offer, "${offer}", which gives people a reason to act now.`,
+  endsOnSite: (domain: string) => `Ends with ${domain} on screen, so viewers know exactly where to go next.`,
+  endsOnContact: 'Ends by showing how to reach the business, so viewers know exactly what to do next.',
+  whiteboard: 'Draws each point by hand on a whiteboard, so the eye keeps following the pen.',
+  length: (seconds: number) =>
+    seconds <= 60 ? `Runs about ${seconds} seconds: short enough for Reels, Shorts and TikTok.` : `Runs about ${seconds} seconds and keeps every scene short.`,
 } as const;
 
 /** The download buttons and saving the video ad to Photos on an iPhone. */

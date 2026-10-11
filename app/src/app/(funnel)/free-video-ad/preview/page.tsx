@@ -5,7 +5,7 @@ import { ERROR_CODES, problemForCode } from '@/components/free-video/form-errors
 import { FormMessage } from '@/components/free-video/form-message';
 import { LifetimeOffer } from '@/components/free-video/lifetime-offer';
 import { FreeVideoStatus, type FreeVideoStatusDemo } from '@/components/free-video/free-video-status';
-import { EXAMPLE_VIDEOS } from '@/lib/free-video/copy';
+import { EXAMPLE_VIDEOS, WHY_IT_WORKS } from '@/lib/free-video/copy';
 import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import type { FreeVideoView } from '@/types/free-video';
 import { LIVE_DEMO, LIVE_DEMO_DOMAIN, LIVE_DEMO_VIDEO, LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
@@ -36,12 +36,13 @@ const CLEAN_FILE = EXAMPLE_VIDEOS.ads[1].video;
 const tokenOf = (id: string) => `preview${id.replace(/[^A-Za-z0-9]/g, '')}xxxxxxxxxxxxxxxxxxxxxx`.slice(0, 22);
 
 const base = { firstName: 'Joe', domain: DOMAIN, isCustomer: false };
-/** "Why this ad works" as the facts' list reads (why-it-works.ts fallbackWhy) for a made-up ad. */
+/** "Why this ad works" as the facts' list reads (why-it-works.ts fallbackWhy, copy.ts WHY_IT_WORKS) for a made-up whiteboard video ad. */
 const WHY = [
-  'It opens with a line made to stop the scroll: "This is the storm damage most homeowners never see."',
-  'A person says that first line to the camera, and a face is what makes people stop scrolling.',
-  `It shows 5 real photos from ${DOMAIN}, so viewers see the actual business, not stock pictures.`,
-  `It ends with ${DOMAIN} on screen, so viewers know exactly where to go next.`,
+  WHY_IT_WORKS.hook('This is the storm damage most homeowners never see.'),
+  WHY_IT_WORKS.presenter,
+  WHY_IT_WORKS.photos(5, DOMAIN),
+  WHY_IT_WORKS.endsOnSite(DOMAIN),
+  WHY_IT_WORKS.whiteboard,
 ];
 
 const waiting = (id: string, view: Omit<FreeVideoView, 'firstName' | 'domain' | 'isCustomer' | 'unlock'> & Partial<FreeVideoView>): FreeVideoView => ({

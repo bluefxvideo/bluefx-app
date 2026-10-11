@@ -35,7 +35,7 @@ import {
 import { qualityGate } from '@/lib/free-video/gate';
 import { asLead, getLead, leadsTable, readSettings, transitionLead } from '@/lib/free-video/leads';
 import { liveRecorder } from '@/lib/free-video/live';
-import { LIVE_DEMO, LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
+import { LIVE_DEMO } from '@/lib/free-video/live-demo';
 import { deliverLead } from '@/lib/free-video/notify';
 import { startCleanRender } from '@/lib/free-video/unlock';
 import { displayDomain, isUnreadable, readBusinessSite } from '@/lib/free-video/website';
@@ -456,12 +456,12 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): { hooks: SmartVideoRu
     renderScale: FREE_RENDER_SCALE,
   };
   const notesSaved = async () => {
-    if (notes) {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([notes, new Promise<void>((resolve) => (timer = setTimeout(resolve, NOTES_WAIT_MS)))]);
-      clearTimeout(timer);
-    }
-    await live.flush();
+    // The model's list (if any) and every live write queued so far, capped as a whole: settleLead never waits on a
+    // stalled write. A write that lands after the settle changes nothing (writeLive only writes a running lead).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const saved = (notes ?? Promise.resolve()).then(() => live.flush());
+    await Promise.race([saved, new Promise<void>((resolve) => (timer = setTimeout(resolve, NOTES_WAIT_MS)))]);
+    clearTimeout(timer);
   };
   return { hooks, notesSaved };
 }
@@ -710,7 +710,7 @@ async function runFakeJob(start: SmartVideoJob, domain: string, live: (record: F
   await pause();
   await live(LIVE_DEMO.music);
   await pause();
-  await live({ ...LIVE_DEMO.clips, whyItWorks: LIVE_DEMO_WHY });
+  await live(LIVE_DEMO.clips);
   if (mode === 'dead') return;
   if (mode === 'error') {
     await failAndRefund({ ...job, usage: [{ step: 'director', usd: 0.1, detail: 'fake' }] }, 'Fake failure');
@@ -720,6 +720,9 @@ async function runFakeJob(start: SmartVideoJob, domain: string, live: (record: F
   const saved = fakeSavedPlan(mode === 'gate' ? null : 'https://example.com/fake-music.mp3', domain);
   const { error } = await jobsTable().update({ plan: saved }).eq('id', job.id);
   if (error) throw new Error(`Could not save the fake plan: ${error.message}`);
+  // "Why this ad works" from the fake plan's own facts, so the page's list matches the fake video ad's script.
+  const shown = displayDomain(domain);
+  await live({ ...LIVE_DEMO.clips, whyItWorks: fallbackWhy(saved.plan, { domain: shown, presenter: false, photos: 0, offer: null, domainShown: true, seconds: 33, look: saved.plan.style }) });
   for (const renderProgress of [0, 50, 100]) {
     job = await writeJob(job, { status: 'rendering', renderProgress, durationSeconds: 34, usage: FAKE_USAGE, warnings: [], script: scriptOf(saved.plan) });
     await pause();
