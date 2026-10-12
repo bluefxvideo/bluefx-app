@@ -140,7 +140,10 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
         <div className={styles.spInner}>
           <div id={SALES_PAGE.stackAnchor} className={styles.spOffer}>
             <Image className={styles.spProduct} src={offer.image.src} alt={offer.image.alt} width={816} height={632} sizes="(min-width: 760px) 360px, 300px" />
-            <h2 className={styles.spOfferTitle}>{offer.title}</h2>
+            {/* tabIndex: the offer card's "See everything you get" moves the focus here. */}
+            <h2 className={styles.spOfferTitle} tabIndex={-1}>
+              {offer.title}
+            </h2>
             <ul className={styles.ticks}>
               {offer.items.map((item) => (
                 <li key={item.text}>
@@ -328,7 +331,8 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
         </div>
       </div>
 
-      <div className={styles.spLegal}>
+      {/* data-fv-bar-hide: the buy bar on phones steps aside from here down to the footer. */}
+      <div className={styles.spLegal} data-fv-bar-hide="">
         <div className={styles.spInner}>
           <p>
             {legal.support[0]}

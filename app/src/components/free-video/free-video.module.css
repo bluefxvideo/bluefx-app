@@ -2393,7 +2393,11 @@ p.timerDark {
 
 /* ---------- dev preview page only ---------- */
 
+/* The links have no spaces between them: a wrapping flex row keeps the bar from widening a phone-size page. */
 .devBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   background: #fff7e0;
   color: #7a5a00;
   border-bottom: 1px solid #f1e3b5;
@@ -3619,3 +3623,324 @@ p.timerDark {
   border: 0;
 }
 
+
+/* ---------- the offer at the moment they act (owner 2026-10-12): main button, small links, offer card, buy bar ---------- */
+
+/* Under "Download without the watermark": the watermarked free sample and Save to Photos, as small grey links. */
+.freeLinks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 0;
+  text-align: center;
+}
+.root .freeLink {
+  display: inline-block;
+  /* About 44 px tall: an easy tap for the free path too, while it stays grey and second to the green button. */
+  padding: 10px 8px;
+  border: 0;
+  background: none;
+  color: var(--fv-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.root .freeLink:hover {
+  color: var(--fv-text);
+}
+.root .freeLink:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+.freeLinkSave {
+  text-align: center;
+}
+.fine.freeLinkHint {
+  max-width: 300px;
+  margin: 0 auto;
+  font-size: 13.5px;
+}
+/* "See everything you get" moves the focus to the stack's title: no ring after a tap. */
+.spOfferTitle:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* The offer card: the step 2 sheet's look (.sheet, .sheetBox), a bottom sheet on phones and a centred window from 640 px. */
+.offerSheetBox {
+  max-height: calc(100% - 16px);
+  overscroll-behavior: contain;
+  padding-top: 22px;
+  /* The bottom padding sits on the last block (.offerSheetLinks): a scrolling box's own padding would leave a band under
+     the sticky buy button (.offerSheetBuy) where the card's text shows through. */
+  padding-bottom: 0;
+}
+@media (min-width: 640px) {
+  .offerSheetBox {
+    max-height: calc(100% - 48px);
+  }
+}
+@keyframes fvSheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.offerSheet[open] .offerSheetBox {
+  animation: fvSheetUp 0.22s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .offerSheet[open] .offerSheetBox {
+    animation: none;
+  }
+}
+.offerSheetTitle {
+  margin: 2px 0 14px;
+  font-size: 21px;
+}
+/* The 3-day bonus and its deadline, in the stack's green. */
+.offerSheetBonus {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: #f1f8e9;
+  border: 1px dashed var(--fv-green);
+  border-radius: 10px;
+}
+.offerSheetBonusTitle {
+  margin: 0;
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.offerSheetBonusLine {
+  margin: 4px 0 0;
+  color: #33691e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.offerSheetList {
+  gap: 6px;
+}
+.offerSheetList li {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.offerSheetPrice {
+  margin: 16px 0 0;
+  text-align: center;
+}
+.offerSheetPriceRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin: 0;
+}
+.offerSheetPriceWas {
+  color: var(--fv-muted);
+  font-size: 22px;
+  font-weight: 800;
+  text-decoration-color: var(--fv-red);
+  text-decoration-thickness: 3px;
+}
+.offerSheetPriceNow {
+  color: var(--fv-ink);
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+.offerSheetPriceUnit {
+  color: var(--fv-muted);
+  font-size: 15px;
+}
+.offerSheetPriceWhy {
+  margin: 6px 0 0;
+  color: var(--fv-text);
+  font-size: 14px;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+.offerSheetPriceAnchor {
+  margin: 4px 0 0;
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.offerSheetGuarantee {
+  margin: 14px 0 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--fv-green);
+  border-radius: 10px;
+  color: var(--fv-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.offerSheetGuarantee b {
+  color: var(--fv-ink);
+}
+/* The buy button stays in sight at the bottom of the card while the card scrolls; the white strip runs edge to edge
+   so the card's text slides under it. In place (not stuck) when the whole card fits. */
+.offerSheetBuy {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -22px;
+  padding: 6px 22px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: #ffffff;
+}
+.offerSheetNext {
+  margin: 4px 0 0;
+  color: var(--fv-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-align: center;
+  text-wrap: balance;
+}
+.offerSheetLinks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+}
+@media (min-width: 640px) {
+  .offerSheetLinks {
+    padding-bottom: 20px;
+  }
+}
+.offerSheetSeeAll {
+  padding: 6px 4px;
+  color: var(--fv-blue);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.offerSheetNoThanks {
+  padding: 6px 4px;
+  color: var(--fv-muted);
+  font-size: 14px;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The buy bar: phones only, slim, navy like the opt-in page's bar; it slides up once the lead has seen the video ad. */
+.buyBar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  visibility: hidden;
+  /* Fully below the screen, the close tab on its top edge included. */
+  transform: translateY(calc(100% + 40px));
+  transition:
+    transform 0.25s ease,
+    visibility 0s linear 0.25s;
+}
+.buyBarOn {
+  visibility: visible;
+  transform: none;
+  transition: transform 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .buyBar,
+  .buyBarOn {
+    transition: none;
+  }
+}
+@media (min-width: 760px) {
+  .buyBar {
+    display: none;
+  }
+}
+.buyBar :focus-visible {
+  outline-color: #ffffff;
+}
+.buyBarIn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-radius: 14px 14px 0 0;
+  background: var(--fv-navy);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.25);
+}
+.buyBarText {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.buyBarText b {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+.buyBarText span {
+  display: block;
+}
+.root .btn.buyBarBtn {
+  flex: none;
+  width: auto;
+  padding: 10px 12px;
+  font-size: 14px;
+  box-shadow: none;
+}
+/* Phones under 375 px: a little smaller, so the line keeps to two lines. */
+@media (max-width: 370px) {
+  .buyBarText {
+    font-size: 12px;
+  }
+  .buyBarText b {
+    font-size: 13px;
+  }
+  .root .btn.buyBarBtn {
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+}
+/* The close: a tab on the bar's top edge, over the button's right end, so the line keeps its width. 44 px wide; its
+   touch area is the tab itself plus the bar's top padding (8 px, the button starts 10 px down), never the page above. */
+.root .buyBarClose {
+  position: absolute;
+  top: -28px;
+  right: 14px;
+  display: grid;
+  width: 44px;
+  height: 28px;
+  padding: 2px 0 0;
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background: var(--fv-navy);
+  color: #ffffff;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+  place-items: center;
+  cursor: pointer;
+}
+.root .buyBarClose::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 -8px;
+}

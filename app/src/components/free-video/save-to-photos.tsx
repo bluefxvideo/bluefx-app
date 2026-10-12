@@ -13,6 +13,8 @@ interface SaveToPhotosProps {
   forceIphone?: boolean;
   /** The Share menu was used (the download event). */
   onSaved?: () => void;
+  /** link: a small grey link under the main button (the offer flow, owner 2026-10-12); button: the full-width button. */
+  variant?: 'button' | 'link';
 }
 
 type SaveMode = 'none' | 'share';
@@ -39,7 +41,7 @@ function canShareVideoFiles(): boolean {
  * browsers like Facebook's) the button stays away and the Download button is the way: the old how-to about Safari's address
  * bar is gone (owner 2026-10-08: "remove"). Other phones and computers see nothing here: their downloads work as they are.
  */
-export function SaveToPhotos({ url, fileName, forceIphone = false, onSaved }: SaveToPhotosProps) {
+export function SaveToPhotos({ url, fileName, forceIphone = false, onSaved, variant = 'button' }: SaveToPhotosProps) {
   const [mode, setMode] = useState<SaveMode>('none');
   const [step, setStep] = useState<SaveStep>('idle');
   const saved = useRef<{ url: string; file: File } | null>(null);
@@ -88,18 +90,19 @@ export function SaveToPhotos({ url, fileName, forceIphone = false, onSaved }: Sa
   };
 
   if (mode === 'none') return null;
+  const link = variant === 'link';
   return (
-    <div className={styles.btnGap}>
+    <div className={link ? styles.freeLinkSave : styles.btnGap}>
       <button
         type="button"
-        className={cn(styles.btn, styles.btnGhost)}
+        className={link ? styles.freeLink : cn(styles.btn, styles.btnGhost)}
         onClick={onClick}
         disabled={step === 'loading'}
         aria-busy={step === 'loading' || undefined}
       >
         {step === 'loading' ? DOWNLOAD.saveToPhotosBusy : step === 'again' ? DOWNLOAD.saveToPhotosAgain : DOWNLOAD.saveToPhotos}
       </button>
-      <p className={styles.fine}>{DOWNLOAD.saveToPhotosHint}</p>
+      <p className={cn(styles.fine, link && styles.freeLinkHint)}>{DOWNLOAD.saveToPhotosHint}</p>
     </div>
   );
 }

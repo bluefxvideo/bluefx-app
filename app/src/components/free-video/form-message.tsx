@@ -16,7 +16,8 @@ interface FormMessageProps {
 
 /**
  * One form message plus its next step (a mailto link to support), announced to screen readers when it appears.
- * data-clarity-mask: a message and its mailto link can quote the visitor's website, which never goes to Clarity.
+ * data-clarity-mask: a message and its mailto link can quote the visitor's website, masked on the opt-in page (the result
+ * pages show the website unmasked, owner 2026-10-12).
  */
 export function FormMessage({ problem, website, id, variant }: FormMessageProps) {
   const next = problem.nextStep;

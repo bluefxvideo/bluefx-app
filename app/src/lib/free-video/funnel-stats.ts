@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/app/supabase/server';
 import { STATS_EXCLUDED_EMAILS, STATS_EXCLUDED_VISITS } from '@/lib/free-video/config';
-import { PAGE_PLACEMENTS } from '@/lib/free-video/offer';
+import { isCardPlacement, OFFER_BUTTON_PLACEMENTS } from '@/lib/free-video/offer';
 import { emailKeyOf } from '@/lib/free-video/website';
 
 /**
@@ -20,16 +20,23 @@ import { emailKeyOf } from '@/lib/free-video/website';
  *   Since 2026-10-12 the owner's browser (the fv_internal cookie) never sets first_viewed_at at all.
  * - played: a video_play event on the lead from a browser that is not one of the owner's. played_at is not used: it
  *   also holds the owner's own plays from the admin.
- * - offerClicks: a cta_click on a lifetime offer button of the funnel's pages (/go/fvthank, /go/fvpage, /go/fvland), not
- *   from one of the owner's browsers. clicked_at is not used: the email buttons (fvmail1-4, which only open the video
- *   ad page) stamp it too. A click carries its browser (visitor_id) since 2026-10-12; an older click without one is
- *   taken as the owner's when one of his browsers sent an event on that lead in the 10 minutes before it and no other
- *   browser did.
+ * - offerOpens: an offer_open event on the lead (the offer card on a result page opened, since 2026-10-12) from a
+ *   browser that is not one of the owner's; offerOpensDownload and offerOpensBar split it by what opened the card (the
+ *   event's placement column: 'download', the "Download without the watermark" button under the video ad, or 'bar', the
+ *   phone buy bar). Someone who opened it both ways counts in both, so the two can add up to more than offerOpens.
+ * - offerClicks: a cta_click on a lifetime offer button of the funnel's pages (OFFER_BUTTON_PLACEMENTS: /go/fvthank,
+ *   /go/fvpage, /go/fvland and the offer card's /go/fvthankcard and /go/fvpagecard), not from one of the owner's
+ *   browsers. clicked_at is not used: the email buttons (fvmail1-4, which only open the video ad page) stamp it too. A
+ *   click carries its browser (visitor_id) since 2026-10-12; an older click without one is taken as the owner's when
+ *   one of his browsers sent an event on that lead in the 10 minutes before it and no other browser did. cardClicks:
+ *   the same clicks, on the offer card's button only (CARD_PLACEMENTS). cardOpenClicks: people with both a counted
+ *   offer_open and a counted card click, the share of card openers who clicked (cardClicks alone can be higher: a click
+ *   still lands on /go when the offer_open beacon was lost to a content blocker or the event route's rate cap).
  * - purchases: bought_at, any AI Media Machine purchase the sweep matched to the lead's email after the lead was made
  *   (sweep.ts attributeSales: a ClickBank sale of the vendor or a FastSpring subscription), not only the lifetime offer.
- * Rates: optIn = optIns / visitors, view = viewed / videosMade, click = offerClicks / videosMade (the offer shows with
- * the finished video ad, on the thank-you page as well as on /v/), purchase = purchases / optIns,
- * visitorToSale = purchases / visitors; null when the divisor is 0.
+ * Rates: optIn = optIns / visitors, view = viewed / videosMade, open = offerOpens / videosMade, click = offerClicks /
+ * videosMade (the offer shows with the finished video ad, on the thank-you page as well as on /v/), purchase =
+ * purchases / optIns, visitorToSale = purchases / visitors; null when the divisor is 0.
  *
  * Left out everywhere: leads whose email is in STATS_EXCLUDED_EMAILS (compared by emailKeyOf), leads with source
  * 'test' or ref 'owner-test' (an opt-in from a browser marked internal); the owner's browsers, which are the browsers
@@ -52,6 +59,10 @@ const OPEN_BEFORE_MS = 5_000;
 const OPEN_AFTER_MS = 5 * 60_000;
 /** An older click without a browser is the owner's when one of his browsers sent an event on the lead this long before it. */
 const CLICK_BEFORE_MS = 10 * 60_000;
+/** The page event of an offer card opening (the first-party beacon, since 2026-10-12); its placement column says what opened the card. */
+const OFFER_OPEN_EVENT = 'offer_open';
+/** A lifetime offer button on the funnel's pages: the pages' own buttons and the offer card's. */
+const isOfferButton = (placement: string | null) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(placement ?? '');
 
 export interface FunnelCounts {
   visitors: number;
@@ -60,13 +71,19 @@ export interface FunnelCounts {
   videosMade: number;
   viewed: number;
   played: number;
+  offerOpens: number;
+  offerOpensDownload: number;
+  offerOpensBar: number;
   offerClicks: number;
+  cardClicks: number;
+  cardOpenClicks: number;
   purchases: number;
 }
 
 export interface FunnelRates {
   optIn: number | null;
   view: number | null;
+  open: number | null;
   click: number | null;
   purchase: number | null;
   visitorToSale: number | null;
@@ -236,7 +253,12 @@ const emptyCounts = (): FunnelCounts => ({
   videosMade: 0,
   viewed: 0,
   played: 0,
+  offerOpens: 0,
+  offerOpensDownload: 0,
+  offerOpensBar: 0,
   offerClicks: 0,
+  cardClicks: 0,
+  cardOpenClicks: 0,
   purchases: 0,
 });
 
@@ -246,6 +268,7 @@ export function ratesOf(counts: FunnelCounts): FunnelRates {
   return {
     optIn: ratio(counts.optIns, counts.visitors),
     view: ratio(counts.viewed, counts.videosMade),
+    open: ratio(counts.offerOpens, counts.videosMade),
     click: ratio(counts.offerClicks, counts.videosMade),
     purchase: ratio(counts.purchases, counts.optIns),
     visitorToSale: ratio(counts.purchases, counts.visitors),
@@ -405,7 +428,11 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
       else counts.viewed = 1;
     }
     if (events.some((row) => row.event === 'video_play' && !isOwner(row.visitor_id))) counts.played = 1;
-    const pageClicks = events.filter((row) => row.event === 'cta_click' && (PAGE_PLACEMENTS as readonly string[]).includes(row.placement ?? ''));
+    const opens = events.filter((row) => row.event === OFFER_OPEN_EVENT && !isOwner(row.visitor_id));
+    if (opens.length) counts.offerOpens = 1;
+    if (opens.some((row) => row.placement === 'download')) counts.offerOpensDownload = 1;
+    if (opens.some((row) => row.placement === 'bar')) counts.offerOpensBar = 1;
+    const pageClicks = events.filter((row) => row.event === 'cta_click' && isOfferButton(row.placement));
     const realClicks = pageClicks.filter((row) => {
       if (row.visitor_id) return !isOwner(row.visitor_id);
       const at = Date.parse(row.at);
@@ -414,6 +441,10 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
     });
     if (realClicks.length) counts.offerClicks = 1;
     else if (pageClicks.length) ownerClicks += 1;
+    if (realClicks.some((row) => isCardPlacement(row.placement ?? ''))) {
+      counts.cardClicks = 1;
+      if (opens.length) counts.cardOpenClicks = 1;
+    }
     if (lead.bought_at) counts.purchases = 1;
     leadCounts.set(lead.id, counts);
     for (const row of events) {

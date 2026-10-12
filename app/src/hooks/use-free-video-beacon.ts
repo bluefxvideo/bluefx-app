@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { isInternalVisit } from '@/lib/free-video/internal-visit';
-import type { FreeVideoEvent } from '@/types/free-video';
+import type { FreeVideoEvent, OfferOpenSource } from '@/types/free-video';
 
 const ENDPOINT = '/api/free-video/event';
 const VISITOR_KEY = 'fv_vid';
@@ -51,19 +51,25 @@ interface FreeVideoBeaconOptions {
   disabled?: boolean;
 }
 
+/** More about one event: offer_open says what opened the offer card. */
+export interface FreeVideoEventDetail {
+  from?: OfferOpenSource;
+}
+
 /**
  * Fire-and-forget page events for the free video ad funnel (landing_view, form_start, video_play,
- * video_complete, download). Sends navigator.sendBeacon to /api/free-video/event, with fetch
- * keepalive as the fallback. Never throws and never waits; a failed event is simply lost. The owner's own browser
+ * video_complete, download, and offer_open with what opened the offer card). Sends navigator.sendBeacon to
+ * /api/free-video/event, with fetch keepalive as the fallback. Never throws and never waits; a failed event is simply lost. The owner's own browser
  * (internal-visit.ts) sends nothing.
  */
 export function useFreeVideoBeacon(token?: string, { disabled = false }: FreeVideoBeaconOptions = {}) {
   return useCallback(
-    (event: FreeVideoEvent) => {
+    (event: FreeVideoEvent, detail?: FreeVideoEventDetail) => {
       if (disabled || typeof window === 'undefined' || isInternalVisit()) return;
       try {
         const ref = refTagFromUrl();
-        const body = JSON.stringify({ e: event, v: visitorId(), ...(token ? { t: token } : {}), ...(ref ? { ref } : {}) });
+        const from = event === 'offer_open' ? detail?.from : undefined;
+        const body = JSON.stringify({ e: event, v: visitorId(), ...(token ? { t: token } : {}), ...(ref ? { ref } : {}), ...(from ? { from } : {}) });
         if (typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'application/json' }))) return;
         void fetch(ENDPOINT, {
           method: 'POST',

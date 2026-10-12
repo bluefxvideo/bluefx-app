@@ -71,7 +71,8 @@ export function LiveMaking({ view, staleNotice, paidEarly, onPromoSound }: LiveM
             <span className={styles.liveDot} aria-hidden="true" />
             {queued ? LIVE.pillQueued : LIVE.pill}
           </p>
-          <h1 id="fv-live-title" className={styles.liveTitle}>
+          {/* data-clarity-mask: the title and its spoken copy name the visitor (analytics.ts: Clarity never gets the first name). */}
+          <h1 id="fv-live-title" className={styles.liveTitle} data-clarity-mask="true">
             {title}
           </h1>
           <Stage
@@ -93,7 +94,7 @@ export function LiveMaking({ view, staleNotice, paidEarly, onPromoSound }: LiveM
           <p className={styles.liveEta}>
             {eta}
           </p>
-          <p className={styles.srOnly} aria-live="polite">
+          <p className={styles.srOnly} aria-live="polite" data-clarity-mask="true">
             {spoken}
           </p>
           {staleNotice}

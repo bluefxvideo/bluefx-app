@@ -645,6 +645,40 @@ export const OFFER_READY = {
 } as const;
 
 /**
+ * The offer card (offer-card.tsx) and the buy bar on phones (owner 2026-10-12, after the Neil Patel style review: put
+ * the offer at the moment they act, and "they should see what they get" before the price). The card reuses the page's
+ * own words for everything else: the kicker of the changes section, the bonus and its deadline (OFFER_READY above), the
+ * stack's price and unit, the named guarantee and the page's one buy label (SALES_PAGE, OFFER_COPY.button). The 3 lines
+ * of what you get are the stack's first 3 lines (SALES_PAGE.offer.items), cut after what each piece is.
+ */
+export const OFFER_CARD = {
+  /** The main button under the finished video ad while the 3-day bonus runs (owner's words); it opens the card. */
+  downloadButton: 'Download without the watermark',
+  /** The card's title while the bonus runs; after it, the close's title with their domain (SALES_PAGE.close.title). */
+  title: 'Get your video ad without the watermark',
+  items: [
+    // Says what the AI Media Machine is, in OFFER_READY.textLater's words (thank-you rule 5): for a lead who taps the
+    // main button straight away, the card is the first time the name comes up.
+    `${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads every month, for life, from the AI that made your video ad`,
+    'Changes to any video ad: type what to change',
+    'More AI tools: talking avatars, voice-overs, music, thumbnails and logos',
+  ],
+  /** Closes the card and goes to the stack (owner's words). */
+  seeAll: 'See everything you get',
+  /** Starts the watermarked download and closes the card (owner's words). */
+  noThanks: 'No thanks, download the free sample with the watermark',
+  close: 'Close',
+  /** The slim bar at the bottom of a phone screen, after the lead has seen the video ad; its button opens the card. */
+  bar: {
+    /** For screen readers. */
+    label: 'The AI Media Machine offer',
+    bonus: ['Your video ad', 'without the watermark'],
+    later: [`${VIDEO_ADS_LIKE_FREE_PER_MONTH} new video ads`, 'every month, for life'],
+    close: 'Close',
+  },
+} as const;
+
+/**
  * The emails. No code sends these: the owner pastes them into MailerLite automations by hand.
  * Merge tags: {$name}, {$free_video_site}, {$free_video_url}, {$free_video_token}, {$free_video_clean_url}.
  * Lines like "[Link: Label → url]" become a bold underlined link in the owner's list-email look ("[Button: label → url]" in U1).

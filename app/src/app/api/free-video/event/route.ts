@@ -6,8 +6,9 @@ import { FREE_VIDEO_REF_PATTERN, FREE_VIDEO_TOKEN_PATTERN, FreeVideoEventSchema,
 
 /**
  * POST /api/free-video/event: the funnel pages' sendBeacon target (P1 measurement).
- * Body (at most 1 KB, JSON): { e: 'landing_view' | 'form_start' | 'video_play' | 'video_complete' | 'download',
- * t?: view token, v?: visitor id, ref?: newsletter tag }.
+ * Body (at most 1 KB, JSON): { e: 'landing_view' | 'form_start' | 'video_play' | 'video_complete' | 'download' |
+ * 'offer_open', t?: view token, v?: visitor id, ref?: newsletter tag, from?: 'download' | 'bar' }. offer_open is the
+ * offer card opening on a result page; its from (what opened the card) is saved in the row's placement column.
  * Always answers 204 with no body, whatever happens: a beacon never shows an error. Allow-listed events only;
  * bots, foreign origins and more than EVENTS_PER_MINUTE events a minute from one IP are dropped. An event about
  * a video ad needs a valid token; landing_view and form_start may come without one. video_play also sets the
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
     }
     const parsed = FreeVideoEventSchema.safeParse(body);
     if (!parsed.success) return noContent();
-    const { e, t, v, ref } = parsed.data;
+    const { e, t, v, ref, from } = parsed.data;
     const token = t && FREE_VIDEO_TOKEN_PATTERN.test(t) ? t : null;
     if (!token && !WITHOUT_TOKEN.includes(e)) return noContent();
 
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
         leadId: lead?.id ?? null,
         visitorId: v && /^[\w-]{1,40}$/.test(v) ? v : null,
         ref: ref && FREE_VIDEO_REF_PATTERN.test(ref) ? ref : (lead?.ref ?? null),
+        placement: e === 'offer_open' ? (from ?? null) : null,
       });
       if (e === 'video_play' && lead && !lead.played_at) await markPlayed(lead.id);
     });

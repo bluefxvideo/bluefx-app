@@ -5,15 +5,19 @@ import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
-import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY, OFFER_READY, WHY_IT_WORKS } from '@/lib/free-video/copy';
-import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
+import { trackOfferOpen } from '@/lib/free-video/analytics';
+import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY, OFFER_CARD, OFFER_READY, WHY_IT_WORKS } from '@/lib/free-video/copy';
+import { unlockGoUrl, type PagePlacement } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
-import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
+import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView, OfferOpenSource } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
+import { BuyBar } from './buy-bar';
 import { LifetimeOffer } from './lifetime-offer';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { LifetimeSalesPage } from './lifetime-sales-page';
 import { LiveMaking } from './live-making';
+import { OfferCard } from './offer-card';
+import { useBonusEnded, useDeadline } from './sales-page-media';
 import { SaveToPhotos } from './save-to-photos';
 import { UnlockOffer } from './unlock-offer';
 import { VideoAdPlayer } from './video-ad-player';
@@ -33,7 +37,6 @@ const UNLOCK_WINDOW_MS = 30 * 60_000;
 /** FREE_VIDEO_STEP_OF (types/free-video.ts), repeated here so the page bundle does not load zod. */
 const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
 
-type PagePlacement = (typeof PAGE_PLACEMENTS)[number];
 type UnlockInfo = FreeVideoUnlockView & { checkoutPath: string };
 
 /** The lead is gone (404): stop asking. */
@@ -86,6 +89,10 @@ export interface FreeVideoStatusDemo {
   unlockClicked?: boolean;
   /** Show the Save to Photos button on any device that can share files. */
   iphone?: boolean;
+  /** Open the offer card at once, as if this button had opened it. */
+  offerOpen?: OfferOpenSource;
+  /** Show the buy bar at once (phones), as if the video ad had been seen. */
+  bar?: boolean;
 }
 
 interface FreeVideoStatusProps {
@@ -111,6 +118,12 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
   const [sessionStart, setSessionStart] = useState(() => Date.now());
   const [sessionOver, setSessionOver] = useState(Boolean(demo?.stale));
   const [unlockClickedAt, setUnlockClickedAt] = useState<number | null>(() => (demo?.unlockClicked ? Date.now() : null));
+  /** The offer card is open, and what opened it. */
+  const [offerOpen, setOfferOpen] = useState<OfferOpenSource | null>(demo?.offerOpen ?? null);
+  /** The video ad played to the end with sound: the buy bar may come up. */
+  const [videoEnded, setVideoEnded] = useState(false);
+  /** The video ad's column, which the buy bar watches. */
+  const playerColumn = useRef<HTMLDivElement>(null);
 
   const query = useQuery({
     queryKey: ['free-video', token],
@@ -196,6 +209,21 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     setSessionOver(false);
   }, []);
 
+  const openOffer = useCallback(
+    (from: OfferOpenSource) => {
+      setOfferOpen(from);
+      beacon('offer_open', { from });
+      // Clarity (when it records this visit): the event name and the offer_open_from tag, for filtering recordings.
+      trackOfferOpen(from);
+    },
+    [beacon]
+  );
+  const closeOffer = useCallback(() => setOfferOpen(null), []);
+
+  // The 3-day bonus: while it runs, the main button under the video ad is "Download without the watermark".
+  const bonusEnded = useBonusEnded(view.cleanUntil);
+  const bonusWhen = useDeadline(view.cleanUntil);
+
   const staleNotice = stale ? <StaleNotice onCheck={restart} /> : null;
   const domain = view.domain;
 
@@ -205,6 +233,18 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     const freeDownload = view.downloadUrl ?? view.videoUrl;
     // Paid, being made, ready or stuck: the clean version is theirs and leads the column.
     const purchased = unlock.state !== 'available' && unlock.state !== 'unavailable';
+    /**
+     * The offer card and the buy bar (owner 2026-10-12): for leads, never for customers or a lead whose clean version
+     * is paid for ($99, before the offer came off the page). They keep today's plain download button.
+     */
+    const offerOn = !view.isCustomer && !purchased;
+    const bonus = Boolean(view.cleanUntil) && !bonusEnded;
+    /**
+     * The offer at the moment they act: while the 3-day bonus runs, the main button is "Download without the
+     * watermark" and opens the offer card; the watermarked download is a small grey link under it. After the bonus the
+     * video ad can't be had without the watermark anymore, so the plain download button stays (the bar still opens the card).
+     */
+    const downloadOffer = offerOn && bonus;
     const unlockOffer = (
       <UnlockOffer
         unlock={unlock}
@@ -231,14 +271,17 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
         <section className={cn(styles.sectionLight, styles.readySection)}>
           <div className={styles.wrap}>
             <div className={styles.readyGrid}>
-              <div>
+              <div ref={playerColumn}>
                 {/* A new key swaps in the clean version as a fresh player. */}
                 <VideoAdPlayer
                   key={videoUrl}
                   src={videoUrl}
                   label={PLAYER.label(domain)}
                   onPlayWithSound={() => beacon('video_play')}
-                  onComplete={() => beacon('video_complete')}
+                  onComplete={() => {
+                    beacon('video_complete');
+                    setVideoEnded(true);
+                  }}
                 />
                 {view.whyItWorks?.length ? <WhyItWorks lines={view.whyItWorks} /> : null}
               </div>
@@ -248,21 +291,44 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 {/* A clean version paid for earlier comes first. The $99 offer itself is off the page (owner 2026-10-08: "the $99
                     offer is just in the way"); /go/fvunlock still opens its checkout for a tab that was open before. */}
                 {purchased && unlockOffer}
-                {!cleanReady && (
-                  <a
-                    className={cn(styles.btn, styles.btnGhost, purchased && styles.btnGap)}
-                    href={freeDownload}
-                    onClick={() => beacon('download')}
-                  >
-                    {DOWNLOAD.free}
-                  </a>
+                {downloadOffer ? (
+                  <>
+                    {/* data-fv-bar-hide: the buy bar opens the same card, so it steps aside while this button is on screen. */}
+                    <button type="button" className={styles.btn} aria-haspopup="dialog" data-fv-bar-hide="" onClick={() => openOffer('download')}>
+                      {OFFER_CARD.downloadButton}
+                    </button>
+                    <div className={styles.freeLinks}>
+                      <a className={styles.freeLink} href={freeDownload} onClick={() => beacon('download')}>
+                        {DOWNLOAD.free}
+                      </a>
+                      <SaveToPhotos
+                        url={videoUrl}
+                        fileName={DOWNLOAD.fileName(domain)}
+                        forceIphone={demo?.iphone}
+                        onSaved={() => beacon('download')}
+                        variant="link"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {!cleanReady && (
+                      <a
+                        className={cn(styles.btn, styles.btnGhost, purchased && styles.btnGap)}
+                        href={freeDownload}
+                        onClick={() => beacon('download')}
+                      >
+                        {DOWNLOAD.free}
+                      </a>
+                    )}
+                    <SaveToPhotos
+                      url={videoUrl}
+                      fileName={cleanReady ? DOWNLOAD.cleanFileName(domain) : DOWNLOAD.fileName(domain)}
+                      forceIphone={demo?.iphone}
+                      onSaved={() => beacon('download')}
+                    />
+                  </>
                 )}
-                <SaveToPhotos
-                  url={videoUrl}
-                  fileName={cleanReady ? DOWNLOAD.cleanFileName(domain) : DOWNLOAD.fileName(domain)}
-                  forceIphone={demo?.iphone}
-                  onSaved={() => beacon('download')}
-                />
                 {staleNotice}
                 {/* The headline and the letter (Kennedy review 2026-10-09), then the offer box. */}
                 {!view.isCustomer && (
@@ -276,7 +342,7 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                       <span className={styles.readyFounderLabel}>{OFFER_READY.letter.photoLabel}</span>
                     </div>
                     <div className={styles.readyLetter}>
-                      <p>{OFFER_READY.letter.greeting(view.firstName)}</p>
+                      <p data-clarity-mask="true">{OFFER_READY.letter.greeting(view.firstName)}</p>
                       {OFFER_READY.letter.lines(domain).map((line) => (
                         <p key={line}>{line}</p>
                       ))}
@@ -292,6 +358,29 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
         {/* The AI Media Machine offer under the finished video ad, never while it is made (owner 2026-10-08). Not for
             customers: they already have it. */}
         {!view.isCustomer && <LifetimeSalesPage placement={placement} token={token} domain={domain} cleanUntil={view.cleanUntil} />}
+        {offerOn && (
+          <>
+            <OfferCard
+              open={offerOpen !== null}
+              onClose={closeOffer}
+              placement={placement}
+              token={token}
+              domain={domain}
+              bonus={bonus}
+              when={bonusWhen}
+              freeDownload={freeDownload}
+              onFreeDownload={() => beacon('download')}
+            />
+            <BuyBar
+              watch={playerColumn}
+              ended={videoEnded}
+              cardOpen={offerOpen !== null}
+              bonus={bonus}
+              onOpen={() => openOffer('bar')}
+              forceSeen={demo?.bar}
+            />
+          </>
+        )}
       </>
     );
   }

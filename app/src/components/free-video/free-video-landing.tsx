@@ -346,7 +346,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
         leaving = true;
         // The Lead, with the id the server sends to the Conversions API too, so Facebook counts it once.
         if (data.eventId) trackPixel('Lead', PIXEL_DATA.lead, data.eventId);
-        // Google Analytics' generate_lead, then Google Analytics and Clarity stop, before the address carries the token (analytics.ts).
+        // Google Analytics' generate_lead, then Google Analytics stops before the address carries the token; Clarity keeps recording (analytics.ts).
         trackLead();
         router.push(`/free-video-ad/thanks/${data.token}`);
         return;
@@ -444,7 +444,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
             <span aria-hidden="true">×</span>
           </button>
           {!upgrade && <p className={styles.stepTag}>{FORM.stepTag}</p>}
-          {/* data-clarity-mask: the title names the visitor's website, which never goes to Clarity. */}
+          {/* data-clarity-mask: the title names the visitor's website, masked on the opt-in page (the result pages show it, owner 2026-10-12). */}
           <h2 ref={sheetTitleRef} id="fv-step2-title" className={styles.sheetTitle} tabIndex={-1} data-clarity-mask="true">
             {upgrade ? FORM.upgradeTitle : FORM.sheetTitle(domainOf(website))}
           </h2>

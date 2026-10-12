@@ -342,9 +342,15 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
 // P1 measurement (POST /api/free-video/event, the sendBeacon target)
 // ---------------------------------------------------------------------------------------------
 
-export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download'] as const;
+export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
+/**
+ * What opened the offer card (offer_open, owner 2026-10-12): 'download' is the "Download without the watermark" button
+ * under the video ad, 'bar' the buy bar at the bottom of a phone screen. Saved in the event row's placement column.
+ */
+export const OFFER_OPEN_SOURCES = ['download', 'bar'] as const;
+export type OfferOpenSource = (typeof OFFER_OPEN_SOURCES)[number];
 /**
  * Events only the server writes: the /go route logs each offer click; meta.ts saves a lead's Facebook ids ('meta_ids',
  * meta {fbc, fbp}) and the outcome of every Conversions API send ('capi', meta {name, id, ok, error}).
@@ -358,6 +364,8 @@ export const FreeVideoEventSchema = z.object({
   /** The visitor id kept in localStorage 'fv_vid'. */
   v: z.string().max(40).optional(),
   ref: z.string().max(60).optional(),
+  /** offer_open only: what opened the offer card. */
+  from: z.enum(OFFER_OPEN_SOURCES).optional(),
 });
 export type FreeVideoEventInput = z.infer<typeof FreeVideoEventSchema>;
 
@@ -368,6 +376,7 @@ export interface FreeVideoEventRow {
   event: FreeVideoServerEvent;
   lead_id: string | null;
   visitor_id: string | null;
+  /** A cta_click's /go placement; on an offer_open, what opened the card (OfferOpenSource). */
   placement: string | null;
   ref: string | null;
   meta: Record<string, unknown> | null;

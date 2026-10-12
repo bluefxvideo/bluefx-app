@@ -26,6 +26,8 @@ interface Fixture {
   view: FreeVideoView;
   placement: (typeof PAGE_PLACEMENTS)[number];
   demo?: FreeVideoStatusDemo;
+  /** Only when this state is shown alone (?only=<id>): an open offer card or a forced buy bar would cover the other states. */
+  soloDemo?: FreeVideoStatusDemo;
 }
 
 const DOMAIN = 'yourbusiness.com';
@@ -102,6 +104,28 @@ const FIXTURES: Fixture[] = [
   { id: 'making-stale', label: 'making, the page stopped checking after 90 min', placement: 'fvthank', view: waiting('making-stale', { state: 'making', step: 'rendering', progress: 80 }), demo: { stale: true } },
   { id: 'checking', label: 'checking: held for the final check', placement: 'fvthank', view: waiting('checking', { state: 'checking' }) },
   { id: 'ready', label: 'ready (thank-you page, Save to Photos shown; the $99 offer is off the page since 2026-10-08)', placement: 'fvthank', view: ready('ready'), demo: { iphone: true } },
+  {
+    id: 'ready-offer',
+    label: 'ready, the offer card opened by "Download without the watermark" (open it alone: ?only=ready-offer; bottom sheet on phones)',
+    placement: 'fvthank',
+    view: ready('ready-offer'),
+    demo: { iphone: true },
+    soloDemo: { offerOpen: 'download' },
+  },
+  {
+    id: 'ready-bar',
+    label: 'ready, the buy bar on a phone, as after the video ad was seen (alone: ?only=ready-bar, phone width; hides near the buttons and the footer)',
+    placement: 'fvpage',
+    view: ready('ready-bar'),
+    soloDemo: { bar: true },
+  },
+  {
+    id: 'ready-offer-late',
+    label: 'ready, after the 3-day bonus: plain download button, the bar opens the card without the bonus (alone: ?only=ready-offer-late)',
+    placement: 'fvpage',
+    view: ready('ready-offer-late', { cleanUntil: undefined, unlock: { state: 'unavailable' } }),
+    soloDemo: { offerOpen: 'bar', bar: true },
+  },
   { id: 'ready-clicked', label: 'ready, the $99 button was clicked in a tab opened before the offer came off (looks like ready)', placement: 'fvthank', view: ready('ready-clicked'), demo: { unlockClicked: true } },
   { id: 'ready-paid', label: 'ready, unlock paid', placement: 'fvthank', view: ready('ready-paid', { unlock: { state: 'paid' } }) },
   { id: 'ready-rendering', label: 'ready, unlock rendering the clean version', placement: 'fvpage', view: ready('ready-rendering', { unlock: { state: 'rendering' } }) },
@@ -171,7 +195,12 @@ export default async function FreeVideoPreviewPage({ searchParams }: FreeVideoPr
           <p className={styles.devLabel}>
             {fixture.id}: {fixture.label} [{fixture.placement}]
           </p>
-          <FreeVideoStatus token={tokenOf(fixture.id)} initial={fixture.view} placement={fixture.placement} demo={fixture.demo ?? {}} />
+          <FreeVideoStatus
+            token={tokenOf(fixture.id)}
+            initial={fixture.view}
+            placement={fixture.placement}
+            demo={{ ...fixture.demo, ...(only === fixture.id ? fixture.soloDemo : undefined) }}
+          />
         </section>
       ))}
 

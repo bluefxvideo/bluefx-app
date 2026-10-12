@@ -68,7 +68,8 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
             {!ended && <p className={styles.offerBonusLine}>{when ? OFFER_READY.bonusLine(when) : OFFER_READY.bonusLineSoon}</p>}
           </div>
         )}
-        <a className={styles.btn} href={`#${SALES_PAGE.stackAnchor}`}>
+        {/* data-fv-bar-hide: one green button on screen at a time, so the phone buy bar steps aside while this one shows. */}
+        <a className={styles.btn} href={`#${SALES_PAGE.stackAnchor}`} data-fv-bar-hide="">
           {OFFER_READY.seeButton}
         </a>
       </div>

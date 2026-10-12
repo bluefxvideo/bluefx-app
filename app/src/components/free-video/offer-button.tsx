@@ -19,7 +19,8 @@ interface OfferButtonProps {
  * count once. Opens a new tab, so the page (and the pixel's
  * request) keeps going while the visitor reads the offer. ClickBank's script (clickbank-tracking.tsx) appends the
  * affiliate's hop to the link: the click keeps the link as it is by then, and a button that appears after the script
- * ran (the video ad just finished) asks the script for its hop again (finishHop).
+ * ran (the video ad just finished) asks the script for its hop again (finishHop). data-fv-bar-hide: the buy bar on
+ * phones (buy-bar.tsx) steps aside while one of these buttons is on screen.
  */
 export function OfferButton({ href, className, children }: OfferButtonProps) {
   useEffect(() => {
@@ -33,6 +34,7 @@ export function OfferButton({ href, className, children }: OfferButtonProps) {
     <a
       className={className}
       href={href}
+      data-fv-bar-hide=""
       target="_blank"
       rel="noopener noreferrer"
       onClick={(event) => {

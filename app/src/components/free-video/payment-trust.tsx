@@ -5,13 +5,15 @@ import styles from './free-video.module.css';
 interface PaymentTrustProps {
   /** On the navy closing band. */
   dark?: boolean;
+  /** Only the card logos: the offer card shows the named guarantee right above its button. */
+  cardsOnly?: boolean;
 }
 
 /**
  * The card logos and the guarantee under an offer button, copied from the lifetime page's price box (the same inline
  * badges, the same words). A thin frame keeps the white badges visible on this page's light background.
  */
-export function PaymentTrust({ dark = false }: PaymentTrustProps) {
+export function PaymentTrust({ dark = false, cardsOnly = false }: PaymentTrustProps) {
   return (
     <div className={cn(styles.trust, dark && styles.trustDark)}>
       <div className={styles.trustCards} role="img" aria-label={PAYMENT_TRUST.cardsLabel}>
@@ -47,11 +49,13 @@ export function PaymentTrust({ dark = false }: PaymentTrustProps) {
           </text>
         </svg>
       </div>
-      <p className={styles.trustGuarantee}>
-        {PAYMENT_TRUST.guarantee[0]}
-        <strong>{PAYMENT_TRUST.guarantee[1]}</strong>
-        {PAYMENT_TRUST.guarantee[2]}
-      </p>
+      {!cardsOnly && (
+        <p className={styles.trustGuarantee}>
+          {PAYMENT_TRUST.guarantee[0]}
+          <strong>{PAYMENT_TRUST.guarantee[1]}</strong>
+          {PAYMENT_TRUST.guarantee[2]}
+        </p>
+      )}
     </div>
   );
 }

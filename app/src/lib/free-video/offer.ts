@@ -9,19 +9,42 @@ import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pr
 
 /**
  * Every place an offer button can sit: the thank-you page, the video ad page, the form's "one free video ad per
- * business" note and the 3 automation emails. A page button's value rides to ClickBank's checkout as the vendor tracking
- * id (vtid), so ClickBank's reports show sales per placement.
+ * business" note, the offer card on the two result pages and the automation emails. A page button's value rides to
+ * ClickBank's checkout as the vendor tracking id (vtid: letters, digits and underscores), so ClickBank's reports show
+ * sales per placement.
  */
-export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const;
+export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvthankcard', 'fvpagecard', 'fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
-/** The placements shown on the funnel pages: the thank-you page, /v/<token>, and the form's "one per business" refusal (fvland). */
+/**
+ * The pages of the funnel, as placements: the thank-you page, /v/<token>, and the form's "one per business" refusal
+ * (fvland). Each page's own "Get the AI Media Machine" buttons use its placement. Also the type of a page's placement prop.
+ */
 export const PAGE_PLACEMENTS = ['fvthank', 'fvpage', 'fvland'] as const satisfies readonly Placement[];
+export type PagePlacement = (typeof PAGE_PLACEMENTS)[number];
+/**
+ * The offer card's button (offer-card.tsx, owner 2026-10-12: the offer at the moment they act), one per result page:
+ * fvthankcard on the thank-you page, fvpagecard on /v/<token>. The card opens from "Download without the watermark"
+ * under the video ad and from the buy bar on phones. /go treats these like the page placements (a checkout click:
+ * clicked_at, a cta_click row, Facebook's InitiateCheckout), and ClickBank's reports show the card's sales apart.
+ */
+export const CARD_PLACEMENTS = ['fvthankcard', 'fvpagecard'] as const satisfies readonly Placement[];
+export type CardPlacement = (typeof CARD_PLACEMENTS)[number];
+/** Every lifetime offer button on a funnel page: the pages' own buttons and the offer card's. A cta_click on one of these is an offer click. */
+export const OFFER_BUTTON_PLACEMENTS = [...PAGE_PLACEMENTS, ...CARD_PLACEMENTS] as const satisfies readonly Placement[];
 /** The placements used by the email buttons, in send order (E1, E2, E3). They open the lead's own video ad page, where the offer sits under the video ad. */
 export const EMAIL_PLACEMENTS = ['fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const satisfies readonly Placement[];
 
+/** The offer card's placement on a result page: fvpagecard on /v/<token>, fvthankcard on the thank-you page (fvland has no card). */
+export const cardPlacementOf = (page: PagePlacement): CardPlacement => (page === 'fvpage' ? 'fvpagecard' : 'fvthankcard');
+
 export function isEmailPlacement(value: string): value is (typeof EMAIL_PLACEMENTS)[number] {
   return (EMAIL_PLACEMENTS as readonly string[]).includes(value);
+}
+
+/** True for a placement of the offer card (fvthankcard, fvpagecard). */
+export function isCardPlacement(value: string): value is CardPlacement {
+  return (CARD_PLACEMENTS as readonly string[]).includes(value);
 }
 
 /** True for an allow-listed placement; /go/<placement> answers 404 for anything else, so it is never an open redirect. */

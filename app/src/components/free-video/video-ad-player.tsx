@@ -67,7 +67,8 @@ export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete }: Video
   };
 
   return (
-    <div className={styles.phone}>
+    // data-fv-player: the phone buy bar (buy-bar.tsx) never sits over the video ad, its "Tap for sound" button or its controls.
+    <div className={styles.phone} data-fv-player="">
       <video
         ref={videoRef}
         className={styles.phoneVideo}

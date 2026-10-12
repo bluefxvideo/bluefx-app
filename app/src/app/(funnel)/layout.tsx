@@ -35,8 +35,8 @@ interface FunnelLayoutProps {
  * The root layout forces the app's dark theme, so this layout paints its own light page: every color
  * comes from free-video.module.css, never from the shadcn theme tokens. No auth calls. The BlueFx pixel
  * loads here for every funnel page (MetaPixel decides in the browser whether it may), and so does ClickBank's
- * attribution script (ClickBankTracking, live site only). Google Analytics and Clarity run on the opt-in page only
- * (FunnelTracking, live site only, rules in lib/free-video/analytics.ts). The owner's own browser (the fv_internal cookie, internal-visit.ts) gets
+ * attribution script (ClickBankTracking, live site only). Google Analytics runs on the opt-in page only, Clarity on the
+ * opt-in page and the result pages (FunnelTracking, live site only, rules in lib/free-video/analytics.ts). The owner's own browser (the fv_internal cookie, internal-visit.ts) gets
  * no pixel, no Google Analytics and no Clarity.
  */
 export default function FunnelLayout({ children }: FunnelLayoutProps) {

@@ -25,7 +25,20 @@ import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
 import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { frameOf, lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
 import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
-import { checkoutUrl, cleanCopyEarned, cleanCopyUntil, UNLOCK, unlockCheckoutUrl, unlockGoUrl } from '@/lib/free-video/offer';
+import {
+  CARD_PLACEMENTS,
+  cardPlacementOf,
+  checkoutUrl,
+  cleanCopyEarned,
+  cleanCopyUntil,
+  isEmailPlacement,
+  isPlacement,
+  OFFER_BUTTON_PLACEMENTS,
+  PAGE_PLACEMENTS,
+  UNLOCK,
+  unlockCheckoutUrl,
+  unlockGoUrl,
+} from '@/lib/free-video/offer';
 import { fakeSavedPlan, freeOptions, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
 import { checkFreeScript, namedOffer, websiteOffers } from '@/lib/free-video/script-checks';
 import { adFacts, cleanWhy, fallbackWhy, offerSaid, WHY_MAX, WHY_MAX_CHARS, WHY_MIN, whyItWorks, whyItWorksOf, whyPrompt } from '@/lib/free-video/why-it-works';
@@ -40,7 +53,7 @@ import type { SavedPlan } from '@/lib/smart-video/jobs';
 import type { SmartVideoResult } from '@/lib/smart-video/pipeline';
 import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
 import { trackUsage, usage, usageOf } from '@/lib/smart-video/usage';
-import { FREE_VIDEO_TOKEN_PATTERN, FreeVideoLeadSchema, type FreeVideoLead } from '@/types/free-video';
+import { FREE_VIDEO_TOKEN_PATTERN, FreeVideoEventSchema, FreeVideoLeadSchema, type FreeVideoLead } from '@/types/free-video';
 
 const OFFLINE = process.argv.includes('--offline');
 let failed = 0;
@@ -412,6 +425,18 @@ async function main(): Promise<void> {
   check('the token travels as a FastSpring tag (no : or , inside)', !/[:,]/.test(token) && unlockCheckoutUrl(token).endsWith(`${UNLOCK.tagKey}:${token}`));
   check('button link', unlockGoUrl(token) === `/go/fvunlock?t=${token}`);
   check("the lifetime offer opens ClickBank's checkout with the placement as vtid", checkoutUrl('fvthank') === 'https://bluefx02.pay.clickbank.net/?cbitems=1&cbfid=55851&template=aimmbt&vtid=fvthank');
+  check('the offer card has its own placement on each result page', cardPlacementOf('fvthank') === 'fvthankcard' && cardPlacementOf('fvpage') === 'fvpagecard');
+  check(
+    'every offer card placement is a /go placement, not an email one, and a valid ClickBank vtid',
+    CARD_PLACEMENTS.every((placement) => isPlacement(placement) && !isEmailPlacement(placement) && /^\w{1,24}$/.test(placement) && checkoutUrl(placement).endsWith(`&vtid=${placement}`))
+  );
+  check('the offer clicks counted on the funnel pages include the card', OFFER_BUTTON_PLACEMENTS.length === PAGE_PLACEMENTS.length + CARD_PLACEMENTS.length && CARD_PLACEMENTS.every((p) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(p)));
+  check(
+    'offer_open is a page event that carries what opened the card',
+    FreeVideoEventSchema.safeParse({ e: 'offer_open', t: token, from: 'download' }).success &&
+      FreeVideoEventSchema.safeParse({ e: 'offer_open', t: token, from: 'bar' }).success &&
+      !FreeVideoEventSchema.safeParse({ e: 'offer_open', t: token, from: 'email' }).success
+  );
   const order = {
     id: 'ORD123',
     order: 'ORD123',

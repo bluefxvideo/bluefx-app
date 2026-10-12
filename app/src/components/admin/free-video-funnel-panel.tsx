@@ -17,21 +17,45 @@ const PRESETS: { value: Exclude<Preset, 'custom'>; label: string; daysBack: numb
   { value: 'all', label: 'All time', daysBack: null },
 ];
 
-/** The funnel's steps. base: the step its rate is taken from (not always the row above: plays and offer clicks also happen on the thank-you page, and a purchase needs no click). */
-const STEPS: { key: keyof FunnelCounts; label: string; base?: { key: keyof FunnelCounts; label: string } }[] = [
+/**
+ * The funnel's steps. base: the step its rate is taken from (not always the row above: plays, offer card opens and offer
+ * clicks also happen on the thank-you page, and a purchase needs no click). detail: a small line under the label.
+ */
+const STEPS: {
+  key: keyof FunnelCounts;
+  label: string;
+  base?: { key: keyof FunnelCounts; label: string };
+  detail?: (counts: FunnelCounts) => string;
+}[] = [
   { key: 'visitors', label: 'Visitors on the opt-in page (browsers)' },
   { key: 'formStarts', label: 'Started the form (browsers)', base: { key: 'visitors', label: 'of visitors' } },
   { key: 'optIns', label: 'Opted in (people who sent the form)', base: { key: 'formStarts', label: 'of form starts' } },
   { key: 'videosMade', label: 'Video ad made', base: { key: 'optIns', label: 'of opt-ins' } },
   { key: 'viewed', label: 'Opened the emailed video ad page', base: { key: 'videosMade', label: 'of video ads made' } },
   { key: 'played', label: 'Played the video ad', base: { key: 'videosMade', label: 'of video ads made' } },
-  { key: 'offerClicks', label: 'Clicked the lifetime offer', base: { key: 'videosMade', label: 'of video ads made' } },
+  {
+    key: 'offerOpens',
+    label: 'Opened the offer card',
+    base: { key: 'videosMade', label: 'of video ads made' },
+    detail: (c) => `From the download button: ${c.offerOpensDownload}. From the phone buy bar: ${c.offerOpensBar}.`,
+  },
+  {
+    key: 'offerClicks',
+    label: 'Clicked the lifetime offer',
+    base: { key: 'videosMade', label: 'of video ads made' },
+    // The share is of the people who opened the card (cardOpenClicks), never cardClicks / offerOpens: a card click whose
+    // offer_open beacon was lost would push that over 100%.
+    detail: (c) =>
+      `On the offer card's button: ${c.cardClicks}.` +
+      (c.offerOpens > 0 ? ` Of the ${c.offerOpens} who opened the card, ${c.cardOpenClicks} clicked its button (${percent(share(c.cardOpenClicks, c.offerOpens))}).` : ''),
+  },
   { key: 'purchases', label: 'Bought (any AI Media Machine purchase after opting in)', base: { key: 'optIns', label: 'of opt-ins' } },
 ];
 
 const RATES: { key: keyof FunnelRates; label: string; part: keyof FunnelCounts; whole: keyof FunnelCounts }[] = [
   { key: 'optIn', label: 'Opt-in rate', part: 'optIns', whole: 'visitors' },
   { key: 'view', label: 'Opened the video ad page', part: 'viewed', whole: 'videosMade' },
+  { key: 'open', label: 'Offer card open rate', part: 'offerOpens', whole: 'videosMade' },
   { key: 'click', label: 'Offer click rate', part: 'offerClicks', whole: 'videosMade' },
   { key: 'purchase', label: 'Purchase rate', part: 'purchases', whole: 'optIns' },
   { key: 'visitorToSale', label: 'Visitor to sale', part: 'purchases', whole: 'visitors' },
@@ -46,6 +70,7 @@ const COLUMNS: { label: string; value: (counts: FunnelCounts, rates: FunnelRates
   { label: 'Made', value: (c) => String(c.videosMade) },
   { label: 'Opened', value: (c) => String(c.viewed) },
   { label: 'Played', value: (c) => String(c.played) },
+  { label: 'Opened offer', value: (c) => String(c.offerOpens) },
   { label: 'Clicked', value: (c) => String(c.offerClicks) },
   { label: 'Bought', value: (c) => String(c.purchases) },
   { label: 'Visitor to sale', value: (_c, r) => percent(r.visitorToSale) },
@@ -107,7 +132,7 @@ interface FreeVideoFunnelPanelProps {
 
 /**
  * The opt-in page's conversion numbers (owner 2026-10-11: "i want to know the conversion rate, except my test
- * accounts"): the funnel from visitor to sale for a date range, the five rates, each traffic source and each day.
+ * accounts"): the funnel from visitor to sale for a date range, the six rates, each traffic source and each day.
  * Days are the admin's own (the browser's time zone). lib/free-video/funnel-stats.ts defines every number.
  */
 export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
@@ -222,7 +247,7 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
           </div>
         ) : (
           <>
-            <div className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5', isLoading && 'opacity-60')}>
+            <div className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6', isLoading && 'opacity-60')}>
               {RATES.map((rate) => (
                 <div key={rate.key} className="rounded-lg border p-3">
                   <div className="text-2xl font-semibold">{percent(stats.rates[rate.key])}</div>
@@ -251,7 +276,10 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
                     const ofVisitors = share(count, totals.visitors);
                     return (
                       <tr key={step.key} className="border-b last:border-0">
-                        <td className="min-w-[120px] py-2 pr-4 sm:min-w-[150px]">{step.label}</td>
+                        <td className="min-w-[120px] py-2 pr-4 sm:min-w-[150px]">
+                          <div>{step.label}</div>
+                          {step.detail && <div className="text-xs text-muted-foreground">{step.detail(totals)}</div>}
+                        </td>
                         <td className="py-2 pr-4 text-right font-semibold">{count}</td>
                         <td className="py-2 pr-4 text-right">
                           {step.base && (
@@ -281,7 +309,8 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
               {notFromPage && notFromPage.optIns > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Not in these numbers: {notFromPage.optIns} people with video ads made without the page (email replies or by hand): {notFromPage.videosMade}{' '}
-                  made, {notFromPage.viewed} opened, {notFromPage.played} played, {notFromPage.offerClicks} clicked the offer, {notFromPage.purchases} bought.
+                  made, {notFromPage.viewed} opened, {notFromPage.played} played, {notFromPage.offerOpens} opened the offer card, {notFromPage.offerClicks}{' '}
+                  clicked the offer, {notFromPage.purchases} bought.
                   They have their own rows in the source table.
                 </p>
               )}
@@ -340,8 +369,8 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
           </p>
           {stats && (
             <p>
-              Also left out: your own browsers ({stats.excluded.browsers}, the ones that played one of your test video ads) with all their visits, plays and
-              clicks
+              Also left out: your own browsers ({stats.excluded.browsers}, the ones that played one of your test video ads) with all their visits, plays,
+              offer card opens and clicks
               {stats.excluded.linkChecks > 0 &&
                 `; ${plural(stats.excluded.linkChecks, 'browser')} that were link checks, not people (${stats.excluded.linkCheckNotes.join('; ')})`}
               {stats.excluded.ownerOpens + stats.excluded.ownerClicks > 0 &&
