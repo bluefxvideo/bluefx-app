@@ -329,7 +329,7 @@ export const WATERMARK = { label: 'BlueFX', endCardSeconds: END_CARD_SECONDS } a
 /** Quality gate. Lengths include the end card (END_CARD_SECONDS). */
 export const GATE = {
   minSeconds: 22,
-  maxSeconds: 52,
+  // No maxSeconds: a free ad is never rejected for being long (owner 2026-10-13).
   probeTolerance: 0.5,
   minMeanVolumeDb: -35,
   minBytes: 300_000,

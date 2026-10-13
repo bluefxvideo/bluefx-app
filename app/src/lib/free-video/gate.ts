@@ -81,7 +81,9 @@ function planChecks(job: GateJob, saved: SavedPlan | null, opts: GateOptions, re
   if (!job.videoUrl) reasons.push('no video file');
   const seconds = job.durationSeconds;
   if (typeof seconds !== 'number' || !Number.isFinite(seconds)) reasons.push('length unknown');
-  else if (seconds < GATE.minSeconds || seconds > GATE.maxSeconds) reasons.push(`length ${round(seconds, 1)} s`);
+  // No maximum length (owner 2026-10-13: a free ad is never rejected or remade for being long; a 52.3 s ad was thrown
+  // away and remade in front of him). Only a too-short file, which means a broken render, still fails here.
+  else if (seconds < GATE.minSeconds) reasons.push(`length ${round(seconds, 1)} s`);
   facts.durationSeconds = typeof seconds === 'number' ? round(seconds, 2) : null;
   facts.warnings = job.warnings ?? [];
   facts.costUsd = round((job.usage ?? []).reduce((sum, entry) => sum + (Number(entry.usd) || 0), 0), 3);
